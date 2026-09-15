@@ -56,11 +56,6 @@ const initialCopy = isEnglishPage
       compactAppStore: 'App Store',
       compactPlayStore: 'Google Play',
       compactOpenApp: 'Open app',
-      eventAbout: 'About the event',
-      flyerCaption: 'Event flyer',
-      flyerExpand: 'Expand',
-      flyerMobileLink: 'Open event flyer',
-      closeImageViewer: 'Close',
     }
   : {
       layoutTitle: 'Abrir en Pocket Genes',
@@ -85,11 +80,6 @@ const initialCopy = isEnglishPage
       compactAppStore: 'App Store',
       compactPlayStore: 'Google Play',
       compactOpenApp: 'Abrir app',
-      eventAbout: 'Sobre el encuentro',
-      flyerCaption: 'Flyer del evento',
-      flyerExpand: 'Ampliar',
-      flyerMobileLink: 'Ver flyer del evento',
-      closeImageViewer: 'Cerrar',
     };
 ---
 
@@ -178,25 +168,12 @@ const initialCopy = isEnglishPage
             </a>
             <p class="note-primary-action-support" data-preview-primary-action-support hidden></p>
           </div>
-          <figure class="event-flyer" data-preview-flyer hidden>
-            <div class="event-flyer-frame">
-              <img class="shared-preview-media" data-preview-media alt="" hidden />
-            </div>
-            <figcaption class="event-flyer-caption">
-              <span>{initialCopy.flyerCaption}</span>
-              <button class="event-flyer-expand" type="button" data-preview-media-open hidden>
-                <span>{initialCopy.flyerExpand}</span>
-                <span aria-hidden="true"></span>
-              </button>
-            </figcaption>
+          <figure class="event-cover" data-preview-cover hidden>
+            <img class="shared-preview-media" data-preview-media alt="" hidden />
           </figure>
         </aside>
-        <div class="event-copy">
-          <h2 data-preview-body-title hidden>{initialCopy.eventAbout}</h2>
-          <p class="shared-preview-body" data-preview-body hidden></p>
-          <button class="event-flyer-link" type="button" data-preview-media-open-mobile hidden>
-            {initialCopy.flyerMobileLink}
-          </button>
+        <div class="event-copy" data-preview-body-shell hidden>
+          <div class="shared-preview-body" data-preview-body hidden></div>
         </div>
         <div class="shared-preview-sections" data-preview-sections hidden>
           <section class="shared-preview-section" data-preview-categories-section hidden>
@@ -230,13 +207,6 @@ const initialCopy = isEnglishPage
         </div>
       </section>
     </div>
-
-    <dialog class="shared-image-viewer" data-image-viewer>
-      <div class="shared-image-viewer__surface">
-        <button type="button" class="shared-image-viewer__close" data-image-viewer-close>{initialCopy.closeImageViewer}</button>
-        <img data-image-viewer-image alt={initialCopy.flyerCaption} />
-      </div>
-    </dialog>
   </main>
 </PocketGenesPublicLayout>
 
@@ -261,13 +231,6 @@ const initialCopy = isEnglishPage
   const breadcrumb = document.querySelector('[data-preview-breadcrumb]');
   const appPromotion = document.querySelector('[data-app-promotion]');
   const compactOpenLink = document.querySelector('[data-open-pocket-genes-compact]');
-  const imageViewer = document.querySelector('[data-image-viewer]');
-  const imageViewerImage = document.querySelector('[data-image-viewer-image]');
-  const imageViewerClose = document.querySelector('[data-image-viewer-close]');
-  const mediaOpenButtons = [
-    document.querySelector('[data-preview-media-open]'),
-    document.querySelector('[data-preview-media-open-mobile]'),
-  ].filter(Boolean);
   const isEnglish = pageLang === 'en';
 
   const copy = isEnglish
@@ -358,14 +321,16 @@ const initialCopy = isEnglishPage
           timeTba: 'Time TBA',
           timesVary: 'Times vary by country',
           timesByCountry: 'Times by country',
-          listedSchedule: 'Listed schedule',
-          admission: 'Admission',
+          tableRegion: 'Region',
+          tableStart: 'Start',
+          tableDuration: 'Duration',
+          cost: 'Cost',
           capacity: 'Capacity',
+          attendanceMode: 'Attendance mode',
           takingPart: 'Taking part',
           organizer: 'Organizer',
           eventActions: 'Event actions',
           about: 'About the event',
-          live: 'Live',
           timezoneSelector: 'Check the time in your region',
           onlineEvent: 'Online event',
           inPersonEvent: 'In-person event',
@@ -374,7 +339,7 @@ const initialCopy = isEnglishPage
           onDemandEvent: 'On-demand event',
           formatTba: 'Format to be announced',
           freeParticipation: 'Free participation',
-          whoFor: "Who it’s for",
+          whoFor: 'For',
           eventLanguages: 'Event languages',
           accessibility: 'Accessibility',
           organizedBy: 'Organized by',
@@ -564,14 +529,16 @@ const initialCopy = isEnglishPage
           timeTba: 'Horario a confirmar',
           timesVary: 'Los horarios varían por país',
           timesByCountry: 'Horarios por país',
-          listedSchedule: 'Agenda publicada',
-          admission: 'Entrada',
+          tableRegion: 'Región',
+          tableStart: 'Inicio',
+          tableDuration: 'Duración',
+          cost: 'Costo',
           capacity: 'Capacidad',
+          attendanceMode: 'Modalidad de asistencia',
           takingPart: 'Participación',
           organizer: 'Organizador',
           eventActions: 'Acciones del evento',
           about: 'Sobre el encuentro',
-          live: 'En vivo',
           timezoneSelector: 'Revisá el horario en tu región',
           onlineEvent: 'Evento online',
           inPersonEvent: 'Evento presencial',
@@ -580,7 +547,7 @@ const initialCopy = isEnglishPage
           onDemandEvent: 'Evento a demanda',
           formatTba: 'Formato a confirmar',
           freeParticipation: 'Participación gratuita',
-          whoFor: 'Para quién es',
+          whoFor: 'Dirigido a',
           eventLanguages: 'Idiomas del evento',
           accessibility: 'Accesibilidad',
           organizedBy: 'Organiza',
@@ -739,16 +706,6 @@ const initialCopy = isEnglishPage
     imageAlt: copy.googlePlayAlt,
     note: copy.playStoreNote,
   });
-  mediaOpenButtons.forEach((button) => {
-    button.addEventListener('click', openImageViewer);
-  });
-  imageViewerClose?.addEventListener('click', () => imageViewer?.close?.());
-  imageViewer?.addEventListener('click', (event) => {
-    if (event.target === imageViewer) {
-      imageViewer.close();
-    }
-  });
-
   if (!contentId) {
     disableOpenAppLink(openLink);
     disableOpenAppLink(compactOpenLink);
@@ -916,6 +873,63 @@ const initialCopy = isEnglishPage
     return typeof value === 'string' && value.trim() ? value.trim() : '';
   }
 
+  function contentBodyData(htmlValue, plainValue) {
+    const html = sanitizeHtmlBody(htmlValue);
+    if (html && htmlToText(html)) {
+      return { kind: 'html', value: html };
+    }
+
+    const text = cleanText(plainValue);
+    return text ? { kind: 'text', value: text } : null;
+  }
+
+  function bodyHasContent(body) {
+    if (!body) return false;
+    if (typeof body === 'string') return Boolean(cleanText(body));
+    return Boolean(cleanText(body.value));
+  }
+
+  function sanitizeHtmlBody(value) {
+    const normalized = cleanText(value);
+    if (!normalized) return '';
+
+    return normalized
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
+      .replace(
+        /<\/?(iframe|object|embed|form|input|button|textarea|select|option|link|meta|base)[^>]*>/gi,
+        ''
+      )
+      .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/\s(href|src)\s*=\s*(['"])\s*javascript:[\s\S]*?\2/gi, ' $1="#"')
+      .trim();
+  }
+
+  function htmlToText(value) {
+    const element = document.createElement('div');
+    element.innerHTML = value;
+    return element.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  }
+
+  function plainTextBodyHtml(value) {
+    const paragraphs = cleanText(value)
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
+    return paragraphs
+      .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+      .join('');
+  }
+
+  function escapeHtml(value) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   function externalUrl(value) {
     const text = cleanText(value);
     if (!text) return '';
@@ -1042,15 +1056,21 @@ const initialCopy = isEnglishPage
     const type = cleanText(fields.type) || 'news';
     const payloadKey = discoverFeedPayloadKeys[type] ?? type;
     const payload = fields[payloadKey] && typeof fields[payloadKey] === 'object' ? fields[payloadKey] : {};
-    const title = cleanText(fields.title) || cleanText(payload.title);
-    const summary = cleanText(fields.subtitle) || cleanText(fields.summary) || cleanText(payload.summary);
-    const body = cleanText(fields.body) || cleanText(payload.detailBody);
+    const isEventType = type === 'upcoming_event';
+    const eventPreview = isEventType ? eventPreviewData(payload) : null;
+    const title = cleanText(fields.title) || (!isEventType ? cleanText(payload.title) : '');
+    const summary =
+      cleanText(fields.subtitle) ||
+      (!isEventType ? cleanText(fields.summary) || cleanText(payload.summary) : '');
+    const body = contentBodyData(
+      fields.htmlBody,
+      cleanText(fields.body) || (!isEventType ? cleanText(payload.detailBody) : '')
+    );
 
-    if (!title || (!summary && !body)) {
+    if (!title || (isEventType ? !eventPreview : !summary && !bodyHasContent(body))) {
       return null;
     }
 
-    const eventPreview = type === 'upcoming_event' ? eventPreviewData(payload) : null;
     const eventDate = eventPreview ? '' : formatDate(payload.date || payload.startsAt);
     const meta = [
       eventDate,
@@ -1078,7 +1098,7 @@ const initialCopy = isEnglishPage
       mediaUrl:
         imageSource(fields.imageUrl) ||
         imageSource(fields.imageUploadDataUrl) ||
-        imageSource(payload.imageUrl),
+        (!eventPreview ? imageSource(payload.imageUrl) : ''),
       websiteUrl: externalUrl(fields.sourceUrl),
       websiteLabel: sourceButtonText || copy.website,
       badges: [typeLabel(type)],
@@ -1097,46 +1117,53 @@ const initialCopy = isEnglishPage
       return null;
     }
 
-    const eventDateSource = payload.date || payload.startsAt;
+    const eventDateSource = payload.date;
     const startDate = datePartsFromValue(eventDateSource);
     if (!startDate) {
       return null;
     }
 
-    const duration = positiveInteger(payload.multiDayLength) || 1;
+    const timeKind = cleanText(payload.timeKind);
+    const duration = eventMultiDayLength(payload, timeKind);
     const endDate = addCalendarDays(startDate, duration - 1);
     const kind = enumLabel(payload.eventKind, copy.event.kinds);
     const status = eventStatusLabel(payload.eventStatus);
-    const schedule = eventScheduleData(payload, startDate, endDate, duration, eventDateSource);
-    const facts = eventFactData(payload);
-    const takingPart = eventTakingPartData(payload);
+    const schedule = eventScheduleData(payload, startDate, endDate, duration, eventDateSource, timeKind);
+    const participationFacts = eventParticipationFactData(payload);
     const organizer = eventOrganizerData(payload);
-    const actions = eventActionData(payload.actionButtons);
-    const minuteDuration = eventMinuteDuration(payload);
-    const admission = admissionLabel(payload);
+    const actions = eventActionData(payload.actionButtons, payload.virtualMeetingLink);
 
     return {
-      classification: kind,
-      eyebrow: eventEyebrow(kind, payload),
-      duration: duration > 1 ? `${duration} ${duration === 1 ? copy.event.day : copy.event.days}` : '',
+      eyebrow: eventEyebrow(kind),
+      dateSpan: duration > 1 ? `${duration} ${copy.event.days}` : '',
       status,
-      listedSchedule: ['cancelled', 'postponed'].includes(cleanText(payload.eventStatus)),
       dateParts: startDate,
-      date: formatEventDateRange(startDate, endDate),
-      year: sameDateYear(startDate, endDate) ? String(startDate.year) : '',
       schedule,
-      format: eventFormatData(payload, minuteDuration),
-      facts,
-      takingPart,
+      participationFacts,
       organizer,
       actions,
-      actionSupport: admission === copy.event.free ? copy.event.freeParticipation : '',
     };
   }
 
   function positiveInteger(value) {
     const number = Number(value);
     return Number.isInteger(number) && number > 0 ? number : null;
+  }
+
+  function positiveIntegerInRange(value, min, max) {
+    const number = Number(value);
+    return Number.isInteger(number) && number >= min && number <= max ? number : null;
+  }
+
+  function hasOwn(object, key) {
+    return Boolean(object && typeof object === 'object' && Object.prototype.hasOwnProperty.call(object, key));
+  }
+
+  function eventMultiDayLength(payload, timeKind) {
+    if (!['allDay', 'timeTba', 'regionalTimes'].includes(timeKind)) {
+      return 1;
+    }
+    return positiveIntegerInRange(payload.multiDayLength, 1, 365) || 1;
   }
 
   function uniqueCleanArray(value) {
@@ -1172,6 +1199,9 @@ const initialCopy = isEnglishPage
     const text = cleanText(value);
     const zone = cleanText(timezone);
     if (!text || !isValidTimezone(zone)) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+      return datePartsFromValue(text);
+    }
     const date = new Date(text);
     if (Number.isNaN(date.getTime())) return null;
     try {
@@ -1283,46 +1313,8 @@ const initialCopy = isEnglishPage
     return copy.event.status[status] ?? '';
   }
 
-  function eventEyebrow(kind, payload) {
-    const parts = [kind || copy.types.upcoming_event];
-    const attendanceMode = cleanText(payload.attendanceMode);
-    const timeKind = cleanText(payload.timeKind);
-    if (attendanceMode !== 'onDemand' && !['dateOnly', 'timeTba'].includes(timeKind)) {
-      parts.push(copy.event.live);
-    }
-    return parts.join(' · ').toLocaleUpperCase(isEnglish ? 'en' : 'es');
-  }
-
-  function eventFormatData(payload, minuteDuration) {
-    const format = eventFormatLabel(payload.attendanceMode);
-    const languages = labelList(uniqueCleanArray(payload.languages), copy.event.languages);
-    const languageLabel = isEnglish ? languages.join(', ') : lowerFirst(languages.join(', '));
-    const details = [
-      languages.length ? copy.event.inLanguage(languageLabel) : '',
-      minuteDuration ? copy.event.minutes(minuteDuration) : '',
-    ].filter(Boolean);
-    return format || details.length
-      ? {
-          value: format || copy.event.formatTba,
-          detail: details.join(' · '),
-        }
-      : null;
-  }
-
-  function eventFormatLabel(value) {
-    return {
-      online: copy.event.onlineEvent,
-      inPerson: copy.event.inPersonEvent,
-      hybrid: copy.event.hybridEvent,
-      phone: copy.event.phoneEvent,
-      onDemand: copy.event.onDemandEvent,
-      toBeAnnounced: copy.event.formatTba,
-    }[cleanText(value)] ?? '';
-  }
-
-  function lowerFirst(value) {
-    const text = cleanText(value);
-    return text ? `${text.charAt(0).toLocaleLowerCase(isEnglish ? 'en' : 'es')}${text.slice(1)}` : '';
+  function eventEyebrow(kind) {
+    return (kind || copy.types.upcoming_event).toLocaleUpperCase(isEnglish ? 'en' : 'es');
   }
 
   function validClock(value) {
@@ -1340,7 +1332,6 @@ const initialCopy = isEnglishPage
     let value = '';
     if (start && end) value = `${start}\u2013${end}`;
     else if (start) value = `${copy.event.starts} ${start}`;
-    else if (end) value = `${copy.event.ends} ${end}`;
     if (value && duration > 1) value = `${value} ${copy.event.eachDay}`;
     return value;
   }
@@ -1356,18 +1347,17 @@ const initialCopy = isEnglishPage
     const start = clockMinutes(startValue);
     const end = clockMinutes(endValue);
     if (start === null || end === null) return null;
-    const duration = end >= start ? end - start : end + 24 * 60 - start;
+    const duration = end - start;
     return duration > 0 ? duration : null;
   }
 
-  function eventMinuteDuration(payload) {
-    const regionalStarts = eventMap(payload.regionalStartTimes);
-    const regionalEnds = eventMap(payload.regionalEndTimes);
-    const regionalCode = Object.keys(regionalStarts).find((code) => regionalEnds[code]);
-    if (regionalCode) {
-      return clockDurationMinutes(regionalStarts[regionalCode], regionalEnds[regionalCode]);
-    }
-    return clockDurationMinutes(payload.dailyStartTime, payload.dailyEndTime);
+  function compactDurationLabel(minutes) {
+    if (!Number.isInteger(minutes) || minutes <= 0) return '';
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (!hours) return `${remainingMinutes}m`;
+    if (!remainingMinutes) return `${hours}h`;
+    return `${hours}h ${remainingMinutes}m`;
   }
 
   function timezoneLabel(timezone, startDate, endDate) {
@@ -1426,77 +1416,123 @@ const initialCopy = isEnglishPage
       .map((code) => {
         const timezoneId = cleanText(zones[code]);
         const dateParts = datePartsInTimezone(dateSource, timezoneId) || startDate;
+        const durationMinutes = clockDurationMinutes(starts[code], ends[code]);
+        const tableDuration = compactDurationLabel(durationMinutes);
         return {
           code,
           country: countryName(code),
           flag: countryFlag(code),
           time: clockStatement(starts[code], ends[code], duration),
+          startTime: clockValue(starts[code]),
+          tableDuration,
           timezone: timezoneLabel(timezoneId, dateParts, dateParts),
           timezoneId,
           dateParts,
         };
       })
-      .filter((row) => row.time || row.timezone)
+      .filter((row) => row.time)
       .sort((a, b) => a.country.localeCompare(b.country));
   }
 
-  function eventScheduleData(payload, startDate, endDate, duration, dateSource) {
-    const timeKind = cleanText(payload.timeKind);
-    if (timeKind === 'dateOnly') {
-      return null;
-    }
-
-    const regionalRows =
-      timeKind === 'regionalTimes'
-        ? regionalTimeRows(payload, startDate, endDate, duration, dateSource)
-        : [];
-    let primary = '';
-    if (timeKind === 'allDay') primary = copy.event.allDay;
-    else if (timeKind === 'timeTba') primary = copy.event.timeTba;
-    else primary = clockStatement(payload.dailyStartTime, payload.dailyEndTime, duration);
-    if (!primary && timeKind === 'regionalTimes') {
-      primary = copy.event.timesVary;
-    }
-
-    const timezone =
-      timeKind === 'timed' || primary
-        ? timezoneLabel(payload.timezone, startDate, endDate)
-      : '';
-    const location = cleanText(payload.location);
-    const attendance = enumLabel(payload.attendanceMode, copy.event.attendance);
-    const locationPrimary = location || attendance;
-    const locationSecondary =
-      location && attendance && location.toLowerCase() !== attendance.toLowerCase()
-        ? attendance
-        : '';
-
-    return {
-      time: primary
+  function eventScheduleData(payload, startDate, endDate, duration, dateSource, timeKind) {
+    const location = eventLocationData(payload);
+    if (timeKind === 'regionalTimes') {
+      const regionalRows = regionalTimeRows(payload, startDate, endDate, duration, dateSource);
+      return regionalRows.length || location
         ? {
-            value: primary,
-            detail: timezone,
-            dateParts: datePartsInTimezone(dateSource, payload.timezone) || startDate,
+            time: null,
+            location,
+            regionalRows,
+            regionalTableRows: regionalRows.filter((row) => row.startTime && row.tableDuration),
           }
-        : null,
-      location: locationPrimary ? { value: locationPrimary, detail: locationSecondary } : null,
-      regionalRows,
-    };
+        : null;
+    }
+
+    let primary = '';
+    let detail = '';
+    let dateParts = startDate;
+    if (timeKind === 'timed') {
+      primary = clockStatement(payload.dailyStartTime, payload.dailyEndTime, 1);
+      detail = primary ? timezoneLabel(payload.timezone, startDate, endDate) : '';
+      dateParts = primary ? datePartsInTimezone(dateSource, payload.timezone) || startDate : startDate;
+    } else if (timeKind === 'allDay') {
+      primary = copy.event.allDay;
+    } else if (timeKind === 'timeTba') {
+      primary = copy.event.timeTba;
+    }
+
+    return primary || location
+      ? {
+          time: primary
+            ? {
+                value: primary,
+                detail,
+                dateParts,
+              }
+            : null,
+          location,
+          regionalRows: [],
+          regionalTableRows: [],
+        }
+      : null;
   }
 
-  function eventFactData(payload) {
+  function eventLocationData(payload) {
+    const location = cleanText(payload.location);
+    if (!location) return null;
+
+    const attendanceMode = cleanText(payload.attendanceMode);
+    const normalized = location
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase(isEnglish ? 'en' : 'es');
+    if (attendanceMode === 'online' && ['online', 'en linea', 'virtual'].includes(normalized)) {
+      return null;
+    }
+    return { value: location, detail: '' };
+  }
+
+  function eventParticipationFactData(payload) {
     const facts = [];
-    const admission = admissionLabel(payload);
-    const capacity = positiveInteger(payload.maxAttendance);
-    if (admission) {
-      facts.push({ label: copy.event.admission, value: admission });
+    const attendanceMode = enumLabel(payload.attendanceMode, copy.event.attendance);
+    const capacity = capacityLabel(payload);
+    const languages = labelList(uniqueCleanArray(payload.languages), copy.event.languages);
+    const cost = costLabel(payload);
+    const audience = labelList(uniqueCleanArray(payload.audience), copy.event.audience);
+    const accessibility = labelList(
+      uniqueCleanArray(payload.accessibilityFeatures),
+      copy.event.accessibilityValues
+    );
+
+    if (attendanceMode) {
+      facts.push({ key: 'attendance', label: copy.event.attendanceMode, value: attendanceMode });
     }
     if (capacity) {
-      facts.push({ label: copy.event.capacity, value: copy.event.upToPeople(capacity) });
+      facts.push({ key: 'capacity', label: copy.event.capacity, value: capacity });
+    }
+    if (languages.length) {
+      facts.push({ key: 'languages', label: copy.event.eventLanguages, value: languages.join(', ') });
+    }
+    if (cost) {
+      facts.push({ key: 'cost', label: copy.event.cost, value: cost });
+    }
+    if (audience.length) {
+      facts.push({ key: 'audience', label: copy.event.whoFor, value: audience.join(', ') });
+    }
+    if (accessibility.length) {
+      facts.push({ key: 'accessibility', label: copy.event.accessibility, value: accessibility.join(', ') });
     }
     return facts;
   }
 
-  function admissionLabel(payload) {
+  function capacityLabel(payload) {
+    if (!hasOwn(payload, 'maxAttendance')) return '';
+    if (payload.maxAttendance === null) return copy.event.noLimit;
+    const capacity = positiveInteger(payload.maxAttendance);
+    return capacity ? copy.event.upToPeople(capacity) : '';
+  }
+
+  function costLabel(payload) {
     const costType = cleanText(payload.costType);
     if (!costType) return '';
     if (costType === 'free') return copy.event.free;
@@ -1505,8 +1541,11 @@ const initialCopy = isEnglishPage
     if (costType === 'unknown') return copy.event.costUnknown;
     if (costType !== 'paid') return '';
     const currency = cleanText(payload.currency).toUpperCase();
+    if (!hasOwn(payload, 'priceMinorUnits') || payload.priceMinorUnits === null) {
+      return copy.event.paid;
+    }
     const price = Number(payload.priceMinorUnits);
-    if (!/^[A-Z]{3}$/.test(currency) || !Number.isFinite(price) || price < 0) {
+    if (!/^[A-Z]{3}$/.test(currency) || !Number.isInteger(price) || price < 0) {
       return copy.event.paid;
     }
     try {
@@ -1521,75 +1560,21 @@ const initialCopy = isEnglishPage
     }
   }
 
-  function eventTakingPartData(payload) {
-    const audience = labelList(uniqueCleanArray(payload.audience), copy.event.audience);
-    const languages = labelList(uniqueCleanArray(payload.languages), copy.event.languages);
-    const accessibility = labelList(
-      uniqueCleanArray(payload.accessibilityFeatures),
-      copy.event.accessibilityValues
-    );
-    const groups = [];
-    if (audience.length) {
-      groups.push({
-        kind: 'tags',
-        label: copy.event.whoFor,
-        values: audience,
-        preview: valuePreview(audience),
-      });
-    }
-    if (accessibility.length) {
-      groups.push({
-        kind: 'checks',
-        label: copy.event.accessibility,
-        values: accessibility,
-        preview: valuePreview(accessibility),
-      });
-    }
-    return groups.length
-      ? {
-          title: copy.event.takingPart,
-          preview: groups[0].preview,
-          groups,
-          collapsible: groups.length > 1,
-        }
-      : null;
-  }
-
   function eventOrganizerData(payload) {
-    const groups = [];
+    const facts = [];
     const organizerName = cleanText(payload.organizerName);
     const relationship = enumLabel(payload.publisherRelationshipToEvent, copy.event.relationships);
     const disclosure = cleanText(payload.publisherDisclosure);
     if (organizerName) {
-      groups.push({
-        kind: 'text',
-        label: copy.event.organizedBy,
-        values: [organizerName],
-        preview: `${copy.event.organizedBy} ${organizerName}`,
-      });
+      facts.push({ key: 'organizer', label: copy.event.organizedBy, value: organizerName });
     }
     if (relationship) {
-      groups.push({
-        kind: 'text',
-        label: copy.event.publisherRole,
-        values: [relationship],
-        preview: relationship,
-      });
+      facts.push({ key: 'publisher-role', label: copy.event.publisherRole, value: relationship });
     }
-    if (disclosure) {
-      groups.push({
-        kind: 'text',
-        label: copy.event.fromPublisher,
-        values: [disclosure],
-        preview: disclosure,
-      });
-    }
-    return groups.length
+    return facts.length || disclosure
       ? {
-          title: copy.event.organizer,
-          preview: groups[0].preview,
-          groups,
-          collapsible: groups.length > 1,
+          facts,
+          disclosure,
         }
       : null;
   }
@@ -1598,20 +1583,15 @@ const initialCopy = isEnglishPage
     return values.map((value) => labels[value] ?? humanize(value)).filter(Boolean);
   }
 
-  function valuePreview(values) {
-    if (values.length <= 2) return values.join(' · ');
-    return `${values.slice(0, 2).join(' · ')} +${values.length - 2}`;
-  }
-
-  function eventActionData(value) {
-    if (!Array.isArray(value)) return [];
+  function eventActionData(value, virtualMeetingLink) {
     const seen = new Set();
     const supportedTypes = new Set(Object.keys(copy.event.actions));
-    return value
+    const actions = Array.isArray(value)
+      ? value
       .map((entry) => {
         if (!entry || typeof entry !== 'object') return null;
         const type = cleanText(entry.type);
-        const url = externalUrl(entry.url);
+        const url = eventActionUrl(type, entry.url);
         if (!supportedTypes.has(type) || !url || seen.has(type)) return null;
         seen.add(type);
         const title = cleanText(entry.title);
@@ -1619,10 +1599,36 @@ const initialCopy = isEnglishPage
           type,
           title: title && title.length <= 56 ? title : copy.event.actions[type],
           url,
-          external: /^https?:\/\//i.test(url),
+          external: /^https:\/\//i.test(url),
         };
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      : [];
+
+    const legacyJoinUrl = eventActionUrl('join', virtualMeetingLink);
+    if (legacyJoinUrl && !seen.has('join')) {
+      actions.push({
+        type: 'join',
+        title: copy.event.actions.join,
+        url: legacyJoinUrl,
+        external: true,
+      });
+    }
+    return actions;
+  }
+
+  function eventActionUrl(type, value) {
+    const text = cleanText(value);
+    if (!text) return '';
+    if (type === 'contactOrganizer' && /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(text)) {
+      return text;
+    }
+    try {
+      const url = new URL(text);
+      return url.protocol === 'https:' ? url.toString() : '';
+    } catch {
+      return '';
+    }
   }
 
   function localizedDescription(fields) {
@@ -1744,8 +1750,7 @@ const initialCopy = isEnglishPage
     setOptionalText('[data-preview-publisher-support]', isEventPreview ? data.publisherSupport : '');
     setText('[data-preview-title]', data.title);
     setOptionalText('[data-preview-summary]', data.summary);
-    setOptionalText('[data-preview-body]', data.body);
-    setOptionalText('[data-preview-body-title]', isEventPreview && data.body ? copy.event.about : '');
+    renderBody(data.body);
     renderImage('[data-preview-banner]', data.bannerUrl);
     renderBanner(data.bannerUrl);
     renderImage('[data-preview-image]', data.imageUrl);
@@ -1784,6 +1789,30 @@ const initialCopy = isEnglishPage
     node.hidden = !text;
   }
 
+  function renderBody(body) {
+    const shell = preview.querySelector('[data-preview-body-shell]');
+    const node = preview.querySelector('[data-preview-body]');
+    if (!node) return;
+
+    if (!bodyHasContent(body)) {
+      node.replaceChildren();
+      node.hidden = true;
+      if (shell) shell.hidden = true;
+      return;
+    }
+
+    const content =
+      typeof body === 'string'
+        ? { kind: 'text', value: body }
+        : body;
+    node.innerHTML =
+      content.kind === 'html'
+        ? content.value
+        : plainTextBodyHtml(content.value);
+    node.hidden = false;
+    if (shell) shell.hidden = false;
+  }
+
   function renderImage(selector, src) {
     const image = preview.querySelector(selector);
     if (!image) return;
@@ -1798,43 +1827,24 @@ const initialCopy = isEnglishPage
 
   function renderMedia(src) {
     const image = preview.querySelector('[data-preview-media]');
-    const figure = preview.querySelector('[data-preview-flyer]');
+    const figure = preview.querySelector('[data-preview-cover]');
     const url = imageSource(src);
     if (figure) {
       figure.hidden = !url;
     }
     if (image) {
       image.hidden = !url;
+      image.onerror = () => {
+        image.hidden = true;
+        image.removeAttribute('src');
+        if (figure) figure.hidden = true;
+      };
       if (url) {
         image.setAttribute('src', url);
       } else {
         image.removeAttribute('src');
       }
     }
-    if (imageViewerImage) {
-      if (url) {
-        imageViewerImage.setAttribute('src', url);
-      } else {
-        imageViewerImage.removeAttribute('src');
-      }
-    }
-    mediaOpenButtons.forEach((button) => {
-      button.hidden = !url;
-    });
-  }
-
-  function openImageViewer() {
-    const image = preview?.querySelector('[data-preview-media]');
-    const src = image?.getAttribute('src');
-    if (!src) return;
-    if (imageViewer && typeof imageViewer.showModal === 'function' && imageViewerImage) {
-      if (imageViewerImage.getAttribute('src') !== src) {
-        imageViewerImage.setAttribute('src', src);
-      }
-      imageViewer.showModal();
-      return;
-    }
-    window.open(src, '_blank', 'noopener,noreferrer');
   }
 
   function renderBanner(src) {
@@ -1887,34 +1897,16 @@ const initialCopy = isEnglishPage
       nodes.push(statusRow);
     }
 
-    if (event.listedSchedule) {
-      const listed = document.createElement('p');
-      listed.className = 'shared-event-listed-schedule';
-      listed.textContent = copy.event.listedSchedule;
-      nodes.push(listed);
-    }
-
-    const date = renderEventDate(event.dateParts);
+    const date = renderEventDate(event.dateParts, event.dateSpan);
     nodes.push(date);
-
-    const divider = document.createElement('div');
-    divider.className = 'shared-event-divider';
-    nodes.push(divider);
 
     const schedule = renderEventSchedule(event.schedule, event.dateParts, date);
     if (schedule) nodes.push(schedule);
 
-    if (event.format) {
-      nodes.push(renderEventInfoRow('format', event.format.value, event.format.detail));
-    }
-
-    const facts = renderEventFacts(event.facts);
+    const facts = renderEventFacts(event.participationFacts);
     if (facts) nodes.push(facts);
 
-    const takingPart = renderEventDisclosure(event.takingPart);
-    if (takingPart) nodes.push(takingPart);
-
-    const organizer = renderEventDisclosure(event.organizer);
+    const organizer = renderEventOrganizerContext(event.organizer);
     if (organizer) nodes.push(organizer);
 
     const actions = renderEventActions(event.actions);
@@ -1923,7 +1915,7 @@ const initialCopy = isEnglishPage
     container.append(...nodes);
   }
 
-  function renderEventDate(parts) {
+  function renderEventDate(parts, dateSpan = '') {
     const date = document.createElement('div');
     date.className = 'shared-event-date';
     const day = document.createElement('p');
@@ -1938,6 +1930,12 @@ const initialCopy = isEnglishPage
     meta.className = 'shared-event-date-meta';
     meta.setAttribute('data-event-date-meta', '');
     text.append(month, meta);
+    if (dateSpan) {
+      const span = document.createElement('p');
+      span.className = 'shared-event-date-span';
+      span.textContent = dateSpan;
+      text.append(span);
+    }
     date.append(day, text);
     updateEventDate(date, parts);
     return date;
@@ -1959,11 +1957,21 @@ const initialCopy = isEnglishPage
     }
     const section = document.createElement('section');
     section.className = 'shared-event-schedule';
-    const selected = selectedScheduleOption(schedule, fallbackDateParts);
-    const timeRow = renderEventInfoRow('clock', selected.time || schedule.time?.value || copy.event.timeTba, selected.timezone || schedule.time?.detail || '');
-    timeRow.querySelector('.shared-event-info-value')?.setAttribute('data-event-selected-time', '');
-    timeRow.querySelector('.shared-event-info-detail')?.setAttribute('data-event-selected-timezone', '');
-    section.append(timeRow);
+
+    let selected = null;
+    let timeRow = null;
+    if (schedule.regionalRows.length) {
+      selected = selectedScheduleOption(schedule, fallbackDateParts);
+      if (selected.time || selected.timezone) {
+        timeRow = renderEventInfoRow('clock', selected.time, selected.timezone);
+        timeRow.querySelector('.shared-event-info-value')?.setAttribute('data-event-selected-time', '');
+        timeRow.querySelector('.shared-event-info-detail')?.setAttribute('data-event-selected-timezone', '');
+        section.append(timeRow);
+      }
+    } else if (schedule.time) {
+      timeRow = renderEventInfoRow('clock', schedule.time.value, schedule.time.detail);
+      section.append(timeRow);
+    }
 
     if (schedule.regionalRows.length > 1) {
       const selectorWrap = document.createElement('div');
@@ -1986,12 +1994,25 @@ const initialCopy = isEnglishPage
       select.addEventListener('change', () => {
         const next = schedule.regionalRows.find((row) => row.code === select.value) || selected;
         updateEventDate(dateContainer, next.dateParts || fallbackDateParts);
-        updateSelectedSchedule(timeRow, next);
+        if (timeRow) updateSelectedSchedule(timeRow, next);
+        updateSelectedRegionalTable(section, next.code);
       });
 
       selectorWrap.append(label, select);
       section.append(selectorWrap);
+    } else if (schedule.regionalRows.length === 1) {
+      const singleRegion = document.createElement('p');
+      singleRegion.className = 'shared-event-single-region';
+      singleRegion.textContent = schedule.regionalRows[0].country;
+      section.append(singleRegion);
     }
+
+    if (schedule.location) {
+      section.append(renderEventInfoRow('location', schedule.location.value, schedule.location.detail));
+    }
+
+    const regionalTable = renderEventRegionalTable(schedule.regionalTableRows, selected?.code || '');
+    if (regionalTable) section.append(regionalTable);
     return section;
   }
 
@@ -1999,8 +2020,8 @@ const initialCopy = isEnglishPage
     if (schedule.regionalRows.length) {
       const browserRegion = browserRegionCode();
       const preferredCodes = [
-        isEnglish ? 'US' : 'AR',
         browserRegion,
+        isEnglish ? 'US' : 'AR',
         'AR',
         'US',
       ].filter(Boolean);
@@ -2029,11 +2050,58 @@ const initialCopy = isEnglishPage
   function updateSelectedSchedule(row, option) {
     const value = row.querySelector('[data-event-selected-time]');
     const detail = row.querySelector('[data-event-selected-timezone]');
-    if (value) value.textContent = option.time || copy.event.timeTba;
+    if (value) value.textContent = option.time || '';
     if (detail) {
       detail.textContent = option.timezone || '';
       detail.hidden = !option.timezone;
     }
+  }
+
+  function renderEventRegionalTable(rows, selectedCode) {
+    if (!rows?.length) return null;
+    const table = document.createElement('table');
+    table.className = 'shared-event-regional-table';
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    [copy.event.tableRegion, copy.event.tableStart, copy.event.tableDuration].forEach((label) => {
+      const cell = document.createElement('th');
+      cell.scope = 'col';
+      cell.textContent = label;
+      headerRow.append(cell);
+    });
+    thead.append(headerRow);
+
+    const tbody = document.createElement('tbody');
+    rows.forEach((row) => {
+      const tableRow = document.createElement('tr');
+      tableRow.dataset.regionCode = row.code;
+      tableRow.classList.toggle('is-selected', row.code === selectedCode);
+
+      const flagCell = document.createElement('td');
+      const flag = document.createElement('span');
+      flag.className = 'shared-event-regional-flag';
+      flag.setAttribute('role', 'img');
+      flag.setAttribute('aria-label', row.country);
+      flag.textContent = row.flag;
+      flagCell.append(flag);
+
+      const startCell = document.createElement('td');
+      startCell.textContent = row.startTime;
+
+      const durationCell = document.createElement('td');
+      durationCell.textContent = row.tableDuration;
+
+      tableRow.append(flagCell, startCell, durationCell);
+      tbody.append(tableRow);
+    });
+    table.append(thead, tbody);
+    return table;
+  }
+
+  function updateSelectedRegionalTable(container, selectedCode) {
+    container.querySelectorAll('.shared-event-regional-table tr[data-region-code]').forEach((row) => {
+      row.classList.toggle('is-selected', row.dataset.regionCode === selectedCode);
+    });
   }
 
   function renderEventInfoRow(icon, value, detail) {
@@ -2048,12 +2116,11 @@ const initialCopy = isEnglishPage
     main.className = 'shared-event-info-value';
     main.textContent = value;
     text.append(main);
-    if (detail) {
-      const secondary = document.createElement('p');
-      secondary.className = 'shared-event-info-detail';
-      secondary.textContent = detail;
-      text.append(secondary);
-    }
+    const secondary = document.createElement('p');
+    secondary.className = 'shared-event-info-detail';
+    secondary.textContent = detail || '';
+    secondary.hidden = !detail;
+    text.append(secondary);
     row.append(symbol, text);
     return row;
   }
@@ -2062,80 +2129,61 @@ const initialCopy = isEnglishPage
     if (!facts?.length) return null;
     const section = document.createElement('section');
     section.className = 'shared-event-facts';
+    const capacity = facts.find((fact) => fact.key === 'capacity');
+    const languages = facts.find((fact) => fact.key === 'languages');
     facts.forEach((fact) => {
-      const item = document.createElement('div');
-      item.className = 'shared-event-fact';
-      const label = document.createElement('p');
-      label.className = 'shared-event-field-label';
-      label.textContent = fact.label;
-      const value = document.createElement('p');
-      value.className = 'shared-event-fact-value';
-      value.textContent = fact.value;
-      item.append(label, value);
-      section.append(item);
-    });
-    return section;
-  }
-
-  function renderEventDisclosure(sectionData) {
-    if (!sectionData?.groups?.length) return null;
-    const section = document.createElement('section');
-    section.className = 'shared-event-disclosure shared-event-disclosure-static';
-    const content = document.createElement('div');
-    content.className = 'shared-event-disclosure-content';
-    appendEventGroups(content, sectionData.groups);
-    section.append(content);
-    return section;
-  }
-
-  function appendEventGroups(container, groups) {
-    groups.forEach((group) => {
-      const block = document.createElement('div');
-      block.className = 'shared-event-detail-group';
-      const label = document.createElement('p');
-      label.className = 'shared-event-field-label';
-      label.textContent = group.label;
-      block.append(label);
-
-      if (group.kind === 'tags') {
-        const tags = document.createElement('div');
-        tags.className = 'shared-event-tag-list';
-        group.values.forEach((value) => {
-          const tag = document.createElement('span');
-          tag.className = 'shared-event-tag';
-          tag.textContent = value;
-          tags.append(tag);
-        });
-        block.append(tags);
-      } else if (group.kind === 'checks') {
-        const list = document.createElement('ul');
-        list.className = 'shared-event-check-list';
-        group.values.forEach((value) => {
-          const item = document.createElement('li');
-          const check = document.createElement('span');
-          check.setAttribute('aria-hidden', 'true');
-          check.textContent = '✓';
-          item.append(check, document.createTextNode(value));
-          list.append(item);
-        });
-        block.append(list);
-      } else {
-        group.values.forEach((value) => {
-          const paragraph = document.createElement('p');
-          paragraph.className = 'shared-event-detail-value';
-          paragraph.textContent = value;
-          block.append(paragraph);
-        });
+      if (fact.key === 'capacity' && languages) {
+        const pair = document.createElement('div');
+        pair.className = 'shared-event-fact-pair';
+        pair.append(createEventFact(capacity), createEventFact(languages));
+        section.append(pair);
+        return;
       }
-
-      container.append(block);
+      if (fact.key === 'languages' && capacity) {
+        return;
+      }
+      section.append(createEventFact(fact));
     });
+    return section;
+  }
+
+  function createEventFact(fact) {
+    const item = document.createElement('div');
+    item.className = `shared-event-fact shared-event-fact--${fact.key}`;
+    const label = document.createElement('p');
+    label.className = 'shared-event-field-label';
+    label.textContent = fact.label;
+    const value = document.createElement('p');
+    value.className = 'shared-event-fact-value';
+    value.textContent = fact.value;
+    item.append(label, value);
+    return item;
+  }
+
+  function renderEventOrganizerContext(sectionData) {
+    if (!sectionData || (!sectionData.facts?.length && !sectionData.disclosure)) return null;
+    const section = document.createElement('section');
+    section.className = 'shared-event-context';
+    sectionData.facts?.forEach((fact) => {
+      section.append(createEventFact(fact));
+    });
+    if (sectionData.disclosure) {
+      const disclosure = document.createElement('p');
+      disclosure.className = 'shared-event-context-disclosure';
+      disclosure.textContent = sectionData.disclosure;
+      section.append(disclosure);
+    }
+    return section;
   }
 
   function renderEventActions(actions) {
     if (!actions?.length) return null;
     const section = document.createElement('section');
     section.className = 'shared-event-actions';
+    const heading = document.createElement('h2');
+    heading.className = 'shared-event-actions-title';
+    heading.textContent = copy.event.eventActions;
+    section.append(heading);
     actions.forEach((action) => {
       const link = document.createElement('a');
       link.className = 'shared-event-action-row';
@@ -3182,7 +3230,8 @@ const initialCopy = isEnglishPage
   .app-link-breadcrumb[hidden],
   .app-link-promotion[hidden],
   .note-primary-action[hidden],
-  .event-flyer[hidden],
+  .event-cover[hidden],
+  .event-copy[hidden],
   .shared-preview-badges[hidden] {
     display: none;
   }
@@ -3245,12 +3294,8 @@ const initialCopy = isEnglishPage
     margin-top: 1rem;
   }
 
-  .event-flyer {
+  .event-cover {
     margin: 1rem 0 0;
-  }
-
-  .event-flyer-caption {
-    display: none;
   }
 
   .note-primary-action {
@@ -3497,18 +3542,14 @@ const initialCopy = isEnglishPage
     background: #c52f6d;
   }
 
-  .shared-preview--event .shared-preview-event :global(.shared-event-listed-schedule) {
-    margin: 12px 0 0;
-    color: #706b79;
-    font-size: 12px;
-    font-weight: 400;
-    line-height: 1.6;
-  }
-
   .shared-preview--event .shared-preview-event :global(.shared-event-date) {
     display: flex;
     align-items: center;
     gap: 13px;
+    margin-top: 0;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-status-row + .shared-event-date) {
     margin-top: 23px;
   }
 
@@ -3537,16 +3578,20 @@ const initialCopy = isEnglishPage
     line-height: 1.6;
   }
 
-  .shared-preview--event .shared-preview-event :global(.shared-event-divider) {
-    height: 1px;
-    margin: 23px 0 20px;
-    background: #e9e5ed;
+  .shared-preview--event .shared-preview-event :global(.shared-event-date-span) {
+    margin: 2px 0 0;
+    color: #6b40b4;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
   }
 
   .shared-preview--event .shared-preview-event :global(.shared-event-schedule) {
     display: grid;
-    gap: 0;
-    margin: 0;
+    gap: 20px;
+    margin-top: 23px;
+    border-top: 1px solid #e9e5ed;
+    padding-top: 20px;
   }
 
   .shared-preview--event .shared-preview-event :global(.shared-event-info-row) {
@@ -3590,21 +3635,13 @@ const initialCopy = isEnglishPage
     line-height: 1.6;
   }
 
-  .shared-preview--event .shared-preview-event :global(.shared-event-info-row--format) {
-    margin-top: 20px;
-  }
-
-  .shared-preview--event .shared-preview-event :global(.shared-event-info-row--format .shared-event-info-detail) {
-    margin-top: 2px;
-  }
-
   .shared-preview--event .shared-preview-event :global(.shared-event-region-selector) {
     display: grid;
-    margin-left: 28px;
+    margin: -5px 0 0;
   }
 
   .shared-preview--event .shared-preview-event :global(.shared-event-region-selector label) {
-    margin: 16px 0 7px;
+    margin: 0 0 7px;
     color: #706b79;
     font-size: 12px;
     font-weight: 400;
@@ -3624,8 +3661,56 @@ const initialCopy = isEnglishPage
     line-height: 1.35;
   }
 
+  .shared-preview--event .shared-preview-event :global(.shared-event-single-region) {
+    margin: -8px 0 0;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-regional-table) {
+    width: 100%;
+    margin: -6px 0 0;
+    border-collapse: collapse;
+    color: #292333;
+    table-layout: fixed;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-regional-table th),
+  .shared-preview--event .shared-preview-event :global(.shared-event-regional-table td) {
+    padding: 7px 6px;
+    border-bottom: 1px solid #e9e5ed;
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-regional-table th) {
+    color: #706b79;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-regional-table td) {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-regional-table th:first-child),
+  .shared-preview--event .shared-preview-event :global(.shared-event-regional-table td:first-child) {
+    width: 42px;
+    text-align: center;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-regional-table tr.is-selected td) {
+    background: rgba(107, 64, 180, 0.07);
+  }
+
   .shared-preview--event .shared-preview-event :global(.shared-event-facts),
-  .shared-preview--event .shared-preview-event :global(.shared-event-disclosure),
+  .shared-preview--event .shared-preview-event :global(.shared-event-context),
   .shared-preview--event .shared-preview-event :global(.shared-event-actions) {
     margin-top: 20px;
     border-top: 1px solid #e9e5ed;
@@ -3634,7 +3719,15 @@ const initialCopy = isEnglishPage
 
   .shared-preview--event .shared-preview-event :global(.shared-event-facts) {
     display: grid;
-    gap: 12px;
+    gap: 14px;
+    padding-top: 18px;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-fact-pair) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    min-width: 0;
   }
 
   .shared-preview--event .shared-preview-event :global(.shared-event-field-label) {
@@ -3645,59 +3738,30 @@ const initialCopy = isEnglishPage
     line-height: 1.6;
   }
 
-  .shared-preview--event .shared-preview-event :global(.shared-event-disclosure-content) {
+  .shared-preview--event .shared-preview-event :global(.shared-event-context) {
     display: grid;
     gap: 14px;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-context-disclosure) {
     margin: 0;
-    padding: 0;
-  }
-
-  .shared-preview--event .shared-preview-event :global(.shared-event-tag-list) {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .shared-preview--event .shared-preview-event :global(.shared-event-tag) {
-    display: inline-flex;
-    align-items: center;
-    border: 1px solid #e9e5ed;
-    border-radius: 7px;
-    background: #ffffff;
-    color: #6b40b4;
-    padding: 6px 9px;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.2;
-  }
-
-  .shared-preview--event .shared-preview-event :global(.shared-event-check-list) {
-    display: grid;
-    gap: 8px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .shared-preview--event .shared-preview-event :global(.shared-event-check-list li) {
-    display: flex;
-    gap: 8px;
-    align-items: baseline;
-    color: #292333;
+    color: #706b79;
     font-size: 12px;
     font-weight: 400;
     line-height: 1.6;
   }
 
-  .shared-preview--event .shared-preview-event :global(.shared-event-check-list span) {
-    color: #c52f6d;
-    font-size: 12px;
-    font-weight: 600;
-  }
-
   .shared-preview--event .shared-preview-event :global(.shared-event-actions) {
     display: grid;
     gap: 8px;
+  }
+
+  .shared-preview--event .shared-preview-event :global(.shared-event-actions-title) {
+    margin: 0;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.6;
   }
 
   .shared-preview--event .shared-preview-event :global(.shared-event-action-row) {
@@ -3706,9 +3770,11 @@ const initialCopy = isEnglishPage
     gap: 10px;
     align-items: center;
     min-height: 40px;
+    border: 1px solid #e9e5ed;
     border-radius: 7px;
+    background: #ffffff;
     color: #6b40b4;
-    padding: 6px 0;
+    padding: 10px 12px;
     font-size: 13px;
     font-weight: 600;
     line-height: 1.35;
@@ -3763,11 +3829,9 @@ const initialCopy = isEnglishPage
     text-align: center;
   }
 
-  .shared-preview--event .event-flyer {
+  .shared-preview--event .event-cover {
+    display: block;
     margin: 28px 0 0;
-  }
-
-  .shared-preview--event .event-flyer-frame {
     width: 100%;
     aspect-ratio: 16 / 9;
     overflow: hidden;
@@ -3775,7 +3839,7 @@ const initialCopy = isEnglishPage
     background: #f8f6fa;
   }
 
-  .shared-preview--event .event-flyer .shared-preview-media {
+  .shared-preview--event .event-cover .shared-preview-media {
     display: block;
     width: 100%;
     height: 100%;
@@ -3783,49 +3847,45 @@ const initialCopy = isEnglishPage
     margin: 0;
     border-radius: 0;
     object-fit: cover;
-    object-position: center top;
+    object-position: center;
     transform: none;
     box-shadow: none;
   }
 
-  .shared-preview--event .event-flyer-caption {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-top: 9px;
-    color: #706b79;
-    font-size: 11px;
+  .shared-preview--event .shared-preview-body {
+    display: block;
+    max-height: none;
+    margin: 0;
+    overflow: visible;
+    color: #292333;
+    font-size: 14px;
     font-weight: 400;
-    line-height: 1.4;
+    line-height: 1.75;
+    -webkit-box-orient: unset;
+    -webkit-line-clamp: unset;
   }
 
-  .shared-preview--event .event-flyer-expand,
-  .shared-preview--event .event-flyer-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    border: 0;
-    background: transparent;
-    color: #c52f6d;
-    padding: 0;
-    font: inherit;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1.4;
-    text-decoration: none;
-    cursor: pointer;
+  .shared-preview--event .shared-preview-body :global(p),
+  .shared-preview--event .shared-preview-body :global(ul),
+  .shared-preview--event .shared-preview-body :global(ol),
+  .shared-preview--event .shared-preview-body :global(blockquote),
+  .shared-preview--event .shared-preview-body :global(pre) {
+    margin: 0;
   }
 
-  .shared-preview--event .event-flyer-expand span[aria-hidden="true"] {
-    width: 8px;
-    height: 8px;
-    border-top: 1.5px solid currentColor;
-    border-right: 1.5px solid currentColor;
-    transform: translateY(1px) rotate(45deg);
+  .shared-preview--event .shared-preview-body :global(p + p),
+  .shared-preview--event .shared-preview-body :global(ul + p),
+  .shared-preview--event .shared-preview-body :global(ol + p),
+  .shared-preview--event .shared-preview-body :global(blockquote + p) {
+    margin-top: 1em;
   }
 
-  .shared-preview--event .event-copy h2 {
+  .shared-preview--event .shared-preview-body :global(h2),
+  .shared-preview--event .shared-preview-body :global(h3),
+  .shared-preview--event .shared-preview-body :global(h4) {
+    margin: 29px 0 12px;
+    border-top: 1px solid #e9e5ed;
+    padding-top: 27px;
     color: #292333;
     font-size: 19px;
     font-weight: 600;
@@ -3833,24 +3893,25 @@ const initialCopy = isEnglishPage
     letter-spacing: 0;
   }
 
-  .shared-preview--event .shared-preview-body {
-    display: block;
-    max-height: none;
-    margin-top: 12px;
-    overflow: visible;
-    color: #292333;
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 1.75;
-    white-space: pre-line;
-    -webkit-box-orient: unset;
-    -webkit-line-clamp: unset;
+  .shared-preview--event .shared-preview-body :global(h2:first-child),
+  .shared-preview--event .shared-preview-body :global(h3:first-child),
+  .shared-preview--event .shared-preview-body :global(h4:first-child) {
+    margin-top: 0;
+    border-top: 0;
+    padding-top: 0;
   }
 
-  .shared-preview--event .event-flyer-link {
-    display: none;
-    margin-top: 24px;
-    font-size: 12px;
+  .shared-preview--event .shared-preview-body :global(ul),
+  .shared-preview--event .shared-preview-body :global(ol) {
+    display: grid;
+    gap: 7px;
+    padding-left: 1.25rem;
+  }
+
+  .shared-preview--event .shared-preview-body :global(a) {
+    color: #6b40b4;
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
   }
 
   .app-link-page.has-event-preview .app-link-promotion {
@@ -3903,74 +3964,52 @@ const initialCopy = isEnglishPage
     color: #6b40b4;
   }
 
-  .shared-image-viewer {
-    width: min(94vw, 980px);
-    max-width: 980px;
-    border: 0;
-    border-radius: 12px;
-    background: transparent;
-    padding: 0;
-  }
-
-  .shared-image-viewer::backdrop {
-    background: rgba(18, 14, 25, 0.72);
-  }
-
-  .shared-image-viewer__surface {
-    display: grid;
-    justify-items: center;
-    gap: 12px;
-  }
-
-  .shared-image-viewer__close {
-    justify-self: end;
-  }
-
-  .shared-image-viewer__surface img {
-    display: block;
-    width: auto;
-    max-width: 100%;
-    height: auto;
-    max-height: 86vh;
-    border-radius: 10px;
-    object-fit: contain;
-    background: #ffffff;
-  }
-
-  .shared-image-viewer__close {
-    min-height: 36px;
-    border: 1px solid #e9e5ed;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #292333;
-    padding: 7px 12px;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  @container (max-width: 760px) {
+  @container (max-width: 900px) {
     .app-link-page.has-event-preview .event-page__shell {
       padding: 26px 28px;
     }
 
     .app-link-page.has-event-preview .shared-preview--event {
-      grid-template-columns: minmax(0, 1fr) 254px;
-      column-gap: 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .shared-preview--event .event-intro {
+      order: 1;
+      width: 100%;
+    }
+
+    .shared-preview--event .event-rail {
+      display: contents;
+    }
+
+    .shared-preview--event .event-details {
+      order: 2;
+      width: 100%;
+      margin-top: 27px;
+    }
+
+    .shared-preview--event .note-primary-action {
+      order: 3;
+      width: 100%;
+    }
+
+    .shared-preview--event .event-copy {
+      order: 4;
+      width: 100%;
+      padding-top: 29px;
+    }
+
+    .shared-preview--event .event-cover {
+      order: 5;
+      width: 100%;
+      margin-top: 24px;
     }
 
     .shared-preview--event h1 {
-      font-size: 31px;
+      font-size: 34px;
       line-height: 1.16;
-    }
-
-    .shared-preview--event .shared-preview-summary {
-      font-size: 16px;
-    }
-
-    .shared-preview--event .shared-preview-event {
-      padding: 19px;
     }
   }
 
@@ -3987,27 +4026,6 @@ const initialCopy = isEnglishPage
       margin-bottom: 25px;
     }
 
-    .app-link-page.has-event-preview .shared-preview--event {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-
-    .shared-preview--event .event-intro,
-    .shared-preview--event .event-rail,
-    .shared-preview--event .event-copy {
-      width: 100%;
-    }
-
-    .shared-preview--event .event-rail {
-      margin-top: 27px;
-      padding-top: 0;
-    }
-
-    .shared-preview--event .event-copy {
-      padding-top: 29px;
-    }
-
     .shared-preview--event h1 {
       font-size: 32px;
       line-height: 1.18;
@@ -4022,21 +4040,9 @@ const initialCopy = isEnglishPage
       padding: 21px;
     }
 
-    .shared-preview--event .shared-preview-event :global(.shared-event-date) {
-      margin-top: 18px;
-    }
-
     .shared-preview--event .shared-preview-event :global(.shared-event-region-selector select) {
       min-height: 44px;
       font-size: 16px;
-    }
-
-    .shared-preview--event .event-flyer {
-      display: none;
-    }
-
-    .shared-preview--event .event-flyer-link:not([hidden]) {
-      display: inline-flex;
     }
 
     .app-link-page.has-event-preview .app-link-promotion {
