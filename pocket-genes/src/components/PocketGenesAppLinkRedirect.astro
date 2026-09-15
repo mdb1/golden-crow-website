@@ -54,6 +54,14 @@ const initialCopy = isEnglishPage
       appPromotionEyebrow: 'Get Pocket Genes',
       appPromotionTitle: 'Available for iPhone and Android.',
       appPromotionBody: 'Download Pocket Genes from the App Store or Google Play.',
+      shareTitle: 'Share',
+      shareFacebook: 'Share on Facebook',
+      shareX: 'Share on X',
+      shareInstagram: 'Copy text and open Instagram',
+      shareWhatsapp: 'Share on WhatsApp',
+      shareLinkedin: 'Share on LinkedIn',
+      shareTelegram: 'Share on Telegram',
+      shareCopied: 'Share text copied',
     }
   : {
       layoutTitle: 'Abrir en Pocket Genes',
@@ -76,6 +84,14 @@ const initialCopy = isEnglishPage
       appPromotionEyebrow: 'Descargá Pocket Genes',
       appPromotionTitle: 'Disponible para iPhone y Android.',
       appPromotionBody: 'Descargá Pocket Genes desde la App Store o Google Play.',
+      shareTitle: 'Compartir',
+      shareFacebook: 'Compartir en Facebook',
+      shareX: 'Compartir en X',
+      shareInstagram: 'Copiar texto y abrir Instagram',
+      shareWhatsapp: 'Compartir por WhatsApp',
+      shareLinkedin: 'Compartir en LinkedIn',
+      shareTelegram: 'Compartir en Telegram',
+      shareCopied: 'Texto para compartir copiado',
     };
 ---
 
@@ -171,6 +187,42 @@ const initialCopy = isEnglishPage
         </aside>
         <div class="event-copy" data-preview-body-shell hidden>
           <div class="shared-preview-body" data-preview-body hidden></div>
+          <section class="shared-preview-share" data-preview-share hidden>
+            <h2>{initialCopy.shareTitle}</h2>
+            <div class="shared-preview-share-actions" aria-label={initialCopy.shareTitle}>
+              <a class="shared-preview-share-link" data-share-platform="facebook" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareFacebook} title={initialCopy.shareFacebook}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15.5 8.2h-2.1c-.7 0-1 .3-1 1v1.5h2.9l-.4 3h-2.5V21H9.3v-7.3H7v-3h2.3V8.8c0-2.5 1.5-3.8 3.7-3.8 1.1 0 2 .1 2.5.2v3Z" />
+                </svg>
+              </a>
+              <a class="shared-preview-share-link" data-share-platform="x" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareX} title={initialCopy.shareX}>
+                <span aria-hidden="true">X</span>
+              </a>
+              <a class="shared-preview-share-link" data-share-platform="instagram" href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareInstagram} title={initialCopy.shareInstagram}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="5" y="5" width="14" height="14" rx="4" />
+                  <circle cx="12" cy="12" r="3.1" />
+                  <circle cx="16.3" cy="7.8" r=".8" />
+                </svg>
+              </a>
+              <a class="shared-preview-share-link" data-share-platform="whatsapp" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareWhatsapp} title={initialCopy.shareWhatsapp}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6.7 18.1 5.4 21l3.1-1.1a8.1 8.1 0 1 0-1.8-1.8Z" />
+                  <path d="M9.5 8.8c.2-.4.4-.4.7-.4h.5c.2 0 .4.1.5.4l.7 1.6c.1.3 0 .5-.1.6l-.4.5c-.1.1-.2.3-.1.5.3.7 1.4 1.8 2.3 2.2.2.1.4.1.5-.1l.6-.7c.2-.2.4-.2.7-.1l1.5.7c.3.1.4.3.4.5 0 .7-.6 1.7-1.5 1.7-.8 0-2.6-.5-4.3-2.1-1.7-1.6-2.7-3.5-2.7-4.4 0-.5.3-1 .4-1.4Z" />
+                </svg>
+              </a>
+              <a class="shared-preview-share-link" data-share-platform="linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareLinkedin} title={initialCopy.shareLinkedin}>
+                <span aria-hidden="true">in</span>
+              </a>
+              <a class="shared-preview-share-link" data-share-platform="telegram" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareTelegram} title={initialCopy.shareTelegram}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 5 4.8 11.1c-.9.4-.9 1.1 0 1.4l3.8 1.2 1.5 4.5c.3.8.8.9 1.3.3l2.1-2.3 4 2.9c.7.5 1.2.2 1.4-.7L21 6c.2-.9-.3-1.3-1-.9Z" />
+                  <path d="m8.8 13.5 8-5.1-6.2 6.2-.2 2.8" />
+                </svg>
+              </a>
+            </div>
+            <p class="shared-preview-share-status" data-preview-share-status hidden>{initialCopy.shareCopied}</p>
+          </section>
         </div>
         <div class="shared-preview-sections" data-preview-sections hidden>
           <section class="shared-preview-section" data-preview-categories-section hidden>
@@ -230,6 +282,8 @@ const initialCopy = isEnglishPage
   const hero = document.querySelector('[data-app-link-hero]');
   const breadcrumb = document.querySelector('[data-preview-breadcrumb]');
   const appPromotion = document.querySelector('[data-app-promotion]');
+  const shareSection = preview?.querySelector('[data-preview-share]');
+  const shareStatus = preview?.querySelector('[data-preview-share-status]');
   const isEnglish = pageLang === 'en';
 
   const copy = isEnglish
@@ -268,6 +322,8 @@ const initialCopy = isEnglishPage
         geneticReportProvider: 'Genetic report provider',
         highlighted: 'Highlighted organization',
         socialLinks: 'Social links',
+        shareCopied: 'Share text copied',
+        shareText: (title) => `Read this on Pocket Genes: ${title}`,
         publication: {
           detailsTitle: 'Key details',
           yes: 'Yes',
@@ -593,6 +649,8 @@ const initialCopy = isEnglishPage
         geneticReportProvider: 'Proveedor de reportes genéticos',
         highlighted: 'Organización destacada',
         socialLinks: 'Redes sociales',
+        shareCopied: 'Texto para compartir copiado',
+        shareText: (title) => `Mirá esto en Pocket Genes: ${title}`,
         publication: {
           detailsTitle: 'Datos clave',
           yes: 'Sí',
@@ -1145,6 +1203,15 @@ const initialCopy = isEnglishPage
     kicker: copy.playStoreKicker,
     imageAlt: copy.googlePlayAlt,
     note: copy.playStoreNote,
+  });
+  shareSection?.querySelector('[data-share-platform="instagram"]')?.addEventListener('click', (event) => {
+    const text = shareSection?.dataset.shareText;
+    const target = event.currentTarget;
+    const href = target instanceof HTMLAnchorElement ? target.href : '';
+    if (!text || !href) return;
+    event.preventDefault();
+    copyShareText(text);
+    window.open(href, '_blank', 'noopener,noreferrer');
   });
   if (!contentId) {
     disableOpenAppLink(openLink);
@@ -2380,6 +2447,7 @@ const initialCopy = isEnglishPage
     setText('[data-preview-title]', data.title);
     setOptionalText('[data-preview-summary]', data.summary);
     renderBody(data.body);
+    renderShare(data, isFeedPreview && bodyHasContent(data.body));
     renderImage('[data-preview-banner]', data.bannerUrl);
     renderBanner(data.bannerUrl);
     renderImage('[data-preview-image]', data.imageUrl);
@@ -2446,6 +2514,57 @@ const initialCopy = isEnglishPage
         : plainTextBodyHtml(content.value);
     node.hidden = false;
     if (shell) shell.hidden = false;
+  }
+
+  function renderShare(data, isVisible) {
+    if (!shareSection) return;
+    shareSection.hidden = !isVisible;
+    if (!isVisible) {
+      delete shareSection.dataset.shareText;
+      return;
+    }
+
+    const url = currentShareUrl();
+    const titleText = cleanText(data.title) || 'Pocket Genes';
+    const text = copy.shareText(titleText);
+    const textWithUrl = `${text} ${url}`;
+    shareSection.dataset.shareText = textWithUrl;
+
+    const encodedUrl = encodeURIComponent(url);
+    const encodedText = encodeURIComponent(text);
+    const encodedTextWithUrl = encodeURIComponent(textWithUrl);
+    const targets = {
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`,
+      x: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
+      instagram: 'https://www.instagram.com/',
+      whatsapp: `https://wa.me/?text=${encodedTextWithUrl}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+      telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`,
+    };
+
+    shareSection.querySelectorAll('[data-share-platform]').forEach((link) => {
+      const platform = link.dataset.sharePlatform;
+      link.setAttribute('href', targets[platform] || url);
+    });
+    if (shareStatus) shareStatus.hidden = true;
+  }
+
+  function currentShareUrl() {
+    const url = new URL(window.location.href);
+    url.hash = '';
+    return url.toString();
+  }
+
+  function copyShareText(value) {
+    if (!value || !navigator.clipboard?.writeText) return;
+    navigator.clipboard.writeText(value).then(() => {
+      if (!shareStatus) return;
+      shareStatus.textContent = copy.shareCopied;
+      shareStatus.hidden = false;
+      window.setTimeout(() => {
+        shareStatus.hidden = true;
+      }, 2200);
+    }).catch(() => {});
   }
 
   function renderImage(selector, src) {
@@ -3944,6 +4063,8 @@ const initialCopy = isEnglishPage
   .event-cover[hidden],
   .publication-details[hidden],
   .event-copy[hidden],
+  .shared-preview-share[hidden],
+  .shared-preview-share-status[hidden],
   .shared-preview-badges[hidden] {
     display: none;
   }
@@ -4651,6 +4772,93 @@ const initialCopy = isEnglishPage
     color: #6b40b4;
     text-decoration: underline;
     text-underline-offset: 0.18em;
+  }
+
+  .shared-preview-share {
+    margin-top: 30px;
+    border-top: 1px solid #e9e5ed;
+    padding-top: 24px;
+  }
+
+  .shared-preview-share h2 {
+    margin: 0;
+    color: #292333;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: 0;
+  }
+
+  .shared-preview-share-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 13px;
+  }
+
+  .shared-preview-share-link {
+    display: inline-flex;
+    width: 42px;
+    height: 42px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e1dce8;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #514a58;
+    text-decoration: none;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .shared-preview-share-link:hover,
+  .shared-preview-share-link:focus-visible {
+    border-color: color-mix(in srgb, var(--shared-preview-accent) 42%, #e1dce8);
+    background: color-mix(in srgb, var(--shared-preview-accent) 9%, #ffffff);
+    color: var(--shared-preview-accent);
+    outline: none;
+    transform: translateY(-1px);
+  }
+
+  .shared-preview-share-link:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--shared-preview-accent) 22%, transparent);
+  }
+
+  .shared-preview-share-link svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+
+  .shared-preview-share-link[data-share-platform="facebook"] svg {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  .shared-preview-share-link span {
+    font-size: 15px;
+    font-weight: 720;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  .shared-preview-share-link[data-share-platform="linkedin"] span {
+    font-size: 14px;
+    text-transform: lowercase;
+  }
+
+  .shared-preview-share-status {
+    margin: 10px 0 0;
+    color: #706b79;
+    font-size: 12px;
+    line-height: 1.5;
   }
 
   .app-link-page.has-feed-preview .shared-preview--publication {
