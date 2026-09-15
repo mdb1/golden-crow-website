@@ -51,11 +51,11 @@ const initialCopy = isEnglishPage
       breadcrumbLabel: 'Shared content',
       breadcrumbDiscover: 'Discover',
       breadcrumbEvent: 'Event',
-      appPromotionTitle: 'Continue in Pocket Genes',
-      appPromotionBody: 'Open the event in the app or download Pocket Genes for your phone.',
-      compactAppStore: 'App Store',
-      compactPlayStore: 'Google Play',
-      compactOpenApp: 'Open app',
+      appPromotionEyebrow: 'Get Pocket Genes',
+      appPromotionTitle: 'Available for iPhone and Android.',
+      appPromotionBody: 'Download Pocket Genes from the App Store or Google Play.',
+      downloadIphone: 'Download for iPhone',
+      downloadAndroid: 'Download for Android',
     }
   : {
       layoutTitle: 'Abrir en Pocket Genes',
@@ -75,11 +75,11 @@ const initialCopy = isEnglishPage
       breadcrumbLabel: 'Contenido compartido',
       breadcrumbDiscover: 'Discover',
       breadcrumbEvent: 'Evento',
-      appPromotionTitle: 'Continuá en Pocket Genes',
-      appPromotionBody: 'Abrí el evento en la app o descargá Pocket Genes en tu teléfono.',
-      compactAppStore: 'App Store',
-      compactPlayStore: 'Google Play',
-      compactOpenApp: 'Abrir app',
+      appPromotionEyebrow: 'Descargá Pocket Genes',
+      appPromotionTitle: 'Disponible para iPhone y Android.',
+      appPromotionBody: 'Descargá Pocket Genes desde la App Store o Google Play.',
+      downloadIphone: 'Descargar para iPhone',
+      downloadAndroid: 'Descargar para Android',
     };
 ---
 
@@ -196,14 +196,20 @@ const initialCopy = isEnglishPage
         <div class="shared-preview-meta" data-preview-meta hidden></div>
       </article>
       <section class="app-link-promotion" data-app-promotion hidden>
-        <div>
+        <div class="app-link-promotion-copy">
+          <p class="pg-eyebrow">{initialCopy.appPromotionEyebrow}</p>
           <h2>{initialCopy.appPromotionTitle}</h2>
           <p>{initialCopy.appPromotionBody}</p>
         </div>
-        <div class="app-link-promotion-links">
-          <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">{initialCopy.compactAppStore}</a>
-          <a href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">{initialCopy.compactPlayStore}</a>
-          <a href={customSchemeBase} data-open-pocket-genes-compact>{initialCopy.compactOpenApp}</a>
+        <div class="app-link-promotion-actions">
+          <a class="app-link-promotion-store-app" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+            <span>{initialCopy.downloadIphone}</span>
+            <img src="/appStore.png" alt={initialCopy.appStoreAlt} />
+          </a>
+          <a class="app-link-promotion-store-app" href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">
+            <span>{initialCopy.downloadAndroid}</span>
+            <img src="/pocket-genes/google-play-badge.png" alt={initialCopy.googlePlayAlt} />
+          </a>
         </div>
       </section>
     </div>
@@ -230,7 +236,6 @@ const initialCopy = isEnglishPage
   const hero = document.querySelector('[data-app-link-hero]');
   const breadcrumb = document.querySelector('[data-preview-breadcrumb]');
   const appPromotion = document.querySelector('[data-app-promotion]');
-  const compactOpenLink = document.querySelector('[data-open-pocket-genes-compact]');
   const isEnglish = pageLang === 'en';
 
   const copy = isEnglish
@@ -708,7 +713,6 @@ const initialCopy = isEnglishPage
   });
   if (!contentId) {
     disableOpenAppLink(openLink);
-    disableOpenAppLink(compactOpenLink);
     setStatusMessage(copy.missing);
   } else {
     const query = `?id=${encodeURIComponent(contentId)}`;
@@ -719,7 +723,6 @@ const initialCopy = isEnglishPage
     const appURL = isAndroid ? androidIntent : customURL;
 
     enableOpenAppLink(openLink, appURL);
-    enableOpenAppLink(compactOpenLink, appURL);
 
     if (isMobile) {
       setStatusRetry(copy.openingPrefix, copy.retryLink, copy.openingSuffix);
@@ -3915,53 +3918,131 @@ const initialCopy = isEnglishPage
   }
 
   .app-link-page.has-event-preview .app-link-promotion {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, auto);
     align-items: center;
-    justify-content: space-between;
-    gap: 24px;
+    gap: 28px;
     margin-top: 40px;
-    border-top: 1px solid #e9e5ed;
-    padding-top: 23px;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #f8fbfc;
+    padding: 28px;
     text-align: left;
+  }
+
+  .app-link-page.has-event-preview .app-link-promotion .pg-eyebrow {
+    margin: 0 0 12px;
   }
 
   .app-link-page.has-event-preview .app-link-promotion h2 {
     margin: 0;
-    color: #292333;
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 1.4;
+    color: var(--pg-ink);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.12;
     letter-spacing: 0;
   }
 
-  .app-link-page.has-event-preview .app-link-promotion p {
-    margin: 3px 0 0;
-    color: #706b79;
-    font-size: 12px;
+  .app-link-page.has-event-preview .app-link-promotion p:not(.pg-eyebrow) {
+    margin: 12px 0 0;
+    color: var(--pg-ink-soft);
+    font-size: 1rem;
     font-weight: 400;
-    line-height: 1.6;
+    line-height: 1.55;
   }
 
-  .app-link-promotion-links {
+  .app-link-promotion-actions {
     display: flex;
-    align-items: center;
-    justify-content: flex-end;
     flex-wrap: wrap;
     gap: 12px;
+    justify-content: flex-end;
     min-width: 0;
   }
 
-  .app-link-promotion-links a {
-    color: #c52f6d;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.6;
+  .app-link-promotion-store-app {
+    position: relative;
+    isolation: isolate;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 74px;
+    min-width: 280px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: var(--pg-ink);
+    color: #ffffff;
+    padding: 12px 14px;
+    font: inherit;
     text-decoration: none;
+    box-shadow: 0 12px 26px rgba(23, 32, 51, 0.16);
+    transition:
+      transform 220ms ease,
+      box-shadow 220ms ease,
+      background 220ms ease;
   }
 
-  .app-link-promotion-links a:hover,
-  .app-link-promotion-links a:focus-visible {
-    color: #6b40b4;
+  .app-link-promotion-store-app::before {
+    content: "";
+    position: absolute;
+    inset: -45% -70%;
+    z-index: 0;
+    background: linear-gradient(
+      110deg,
+      transparent 36%,
+      rgba(255, 255, 255, 0.16) 45%,
+      rgba(255, 255, 255, 0.46) 50%,
+      rgba(255, 255, 255, 0.16) 55%,
+      transparent 64%
+    );
+    transform: translateX(-60%) rotate(4deg);
+    transition: transform 620ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .app-link-promotion-store-app:hover,
+  .app-link-promotion-store-app:focus-visible {
+    background: #26384a;
+    transform: translateY(-5px);
+    box-shadow: 0 22px 48px rgba(23, 32, 51, 0.26);
+  }
+
+  .app-link-promotion-store-app:hover::before,
+  .app-link-promotion-store-app:focus-visible::before {
+    transform: translateX(62%) rotate(4deg);
+  }
+
+  .app-link-promotion-store-app:focus-visible {
+    outline: 3px solid rgba(228, 80, 128, 0.34);
+    outline-offset: 4px;
+  }
+
+  .app-link-promotion-store-app:active {
+    transform: translateY(-2px) scale(0.99);
+  }
+
+  .app-link-promotion-store-app span,
+  .app-link-promotion-store-app img {
+    position: relative;
+    z-index: 1;
+  }
+
+  .app-link-promotion-store-app span {
+    font-weight: 850;
+  }
+
+  .app-link-promotion-store-app img {
+    width: 132px;
+    height: auto;
+  }
+
+  @container (max-width: 1040px) {
+    .app-link-page.has-event-preview .app-link-promotion {
+      grid-template-columns: 1fr;
+    }
+
+    .app-link-promotion-actions {
+      justify-content: flex-start;
+    }
   }
 
   @container (max-width: 900px) {
@@ -4046,14 +4127,22 @@ const initialCopy = isEnglishPage
     }
 
     .app-link-page.has-event-preview .app-link-promotion {
-      flex-direction: column;
-      align-items: flex-start;
+      grid-template-columns: 1fr;
       gap: 13px;
       margin-top: 30px;
     }
 
-    .app-link-promotion-links {
+    .app-link-promotion-actions {
       justify-content: flex-start;
+    }
+
+    .app-link-promotion-actions,
+    .app-link-promotion-store-app {
+      width: 100%;
+    }
+
+    .app-link-promotion-store-app {
+      justify-content: space-between;
     }
   }
 </style>
