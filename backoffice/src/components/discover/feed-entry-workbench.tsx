@@ -1,11 +1,27 @@
 "use client";
 
 import Link from "next/link";
+import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import Color from "@tiptap/extension-color";
+import Highlight from "@tiptap/extension-highlight";
+import StarterKit from "@tiptap/starter-kit";
+import { Table } from "@tiptap/extension-table";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
+import TableRow from "@tiptap/extension-table-row";
+import TaskItem from "@tiptap/extension-task-item";
+import TaskList from "@tiptap/extension-task-list";
+import TextAlign from "@tiptap/extension-text-align";
+import { TextStyle } from "@tiptap/extension-text-style";
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
   ArrowLeft,
   Bold,
   CalendarDays,
@@ -17,6 +33,7 @@ import {
   DollarSign,
   ExternalLink,
   Heading2,
+  Highlighter,
   ImageIcon,
   Info,
   Italic,
@@ -24,19 +41,31 @@ import {
   Link2,
   LinkIcon,
   List,
+  ListChecks,
+  ListOrdered,
   Loader2,
   MapPin,
+  Minus,
   Newspaper,
+  Palette,
   Pencil,
   Plus,
   Quote,
+  Redo2,
+  RemoveFormatting,
   RotateCcw,
+  Rows3,
   Save,
   Search,
   Send,
   Settings2,
+  Strikethrough,
+  Table2,
   Trash2,
   Type,
+  Underline,
+  Undo2,
+  Unlink,
   UploadCloud,
   Users,
   X,
@@ -1866,6 +1895,625 @@ function SectionTitle({
   );
 }
 
+type RichTextBlockStyle = "paragraph" | "heading1" | "heading2" | "heading3" | "codeBlock";
+
+const RICH_TEXT_BLOCK_STYLES: readonly {
+  value: RichTextBlockStyle;
+  label: string;
+}[] = [
+  { value: "paragraph", label: "Paragraph" },
+  { value: "heading1", label: "Heading 1" },
+  { value: "heading2", label: "Heading 2" },
+  { value: "heading3", label: "Heading 3" },
+  { value: "codeBlock", label: "Code block" },
+];
+
+const RICH_TEXT_COLORS = [
+  { label: "Default text color", value: "" },
+  { label: "Ink", value: "#1F2937" },
+  { label: "Purple", value: "#6D28D9" },
+  { label: "Blue", value: "#2563EB" },
+  { label: "Green", value: "#047857" },
+  { label: "Amber", value: "#B45309" },
+  { label: "Red", value: "#DC2626" },
+] as const;
+
+const RICH_TEXT_HIGHLIGHTS = [
+  { label: "Clear highlight", value: "" },
+  { label: "Soft yellow", value: "#FEF3C7" },
+  { label: "Soft green", value: "#D1FAE5" },
+  { label: "Soft blue", value: "#DBEAFE" },
+  { label: "Soft purple", value: "#EDE9FE" },
+] as const;
+
+function richTextContent(value: string) {
+  return value.trim() ? value : "<p></p>";
+}
+
+function currentRichTextBlockStyle(editor: Editor): RichTextBlockStyle {
+  if (editor.isActive("heading", { level: 1 })) {
+    return "heading1";
+  }
+  if (editor.isActive("heading", { level: 2 })) {
+    return "heading2";
+  }
+  if (editor.isActive("heading", { level: 3 })) {
+    return "heading3";
+  }
+  if (editor.isActive("codeBlock")) {
+    return "codeBlock";
+  }
+  return "paragraph";
+}
+
+function applyRichTextBlockStyle(editor: Editor, style: RichTextBlockStyle) {
+  const chain = editor.chain().focus();
+
+  if (style === "heading1") {
+    chain.toggleHeading({ level: 1 }).run();
+    return;
+  }
+  if (style === "heading2") {
+    chain.toggleHeading({ level: 2 }).run();
+    return;
+  }
+  if (style === "heading3") {
+    chain.toggleHeading({ level: 3 }).run();
+    return;
+  }
+  if (style === "codeBlock") {
+    chain.toggleCodeBlock().run();
+    return;
+  }
+
+  chain.setParagraph().run();
+}
+
+function RichEditorButton({
+  label,
+  active = false,
+  disabled = false,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      title={label}
+      aria-label={label}
+      aria-pressed={active || undefined}
+      disabled={disabled}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onClick}
+      className={cn(
+        "rounded-md border border-transparent text-slate-600 hover:border-violet-200 hover:bg-white hover:text-violet-800 dark:text-slate-300 dark:hover:border-violet-300/20 dark:hover:bg-slate-900",
+        active &&
+          "border-violet-300 bg-violet-600 text-white shadow-sm hover:bg-violet-600 hover:text-white dark:border-violet-300/40 dark:bg-violet-500 dark:hover:bg-violet-500",
+      )}
+    >
+      {children}
+    </Button>
+  );
+}
+
+function RichToolbarDivider() {
+  return (
+    <span className="mx-1 h-7 w-px bg-violet-100 dark:bg-violet-400/18" />
+  );
+}
+
+function RichTextHtmlEditor({
+  value,
+  onChange,
+  onInvalidLink,
+  t,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onInvalidLink: (message: string) => void;
+  t: (text: string) => string;
+}) {
+  const onChangeRef = useRef(onChange);
+  const [, rerenderToolbar] = useState(0);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  const editor = useEditor(
+    {
+      immediatelyRender: false,
+      extensions: [
+        StarterKit.configure({
+          heading: {
+            levels: [1, 2, 3],
+          },
+          link: {
+            autolink: true,
+            defaultProtocol: "https",
+            linkOnPaste: true,
+            openOnClick: false,
+            HTMLAttributes: {
+              rel: "noopener noreferrer",
+              target: "_blank",
+            },
+          },
+        }),
+        TextStyle,
+        Color,
+        Highlight.configure({
+          multicolor: true,
+        }),
+        TextAlign.configure({
+          types: ["heading", "paragraph"],
+        }),
+        TaskList,
+        TaskItem.configure({
+          nested: true,
+        }),
+        Table.configure({
+          resizable: true,
+        }),
+        TableRow,
+        TableHeader,
+        TableCell,
+      ],
+      content: richTextContent(value),
+      editorProps: {
+        attributes: {
+          class:
+            "min-h-[24rem] px-5 py-4 text-base leading-7 outline-none focus-visible:ring-0",
+        },
+      },
+      onSelectionUpdate: () => rerenderToolbar((revision) => revision + 1),
+      onTransaction: () => rerenderToolbar((revision) => revision + 1),
+      onUpdate: ({ editor }) => {
+        onChangeRef.current(editor.getHTML());
+      },
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    const nextContent = richTextContent(value);
+    if (editor.getHTML() !== nextContent) {
+      editor.commands.setContent(nextContent, { emitUpdate: false });
+    }
+  }, [editor, value]);
+
+  if (!editor) {
+    return (
+      <div className="min-h-[24rem] rounded-xl border border-violet-200/75 bg-white shadow-sm dark:border-violet-400/18 dark:bg-slate-950/45" />
+    );
+  }
+
+  const richEditor = editor;
+  const hasLink = richEditor.isActive("link");
+  const hasTable = richEditor.isActive("table");
+  const canUndo = richEditor.can().undo();
+  const canRedo = richEditor.can().redo();
+
+  function createOrUpdateLink() {
+    const previousUrl = richEditor.getAttributes("link").href;
+    const url = window.prompt(t("Paste a HTTPS URL"), previousUrl || "https://");
+    if (url === null) {
+      return;
+    }
+
+    const normalized = url.trim();
+    if (!normalized) {
+      richEditor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+
+    try {
+      const parsed = new URL(normalized);
+      if (parsed.protocol !== "https:") {
+        throw new Error("HTTPS required");
+      }
+      richEditor
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href: parsed.toString() })
+        .run();
+    } catch {
+      onInvalidLink(t("Links must use a valid HTTPS URL."));
+    }
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-violet-200/75 bg-white shadow-sm dark:border-violet-400/18 dark:bg-slate-950/45">
+      <div className="flex flex-wrap items-center gap-1 border-b border-violet-100/80 bg-violet-50/55 px-2 py-2 dark:border-violet-400/14 dark:bg-violet-500/8">
+        <div className="relative">
+          <select
+            aria-label={t("Block style")}
+            value={currentRichTextBlockStyle(editor)}
+            onChange={(event) =>
+              applyRichTextBlockStyle(
+                editor,
+                event.target.value as RichTextBlockStyle,
+              )
+            }
+            className="h-7 min-w-32 appearance-none rounded-md border border-violet-100 bg-white px-2 pr-7 text-xs font-medium text-slate-700 outline-none transition-colors hover:border-violet-200 focus:border-violet-300 focus:ring-2 focus:ring-violet-500/15 dark:border-violet-300/18 dark:bg-slate-950 dark:text-slate-200"
+          >
+            {RICH_TEXT_BLOCK_STYLES.map((option) => (
+              <option key={option.value} value={option.value}>
+                {t(option.label)}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        </div>
+
+        <RichToolbarDivider />
+
+        <RichEditorButton
+          label={t("Bold")}
+          active={editor.isActive("bold")}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+        >
+          <Bold className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Italic")}
+          active={editor.isActive("italic")}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        >
+          <Italic className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Underline")}
+          active={editor.isActive("underline")}
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+        >
+          <Underline className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Strikethrough")}
+          active={editor.isActive("strike")}
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+        >
+          <Strikethrough className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Inline code")}
+          active={editor.isActive("code")}
+          onClick={() => editor.chain().focus().toggleCode().run()}
+        >
+          <Code2 className="h-4 w-4" />
+        </RichEditorButton>
+
+        <RichToolbarDivider />
+
+        <div className="flex items-center gap-0.5 rounded-md border border-violet-100 bg-white/80 px-1 py-0.5 dark:border-violet-300/16 dark:bg-slate-950/70">
+          <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+          {RICH_TEXT_COLORS.map((color) => (
+            <button
+              key={color.label}
+              type="button"
+              title={t(color.label)}
+              aria-label={t(color.label)}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                if (color.value) {
+                  editor.chain().focus().setColor(color.value).run();
+                } else {
+                  editor.chain().focus().unsetColor().run();
+                }
+              }}
+              className="h-5 w-5 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 dark:border-slate-700"
+              style={{
+                background: color.value || "linear-gradient(135deg, #111827 50%, #E5E7EB 50%)",
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="flex items-center gap-0.5 rounded-md border border-violet-100 bg-white/80 px-1 py-0.5 dark:border-violet-300/16 dark:bg-slate-950/70">
+          <Highlighter className="h-3.5 w-3.5 text-muted-foreground" />
+          {RICH_TEXT_HIGHLIGHTS.map((highlight) => (
+            <button
+              key={highlight.label}
+              type="button"
+              title={t(highlight.label)}
+              aria-label={t(highlight.label)}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                if (highlight.value) {
+                  editor
+                    .chain()
+                    .focus()
+                    .toggleHighlight({ color: highlight.value })
+                    .run();
+                } else {
+                  editor.chain().focus().unsetHighlight().run();
+                }
+              }}
+              className="h-5 w-5 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 dark:border-slate-700"
+              style={{
+                background:
+                  highlight.value ||
+                  "linear-gradient(135deg, #FDE68A 0 45%, #FFFFFF 45% 55%, #CBD5E1 55%)",
+              }}
+            />
+          ))}
+        </div>
+
+        <RichToolbarDivider />
+
+        <RichEditorButton
+          label={t("Bulleted list")}
+          active={editor.isActive("bulletList")}
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+        >
+          <List className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Ordered list")}
+          active={editor.isActive("orderedList")}
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        >
+          <ListOrdered className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Task list")}
+          active={editor.isActive("taskList")}
+          onClick={() => editor.chain().focus().toggleTaskList().run()}
+        >
+          <ListChecks className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Quote")}
+          active={editor.isActive("blockquote")}
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        >
+          <Quote className="h-4 w-4" />
+        </RichEditorButton>
+
+        <RichToolbarDivider />
+
+        <RichEditorButton
+          label={t("Align left")}
+          active={editor.isActive({ textAlign: "left" })}
+          onClick={() => editor.chain().focus().setTextAlign("left").run()}
+        >
+          <AlignLeft className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Align center")}
+          active={editor.isActive({ textAlign: "center" })}
+          onClick={() => editor.chain().focus().setTextAlign("center").run()}
+        >
+          <AlignCenter className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Align right")}
+          active={editor.isActive({ textAlign: "right" })}
+          onClick={() => editor.chain().focus().setTextAlign("right").run()}
+        >
+          <AlignRight className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Justify")}
+          active={editor.isActive({ textAlign: "justify" })}
+          onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+        >
+          <AlignJustify className="h-4 w-4" />
+        </RichEditorButton>
+
+        <RichToolbarDivider />
+
+        <RichEditorButton label={t("Link")} active={hasLink} onClick={createOrUpdateLink}>
+          <LinkIcon className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Unlink")}
+          disabled={!hasLink}
+          onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()}
+        >
+          <Unlink className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Divider")}
+          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+        >
+          <Minus className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Hard break")}
+          onClick={() => editor.chain().focus().setHardBreak().run()}
+        >
+          <Rows3 className="h-4 w-4" />
+        </RichEditorButton>
+
+        <RichToolbarDivider />
+
+        <RichEditorButton
+          label={t("Add table")}
+          onClick={() =>
+            editor
+              .chain()
+              .focus()
+              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+              .run()
+          }
+        >
+          <Table2 className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Add column before")}
+          disabled={!hasTable}
+          onClick={() => editor.chain().focus().addColumnBefore().run()}
+        >
+          <ColumnsBeforeIcon />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Add column after")}
+          disabled={!hasTable}
+          onClick={() => editor.chain().focus().addColumnAfter().run()}
+        >
+          <ColumnsAfterIcon />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Add row before")}
+          disabled={!hasTable}
+          onClick={() => editor.chain().focus().addRowBefore().run()}
+        >
+          <RowsBeforeIcon />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Add row after")}
+          disabled={!hasTable}
+          onClick={() => editor.chain().focus().addRowAfter().run()}
+        >
+          <RowsAfterIcon />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Delete column")}
+          disabled={!hasTable}
+          onClick={() => editor.chain().focus().deleteColumn().run()}
+        >
+          <ColumnsDeleteIcon />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Delete row")}
+          disabled={!hasTable}
+          onClick={() => editor.chain().focus().deleteRow().run()}
+        >
+          <RowsDeleteIcon />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Delete table")}
+          disabled={!hasTable}
+          onClick={() => editor.chain().focus().deleteTable().run()}
+        >
+          <X className="h-4 w-4" />
+        </RichEditorButton>
+
+        <RichToolbarDivider />
+
+        <RichEditorButton
+          label={t("Undo")}
+          disabled={!canUndo}
+          onClick={() => editor.chain().focus().undo().run()}
+        >
+          <Undo2 className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Redo")}
+          disabled={!canRedo}
+          onClick={() => editor.chain().focus().redo().run()}
+        >
+          <Redo2 className="h-4 w-4" />
+        </RichEditorButton>
+        <RichEditorButton
+          label={t("Clear formatting")}
+          onClick={() =>
+            editor.chain().focus().unsetAllMarks().clearNodes().unsetTextAlign().run()
+          }
+        >
+          <RemoveFormatting className="h-4 w-4" />
+        </RichEditorButton>
+      </div>
+
+      <div
+        className={cn(
+          "max-w-none text-slate-900 dark:text-slate-100",
+          "[&_.ProseMirror>*:first-child]:mt-0 [&_.ProseMirror>*:last-child]:mb-0",
+          "[&_.ProseMirror_a]:text-violet-700 [&_.ProseMirror_a]:underline [&_.ProseMirror_a]:underline-offset-2 dark:[&_.ProseMirror_a]:text-violet-300",
+          "[&_.ProseMirror_blockquote]:my-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-violet-300 [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:text-slate-600 dark:[&_.ProseMirror_blockquote]:text-slate-300",
+          "[&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:bg-slate-100 [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:font-mono [&_.ProseMirror_code]:text-sm dark:[&_.ProseMirror_code]:bg-slate-800",
+          "[&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h1]:mt-7 [&_.ProseMirror_h1]:font-heading [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-semibold",
+          "[&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:font-heading [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-semibold",
+          "[&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_h3]:mt-5 [&_.ProseMirror_h3]:font-heading [&_.ProseMirror_h3]:text-xl [&_.ProseMirror_h3]:font-semibold",
+          "[&_.ProseMirror_hr]:my-6 [&_.ProseMirror_hr]:border-violet-100 dark:[&_.ProseMirror_hr]:border-violet-400/20",
+          "[&_.ProseMirror_li]:my-1 [&_.ProseMirror_ol]:my-4 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6 [&_.ProseMirror_ul]:my-4 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6",
+          "[&_.ProseMirror_pre]:my-4 [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_pre]:rounded-lg [&_.ProseMirror_pre]:bg-slate-950 [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:font-mono [&_.ProseMirror_pre]:text-sm [&_.ProseMirror_pre]:text-slate-100",
+          "[&_.ProseMirror_table]:my-4 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-slate-200 [&_.ProseMirror_td]:p-2 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-slate-200 [&_.ProseMirror_th]:bg-slate-50 [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:font-semibold dark:[&_.ProseMirror_td]:border-slate-700 dark:[&_.ProseMirror_th]:border-slate-700 dark:[&_.ProseMirror_th]:bg-slate-900",
+          "[&_.ProseMirror_p]:my-3 [&_.ProseMirror]:break-words",
+        )}
+      >
+        <EditorContent editor={editor} />
+      </div>
+    </div>
+  );
+}
+
+function ColumnsBeforeIcon() {
+  return (
+    <span className="grid h-4 w-4 grid-cols-3 gap-0.5" aria-hidden="true">
+      <span className="rounded-[1px] bg-current opacity-100" />
+      <span className="rounded-[1px] bg-current opacity-35" />
+      <span className="rounded-[1px] bg-current opacity-35" />
+    </span>
+  );
+}
+
+function ColumnsAfterIcon() {
+  return (
+    <span className="grid h-4 w-4 grid-cols-3 gap-0.5" aria-hidden="true">
+      <span className="rounded-[1px] bg-current opacity-35" />
+      <span className="rounded-[1px] bg-current opacity-35" />
+      <span className="rounded-[1px] bg-current opacity-100" />
+    </span>
+  );
+}
+
+function ColumnsDeleteIcon() {
+  return (
+    <span className="relative grid h-4 w-4 grid-cols-3 gap-0.5" aria-hidden="true">
+      <span className="rounded-[1px] bg-current opacity-35" />
+      <span className="rounded-[1px] bg-current opacity-100" />
+      <span className="rounded-[1px] bg-current opacity-35" />
+      <span className="absolute left-1/2 top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded bg-current" />
+    </span>
+  );
+}
+
+function RowsBeforeIcon() {
+  return (
+    <span className="grid h-4 w-4 grid-rows-3 gap-0.5" aria-hidden="true">
+      <span className="rounded-[1px] bg-current opacity-100" />
+      <span className="rounded-[1px] bg-current opacity-35" />
+      <span className="rounded-[1px] bg-current opacity-35" />
+    </span>
+  );
+}
+
+function RowsAfterIcon() {
+  return (
+    <span className="grid h-4 w-4 grid-rows-3 gap-0.5" aria-hidden="true">
+      <span className="rounded-[1px] bg-current opacity-35" />
+      <span className="rounded-[1px] bg-current opacity-35" />
+      <span className="rounded-[1px] bg-current opacity-100" />
+    </span>
+  );
+}
+
+function RowsDeleteIcon() {
+  return (
+    <span className="relative grid h-4 w-4 grid-rows-3 gap-0.5" aria-hidden="true">
+      <span className="rounded-[1px] bg-current opacity-35" />
+      <span className="rounded-[1px] bg-current opacity-100" />
+      <span className="rounded-[1px] bg-current opacity-35" />
+      <span className="absolute left-1/2 top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded bg-current" />
+    </span>
+  );
+}
+
 export function DiscoverFeedEntryWorkbench({
   feedItem,
   mode = "edit",
@@ -1890,7 +2538,6 @@ export function DiscoverFeedEntryWorkbench({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const router = useRouter();
-  const richEditorRef = useRef<HTMLDivElement | null>(null);
   const coverImageUploadInputRef = useRef<HTMLInputElement | null>(null);
   const coverImageUploadTokenRef = useRef(0);
   const [state, setState] = useState(() => {
@@ -1911,6 +2558,7 @@ export function DiscoverFeedEntryWorkbench({
     }
     return initialState;
   });
+  const plainBodyLockedRef = useRef(Boolean(state.body.trim()));
   const [bodyMode, setBodyMode] = useState<BodyMode>(
     feedItem?.htmlBody ? "rich" : "plain",
   );
@@ -2449,70 +3097,27 @@ export function DiscoverFeedEntryWorkbench({
     setBodyMode(nextMode);
     setState((current) => {
       if (nextMode === "rich" || nextMode === "html") {
-        const nextHtml = current.htmlBody || plainTextToHtml(current.body);
-        if (nextMode === "rich") {
-          window.requestAnimationFrame(() => {
-            if (richEditorRef.current) {
-              richEditorRef.current.innerHTML = nextHtml;
-            }
-          });
-        }
-        return {
-          ...current,
-          htmlBody: nextHtml,
-          body: htmlToPlainText(nextHtml),
-        };
+        const shouldSeedHtml = !current.htmlBody.trim() && current.body.trim();
+        return shouldSeedHtml
+          ? { ...current, htmlBody: plainTextToHtml(current.body) }
+          : current;
       }
 
-      const nextBody = current.body || htmlToPlainText(current.htmlBody);
-      return {
-        ...current,
-        body: nextBody,
-        htmlBody: "",
-      };
+      return current;
     });
   }
 
-  function syncRichBody() {
-    const html = richEditorRef.current?.innerHTML ?? "";
-    updateState({
-      htmlBody: html,
-      body: htmlToPlainText(html),
-    });
+  function updatePlainBody(value: string) {
+    plainBodyLockedRef.current = true;
+    updateState({ body: value });
   }
 
-  function updateRawHtmlBody(value: string) {
-    updateState({
+  function updateHtmlBody(value: string) {
+    setState((current) => ({
+      ...current,
       htmlBody: value,
-      body: htmlToPlainText(value),
-    });
-  }
-
-  function runRichCommand(command: string, value?: string) {
-    richEditorRef.current?.focus();
-    document.execCommand(command, false, value);
-    syncRichBody();
-  }
-
-  function createRichLink() {
-    const url = window.prompt(t("Paste a HTTPS URL"));
-    if (!url) {
-      return;
-    }
-
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== "https:") {
-        throw new Error("HTTPS required");
-      }
-      runRichCommand("createLink", parsed.toString());
-    } catch {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: t("Links must use a valid HTTPS URL."),
-      });
-    }
+      body: plainBodyLockedRef.current ? current.body : htmlToPlainText(value),
+    }));
   }
 
   async function loadMoreOrganizations() {
@@ -4815,7 +5420,7 @@ export function DiscoverFeedEntryWorkbench({
                 <Textarea
                   id="discover-feed-body"
                   value={state.body}
-                  onChange={(event) => updateState({ body: event.target.value })}
+                  onChange={(event) => updatePlainBody(event.target.value)}
                   rows={16}
                   className={`${publisherTextareaClass} min-h-[24rem] resize-y text-base leading-7`}
                 />
@@ -4824,50 +5429,33 @@ export function DiscoverFeedEntryWorkbench({
                   id="discover-feed-html-body"
                   aria-label={t("HTML raw")}
                   value={state.htmlBody}
-                  onChange={(event) => updateRawHtmlBody(event.target.value)}
+                  onChange={(event) => updateHtmlBody(event.target.value)}
                   rows={16}
                   spellCheck={false}
                   className={`${publisherTextareaClass} min-h-[24rem] resize-y font-mono text-sm leading-6`}
                 />
               ) : (
-                <div className="overflow-hidden rounded-xl border border-violet-200/75 bg-white shadow-sm dark:border-violet-400/18 dark:bg-slate-950/45">
-                  <div className="flex flex-wrap gap-1 border-b border-violet-100/80 bg-violet-50/55 px-2 py-2 dark:border-violet-400/14 dark:bg-violet-500/8">
-                    <Button type="button" variant="ghost" size="icon-sm" title={t("Heading")} aria-label={t("Heading")} onClick={() => runRichCommand("formatBlock", "h2")}>
-                      <Heading2 className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" title={t("Bold")} aria-label={t("Bold")} onClick={() => runRichCommand("bold")}>
-                      <Bold className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" title={t("Italic")} aria-label={t("Italic")} onClick={() => runRichCommand("italic")}>
-                      <Italic className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" title={t("Bulleted list")} aria-label={t("Bulleted list")} onClick={() => runRichCommand("insertUnorderedList")}>
-                      <List className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" title={t("Quote")} aria-label={t("Quote")} onClick={() => runRichCommand("formatBlock", "blockquote")}>
-                      <Quote className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" title={t("Link")} aria-label={t("Link")} onClick={createRichLink}>
-                      <LinkIcon className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div
-                    ref={richEditorRef}
-                    contentEditable
-                    suppressContentEditableWarning
-                    onInput={syncRichBody}
-                    onBlur={syncRichBody}
-                    className="min-h-[24rem] px-5 py-4 text-base leading-7 outline-none prose-headings:font-heading [&_a]:text-violet-700 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-violet-300 [&_blockquote]:pl-4 [&_h2]:mb-3 [&_h2]:mt-5 [&_li]:ml-5 [&_ul]:list-disc"
-                    dangerouslySetInnerHTML={{
-                      __html: state.htmlBody || plainTextToHtml(state.body),
-                    }}
-                  />
-                </div>
+                <RichTextHtmlEditor
+                  value={state.htmlBody}
+                  onChange={updateHtmlBody}
+                  onInvalidLink={(message) =>
+                    setToast({
+                      id: Date.now(),
+                      tone: "error",
+                      message,
+                    })
+                  }
+                  t={t}
+                />
               )}
 
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
                 <span>{bodyCharacterCount.toLocaleString()} {t("characters")}</span>
-                <span>{bodyMode === "plain" ? t("Plain body will be stored as body.") : t("HTML will be sanitized before storage.")}</span>
+                <span>
+                  {bodyMode === "plain"
+                    ? t("Simple text and HTML body are saved separately.")
+                    : t("HTML body and simple text are saved separately.")}
+                </span>
               </div>
             </section>
 

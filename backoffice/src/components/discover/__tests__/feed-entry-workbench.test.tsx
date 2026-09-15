@@ -323,6 +323,95 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(body.body).not.toContain("<strong>");
   });
 
+  it("keeps raw HTML intact when moving between raw and rich text views", () => {
+    const rawHtml = [
+      "<h2>Novedades que se presentaran</h2>",
+      "<ul>",
+      "  <li>Carga de varios sintomas.</li>",
+      "  <li>Priorizacion de patologias.</li>",
+      "</ul>",
+      "<hr>",
+      "<blockquote>Diagnostico claro.</blockquote>",
+    ].join("\n");
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "HTML raw" }));
+    fireEvent.change(screen.getByLabelText("HTML raw"), {
+      target: { value: rawHtml },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Rich text" }));
+
+    expect(screen.getByLabelText("Block style")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ordered list" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Task list" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Divider" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Align center" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add table" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Clear formatting" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "HTML raw" }));
+
+    expect((screen.getByLabelText("HTML raw") as HTMLTextAreaElement).value).toBe(
+      rawHtml,
+    );
+  });
+
+  it("does not clear htmlBody when switching to simple text", async () => {
+    const rawHtml = "<p><strong>HTML independiente</strong></p><hr><ul><li>Uno</li></ul>";
+    const simpleBody = "Fallback simple independiente";
+    const { container } = render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="create"
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Publisher"), {
+      target: { value: "organization:org-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "HTML raw" }));
+    fireEvent.change(screen.getByLabelText("HTML raw"), {
+      target: { value: rawHtml },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Simple text" }));
+    fireEvent.change(container.querySelector("#discover-feed-body")!, {
+      target: { value: simpleBody },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "HTML raw" }));
+
+    expect((screen.getByLabelText("HTML raw") as HTMLTextAreaElement).value).toBe(
+      rawHtml,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items", {
+        method: "POST",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.htmlBody).toBe(rawHtml);
+    expect(body.body).toBe(simpleBody);
+  });
+
   it("shows cover image URL guidance and an example link", () => {
     render(
       <AppLanguageProvider initialLanguage="es" forcedLanguage="es">

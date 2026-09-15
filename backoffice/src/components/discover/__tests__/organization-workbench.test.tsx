@@ -811,7 +811,6 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
   });
 
   it("lets organization publishers edit the GRC banner after god mode highlights it", async () => {
-    const user = userEvent.setup();
     const highlightedOrganization: DiscoverOrganizationRecord = {
       ...organization,
       isGrcHighlighted: true,
@@ -829,14 +828,13 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     const bannerSection = screen.getByTestId(
       "discover-org-banner-image-section",
     );
-    await user.type(
-      within(bannerSection).getByLabelText("Banner image URL"),
-      "https://example.org/grc-banner.png",
-    );
+    fireEvent.change(within(bannerSection).getByLabelText("Banner image URL"), {
+      target: { value: "https://example.org/grc-banner.png" },
+    });
     expect(
       within(bannerSection).queryByLabelText("Upload banner file"),
     ).toBeNull();
-    await user.click(
+    fireEvent.click(
       within(bannerSection).getByRole("button", {
         name: "Clear banner image URL",
       }),
@@ -844,15 +842,14 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(
       within(bannerSection).getByLabelText("Upload banner file"),
     ).toBeTruthy();
-    await user.type(
-      within(bannerSection).getByLabelText("Banner image URL"),
-      "https://example.org/grc-banner.png",
-    );
+    fireEvent.change(within(bannerSection).getByLabelText("Banner image URL"), {
+      target: { value: "https://example.org/grc-banner.png" },
+    });
     expect(
       within(bannerSection).queryByLabelText("Upload banner file"),
     ).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
