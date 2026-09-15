@@ -193,7 +193,6 @@ const initialCopy = isEnglishPage
       </article>
       <section class="app-link-promotion" data-app-promotion hidden>
         <div class="app-link-promotion-copy">
-          <p class="pg-eyebrow">{initialCopy.appPromotionEyebrow}</p>
           <h2>{initialCopy.appPromotionTitle}</h2>
           <p>{initialCopy.appPromotionBody}</p>
         </div>
@@ -3986,16 +3985,16 @@ const initialCopy = isEnglishPage
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 72px;
-    min-width: 180px;
+    min-height: 50px;
+    min-width: 160px;
     overflow: hidden;
-    border-radius: 8px;
+    border-radius: 7px;
     background: var(--pg-ink);
     color: #ffffff;
-    padding: 12px 20px;
+    padding: 4px 10px;
     font: inherit;
     text-decoration: none;
-    box-shadow: 0 12px 26px rgba(23, 32, 51, 0.16);
+    box-shadow: 0 8px 18px rgba(23, 32, 51, 0.14);
     transition:
       transform 220ms ease,
       box-shadow 220ms ease,
@@ -4022,8 +4021,8 @@ const initialCopy = isEnglishPage
   .app-link-promotion-store-app:hover,
   .app-link-promotion-store-app:focus-visible {
     background: #26384a;
-    transform: translateY(-5px);
-    box-shadow: 0 22px 48px rgba(23, 32, 51, 0.26);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(23, 32, 51, 0.2);
   }
 
   .app-link-promotion-store-app:hover::before,
@@ -4037,7 +4036,7 @@ const initialCopy = isEnglishPage
   }
 
   .app-link-promotion-store-app:active {
-    transform: translateY(-2px) scale(0.99);
+    transform: translateY(-1px) scale(0.99);
   }
 
   .app-link-promotion-store-app img {
@@ -4046,7 +4045,7 @@ const initialCopy = isEnglishPage
   }
 
   .app-link-promotion-store-app img {
-    width: 142px;
+    width: 136px;
     height: auto;
   }
 
