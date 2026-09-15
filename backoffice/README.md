@@ -426,6 +426,91 @@ redeploying with build cache disabled:
 
 If any step fails, see the troubleshooting section of the 11-08 runbook.
 
+## Deploys and the stale-tab problem (#382)
+
+**Every production deploy invalidates every open tab's ability to save.**
+Next.js derives each Server Action's ID from a hash of the build, so a redeploy
+rotates them all and a tab opened beforehand posts an ID the server no longer
+knows:
+
+```
+Server Action "404583b2…" was not found on the server.
+```
+
+A coach hit that under a form they had already filled in. The only escape is a
+hard reload, which throws the form away — that is the actual injury, not the
+error text.
+
+Three things sit between a coach and that state. Two are in this repo.
+
+### 1. `vercel.json` → `scripts/vercel-ignore-build.sh`
+
+The Ignored Build Step. It aborts the build (exit **0** — Vercel's codes are
+inverted: 0 aborts, 1 builds) when a production commit changed nothing under
+`backoffice/`. A canceled build is never promoted, so the production alias
+keeps pointing at the deployment coaches already have open and no IDs rotate.
+
+Two things about it are easy to get wrong and both are silent:
+
+- **The `:(exclude)src/lib/app-version.ts` pathspec is the entire fix.**
+  `.githooks/pre-commit` runs `bump-sidebar-version.py` on EVERY commit in this
+  repo, so a plain "did `backoffice/` change?" test answers YES always. Drop the
+  exclusion and the file still reads like the problem is handled while nothing
+  is ever skipped. The trade is that the sidebar number lags a marketing-only
+  push — which is arguably right, since it then names the commit that actually
+  produced the running build (it is a repo-wide commit counter, not a version).
+- **It runs from the Root Directory** (`backoffice/`), so `.` means the
+  backoffice subtree. The script asserts this via `package.json` and builds on
+  any doubt, because the dangerous failure is a confident wrong "nothing
+  changed" that stops shipping the backoffice with every deploy looking green.
+
+`scripts/__tests__/vercel-ignore-build.test.ts` drives it through real throwaway
+git repos. Mutate the exclusion away and two cases go red.
+
+Note this only helps commits that leave `backoffice/` alone. The `discover`
+surface (MyDNAMap) lives in the same Next app, so its commits legitimately
+redeploy and rotate the IDs for coaches too. Splitting the projects is the only
+thing that would fix that, and it is not on the table.
+
+### 2. `StaleDeploymentBanner` (the floor)
+
+Mounted in `app/gc-fitness/layout.tsx`. Detects the unrecognized-action error —
+by class name, by Next's `E715` code, and by message, since any one of the three
+can be renamed — and shows a bar explaining the tab is old, with the reload on a
+button.
+
+**It deliberately does not reload by itself.** Losing the filled-in form is the
+reported injury; an automatic refresh causes it faster and every time. Call
+sites route their own `catch` through `noteIfStaleDeployment(err)` so they skip
+their "try again" toast: from a stale tab, every retry fails identically.
+
+### 3. Vercel Skew Protection — NOT ENABLED, needs a Pro plan
+
+This is the platform-level fix: Vercel keeps serving the matching deployment to
+older clients instead of breaking their actions. It is a project setting
+(**Settings → Advanced → Skew Protection**), not a `vercel.json` key.
+
+The `golden-crow` team is on **Hobby**, and the API rejects it:
+
+```
+PATCH /v9/projects/<id>  {"skewProtectionMaxAge": 86400}
+→ 400 invalid_billing_plan
+  "Skew Protection is only available for Pro and Enterprise plans."
+```
+
+So it is a billing decision ($20/user/month), not a toggle. If the team upgrades:
+enable the switch, confirm **Enable access to System Environment Variables** is
+on (it is), redeploy, and verify with
+
+```bash
+curl -s https://golden-crow-backoffice.vercel.app/login | grep -c 'dpl='
+```
+
+which must be non-zero — Next.js stamps `?dpl=<deployment id>` onto its asset
+URLs only when Skew Protection is live. It is currently `0`. Note the maximum
+age defaults to one day, so a tab left open over a weekend still lands on the
+banner above.
+
 ## GC Fitness — local operations runbook
 
 ### Local URLs

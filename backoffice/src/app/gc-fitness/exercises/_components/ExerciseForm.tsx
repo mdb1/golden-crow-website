@@ -22,6 +22,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+
+import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 import { useTranslations, useLocale } from "next-intl";
 
 import {
@@ -335,7 +337,10 @@ export function ExerciseForm({
         }
       } catch (err) {
         console.error("[exercise-form] save failed", err);
-        toast.error(t("saveFailedToast"));
+        // #382 — a stale tab after a redeploy. The layout banner owns that
+        // message; a "couldn't save, try again" toast on top of it would send
+        // the coach back into a retry that cannot work.
+        if (!noteIfStaleDeployment(err)) toast.error(t("saveFailedToast"));
       }
     });
   });
@@ -355,7 +360,7 @@ export function ExerciseForm({
       router.push(`/gc-fitness/exercises/${result.id}/edit`);
     } catch (err) {
       console.error("[exercise-form] duplicate failed", err);
-      toast.error(t("duplicateFailedToast"));
+      if (!noteIfStaleDeployment(err)) toast.error(t("duplicateFailedToast"));
     } finally {
       setDuplicating(false);
     }
@@ -376,7 +381,7 @@ export function ExerciseForm({
       router.push("/gc-fitness/exercises");
     } catch (err) {
       console.error("[exercise-form] delete failed", err);
-      toast.error(t("deleteFailedToast"));
+      if (!noteIfStaleDeployment(err)) toast.error(t("deleteFailedToast"));
     } finally {
       setDeleting(false);
     }

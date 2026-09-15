@@ -2395,5 +2395,11 @@
       "calves": "Gemelos",
       "adductors": "Aductores"
     }
+  },
+  "staleDeployment": {
+    "title": "Se publicó una versión nueva del backoffice",
+    "body": "Esta pestaña quedó en la versión anterior, así que guardar no va a funcionar hasta que recargues. Copiá lo que tengas sin guardar y después recargá.",
+    "reload": "Recargar",
+    "dismiss": "Ahora no"
   }
 }

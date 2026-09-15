@@ -7,6 +7,7 @@ import { ChatNotificationListener } from "@/components/gc-fitness/chat-notificat
 import { FirebaseTelemetryInit } from "@/components/gc-fitness/firebase-telemetry-init";
 import { GCFitnessShell } from "@/components/gc-fitness/gc-fitness-shell";
 import { GCFitnessShellProviders } from "@/components/gc-fitness/shell-providers";
+import { StaleDeploymentBanner } from "@/components/gc-fitness/stale-deployment-banner";
 import { TimezoneSync } from "@/components/gc-fitness/timezone-sync";
 import { birthdayNotificationCountForTrainer } from "@/lib/gc-fitness/birthday-notifications";
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
@@ -64,6 +65,12 @@ export default async function GCFitnessLayout({
       <TimezoneSync />
       <BodyThemeScope />
       <div className="gc-fitness-theme">
+        {/* #382 — a redeploy rotates every Server Action ID, so a tab opened
+            before it can no longer save. This watches for that error and offers
+            a reload on a button instead of letting the raw Next.js message land
+            under a half-filled form. INSIDE `.gc-fitness-theme` on purpose: the
+            design tokens it paints with are scoped to that class. */}
+        <StaleDeploymentBanner />
         <GCFitnessShellProviders>
           <ChatNotificationListener trainerUid={trainerUid} />
           <GCFitnessShell
