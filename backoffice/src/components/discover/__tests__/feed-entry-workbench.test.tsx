@@ -90,6 +90,33 @@ const organization: DiscoverOrganizationRecord = {
   updatedAt: "2026-08-02T00:00:00.000Z",
 };
 
+function makeFeedItem(
+  overrides: Partial<DiscoverFeedItemRecord> = {},
+): DiscoverFeedItemRecord {
+  return {
+    id: "feed-item",
+    publisherOrganizationId: "org-1",
+    publisherIndividualId: null,
+    publisherSnapshot: { name: "Publisher One", imageUrl: null },
+    type: "news",
+    publishedAt: null,
+    showInDiscoverFeed: false,
+    language: "en",
+    title: "Feed entry",
+    subtitle: "Entry summary",
+    body: "Entry body",
+    htmlBody: null,
+    imageUrl: null,
+    sourceUrl: null,
+    sourceButtonText: null,
+    status: "draft",
+    createdAt: "2026-09-01T00:00:00.000Z",
+    updatedAt: "2026-09-01T00:00:00.000Z",
+    news: { category: "", region: "" },
+    ...overrides,
+  } satisfies DiscoverFeedItemRecord;
+}
+
 describe("DiscoverFeedEntryWorkbench region picker", () => {
   beforeEach(() => {
     routerPush.mockClear();
@@ -608,6 +635,131 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     ) as Record<string, unknown>;
 
     expect(body.language).toBe("es");
+  });
+
+  it("keeps published out of manual status until first publish and publishes from edit action", async () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="edit"
+          feedItem={makeFeedItem({ id: "feed-draft" })}
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    const statusSelect = screen.getByLabelText(
+      "Publication status",
+    ) as HTMLSelectElement;
+    expect(statusSelect.value).toBe("draft");
+    expect(
+      within(statusSelect).queryByRole("option", { name: "Published" }),
+    ).toBeNull();
+
+    const firstPublishedInput = screen.getByLabelText(
+      "First published",
+    ) as HTMLInputElement;
+    expect(firstPublishedInput.value).toBe("Not published yet");
+    expect(firstPublishedInput.readOnly).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Publish to Discover" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items/feed-draft", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.status).toBe("published");
+    expect(typeof body.publishedAt).toBe("string");
+    expect(Number.isNaN(Date.parse(body.publishedAt as string))).toBe(false);
+  });
+
+  it("saves manual status changes without updating the first published date", async () => {
+    const firstPublishedAt = "2026-08-05T10:00:00.000Z";
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="edit"
+          feedItem={makeFeedItem({
+            id: "feed-published",
+            status: "published",
+            publishedAt: firstPublishedAt,
+          })}
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    const statusSelect = screen.getByLabelText(
+      "Publication status",
+    ) as HTMLSelectElement;
+    expect(
+      within(statusSelect).getByRole("option", { name: "Published" }),
+    ).toBeTruthy();
+
+    fireEvent.change(statusSelect, { target: { value: "archived" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/feed-items/feed-published",
+        {
+          method: "PUT",
+          body: expect.any(String),
+        },
+      );
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.status).toBe("archived");
+    expect(body.publishedAt).toBe(firstPublishedAt);
+  });
+
+  it("republishes previously published entries without changing publishedAt", async () => {
+    const firstPublishedAt = "2026-08-05T10:00:00.000Z";
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <DiscoverFeedEntryWorkbench
+          mode="edit"
+          feedItem={makeFeedItem({
+            id: "feed-archived",
+            status: "archived",
+            publishedAt: firstPublishedAt,
+          })}
+          initialOrganizations={[organization]}
+          initialOrganizationsNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Publish to Discover" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/feed-items/feed-archived", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+
+    const body = JSON.parse(
+      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
+    ) as Record<string, unknown>;
+
+    expect(body.status).toBe("published");
+    expect(body.publishedAt).toBe(firstPublishedAt);
   });
 
   it("loads legacy upcoming_event payloads and saves them as upcomingEvent", async () => {

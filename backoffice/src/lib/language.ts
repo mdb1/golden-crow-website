@@ -844,6 +844,13 @@ const SPANISH_TEXT: Record<string, string> = {
   Type: "Tipo",
   Language: "Idioma",
   "Show in Discover feed": "Mostrar en el feed de Discover",
+  "Publication status": "Estado de publicación",
+  "First published": "Primera publicación",
+  "Not published yet": "Aún no publicada",
+  "First publication date is locked once the entry has been published.":
+    "La fecha de primera publicación queda bloqueada una vez que la entrada fue publicada.",
+  "Published status is available only through Publish to Discover until this entry has a first published date.":
+    "El estado publicado solo está disponible mediante Publicar en Discover hasta que la entrada tenga una primera fecha de publicación.",
   "When enabled, this publication appears in the main Discover feed like any other item. When disabled, readers can still find it in the right place: events in the calendar, or other content in its category.":
     "Si está activo, la publicación aparece en el feed principal de Discover como cualquier otra entrada. Si está desactivado, las personas pueden encontrarla en su lugar correspondiente: eventos en el calendario, u otros contenidos en su categoría.",
   "Recommendation: publish first with this option off, verify that the publication looks right, then turn it on for the main Discover feed.":

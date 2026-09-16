@@ -103,10 +103,12 @@ import { sdkFetch } from "@/lib/sdk-client";
 import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
 import {
+  DISCOVER_FEED_STATUS_OPTIONS,
   DISCOVER_FEED_TYPES,
   DISCOVER_FEED_TYPE_OPTIONS,
   discoverFeedPayloadKey,
   discoverFeedTypeDefinition,
+  discoverStatusLabel,
   discoverTypeLabel,
   getDiscoverPayloadForType,
   stringFromPayload,
@@ -1403,6 +1405,27 @@ function payloadFromState(
   };
 }
 
+function editableStatusFromFeedItem(
+  item?: DiscoverFeedItemRecord,
+): DiscoverFeedStatus {
+  if (!item) {
+    return "draft";
+  }
+
+  if (!item.publishedAt && item.status === "published") {
+    return "draft";
+  }
+
+  return item.status;
+}
+
+function publishedAtDisplayValue(
+  publishedAt: string | null,
+  t: (text: string) => string,
+) {
+  return publishedAt ?? t("Not published yet");
+}
+
 function actionLogValue(value: unknown): unknown {
   if (typeof value === "string") {
     if (value.startsWith("data:image/")) {
@@ -2610,6 +2633,13 @@ export function DiscoverFeedEntryWorkbench({
       ),
   );
   const [persistedState, setPersistedState] = useState<FeedEntryFormState | null>(null);
+  const [manualStatus, setManualStatus] = useState<DiscoverFeedStatus>(() =>
+    editableStatusFromFeedItem(feedItem),
+  );
+  const [persistedStatus, setPersistedStatus] =
+    useState<DiscoverFeedStatus | undefined>(undefined);
+  const [persistedPublishedAt, setPersistedPublishedAt] =
+    useState<string | null | undefined>(undefined);
   const [publishedFeedItemId, setPublishedFeedItemId] = useState<string | null>(
     feedItem?.status === "published" ? feedItem.id : null,
   );
@@ -2632,6 +2662,15 @@ export function DiscoverFeedEntryWorkbench({
     return initialState;
   }, [feedItem, language, mode, scopedIndividualId, scopedOrganizationId]);
   const savedState = persistedState ?? sourceState;
+  const sourceStatus = editableStatusFromFeedItem(feedItem);
+  const savedStatus = persistedStatus ?? sourceStatus;
+  const editPublishedAt =
+    persistedPublishedAt !== undefined
+      ? persistedPublishedAt
+      : (feedItem?.publishedAt ?? null);
+  const statusOptions = DISCOVER_FEED_STATUS_OPTIONS.filter(
+    (option) => Boolean(editPublishedAt) || option.value !== "published",
+  );
   const selectedOrganization = organizations.find(
     (organization) => organization.id === state.publisherOrganizationId,
   );
@@ -2639,15 +2678,18 @@ export function DiscoverFeedEntryWorkbench({
     (individual) => individual.id === state.publisherIndividualId,
   );
   const selectedPublisher = selectedOrganization ?? selectedIndividual;
-  const changed = JSON.stringify(state) !== JSON.stringify(savedState);
+  const changed =
+    JSON.stringify(state) !== JSON.stringify(savedState) ||
+    (mode === "edit" && manualStatus !== savedStatus);
   const bodyCharacterCount = bodyMode === "plain"
     ? state.body.length
     : htmlToPlainText(state.htmlBody).length;
   const sourceUrlError = sourceUrlErrorFor(state.sourceUrl);
   const imageUrlError = imageUrlErrorFor(state.imageUrl);
-  const editStatus = feedItem?.status ?? "draft";
-  const editPublishedAt = feedItem?.publishedAt ?? null;
+  const editStatus = manualStatus;
   const isWorking = pending || deletePending || coverImageUploadPending;
+  const canPublishCurrentEntry =
+    mode === "edit" && Boolean(feedItem) && manualStatus !== "published";
   const canChangePublisher = !scopedOrganizationId && !scopedIndividualId;
   const hasMorePublishers = Boolean(
     (organizationsNextCursor || individualsNextCursor) && canChangePublisher,
@@ -2719,6 +2761,9 @@ export function DiscoverFeedEntryWorkbench({
 
   useEffect(() => {
     setPersistedState(null);
+    setPersistedStatus(undefined);
+    setPersistedPublishedAt(undefined);
+    setManualStatus(editableStatusFromFeedItem(feedItem));
     setPublishedFeedItemId(feedItem?.status === "published" ? feedItem.id : null);
     setMaxAttendanceLimitEnabled(
       Boolean(
@@ -3269,6 +3314,9 @@ export function DiscoverFeedEntryWorkbench({
           },
         );
         setPersistedState(state);
+        setPersistedStatus(status);
+        setManualStatus(status);
+        setPersistedPublishedAt(response.feedItem.publishedAt ?? publishedAt ?? null);
         setPublishedFeedItemId(status === "published" ? response.feedItem.id : null);
         router.refresh();
         return response.feedItem;
@@ -3286,6 +3334,9 @@ export function DiscoverFeedEntryWorkbench({
         },
       );
       setPersistedState(state);
+      setPersistedStatus(status);
+      setManualStatus(status);
+      setPersistedPublishedAt(response.feedItem.publishedAt ?? publishedAt ?? null);
       setPublishedFeedItemId(status === "published" ? response.feedItem.id : null);
       router.refresh();
       return response.feedItem;
@@ -3332,7 +3383,7 @@ export function DiscoverFeedEntryWorkbench({
 
   async function publish() {
     setPublishDialog({ status: "publishing" });
-    const publishedAt = new Date().toISOString();
+    const publishedAt = editPublishedAt ?? new Date().toISOString();
     const published = await persist("published", publishedAt);
     if (!published) {
       setPublishDialog({
@@ -5634,6 +5685,53 @@ export function DiscoverFeedEntryWorkbench({
               </span>
             </label>
           </div>
+          {mode === "edit" && feedItem ? (
+            <div className="mt-4 rounded-2xl border border-violet-200/80 bg-white/86 p-4 shadow-sm dark:border-violet-400/18 dark:bg-slate-950/38">
+              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(14rem,0.7fr)]">
+                <FieldShell
+                  label={t("Publication status")}
+                  htmlFor="discover-feed-status"
+                >
+                  <div className="relative">
+                    <select
+                      id="discover-feed-status"
+                      value={manualStatus}
+                      onChange={(event) =>
+                        setManualStatus(event.target.value as DiscoverFeedStatus)
+                      }
+                      disabled={isWorking}
+                      className={publisherSelectClass}
+                    >
+                      {statusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {t(discoverStatusLabel(option.value))}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className={publisherSelectCaretClass} />
+                  </div>
+                </FieldShell>
+
+                <FieldShell
+                  label={t("First published")}
+                  htmlFor="discover-feed-published-at"
+                >
+                  <Input
+                    id="discover-feed-published-at"
+                    value={publishedAtDisplayValue(editPublishedAt, t)}
+                    readOnly
+                    aria-readonly="true"
+                    className={`${publisherInputClass} font-mono text-xs`}
+                  />
+                </FieldShell>
+              </div>
+              <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                {editPublishedAt
+                  ? t("First publication date is locked once the entry has been published.")
+                  : t("Published status is available only through Publish to Discover until this entry has a first published date.")}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <div className="sticky bottom-0 z-20 border-t border-violet-100/80 bg-white/92 px-5 py-4 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur dark:border-violet-400/14 dark:bg-slate-950/88">
@@ -5653,27 +5751,45 @@ export function DiscoverFeedEntryWorkbench({
                 </a>
               </Button>
             ) : (
-              <Button
-                size="lg"
-                onClick={() => void (mode === "edit" ? saveChanges() : publish())}
-                disabled={isWorking}
-                className="h-14 min-w-[min(100%,22rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
-              >
-                {pending ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : mode === "edit" ? (
-                  <Save className="h-5 w-5" />
-                ) : (
-                  <UploadCloud className="h-5 w-5" />
-                )}
-                {mode === "edit"
-                  ? pending
-                    ? t("Saving...")
-                    : t("Save changes")
-                  : pending
-                    ? t("Publishing...")
-                    : t("Publish to Discover")}
-              </Button>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+                <Button
+                  size="lg"
+                  onClick={() => void (mode === "edit" ? saveChanges() : publish())}
+                  disabled={isWorking}
+                  className="h-14 min-w-[min(100%,14rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                >
+                  {pending ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : mode === "edit" ? (
+                    <Save className="h-5 w-5" />
+                  ) : (
+                    <UploadCloud className="h-5 w-5" />
+                  )}
+                  {mode === "edit"
+                    ? pending
+                      ? t("Saving...")
+                      : t("Save changes")
+                    : pending
+                      ? t("Publishing...")
+                      : t("Publish to Discover")}
+                </Button>
+                {canPublishCurrentEntry ? (
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => void publish()}
+                    disabled={isWorking}
+                    className="h-14 min-w-[min(100%,18rem)] justify-center rounded-xl border-violet-200/80 bg-white/82 text-base font-semibold text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-950 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+                  >
+                    {pending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <UploadCloud className="h-5 w-5" />
+                    )}
+                    {pending ? t("Publishing...") : t("Publish to Discover")}
+                  </Button>
+                ) : null}
+              </div>
             )}
           </div>
         </div>
