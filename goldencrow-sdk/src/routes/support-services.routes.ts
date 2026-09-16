@@ -110,14 +110,23 @@ const OutputSlotSchema = z.object({
   objectType: ObjectTypeSchema,
   mutationMode: MutationModeSchema,
 });
+const PricingModelSchema = z.enum([
+  "not_specified",
+  "free",
+  "fixed",
+  "calculated_after_submission",
+]);
 const CommercialTermsSchema = z.object({
-  price: z.object({
-    amount: z.coerce.number().min(0),
-    currency: z.string().trim().regex(/^[A-Z]{3}$/),
-    basis: z.string().trim().min(1).max(180),
-    isMock: z.boolean().optional(),
-  }),
-  turnaround: z.string().trim().min(1).max(180),
+  pricingModel: PricingModelSchema.optional(),
+  price: z
+    .object({
+      amount: z.coerce.number().min(0).optional(),
+      currency: z.string().trim().regex(/^[A-Z]{3}$/).optional(),
+      basis: z.string().trim().max(180).optional(),
+      isMock: z.boolean().optional(),
+    })
+    .optional(),
+  turnaround: z.string().trim().max(180).optional(),
   turnaroundStartsAt: z.string().trim().max(500).optional(),
   taxAndPaymentPolicy: z.string().trim().max(1000).optional(),
   failurePolicy: z.string().trim().max(1000).optional(),
@@ -152,12 +161,12 @@ const OfferBodySchema = z.object({
   description: z.string().trim().min(1).max(4000),
   shortContract: z.string().trim().max(500).optional(),
   providerWork: z.string().trim().min(1).max(4000),
-  formShape: FormShapeSchema,
+  formShape: FormShapeSchema.optional(),
   inputSlots: z.array(InputSlotSchema).max(50).optional(),
   outputSlots: z.array(OutputSlotSchema).min(1).max(50),
   acceptedConditions: z.array(z.string().trim().min(1).max(1000)).min(1).max(30),
   scopeRules: z.array(z.string().trim().min(1).max(1000)).min(1).max(30),
-  commercialTerms: CommercialTermsSchema,
+  commercialTerms: CommercialTermsSchema.optional(),
 });
 const TransactionBodySchema = z.object({
   requestId: RequestIdSchema,
@@ -166,7 +175,7 @@ const TransactionBodySchema = z.object({
   status: TransactionStatusSchema.optional(),
   requesterEmail: OptionalEmailSchema,
   subjectId: z.string().trim().max(160).optional(),
-  formRef: ObjectRefSchema,
+  formRef: ObjectRefSchema.nullable().optional(),
   inputs: z.array(TransactionSlotSchema).max(50).optional(),
   outputs: z.array(TransactionSlotSchema).max(50).optional(),
   notes: z.string().trim().max(4000).optional(),

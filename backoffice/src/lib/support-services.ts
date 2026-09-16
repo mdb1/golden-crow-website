@@ -29,6 +29,11 @@ export type SupportServiceOfferStatus =
 export type SupportServiceTransactionStatus =
   (typeof SUPPORT_SERVICE_TRANSACTION_STATUSES)[number]["value"];
 export type SupportServiceProviderKind = "organization" | "individual";
+export type SupportServicePricingModel =
+  | "not_specified"
+  | "free"
+  | "fixed"
+  | "calculated_after_submission";
 
 export const SUPPORT_SERVICE_FORM_FIELD_TYPES = [
   { value: "text", label: "Text" },
@@ -90,13 +95,14 @@ export interface SupportServiceOutputSlot {
 }
 
 export interface SupportServiceCommercialTerms {
-  price: {
-    amount: number;
-    currency: string;
-    basis: string;
+  pricingModel?: SupportServicePricingModel;
+  price?: {
+    amount?: number;
+    currency?: string;
+    basis?: string;
     isMock?: boolean;
   };
-  turnaround: string;
+  turnaround?: string;
   turnaroundStartsAt?: string;
   taxAndPaymentPolicy?: string;
   failurePolicy?: string;
@@ -125,10 +131,12 @@ export interface SupportServiceOfferInput {
 }
 
 export interface SupportServiceOfferRecord
-  extends Required<SupportServiceOfferInput> {
+  extends Required<Omit<SupportServiceOfferInput, "formShape" | "commercialTerms">> {
   id: string;
   schemaVersion: number;
   serviceVersion: string;
+  formShape?: SupportServiceFormShape;
+  commercialTerms?: SupportServiceCommercialTerms;
   stages: SupportServiceStage[];
   status: SupportServiceOfferStatus;
   normalizedName: string;
@@ -155,17 +163,18 @@ export interface SupportServiceTransactionInput {
   status?: SupportServiceTransactionStatus;
   requesterEmail?: string;
   subjectId?: string;
-  formRef: SupportServiceObjectRef;
+  formRef?: SupportServiceObjectRef | null;
   inputs?: SupportServiceTransactionSlot[];
   outputs?: SupportServiceTransactionSlot[];
   notes?: string;
 }
 
 export interface SupportServiceTransactionRecord
-  extends Required<SupportServiceTransactionInput> {
+  extends Required<Omit<SupportServiceTransactionInput, "formRef">> {
   id: string;
   schemaVersion: number;
   serviceVersion: string;
+  formRef: SupportServiceObjectRef | null;
   status: SupportServiceTransactionStatus;
   normalizedName: string;
   createdAt?: string;

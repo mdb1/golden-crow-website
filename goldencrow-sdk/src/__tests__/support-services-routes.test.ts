@@ -90,7 +90,15 @@ const validOfferPayload = {
   },
   inputSlots: [
     {
+      role: "form",
+      objectType: "pgo_form",
+      acceptedTypes: ["pgo_form"],
+      required: true,
+      cardinality: { min: 1, max: 1 },
+    },
+    {
       role: "test_order",
+      objectType: "pgo_test_order",
       acceptedTypes: ["pgo_test_order"],
       required: true,
       cardinality: { min: 1, max: 1 },
@@ -106,16 +114,8 @@ const validOfferPayload = {
   acceptedConditions: ["The order and result identify the same subject."],
   scopeRules: ["Respect the requested order scope."],
   commercialTerms: {
-    price: {
-      amount: 15000,
-      currency: "ARS",
-      basis: "per accepted request",
-      isMock: true,
-    },
+    pricingModel: "calculated_after_submission",
     turnaround: "1 business day",
-    turnaroundStartsAt: "accepted after required inputs are available",
-    taxAndPaymentPolicy: "Not specified",
-    failurePolicy: "Assess fulfillment and remaining usable outputs.",
   },
 };
 
@@ -180,6 +180,36 @@ describe("support service admin routes", () => {
     );
   });
 
+  it("creates a service offer without form shape or commercial terms", async () => {
+    const fastify = await buildTestServer();
+    const payload = {
+      ...validOfferPayload,
+      serviceId: "pgs_no_form_service",
+      formShape: undefined,
+      inputSlots: validOfferPayload.inputSlots.filter(
+        (slot) => slot.objectType !== "pgo_form",
+      ),
+      commercialTerms: undefined,
+    };
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload,
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
+      bootstrapContext,
+      expect.objectContaining({
+        serviceId: "pgs_no_form_service",
+      }),
+    );
+    const [, offerBody] = mockCreateSupportServiceOffer.mock.calls.at(-1) ?? [];
+    expect(offerBody).not.toHaveProperty("formShape");
+    expect(offerBody).not.toHaveProperty("commercialTerms");
+  });
+
   it("rejects service offers outside the pgs_* convention", async () => {
     const fastify = await buildTestServer();
 
@@ -235,7 +265,7 @@ describe("support service admin routes", () => {
     );
   });
 
-  it("creates a service transaction with a required form reference", async () => {
+  it("creates a service transaction with input object bindings", async () => {
     const fastify = await buildTestServer();
 
     const response = await fastify.inject({
@@ -246,11 +276,14 @@ describe("support service admin routes", () => {
         serviceId: "pgs_final_report",
         serviceVersion: "1.0.0",
         status: "submitted",
-        formRef: {
-          objectId: "obj_demo_form_final_report",
-          revision: 1,
-        },
         inputs: [
+          {
+            role: "form",
+            objectRef: {
+              objectId: "obj_demo_form_final_report",
+              revision: 1,
+            },
+          },
           {
             role: "test_order",
             objectRef: {
@@ -271,12 +304,16 @@ describe("support service admin routes", () => {
     expect(mockCreateSupportServiceTransaction).toHaveBeenCalledWith(
       bootstrapContext,
       expect.objectContaining({
-        formRef: {
-          objectId: "obj_demo_form_final_report",
-          revision: 1,
-        },
+        inputs: expect.arrayContaining([
+          expect.objectContaining({
+            role: "form",
+          }),
+        ]),
       }),
     );
+    const [, transactionBody] =
+      mockCreateSupportServiceTransaction.mock.calls.at(-1) ?? [];
+    expect(transactionBody).not.toHaveProperty("formRef");
   });
 
   it("returns a JSON success payload after deleting a service offer", async () => {

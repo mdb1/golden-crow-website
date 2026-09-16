@@ -48,6 +48,11 @@ export type SupportServiceOfferStatus =
 export type SupportServiceTransactionStatus =
   (typeof SUPPORT_SERVICE_TRANSACTION_STATUSES)[number];
 export type SupportServiceProviderKind = "organization" | "individual";
+export type SupportServicePricingModel =
+  | "not_specified"
+  | "free"
+  | "fixed"
+  | "calculated_after_submission";
 
 type ListOptions = {
   cursor?: string;
@@ -102,12 +107,12 @@ export interface SupportServiceOfferRecord {
   description: string;
   shortContract: string;
   providerWork: string;
-  formShape: Record<string, unknown>;
+  formShape?: Record<string, unknown>;
   inputSlots: Record<string, unknown>[];
   outputSlots: Record<string, unknown>[];
   acceptedConditions: string[];
   scopeRules: string[];
-  commercialTerms: Record<string, unknown>;
+  commercialTerms?: Record<string, unknown>;
   normalizedName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -179,6 +184,13 @@ const TRANSACTION_STATUS_SET = new Set<string>(
   SUPPORT_SERVICE_TRANSACTION_STATUSES,
 );
 const PROVIDER_KIND_SET = new Set<string>(["organization", "individual"]);
+const PRICING_MODEL_SET = new Set<string>([
+  "not_specified",
+  "free",
+  "fixed",
+  "calculated_after_submission",
+]);
+const FORM_OBJECT_TYPE = "pgo_form";
 
 function requireGodMode(context: AdminContext) {
   if (!context.isBootstrap) {
@@ -306,9 +318,14 @@ function normalizeFormShape(value: unknown) {
       label: cleanString(option.label) || cleanString(option.value),
     })),
   }));
+  const id = cleanString(formShape.id);
+
+  if (!id && fields.length === 0) {
+    return undefined;
+  }
 
   return {
-    id: cleanString(formShape.id),
+    id,
     version: cleanString(formShape.version) || "1.0.0",
     allowUnknownFields: Boolean(
       formShape.allowUnknownFields ?? formShape.allow_unknown_fields,
@@ -375,7 +392,7 @@ function supportServiceShortContract({
     const objectType = slot.objectType || "object";
     return `${slot.role}:${contractObjectTypeLabel(objectType)}`;
   });
-  const left = ["form", ...inputs].join(" + ");
+  const left = inputs.length ? inputs.join(" + ") : "no_input";
   const right = outputs.length
     ? outputs.join(" + ")
     : "provider_output";
@@ -386,21 +403,42 @@ function supportServiceShortContract({
 function normalizeCommercialTerms(value: unknown) {
   const terms = optionalRecord(value);
   const price = optionalRecord(terms.price);
+  const rawPricingModel = normalizeKey(
+    cleanString(terms.pricingModel ?? terms.pricing_model),
+  );
+  const hasPrice = Object.keys(price).length > 0;
+  const pricingModel = PRICING_MODEL_SET.has(rawPricingModel)
+    ? (rawPricingModel as SupportServicePricingModel)
+    : hasPrice
+      ? numericValue(price.amount, 0) === 0
+        ? "free"
+        : "fixed"
+      : "not_specified";
+  const turnaround = cleanString(terms.turnaround);
+
+  if (pricingModel === "not_specified" && !turnaround) {
+    return undefined;
+  }
+
+  if (pricingModel === "fixed") {
+    return withoutUndefined({
+      pricingModel,
+      price: withoutUndefined({
+        amount: numericValue(price.amount, 0),
+        currency: cleanString(price.currency).toUpperCase() || "ARS",
+        basis: cleanString(price.basis) || undefined,
+        isMock:
+          price.isMock === undefined && price.is_mock === undefined
+            ? undefined
+            : Boolean(price.isMock ?? price.is_mock),
+      }),
+      turnaround: turnaround || undefined,
+    });
+  }
+
   return {
-    price: {
-      amount: numericValue(price.amount, 0),
-      currency: cleanString(price.currency).toUpperCase() || "ARS",
-      basis: cleanString(price.basis),
-      isMock: Boolean(price.isMock ?? price.is_mock),
-    },
-    turnaround: cleanString(terms.turnaround),
-    turnaroundStartsAt: cleanString(
-      terms.turnaroundStartsAt ?? terms.turnaround_starts_at,
-    ),
-    taxAndPaymentPolicy: cleanString(
-      terms.taxAndPaymentPolicy ?? terms.tax_and_payment_policy,
-    ),
-    failurePolicy: cleanString(terms.failurePolicy ?? terms.failure_policy),
+    pricingModel,
+    ...(turnaround ? { turnaround } : {}),
   };
 }
 
@@ -608,58 +646,75 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
       400,
     );
   }
-  if (!/^pgfs_[a-z0-9_]+$/.test(document.formShape.id)) {
+  const formInputSlotCount = document.inputSlots.filter(
+    (slot) => slot.objectType === FORM_OBJECT_TYPE,
+  ).length;
+  if (document.formShape) {
+    if (!/^pgfs_[a-z0-9_]+$/.test(cleanString(document.formShape.id))) {
+      throw new AdminRepositoryError(
+        "Form shape ID must use the pgfs_* convention.",
+        400,
+      );
+    }
+    if (formInputSlotCount !== 1) {
+      throw new AdminRepositoryError(
+        "A form shape requires exactly one pgo_form input slot.",
+        400,
+      );
+    }
+    if (document.formShape.fields.length < 2) {
+      throw new AdminRepositoryError(
+        "Form shape must declare requested_at and requested_by fields.",
+        400,
+      );
+    }
+
+    const fieldKeys = new Set<string>();
+    for (const field of document.formShape.fields) {
+      const key = cleanString(field.key);
+      const label = cleanString(field.label);
+      const type = cleanString(field.type);
+      const options = optionalRecordArray(field.options);
+      if (!/^[a-z][a-z0-9_]*$/.test(key)) {
+        throw new AdminRepositoryError(
+          "Form field keys must be lowercase identifier keys.",
+          400,
+        );
+      }
+      if (fieldKeys.has(key)) {
+        throw new AdminRepositoryError(
+          `Duplicate form field key: ${key}.`,
+          400,
+        );
+      }
+      fieldKeys.add(key);
+      if (!label) {
+        throw new AdminRepositoryError(
+          `Form field ${key} needs a label.`,
+          400,
+        );
+      }
+      if (["enum", "multi_enum"].includes(type) && options.length === 0) {
+        throw new AdminRepositoryError(
+          `Form field ${key} needs enum options.`,
+          400,
+        );
+      }
+    }
+
+    for (const requiredKey of ["requested_at", "requested_by"]) {
+      if (!fieldKeys.has(requiredKey)) {
+        throw new AdminRepositoryError(
+          `Form shape must include ${requiredKey}.`,
+          400,
+        );
+      }
+    }
+  } else if (formInputSlotCount > 0) {
     throw new AdminRepositoryError(
-      "Form shape ID must use the pgfs_* convention.",
+      "A pgo_form input slot requires a form shape.",
       400,
     );
-  }
-  if (document.formShape.fields.length < 2) {
-    throw new AdminRepositoryError(
-      "Form shape must declare requested_at, requested_by, and service fields.",
-      400,
-    );
-  }
-
-  const fieldKeys = new Set<string>();
-  for (const field of document.formShape.fields) {
-    if (!/^[a-z][a-z0-9_]*$/.test(field.key)) {
-      throw new AdminRepositoryError(
-        "Form field keys must be lowercase identifier keys.",
-        400,
-      );
-    }
-    if (fieldKeys.has(field.key)) {
-      throw new AdminRepositoryError(
-        `Duplicate form field key: ${field.key}.`,
-        400,
-      );
-    }
-    fieldKeys.add(field.key);
-    if (!field.label) {
-      throw new AdminRepositoryError(
-        `Form field ${field.key} needs a label.`,
-        400,
-      );
-    }
-    if (
-      ["enum", "multi_enum"].includes(field.type) &&
-      field.options.length === 0
-    ) {
-      throw new AdminRepositoryError(
-        `Form field ${field.key} needs enum options.`,
-        400,
-      );
-    }
-  }
-
-  for (const requiredKey of ["requested_at", "requested_by"]) {
-    if (!fieldKeys.has(requiredKey)) {
-      throw new AdminRepositoryError(
-        `Form shape must include ${requiredKey}.`,
-        400,
-      );
-    }
   }
 
   for (const slot of document.inputSlots) {
@@ -724,14 +779,14 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
       400,
     );
   }
-  if (!document.commercialTerms.price.currency) {
-    throw new AdminRepositoryError("Price currency is required.", 400);
-  }
-  if (!document.commercialTerms.price.basis) {
-    throw new AdminRepositoryError("Price basis is required.", 400);
-  }
-  if (!document.commercialTerms.turnaround) {
-    throw new AdminRepositoryError("Turnaround is required.", 400);
+  if (document.commercialTerms?.pricingModel === "fixed") {
+    const price = optionalRecord(document.commercialTerms.price);
+    if (!Number.isFinite(price.amount)) {
+      throw new AdminRepositoryError("Fixed price amount is required.", 400);
+    }
+    if (!cleanString(price.currency)) {
+      throw new AdminRepositoryError("Fixed price currency is required.", 400);
+    }
   }
 }
 
@@ -750,13 +805,7 @@ function validateTransactionDocument(
       400,
     );
   }
-  if (!document.formRef) {
-    throw new AdminRepositoryError(
-      "A transaction requires a form object reference.",
-      400,
-    );
-  }
-  if (!/^obj_[a-z0-9_]+$/.test(document.formRef.objectId)) {
+  if (document.formRef && !/^obj_[a-z0-9_]+$/.test(document.formRef.objectId)) {
     throw new AdminRepositoryError(
       "Form reference must use an obj_* object ID.",
       400,

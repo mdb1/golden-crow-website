@@ -85,6 +85,7 @@ import {
   type SupportServiceOfferRecord,
   type SupportServiceOffersPage,
   type SupportServiceOutputSlot,
+  type SupportServicePricingModel,
   type SupportServiceProviderKind,
   type SupportServiceStage,
   type SupportServiceTransactionInput,
@@ -119,6 +120,7 @@ type OfferFormState = {
   availability: string;
   description: string;
   providerWork: string;
+  supportsFormShape: boolean;
   formShape: {
     id: string;
     version: string;
@@ -147,8 +149,6 @@ type TransactionFormState = {
   status: NonNullable<SupportServiceTransactionInput["status"]>;
   requesterEmail: string;
   subjectId: string;
-  formObjectId: string;
-  formRevision: string;
   inputs: ObjectRefDraft[];
   outputs: ObjectRefDraft[];
   notes: string;
@@ -158,6 +158,7 @@ const SERVICE_PAGE_SIZE = 20;
 const OFFERS_QUERY_KEY = "god-mode-support-service-offers";
 const TRANSACTIONS_QUERY_KEY = "god-mode-support-service-transactions";
 const LIVE_OFFERS_QUERY_KEY = "god-mode-support-service-offers-live-picker";
+const FORM_OBJECT_TYPE = "pgo_form";
 
 function emptyFilters(): ServiceFilters {
   return {
@@ -201,6 +202,50 @@ function formFieldsFromRecord(fields: SupportServiceFormField[] = []) {
   }));
 }
 
+function defaultFormShape() {
+  return {
+    id: "pgfs_",
+    version: "1.0.0",
+    allowUnknownFields: false,
+    fields: formFieldsFromRecord([
+      {
+        key: "requested_at",
+        label: "Requested at",
+        type: "datetime",
+        required: true,
+      },
+      {
+        key: "requested_by",
+        label: "Requested by",
+        type: "text",
+        required: true,
+      },
+    ]),
+  };
+}
+
+function defaultFormInputSlot(): SupportServiceInputSlot {
+  return {
+    role: "form",
+    objectType: FORM_OBJECT_TYPE,
+    acceptedTypes: [FORM_OBJECT_TYPE],
+    required: true,
+    cardinality: { min: 1, max: 1 },
+  };
+}
+
+function isFormInputSlot(slot: SupportServiceInputSlot) {
+  return slotObjectType(slot) === FORM_OBJECT_TYPE;
+}
+
+function withFormInputSlot(slots: SupportServiceInputSlot[]) {
+  return slots.some(isFormInputSlot) ? slots : [defaultFormInputSlot(), ...slots];
+}
+
+function withoutFormInputSlots(slots: SupportServiceInputSlot[]) {
+  return slots.filter((slot) => !isFormInputSlot(slot));
+}
+
 function defaultOfferForm(): OfferFormState {
   return {
     serviceId: "pgs_",
@@ -215,40 +260,15 @@ function defaultOfferForm(): OfferFormState {
     availability: "backoffice",
     description: "",
     providerWork: "",
-    formShape: {
-      id: "pgfs_",
-      version: "1.0.0",
-      allowUnknownFields: false,
-      fields: formFieldsFromRecord([
-        {
-          key: "requested_at",
-          label: "Requested at",
-          type: "datetime",
-          required: true,
-        },
-        {
-          key: "requested_by",
-          label: "Requested by",
-          type: "text",
-          required: true,
-        },
-      ]),
-    },
+    supportsFormShape: false,
+    formShape: defaultFormShape(),
     inputSlots: [],
     outputSlots: [],
     acceptedConditionsText: "",
     scopeRulesText: "",
     commercialTerms: {
-      price: {
-        amount: 0,
-        currency: "ARS",
-        basis: "per accepted request",
-        isMock: false,
-      },
-      turnaround: "",
-      turnaroundStartsAt: "",
-      taxAndPaymentPolicy: "",
-      failurePolicy: "",
+      pricingModel: "not_specified",
+      price: { currency: "ARS" },
     },
   };
 }
@@ -273,6 +293,10 @@ function offerFormFromCatalog(
     providerName: "",
   },
 ): OfferFormState {
+  const hasFormShape = Boolean(catalogOffer.formShape.id);
+  const catalogInputSlots = catalogOffer.inputSlots.map((slot) =>
+    singleInputSlot({ ...slot }),
+  );
   return {
     serviceId: catalogOffer.serviceId,
     serviceVersion: catalogOffer.serviceVersion,
@@ -288,29 +312,37 @@ function offerFormFromCatalog(
     availability: catalogOffer.availability || "backoffice",
     description: catalogOffer.description,
     providerWork: catalogOffer.providerWork,
-    formShape: {
-      id: catalogOffer.formShape.id,
-      version: catalogOffer.formShape.version,
-      allowUnknownFields: Boolean(catalogOffer.formShape.allowUnknownFields),
-      fields: formFieldsFromRecord(catalogOffer.formShape.fields),
-    },
-    inputSlots: catalogOffer.inputSlots.map((slot) =>
-      singleInputSlot({ ...slot }),
-    ),
+    supportsFormShape: hasFormShape,
+    formShape: hasFormShape
+      ? {
+          id: catalogOffer.formShape.id,
+          version: catalogOffer.formShape.version,
+          allowUnknownFields: Boolean(catalogOffer.formShape.allowUnknownFields),
+          fields: formFieldsFromRecord(catalogOffer.formShape.fields),
+        }
+      : defaultFormShape(),
+    inputSlots: hasFormShape
+      ? withFormInputSlot(catalogInputSlots)
+      : withoutFormInputSlots(catalogInputSlots),
     outputSlots: catalogOffer.outputSlots.map((slot) => ({ ...slot })),
     acceptedConditionsText: catalogOffer.acceptedConditions.join("\n"),
     scopeRulesText: catalogOffer.scopeRules.join("\n"),
     commercialTerms: {
+      pricingModel:
+        catalogOffer.commercialTerms.price?.amount === 0
+          ? "free"
+          : "fixed",
       price: { ...catalogOffer.commercialTerms.price },
       turnaround: catalogOffer.commercialTerms.turnaround,
-      turnaroundStartsAt: catalogOffer.commercialTerms.turnaroundStartsAt,
-      taxAndPaymentPolicy: catalogOffer.commercialTerms.taxAndPaymentPolicy,
-      failurePolicy: catalogOffer.commercialTerms.failurePolicy,
     },
   };
 }
 
 function offerFormFromRecord(record: SupportServiceOfferRecord): OfferFormState {
+  const hasFormShape = Boolean(record.formShape?.id);
+  const recordInputSlots = record.inputSlots.map((slot) =>
+    singleInputSlot({ ...slot }),
+  );
   return {
     serviceId: record.serviceId,
     serviceVersion: record.serviceVersion,
@@ -324,22 +356,24 @@ function offerFormFromRecord(record: SupportServiceOfferRecord): OfferFormState 
     availability: record.availability,
     description: record.description,
     providerWork: record.providerWork,
-    formShape: {
-      id: record.formShape.id,
-      version: record.formShape.version,
-      allowUnknownFields: Boolean(record.formShape.allowUnknownFields),
-      fields: formFieldsFromRecord(record.formShape.fields),
-    },
-    inputSlots: record.inputSlots.map((slot) => singleInputSlot({ ...slot })),
+    supportsFormShape: hasFormShape,
+    formShape: record.formShape
+      ? {
+          id: record.formShape.id,
+          version: record.formShape.version,
+          allowUnknownFields: Boolean(record.formShape.allowUnknownFields),
+          fields: formFieldsFromRecord(record.formShape.fields),
+        }
+      : defaultFormShape(),
+    inputSlots: hasFormShape
+      ? withFormInputSlot(recordInputSlots)
+      : withoutFormInputSlots(recordInputSlots),
     outputSlots: record.outputSlots.map((slot) => ({ ...slot })),
     acceptedConditionsText: record.acceptedConditions.join("\n"),
     scopeRulesText: record.scopeRules.join("\n"),
-    commercialTerms: {
-      price: { ...record.commercialTerms.price },
-      turnaround: record.commercialTerms.turnaround,
-      turnaroundStartsAt: record.commercialTerms.turnaroundStartsAt,
-      taxAndPaymentPolicy: record.commercialTerms.taxAndPaymentPolicy,
-      failurePolicy: record.commercialTerms.failurePolicy,
+    commercialTerms: record.commercialTerms ?? {
+      pricingModel: "not_specified",
+      price: { currency: "ARS" },
     },
   };
 }
@@ -374,7 +408,7 @@ function calculatedShortContract(
     const objectType = slot.objectType || "pgo_object";
     return `${slot.role || "output"}:${contractObjectLabel(objectType)}`;
   });
-  const left = ["form", ...inputs].join(" + ");
+  const left = inputs.length ? inputs.join(" + ") : "no input";
   const right = outputs.length ? outputs.join(" + ") : "provider output";
 
   return `${left} -> ${right}`;
@@ -402,8 +436,6 @@ function emptyTransactionForm(): TransactionFormState {
     status: "submitted",
     requesterEmail: "",
     subjectId: "",
-    formObjectId: "obj_",
-    formRevision: "1",
     inputs: [],
     outputs: [],
     notes: "",
@@ -423,8 +455,6 @@ function transactionFormForOffer(
     status: "submitted",
     requesterEmail: "",
     subjectId: "",
-    formObjectId: "obj_",
-    formRevision: "1",
     inputs: inputSlots.map(emptyObjectRefDraft),
     outputs: outputSlots.map(emptyObjectRefDraft),
     notes: "",
@@ -460,8 +490,6 @@ function transactionFormFromRecord(
     status: record.status,
     requesterEmail: record.requesterEmail,
     subjectId: record.subjectId,
-    formObjectId: record.formRef.objectId,
-    formRevision: String(record.formRef.revision),
     inputs: base.inputs.map((slot) => {
       const existing = inputByRole.get(slot.role);
       return existing
@@ -503,7 +531,6 @@ function assertPositiveInteger(value: string, label: string) {
 
 function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
   assertIdentifier(form.serviceId, "pgs", "Service ID");
-  assertIdentifier(form.formShape.id, "pgfs", "Form shape ID");
 
   if (!form.name.trim()) {
     throw new Error("Offer name is required.");
@@ -524,32 +551,46 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
     throw new Error("At least one output slot is required.");
   }
 
-  const fields = form.formShape.fields.map((field) => {
-    if (!field.key.trim() || !field.label.trim()) {
-      throw new Error("Every form field needs a key and label.");
+  const formSlots = form.inputSlots.filter(isFormInputSlot);
+  if (form.supportsFormShape) {
+    assertIdentifier(form.formShape.id, "pgfs", "Form shape ID");
+    if (formSlots.length !== 1) {
+      throw new Error("A form shape requires exactly one pgo_form input slot.");
     }
-    if (
-      (field.type === "enum" || field.type === "multi_enum") &&
-      splitLines(field.optionsText).length === 0
-    ) {
-      throw new Error(`Field ${field.key} needs enum options.`);
-    }
+  } else if (formSlots.length > 0) {
+    throw new Error("A pgo_form input slot requires a form shape.");
+  }
 
-    return {
-      key: field.key.trim(),
-      label: field.label.trim(),
-      type: field.type,
-      required: field.required,
-      options:
-        field.type === "enum" || field.type === "multi_enum"
-          ? parseOptionsText(field.optionsText)
-          : undefined,
-    };
-  });
-  const fieldKeys = fields.map((field) => field.key);
-  for (const requiredKey of ["requested_at", "requested_by"]) {
-    if (!fieldKeys.includes(requiredKey)) {
-      throw new Error(`Form shape must include ${requiredKey}.`);
+  const fields = form.supportsFormShape
+    ? form.formShape.fields.map((field) => {
+        if (!field.key.trim() || !field.label.trim()) {
+          throw new Error("Every form field needs a key and label.");
+        }
+        if (
+          (field.type === "enum" || field.type === "multi_enum") &&
+          splitLines(field.optionsText).length === 0
+        ) {
+          throw new Error(`Field ${field.key} needs enum options.`);
+        }
+
+        return {
+          key: field.key.trim(),
+          label: field.label.trim(),
+          type: field.type,
+          required: field.required,
+          options:
+            field.type === "enum" || field.type === "multi_enum"
+              ? parseOptionsText(field.optionsText)
+              : undefined,
+        };
+      })
+    : [];
+  if (form.supportsFormShape) {
+    const fieldKeys = fields.map((field) => field.key);
+    for (const requiredKey of ["requested_at", "requested_by"]) {
+      if (!fieldKeys.includes(requiredKey)) {
+        throw new Error(`Form shape must include ${requiredKey}.`);
+      }
     }
   }
 
@@ -569,14 +610,14 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
       throw new Error("Every output slot needs a role and object type.");
     }
   }
-  if (!Number.isFinite(form.commercialTerms.price.amount)) {
-    throw new Error("Price amount must be numeric.");
-  }
-  if (!form.commercialTerms.price.currency.trim()) {
-    throw new Error("Price currency is required.");
-  }
-  if (!form.commercialTerms.turnaround.trim()) {
-    throw new Error("Turnaround is required.");
+  const pricingModel = form.commercialTerms.pricingModel ?? "not_specified";
+  if (pricingModel === "fixed") {
+    if (!Number.isFinite(form.commercialTerms.price?.amount)) {
+      throw new Error("Fixed price amount must be numeric.");
+    }
+    if (!form.commercialTerms.price?.currency?.trim()) {
+      throw new Error("Fixed price currency is required.");
+    }
   }
   if (splitLines(form.acceptedConditionsText).length === 0) {
     throw new Error("At least one accepted condition is required.");
@@ -599,12 +640,14 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
     description: form.description.trim(),
     shortContract: calculatedShortContract(form.inputSlots, form.outputSlots),
     providerWork: form.providerWork.trim(),
-    formShape: {
-      id: form.formShape.id.trim(),
-      version: form.formShape.version.trim() || "1.0.0",
-      allowUnknownFields: form.formShape.allowUnknownFields,
-      fields,
-    },
+    formShape: form.supportsFormShape
+      ? {
+          id: form.formShape.id.trim(),
+          version: form.formShape.version.trim() || "1.0.0",
+          allowUnknownFields: form.formShape.allowUnknownFields,
+          fields,
+        }
+      : undefined,
     inputSlots: form.inputSlots.map((slot) => ({
       ...slot,
       role: slot.role.trim(),
@@ -617,18 +660,34 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
     })),
     acceptedConditions: splitLines(form.acceptedConditionsText),
     scopeRules: splitLines(form.scopeRulesText),
-    commercialTerms: {
-      ...form.commercialTerms,
+    commercialTerms: commercialTermsPayload(form.commercialTerms),
+  };
+}
+
+function commercialTermsPayload(
+  terms: SupportServiceCommercialTerms,
+): SupportServiceCommercialTerms | undefined {
+  const pricingModel = terms.pricingModel ?? "not_specified";
+  const turnaround = terms.turnaround?.trim();
+
+  if (pricingModel === "not_specified" && !turnaround) {
+    return undefined;
+  }
+
+  if (pricingModel === "fixed") {
+    return {
+      pricingModel,
       price: {
-        ...form.commercialTerms.price,
-        currency: form.commercialTerms.price.currency.trim().toUpperCase(),
-        basis: form.commercialTerms.price.basis.trim(),
+        amount: terms.price?.amount,
+        currency: terms.price?.currency?.trim().toUpperCase() || "ARS",
       },
-      turnaround: form.commercialTerms.turnaround.trim(),
-      turnaroundStartsAt: form.commercialTerms.turnaroundStartsAt?.trim(),
-      taxAndPaymentPolicy: form.commercialTerms.taxAndPaymentPolicy?.trim(),
-      failurePolicy: form.commercialTerms.failurePolicy?.trim(),
-    },
+      turnaround,
+    };
+  }
+
+  return {
+    pricingModel,
+    turnaround,
   };
 }
 
@@ -637,9 +696,6 @@ function transactionPayloadFromForm(
 ): SupportServiceTransactionInput {
   assertIdentifier(form.requestId, "pgr", "Request ID");
   assertIdentifier(form.serviceId, "pgs", "Service ID");
-  assertIdentifier(form.formObjectId, "obj", "Form object ID");
-
-  const formRevision = assertPositiveInteger(form.formRevision, "Form revision");
   const requiredInputs = form.inputs.filter((slot) => slot.required);
   for (const slot of requiredInputs) {
     if (!slot.objectId.trim()) {
@@ -689,10 +745,7 @@ function transactionPayloadFromForm(
     status: form.status,
     requesterEmail: form.requesterEmail.trim(),
     subjectId: form.subjectId.trim(),
-    formRef: {
-      objectId: form.formObjectId.trim(),
-      revision: formRevision,
-    },
+    formRef: null,
     inputs,
     outputs,
     notes: form.notes.trim(),
@@ -956,7 +1009,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                   <TableHead>{t("Transaction")}</TableHead>
                   <TableHead>{t("Service")}</TableHead>
                   <TableHead>{t("Status")}</TableHead>
-                  <TableHead>{t("Form ref")}</TableHead>
+                  <TableHead>{t("Inputs")}</TableHead>
                   <TableHead>{t("Updated")}</TableHead>
                   <TableHead className="text-right">{t("Actions")}</TableHead>
                 </TableRow>
@@ -1059,8 +1112,8 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                         {t(transactionStatusLabel(transaction.status))}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {transaction.formRef.objectId}@{transaction.formRef.revision}
+                    <TableCell className="text-sm text-muted-foreground">
+                      {transaction.inputs.length} {t("bound")}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {dateLabel(transaction.updatedAt)}
@@ -1769,6 +1822,17 @@ function FormShapeEditor({
   } | null>(null);
   const [fieldError, setFieldError] = useState("");
 
+  function setSupportsFormShape(supportsFormShape: boolean) {
+    setForm((current) => ({
+      ...current,
+      supportsFormShape,
+      formShape: supportsFormShape ? current.formShape : defaultFormShape(),
+      inputSlots: supportsFormShape
+        ? withFormInputSlot(current.inputSlots)
+        : withoutFormInputSlots(current.inputSlots),
+    }));
+  }
+
   function emptyFieldDraft(): FormFieldDraft {
     return {
       key: "",
@@ -1859,7 +1923,30 @@ function FormShapeEditor({
   }
 
   return (
-    <Section title="Form shape">
+    <Section title="Form input">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid gap-1">
+          <h3 className="font-heading text-base font-semibold text-foreground">
+            {t("Request form")}
+          </h3>
+          <div className="text-sm text-muted-foreground">
+            {form.supportsFormShape
+              ? t("Enabled")
+              : t("Not requested")}
+          </div>
+        </div>
+        <label className="flex items-center gap-3 text-sm font-medium">
+          <Checkbox
+            checked={form.supportsFormShape}
+            onCheckedChange={(checked) =>
+              setSupportsFormShape(checked === true)
+            }
+          />
+          <span>{t("Support form input")}</span>
+        </label>
+      </div>
+      {!form.supportsFormShape ? null : (
+        <>
       <div className="grid gap-4 lg:grid-cols-3">
         <Field label="Form shape ID">
           <Input
@@ -2096,6 +2183,8 @@ function FormShapeEditor({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </>
+      )}
     </Section>
   );
 }
@@ -2178,6 +2267,20 @@ function InputSlotEditor({
     if (!slotDialog.draft.objectType) {
       setSlotError(t("Object type is required."));
       return;
+    }
+    if (slotDialog.draft.objectType === FORM_OBJECT_TYPE) {
+      const existingFormSlotIndex = form.inputSlots.findIndex(isFormInputSlot);
+      if (!form.supportsFormShape) {
+        setSlotError(t("A form input requires an enabled form shape."));
+        return;
+      }
+      if (
+        existingFormSlotIndex !== -1 &&
+        existingFormSlotIndex !== slotDialog.index
+      ) {
+        setSlotError(t("Only one form input slot is allowed."));
+        return;
+      }
     }
     if (!Number.isInteger(min) || min < 0 || !Number.isInteger(max) || max < 1 || max < min) {
       setSlotError(t("Cardinality must use valid whole numbers."));
@@ -2613,147 +2716,125 @@ function TermsEditor({
   form: OfferFormState;
   setForm: React.Dispatch<React.SetStateAction<OfferFormState>>;
 }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const pricingModel = form.commercialTerms.pricingModel ?? "not_specified";
+
+  function updateTerms(
+    patch: SupportServiceCommercialTerms,
+    options: { clearPrice?: boolean } = {},
+  ) {
+    setForm((current) => ({
+      ...current,
+      commercialTerms: {
+        ...current.commercialTerms,
+        ...patch,
+        price: options.clearPrice
+          ? undefined
+          : patch.price
+            ? {
+                ...current.commercialTerms.price,
+                ...patch.price,
+              }
+            : current.commercialTerms.price,
+      },
+    }));
+  }
+
+  function updatePricingModel(nextModel: SupportServicePricingModel) {
+    if (nextModel === "fixed") {
+      updateTerms({
+        pricingModel: nextModel,
+        price: {
+          amount: form.commercialTerms.price?.amount ?? 0,
+          currency: form.commercialTerms.price?.currency || "ARS",
+        },
+      });
+      return;
+    }
+
+    updateTerms(
+      {
+        pricingModel: nextModel,
+        price:
+          nextModel === "not_specified"
+            ? { currency: form.commercialTerms.price?.currency || "ARS" }
+            : undefined,
+      },
+      { clearPrice: nextModel !== "not_specified" },
+    );
+  }
+
   return (
     <Section title="Commercial terms">
-      <div className="grid gap-4 lg:grid-cols-4">
-        <Field label="Price amount">
-          <Input
-            value={form.commercialTerms.price.amount}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                commercialTerms: {
-                  ...current.commercialTerms,
-                  price: {
-                    ...current.commercialTerms.price,
-                    amount: Number(event.target.value),
-                  },
-                },
-              }))
-            }
-            type="number"
-            min={0}
-          />
-        </Field>
-        <Field label="Currency">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Field label="Pricing">
           <Select
-            value={form.commercialTerms.price.currency}
-            onValueChange={(currency) =>
-              setForm((current) => ({
-                ...current,
-                commercialTerms: {
-                  ...current.commercialTerms,
-                  price: { ...current.commercialTerms.price, currency },
-                },
-              }))
+            value={pricingModel}
+            onValueChange={(value) =>
+              updatePricingModel(value as SupportServicePricingModel)
             }
           >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {["ARS", "USD", "EUR"].map((currency) => (
-                <SelectItem key={currency} value={currency}>
-                  {currency}
-                </SelectItem>
-              ))}
+              <SelectItem value="not_specified">{t("Not specified")}</SelectItem>
+              <SelectItem value="free">{t("Free")}</SelectItem>
+              <SelectItem value="fixed">{t("Fixed price")}</SelectItem>
+              <SelectItem value="calculated_after_submission">
+                {t("Calculated after submission")}
+              </SelectItem>
             </SelectContent>
           </Select>
         </Field>
-        <Field label="Price basis">
-          <Input
-            value={form.commercialTerms.price.basis}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                commercialTerms: {
-                  ...current.commercialTerms,
-                  price: {
-                    ...current.commercialTerms.price,
-                    basis: event.target.value,
-                  },
-                },
-              }))
-            }
-          />
-        </Field>
-        <label className="flex items-center gap-3 pt-7 text-sm font-medium">
-          <Checkbox
-            checked={form.commercialTerms.price.isMock === true}
-            onCheckedChange={(checked) =>
-              setForm((current) => ({
-                ...current,
-                commercialTerms: {
-                  ...current.commercialTerms,
-                  price: {
-                    ...current.commercialTerms.price,
-                    isMock: checked === true,
-                  },
-                },
-              }))
-            }
-          />
-          <span>Mock price</span>
-        </label>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+        {pricingModel === "fixed" ? (
+          <>
+            <Field label="Price amount">
+              <Input
+                value={form.commercialTerms.price?.amount ?? 0}
+                onChange={(event) =>
+                  updateTerms({
+                    price: {
+                      amount: Number(event.target.value),
+                    },
+                  })
+                }
+                type="number"
+                min={0}
+              />
+            </Field>
+            <Field label="Currency">
+              <Select
+                value={form.commercialTerms.price?.currency || "ARS"}
+                onValueChange={(currency) =>
+                  updateTerms({
+                    price: { currency },
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["ARS", "USD", "EUR"].map((currency) => (
+                    <SelectItem key={currency} value={currency}>
+                      {currency}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </>
+        ) : null}
         <Field label="Turnaround">
           <Input
-            value={form.commercialTerms.turnaround}
+            value={form.commercialTerms.turnaround ?? ""}
             onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                commercialTerms: {
-                  ...current.commercialTerms,
-                  turnaround: event.target.value,
-                },
-              }))
+              updateTerms({
+                turnaround: event.target.value,
+              })
             }
-            required
-          />
-        </Field>
-        <Field label="Turnaround starts at">
-          <Input
-            value={form.commercialTerms.turnaroundStartsAt ?? ""}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                commercialTerms: {
-                  ...current.commercialTerms,
-                  turnaroundStartsAt: event.target.value,
-                },
-              }))
-            }
-          />
-        </Field>
-        <Field label="Tax and payment policy">
-          <Textarea
-            value={form.commercialTerms.taxAndPaymentPolicy ?? ""}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                commercialTerms: {
-                  ...current.commercialTerms,
-                  taxAndPaymentPolicy: event.target.value,
-                },
-              }))
-            }
-            rows={3}
-          />
-        </Field>
-        <Field label="Failure policy">
-          <Textarea
-            value={form.commercialTerms.failurePolicy ?? ""}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                commercialTerms: {
-                  ...current.commercialTerms,
-                  failurePolicy: event.target.value,
-                },
-              }))
-            }
-            rows={3}
           />
         </Field>
       </div>
@@ -3047,35 +3128,6 @@ export function SupportServiceTransactionWorkbench({
               <div>{selectedOffer.shortContract}</div>
             </div>
           ) : null}
-        </Section>
-        <Section title="Mandatory form reference">
-          <div className="grid gap-4 md:grid-cols-[1fr_10rem]">
-            <Field label="Form object ID">
-              <Input
-                value={form.formObjectId}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    formObjectId: event.target.value,
-                  }))
-                }
-                required
-              />
-            </Field>
-            <Field label="Revision">
-              <Input
-                value={form.formRevision}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    formRevision: event.target.value,
-                  }))
-                }
-                inputMode="numeric"
-                required
-              />
-            </Field>
-          </div>
         </Section>
         <Section title="Input object bindings">
           <ObjectRefTable slots={form.inputs} onChange={updateInputRef} />
