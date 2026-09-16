@@ -2788,7 +2788,7 @@ export function SupportServiceTransactionWorkbench({
     queryKey: [LIVE_OFFERS_QUERY_KEY],
     queryFn: () =>
       sdkFetch<SupportServiceOffersPage>(
-        "/admin/support-services/offers?limit=50&status=active",
+        "/admin/support-services/offers?limit=50",
       ),
   });
   const liveOffers = offersQuery.data?.offers ?? [];
@@ -2820,7 +2820,7 @@ export function SupportServiceTransactionWorkbench({
     const seen = new Set<string>();
     const choices = liveOffers.map((offer) => ({
       value: offer.serviceId,
-      label: `${offer.name} (${offer.serviceId})`,
+      label: `${offer.name} (${offer.serviceId}, ${t(offerStatusLabel(offer.status))})`,
     }));
 
     if (
@@ -2912,6 +2912,9 @@ export function SupportServiceTransactionWorkbench({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
+      if (!selectedOffer) {
+        throw new Error("Choose an existing service offer.");
+      }
       saveMutation.mutate(transactionPayloadFromForm(form));
     } catch (error) {
       setToast(mutationErrorToast(error, nextToastId()));
@@ -3035,7 +3038,7 @@ export function SupportServiceTransactionWorkbench({
           {serviceChoices.length === 0 ? (
             <div className="flex items-center gap-2 rounded border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
               <CircleAlert className="h-4 w-4" />
-              <span>{t("No active service offers are available for transactions.")}</span>
+              <span>{t("No service offers are available for transactions.")}</span>
             </div>
           ) : null}
           {selectedOffer ? (
