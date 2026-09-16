@@ -5869,7 +5869,7 @@ export function DiscoverFeedEntryWorkbench({
                     ) : null}
                   </div>
 
-                  <AlertDialogFooter className="border-violet-100 bg-violet-50/55 dark:border-violet-300/14 dark:bg-violet-950/16">
+                  <AlertDialogFooter className="mx-0 mb-0 gap-3 border-violet-100 bg-violet-50/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
                     <AlertDialogCancel disabled={pending}>
                       {t("Cancel")}
                     </AlertDialogCancel>
@@ -5915,7 +5915,13 @@ export function DiscoverFeedEntryWorkbench({
                   size="lg"
                   onClick={() => void (mode === "edit" ? saveChanges() : publish())}
                   disabled={isWorking}
-                  className="h-14 min-w-[min(100%,14rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                  variant={canPublishCurrentEntry ? "outline" : "default"}
+                  className={cn(
+                    "h-14 min-w-[min(100%,14rem)] justify-center rounded-xl text-base font-semibold",
+                    canPublishCurrentEntry
+                      ? "border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-950 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+                      : "bg-violet-600 text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700",
+                  )}
                 >
                   {pending ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -5935,10 +5941,9 @@ export function DiscoverFeedEntryWorkbench({
                 {canPublishCurrentEntry ? (
                   <Button
                     size="lg"
-                    variant="outline"
                     onClick={() => void publish()}
                     disabled={isWorking}
-                    className="h-14 min-w-[min(100%,18rem)] justify-center rounded-xl border-violet-200/80 bg-white/82 text-base font-semibold text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-950 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+                    className="h-14 min-w-[min(100%,18rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
                   >
                     {pending ? (
                       <Loader2 className="h-5 w-5 animate-spin" />

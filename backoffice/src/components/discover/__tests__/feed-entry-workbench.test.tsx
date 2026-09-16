@@ -658,12 +658,27 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     ).toBeTruthy();
     expect(screen.getByText("First published: Not published yet")).toBeTruthy();
 
+    const saveChangesButton = screen.getByRole("button", { name: "Save changes" });
+    const publishButton = screen.getByRole("button", {
+      name: "Publish to Discover",
+    });
+    expect(saveChangesButton.className).toContain("bg-white/82");
+    expect(saveChangesButton.className).not.toContain("bg-violet-600");
+    expect(publishButton.className).toContain("bg-violet-600");
+
     fireEvent.click(screen.getByRole("button", { name: "Change status" }));
     const draftDialog = screen.getByRole("alertdialog");
     expect(
       within(draftDialog).queryByRole("radio", { name: /Published/ }),
     ).toBeNull();
     expect(within(draftDialog).getByRole("radio", { name: /Draft/ })).toBeTruthy();
+    const statusFooter = within(draftDialog)
+      .getByRole("button", { name: "Save" })
+      .closest("[data-slot='alert-dialog-footer']");
+    expect(statusFooter?.className).toContain("mx-0");
+    expect(statusFooter?.className).toContain("mb-0");
+    expect(statusFooter?.className).toContain("px-6");
+    expect(statusFooter?.className).toContain("py-5");
     fireEvent.click(within(draftDialog).getByRole("button", { name: "Cancel" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Publish to Discover" }));
