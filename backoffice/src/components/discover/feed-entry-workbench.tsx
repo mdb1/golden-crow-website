@@ -1426,6 +1426,45 @@ function publishedAtDisplayValue(
   return publishedAt ?? t("Not published yet");
 }
 
+function publicationStatusDescription(
+  status: DiscoverFeedStatus,
+  t: (text: string) => string,
+) {
+  if (status === "published") {
+    return t("Published entries are live for readers wherever the app reads the published Discover feed.");
+  }
+
+  if (status === "archived") {
+    return t("Archived entries stay saved for reference, but are removed from active Discover surfaces.");
+  }
+
+  return t("Drafts stay private while you keep polishing the content. They do not appear in Discover.");
+}
+
+function publicationStatusBadgeClass(status: DiscoverFeedStatus) {
+  if (status === "published") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/24 dark:bg-emerald-500/12 dark:text-emerald-200";
+  }
+
+  if (status === "archived") {
+    return "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-500/30 dark:bg-slate-800/70 dark:text-slate-200";
+  }
+
+  return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/26 dark:bg-amber-500/12 dark:text-amber-200";
+}
+
+function LiveIndicator({ t }: { t: (text: string) => string }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-bold uppercase text-red-700 shadow-[0_10px_28px_-18px_rgba(220,38,38,0.65)] dark:border-red-400/26 dark:bg-red-500/12 dark:text-red-200">
+      <span className="relative flex h-2.5 w-2.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]" />
+      </span>
+      {t("Live")}
+    </div>
+  );
+}
+
 function actionLogValue(value: unknown): unknown {
   if (typeof value === "string") {
     if (value.startsWith("data:image/")) {
@@ -2636,6 +2675,10 @@ export function DiscoverFeedEntryWorkbench({
   const [manualStatus, setManualStatus] = useState<DiscoverFeedStatus>(() =>
     editableStatusFromFeedItem(feedItem),
   );
+  const [statusDraft, setStatusDraft] = useState<DiscoverFeedStatus>(() =>
+    editableStatusFromFeedItem(feedItem),
+  );
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [persistedStatus, setPersistedStatus] =
     useState<DiscoverFeedStatus | undefined>(undefined);
   const [persistedPublishedAt, setPersistedPublishedAt] =
@@ -2764,6 +2807,8 @@ export function DiscoverFeedEntryWorkbench({
     setPersistedStatus(undefined);
     setPersistedPublishedAt(undefined);
     setManualStatus(editableStatusFromFeedItem(feedItem));
+    setStatusDraft(editableStatusFromFeedItem(feedItem));
+    setStatusDialogOpen(false);
     setPublishedFeedItemId(feedItem?.status === "published" ? feedItem.id : null);
     setMaxAttendanceLimitEnabled(
       Boolean(
@@ -3414,6 +3459,29 @@ export function DiscoverFeedEntryWorkbench({
       id: Date.now(),
       tone: "success",
       message: t("Changes saved."),
+    });
+  }
+
+  async function saveStatusDraft() {
+    if (mode !== "edit" || !feedItem) {
+      return;
+    }
+
+    if (statusDraft === manualStatus) {
+      setStatusDialogOpen(false);
+      return;
+    }
+
+    const saved = await persist(statusDraft, editPublishedAt);
+    if (!saved) {
+      return;
+    }
+
+    setStatusDialogOpen(false);
+    setToast({
+      id: Date.now(),
+      tone: "success",
+      message: t("Publication status updated."),
     });
   }
 
@@ -5686,50 +5754,141 @@ export function DiscoverFeedEntryWorkbench({
             </label>
           </div>
           {mode === "edit" && feedItem ? (
-            <div className="mt-4 rounded-2xl border border-violet-200/80 bg-white/86 p-4 shadow-sm dark:border-violet-400/18 dark:bg-slate-950/38">
-              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(14rem,0.7fr)]">
-                <FieldShell
-                  label={t("Publication status")}
-                  htmlFor="discover-feed-status"
-                >
-                  <div className="relative">
-                    <select
-                      id="discover-feed-status"
-                      value={manualStatus}
-                      onChange={(event) =>
-                        setManualStatus(event.target.value as DiscoverFeedStatus)
-                      }
-                      disabled={isWorking}
-                      className={publisherSelectClass}
-                    >
-                      {statusOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {t(discoverStatusLabel(option.value))}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className={publisherSelectCaretClass} />
+            <div className="mt-4 overflow-hidden rounded-2xl border border-violet-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(245,243,255,0.90)_58%,rgba(240,249,255,0.72))] p-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/18 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.82))]">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-heading text-lg font-semibold text-foreground">
+                      {t("Publication state")}
+                    </h3>
+                    {manualStatus === "published" ? <LiveIndicator t={t} /> : null}
                   </div>
-                </FieldShell>
-
-                <FieldShell
-                  label={t("First published")}
-                  htmlFor="discover-feed-published-at"
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      {t("Current status")}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold",
+                        publicationStatusBadgeClass(manualStatus),
+                      )}
+                    >
+                      {t(discoverStatusLabel(manualStatus))}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {t("First published")}: {publishedAtDisplayValue(editPublishedAt, t)}
+                    </span>
+                  </div>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+                    {publicationStatusDescription(manualStatus, t)}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setStatusDraft(manualStatus);
+                    setStatusDialogOpen(true);
+                  }}
+                  disabled={isWorking}
+                  className={`${publisherSoftButtonClass} h-10 shrink-0`}
                 >
-                  <Input
-                    id="discover-feed-published-at"
-                    value={publishedAtDisplayValue(editPublishedAt, t)}
-                    readOnly
-                    aria-readonly="true"
-                    className={`${publisherInputClass} font-mono text-xs`}
-                  />
-                </FieldShell>
+                  <Settings2 className="h-4 w-4" />
+                  {t("Change status")}
+                </Button>
               </div>
-              <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                {editPublishedAt
-                  ? t("First publication date is locked once the entry has been published.")
-                  : t("Published status is available only through Publish to Discover until this entry has a first published date.")}
-              </p>
+
+              <AlertDialog
+                open={statusDialogOpen}
+                onOpenChange={(open) => {
+                  if (open) {
+                    setStatusDraft(manualStatus);
+                  }
+                  setStatusDialogOpen(open);
+                }}
+              >
+                <AlertDialogContent className="max-w-xl overflow-hidden rounded-2xl border border-violet-100 bg-white p-0 shadow-[0_34px_120px_rgba(109,40,217,0.22)] dark:border-violet-300/22 dark:bg-slate-950">
+                  <AlertDialogHeader className="border-b border-violet-100 px-6 py-5 text-left dark:border-violet-300/16">
+                    <AlertDialogTitle className="font-heading text-xl font-semibold">
+                      {t("Change publication status")}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("Pick the state that best matches what should happen next for this publication.")}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+
+                  <div className="px-6 py-5">
+                    <div
+                      role="radiogroup"
+                      aria-label={t("Publication status options")}
+                      className="grid gap-3"
+                    >
+                      {statusOptions.map((option) => {
+                        const selected = statusDraft === option.value;
+
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => setStatusDraft(option.value)}
+                            className={cn(
+                              "flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition",
+                              selected
+                                ? "border-violet-300 bg-violet-50 text-violet-950 shadow-[0_14px_36px_-28px_rgba(109,40,217,0.65)] dark:border-violet-300/36 dark:bg-violet-500/14 dark:text-violet-50"
+                                : "border-violet-100 bg-white/82 text-foreground hover:border-violet-200 hover:bg-violet-50/70 dark:border-violet-400/16 dark:bg-slate-950/42 dark:hover:bg-violet-500/10",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+                                selected
+                                  ? "border-violet-500 bg-violet-600 text-white"
+                                  : "border-violet-200 bg-white text-transparent dark:border-violet-400/24 dark:bg-slate-950",
+                              )}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-sm font-semibold">
+                                {t(discoverStatusLabel(option.value))}
+                              </span>
+                              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                                {publicationStatusDescription(option.value, t)}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {!editPublishedAt ? (
+                      <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-200">
+                        {t("Published status is available only through Publish to Discover until this entry has a first published date.")}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <AlertDialogFooter className="border-violet-100 bg-violet-50/55 dark:border-violet-300/14 dark:bg-violet-950/16">
+                    <AlertDialogCancel disabled={pending}>
+                      {t("Cancel")}
+                    </AlertDialogCancel>
+                    <Button
+                      type="button"
+                      onClick={() => void saveStatusDraft()}
+                      disabled={pending || statusDraft === manualStatus}
+                      className={publisherPrimaryButtonClass}
+                    >
+                      {pending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      {t("Save")}
+                    </Button>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           ) : null}
         </div>

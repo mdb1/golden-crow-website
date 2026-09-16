@@ -649,19 +649,22 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       </AppLanguageProvider>,
     );
 
-    const statusSelect = screen.getByLabelText(
-      "Publication status",
-    ) as HTMLSelectElement;
-    expect(statusSelect.value).toBe("draft");
+    expect(screen.getByText("Publication state")).toBeTruthy();
+    expect(screen.getByText("Draft")).toBeTruthy();
     expect(
-      within(statusSelect).queryByRole("option", { name: "Published" }),
-    ).toBeNull();
+      screen.getByText(
+        "Drafts stay private while you keep polishing the content. They do not appear in Discover.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("First published: Not published yet")).toBeTruthy();
 
-    const firstPublishedInput = screen.getByLabelText(
-      "First published",
-    ) as HTMLInputElement;
-    expect(firstPublishedInput.value).toBe("Not published yet");
-    expect(firstPublishedInput.readOnly).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Change status" }));
+    const draftDialog = screen.getByRole("alertdialog");
+    expect(
+      within(draftDialog).queryByRole("radio", { name: /Published/ }),
+    ).toBeNull();
+    expect(within(draftDialog).getByRole("radio", { name: /Draft/ })).toBeTruthy();
+    fireEvent.click(within(draftDialog).getByRole("button", { name: "Cancel" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Publish to Discover" }));
 
@@ -699,15 +702,15 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
       </AppLanguageProvider>,
     );
 
-    const statusSelect = screen.getByLabelText(
-      "Publication status",
-    ) as HTMLSelectElement;
+    expect(screen.getByText("Live")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Change status" }));
+    const statusDialog = screen.getByRole("alertdialog");
     expect(
-      within(statusSelect).getByRole("option", { name: "Published" }),
+      within(statusDialog).getByRole("radio", { name: /Published/ }),
     ).toBeTruthy();
 
-    fireEvent.change(statusSelect, { target: { value: "archived" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(within(statusDialog).getByRole("radio", { name: /Archived/ }));
+    fireEvent.click(within(statusDialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(

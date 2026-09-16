@@ -844,7 +844,21 @@ const SPANISH_TEXT: Record<string, string> = {
   Type: "Tipo",
   Language: "Idioma",
   "Show in Discover feed": "Mostrar en el feed de Discover",
-  "Publication status": "Estado de publicación",
+  "Publication state": "Estado de la publicación",
+  "Publication status options": "Opciones de estado de publicación",
+  "Change status": "Cambiar estado",
+  "Change publication status": "Cambiar estado de la publicación",
+  "Pick the state that best matches what should happen next for this publication.":
+    "Elegí el estado que mejor refleje lo que debe pasar ahora con esta publicación.",
+  "Drafts stay private while you keep polishing the content. They do not appear in Discover.":
+    "Los borradores quedan privados mientras terminás de pulir el contenido. No aparecen en Discover.",
+  "Published entries are live for readers wherever the app reads the published Discover feed.":
+    "Las entradas publicadas están en vivo para lectores donde la app lee el feed publicado de Discover.",
+  "Archived entries stay saved for reference, but are removed from active Discover surfaces.":
+    "Las entradas archivadas quedan guardadas como referencia, pero salen de las superficies activas de Discover.",
+  "Publication status updated.": "Estado de publicación actualizado.",
+  Live: "En vivo",
+  Save: "Guardar",
   "First published": "Primera publicación",
   "Not published yet": "Aún no publicada",
   "First publication date is locked once the entry has been published.":
