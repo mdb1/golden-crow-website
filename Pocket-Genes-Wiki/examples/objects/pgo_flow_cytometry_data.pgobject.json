@@ -1,0 +1,52 @@
+{
+  "object_id": "obj_demo_fcs",
+  "object_type": "pgo_flow_cytometry_data",
+  "schema_version": "1.0.0",
+  "revision": 1,
+  "created_at": "2026-09-16T12:20:00Z",
+  "created_by": "platform_demo_import",
+  "input_refs": [],
+  "data": {
+    "subject_id": "subject_demo_001",
+    "order_ref": {
+      "object_id": "obj_demo_order",
+      "revision": 1
+    },
+    "source_sample_ref": {
+      "object_id": "obj_demo_blood",
+      "revision": 1
+    },
+    "fcs_version": "3.1",
+    "panel_id": "panel_demo_three_signal_v1",
+    "channels": [
+      {
+        "name": "FSC-A",
+        "marker": "DEMO_SCATTER_1",
+        "unit": "arbitrary"
+      },
+      {
+        "name": "SSC-A",
+        "marker": "DEMO_SCATTER_2",
+        "unit": "arbitrary"
+      },
+      {
+        "name": "PG-DEMO-A",
+        "marker": "DEMO_SIGNAL_A",
+        "unit": "arbitrary"
+      }
+    ],
+    "event_count": 4,
+    "instrument_id": "instrument_demo_001",
+    "acquired_at": "2026-09-16T12:00:00Z",
+    "analysis_profile": "pg_demo_cytometry_v1"
+  },
+  "files": [
+    {
+      "role": "primary",
+      "path": "payloads/demo.fcs",
+      "media_type": "application/octet-stream",
+      "sha256": "cb95fb4a13bb59bb8adf02aeda7baaa7c46506fef8046428766169723e649d5b",
+      "size_bytes": 692
+    }
+  ]
+}

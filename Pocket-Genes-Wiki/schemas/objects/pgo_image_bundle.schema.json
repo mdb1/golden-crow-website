@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "object_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object_type": {
+      "const": "pgo_image_bundle"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "object_id",
+          "revision"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "data": {
+      "type": "object",
+      "description": "Image bundle: data payload in the shared Pocket Genes object envelope.",
+      "properties": {
+        "subject_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Synthetic or platform-assigned subject identifier; do not infer identity from a filename."
+        },
+        "order_ref": {
+          "type": "object",
+          "description": "Related test order when this image service belongs to one.",
+          "properties": {
+            "object_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Stable object identifier.",
+              "pattern": "^obj_[A-Za-z0-9_]+$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Pinned object revision."
+            }
+          },
+          "required": [
+            "object_id",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        "image_kind": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Semantic class of the image set.",
+          "enum": [
+            "metaphase",
+            "embryo",
+            "microscopy",
+            "specimen_photo",
+            "other"
+          ]
+        },
+        "source_object_ref": {
+          "type": "object",
+          "description": "Physical or virtual source that was imaged.",
+          "properties": {
+            "object_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Stable object identifier.",
+              "pattern": "^obj_[A-Za-z0-9_]+$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Pinned object revision."
+            }
+          },
+          "required": [
+            "object_id",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        "acquired_at": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Image acquisition time.",
+          "format": "date-time"
+        },
+        "acquired_by": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Provider or operator responsible for acquisition."
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "One image listed in the bundle manifest.",
+            "properties": {
+              "image_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Identifier unique within the bundle."
+              },
+              "file_role": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Role identifying the file in the common files list."
+              },
+              "format": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Native image format.",
+                "enum": [
+                  "png",
+                  "jpeg",
+                  "tiff",
+                  "svs"
+                ]
+              },
+              "width_px": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Image width in pixels."
+              },
+              "height_px": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Image height in pixels."
+              },
+              "caption": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Description of what this particular image represents."
+              }
+            },
+            "required": [
+              "image_id",
+              "file_role",
+              "format",
+              "width_px",
+              "height_px",
+              "caption"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "description": "Images included as files in this bundle."
+        },
+        "acquisition_profile": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Image-acquisition contract accepted by the analysis service."
+        }
+      },
+      "required": [
+        "subject_id",
+        "image_kind",
+        "source_object_ref",
+        "acquired_at",
+        "acquired_by",
+        "images",
+        "acquisition_profile"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "role",
+          "path",
+          "media_type",
+          "sha256",
+          "size_bytes"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "object_id",
+    "object_type",
+    "schema_version",
+    "revision",
+    "created_at",
+    "created_by",
+    "input_refs",
+    "data",
+    "files"
+  ],
+  "additionalProperties": false,
+  "$id": "https://schemas.pocketgenes.example/objects/pgo_image_bundle/1.0.0/schema.json",
+  "title": "Image bundle object"
+}

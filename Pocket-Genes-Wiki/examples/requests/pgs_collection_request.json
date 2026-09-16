@@ -1,0 +1,25 @@
+{
+  "request_id": "pgr_demo_collection_request",
+  "service_id": "pgs_collection_request",
+  "service_version": "1.0.0",
+  "form_ref": {
+    "object_id": "obj_demo_form_collection_request",
+    "revision": 1
+  },
+  "inputs": [
+    {
+      "role": "test_order",
+      "object_ref": {
+        "object_id": "obj_demo_order",
+        "revision": 1
+      }
+    },
+    {
+      "role": "specimen",
+      "object_ref": {
+        "object_id": "obj_demo_blood",
+        "revision": 1
+      }
+    }
+  ]
+}

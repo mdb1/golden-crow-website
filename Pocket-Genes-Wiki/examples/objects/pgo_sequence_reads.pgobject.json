@@ -1,0 +1,75 @@
+{
+  "object_id": "obj_demo_fastq",
+  "object_type": "pgo_sequence_reads",
+  "schema_version": "1.0.0",
+  "revision": 1,
+  "created_at": "2026-09-17T12:00:00Z",
+  "created_by": "pgp_precision_lab",
+  "input_refs": [
+    {
+      "object_id": "obj_demo_form_sequencing",
+      "revision": 1
+    },
+    {
+      "object_id": "obj_demo_dna",
+      "revision": 1
+    },
+    {
+      "object_id": "obj_demo_order",
+      "revision": 1
+    }
+  ],
+  "data": {
+    "subject_id": "subject_demo_001",
+    "order_ref": {
+      "object_id": "obj_demo_order",
+      "revision": 1
+    },
+    "reference_id": "PG_DEMO_REF_1",
+    "profile_id": "pg_demo_small_variant_v1",
+    "analysis_support": {
+      "status": "sufficient",
+      "evaluated_genes": [
+        "PGGENE_A",
+        "PGGENE_B",
+        "PGGENE_C"
+      ],
+      "supported_variant_classes": [
+        "SNV",
+        "small_indel"
+      ],
+      "evidence": [
+        {
+          "kind": "synthetic_fixture_attestation",
+          "reference": "demo-evidence-001",
+          "summary": "Illustrative provider declaration for the fictional three-gene fixture; not a real measurement or clinical result."
+        }
+      ],
+      "limitations": [
+        "Synthetic fixture only; the native sample bytes do not establish real gene coverage or clinical validity."
+      ]
+    },
+    "source_sample_ref": {
+      "object_id": "obj_demo_dna",
+      "revision": 1
+    },
+    "read_layout": "single_end",
+    "read_count": 3,
+    "quality_encoding": "phred33",
+    "compression": "none",
+    "provenance": {
+      "source_kind": "provider_generated",
+      "source_label": "Synthetic provider-generated result for the Pocket Genes demonstration pipeline.",
+      "producer_label": "Pocket Genes demo fixture author"
+    }
+  },
+  "files": [
+    {
+      "role": "primary",
+      "path": "payloads/demo.fastq",
+      "media_type": "text/plain",
+      "sha256": "a7d93a768978a1d855daf6dee1401496ac46e1c8d0428905ea6ea9ede860c9a9",
+      "size_bytes": 180
+    }
+  ]
+}

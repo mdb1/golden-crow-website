@@ -20,6 +20,7 @@ import { reportingRoutes } from "./reporting.routes.js";
 import { reportingIntegrationClientRoutes } from "./reporting-tokens.routes.js";
 import { partnershipCrmRoutes } from "./partnership-crm.routes.js";
 import { pgflexLogisticsRoutes } from "./pgflex-logistics.routes.js";
+import { supportServicesRoutes } from "./support-services.routes.js";
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(healthRoutes);
@@ -41,6 +42,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(discoverRoutes);
   await fastify.register(clientBookingsRoutes);
   await fastify.register(partnershipCrmRoutes);
+  await fastify.register(supportServicesRoutes);
   await fastify.register(pgflexLogisticsRoutes);
   await fastify.register(gymRoutes, { prefix: "/gym" });
 }

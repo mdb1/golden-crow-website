@@ -1,0 +1,13 @@
+{
+  "request_id": "pgr_demo_gene_prioritization",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "candidate_genes",
+      "object_ref": {
+        "object_id": "obj_demo_genes",
+        "revision": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "provider_id": "pgp_variant_analysis",
+  "name": "Variant Analysis Cooperative",
+  "kind": "bioinformatics_company",
+  "description": "Fictional specialist in independently purchasable alignment, variant calling, annotation, and symptom-independent structured genomic interpretation.",
+  "supported_stages": [
+    "bioinformatics"
+  ],
+  "country_codes": [
+    "AR"
+  ],
+  "service_ids": [
+    "pgs_read_alignment",
+    "pgs_variant_calling",
+    "pgs_variant_annotation",
+    "pgs_interactive_interpretation"
+  ],
+  "contacts": {
+    "website": "https://variantanalysis.example",
+    "operations_email": "operations@variantanalysis.example",
+    "integration_email": "integrations@variantanalysis.example"
+  },
+  "api_capability_proposal": {
+    "status": "illustrative_not_live",
+    "contract_id": "pg_api_service_requests_v1",
+    "base_url": "https://variantanalysis.example/api/v1",
+    "execution_modes": [
+      "automated_processing",
+      "specialist_review_when_included"
+    ],
+    "completion_model": "asynchronous",
+    "callbacks": "signed_callback_to_preregistered_pocket_genes_endpoint",
+    "complete_example_contract": "variant_analysis_api_example"
+  }
+}

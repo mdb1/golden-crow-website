@@ -1,0 +1,20 @@
+{
+  "request_id": "pgr_demo_dna_extraction",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "dna_sample",
+      "object_ref": {
+        "object_id": "obj_demo_dna",
+        "revision": 1
+      }
+    },
+    {
+      "role": "source_specimen",
+      "object_ref": {
+        "object_id": "obj_demo_blood",
+        "revision": 3
+      }
+    }
+  ]
+}

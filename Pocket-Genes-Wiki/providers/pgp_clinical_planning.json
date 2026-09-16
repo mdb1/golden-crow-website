@@ -1,0 +1,35 @@
+{
+  "provider_id": "pgp_clinical_planning",
+  "name": "Meridian Clinical Planning",
+  "kind": "professional_services_organization",
+  "description": "Fictional multidisciplinary provider that structures request information, prioritizes candidate genes, records informed consent, prepares test orders, and produces form-based documents.",
+  "supported_stages": [
+    "test_planning"
+  ],
+  "country_codes": [
+    "AR"
+  ],
+  "service_ids": [
+    "pgs_symptom_intake",
+    "pgs_gene_prioritization",
+    "pgs_informed_consent",
+    "pgs_test_ordering",
+    "pgs_form_to_pdf"
+  ],
+  "contacts": {
+    "website": "https://meridianplanning.example",
+    "operations_email": "operations@meridianplanning.example",
+    "integration_email": "integrations@meridianplanning.example"
+  },
+  "api_capability_proposal": {
+    "status": "illustrative_not_live",
+    "contract_id": "pg_api_service_requests_v1",
+    "base_url": "https://meridianplanning.example/api/v1",
+    "execution_modes": [
+      "professional_review",
+      "assisted_document_generation"
+    ],
+    "completion_model": "asynchronous",
+    "callbacks": "signed_callback_to_preregistered_pocket_genes_endpoint"
+  }
+}

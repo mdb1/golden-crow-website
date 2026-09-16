@@ -1,0 +1,215 @@
+{
+  "service_id": "pgs_final_report",
+  "schema_version": "1.0.0",
+  "service_version": "1.0.0",
+  "name": "Create the final self-contained report",
+  "provider_id": "pgp_report_studio",
+  "stages": [
+    "bioinformatics"
+  ],
+  "availability": "mock_catalog_only",
+  "description": "Combine the complete test order with the interactive genomic result into a final PDF for the requested objective.",
+  "short_contract": "form + test_order + .pgi1.json → final PDF",
+  "provider_work": "Verify the match and scope, perform included report review, and issue a complete PDF using the selected presentation.",
+  "form_shape": {
+    "id": "pgfs_final_report",
+    "version": "1.0.0",
+    "fields": [
+      {
+        "key": "requested_at",
+        "label": "Requested at",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "requested_by",
+        "label": "Requested by",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "language",
+        "label": "Report language",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "en",
+            "label": "English"
+          },
+          {
+            "value": "es-AR",
+            "label": "Spanish, Argentina"
+          }
+        ]
+      },
+      {
+        "key": "presentation",
+        "label": "Presentation",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "clinical",
+            "label": "Clinical report"
+          },
+          {
+            "value": "patient",
+            "label": "Patient-facing report"
+          }
+        ]
+      }
+    ],
+    "allow_unknown_fields": false
+  },
+  "sample_form_data": {
+    "form_shape_id": "pgfs_final_report",
+    "form_shape_version": "1.0.0",
+    "fields": [
+      {
+        "key": "requested_at",
+        "value": "2026-09-17T16:05:00Z"
+      },
+      {
+        "key": "requested_by",
+        "value": "user_demo_001"
+      },
+      {
+        "key": "language",
+        "value": "en"
+      },
+      {
+        "key": "presentation",
+        "value": "clinical"
+      }
+    ]
+  },
+  "sample_form_object": {
+    "object_id": "obj_demo_form_final_report",
+    "object_type": "pgo_form",
+    "schema_version": "1.0.0",
+    "revision": 1,
+    "created_at": "2026-09-17T16:05:00Z",
+    "created_by": "user_demo_001",
+    "input_refs": [],
+    "data": {
+      "form_shape_id": "pgfs_final_report",
+      "form_shape_version": "1.0.0",
+      "fields": [
+        {
+          "key": "requested_at",
+          "value": "2026-09-17T16:05:00Z"
+        },
+        {
+          "key": "requested_by",
+          "value": "user_demo_001"
+        },
+        {
+          "key": "language",
+          "value": "en"
+        },
+        {
+          "key": "presentation",
+          "value": "clinical"
+        }
+      ]
+    },
+    "files": []
+  },
+  "input_slots": [
+    {
+      "role": "test_order",
+      "accepted_types": [
+        "pgo_test_order"
+      ],
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      }
+    },
+    {
+      "role": "interactive_report",
+      "accepted_types": [
+        "pgo_interactive_report"
+      ],
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  ],
+  "output_slots": [
+    {
+      "role": "report",
+      "object_type": "pgo_pdf_report",
+      "mutation_mode": "new_object"
+    }
+  ],
+  "accepted_conditions": [
+    "The order and interactive result identify the same subject and compatible specimen/source lineage.",
+    "The order contains patient identity, clinical objective, suspicion and required reporting context.",
+    "The interactive result contains findings, clinical relevance, support evidence, limitations and the producer information required by the reporting profile.",
+    "The selected provider service includes the review/issuance responsibilities required by its report profile. Rendering alone does not supply missing professional conclusions or authorizations."
+  ],
+  "scope_rules": [
+    "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
+    "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
+    "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
+    "Carry forward data.analysis_support with status, evaluated_genes, supported_variant_classes, evidence and limitations. Do not infer an adequately assessed gene from absence of VCF rows.",
+    "If the input cannot support the requested scope, return awaiting_input or failed with the affected scope; do not report a complete negative result.",
+    "The two domain inputs plus this service form are sufficient under this contract; do not require the original intake form or symptom bundle.",
+    "Both successful requested-scope assessment and explicit limitations must appear in the final self-contained report as appropriate."
+  ],
+  "mock_commercial_terms": {
+    "price": {
+      "amount": 15000,
+      "currency": "ARS",
+      "basis": "per accepted request",
+      "is_mock": true
+    },
+    "turnaround": "1 business day",
+    "turnaround_starts_at": "accepted after required inputs are available; waiting for a specimen or clarification pauses the estimate",
+    "tax_and_payment_policy": "Not specified in this fictional catalog",
+    "failure_policy": "Assess fulfillment and remaining usable outputs; refunds or rework follow the accepted service terms. No default automatic repeat of physical work."
+  },
+  "sample_request": {
+    "request_id": "pgr_demo_final_report",
+    "service_id": "pgs_final_report",
+    "service_version": "1.0.0",
+    "form_ref": {
+      "object_id": "obj_demo_form_final_report",
+      "revision": 1
+    },
+    "inputs": [
+      {
+        "role": "test_order",
+        "object_ref": {
+          "object_id": "obj_demo_order",
+          "revision": 1
+        }
+      },
+      {
+        "role": "interactive_report",
+        "object_ref": {
+          "object_id": "obj_demo_interactive",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "sample_result": {
+    "request_id": "pgr_demo_final_report",
+    "status": "completed",
+    "outputs": [
+      {
+        "role": "report",
+        "object_ref": {
+          "object_id": "obj_demo_pdf",
+          "revision": 1
+        }
+      }
+    ]
+  }
+}

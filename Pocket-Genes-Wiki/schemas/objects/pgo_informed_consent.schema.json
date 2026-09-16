@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "object_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object_type": {
+      "const": "pgo_informed_consent"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "object_id",
+          "revision"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "data": {
+      "type": "object",
+      "description": "Informed consent: data payload in the shared Pocket Genes object envelope.",
+      "properties": {
+        "subject_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Synthetic or platform-assigned subject identifier; do not infer identity from a filename."
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Purpose explained to the participant."
+        },
+        "scope": {
+          "type": "object",
+          "description": "The recorded scope of the consent.",
+          "properties": {
+            "activities": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One entry."
+              },
+              "minItems": 1,
+              "description": "Activities covered by this recorded consent.",
+              "uniqueItems": true
+            },
+            "genes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One entry."
+              },
+              "minItems": 0,
+              "description": "Gene scope disclosed when applicable.",
+              "uniqueItems": true
+            },
+            "provider_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One entry."
+              },
+              "minItems": 1,
+              "description": "Named providers covered by this record; avoid assuming global authorization.",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "activities",
+            "genes",
+            "provider_ids"
+          ],
+          "additionalProperties": false
+        },
+        "text_version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Version of the text presented to the person."
+        },
+        "text_snapshot": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The exact consent text snapshot associated with this acceptance."
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Recorded state of this consent.",
+          "enum": [
+            "completed",
+            "withdrawn",
+            "superseded"
+          ]
+        },
+        "acceptance": {
+          "type": "object",
+          "description": "The captured consent action; schema validity alone does not prove legal sufficiency.",
+          "properties": {
+            "accepted_at": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Timestamp of the recorded consent action.",
+              "format": "date-time"
+            },
+            "accepted_by": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Identity of the person whose acceptance was captured."
+            },
+            "capacity": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Recorded capacity of the accepting person.",
+              "enum": [
+                "self",
+                "authorized_representative"
+              ]
+            },
+            "method": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Acceptance capture method.",
+              "enum": [
+                "electronic_acceptance",
+                "signed_document",
+                "in_person_record"
+              ]
+            },
+            "evidence_reference": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Immutable evidence reference for the captured acceptance."
+            }
+          },
+          "required": [
+            "accepted_at",
+            "accepted_by",
+            "capacity",
+            "method",
+            "evidence_reference"
+          ],
+          "additionalProperties": false
+        },
+        "source_form_ref": {
+          "type": "object",
+          "description": "Form submitted to the consent service.",
+          "properties": {
+            "object_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Stable object identifier.",
+              "pattern": "^obj_[A-Za-z0-9_]+$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Pinned object revision."
+            }
+          },
+          "required": [
+            "object_id",
+            "revision"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "subject_id",
+        "purpose",
+        "scope",
+        "text_version",
+        "text_snapshot",
+        "status",
+        "acceptance",
+        "source_form_ref"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "role",
+          "path",
+          "media_type",
+          "sha256",
+          "size_bytes"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "object_id",
+    "object_type",
+    "schema_version",
+    "revision",
+    "created_at",
+    "created_by",
+    "input_refs",
+    "data",
+    "files"
+  ],
+  "additionalProperties": false,
+  "$id": "https://schemas.pocketgenes.example/objects/pgo_informed_consent/1.0.0/schema.json",
+  "title": "Informed consent object"
+}

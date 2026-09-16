@@ -1,0 +1,10 @@
+{
+  "request_id": "pgr_demo_informed_consent",
+  "service_id": "pgs_informed_consent",
+  "service_version": "1.0.0",
+  "form_ref": {
+    "object_id": "obj_demo_form_informed_consent",
+    "revision": 1
+  },
+  "inputs": []
+}

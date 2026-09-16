@@ -1,0 +1,13 @@
+{
+  "request_id": "pgr_demo_read_alignment",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "aligned_reads",
+      "object_ref": {
+        "object_id": "obj_demo_bam",
+        "revision": 1
+      }
+    }
+  ]
+}

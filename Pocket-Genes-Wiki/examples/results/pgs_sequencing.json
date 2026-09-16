@@ -1,0 +1,20 @@
+{
+  "request_id": "pgr_demo_sequencing",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "reads",
+      "object_ref": {
+        "object_id": "obj_demo_fastq",
+        "revision": 1
+      }
+    },
+    {
+      "role": "source_dna",
+      "object_ref": {
+        "object_id": "obj_demo_dna",
+        "revision": 2
+      }
+    }
+  ]
+}

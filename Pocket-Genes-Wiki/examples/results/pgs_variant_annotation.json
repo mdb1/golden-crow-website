@@ -1,0 +1,13 @@
+{
+  "request_id": "pgr_demo_variant_annotation",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "annotated_variants",
+      "object_ref": {
+        "object_id": "obj_demo_annotated_vcf",
+        "revision": 1
+      }
+    }
+  ]
+}

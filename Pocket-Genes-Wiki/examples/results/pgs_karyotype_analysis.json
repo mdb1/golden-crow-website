@@ -1,0 +1,13 @@
+{
+  "request_id": "pgr_demo_karyotype_analysis",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "karyotype_result",
+      "object_ref": {
+        "object_id": "obj_demo_karyotype",
+        "revision": 1
+      }
+    }
+  ]
+}

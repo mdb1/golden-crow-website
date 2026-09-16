@@ -1,0 +1,13 @@
+{
+  "request_id": "pgr_demo_sample_transport",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "delivered_specimen",
+      "object_ref": {
+        "object_id": "obj_demo_blood",
+        "revision": 2
+      }
+    }
+  ]
+}

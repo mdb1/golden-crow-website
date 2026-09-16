@@ -1,0 +1,13 @@
+{
+  "request_id": "pgr_demo_collection_request",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "collection_request",
+      "object_ref": {
+        "object_id": "obj_demo_collection",
+        "revision": 1
+      }
+    }
+  ]
+}

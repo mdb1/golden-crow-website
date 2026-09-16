@@ -1,0 +1,192 @@
+{
+  "service_id": "pgs_sample_transport",
+  "schema_version": "1.0.0",
+  "service_version": "1.0.0",
+  "name": "Pick up and deliver a specimen",
+  "provider_id": "pgp_sample_logistics",
+  "stages": [
+    "wet_lab"
+  ],
+  "availability": "mock_catalog_only",
+  "description": "Move the identified physical specimen from origin to the agreed destination and record its custody and receipt.",
+  "short_contract": "form + collection_request + specimen at origin → same specimen at destination",
+  "provider_work": "Perform the physical handoff and transport, record custody, and obtain destination receipt.",
+  "form_shape": {
+    "id": "pgfs_sample_transport",
+    "version": "1.0.0",
+    "fields": [
+      {
+        "key": "requested_at",
+        "label": "Requested at",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "requested_by",
+        "label": "Requested by",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "contact_name",
+        "label": "Origin contact name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "contact_phone",
+        "label": "Origin contact phone",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "allow_unknown_fields": false
+  },
+  "sample_form_data": {
+    "form_shape_id": "pgfs_sample_transport",
+    "form_shape_version": "1.0.0",
+    "fields": [
+      {
+        "key": "requested_at",
+        "value": "2026-09-16T12:35:00Z"
+      },
+      {
+        "key": "requested_by",
+        "value": "user_demo_001"
+      },
+      {
+        "key": "contact_name",
+        "value": "Example Contact"
+      },
+      {
+        "key": "contact_phone",
+        "value": "+54-DEMO-ONLY"
+      }
+    ]
+  },
+  "sample_form_object": {
+    "object_id": "obj_demo_form_sample_transport",
+    "object_type": "pgo_form",
+    "schema_version": "1.0.0",
+    "revision": 1,
+    "created_at": "2026-09-16T12:35:00Z",
+    "created_by": "user_demo_001",
+    "input_refs": [],
+    "data": {
+      "form_shape_id": "pgfs_sample_transport",
+      "form_shape_version": "1.0.0",
+      "fields": [
+        {
+          "key": "requested_at",
+          "value": "2026-09-16T12:35:00Z"
+        },
+        {
+          "key": "requested_by",
+          "value": "user_demo_001"
+        },
+        {
+          "key": "contact_name",
+          "value": "Example Contact"
+        },
+        {
+          "key": "contact_phone",
+          "value": "+54-DEMO-ONLY"
+        }
+      ]
+    },
+    "files": []
+  },
+  "input_slots": [
+    {
+      "role": "collection_request",
+      "accepted_types": [
+        "pgo_collection_request"
+      ],
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      }
+    },
+    {
+      "role": "specimen",
+      "accepted_types": [
+        "pgo_blood_sample",
+        "pgo_tissue_sample",
+        "pgo_embryo_sample"
+      ],
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  ],
+  "output_slots": [
+    {
+      "role": "delivered_specimen",
+      "object_type": "same_as:specimen",
+      "mutation_mode": "new_revision",
+      "same_identity_as_input": "specimen"
+    }
+  ],
+  "accepted_conditions": [
+    "The specimen reference must match the collection request exactly.",
+    "Pickup and delivery locations, availability and handling requirements must be accepted before dispatch.",
+    "The specimen type and material_kind remain unchanged."
+  ],
+  "scope_rules": [
+    "Preserve object_id; return a new revision with destination, custody events and receipt status.",
+    "If collection or receipt fails, record the real state. Do not fabricate a delivered specimen or create another pickup automatically."
+  ],
+  "mock_commercial_terms": {
+    "price": {
+      "amount": 20000,
+      "currency": "ARS",
+      "basis": "per accepted request",
+      "is_mock": true
+    },
+    "turnaround": "1 business day within the fictional coverage area",
+    "turnaround_starts_at": "accepted after required inputs are available; waiting for a specimen or clarification pauses the estimate",
+    "tax_and_payment_policy": "Not specified in this fictional catalog",
+    "failure_policy": "Assess fulfillment and remaining usable outputs; refunds or rework follow the accepted service terms. No default automatic repeat of physical work."
+  },
+  "sample_request": {
+    "request_id": "pgr_demo_sample_transport",
+    "service_id": "pgs_sample_transport",
+    "service_version": "1.0.0",
+    "form_ref": {
+      "object_id": "obj_demo_form_sample_transport",
+      "revision": 1
+    },
+    "inputs": [
+      {
+        "role": "collection_request",
+        "object_ref": {
+          "object_id": "obj_demo_collection",
+          "revision": 1
+        }
+      },
+      {
+        "role": "specimen",
+        "object_ref": {
+          "object_id": "obj_demo_blood",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "sample_result": {
+    "request_id": "pgr_demo_sample_transport",
+    "status": "completed",
+    "outputs": [
+      {
+        "role": "delivered_specimen",
+        "object_ref": {
+          "object_id": "obj_demo_blood",
+          "revision": 2
+        }
+      }
+    ]
+  }
+}

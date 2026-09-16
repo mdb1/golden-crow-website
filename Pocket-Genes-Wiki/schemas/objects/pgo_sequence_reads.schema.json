@@ -1,0 +1,373 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "object_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object_type": {
+      "const": "pgo_sequence_reads"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "object_id",
+          "revision"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "data": {
+      "type": "object",
+      "description": "Sequence reads: data payload in the shared Pocket Genes object envelope.",
+      "properties": {
+        "subject_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Synthetic or platform-assigned subject identifier; do not infer identity from a filename."
+        },
+        "order_ref": {
+          "type": "object",
+          "description": "Linked order when this object belongs to an ordered pipeline; optional for a standalone or imported object.",
+          "properties": {
+            "object_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Stable object identifier.",
+              "pattern": "^obj_[A-Za-z0-9_]+$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Pinned object revision."
+            }
+          },
+          "required": [
+            "object_id",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        "reference_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Reference identifier shared across sequence analysis and variant coordinates."
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Versioned analytical contract or compatibility profile."
+        },
+        "analysis_support": {
+          "type": "object",
+          "description": "Declared analysis support, separate from the presence or absence of variant records.",
+          "properties": {
+            "status": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Whether this object is sufficient for its linked analytical scope.",
+              "enum": [
+                "sufficient",
+                "partial",
+                "unassessed"
+              ]
+            },
+            "evaluated_genes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One entry."
+              },
+              "minItems": 0,
+              "description": "Genes evaluated by the declared process. Empty when unassessed.",
+              "uniqueItems": true
+            },
+            "supported_variant_classes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One entry."
+              },
+              "minItems": 0,
+              "description": "Variant classes supported by the declared process.",
+              "uniqueItems": true
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "description": "One evidence statement for analytical sufficiency.",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Evidence category, such as provider_attestation or analytical_qc; this fixture uses synthetic_fixture_attestation."
+                  },
+                  "reference": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "An auditable evidence identifier or source reference."
+                  },
+                  "summary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "What this evidence establishes, including its limitations."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "reference",
+                  "summary"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "description": "Evidence supporting the status. A sufficient status requires evidence."
+            },
+            "limitations": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One known limitation."
+              },
+              "minItems": 0,
+              "description": "Known scope or analytical limitations."
+            }
+          },
+          "required": [
+            "status",
+            "evaluated_genes",
+            "supported_variant_classes",
+            "evidence",
+            "limitations"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "sufficient"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "evaluated_genes": {
+                    "minItems": 1
+                  },
+                  "supported_variant_classes": {
+                    "minItems": 1
+                  },
+                  "evidence": {
+                    "minItems": 1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "source_sample_ref": {
+          "type": "object",
+          "description": "Pinned upstream object when recorded in Pocket Genes. Imported standalone objects may omit this reference with explicit source disclosure.",
+          "properties": {
+            "object_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Stable object identifier.",
+              "pattern": "^obj_[A-Za-z0-9_]+$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Pinned object revision."
+            }
+          },
+          "required": [
+            "object_id",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        "read_layout": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Relationship between the read files.",
+          "enum": [
+            "single_end",
+            "paired_end"
+          ]
+        },
+        "read_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of read records across all attached FASTQ files."
+        },
+        "quality_encoding": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Base-quality encoding declared by the producer.",
+          "enum": [
+            "phred33",
+            "phred64"
+          ]
+        },
+        "compression": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Compression of attached native payloads.",
+          "enum": [
+            "none",
+            "gzip"
+          ]
+        },
+        "provenance": {
+          "type": "object",
+          "description": "Explicit source disclosure for an imported object or a provider-generated result. This supplements registered lineage; it does not prove analytical sufficiency.",
+          "properties": {
+            "source_kind": {
+              "type": "string",
+              "enum": [
+                "imported",
+                "provider_generated"
+              ],
+              "description": "Whether this object entered from outside the recorded network or was generated by a provider service."
+            },
+            "source_label": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Human-readable description of where this object came from."
+            },
+            "imported_at": {
+              "type": "string",
+              "format": "date-time",
+              "description": "When the object was registered from an external source; required when source_kind is imported."
+            },
+            "producer_label": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Known producing provider or source label; omit when genuinely unknown rather than inventing an identity."
+            }
+          },
+          "required": [
+            "source_kind",
+            "source_label"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "source_kind": {
+                    "const": "imported"
+                  }
+                },
+                "required": [
+                  "source_kind"
+                ]
+              },
+              "then": {
+                "required": [
+                  "imported_at"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "subject_id",
+        "reference_id",
+        "profile_id",
+        "analysis_support",
+        "read_layout",
+        "read_count",
+        "quality_encoding",
+        "compression"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "role",
+          "path",
+          "media_type",
+          "sha256",
+          "size_bytes"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "object_id",
+    "object_type",
+    "schema_version",
+    "revision",
+    "created_at",
+    "created_by",
+    "input_refs",
+    "data",
+    "files"
+  ],
+  "additionalProperties": false,
+  "$id": "https://schemas.pocketgenes.example/objects/pgo_sequence_reads/1.0.0/schema.json",
+  "title": "Sequence reads object"
+}

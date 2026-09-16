@@ -1,0 +1,250 @@
+{
+  "service_id": "pgs_collection_request",
+  "schema_version": "1.0.0",
+  "service_version": "1.0.0",
+  "name": "Create a formal specimen pickup request",
+  "provider_id": "pgp_sample_logistics",
+  "stages": [
+    "wet_lab"
+  ],
+  "availability": "mock_catalog_only",
+  "description": "Create a company-addressed pickup instruction linked to the test order and to an existing specimen.",
+  "short_contract": "form + test_order + specimen → collection_request",
+  "provider_work": "Check pickup coverage, destination acceptance and specimen availability; issue the formal transport instruction.",
+  "form_shape": {
+    "id": "pgfs_collection_request",
+    "version": "1.0.0",
+    "fields": [
+      {
+        "key": "requested_at",
+        "label": "Requested at",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "requested_by",
+        "label": "Requested by",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "pickup_address",
+        "label": "Pickup address",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "destination_address",
+        "label": "Destination address",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "pickup_window_start",
+        "label": "Pickup window start",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "pickup_window_end",
+        "label": "Pickup window end",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "handling_profile",
+        "label": "Handling profile",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "handling_demo_v1",
+            "label": "Demo blood transport profile"
+          },
+          {
+            "value": "demo_tissue_transport_v1",
+            "label": "Demo tissue transport profile"
+          },
+          {
+            "value": "demo_embryo_transport_v1",
+            "label": "Demo embryo transport profile"
+          }
+        ]
+      }
+    ],
+    "allow_unknown_fields": false
+  },
+  "sample_form_data": {
+    "form_shape_id": "pgfs_collection_request",
+    "form_shape_version": "1.0.0",
+    "fields": [
+      {
+        "key": "requested_at",
+        "value": "2026-09-16T12:25:00Z"
+      },
+      {
+        "key": "requested_by",
+        "value": "user_demo_001"
+      },
+      {
+        "key": "pickup_address",
+        "value": "100 Example Avenue, Demo City, AR"
+      },
+      {
+        "key": "destination_address",
+        "value": "200 Example Avenue, Demo City, AR"
+      },
+      {
+        "key": "pickup_window_start",
+        "value": "2026-09-16T13:00:00Z"
+      },
+      {
+        "key": "pickup_window_end",
+        "value": "2026-09-16T15:00:00Z"
+      },
+      {
+        "key": "handling_profile",
+        "value": "handling_demo_v1"
+      }
+    ]
+  },
+  "sample_form_object": {
+    "object_id": "obj_demo_form_collection_request",
+    "object_type": "pgo_form",
+    "schema_version": "1.0.0",
+    "revision": 1,
+    "created_at": "2026-09-16T12:25:00Z",
+    "created_by": "user_demo_001",
+    "input_refs": [],
+    "data": {
+      "form_shape_id": "pgfs_collection_request",
+      "form_shape_version": "1.0.0",
+      "fields": [
+        {
+          "key": "requested_at",
+          "value": "2026-09-16T12:25:00Z"
+        },
+        {
+          "key": "requested_by",
+          "value": "user_demo_001"
+        },
+        {
+          "key": "pickup_address",
+          "value": "100 Example Avenue, Demo City, AR"
+        },
+        {
+          "key": "destination_address",
+          "value": "200 Example Avenue, Demo City, AR"
+        },
+        {
+          "key": "pickup_window_start",
+          "value": "2026-09-16T13:00:00Z"
+        },
+        {
+          "key": "pickup_window_end",
+          "value": "2026-09-16T15:00:00Z"
+        },
+        {
+          "key": "handling_profile",
+          "value": "handling_demo_v1"
+        }
+      ]
+    },
+    "files": []
+  },
+  "input_slots": [
+    {
+      "role": "test_order",
+      "accepted_types": [
+        "pgo_test_order"
+      ],
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      }
+    },
+    {
+      "role": "specimen",
+      "accepted_types": [
+        "pgo_blood_sample",
+        "pgo_tissue_sample",
+        "pgo_embryo_sample"
+      ],
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  ],
+  "output_slots": [
+    {
+      "role": "collection_request",
+      "object_type": "pgo_collection_request",
+      "mutation_mode": "new_object"
+    }
+  ],
+  "accepted_conditions": [
+    "The specimen is identified and available at origin.",
+    "The destination laboratory accepts that specimen and handling profile.",
+    "The receiving logistics provider is explicitly named on the resulting collection request as assigned_provider_id=pgp_sample_logistics for this offer."
+  ],
+  "scope_rules": [
+    "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
+    "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
+    "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
+    "This contract requests pickup of an existing specimen. Creating the collection_request does not create or physically collect a sample.",
+    "Any whole-embryo movement requires an explicitly supported handling profile and provider capability; a biopsy profile cannot authorize whole-embryo transport."
+  ],
+  "mock_commercial_terms": {
+    "price": {
+      "amount": 5000,
+      "currency": "ARS",
+      "basis": "per accepted request",
+      "is_mock": true
+    },
+    "turnaround": "2 business hours",
+    "turnaround_starts_at": "accepted after required inputs are available; waiting for a specimen or clarification pauses the estimate",
+    "tax_and_payment_policy": "Not specified in this fictional catalog",
+    "failure_policy": "Assess fulfillment and remaining usable outputs; refunds or rework follow the accepted service terms. No default automatic repeat of physical work."
+  },
+  "sample_request": {
+    "request_id": "pgr_demo_collection_request",
+    "service_id": "pgs_collection_request",
+    "service_version": "1.0.0",
+    "form_ref": {
+      "object_id": "obj_demo_form_collection_request",
+      "revision": 1
+    },
+    "inputs": [
+      {
+        "role": "test_order",
+        "object_ref": {
+          "object_id": "obj_demo_order",
+          "revision": 1
+        }
+      },
+      {
+        "role": "specimen",
+        "object_ref": {
+          "object_id": "obj_demo_blood",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "sample_result": {
+    "request_id": "pgr_demo_collection_request",
+    "status": "completed",
+    "outputs": [
+      {
+        "role": "collection_request",
+        "object_ref": {
+          "object_id": "obj_demo_collection",
+          "revision": 1
+        }
+      }
+    ]
+  }
+}

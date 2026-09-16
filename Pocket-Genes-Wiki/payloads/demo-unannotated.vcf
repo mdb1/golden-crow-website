@@ -1,0 +1,11 @@
+##fileformat=VCFv4.3
+##source=PocketGenesSyntheticCatalog
+##reference=PG_DEMO_REF_1
+##contig=<ID=PG_DEMO_1,length=1000>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	subject_demo_001
+PG_DEMO_1	101	.	A	G	60	PASS	.	GT:DP:GQ	1/1:1:40
+PG_DEMO_1	401	.	A	T	60	PASS	.	GT:DP:GQ	1/1:1:40
+PG_DEMO_1	701	.	A	C	60	PASS	.	GT:DP:GQ	1/1:1:40

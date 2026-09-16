@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "object_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object_type": {
+      "const": "pgo_blood_sample"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "object_id",
+          "revision"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "data": {
+      "type": "object",
+      "description": "Blood sample: data payload in the shared Pocket Genes object envelope.",
+      "properties": {
+        "subject_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Synthetic or platform-assigned subject identifier; do not infer identity from a filename."
+        },
+        "order_ref": {
+          "type": "object",
+          "description": "The test order governing this specimen.",
+          "properties": {
+            "object_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Stable object identifier.",
+              "pattern": "^obj_[A-Za-z0-9_]+$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Pinned object revision."
+            }
+          },
+          "required": [
+            "object_id",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        "sample_label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable identifier physically applied to the specimen container."
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Current lifecycle state.",
+          "enum": [
+            "available_at_origin",
+            "in_transit",
+            "received_at_destination",
+            "processing",
+            "partially_consumed",
+            "consumed",
+            "unavailable"
+          ]
+        },
+        "collected_at": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Time the specimen or material was obtained.",
+          "format": "date-time"
+        },
+        "collected_by": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Provider or professional identifier responsible for obtaining the material."
+        },
+        "current_location": {
+          "type": "object",
+          "description": "A named physical location.",
+          "properties": {
+            "location_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Registered location identifier."
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Display name for the current location."
+            },
+            "country_code": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Country code for routing; two uppercase letters.",
+              "pattern": "^[A-Z]{2}$"
+            }
+          },
+          "required": [
+            "location_id",
+            "name",
+            "country_code"
+          ],
+          "additionalProperties": false
+        },
+        "custodian_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Provider or organization currently responsible for the specimen."
+        },
+        "quantity": {
+          "type": "object",
+          "description": "A quantity with explicit units.",
+          "properties": {
+            "value": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Non-negative remaining or collected amount."
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Unit of measurement agreed by the service."
+            }
+          },
+          "required": [
+            "value",
+            "unit"
+          ],
+          "additionalProperties": false
+        },
+        "handling_profile": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Provider-defined, versioned handling profile. The fixture is not a medical handling instruction."
+        },
+        "lineage_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "A source physical object or prior material record.",
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Stable object identifier.",
+                "pattern": "^obj_[A-Za-z0-9_]+$"
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Pinned object revision."
+              }
+            },
+            "required": [
+              "object_id",
+              "revision"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "description": "Parent material objects; empty for an initial collected specimen."
+        },
+        "container_type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Container profile accepted for this particular order."
+        }
+      },
+      "required": [
+        "subject_id",
+        "order_ref",
+        "sample_label",
+        "state",
+        "collected_at",
+        "collected_by",
+        "current_location",
+        "custodian_id",
+        "quantity",
+        "handling_profile",
+        "lineage_refs",
+        "container_type"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "role",
+          "path",
+          "media_type",
+          "sha256",
+          "size_bytes"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "object_id",
+    "object_type",
+    "schema_version",
+    "revision",
+    "created_at",
+    "created_by",
+    "input_refs",
+    "data",
+    "files"
+  ],
+  "additionalProperties": false,
+  "$id": "https://schemas.pocketgenes.example/objects/pgo_blood_sample/1.0.0/schema.json",
+  "title": "Blood sample object"
+}

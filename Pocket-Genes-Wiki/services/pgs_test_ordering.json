@@ -1,0 +1,367 @@
+{
+  "service_id": "pgs_test_ordering",
+  "schema_version": "1.0.0",
+  "service_version": "1.0.0",
+  "name": "Create the test order",
+  "provider_id": "pgp_clinical_planning",
+  "stages": [
+    "test_planning"
+  ],
+  "availability": "mock_catalog_only",
+  "description": "Combine the consent record, candidate genes and patient/request context into the formal test order.",
+  "short_contract": "form + informed_consent + bundle_of_candidate_genes → test_order",
+  "provider_work": "Review consent and test selection, consolidate the patient context, and issue the order with explicit fulfillment requirements.",
+  "form_shape": {
+    "id": "pgfs_test_ordering",
+    "version": "1.0.0",
+    "fields": [
+      {
+        "key": "requested_at",
+        "label": "Requested at",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "requested_by",
+        "label": "Requested by",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "subject_id",
+        "label": "Subject identifier",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "patient_name",
+        "label": "Patient name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "objective",
+        "label": "Intended objective",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "clinical_suspicion",
+        "label": "Clinical suspicion",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "reference_id",
+        "label": "Reference identifier",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "variant_classes",
+        "label": "Requested variant classes",
+        "type": "multi_enum",
+        "required": true,
+        "options": [
+          {
+            "value": "SNV",
+            "label": "Single-nucleotide variants"
+          },
+          {
+            "value": "small_indel",
+            "label": "Small insertions/deletions"
+          }
+        ]
+      },
+      {
+        "key": "required_output_types",
+        "label": "Required deliverables",
+        "type": "multi_enum",
+        "required": true,
+        "options": [
+          {
+            "value": "pgo_interactive_report",
+            "label": "Interactive report"
+          },
+          {
+            "value": "pgo_pdf_report",
+            "label": "PDF report"
+          }
+        ]
+      },
+      {
+        "key": "patient_date_of_birth",
+        "label": "Patient date of birth",
+        "type": "date",
+        "required": true
+      },
+      {
+        "key": "patient_identifier",
+        "label": "Patient identifier",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "wet_lab_output_type",
+        "label": "Laboratory handoff format",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "pgo_sequence_reads",
+            "label": "FASTQ reads"
+          },
+          {
+            "value": "pgo_aligned_reads",
+            "label": "Aligned reads (BAM)"
+          },
+          {
+            "value": "pgo_unannotated_vcf",
+            "label": "Unannotated variants (VCF)"
+          },
+          {
+            "value": "pgo_annotated_vcf",
+            "label": "Annotated variants (VCF)"
+          }
+        ]
+      },
+      {
+        "key": "required_profile",
+        "label": "Required analytical profile",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "allow_unknown_fields": false
+  },
+  "sample_form_data": {
+    "form_shape_id": "pgfs_test_ordering",
+    "form_shape_version": "1.0.0",
+    "fields": [
+      {
+        "key": "requested_at",
+        "value": "2026-09-16T12:11:00Z"
+      },
+      {
+        "key": "requested_by",
+        "value": "user_demo_001"
+      },
+      {
+        "key": "subject_id",
+        "value": "subject_demo_001"
+      },
+      {
+        "key": "patient_name",
+        "value": "Alex Example"
+      },
+      {
+        "key": "objective",
+        "value": "Evaluate the synthetic three-gene demonstration"
+      },
+      {
+        "key": "clinical_suspicion",
+        "value": "Demo clinical hypothesis only"
+      },
+      {
+        "key": "reference_id",
+        "value": "PG_DEMO_REF_1"
+      },
+      {
+        "key": "variant_classes",
+        "value": [
+          "SNV",
+          "small_indel"
+        ]
+      },
+      {
+        "key": "required_output_types",
+        "value": [
+          "pgo_interactive_report",
+          "pgo_pdf_report"
+        ]
+      },
+      {
+        "key": "patient_date_of_birth",
+        "value": "1990-01-01"
+      },
+      {
+        "key": "patient_identifier",
+        "value": "PATIENT-DEMO-001"
+      },
+      {
+        "key": "wet_lab_output_type",
+        "value": "pgo_sequence_reads"
+      },
+      {
+        "key": "required_profile",
+        "value": "pg_demo_small_variant_v1"
+      }
+    ]
+  },
+  "sample_form_object": {
+    "object_id": "obj_demo_form_test_ordering",
+    "object_type": "pgo_form",
+    "schema_version": "1.0.0",
+    "revision": 1,
+    "created_at": "2026-09-16T12:11:00Z",
+    "created_by": "user_demo_001",
+    "input_refs": [],
+    "data": {
+      "form_shape_id": "pgfs_test_ordering",
+      "form_shape_version": "1.0.0",
+      "fields": [
+        {
+          "key": "requested_at",
+          "value": "2026-09-16T12:11:00Z"
+        },
+        {
+          "key": "requested_by",
+          "value": "user_demo_001"
+        },
+        {
+          "key": "subject_id",
+          "value": "subject_demo_001"
+        },
+        {
+          "key": "patient_name",
+          "value": "Alex Example"
+        },
+        {
+          "key": "objective",
+          "value": "Evaluate the synthetic three-gene demonstration"
+        },
+        {
+          "key": "clinical_suspicion",
+          "value": "Demo clinical hypothesis only"
+        },
+        {
+          "key": "reference_id",
+          "value": "PG_DEMO_REF_1"
+        },
+        {
+          "key": "variant_classes",
+          "value": [
+            "SNV",
+            "small_indel"
+          ]
+        },
+        {
+          "key": "required_output_types",
+          "value": [
+            "pgo_interactive_report",
+            "pgo_pdf_report"
+          ]
+        },
+        {
+          "key": "patient_date_of_birth",
+          "value": "1990-01-01"
+        },
+        {
+          "key": "patient_identifier",
+          "value": "PATIENT-DEMO-001"
+        },
+        {
+          "key": "wet_lab_output_type",
+          "value": "pgo_sequence_reads"
+        },
+        {
+          "key": "required_profile",
+          "value": "pg_demo_small_variant_v1"
+        }
+      ]
+    },
+    "files": []
+  },
+  "input_slots": [
+    {
+      "role": "consent",
+      "accepted_types": [
+        "pgo_informed_consent"
+      ],
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      }
+    },
+    {
+      "role": "candidate_genes",
+      "accepted_types": [
+        "pgo_bundle_of_candidate_genes"
+      ],
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  ],
+  "output_slots": [
+    {
+      "role": "test_order",
+      "object_type": "pgo_test_order",
+      "mutation_mode": "new_object"
+    }
+  ],
+  "accepted_conditions": [
+    "Patient and subject references agree across the form and input objects.",
+    "The consent is accepted and its scope covers the proposed order.",
+    "The provider confirms the selected tests and scope within its offered test-ordering process."
+  ],
+  "scope_rules": [
+    "Create data.scope and data.fulfillment explicitly; retain patient identity, objective, clinical suspicion and consent reference.",
+    "The final report must be generatable from this complete order plus the interactive result and the report service form.",
+    "The candidate-gene bundle feeds test ordering directly; no suggested-tests intermediate object is required.",
+    "The ordering form supplies patient_name, patient_date_of_birth and patient_identifier for the patient record. wet_lab_output_type selects the laboratory handoff; required_output_types maps to fulfillment.final_output_types; required_profile sets the analytical profile."
+  ],
+  "mock_commercial_terms": {
+    "price": {
+      "amount": 25000,
+      "currency": "ARS",
+      "basis": "per accepted request",
+      "is_mock": true
+    },
+    "turnaround": "1 business day",
+    "turnaround_starts_at": "accepted after required inputs are available; waiting for a specimen or clarification pauses the estimate",
+    "tax_and_payment_policy": "Not specified in this fictional catalog",
+    "failure_policy": "Assess fulfillment and remaining usable outputs; refunds or rework follow the accepted service terms. No default automatic repeat of physical work."
+  },
+  "sample_request": {
+    "request_id": "pgr_demo_test_ordering",
+    "service_id": "pgs_test_ordering",
+    "service_version": "1.0.0",
+    "form_ref": {
+      "object_id": "obj_demo_form_test_ordering",
+      "revision": 1
+    },
+    "inputs": [
+      {
+        "role": "consent",
+        "object_ref": {
+          "object_id": "obj_demo_consent",
+          "revision": 1
+        }
+      },
+      {
+        "role": "candidate_genes",
+        "object_ref": {
+          "object_id": "obj_demo_genes",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "sample_result": {
+    "request_id": "pgr_demo_test_ordering",
+    "status": "completed",
+    "outputs": [
+      {
+        "role": "test_order",
+        "object_ref": {
+          "object_id": "obj_demo_order",
+          "revision": 1
+        }
+      }
+    ]
+  }
+}

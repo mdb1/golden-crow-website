@@ -17,7 +17,14 @@ import { BACKOFFICE_VERSION } from "@/lib/app-version";
 import { appText } from "@/lib/language";
 import { getProjectNav, getProjectSections } from "@/lib/moderation-config";
 import { cn } from "@/lib/utils";
-import { CalendarDays, ChevronDown, Handshake, ScrollText } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronDown,
+  Handshake,
+  ReceiptText,
+  ScrollText,
+  Store,
+} from "lucide-react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -139,6 +146,36 @@ export function AppSidebar({
                     <Link href="/god-mode/crm">
                       <Handshake className="h-4 w-4" />
                       <span>CRM</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === "/god-mode/service-offers"}
+                    tooltip="Service Offers"
+                    className={cn(
+                      "border border-amber-400/45 bg-amber-100/80 text-amber-950 hover:border-amber-500/70 hover:bg-amber-200/80 hover:text-amber-950 data-active:border-amber-600 data-active:bg-amber-300 data-active:text-amber-950 dark:border-amber-300/25 dark:bg-amber-400/12 dark:text-amber-100 dark:hover:bg-amber-400/20 dark:data-active:bg-amber-400/24",
+                    )}
+                  >
+                    <Link href="/god-mode/service-offers">
+                      <Store className="h-4 w-4" />
+                      <span>Service Offers</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === "/god-mode/service-transactions"}
+                    tooltip="Service Transactions"
+                    className={cn(
+                      "border border-amber-400/45 bg-amber-100/80 text-amber-950 hover:border-amber-500/70 hover:bg-amber-200/80 hover:text-amber-950 data-active:border-amber-600 data-active:bg-amber-300 data-active:text-amber-950 dark:border-amber-300/25 dark:bg-amber-400/12 dark:text-amber-100 dark:hover:bg-amber-400/20 dark:data-active:bg-amber-400/24",
+                    )}
+                  >
+                    <Link href="/god-mode/service-transactions">
+                      <ReceiptText className="h-4 w-4" />
+                      <span>Service Transactions</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

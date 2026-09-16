@@ -1,0 +1,57 @@
+{
+  "object_id": "obj_demo_genes",
+  "object_type": "pgo_bundle_of_candidate_genes",
+  "schema_version": "1.0.0",
+  "revision": 1,
+  "created_at": "2026-09-16T12:10:00Z",
+  "created_by": "pgp_clinical_planning",
+  "input_refs": [
+    {
+      "object_id": "obj_demo_form_gene_prioritization",
+      "revision": 1
+    },
+    {
+      "object_id": "obj_demo_symptoms",
+      "revision": 1
+    }
+  ],
+  "data": {
+    "subject_id": "subject_demo_001",
+    "gene_namespace": "PG_DEMO_GENE",
+    "genes": [
+      {
+        "gene_id": "PGGENE_A",
+        "rank": 1,
+        "rationale": "Fictional candidate 1 selected from demo observations.",
+        "evidence_refs": [
+          "observation_demo_001",
+          "observation_demo_002"
+        ]
+      },
+      {
+        "gene_id": "PGGENE_B",
+        "rank": 2,
+        "rationale": "Fictional candidate 2 selected from demo observations.",
+        "evidence_refs": [
+          "observation_demo_001",
+          "observation_demo_002"
+        ]
+      },
+      {
+        "gene_id": "PGGENE_C",
+        "rank": 3,
+        "rationale": "Fictional candidate 3 selected from demo observations.",
+        "evidence_refs": [
+          "observation_demo_001",
+          "observation_demo_002"
+        ]
+      }
+    ],
+    "source_symptoms_ref": {
+      "object_id": "obj_demo_symptoms",
+      "revision": 1
+    },
+    "method": "demo-prioritization-v1"
+  },
+  "files": []
+}

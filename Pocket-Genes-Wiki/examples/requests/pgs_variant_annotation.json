@@ -1,0 +1,25 @@
+{
+  "request_id": "pgr_demo_variant_annotation",
+  "service_id": "pgs_variant_annotation",
+  "service_version": "1.0.0",
+  "form_ref": {
+    "object_id": "obj_demo_form_variant_annotation",
+    "revision": 1
+  },
+  "inputs": [
+    {
+      "role": "variants",
+      "object_ref": {
+        "object_id": "obj_demo_unannotated_vcf",
+        "revision": 1
+      }
+    },
+    {
+      "role": "test_order",
+      "object_ref": {
+        "object_id": "obj_demo_order",
+        "revision": 1
+      }
+    }
+  ]
+}

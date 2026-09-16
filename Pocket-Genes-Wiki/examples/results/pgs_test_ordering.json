@@ -1,0 +1,13 @@
+{
+  "request_id": "pgr_demo_test_ordering",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "test_order",
+      "object_ref": {
+        "object_id": "obj_demo_order",
+        "revision": 1
+      }
+    }
+  ]
+}

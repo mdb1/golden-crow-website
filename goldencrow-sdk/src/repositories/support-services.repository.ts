@@ -1,0 +1,908 @@
+import {
+  FieldValue,
+  Timestamp,
+  type Query,
+  type QueryDocumentSnapshot,
+} from "firebase-admin/firestore";
+import { adminDbFor } from "../config/firebase.js";
+import type { AdminContext } from "../types/sdk.types.js";
+import { AdminRepositoryError } from "./admin-errors.js";
+
+const adminDb = adminDbFor("mydnamap");
+const SERVICE_OFFERS_COLLECTION = "service_offers";
+const SERVICE_TRANSACTIONS_COLLECTION = "service_transactions";
+const MAX_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 20;
+const FILTERED_BATCH_LIMIT = MAX_PAGE_SIZE;
+const MAX_FILTERED_SCAN = MAX_PAGE_SIZE * 3;
+
+export const SUPPORT_SERVICE_STAGES = [
+  "test_planning",
+  "wet_lab",
+  "bioinformatics",
+] as const;
+
+export const SUPPORT_SERVICE_OFFER_STATUSES = [
+  "draft",
+  "active",
+  "paused",
+  "archived",
+] as const;
+
+export const SUPPORT_SERVICE_TRANSACTION_STATUSES = [
+  "draft",
+  "submitted",
+  "awaiting_input",
+  "accepted",
+  "in_progress",
+  "completed",
+  "failed",
+  "cancelled",
+] as const;
+
+export type SupportServiceStage = (typeof SUPPORT_SERVICE_STAGES)[number];
+export type SupportServiceOfferStatus =
+  (typeof SUPPORT_SERVICE_OFFER_STATUSES)[number];
+export type SupportServiceTransactionStatus =
+  (typeof SUPPORT_SERVICE_TRANSACTION_STATUSES)[number];
+
+type ListOptions = {
+  cursor?: string;
+  limit?: unknown;
+  query?: string;
+  status?: string;
+};
+
+type OfferListOptions = ListOptions & {
+  stage?: string;
+};
+
+type TransactionListOptions = ListOptions & {
+  serviceId?: string;
+};
+
+export interface SupportServiceOfferInput {
+  serviceId?: string;
+  serviceVersion?: string;
+  name?: string;
+  providerId?: string;
+  stages?: string[];
+  status?: SupportServiceOfferStatus;
+  availability?: string;
+  description?: string;
+  shortContract?: string;
+  providerWork?: string;
+  formShape?: Record<string, unknown>;
+  inputSlots?: Record<string, unknown>[];
+  outputSlots?: Record<string, unknown>[];
+  acceptedConditions?: string[];
+  scopeRules?: string[];
+  commercialTerms?: Record<string, unknown>;
+}
+
+export interface SupportServiceOfferRecord {
+  id: string;
+  schemaVersion: number;
+  serviceId: string;
+  serviceVersion: string;
+  name: string;
+  providerId: string;
+  stages: SupportServiceStage[];
+  status: SupportServiceOfferStatus;
+  availability: string;
+  description: string;
+  shortContract: string;
+  providerWork: string;
+  formShape: Record<string, unknown>;
+  inputSlots: Record<string, unknown>[];
+  outputSlots: Record<string, unknown>[];
+  acceptedConditions: string[];
+  scopeRules: string[];
+  commercialTerms: Record<string, unknown>;
+  normalizedName: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdByEmail?: string;
+  updatedByEmail?: string;
+}
+
+export interface SupportServiceTransactionsInputRef {
+  objectId: string;
+  revision: number;
+}
+
+export interface SupportServiceTransactionInputSlot {
+  role: string;
+  objectRef: SupportServiceTransactionsInputRef;
+}
+
+export interface SupportServiceTransactionOutputSlot {
+  role: string;
+  objectRef: SupportServiceTransactionsInputRef;
+}
+
+export interface SupportServiceTransactionInput {
+  requestId?: string;
+  serviceId?: string;
+  serviceVersion?: string;
+  status?: SupportServiceTransactionStatus;
+  requesterEmail?: string;
+  subjectId?: string;
+  formRef?: SupportServiceTransactionsInputRef | null;
+  inputs?: SupportServiceTransactionInputSlot[];
+  outputs?: SupportServiceTransactionOutputSlot[];
+  notes?: string;
+}
+
+export interface SupportServiceTransactionRecord {
+  id: string;
+  schemaVersion: number;
+  requestId: string;
+  serviceId: string;
+  serviceVersion: string;
+  status: SupportServiceTransactionStatus;
+  requesterEmail: string;
+  subjectId: string;
+  formRef: SupportServiceTransactionsInputRef | null;
+  inputs: SupportServiceTransactionInputSlot[];
+  outputs: SupportServiceTransactionOutputSlot[];
+  notes: string;
+  normalizedName: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdByEmail?: string;
+  updatedByEmail?: string;
+}
+
+export interface SupportServiceOffersPage {
+  offers: SupportServiceOfferRecord[];
+  nextCursor?: string;
+}
+
+export interface SupportServiceTransactionsPage {
+  transactions: SupportServiceTransactionRecord[];
+  nextCursor?: string;
+}
+
+const STAGE_SET = new Set<string>(SUPPORT_SERVICE_STAGES);
+const OFFER_STATUS_SET = new Set<string>(SUPPORT_SERVICE_OFFER_STATUSES);
+const TRANSACTION_STATUS_SET = new Set<string>(
+  SUPPORT_SERVICE_TRANSACTION_STATUSES,
+);
+
+function requireGodMode(context: AdminContext) {
+  if (!context.isBootstrap) {
+    throw new AdminRepositoryError("GOD MODE access required", 403);
+  }
+}
+
+function cleanString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeKey(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function normalizeName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function normalizeLimit(value: unknown) {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : NaN;
+
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_PAGE_SIZE;
+  }
+
+  return Math.min(Math.max(Math.trunc(parsed), 1), MAX_PAGE_SIZE);
+}
+
+function timestampToIso(value: unknown): string | undefined {
+  if (value instanceof Timestamp) {
+    return value.toDate().toISOString();
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? undefined : new Date(parsed).toISOString();
+  }
+
+  return undefined;
+}
+
+function parseCursorTimestamp(cursor?: string) {
+  if (!cursor) {
+    return undefined;
+  }
+
+  const parsed = new Date(cursor);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+
+  return Timestamp.fromDate(parsed);
+}
+
+function withoutUndefined<T extends Record<string, unknown>>(input: T) {
+  return Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined),
+  ) as T;
+}
+
+function optionalRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  return {};
+}
+
+function optionalRecordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is Record<string, unknown> =>
+          Boolean(item) && typeof item === "object" && !Array.isArray(item),
+      )
+    : [];
+}
+
+function cleanStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.map(cleanString).filter((item) => item.length > 0)
+    : [];
+}
+
+function normalizeStage(value: unknown): SupportServiceStage | null {
+  const normalized = normalizeKey(cleanString(value));
+  return STAGE_SET.has(normalized)
+    ? (normalized as SupportServiceStage)
+    : null;
+}
+
+function normalizeStages(value: unknown): SupportServiceStage[] {
+  const seen = new Set<SupportServiceStage>();
+  const rawStages = Array.isArray(value) ? value : [value];
+
+  for (const item of rawStages) {
+    const stage = normalizeStage(item);
+    if (stage) {
+      seen.add(stage);
+    }
+  }
+
+  return seen.size > 0 ? [...seen] : ["test_planning"];
+}
+
+function normalizeOfferStatus(value: unknown): SupportServiceOfferStatus {
+  const normalized = normalizeKey(cleanString(value));
+  return OFFER_STATUS_SET.has(normalized)
+    ? (normalized as SupportServiceOfferStatus)
+    : "draft";
+}
+
+function normalizeTransactionStatus(
+  value: unknown,
+): SupportServiceTransactionStatus {
+  const normalized = normalizeKey(cleanString(value));
+  return TRANSACTION_STATUS_SET.has(normalized)
+    ? (normalized as SupportServiceTransactionStatus)
+    : "draft";
+}
+
+function objectRefFromUnknown(
+  value: unknown,
+): SupportServiceTransactionsInputRef | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const objectId = cleanString(record.objectId ?? record.object_id);
+  const rawRevision = record.revision;
+  const parsedRevision =
+    typeof rawRevision === "number"
+      ? rawRevision
+      : typeof rawRevision === "string"
+        ? Number(rawRevision)
+        : NaN;
+
+  if (!objectId || !Number.isFinite(parsedRevision)) {
+    return null;
+  }
+
+  return {
+    objectId,
+    revision: Math.max(1, Math.trunc(parsedRevision)),
+  };
+}
+
+function inputSlotsFromUnknown(
+  value: unknown,
+): SupportServiceTransactionInputSlot[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const role = cleanString(record.role);
+      const objectRef = objectRefFromUnknown(
+        record.objectRef ?? record.object_ref,
+      );
+
+      return role && objectRef ? { role, objectRef } : null;
+    })
+    .filter((item): item is SupportServiceTransactionInputSlot =>
+      Boolean(item),
+    );
+}
+
+function outputSlotsFromUnknown(
+  value: unknown,
+): SupportServiceTransactionOutputSlot[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const role = cleanString(record.role);
+      const objectRef = objectRefFromUnknown(
+        record.objectRef ?? record.object_ref,
+      );
+
+      return role && objectRef ? { role, objectRef } : null;
+    })
+    .filter((item): item is SupportServiceTransactionOutputSlot =>
+      Boolean(item),
+    );
+}
+
+function offerDocument(input: SupportServiceOfferInput) {
+  const name = cleanString(input.name);
+  const serviceId = cleanString(input.serviceId);
+  const providerId = cleanString(input.providerId);
+  const serviceVersion = cleanString(input.serviceVersion) || "1.0.0";
+  const stages = normalizeStages(input.stages);
+
+  return {
+    schemaVersion: 1,
+    serviceId,
+    serviceVersion,
+    name,
+    providerId,
+    stages,
+    status: normalizeOfferStatus(input.status),
+    availability: cleanString(input.availability) || "backoffice",
+    description: cleanString(input.description),
+    shortContract: cleanString(input.shortContract),
+    providerWork: cleanString(input.providerWork),
+    formShape: optionalRecord(input.formShape),
+    inputSlots: optionalRecordArray(input.inputSlots),
+    outputSlots: optionalRecordArray(input.outputSlots),
+    acceptedConditions: cleanStringArray(input.acceptedConditions),
+    scopeRules: cleanStringArray(input.scopeRules),
+    commercialTerms: optionalRecord(input.commercialTerms),
+    normalizedName: normalizeName(`${name} ${serviceId} ${providerId}`),
+  };
+}
+
+function transactionDocument(input: SupportServiceTransactionInput) {
+  const requestId = cleanString(input.requestId);
+  const serviceId = cleanString(input.serviceId);
+  const requesterEmail = cleanString(input.requesterEmail).toLowerCase();
+  const subjectId = cleanString(input.subjectId);
+
+  return {
+    schemaVersion: 1,
+    requestId,
+    serviceId,
+    serviceVersion: cleanString(input.serviceVersion) || "1.0.0",
+    status: normalizeTransactionStatus(input.status),
+    requesterEmail,
+    subjectId,
+    formRef: objectRefFromUnknown(input.formRef),
+    inputs: inputSlotsFromUnknown(input.inputs),
+    outputs: outputSlotsFromUnknown(input.outputs),
+    notes: cleanString(input.notes),
+    normalizedName: normalizeName(`${requestId} ${serviceId} ${requesterEmail}`),
+  };
+}
+
+function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
+  if (!document.name) {
+    throw new AdminRepositoryError("Service offer name is required.", 400);
+  }
+  if (!/^pgs_[a-z0-9_]+$/.test(document.serviceId)) {
+    throw new AdminRepositoryError(
+      "Service ID must use the pgs_* convention.",
+      400,
+    );
+  }
+  if (!document.providerId || !/^pgp_[a-z0-9_]+$/.test(document.providerId)) {
+    throw new AdminRepositoryError(
+      "Provider ID must use the pgp_* convention.",
+      400,
+    );
+  }
+}
+
+function validateTransactionDocument(
+  document: ReturnType<typeof transactionDocument>,
+) {
+  if (!/^pgr_[a-z0-9_]+$/.test(document.requestId)) {
+    throw new AdminRepositoryError(
+      "Request ID must use the pgr_* convention.",
+      400,
+    );
+  }
+  if (!/^pgs_[a-z0-9_]+$/.test(document.serviceId)) {
+    throw new AdminRepositoryError(
+      "Service ID must use the pgs_* convention.",
+      400,
+    );
+  }
+  if (!document.formRef) {
+    throw new AdminRepositoryError(
+      "A transaction requires a form object reference.",
+      400,
+    );
+  }
+}
+
+function toOfferRecord(id: string, data: Record<string, unknown>) {
+  const serviceId = cleanString(data.serviceId ?? data.service_id);
+  const providerId = cleanString(data.providerId ?? data.provider_id);
+  const name = cleanString(data.name);
+
+  return {
+    id,
+    schemaVersion:
+      typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
+    serviceId,
+    serviceVersion:
+      cleanString(data.serviceVersion ?? data.service_version) || "1.0.0",
+    name,
+    providerId,
+    stages: normalizeStages(data.stages),
+    status: normalizeOfferStatus(data.status),
+    availability: cleanString(data.availability),
+    description: cleanString(data.description),
+    shortContract: cleanString(data.shortContract ?? data.short_contract),
+    providerWork: cleanString(data.providerWork ?? data.provider_work),
+    formShape: optionalRecord(data.formShape ?? data.form_shape),
+    inputSlots: optionalRecordArray(data.inputSlots ?? data.input_slots),
+    outputSlots: optionalRecordArray(data.outputSlots ?? data.output_slots),
+    acceptedConditions: cleanStringArray(
+      data.acceptedConditions ?? data.accepted_conditions,
+    ),
+    scopeRules: cleanStringArray(data.scopeRules ?? data.scope_rules),
+    commercialTerms: optionalRecord(
+      data.commercialTerms ?? data.mock_commercial_terms,
+    ),
+    normalizedName:
+      cleanString(data.normalizedName) ||
+      normalizeName(`${name} ${serviceId} ${providerId}`),
+    createdAt: timestampToIso(data.createdAt),
+    updatedAt: timestampToIso(data.updatedAt),
+    createdByEmail: cleanString(data.createdByEmail),
+    updatedByEmail: cleanString(data.updatedByEmail),
+  } satisfies SupportServiceOfferRecord;
+}
+
+function toTransactionRecord(id: string, data: Record<string, unknown>) {
+  const requestId = cleanString(data.requestId ?? data.request_id);
+  const serviceId = cleanString(data.serviceId ?? data.service_id);
+  const requesterEmail = cleanString(data.requesterEmail).toLowerCase();
+
+  return {
+    id,
+    schemaVersion:
+      typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
+    requestId,
+    serviceId,
+    serviceVersion:
+      cleanString(data.serviceVersion ?? data.service_version) || "1.0.0",
+    status: normalizeTransactionStatus(data.status),
+    requesterEmail,
+    subjectId: cleanString(data.subjectId ?? data.subject_id),
+    formRef: objectRefFromUnknown(data.formRef ?? data.form_ref),
+    inputs: inputSlotsFromUnknown(data.inputs),
+    outputs: outputSlotsFromUnknown(data.outputs),
+    notes: cleanString(data.notes),
+    normalizedName:
+      cleanString(data.normalizedName) ||
+      normalizeName(`${requestId} ${serviceId} ${requesterEmail}`),
+    createdAt: timestampToIso(data.createdAt),
+    updatedAt: timestampToIso(data.updatedAt),
+    createdByEmail: cleanString(data.createdByEmail),
+    updatedByEmail: cleanString(data.updatedByEmail),
+  } satisfies SupportServiceTransactionRecord;
+}
+
+function matchesTextSearch(record: { normalizedName: string }, query?: string) {
+  const normalizedQuery = normalizeName(cleanString(query));
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  return record.normalizedName.includes(normalizedQuery);
+}
+
+function matchesOfferFilters(
+  offer: SupportServiceOfferRecord,
+  options: OfferListOptions,
+) {
+  const status = normalizeKey(cleanString(options.status));
+  const stage = normalizeKey(cleanString(options.stage));
+
+  return (
+    matchesTextSearch(offer, options.query) &&
+    (!status || status === "all" || offer.status === status) &&
+    (!stage ||
+      stage === "all" ||
+      offer.stages.includes(stage as SupportServiceStage))
+  );
+}
+
+function matchesTransactionFilters(
+  transaction: SupportServiceTransactionRecord,
+  options: TransactionListOptions,
+) {
+  const status = normalizeKey(cleanString(options.status));
+  const serviceId = cleanString(options.serviceId);
+
+  return (
+    matchesTextSearch(transaction, options.query) &&
+    (!status || status === "all" || transaction.status === status) &&
+    (!serviceId || transaction.serviceId === serviceId)
+  );
+}
+
+async function listWithFilters<TRecord>({
+  collectionName,
+  cursor,
+  limit,
+  hasFilters,
+  toRecord,
+  matches,
+}: {
+  collectionName: string;
+  cursor?: string;
+  limit: number;
+  hasFilters: boolean;
+  toRecord: (id: string, data: Record<string, unknown>) => TRecord;
+  matches: (record: TRecord) => boolean;
+}): Promise<{ records: TRecord[]; nextCursor?: string }> {
+  const cursorTimestamp = parseCursorTimestamp(cursor);
+  const baseQuery = adminDb
+    .collection(collectionName)
+    .orderBy("updatedAt", "desc");
+  let query: Query = baseQuery;
+
+  if (cursorTimestamp) {
+    query = query.startAfter(cursorTimestamp);
+  }
+
+  if (!hasFilters) {
+    const snapshot = await query.limit(limit + 1).get();
+    const visibleDocs = snapshot.docs.slice(0, limit);
+    const records = visibleDocs.map((doc) =>
+      toRecord(doc.id, doc.data() ?? {}),
+    );
+    const lastVisible = visibleDocs[visibleDocs.length - 1];
+    const nextCursor =
+      snapshot.docs.length > limit && lastVisible
+        ? timestampToIso(lastVisible.data().updatedAt)
+        : undefined;
+
+    return { records, nextCursor };
+  }
+
+  const records: TRecord[] = [];
+  let pageCursorTimestamp = cursorTimestamp;
+  let scannedDocs = 0;
+  let nextCursor: string | undefined;
+
+  while (records.length < limit && scannedDocs < MAX_FILTERED_SCAN) {
+    const batchLimit = Math.min(
+      FILTERED_BATCH_LIMIT,
+      MAX_FILTERED_SCAN - scannedDocs,
+    );
+    let batchQuery: Query = baseQuery;
+
+    if (pageCursorTimestamp) {
+      batchQuery = batchQuery.startAfter(pageCursorTimestamp);
+    }
+
+    const snapshot = await batchQuery.limit(batchLimit).get();
+    if (snapshot.empty) {
+      nextCursor = undefined;
+      break;
+    }
+
+    let lastConsumedDoc: QueryDocumentSnapshot | undefined;
+
+    for (const doc of snapshot.docs) {
+      lastConsumedDoc = doc;
+      scannedDocs += 1;
+
+      const record = toRecord(doc.id, doc.data() ?? {});
+      if (matches(record)) {
+        records.push(record);
+        if (records.length >= limit) {
+          break;
+        }
+      }
+
+      if (scannedDocs >= MAX_FILTERED_SCAN) {
+        break;
+      }
+    }
+
+    if (!lastConsumedDoc) {
+      nextCursor = undefined;
+      break;
+    }
+
+    nextCursor = timestampToIso(lastConsumedDoc.data().updatedAt);
+    const lastSnapshotDoc = snapshot.docs[snapshot.docs.length - 1];
+    const consumedWholeBatch =
+      lastSnapshotDoc && lastConsumedDoc.id === lastSnapshotDoc.id;
+
+    if (!consumedWholeBatch || snapshot.docs.length < batchLimit) {
+      break;
+    }
+
+    pageCursorTimestamp = parseCursorTimestamp(nextCursor);
+    if (!pageCursorTimestamp) {
+      nextCursor = undefined;
+      break;
+    }
+  }
+
+  return { records, nextCursor };
+}
+
+async function getOfferSnapshot(offerId: string) {
+  const snapshot = await adminDb
+    .collection(SERVICE_OFFERS_COLLECTION)
+    .doc(offerId)
+    .get();
+  return snapshot.exists ? snapshot : null;
+}
+
+async function getTransactionSnapshot(transactionId: string) {
+  const snapshot = await adminDb
+    .collection(SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(transactionId)
+    .get();
+  return snapshot.exists ? snapshot : null;
+}
+
+export async function listSupportServiceOffers(
+  context: AdminContext,
+  options: OfferListOptions = {},
+): Promise<SupportServiceOffersPage> {
+  requireGodMode(context);
+
+  const limit = normalizeLimit(options.limit);
+  const hasFilters = Boolean(
+    cleanString(options.query) ||
+      (cleanString(options.status) && cleanString(options.status) !== "all") ||
+      (cleanString(options.stage) && cleanString(options.stage) !== "all"),
+  );
+  const result = await listWithFilters({
+    collectionName: SERVICE_OFFERS_COLLECTION,
+    cursor: options.cursor,
+    limit,
+    hasFilters,
+    toRecord: toOfferRecord,
+    matches: (record) => matchesOfferFilters(record, options),
+  });
+
+  return { offers: result.records, nextCursor: result.nextCursor };
+}
+
+export async function getSupportServiceOffer(
+  context: AdminContext,
+  offerId: string,
+) {
+  requireGodMode(context);
+  const snapshot = await getOfferSnapshot(offerId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service offer not found.", 404);
+  }
+
+  return toOfferRecord(offerId, snapshot.data() ?? {});
+}
+
+export async function createSupportServiceOffer(
+  context: AdminContext,
+  input: SupportServiceOfferInput,
+) {
+  requireGodMode(context);
+  const document = offerDocument(input);
+  validateOfferDocument(document);
+
+  const ref = adminDb.collection(SERVICE_OFFERS_COLLECTION).doc();
+  await ref.set(
+    withoutUndefined({
+      ...document,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      createdByEmail: context.email,
+      updatedByEmail: context.email,
+    }),
+  );
+
+  return getSupportServiceOffer(context, ref.id);
+}
+
+export async function updateSupportServiceOffer(
+  context: AdminContext,
+  offerId: string,
+  input: SupportServiceOfferInput,
+) {
+  requireGodMode(context);
+  const snapshot = await getOfferSnapshot(offerId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service offer not found.", 404);
+  }
+
+  const document = offerDocument(input);
+  validateOfferDocument(document);
+  await snapshot.ref.set(
+    withoutUndefined({
+      ...document,
+      createdAt: snapshot.data()?.createdAt,
+      createdByEmail: snapshot.data()?.createdByEmail,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    }),
+  );
+
+  return getSupportServiceOffer(context, offerId);
+}
+
+export async function deleteSupportServiceOffer(
+  context: AdminContext,
+  offerId: string,
+) {
+  requireGodMode(context);
+  const snapshot = await getOfferSnapshot(offerId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service offer not found.", 404);
+  }
+
+  await snapshot.ref.delete();
+}
+
+export async function listSupportServiceTransactions(
+  context: AdminContext,
+  options: TransactionListOptions = {},
+): Promise<SupportServiceTransactionsPage> {
+  requireGodMode(context);
+
+  const limit = normalizeLimit(options.limit);
+  const hasFilters = Boolean(
+    cleanString(options.query) ||
+      (cleanString(options.status) && cleanString(options.status) !== "all") ||
+      cleanString(options.serviceId),
+  );
+  const result = await listWithFilters({
+    collectionName: SERVICE_TRANSACTIONS_COLLECTION,
+    cursor: options.cursor,
+    limit,
+    hasFilters,
+    toRecord: toTransactionRecord,
+    matches: (record) => matchesTransactionFilters(record, options),
+  });
+
+  return { transactions: result.records, nextCursor: result.nextCursor };
+}
+
+export async function getSupportServiceTransaction(
+  context: AdminContext,
+  transactionId: string,
+) {
+  requireGodMode(context);
+  const snapshot = await getTransactionSnapshot(transactionId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+
+  return toTransactionRecord(transactionId, snapshot.data() ?? {});
+}
+
+export async function createSupportServiceTransaction(
+  context: AdminContext,
+  input: SupportServiceTransactionInput,
+) {
+  requireGodMode(context);
+  const document = transactionDocument(input);
+  validateTransactionDocument(document);
+
+  const ref = adminDb.collection(SERVICE_TRANSACTIONS_COLLECTION).doc();
+  await ref.set(
+    withoutUndefined({
+      ...document,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      createdByEmail: context.email,
+      updatedByEmail: context.email,
+    }),
+  );
+
+  return getSupportServiceTransaction(context, ref.id);
+}
+
+export async function updateSupportServiceTransaction(
+  context: AdminContext,
+  transactionId: string,
+  input: SupportServiceTransactionInput,
+) {
+  requireGodMode(context);
+  const snapshot = await getTransactionSnapshot(transactionId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+
+  const document = transactionDocument(input);
+  validateTransactionDocument(document);
+  await snapshot.ref.set(
+    withoutUndefined({
+      ...document,
+      createdAt: snapshot.data()?.createdAt,
+      createdByEmail: snapshot.data()?.createdByEmail,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    }),
+  );
+
+  return getSupportServiceTransaction(context, transactionId);
+}
+
+export async function deleteSupportServiceTransaction(
+  context: AdminContext,
+  transactionId: string,
+) {
+  requireGodMode(context);
+  const snapshot = await getTransactionSnapshot(transactionId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+
+  await snapshot.ref.delete();
+}

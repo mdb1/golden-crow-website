@@ -1,0 +1,124 @@
+{
+  "object_id": "obj_demo_interactive",
+  "object_type": "pgo_interactive_report",
+  "schema_version": "1.0.0",
+  "revision": 1,
+  "created_at": "2026-09-17T16:00:00Z",
+  "created_by": "pgp_variant_analysis",
+  "input_refs": [
+    {
+      "object_id": "obj_demo_form_interactive_interpretation",
+      "revision": 1
+    },
+    {
+      "object_id": "obj_demo_annotated_vcf",
+      "revision": 1
+    }
+  ],
+  "data": {
+    "subject_id": "subject_demo_001",
+    "order_ref": {
+      "object_id": "obj_demo_order",
+      "revision": 1
+    },
+    "reference_id": "PG_DEMO_REF_1",
+    "profile_id": "pg_demo_small_variant_v1",
+    "analysis_support": {
+      "status": "sufficient",
+      "evaluated_genes": [
+        "PGGENE_A",
+        "PGGENE_B",
+        "PGGENE_C"
+      ],
+      "supported_variant_classes": [
+        "SNV",
+        "small_indel"
+      ],
+      "evidence": [
+        {
+          "kind": "synthetic_fixture_attestation",
+          "reference": "demo-evidence-001",
+          "summary": "Illustrative provider declaration for the fictional three-gene fixture; not a real measurement or clinical result."
+        }
+      ],
+      "limitations": [
+        "Synthetic fixture only; the native sample bytes do not establish real gene coverage or clinical validity."
+      ]
+    },
+    "format_version": "1.0.0",
+    "gene_namespace": "PG_DEMO_GENE",
+    "source_variants_ref": {
+      "object_id": "obj_demo_annotated_vcf",
+      "revision": 1
+    },
+    "findings": [
+      {
+        "finding_id": "finding_demo_001",
+        "gene_id": "PGGENE_A",
+        "variant": {
+          "contig": "PG_DEMO_1",
+          "position": 101,
+          "reference": "A",
+          "alternate": "G"
+        },
+        "clinical_relevance": {
+          "label": "Demonstration finding",
+          "summary": "Synthetic example 1 of a structured relevance statement; no real disease or risk is asserted.",
+          "evidence_refs": [
+            "PG_DEMO_KNOWLEDGE_BASE:ENTRY_001"
+          ],
+          "knowledge_version": "1.0.0"
+        },
+        "genotype": "1/1"
+      },
+      {
+        "finding_id": "finding_demo_002",
+        "gene_id": "PGGENE_B",
+        "variant": {
+          "contig": "PG_DEMO_1",
+          "position": 401,
+          "reference": "A",
+          "alternate": "T"
+        },
+        "clinical_relevance": {
+          "label": "Demonstration finding",
+          "summary": "Synthetic example 2 of a structured relevance statement; no real disease or risk is asserted.",
+          "evidence_refs": [
+            "PG_DEMO_KNOWLEDGE_BASE:ENTRY_002"
+          ],
+          "knowledge_version": "1.0.0"
+        },
+        "genotype": "1/1"
+      },
+      {
+        "finding_id": "finding_demo_003",
+        "gene_id": "PGGENE_C",
+        "variant": {
+          "contig": "PG_DEMO_1",
+          "position": 701,
+          "reference": "A",
+          "alternate": "C"
+        },
+        "clinical_relevance": {
+          "label": "Demonstration finding",
+          "summary": "Synthetic example 3 of a structured relevance statement; no real disease or risk is asserted.",
+          "evidence_refs": [
+            "PG_DEMO_KNOWLEDGE_BASE:ENTRY_003"
+          ],
+          "knowledge_version": "1.0.0"
+        },
+        "genotype": "1/1"
+      }
+    ],
+    "result_summary": "Three fictional findings are represented for demonstration within the three requested fictional genes.",
+    "method_summary": "Synthetic catalog fixture illustrating variant annotation and structured result production.",
+    "produced_by": "pgp_variant_analysis",
+    "produced_at": "2026-09-17T16:00:00Z",
+    "provenance": {
+      "source_kind": "provider_generated",
+      "source_label": "Synthetic provider-generated result for the Pocket Genes demonstration pipeline.",
+      "producer_label": "Pocket Genes demo fixture author"
+    }
+  },
+  "files": []
+}

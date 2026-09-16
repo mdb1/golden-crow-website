@@ -1,0 +1,13 @@
+{
+  "request_id": "pgr_demo_interactive_interpretation",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "interactive_report",
+      "object_ref": {
+        "object_id": "obj_demo_interactive",
+        "revision": 1
+      }
+    }
+  ]
+}

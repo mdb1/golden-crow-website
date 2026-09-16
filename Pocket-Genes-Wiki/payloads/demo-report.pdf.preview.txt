@@ -1,0 +1,31 @@
+Pocket Genes catalog fixture | Generated from test_order + pgi1
+1
+Pocket Genes
+Genomic report - synthetic example
+SYNTHETIC DEMONSTRATION. The patient, genes and findings below are fictional catalog fixtures.
+Order and patient context
+Patient: Alex Example | Identifier: PATIENT-DEMO-001
+Date of birth: 1990-01-01 | Order: PG-DEMO-ORDER-001
+Objective: Evaluate the synthetic three-gene demonstration
+Clinical suspicion: Demo clinical hypothesis only
+Requested genes: PGGENE_A, PGGENE_B, PGGENE_C
+Genomic findings
+PGGENE_A | PG_DEMO_1:101 A>G | Genotype 1/1
+Synthetic example 1 of a structured relevance statement; no real disease or risk is asserted.
+Evidence: PG_DEMO_KNOWLEDGE_BASE:ENTRY_001 | Knowledge version 1.0.0
+PGGENE_B | PG_DEMO_1:401 A>T | Genotype 1/1
+Synthetic example 2 of a structured relevance statement; no real disease or risk is asserted.
+Evidence: PG_DEMO_KNOWLEDGE_BASE:ENTRY_002 | Knowledge version 1.0.0
+PGGENE_C | PG_DEMO_1:701 A>C | Genotype 1/1
+Synthetic example 3 of a structured relevance statement; no real disease or risk is asserted.
+Evidence: PG_DEMO_KNOWLEDGE_BASE:ENTRY_003 | Knowledge version 1.0.0
+Scope and limitations
+Evaluated genes: PGGENE_A, PGGENE_B, PGGENE_C
+Reference: PG_DEMO_REF_1 | Supported variant classes: SNV, small_indel
+Synthetic catalog fixture illustrating variant annotation and structured result production.
+Synthetic fixture only; the native sample bytes do not establish real gene coverage or clinical validity.
+These tiny files demonstrate the interface contract. Their synthetic scope declaration is not evidence of real assay coverage.
+Source objects
+Test order: obj_demo_order revision 1. Genomic result: obj_demo_interactive revision 1.
+Issued by Clarity Report Studio (fictional) | 17 September 2026, 16:10 UTC.
+Genomic analysis: Variant Analysis Cooperative (fictional), produced 17 September 2026, 16:00 UTC.

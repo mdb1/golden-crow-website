@@ -1,0 +1,25 @@
+{
+  "request_id": "pgr_demo_sequencing",
+  "service_id": "pgs_sequencing",
+  "service_version": "1.0.0",
+  "form_ref": {
+    "object_id": "obj_demo_form_sequencing",
+    "revision": 1
+  },
+  "inputs": [
+    {
+      "role": "dna_sample",
+      "object_ref": {
+        "object_id": "obj_demo_dna",
+        "revision": 1
+      }
+    },
+    {
+      "role": "test_order",
+      "object_ref": {
+        "object_id": "obj_demo_order",
+        "revision": 1
+      }
+    }
+  ]
+}

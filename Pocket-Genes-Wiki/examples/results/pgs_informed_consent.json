@@ -1,0 +1,13 @@
+{
+  "request_id": "pgr_demo_informed_consent",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "consent",
+      "object_ref": {
+        "object_id": "obj_demo_consent",
+        "revision": 1
+      }
+    }
+  ]
+}

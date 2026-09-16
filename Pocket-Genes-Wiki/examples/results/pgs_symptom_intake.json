@@ -1,0 +1,13 @@
+{
+  "request_id": "pgr_demo_symptom_intake",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "symptoms",
+      "object_ref": {
+        "object_id": "obj_demo_symptoms",
+        "revision": 1
+      }
+    }
+  ]
+}

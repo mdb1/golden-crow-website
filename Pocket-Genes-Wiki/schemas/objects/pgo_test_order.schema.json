@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "object_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object_type": {
+      "const": "pgo_test_order"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "object_id",
+          "revision"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "data": {
+      "type": "object",
+      "description": "Test order: data payload in the shared Pocket Genes object envelope.",
+      "properties": {
+        "order_number": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable order number."
+        },
+        "patient": {
+          "type": "object",
+          "description": "Self-contained patient identity required by the ordered deliverable.",
+          "properties": {
+            "subject_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Synthetic or platform-assigned subject identifier; do not infer identity from a filename."
+            },
+            "full_name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Patient name to appear in the final report."
+            },
+            "date_of_birth": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Date of birth supplied for the order.",
+              "format": "date"
+            },
+            "identifier": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Patient identifier for the ordering organization; the fixture is synthetic."
+            }
+          },
+          "required": [
+            "subject_id",
+            "full_name",
+            "date_of_birth",
+            "identifier"
+          ],
+          "additionalProperties": false
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Question or intended objective of this test."
+        },
+        "clinical_suspicion": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Suspicion or clinical reason being evaluated; may explicitly state that none was specified."
+        },
+        "scope": {
+          "type": "object",
+          "description": "The analytical scope required by the order.",
+          "properties": {
+            "genes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One entry."
+              },
+              "minItems": 1,
+              "description": "Requested genes, using the specified gene namespace.",
+              "uniqueItems": true
+            },
+            "reference_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Reference assembly identifier agreed by the providers."
+            },
+            "variant_classes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One entry."
+              },
+              "minItems": 1,
+              "description": "Variant classes required by this order.",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "genes",
+            "reference_id",
+            "variant_classes"
+          ],
+          "additionalProperties": false
+        },
+        "fulfillment": {
+          "type": "object",
+          "description": "The outcome and intermediate laboratory handoff required by this order.",
+          "properties": {
+            "wet_lab_output_type": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Object type the selected lab is expected to deliver."
+            },
+            "final_output_types": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "One entry."
+              },
+              "minItems": 1,
+              "description": "Requested final output object types.",
+              "uniqueItems": true
+            },
+            "required_profile": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Versioned analytical profile providers must satisfy."
+            },
+            "scope_policy": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Requested analytical and reporting boundary.",
+              "enum": [
+                "requested_only"
+              ]
+            },
+            "analysis_support_required": {
+              "const": true,
+              "type": "boolean",
+              "description": "Require explicit support for requested analytical scope rather than relying on filename or variant presence."
+            }
+          },
+          "required": [
+            "wet_lab_output_type",
+            "final_output_types",
+            "required_profile",
+            "scope_policy",
+            "analysis_support_required"
+          ],
+          "additionalProperties": false
+        },
+        "consent_ref": {
+          "type": "object",
+          "description": "Completed consent record relied upon for this order.",
+          "properties": {
+            "object_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Stable object identifier.",
+              "pattern": "^obj_[A-Za-z0-9_]+$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Pinned object revision."
+            }
+          },
+          "required": [
+            "object_id",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        "candidate_genes_ref": {
+          "type": "object",
+          "description": "Candidate gene bundle used to create the order.",
+          "properties": {
+            "object_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Stable object identifier.",
+              "pattern": "^obj_[A-Za-z0-9_]+$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Pinned object revision."
+            }
+          },
+          "required": [
+            "object_id",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        "requested_by": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Professional, organization or user recorded as placing the order."
+        },
+        "issued_at": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Time the order was issued.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Order state.",
+          "enum": [
+            "issued",
+            "in_progress",
+            "completed",
+            "cancelled"
+          ]
+        }
+      },
+      "required": [
+        "order_number",
+        "patient",
+        "objective",
+        "clinical_suspicion",
+        "scope",
+        "fulfillment",
+        "consent_ref",
+        "candidate_genes_ref",
+        "requested_by",
+        "issued_at",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "role",
+          "path",
+          "media_type",
+          "sha256",
+          "size_bytes"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "object_id",
+    "object_type",
+    "schema_version",
+    "revision",
+    "created_at",
+    "created_by",
+    "input_refs",
+    "data",
+    "files"
+  ],
+  "additionalProperties": false,
+  "$id": "https://schemas.pocketgenes.example/objects/pgo_test_order/1.0.0/schema.json",
+  "title": "Test order object"
+}

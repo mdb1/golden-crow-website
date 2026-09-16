@@ -1,0 +1,10 @@
+{
+  "request_id": "pgr_demo_symptom_intake",
+  "service_id": "pgs_symptom_intake",
+  "service_version": "1.0.0",
+  "form_ref": {
+    "object_id": "obj_demo_form_symptom_intake",
+    "revision": 1
+  },
+  "inputs": []
+}

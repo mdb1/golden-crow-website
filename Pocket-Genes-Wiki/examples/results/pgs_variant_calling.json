@@ -1,0 +1,13 @@
+{
+  "request_id": "pgr_demo_variant_calling",
+  "status": "completed",
+  "outputs": [
+    {
+      "role": "variants",
+      "object_ref": {
+        "object_id": "obj_demo_unannotated_vcf",
+        "revision": 1
+      }
+    }
+  ]
+}

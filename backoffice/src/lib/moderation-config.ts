@@ -1734,6 +1734,12 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
   if (pathname === "/god-mode/crm") {
     return { eyebrow: "GOD MODE", title: "CRM", description: "Pocket Genes partnership outreach CRM." };
   }
+  if (pathname === "/god-mode/service-offers") {
+    return { eyebrow: "GOD MODE", title: "Service Offers", description: "Pocket Genes service catalog offers." };
+  }
+  if (pathname === "/god-mode/service-transactions") {
+    return { eyebrow: "GOD MODE", title: "Service Transactions", description: "Pocket Genes service request transactions." };
+  }
   if (pathname.startsWith("/god-mode/plantillas")) {
     return { eyebrow: "GOD MODE", title: "Plantillas", description: "CRUD system email templates for the CRM." };
   }
