@@ -788,6 +788,13 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
       throw new AdminRepositoryError("Fixed price currency is required.", 400);
     }
   }
+  const turnaround = cleanString(document.commercialTerms?.turnaround);
+  if (turnaround && !/^[1-9]\d*[wdhm]$/.test(turnaround)) {
+    throw new AdminRepositoryError(
+      "Turnaround must use a compact duration such as 2w, 1d, 3h, or 15m.",
+      400,
+    );
+  }
 }
 
 function validateTransactionDocument(

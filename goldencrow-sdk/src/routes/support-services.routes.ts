@@ -47,6 +47,13 @@ const FormShapeIdSchema = z
   .string()
   .trim()
   .regex(/^pgfs_[a-z0-9_]+$/, "Use a pgfs_* form shape ID.");
+const TurnaroundSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^[1-9]\d*[wdhm]$/,
+    "Use a compact duration such as 2w, 1d, 3h, or 15m.",
+  );
 const ObjectIdSchema = z
   .string()
   .trim()
@@ -126,7 +133,7 @@ const CommercialTermsSchema = z.object({
       isMock: z.boolean().optional(),
     })
     .optional(),
-  turnaround: z.string().trim().max(180).optional(),
+  turnaround: TurnaroundSchema.optional(),
   turnaroundStartsAt: z.string().trim().max(500).optional(),
   taxAndPaymentPolicy: z.string().trim().max(1000).optional(),
   failurePolicy: z.string().trim().max(1000).optional(),

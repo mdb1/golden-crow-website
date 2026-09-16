@@ -160,6 +160,14 @@ const OFFERS_QUERY_KEY = "god-mode-support-service-offers";
 const TRANSACTIONS_QUERY_KEY = "god-mode-support-service-transactions";
 const LIVE_OFFERS_QUERY_KEY = "god-mode-support-service-offers-live-picker";
 const FORM_OBJECT_TYPE = "pgo_form";
+const TURNAROUND_UNITS = [
+  { value: "w", label: "Weeks" },
+  { value: "d", label: "Days" },
+  { value: "h", label: "Hours" },
+  { value: "m", label: "Minutes" },
+] as const;
+
+type TurnaroundUnit = (typeof TURNAROUND_UNITS)[number]["value"];
 
 function emptyFilters(): ServiceFilters {
   return {
@@ -194,6 +202,58 @@ function parseOptionsText(value: string) {
     const label = labelParts.join("|").trim() || optionValue;
     return { value: optionValue, label };
   });
+}
+
+function compactTurnaround(value: string | undefined) {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+
+  const compactMatch = normalized.match(/^([1-9]\d*)([wdhm])$/);
+  if (compactMatch) {
+    return `${compactMatch[1]}${compactMatch[2]}`;
+  }
+
+  const textMatch = normalized.match(
+    /^([1-9]\d*)\s*(?:business\s*)?(week|weeks|w|day|days|d|hour|hours|h|minute|minutes|min|mins|m)\b/,
+  );
+  if (!textMatch) {
+    return undefined;
+  }
+
+  const unitText = textMatch[2];
+  const unit: TurnaroundUnit =
+    unitText.startsWith("week") || unitText === "w"
+      ? "w"
+      : unitText.startsWith("day") || unitText === "d"
+        ? "d"
+        : unitText.startsWith("hour") || unitText === "h"
+          ? "h"
+          : "m";
+
+  return `${textMatch[1]}${unit}`;
+}
+
+function turnaroundParts(value: string | undefined): {
+  amount: string;
+  unit: TurnaroundUnit;
+} {
+  const compact = compactTurnaround(value);
+  const match = compact?.match(/^([1-9]\d*)([wdhm])$/);
+  return {
+    amount: match?.[1] ?? "",
+    unit: (match?.[2] as TurnaroundUnit | undefined) ?? "d",
+  };
+}
+
+function formatTurnaround(amount: string, unit: TurnaroundUnit) {
+  const parsed = Number(amount);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return undefined;
+  }
+
+  return `${parsed}${unit}`;
 }
 
 function slugKey(value: string) {
@@ -749,7 +809,12 @@ function commercialTermsPayload(
   terms: SupportServiceCommercialTerms,
 ): SupportServiceCommercialTerms | undefined {
   const pricingModel = terms.pricingModel ?? "not_specified";
-  const turnaround = terms.turnaround?.trim();
+  const rawTurnaround = terms.turnaround?.trim();
+  const turnaround = compactTurnaround(rawTurnaround);
+
+  if (rawTurnaround && !turnaround) {
+    throw new Error("Turnaround must be a duration like 2w, 1d, 3h, or 15m.");
+  }
 
   if (pricingModel === "not_specified" && !turnaround) {
     return undefined;
@@ -848,11 +913,16 @@ function dateLabel(value?: string) {
   }
 }
 
-function mutationErrorToast(error: unknown, id: number): ActionToastState {
+function mutationErrorToast(
+  error: unknown,
+  id: number,
+  translate: (text: string) => string = (text) => text,
+): ActionToastState {
+  const message = error instanceof Error ? error.message : "Action failed.";
   return {
     id,
     tone: "error",
-    message: error instanceof Error ? error.message : "Action failed.",
+    message: translate(message),
     details: error instanceof SdkRequestError ? error.details : undefined,
   };
 }
@@ -951,7 +1021,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
           : t("Service transaction deleted."),
       });
     },
-    onError: (error) => setToast(mutationErrorToast(error, nextToastId())),
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
   function handleDelete(
@@ -1367,7 +1437,7 @@ export function SupportServiceOfferWorkbench({
       router.push(`/god-mode/service-offers/${result.offer.id}`);
       router.refresh();
     },
-    onError: (error) => setToast(mutationErrorToast(error, nextToastId())),
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
   const deleteMutation = useMutation({
@@ -1380,7 +1450,7 @@ export function SupportServiceOfferWorkbench({
       router.push("/god-mode/service-offers");
       router.refresh();
     },
-    onError: (error) => setToast(mutationErrorToast(error, nextToastId())),
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
   const shortContractPreview = calculatedShortContract(
@@ -1422,7 +1492,7 @@ export function SupportServiceOfferWorkbench({
       }
       saveMutation.mutate(offerPayloadFromForm(form, reservedServiceIds));
     } catch (error) {
-      setToast(mutationErrorToast(error, nextToastId()));
+      setToast(mutationErrorToast(error, nextToastId(), t));
     }
   }
 
@@ -2870,6 +2940,18 @@ function TermsEditor({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const pricingModel = form.commercialTerms.pricingModel ?? "not_specified";
+  const turnaround = turnaroundParts(form.commercialTerms.turnaround);
+  const [turnaroundUnitDraft, setTurnaroundUnitDraft] =
+    useState<TurnaroundUnit>(turnaround.unit);
+  const selectedTurnaroundUnit = turnaround.amount
+    ? turnaround.unit
+    : turnaroundUnitDraft;
+
+  useEffect(() => {
+    if (turnaround.amount) {
+      setTurnaroundUnitDraft(turnaround.unit);
+    }
+  }, [turnaround.amount, turnaround.unit]);
 
   function updateTerms(
     patch: SupportServiceCommercialTerms,
@@ -2914,6 +2996,13 @@ function TermsEditor({
       },
       { clearPrice: nextModel !== "not_specified" },
     );
+  }
+
+  function updateTurnaround(amount: string, unit: TurnaroundUnit) {
+    setTurnaroundUnitDraft(unit);
+    updateTerms({
+      turnaround: formatTurnaround(amount, unit),
+    });
   }
 
   return (
@@ -2979,14 +3068,36 @@ function TermsEditor({
           </>
         ) : null}
         <Field label="Turnaround">
-          <Input
-            value={form.commercialTerms.turnaround ?? ""}
-            onChange={(event) =>
-              updateTerms({
-                turnaround: event.target.value,
-              })
-            }
-          />
+          <div className="grid grid-cols-[minmax(0,1fr)_9rem] gap-2">
+            <Input
+              value={turnaround.amount}
+              onChange={(event) =>
+                updateTurnaround(event.target.value, selectedTurnaroundUnit)
+              }
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              placeholder="2"
+            />
+            <Select
+              value={selectedTurnaroundUnit}
+              onValueChange={(unit) =>
+                updateTurnaround(turnaround.amount, unit as TurnaroundUnit)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TURNAROUND_UNITS.map((unit) => (
+                  <SelectItem key={unit.value} value={unit.value}>
+                    {t(unit.label)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </Field>
       </div>
     </Section>
@@ -3100,7 +3211,7 @@ export function SupportServiceTransactionWorkbench({
       router.push(`/god-mode/service-transactions/${result.transaction.id}`);
       router.refresh();
     },
-    onError: (error) => setToast(mutationErrorToast(error, nextToastId())),
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
   const deleteMutation = useMutation({
@@ -3116,7 +3227,7 @@ export function SupportServiceTransactionWorkbench({
       router.push("/god-mode/service-transactions");
       router.refresh();
     },
-    onError: (error) => setToast(mutationErrorToast(error, nextToastId())),
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
   function handleServiceChange(serviceId: string) {
@@ -3149,7 +3260,7 @@ export function SupportServiceTransactionWorkbench({
       }
       saveMutation.mutate(transactionPayloadFromForm(form));
     } catch (error) {
-      setToast(mutationErrorToast(error, nextToastId()));
+      setToast(mutationErrorToast(error, nextToastId(), t));
     }
   }
 

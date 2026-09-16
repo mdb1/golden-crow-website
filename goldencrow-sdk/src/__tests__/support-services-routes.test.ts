@@ -115,7 +115,7 @@ const validOfferPayload = {
   scopeRules: ["Respect the requested order scope."],
   commercialTerms: {
     pricingModel: "calculated_after_submission",
-    turnaround: "1 business day",
+    turnaround: "1d",
   },
 };
 
@@ -219,6 +219,25 @@ describe("support service admin routes", () => {
       payload: {
         ...validOfferPayload,
         serviceId: "final_report",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
+  });
+
+  it("rejects free-text service offer turnaround values", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        commercialTerms: {
+          pricingModel: "calculated_after_submission",
+          turnaround: "1 business day",
+        },
       },
     });
 
