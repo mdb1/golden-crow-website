@@ -4715,7 +4715,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add output": "Agregar salida",
   "Add output slot": "Agregar slot de salida",
   "All stages": "Todas las etapas",
-  "Allow unknown fields": "Permitir campos desconocidos",
   "Awaiting input": "Esperando entrada",
   "Back to Service Offers": "Volver a ofertas de servicio",
   "Back to Service Transactions": "Volver a transacciones de servicio",

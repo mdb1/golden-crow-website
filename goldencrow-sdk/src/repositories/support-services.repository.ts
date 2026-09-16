@@ -656,6 +656,12 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         400,
       );
     }
+    if (document.formShape.allowUnknownFields) {
+      throw new AdminRepositoryError(
+        "Support service form shapes must reject unknown fields.",
+        400,
+      );
+    }
     if (formInputSlotCount !== 1) {
       throw new AdminRepositoryError(
         "A form shape requires exactly one pgo_form input slot.",

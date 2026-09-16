@@ -98,7 +98,10 @@ const FormFieldSchema = z.object({
 const FormShapeSchema = z.object({
   id: FormShapeIdSchema,
   version: z.string().trim().min(1).max(40),
-  allowUnknownFields: z.boolean().optional(),
+  allowUnknownFields: z
+    .literal(false)
+    .optional()
+    .describe("Support service forms reject undeclared fields."),
   fields: z.array(FormFieldSchema).min(2).max(100),
 });
 const InputSlotSchema = z.object({

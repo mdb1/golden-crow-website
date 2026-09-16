@@ -266,6 +266,25 @@ describe("support service admin routes", () => {
     expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 
+  it("rejects support service form shapes that allow unknown fields", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        formShape: {
+          ...validOfferPayload.formShape,
+          allowUnknownFields: true,
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
+  });
+
   it("rejects free-text service offer turnaround values", async () => {
     const fastify = await buildTestServer();
 

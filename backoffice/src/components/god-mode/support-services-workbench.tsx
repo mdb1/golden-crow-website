@@ -807,7 +807,7 @@ function offerPayloadFromForm(
       ? {
           id: generatedIds.formShapeId,
           version: form.formShape.version.trim() || "1.0.0",
-          allowUnknownFields: form.formShape.allowUnknownFields,
+          allowUnknownFields: false,
           fields,
         }
       : undefined,
@@ -2206,7 +2206,7 @@ function FormShapeEditor({
       </div>
       {!form.supportsFormShape ? null : (
         <>
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Field label="Form shape ID">
           <GeneratedValue value={formShapeIdsPreview?.formShapeId ?? "pgfs_"} />
         </Field>
@@ -2222,21 +2222,6 @@ function FormShapeEditor({
             required
           />
         </Field>
-        <label className="flex items-center gap-3 pt-7 text-sm font-medium">
-          <Checkbox
-            checked={form.formShape.allowUnknownFields}
-            onCheckedChange={(checked) =>
-              setForm((current) => ({
-                ...current,
-                formShape: {
-                  ...current.formShape,
-                  allowUnknownFields: checked === true,
-                },
-              }))
-            }
-          />
-          <span>{t("Allow unknown fields")}</span>
-        </label>
       </div>
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm text-muted-foreground">
