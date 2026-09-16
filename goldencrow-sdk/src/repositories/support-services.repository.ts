@@ -71,7 +71,7 @@ type TransactionListOptions = ListOptions & {
 
 export interface SupportServiceOfferInput {
   serviceId?: string;
-  serviceVersion?: string;
+  serviceVersion?: number;
   name?: string;
   serviceCategory?: string;
   providerKind?: SupportServiceProviderKind;
@@ -95,7 +95,7 @@ export interface SupportServiceOfferRecord {
   id: string;
   schemaVersion: number;
   serviceId: string;
-  serviceVersion: string;
+  serviceVersion: number;
   name: string;
   serviceCategory: string;
   providerKind: SupportServiceProviderKind;
@@ -138,7 +138,7 @@ export interface SupportServiceTransactionOutputSlot {
 export interface SupportServiceTransactionInput {
   requestId?: string;
   serviceId?: string;
-  serviceVersion?: string;
+  serviceVersion?: number;
   status?: SupportServiceTransactionStatus;
   requesterEmail?: string;
   subjectId?: string;
@@ -153,7 +153,7 @@ export interface SupportServiceTransactionRecord {
   schemaVersion: number;
   requestId: string;
   serviceId: string;
-  serviceVersion: string;
+  serviceVersion: number;
   status: SupportServiceTransactionStatus;
   requesterEmail: string;
   subjectId: string;
@@ -189,6 +189,11 @@ const PRICING_MODEL_SET = new Set<string>([
   "free",
   "fixed",
   "calculated_after_submission",
+]);
+const PUBLISHED_OFFER_STATUSES = new Set<SupportServiceOfferStatus>([
+  "active",
+  "paused",
+  "archived",
 ]);
 const FORM_OBJECT_TYPE = "pgo_form";
 
@@ -300,10 +305,43 @@ function numericValue(value: unknown, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function versionNumber(value: unknown, fallback = 1) {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  const text = cleanString(value);
+  const match = text.match(/^([1-9]\d*)(?:\.0\.0)?$/);
+  return match ? Number(match[1]) : fallback;
+}
+
 function stringValueArray(value: unknown) {
   return Array.isArray(value)
     ? value.map(cleanString).filter((item) => item.length > 0)
     : [];
+}
+
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(stableValue);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.keys(value as Record<string, unknown>)
+    .sort()
+    .reduce<Record<string, unknown>>((result, key) => {
+      const item = (value as Record<string, unknown>)[key];
+      if (item !== undefined) {
+        result[key] = stableValue(item);
+      }
+      return result;
+    }, {});
+}
+
+function stableString(value: unknown) {
+  return JSON.stringify(stableValue(value));
 }
 
 function normalizeFormShape(value: unknown) {
@@ -326,7 +364,7 @@ function normalizeFormShape(value: unknown) {
 
   return {
     id,
-    version: cleanString(formShape.version) || "1.0.0",
+    version: versionNumber(formShape.version),
     allowUnknownFields: Boolean(
       formShape.allowUnknownFields ?? formShape.allow_unknown_fields,
     ),
@@ -563,7 +601,7 @@ function offerDocument(input: SupportServiceOfferInput) {
   const serviceId = cleanString(input.serviceId);
   const providerId = cleanString(input.providerId);
   const providerName = cleanString(input.providerName);
-  const serviceVersion = cleanString(input.serviceVersion) || "1.0.0";
+  const serviceVersion = versionNumber(input.serviceVersion);
   const stages = normalizeStages(input.stages);
   const inputSlots = normalizeOfferInputSlots(input.inputSlots);
   const outputSlots = normalizeOfferOutputSlots(input.outputSlots);
@@ -606,7 +644,7 @@ function transactionDocument(input: SupportServiceTransactionInput) {
     schemaVersion: 1,
     requestId,
     serviceId,
-    serviceVersion: cleanString(input.serviceVersion) || "1.0.0",
+    serviceVersion: versionNumber(input.serviceVersion),
     status: normalizeTransactionStatus(input.status),
     requesterEmail,
     subjectId,
@@ -615,6 +653,78 @@ function transactionDocument(input: SupportServiceTransactionInput) {
     outputs: outputSlotsFromUnknown(input.outputs),
     notes: cleanString(input.notes),
     normalizedName: normalizeName(`${requestId} ${serviceId} ${requesterEmail}`),
+  };
+}
+
+type SupportServiceOfferDocument = ReturnType<typeof offerDocument>;
+
+function comparableFormShape(formShape: SupportServiceOfferDocument["formShape"]) {
+  if (!formShape) {
+    return null;
+  }
+
+  const { version: _version, ...shape } = formShape;
+  return shape;
+}
+
+function comparableOfferDefinition(document: SupportServiceOfferDocument) {
+  const {
+    serviceVersion: _serviceVersion,
+    status: _status,
+    normalizedName: _normalizedName,
+    formShape,
+    ...definition
+  } = document;
+
+  return {
+    ...definition,
+    formShape: comparableFormShape(formShape),
+  };
+}
+
+function applyOfferVersions(
+  document: SupportServiceOfferDocument,
+  previousDocument?: SupportServiceOfferDocument,
+) {
+  if (!previousDocument) {
+    return {
+      ...document,
+      serviceVersion: 1,
+      formShape: document.formShape
+        ? { ...document.formShape, version: 1 }
+        : undefined,
+    };
+  }
+
+  const previousWasPublished = PUBLISHED_OFFER_STATUSES.has(
+    previousDocument.status,
+  );
+  const serviceChanged =
+    stableString(comparableOfferDefinition(document)) !==
+    stableString(comparableOfferDefinition(previousDocument));
+  const formShapeChanged =
+    stableString(comparableFormShape(document.formShape)) !==
+    stableString(comparableFormShape(previousDocument.formShape));
+
+  return {
+    ...document,
+    serviceVersion:
+      previousWasPublished && serviceChanged
+        ? previousDocument.serviceVersion + 1
+        : previousDocument.serviceVersion,
+    formShape: document.formShape
+      ? {
+          ...document.formShape,
+          version:
+            previousWasPublished &&
+            previousDocument.formShape &&
+            formShapeChanged
+              ? previousDocument.formShape.version + 1
+              : previousDocument.formShape
+                ? previousDocument.formShape.version
+                : 1,
+        }
+      : undefined,
   };
 }
 
@@ -858,8 +968,7 @@ function toOfferRecord(id: string, data: Record<string, unknown>) {
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     serviceId,
-    serviceVersion:
-      cleanString(data.serviceVersion ?? data.service_version) || "1.0.0",
+    serviceVersion: versionNumber(data.serviceVersion ?? data.service_version),
     name,
     serviceCategory,
     providerKind: normalizeProviderKind(data.providerKind ?? data.provider_kind),
@@ -904,8 +1013,7 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     requestId,
     serviceId,
-    serviceVersion:
-      cleanString(data.serviceVersion ?? data.service_version) || "1.0.0",
+    serviceVersion: versionNumber(data.serviceVersion ?? data.service_version),
     status: normalizeTransactionStatus(data.status),
     requesterEmail,
     subjectId: cleanString(data.subjectId ?? data.subject_id),
@@ -1149,7 +1257,7 @@ export async function createSupportServiceOffer(
   input: SupportServiceOfferInput,
 ) {
   requireGodMode(context);
-  const document = offerDocument(input);
+  const document = applyOfferVersions(offerDocument(input));
   validateOfferDocument(document);
   await assertOfferProviderExists(document);
 
@@ -1178,7 +1286,10 @@ export async function updateSupportServiceOffer(
     throw new AdminRepositoryError("Service offer not found.", 404);
   }
 
-  const document = offerDocument(input);
+  const previousDocument = offerDocument(
+    toOfferRecord(offerId, snapshot.data() ?? {}),
+  );
+  const document = applyOfferVersions(offerDocument(input), previousDocument);
   validateOfferDocument(document);
   await assertOfferProviderExists(document);
   await snapshot.ref.set(

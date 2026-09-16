@@ -40,6 +40,7 @@ const ServiceIdSchema = z
   .trim()
   .regex(/^pgs_[a-z0-9_]+$/, "Use a pgs_* service ID.");
 const ProviderIdSchema = z.string().trim().min(1).max(180);
+const VersionSchema = z.coerce.number().int().positive();
 const RequestIdSchema = z
   .string()
   .trim()
@@ -97,7 +98,7 @@ const FormFieldSchema = z.object({
 });
 const FormShapeSchema = z.object({
   id: FormShapeIdSchema,
-  version: z.string().trim().min(1).max(40),
+  version: VersionSchema.optional(),
   allowUnknownFields: z
     .literal(false)
     .optional()
@@ -163,7 +164,7 @@ const ListTransactionsQuerySchema = ListQuerySchema.extend({
 });
 const OfferBodySchema = z.object({
   serviceId: ServiceIdSchema,
-  serviceVersion: z.string().trim().min(1).max(40).optional(),
+  serviceVersion: VersionSchema.optional(),
   name: z.string().trim().min(1).max(180),
   serviceCategory: z.string().trim().max(180).optional(),
   providerKind: ProviderKindSchema,
@@ -191,7 +192,7 @@ const OfferBodySchema = z.object({
 const TransactionBodySchema = z.object({
   requestId: RequestIdSchema,
   serviceId: ServiceIdSchema,
-  serviceVersion: z.string().trim().min(1).max(40).optional(),
+  serviceVersion: VersionSchema.optional(),
   status: TransactionStatusSchema.optional(),
   requesterEmail: OptionalEmailSchema,
   subjectId: z.string().trim().max(160).optional(),

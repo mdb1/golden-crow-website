@@ -48,7 +48,7 @@ const bootstrapContext: AdminContext = {
 
 const validOfferPayload = {
   serviceId: "pgs_final_report",
-  serviceVersion: "1.0.0",
+  serviceVersion: 1,
   name: "Create the final self-contained report",
   serviceCategory: "Final report production",
   providerKind: "organization",
@@ -64,7 +64,7 @@ const validOfferPayload = {
     "Verify the match and scope, perform report review, and issue a complete PDF.",
   formShape: {
     id: "pgfs_final_report",
-    version: "1.0.0",
+    version: 1,
     allowUnknownFields: false,
     fields: [
       {
@@ -352,7 +352,7 @@ describe("support service admin routes", () => {
       payload: {
         requestId: "pgr_demo_final_report",
         serviceId: "pgs_final_report",
-        serviceVersion: "1.0.0",
+        serviceVersion: 1,
         status: "submitted",
         inputs: [
           {

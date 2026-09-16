@@ -15,6 +15,15 @@ function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function versionNumber(value: unknown) {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  const text = cleanString(value);
+  const match = text.match(/^([1-9]\d*)(?:\.0\.0)?$/);
+  return match ? Number(match[1]) : 1;
+}
+
 function stringArray(value: unknown) {
   return Array.isArray(value)
     ? value.map(cleanString).filter((item) => item.length > 0)
@@ -99,7 +108,7 @@ export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
     value: cleanString(service.service_id),
     label: cleanString(service.name),
     serviceId: cleanString(service.service_id),
-    serviceVersion: cleanString(service.service_version) || "1.0.0",
+    serviceVersion: versionNumber(service.service_version),
     name: cleanString(service.name),
     providerId: cleanString(service.provider_id),
     stages: stringArray(service.stages).map(normalizeStage),
@@ -109,7 +118,7 @@ export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
     providerWork: cleanString(service.provider_work),
     formShape: {
       id: cleanString(formShape.id),
-      version: cleanString(formShape.version) || "1.0.0",
+      version: versionNumber(formShape.version),
       allowUnknownFields: Boolean(formShape.allow_unknown_fields),
       fields: recordArray(formShape.fields).map((field) => ({
         key: cleanString(field.key),

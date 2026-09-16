@@ -109,7 +109,7 @@ type FormFieldDraft = SupportServiceFormField & {
 
 type OfferFormState = {
   serviceId: string;
-  serviceVersion: string;
+  serviceVersion: number;
   name: string;
   serviceCategory: string;
   providerKind: SupportServiceProviderKind;
@@ -123,7 +123,7 @@ type OfferFormState = {
   supportsFormShape: boolean;
   formShape: {
     id: string;
-    version: string;
+    version: number;
     allowUnknownFields: boolean;
     fields: FormFieldDraft[];
   };
@@ -145,7 +145,7 @@ type ObjectRefDraft = {
 type TransactionFormState = {
   requestId: string;
   serviceId: string;
-  serviceVersion: string;
+  serviceVersion: number;
   status: NonNullable<SupportServiceTransactionInput["status"]>;
   requesterEmail: string;
   subjectId: string;
@@ -340,7 +340,7 @@ function formFieldsFromRecord(fields: SupportServiceFormField[] = []) {
 function defaultFormShape() {
   return {
     id: "pgfs_",
-    version: "1.0.0",
+    version: 1,
     allowUnknownFields: false,
     fields: formFieldsFromRecord([
       {
@@ -399,7 +399,7 @@ function serviceOutputSlots(slots: SupportServiceOutputSlot[]) {
 function defaultOfferForm(): OfferFormState {
   return {
     serviceId: "pgs_",
-    serviceVersion: "1.0.0",
+    serviceVersion: 1,
     name: "",
     serviceCategory: "",
     providerKind: "organization",
@@ -586,7 +586,7 @@ function emptyTransactionForm(): TransactionFormState {
   return {
     requestId: "pgr_",
     serviceId: "",
-    serviceVersion: "1.0.0",
+    serviceVersion: 1,
     status: "submitted",
     requesterEmail: "",
     subjectId: "",
@@ -791,7 +791,7 @@ function offerPayloadFromForm(
 
   return {
     serviceId: generatedIds.serviceId,
-    serviceVersion: form.serviceVersion.trim() || "1.0.0",
+    serviceVersion: form.serviceVersion || 1,
     name: form.name.trim(),
     serviceCategory: form.serviceCategory.trim(),
     providerKind: form.providerKind,
@@ -806,7 +806,7 @@ function offerPayloadFromForm(
     formShape: form.supportsFormShape
       ? {
           id: generatedIds.formShapeId,
-          version: form.formShape.version.trim() || "1.0.0",
+          version: form.formShape.version || 1,
           allowUnknownFields: false,
           fields,
         }
@@ -909,7 +909,7 @@ function transactionPayloadFromForm(
   return {
     requestId: form.requestId.trim(),
     serviceId: form.serviceId.trim(),
-    serviceVersion: form.serviceVersion.trim() || "1.0.0",
+    serviceVersion: form.serviceVersion || 1,
     status: form.status,
     requesterEmail: form.requesterEmail.trim(),
     subjectId: form.subjectId.trim(),
@@ -1550,7 +1550,7 @@ export function SupportServiceOfferWorkbench({
               </div>
               <div className="font-mono text-xs text-muted-foreground">
                 {`${offerIdsPreview?.serviceId ?? "pgs_"} · v${
-                  form.serviceVersion || "1.0.0"
+                  form.serviceVersion || 1
                 }`}
               </div>
             </div>
@@ -1570,16 +1570,7 @@ export function SupportServiceOfferWorkbench({
               <GeneratedValue value={offerIdsPreview?.serviceId ?? "pgs_"} />
             </Field>
             <Field label="Service version">
-              <Input
-                value={form.serviceVersion}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    serviceVersion: event.target.value,
-                  }))
-                }
-                required
-              />
+              <GeneratedValue value={String(form.serviceVersion || 1)} />
             </Field>
             <Field label="Service category">
               <Input
@@ -2211,16 +2202,7 @@ function FormShapeEditor({
           <GeneratedValue value={formShapeIdsPreview?.formShapeId ?? "pgfs_"} />
         </Field>
         <Field label="Form shape version">
-          <Input
-            value={form.formShape.version}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                formShape: { ...current.formShape, version: event.target.value },
-              }))
-            }
-            required
-          />
+          <GeneratedValue value={String(form.formShape.version || 1)} />
         </Field>
       </div>
       <div className="flex items-center justify-between gap-3">
@@ -3359,16 +3341,7 @@ export function SupportServiceTransactionWorkbench({
               />
             </Field>
             <Field label="Service version">
-              <Input
-                value={form.serviceVersion}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    serviceVersion: event.target.value,
-                  }))
-                }
-                required
-              />
+              <GeneratedValue value={String(form.serviceVersion || 1)} />
             </Field>
             <Field label="Requester email">
               <Input

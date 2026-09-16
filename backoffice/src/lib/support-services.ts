@@ -72,7 +72,7 @@ export interface SupportServiceFormField {
 
 export interface SupportServiceFormShape {
   id: string;
-  version: string;
+  version: number;
   allowUnknownFields?: boolean;
   fields: SupportServiceFormField[];
 }
@@ -110,7 +110,7 @@ export interface SupportServiceCommercialTerms {
 
 export interface SupportServiceOfferInput {
   serviceId: string;
-  serviceVersion?: string;
+  serviceVersion?: number;
   name: string;
   serviceCategory?: string;
   providerKind?: SupportServiceProviderKind;
@@ -134,7 +134,7 @@ export interface SupportServiceOfferRecord
   extends Required<Omit<SupportServiceOfferInput, "formShape" | "commercialTerms">> {
   id: string;
   schemaVersion: number;
-  serviceVersion: string;
+  serviceVersion: number;
   formShape?: SupportServiceFormShape;
   commercialTerms?: SupportServiceCommercialTerms;
   stages: SupportServiceStage[];
@@ -159,7 +159,7 @@ export interface SupportServiceTransactionSlot {
 export interface SupportServiceTransactionInput {
   requestId: string;
   serviceId: string;
-  serviceVersion?: string;
+  serviceVersion?: number;
   status?: SupportServiceTransactionStatus;
   requesterEmail?: string;
   subjectId?: string;
@@ -173,7 +173,7 @@ export interface SupportServiceTransactionRecord
   extends Required<Omit<SupportServiceTransactionInput, "formRef">> {
   id: string;
   schemaVersion: number;
-  serviceVersion: string;
+  serviceVersion: number;
   formRef: SupportServiceObjectRef | null;
   status: SupportServiceTransactionStatus;
   normalizedName: string;
