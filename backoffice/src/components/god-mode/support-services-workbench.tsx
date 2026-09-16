@@ -155,6 +155,7 @@ type TransactionFormState = {
 };
 
 const SERVICE_PAGE_SIZE = 20;
+const PROVIDER_OFFER_LOOKUP_LIMIT = 100;
 const OFFERS_QUERY_KEY = "god-mode-support-service-offers";
 const TRANSACTIONS_QUERY_KEY = "god-mode-support-service-transactions";
 const LIVE_OFFERS_QUERY_KEY = "god-mode-support-service-offers-live-picker";
@@ -193,6 +194,76 @@ function parseOptionsText(value: string) {
     const label = labelParts.join("|").trim() || optionValue;
     return { value: optionValue, label };
   });
+}
+
+function slugKey(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function generatedIdSuffix(currentServiceId: string) {
+  const match = currentServiceId.trim().match(/_(\d+)$/);
+  return match ? Number(match[1]) : 1;
+}
+
+function generatedOfferIds(
+  providerName: string,
+  currentServiceId = "",
+  reservedServiceIds: string[] = [],
+) {
+  const slug = slugKey(providerName);
+  if (!slug) {
+    return null;
+  }
+
+  const serviceBase = `pgs_${slug}`;
+  const formShapeBase = `pgfs_${slug}`;
+  const usedServiceIds = new Set(
+    reservedServiceIds.map((serviceId) => serviceId.trim()).filter(Boolean),
+  );
+  let suffix = generatedIdSuffix(currentServiceId);
+  while (usedServiceIds.has(`${serviceBase}_${suffix}`)) {
+    suffix += 1;
+  }
+
+  return {
+    serviceId: `${serviceBase}_${suffix}`,
+    formShapeId: `${formShapeBase}_${suffix}`,
+  };
+}
+
+function applyGeneratedOfferIds<T extends OfferFormState>(
+  form: T,
+  reservedServiceIds: string[] = [],
+): T {
+  const ids = generatedOfferIds(
+    form.providerName,
+    form.serviceId,
+    reservedServiceIds,
+  );
+  if (!ids) {
+    return {
+      ...form,
+      serviceId: "pgs_",
+      formShape: {
+        ...form.formShape,
+        id: "pgfs_",
+      },
+    };
+  }
+
+  return {
+    ...form,
+    serviceId: ids.serviceId,
+    formShape: {
+      ...form.formShape,
+      id: ids.formShapeId,
+    },
+  };
 }
 
 function formFieldsFromRecord(fields: SupportServiceFormField[] = []) {
@@ -529,15 +600,25 @@ function assertPositiveInteger(value: string, label: string) {
   return parsed;
 }
 
-function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
-  assertIdentifier(form.serviceId, "pgs", "Service ID");
-
+function offerPayloadFromForm(
+  form: OfferFormState,
+  reservedServiceIds: string[] = [],
+): SupportServiceOfferInput {
   if (!form.name.trim()) {
     throw new Error("Offer name is required.");
   }
   if (!form.providerId.trim()) {
     throw new Error("Choose an organization or professional provider.");
   }
+  const generatedIds = generatedOfferIds(
+    form.providerName,
+    form.serviceId,
+    reservedServiceIds,
+  );
+  if (!generatedIds) {
+    throw new Error("Choose an organization or professional provider.");
+  }
+  assertIdentifier(generatedIds.serviceId, "pgs", "Service ID");
   if (!form.description.trim()) {
     throw new Error("Description is required.");
   }
@@ -553,7 +634,7 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
 
   const formSlots = form.inputSlots.filter(isFormInputSlot);
   if (form.supportsFormShape) {
-    assertIdentifier(form.formShape.id, "pgfs", "Form shape ID");
+    assertIdentifier(generatedIds.formShapeId, "pgfs", "Form shape ID");
     if (formSlots.length !== 1) {
       throw new Error("A form shape requires exactly one pgo_form input slot.");
     }
@@ -627,7 +708,7 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
   }
 
   return {
-    serviceId: form.serviceId.trim(),
+    serviceId: generatedIds.serviceId,
     serviceVersion: form.serviceVersion.trim() || "1.0.0",
     name: form.name.trim(),
     serviceCategory: form.serviceCategory.trim(),
@@ -642,7 +723,7 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
     providerWork: form.providerWork.trim(),
     formShape: form.supportsFormShape
       ? {
-          id: form.formShape.id.trim(),
+          id: generatedIds.formShapeId,
           version: form.formShape.version.trim() || "1.0.0",
           allowUnknownFields: form.formShape.allowUnknownFields,
           fields,
@@ -1220,6 +1301,51 @@ export function SupportServiceOfferWorkbench({
     }
   }, [offerQuery.data?.offer]);
 
+  const providerOffersQuery = useQuery({
+    queryKey: [OFFERS_QUERY_KEY, "provider-siblings", form.providerId],
+    queryFn: () =>
+      sdkFetch<SupportServiceOffersPage>(
+        `/admin/support-services/offers?limit=${PROVIDER_OFFER_LOOKUP_LIMIT}&query=${encodeURIComponent(
+          form.providerId.trim(),
+        )}`,
+      ),
+    enabled: Boolean(form.providerId.trim()),
+  });
+
+  const reservedServiceIds = useMemo(
+    () =>
+      (providerOffersQuery.data?.offers ?? [])
+        .filter(
+          (offer) =>
+            offer.providerId === form.providerId && offer.id !== offerId,
+        )
+        .map((offer) => offer.serviceId),
+    [form.providerId, offerId, providerOffersQuery.data?.offers],
+  );
+
+  useEffect(() => {
+    if (!form.providerName) {
+      return;
+    }
+
+    const ids = generatedOfferIds(
+      form.providerName,
+      form.serviceId,
+      reservedServiceIds,
+    );
+    if (
+      ids &&
+      (ids.serviceId !== form.serviceId || ids.formShapeId !== form.formShape.id)
+    ) {
+      setForm((current) => applyGeneratedOfferIds(current, reservedServiceIds));
+    }
+  }, [
+    form.formShape.id,
+    form.providerName,
+    form.serviceId,
+    reservedServiceIds,
+  ]);
+
   const saveMutation = useMutation({
     mutationFn: async (payload: SupportServiceOfferInput) => {
       const path =
@@ -1261,6 +1387,11 @@ export function SupportServiceOfferWorkbench({
     form.inputSlots,
     form.outputSlots,
   );
+  const offerIdsPreview = generatedOfferIds(
+    form.providerName,
+    form.serviceId,
+    reservedServiceIds,
+  );
 
   function applyMockTemplate(serviceId: string) {
     const catalog = catalogServiceById(serviceId);
@@ -1272,16 +1403,24 @@ export function SupportServiceOfferWorkbench({
       providerId: form.providerId,
       providerName: form.providerName,
     });
-    setForm((current) => ({
-      ...next,
-      status: current.status,
-    }));
+    setForm((current) =>
+      applyGeneratedOfferIds(
+        {
+          ...next,
+          status: current.status,
+        },
+        reservedServiceIds,
+      ),
+    );
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      saveMutation.mutate(offerPayloadFromForm(form));
+      if (form.providerId.trim() && providerOffersQuery.isFetching) {
+        throw new Error("Generated service ID is still checking existing offers.");
+      }
+      saveMutation.mutate(offerPayloadFromForm(form, reservedServiceIds));
     } catch (error) {
       setToast(mutationErrorToast(error, nextToastId()));
     }
@@ -1318,7 +1457,9 @@ export function SupportServiceOfferWorkbench({
                 {form.name || t("New service offer")}
               </div>
               <div className="font-mono text-xs text-muted-foreground">
-                {form.serviceId || "pgs_"} · v{form.serviceVersion || "1.0.0"}
+                {`${offerIdsPreview?.serviceId ?? "pgs_"} · v${
+                  form.serviceVersion || "1.0.0"
+                }`}
               </div>
             </div>
             <MockTemplatePicker onSelect={applyMockTemplate} />
@@ -1334,17 +1475,7 @@ export function SupportServiceOfferWorkbench({
               />
             </Field>
             <Field label="Service ID">
-              <Input
-                value={form.serviceId}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    serviceId: event.target.value,
-                  }))
-                }
-                placeholder="pgs_..."
-                required
-              />
+              <GeneratedValue value={offerIdsPreview?.serviceId ?? "pgs_"} />
             </Field>
             <Field label="Service version">
               <Input
@@ -1374,18 +1505,29 @@ export function SupportServiceOfferWorkbench({
               <Select
                 value={form.providerKind}
                 onValueChange={(providerKind) =>
-                  setForm((current) => ({
-                    ...current,
-                    providerKind: providerKind as SupportServiceProviderKind,
-                    providerId:
+                  setForm((current) =>
+                    applyGeneratedOfferIds(
+                      {
+                        ...current,
+                        providerKind: providerKind as SupportServiceProviderKind,
+                        providerId:
+                          providerKind === current.providerKind
+                            ? current.providerId
+                            : "",
+                        providerName:
+                          providerKind === current.providerKind
+                            ? current.providerName
+                            : "",
+                        serviceId:
+                          providerKind === current.providerKind
+                            ? current.serviceId
+                            : "pgs_",
+                      },
                       providerKind === current.providerKind
-                        ? current.providerId
-                        : "",
-                    providerName:
-                      providerKind === current.providerKind
-                        ? current.providerName
-                        : "",
-                  }))
+                        ? reservedServiceIds
+                        : [],
+                    ),
+                  )
                 }
               >
                 <SelectTrigger>
@@ -1406,11 +1548,18 @@ export function SupportServiceOfferWorkbench({
               selectedId={form.providerId}
               selectedName={form.providerName}
               onSelect={(provider) =>
-                setForm((current) => ({
-                  ...current,
-                  providerId: provider.id,
-                  providerName: provider.name,
-                }))
+                setForm((current) => {
+                  const sameProvider = provider.id === current.providerId;
+                  return applyGeneratedOfferIds(
+                    {
+                      ...current,
+                      providerId: provider.id,
+                      providerName: provider.name,
+                      serviceId: sameProvider ? current.serviceId : "pgs_",
+                    },
+                    sameProvider ? reservedServiceIds : [],
+                  );
+                })
               }
             />
             <Field label="Status">
@@ -1488,7 +1637,11 @@ export function SupportServiceOfferWorkbench({
             </Field>
           </div>
         </Section>
-        <FormShapeEditor form={form} setForm={setForm} />
+        <FormShapeEditor
+          form={form}
+          reservedServiceIds={reservedServiceIds}
+          setForm={setForm}
+        />
         <SlotEditors form={form} setForm={setForm} />
         <TermsEditor form={form} setForm={setForm} />
         <Section title="Acceptance and scope">
@@ -1809,13 +1962,20 @@ function ProviderPicker({
 
 function FormShapeEditor({
   form,
+  reservedServiceIds,
   setForm,
 }: {
   form: OfferFormState;
+  reservedServiceIds: string[];
   setForm: React.Dispatch<React.SetStateAction<OfferFormState>>;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const formShapeIdsPreview = generatedOfferIds(
+    form.providerName,
+    form.serviceId,
+    reservedServiceIds,
+  );
   const [fieldDialog, setFieldDialog] = useState<{
     index: number | null;
     draft: FormFieldDraft;
@@ -1949,16 +2109,7 @@ function FormShapeEditor({
         <>
       <div className="grid gap-4 lg:grid-cols-3">
         <Field label="Form shape ID">
-          <Input
-            value={form.formShape.id}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                formShape: { ...current.formShape, id: event.target.value },
-              }))
-            }
-            required
-          />
+          <GeneratedValue value={formShapeIdsPreview?.formShapeId ?? "pgfs_"} />
         </Field>
         <Field label="Form shape version">
           <Input
@@ -3298,6 +3449,14 @@ function Section({
       </h3>
       {children}
     </section>
+  );
+}
+
+function GeneratedValue({ value }: { value: string }) {
+  return (
+    <div className="flex min-h-10 items-center rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-sm text-muted-foreground">
+      {value}
+    </div>
   );
 }
 
