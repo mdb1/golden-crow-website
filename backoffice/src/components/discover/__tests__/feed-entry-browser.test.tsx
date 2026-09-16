@@ -7,6 +7,7 @@ import { DiscoverFeedEntryBrowser } from "@/components/discover/feed-entry-brows
 import { sdkFetch } from "@/lib/sdk-client";
 import type {
   DiscoverFeedItemRecord,
+  DiscoverFeedStatus,
   DiscoverOrganizationRecord,
 } from "@/lib/discover";
 
@@ -74,14 +75,31 @@ const feedItem: DiscoverFeedItemRecord = {
   updatedAt: "2026-08-02T00:00:00.000Z",
 };
 
-function renderBrowser() {
+const publishedFeedItem: DiscoverFeedItemRecord = {
+  ...feedItem,
+  id: "feed-published",
+  status: "published",
+  publishedAt: "2026-08-03T00:00:00.000Z",
+  title: "Published item",
+};
+
+function renderBrowser({
+  initialFeedItems = [feedItem],
+  initialNextCursor = null,
+  initialStatus,
+}: {
+  initialFeedItems?: DiscoverFeedItemRecord[];
+  initialNextCursor?: string | null;
+  initialStatus?: "all" | DiscoverFeedStatus;
+} = {}) {
   render(
     <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
       <DiscoverFeedEntryBrowser
-        initialFeedItems={[feedItem]}
-        initialNextCursor={null}
+        initialFeedItems={initialFeedItems}
+        initialNextCursor={initialNextCursor}
         organizations={[organization]}
         individuals={[]}
+        initialStatus={initialStatus}
         routeBase="/publisher-portal/discover/feed-entries"
       />
     </AppLanguageProvider>,
@@ -93,6 +111,39 @@ describe("DiscoverFeedEntryBrowser route base", () => {
     routerPush.mockClear();
     routerRefresh.mockClear();
     jest.mocked(sdkFetch).mockReset();
+  });
+
+  it("starts on the draft filter when a draft shortcut opens it", () => {
+    renderBrowser({
+      initialFeedItems: [feedItem, publishedFeedItem],
+      initialStatus: "draft",
+    });
+
+    expect(screen.getByText("Draft item")).toBeTruthy();
+    expect(screen.queryByText("Published item")).toBeNull();
+    expect(
+      (screen.getAllByRole("combobox")[1] as HTMLSelectElement).value,
+    ).toBe("draft");
+  });
+
+  it("keeps loading more rows from the draft feed when opened from drafts", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      feedItems: [],
+      nextCursor: null,
+    });
+    renderBrowser({
+      initialNextCursor: "next-draft",
+      initialStatus: "draft",
+    });
+
+    await user.click(screen.getByRole("button", { name: /Load more/i }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/feed-items?cursor=next-draft&status=draft",
+      );
+    });
   });
 
   it("keeps create and detail links inside the publisher portal", async () => {

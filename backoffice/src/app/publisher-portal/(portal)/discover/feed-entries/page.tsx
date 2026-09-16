@@ -2,10 +2,12 @@ import { DiscoverFeedEntryBrowser } from "@/components/discover/feed-entry-brows
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { requireDiscoverAccess } from "@/lib/discover-server";
-import type {
-  DiscoverFeedItemsPage,
-  DiscoverIndividualsPage,
-  DiscoverOrganizationsPage,
+import {
+  DISCOVER_FEED_STATUS_OPTIONS,
+  type DiscoverFeedItemsPage,
+  type DiscoverFeedStatus,
+  type DiscoverIndividualsPage,
+  type DiscoverOrganizationsPage,
 } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE } from "@/lib/publisher-portal-routes";
@@ -20,12 +22,42 @@ async function loadDiscoverPageData<T>(path: string) {
   }
 }
 
-export default async function PublisherPortalFeedEntriesPage() {
+function discoverFeedStatusFromSearchParam(
+  value: string | string[] | undefined,
+): DiscoverFeedStatus | undefined {
+  const status = Array.isArray(value) ? value[0] : value;
+  return DISCOVER_FEED_STATUS_OPTIONS.some((option) => option.value === status)
+    ? (status as DiscoverFeedStatus)
+    : undefined;
+}
+
+function discoverFeedItemsPath(status: DiscoverFeedStatus | undefined) {
+  if (!status) {
+    return "/discover/feed-items";
+  }
+
+  const params = new URLSearchParams({ status });
+  return `/discover/feed-items?${params.toString()}`;
+}
+
+type PublisherPortalFeedEntriesPageProps = {
+  searchParams?: Promise<{ status?: string | string[] }>;
+};
+
+export default async function PublisherPortalFeedEntriesPage({
+  searchParams,
+}: PublisherPortalFeedEntriesPageProps = {}) {
   const adminContext = await requireDiscoverAccess();
   const t = (text: string) => appText("es", text);
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const initialStatus = discoverFeedStatusFromSearchParam(
+    resolvedSearchParams.status,
+  );
   const [feedPageResult, organizationsPageResult, individualsPageResult] =
     await Promise.all([
-      loadDiscoverPageData<DiscoverFeedItemsPage>("/discover/feed-items"),
+      loadDiscoverPageData<DiscoverFeedItemsPage>(
+        discoverFeedItemsPath(initialStatus),
+      ),
       adminContext.role === "individual_publisher"
         ? Promise.resolve({
             data: { organizations: [], nextCursor: null },
@@ -67,6 +99,7 @@ export default async function PublisherPortalFeedEntriesPage() {
           organizations={organizationsPageResult.data?.organizations ?? []}
           individuals={individualsPageResult.data?.individuals ?? []}
           initialLoadError={initialLoadError}
+          initialStatus={initialStatus ?? "all"}
           routeBase={PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE}
         />
       </HeaderUnclutterScope>

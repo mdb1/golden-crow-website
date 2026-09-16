@@ -75,12 +75,32 @@ const publisherTableHeaderClass =
 const publisherRowClass =
   "grid gap-3 border-b border-violet-100/70 px-4 py-4 transition-colors last:border-b-0 hover:bg-violet-50/42 dark:border-violet-400/12 dark:hover:bg-violet-500/6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_110px_170px_auto] lg:items-center";
 
+function feedItemsPath({
+  cursor,
+  status,
+}: {
+  cursor?: string;
+  status: "all" | DiscoverFeedStatus;
+}) {
+  const params = new URLSearchParams();
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  if (status !== "all") {
+    params.set("status", status);
+  }
+
+  const query = params.toString();
+  return query ? `/discover/feed-items?${query}` : "/discover/feed-items";
+}
+
 export function DiscoverFeedEntryBrowser({
   initialFeedItems,
   initialNextCursor,
   organizations,
   individuals,
   initialLoadError,
+  initialStatus = "all",
   routeBase = "/discover/feed-entries",
 }: {
   initialFeedItems: DiscoverFeedItemRecord[];
@@ -88,6 +108,7 @@ export function DiscoverFeedEntryBrowser({
   organizations: DiscoverOrganizationRecord[];
   individuals: DiscoverIndividualRecord[];
   initialLoadError?: string | null;
+  initialStatus?: "all" | DiscoverFeedStatus;
   routeBase?: string;
 }) {
   const { language } = useAppLanguage();
@@ -97,7 +118,10 @@ export function DiscoverFeedEntryBrowser({
   const [nextCursor, setNextCursor] = useState(initialNextCursor);
   const [query, setQuery] = useState("");
   const [type, setType] = useState<"all" | DiscoverFeedType>("all");
-  const [status, setStatus] = useState<"all" | DiscoverFeedStatus>("all");
+  const [status, setStatus] =
+    useState<"all" | DiscoverFeedStatus>(initialStatus);
+  const [loadedStatus, setLoadedStatus] =
+    useState<"all" | DiscoverFeedStatus>(initialStatus);
   const [publisherFilter, setPublisherFilter] = useState("all");
   const [pending, setPending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(
@@ -167,9 +191,8 @@ export function DiscoverFeedEntryBrowser({
 
     setPending(true);
     try {
-      const params = new URLSearchParams({ cursor: nextCursor });
       const page = await sdkFetch<DiscoverFeedItemsPage>(
-        `/discover/feed-items?${params.toString()}`,
+        feedItemsPath({ cursor: nextCursor, status: loadedStatus }),
       );
       setFeedItems((current) => [...current, ...page.feedItems]);
       setNextCursor(page.nextCursor);
@@ -187,9 +210,13 @@ export function DiscoverFeedEntryBrowser({
   async function refresh() {
     setPending(true);
     try {
-      const page = await sdkFetch<DiscoverFeedItemsPage>("/discover/feed-items");
+      const refreshStatus = status;
+      const page = await sdkFetch<DiscoverFeedItemsPage>(
+        feedItemsPath({ status: refreshStatus }),
+      );
       setFeedItems(page.feedItems);
       setNextCursor(page.nextCursor);
+      setLoadedStatus(refreshStatus);
     } catch {
       setToast({
         id: Date.now(),

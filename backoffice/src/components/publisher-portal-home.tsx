@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
+  publisherPortalFeedEntriesByStatusRoute,
   publisherPortalFeedEntryCreateRoute,
   publisherPortalOrganizationDetailRoute,
   publisherPortalOrganizationProductCatalogRoute,
@@ -25,6 +26,7 @@ type PublisherPortalHomeProps = {
   email: string;
   roleLabel: string;
   hasPublishedFeedEntry: boolean;
+  hasDraftFeedEntry: boolean;
   organizationId?: string;
 };
 
@@ -132,9 +134,11 @@ export function PublisherPortalHome({
   email,
   roleLabel,
   hasPublishedFeedEntry,
+  hasDraftFeedEntry,
   organizationId,
 }: PublisherPortalHomeProps) {
   const newFeedEntryHref = publisherPortalFeedEntryCreateRoute();
+  const draftFeedEntriesHref = publisherPortalFeedEntriesByStatusRoute("draft");
   const organizationHref = organizationId
     ? publisherPortalOrganizationDetailRoute(organizationId)
     : undefined;
@@ -184,6 +188,16 @@ export function PublisherPortalHome({
         <div className="grid gap-4 md:grid-cols-2">
           {hasPublishedFeedEntry ? (
             <>
+              {hasDraftFeedEntry ? (
+                <QuickAccessCard
+                  icon={FileText}
+                  title="Ver mis borradores"
+                  body="Retomá las notas que todavía están privadas y dejalas listas para publicar cuando estén perfectas."
+                  actionLabel="Abrir borradores"
+                  href={draftFeedEntriesHref}
+                  tone="neutral"
+                />
+              ) : null}
               <QuickAccessCard
                 icon={BookOpenText}
                 title="Ver mis notas publicadas"
@@ -211,6 +225,16 @@ export function PublisherPortalHome({
                 href={newFeedEntryHref}
                 tone="primary"
               />
+              {hasDraftFeedEntry ? (
+                <QuickAccessCard
+                  icon={FileText}
+                  title="Ver mis borradores"
+                  body="Retomá las notas que ya empezaste y seguí puliéndolas antes de llevarlas a Discover."
+                  actionLabel="Abrir borradores"
+                  href={draftFeedEntriesHref}
+                  tone="neutral"
+                />
+              ) : null}
               <QuickAccessCard
                 icon={FileText}
                 title="Ver mis notas publicadas"

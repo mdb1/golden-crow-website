@@ -5,6 +5,7 @@ import PublisherPortalHomePage from "@/app/publisher-portal/(portal)/home/page";
 import type { MyAccountRecord } from "@/lib/admin-areas";
 import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
+  publisherPortalFeedEntriesByStatusRoute,
   publisherPortalFeedEntryCreateRoute,
   publisherPortalOrganizationDetailRoute,
   publisherPortalOrganizationProductCatalogRoute,
@@ -49,6 +50,7 @@ const account = {
 
 function mockPublisherHomeData(
   hasPublishedFeedEntry: boolean,
+  hasDraftFeedEntry = false,
   accountOverride: MyAccountRecord = account,
 ) {
   jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
@@ -59,6 +61,13 @@ function mockPublisherHomeData(
     if (path === "/discover/feed-items?limit=1&status=published") {
       return {
         feedItems: hasPublishedFeedEntry ? [{ id: "feed-1" }] : [],
+        nextCursor: null,
+      };
+    }
+
+    if (path === "/discover/feed-items?limit=1&status=draft") {
+      return {
+        feedItems: hasDraftFeedEntry ? [{ id: "draft-1" }] : [],
         nextCursor: null,
       };
     }
@@ -79,6 +88,9 @@ describe("PublisherPortalHomePage", () => {
 
     expect(sdkFetchServer).toHaveBeenCalledWith(
       "/discover/feed-items?limit=1&status=published",
+    );
+    expect(sdkFetchServer).toHaveBeenCalledWith(
+      "/discover/feed-items?limit=1&status=draft",
     );
     expect(screen.getByText("Empezá con una primera nota")).toBeTruthy();
     expect(
@@ -103,6 +115,7 @@ describe("PublisherPortalHomePage", () => {
         .getByRole("link", { name: /Abrir catálogo/i })
         .getAttribute("href"),
     ).toBe(publisherPortalOrganizationProductCatalogRoute("org-1"));
+    expect(screen.queryByText("Ver mis borradores")).toBeNull();
   });
 
   it("enables both quick accesses once the publisher has a published entry", async () => {
@@ -125,8 +138,27 @@ describe("PublisherPortalHomePage", () => {
         name: "Disponible después de publicar",
       }),
     ).toBeNull();
+    expect(screen.queryByText("Ver mis borradores")).toBeNull();
     expect(screen.getByText("Personalizar mi organización")).toBeTruthy();
     expect(screen.getByText("Acceder al catálogo")).toBeTruthy();
+  });
+
+  it("shows a draft shortcut before published notes when draft entries exist", async () => {
+    mockPublisherHomeData(true, true);
+
+    render(await PublisherPortalHomePage());
+
+    const draftLink = screen.getByRole("link", { name: /Abrir borradores/i });
+    expect(draftLink.getAttribute("href")).toBe(
+      publisherPortalFeedEntriesByStatusRoute("draft"),
+    );
+
+    const quickAccessTitles = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(quickAccessTitles.indexOf("Ver mis borradores")).toBeLessThan(
+      quickAccessTitles.indexOf("Ver mis notas publicadas"),
+    );
   });
 
   it("does not show organization quick accesses to individual publishers", async () => {
@@ -143,7 +175,7 @@ describe("PublisherPortalHomePage", () => {
         role: "individual_publisher",
       },
     } as unknown as MyAccountRecord;
-    mockPublisherHomeData(true, individualAccount);
+    mockPublisherHomeData(true, false, individualAccount);
 
     render(await PublisherPortalHomePage());
 
