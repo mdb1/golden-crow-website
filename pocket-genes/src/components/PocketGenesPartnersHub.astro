@@ -37,40 +37,40 @@ const pageCopy = isEnglish
   ? {
       title: 'Our partners | Pocket Genes',
       description:
-        'Explore the active organizations and professionals that collaborate with Pocket Genes.',
+        'Meet the professionals and organizations that participate in Pocket Genes.',
       breadcrumbHome: 'Pocket Genes',
       eyebrow: 'Our partners',
-      heading: 'Our partners',
+      heading: 'Professionals and organizations',
       intro:
-        'Organizations and professionals that publish, collaborate, and help the Pocket Genes community find trusted genomics knowledge.',
+        'Meet the people and organizations participating in Pocket Genes and learn about their work in genetics and precision medicine.',
       organizations: 'Organizations',
       professionals: 'Professionals',
-      segmentLabel: 'Partner type',
+      segmentLabel: 'Profile type',
       loading: 'Loading partners',
       retry: 'Retry',
-      emptyTitle: 'No partners to show yet',
-      emptyBody: 'Active partner profiles from the backend will appear here.',
-      errorTitle: 'Partners could not load',
-      errorBody: 'The backend did not return the partner list right now.',
+      emptyTitle: 'No profiles available right now.',
+      emptyBody: '',
+      errorTitle: 'We could not load the profiles. Please try again.',
+      errorBody: '',
     }
   : {
       title: 'Nuestros partners | Pocket Genes',
       description:
-        'Explorá las organizaciones y profesionales activos que colaboran con Pocket Genes.',
+        'Conocé a profesionales y organizaciones que participan en Pocket Genes.',
       breadcrumbHome: 'Pocket Genes',
       eyebrow: 'Nuestros partners',
-      heading: 'Nuestros partners',
+      heading: 'Profesionales y organizaciones',
       intro:
-        'Organizaciones y profesionales que publican, colaboran y ayudan a la comunidad de Pocket Genes a encontrar conocimiento confiable en genómica.',
+        'Conocé a quienes participan en Pocket Genes y el trabajo que realizan en genética y medicina de precisión.',
       organizations: 'Organizaciones',
       professionals: 'Profesionales',
-      segmentLabel: 'Tipo de aliado',
-      loading: 'Cargando aliados',
+      segmentLabel: 'Tipo de perfil',
+      loading: 'Cargando perfiles',
       retry: 'Reintentar',
-      emptyTitle: 'Todavía no hay aliados para mostrar',
-      emptyBody: 'Los perfiles activos del backend van a aparecer acá.',
-      errorTitle: 'No se pudieron cargar los aliados',
-      errorBody: 'El backend no devolvió la lista de aliados en este momento.',
+      emptyTitle: 'No hay perfiles disponibles por el momento.',
+      emptyBody: '',
+      errorTitle: 'No pudimos cargar los perfiles. Intentá nuevamente.',
+      errorBody: '',
     };
 ---
 
@@ -194,12 +194,11 @@ const pageCopy = isEnglish
         geneticReportProvider: 'Reports',
         website: 'Website',
         viewProfile: 'View profile',
-        noDescription: 'Active Pocket Genes partner profile.',
         count: (count, label) => `Showing ${count} ${count === 1 ? label.singular : label.plural}`,
-        emptyTitle: 'No partners to show yet',
-        emptyBody: 'Active partner profiles from the backend will appear here.',
-        errorTitle: 'Partners could not load',
-        errorBody: 'The backend did not return the partner list right now.',
+        emptyTitle: 'No profiles available right now.',
+        emptyBody: '',
+        errorTitle: 'We could not load the profiles. Please try again.',
+        errorBody: '',
       }
     : {
         organizations: 'Organizaciones',
@@ -211,12 +210,11 @@ const pageCopy = isEnglish
         geneticReportProvider: 'Reportes',
         website: 'Sitio web',
         viewProfile: 'Ver perfil',
-        noDescription: 'Perfil activo de aliado en Pocket Genes.',
         count: (count, label) => `Mostrando ${count} ${count === 1 ? label.singular : label.plural}`,
-        emptyTitle: 'Todavía no hay aliados para mostrar',
-        emptyBody: 'Los perfiles activos del backend van a aparecer acá.',
-        errorTitle: 'No se pudieron cargar los aliados',
-        errorBody: 'El backend no devolvió la lista de aliados en este momento.',
+        emptyTitle: 'No hay perfiles disponibles por el momento.',
+        emptyBody: '',
+        errorTitle: 'No pudimos cargar los perfiles. Intentá nuevamente.',
+        errorBody: '',
       };
 
   const state = {
@@ -342,7 +340,7 @@ const pageCopy = isEnglish
       id,
       kind,
       name,
-      description: description || copy.noDescription,
+      description,
       imageUrl: imageSource(fields.imageUrl) || imageSource(fields.imageUploadDataUrl),
       websiteUrl,
       profileUrl: isOrganization ? `${organizationDetailPath}?id=${encodeURIComponent(id)}` : '',
@@ -428,9 +426,12 @@ const pageCopy = isEnglish
     text.className = 'partners-card-text';
     const title = document.createElement('h2');
     title.textContent = item.name;
-    const description = document.createElement('p');
-    description.textContent = item.description;
-    text.append(title, description);
+    text.append(title);
+    if (item.description) {
+      const description = document.createElement('p');
+      description.textContent = item.description;
+      text.append(description);
+    }
 
     const chips = document.createElement('div');
     chips.className = 'partners-chip-row';
@@ -547,7 +548,9 @@ const pageCopy = isEnglish
     if (!kind) return;
     const isError = kind === 'error';
     statusTitle.textContent = isError ? copy.errorTitle : copy.emptyTitle;
-    statusBody.textContent = isError ? copy.errorBody : copy.emptyBody;
+    const body = isError ? copy.errorBody : copy.emptyBody;
+    statusBody.textContent = body;
+    statusBody.hidden = !body;
     if (statusRetry) statusRetry.hidden = !isError;
   }
 
