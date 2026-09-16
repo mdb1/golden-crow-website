@@ -1,0 +1,1238 @@
+---
+import PocketGenesPublicLayout from '../layouts/PocketGenesPublicLayout.astro';
+import {
+  getWizardCategoryOptions,
+  getWizardSocialOptions,
+} from '../data/discoverPublisherWizard';
+
+interface Props {
+  lang?: 'en' | 'es';
+}
+
+const lang = Astro.props.lang ?? (Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/') ? 'en' : 'es');
+const isEnglish = lang === 'en';
+const canonicalPath = isEnglish ? '/en/pocket-genes/partners/' : '/pocket-genes/partners/';
+const organizationDetailPath = isEnglish
+  ? '/en/pocket-genes/discover/organizations/'
+  : '/pocket-genes/discover/organizations/';
+
+const canonicalSocialFieldKey = (value: string) =>
+  ({
+    stack_overflow: 'stackOverflow',
+    hugging_face: 'huggingFace',
+    google_scholar: 'googleScholar',
+    web_of_science: 'webOfScience',
+    protocols_io: 'protocolsIo',
+  })[value] ?? value;
+
+const organizationCategoryOptions = getWizardCategoryOptions('organization', lang);
+const individualCategoryOptions = getWizardCategoryOptions('individual', lang);
+const socialPreviewOptions = getWizardSocialOptions(lang).map((option) => ({
+  key: canonicalSocialFieldKey(option.value),
+  label: option.label,
+  assetName: option.assetName,
+}));
+
+const pageCopy = isEnglish
+  ? {
+      title: 'Our partners | Pocket Genes',
+      description:
+        'Explore the active organizations and professionals that collaborate with Pocket Genes.',
+      breadcrumbHome: 'Pocket Genes',
+      eyebrow: 'Our partners',
+      heading: 'Our partners',
+      intro:
+        'Organizations and professionals that publish, collaborate, and help the Pocket Genes community find trusted genomics knowledge.',
+      organizations: 'Organizations',
+      professionals: 'Professionals',
+      segmentLabel: 'Partner type',
+      loading: 'Loading partners',
+      retry: 'Retry',
+      emptyTitle: 'No partners to show yet',
+      emptyBody: 'Active partner profiles from the backend will appear here.',
+      errorTitle: 'Partners could not load',
+      errorBody: 'The backend did not return the partner list right now.',
+    }
+  : {
+      title: 'Our partners | Pocket Genes',
+      description:
+        'Explorá las organizaciones y profesionales activos que colaboran con Pocket Genes.',
+      breadcrumbHome: 'Pocket Genes',
+      eyebrow: 'Our partners',
+      heading: 'Our partners',
+      intro:
+        'Organizaciones y profesionales que publican, colaboran y ayudan a la comunidad de Pocket Genes a encontrar conocimiento confiable en genómica.',
+      organizations: 'Organizaciones',
+      professionals: 'Profesionales',
+      segmentLabel: 'Tipo de aliado',
+      loading: 'Cargando aliados',
+      retry: 'Reintentar',
+      emptyTitle: 'Todavía no hay aliados para mostrar',
+      emptyBody: 'Los perfiles activos del backend van a aparecer acá.',
+      errorTitle: 'No se pudieron cargar los aliados',
+      errorBody: 'El backend no devolvió la lista de aliados en este momento.',
+    };
+---
+
+<PocketGenesPublicLayout
+  title={pageCopy.title}
+  description={pageCopy.description}
+  canonicalPath={canonicalPath}
+  showFooter={true}
+  image="/pocket-genes/banner.png"
+>
+  <main id="main" class="partners-hub" data-partners-hub data-locale={lang}>
+    <section class="partners-hero">
+      <div class="partners-shell partners-hero-grid">
+        <div class="partners-hero-copy">
+          <nav class="partners-breadcrumb" aria-label="Breadcrumb">
+            <a href={isEnglish ? '/en/pocket-genes/home' : '/pocket-genes/home'}>{pageCopy.breadcrumbHome}</a>
+            <span aria-hidden="true"></span>
+            <span aria-current="page">{pageCopy.eyebrow}</span>
+          </nav>
+          <p class="partners-eyebrow">{pageCopy.eyebrow}</p>
+          <h1>{pageCopy.heading}</h1>
+          <p>{pageCopy.intro}</p>
+        </div>
+        <div class="partners-live-panel" aria-live="polite">
+          <div class="partners-count-card">
+            <span data-org-count>...</span>
+            <strong>{pageCopy.organizations}</strong>
+          </div>
+          <div class="partners-count-card">
+            <span data-pro-count>...</span>
+            <strong>{pageCopy.professionals}</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="partners-shell partners-workbench" aria-label={pageCopy.eyebrow}>
+      <div class="partners-toolbar">
+        <div class="partners-segments" role="group" aria-label={pageCopy.segmentLabel}>
+          <button
+            class="partners-segment"
+            type="button"
+            data-partner-tab="organizations"
+            aria-pressed="true"
+          >
+            <span>{pageCopy.organizations}</span>
+            <strong data-org-tab-count></strong>
+          </button>
+          <button
+            class="partners-segment"
+            type="button"
+            data-partner-tab="professionals"
+            aria-pressed="false"
+          >
+            <span>{pageCopy.professionals}</span>
+            <strong data-pro-tab-count></strong>
+          </button>
+        </div>
+        <p class="partners-result-summary" data-result-summary aria-live="polite"></p>
+      </div>
+
+      <div class="partners-status" data-status hidden>
+        <h2 data-status-title></h2>
+        <p data-status-body></p>
+        <button class="partners-status-action" type="button" data-status-retry hidden>{pageCopy.retry}</button>
+      </div>
+
+      <div class="partners-skeleton" data-skeleton aria-label={pageCopy.loading}>
+        <div class="partners-skeleton-card"></div>
+        <div class="partners-skeleton-card"></div>
+        <div class="partners-skeleton-card"></div>
+      </div>
+
+      <div class="partners-grid" data-partner-grid></div>
+    </section>
+  </main>
+</PocketGenesPublicLayout>
+
+<script
+  define:vars={{
+    pageLang: lang,
+    organizationDetailPath,
+    organizationCategoryOptions,
+    individualCategoryOptions,
+    socialPreviewOptions,
+  }}
+>
+  const FIRESTORE_PROJECT_ID = 'goldencrow-pocketgenes';
+  const FIRESTORE_API_KEY = 'AIzaSyCTiL_RwICvnngYEqE721_MwVmDqGyYZ64';
+  const FETCH_BATCH_SIZE = 100;
+  const MAX_FETCH_PAGES = 10;
+
+  const root = document.querySelector('[data-partners-hub]');
+  const grid = document.querySelector('[data-partner-grid]');
+  const skeleton = document.querySelector('[data-skeleton]');
+  const statusPanel = document.querySelector('[data-status]');
+  const statusTitle = document.querySelector('[data-status-title]');
+  const statusBody = document.querySelector('[data-status-body]');
+  const statusRetry = document.querySelector('[data-status-retry]');
+  const summary = document.querySelector('[data-result-summary]');
+  const organizationCount = document.querySelector('[data-org-count]');
+  const professionalCount = document.querySelector('[data-pro-count]');
+  const organizationTabCount = document.querySelector('[data-org-tab-count]');
+  const professionalTabCount = document.querySelector('[data-pro-tab-count]');
+  const tabs = Array.from(document.querySelectorAll('[data-partner-tab]'));
+
+  const isEnglish = pageLang === 'en';
+  const fieldLocale = isEnglish ? 'en' : 'es';
+  const categoryMaps = {
+    organizations: new Map(organizationCategoryOptions.map((option) => [option.value, option.label])),
+    professionals: new Map(individualCategoryOptions.map((option) => [option.value, option.label])),
+  };
+  const copy = isEnglish
+    ? {
+        organizations: 'Organizations',
+        professionals: 'Professionals',
+        organization: 'Organization',
+        professional: 'Professional',
+        verified: 'Verified',
+        highlighted: 'Featured',
+        geneticReportProvider: 'Reports',
+        website: 'Website',
+        viewProfile: 'View profile',
+        noDescription: 'Active Pocket Genes partner profile.',
+        count: (count, label) => `Showing ${count} ${count === 1 ? label.singular : label.plural}`,
+        emptyTitle: 'No partners to show yet',
+        emptyBody: 'Active partner profiles from the backend will appear here.',
+        errorTitle: 'Partners could not load',
+        errorBody: 'The backend did not return the partner list right now.',
+      }
+    : {
+        organizations: 'Organizaciones',
+        professionals: 'Profesionales',
+        organization: 'Organización',
+        professional: 'Profesional',
+        verified: 'Verificado',
+        highlighted: 'Destacado',
+        geneticReportProvider: 'Reportes',
+        website: 'Sitio web',
+        viewProfile: 'Ver perfil',
+        noDescription: 'Perfil activo de aliado en Pocket Genes.',
+        count: (count, label) => `Mostrando ${count} ${count === 1 ? label.singular : label.plural}`,
+        emptyTitle: 'Todavía no hay aliados para mostrar',
+        emptyBody: 'Los perfiles activos del backend van a aparecer acá.',
+        errorTitle: 'No se pudieron cargar los aliados',
+        errorBody: 'El backend no devolvió la lista de aliados en este momento.',
+      };
+
+  const state = {
+    activeTab: 'organizations',
+    loading: true,
+    error: false,
+    organizations: [],
+    professionals: [],
+  };
+
+  tabs.forEach((button) => {
+    button.addEventListener('click', () => {
+      const tab = button.dataset.partnerTab || 'organizations';
+      if (state.activeTab === tab) return;
+      state.activeTab = tab;
+      render();
+    });
+  });
+  statusRetry?.addEventListener('click', () => loadPartners());
+
+  loadPartners();
+
+  async function loadPartners() {
+    setSkeleton(true);
+    setStatus(null);
+    state.loading = true;
+    state.error = false;
+    grid?.replaceChildren();
+
+    try {
+      const [organizationDocuments, professionalDocuments] = await Promise.all([
+        fetchPublisherCollection('feed_organizations'),
+        fetchPublisherCollection('feed_individuals'),
+      ]);
+      state.organizations = organizationDocuments
+        .map((document) => normalizePublisher(document, 'organizations'))
+        .filter(Boolean)
+        .sort(comparePartners);
+      state.professionals = professionalDocuments
+        .map((document) => normalizePublisher(document, 'professionals'))
+        .filter(Boolean)
+        .sort(comparePartners);
+    } catch {
+      state.error = true;
+      state.organizations = [];
+      state.professionals = [];
+    } finally {
+      state.loading = false;
+      setSkeleton(false);
+      render();
+    }
+  }
+
+  async function fetchPublisherCollection(collectionId) {
+    const documents = [];
+    let cursor = null;
+
+    for (let page = 0; page < MAX_FETCH_PAGES; page += 1) {
+      const query = {
+        structuredQuery: {
+          from: [{ collectionId }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: 'status' },
+              op: 'EQUAL',
+              value: { stringValue: 'active' },
+            },
+          },
+          orderBy: [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }],
+          limit: FETCH_BATCH_SIZE,
+        },
+      };
+
+      if (cursor) {
+        query.structuredQuery.startAt = {
+          before: false,
+          values: [{ referenceValue: cursor }],
+        };
+      }
+
+      const response = await fetch(
+        `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}/databases/(default)/documents:runQuery?key=${FIRESTORE_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(query),
+        }
+      );
+      if (!response.ok) {
+        throw new Error('Partner query failed');
+      }
+
+      const rows = await response.json();
+      const pageDocuments = rows.map((row) => row.document).filter(Boolean);
+      documents.push(...pageDocuments);
+      if (pageDocuments.length < FETCH_BATCH_SIZE) break;
+      cursor = pageDocuments.at(-1)?.name || null;
+      if (!cursor) break;
+    }
+
+    return documents;
+  }
+
+  function normalizePublisher(document, kind) {
+    const fields = parseFirestoreFields(document.fields ?? {});
+    if (cleanText(fields.status) !== 'active') return null;
+
+    const id = cleanText(fields.id) || document.name.split('/').pop();
+    const name = cleanText(fields.name);
+    if (!id || !name) return null;
+
+    const description = localizedDescription(fields);
+    const categoryField = kind === 'organizations' ? fields.organizationType : fields.individualType;
+    const categories = labelsForCsv(categoryField, categoryMaps[kind]);
+    const countries = countriesForCsv(fields.countryCode);
+    const websiteUrl = externalUrl(fields.websiteUrl);
+    const color = readColor(fields.colorHex);
+    const isOrganization = kind === 'organizations';
+    const isHighlighted = isOrganization && fields.isGrcHighlighted === true;
+    const isReportProvider = isOrganization && fields.isGeneticReportProvider === true;
+
+    return {
+      id,
+      kind,
+      name,
+      description: description || copy.noDescription,
+      imageUrl: imageSource(fields.imageUrl) || imageSource(fields.imageUploadDataUrl),
+      websiteUrl,
+      profileUrl: isOrganization ? `${organizationDetailPath}?id=${encodeURIComponent(id)}` : '',
+      categories,
+      countries,
+      socials: socialLinksForPreview(fields.social).slice(0, 5),
+      badges: [
+        fields.verified === true ? copy.verified : '',
+        isReportProvider ? copy.geneticReportProvider : '',
+        isHighlighted ? copy.highlighted : '',
+      ].filter(Boolean),
+      accent: color,
+      highlighted: isHighlighted,
+      verified: fields.verified === true,
+    };
+  }
+
+  function render() {
+    updateCounts();
+    updateTabs();
+
+    if (state.error) {
+      grid?.replaceChildren();
+      renderSummary(0);
+      setStatus('error');
+      return;
+    }
+
+    const items = activeItems();
+    grid?.replaceChildren(...items.map(createPartnerCard));
+    renderSummary(items.length);
+    setStatus(items.length ? null : 'empty');
+  }
+
+  function activeItems() {
+    return state.activeTab === 'professionals' ? state.professionals : state.organizations;
+  }
+
+  function updateTabs() {
+    tabs.forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.partnerTab === state.activeTab));
+    });
+    root?.classList.toggle('is-professionals', state.activeTab === 'professionals');
+  }
+
+  function updateCounts() {
+    const orgCount = String(state.organizations.length);
+    const proCount = String(state.professionals.length);
+    if (organizationCount) organizationCount.textContent = state.loading ? '...' : orgCount;
+    if (professionalCount) professionalCount.textContent = state.loading ? '...' : proCount;
+    if (organizationTabCount) organizationTabCount.textContent = state.loading ? '' : orgCount;
+    if (professionalTabCount) professionalTabCount.textContent = state.loading ? '' : proCount;
+  }
+
+  function renderSummary(count) {
+    if (!summary) return;
+    if (state.loading || state.error) {
+      summary.textContent = '';
+      return;
+    }
+    const label =
+      state.activeTab === 'professionals'
+        ? { singular: isEnglish ? 'professional' : 'profesional', plural: isEnglish ? 'professionals' : 'profesionales' }
+        : { singular: isEnglish ? 'organization' : 'organización', plural: isEnglish ? 'organizations' : 'organizaciones' };
+    summary.textContent = count ? copy.count(count, label) : '';
+  }
+
+  function createPartnerCard(item) {
+    const card = document.createElement('article');
+    card.className = `partners-card${item.highlighted ? ' partners-card-highlighted' : ''}`;
+    card.style.setProperty('--partner-accent', item.accent);
+
+    const header = document.createElement('div');
+    header.className = 'partners-card-header';
+    header.append(createAvatar(item), createIdentityBlock(item));
+
+    const type = document.createElement('span');
+    type.className = 'partners-type';
+    type.textContent = item.kind === 'professionals' ? copy.professional : copy.organization;
+    header.append(type);
+
+    const text = document.createElement('div');
+    text.className = 'partners-card-text';
+    const title = document.createElement('h2');
+    title.textContent = item.name;
+    const description = document.createElement('p');
+    description.textContent = item.description;
+    text.append(title, description);
+
+    const chips = document.createElement('div');
+    chips.className = 'partners-chip-row';
+    const visibleChips = [...item.badges, ...item.categories, ...item.countries].slice(0, 6);
+    chips.hidden = visibleChips.length === 0;
+    chips.replaceChildren(...visibleChips.map(createChip));
+
+    const footer = document.createElement('div');
+    footer.className = 'partners-card-footer';
+    const actions = createActions(item);
+    const socials = createSocialRow(item);
+    if (actions) footer.append(actions);
+    if (socials) footer.append(socials);
+
+    card.append(header, text, chips, footer);
+    return card;
+  }
+
+  function createAvatar(item) {
+    const avatar = document.createElement('span');
+    avatar.className = 'partners-avatar';
+    avatar.style.setProperty('--partner-accent', item.accent);
+    if (item.imageUrl) {
+      const image = document.createElement('img');
+      image.src = item.imageUrl;
+      image.alt = '';
+      image.loading = 'lazy';
+      avatar.append(image);
+    } else {
+      avatar.textContent = initials(item.name);
+    }
+    return avatar;
+  }
+
+  function createIdentityBlock(item) {
+    const block = document.createElement('span');
+    block.className = 'partners-identity';
+    const support = document.createElement('span');
+    support.textContent = item.kind === 'professionals' ? copy.professional : copy.organization;
+    const name = document.createElement('strong');
+    name.textContent = item.categories[0] || item.countries[0] || item.name;
+    block.append(support, name);
+    return block;
+  }
+
+  function createChip(value) {
+    const chip = document.createElement('span');
+    chip.className = 'partners-chip';
+    chip.textContent = value;
+    return chip;
+  }
+
+  function createActions(item) {
+    if (!item.profileUrl && !item.websiteUrl) return null;
+
+    const actions = document.createElement('div');
+    actions.className = 'partners-actions';
+    if (item.profileUrl) {
+      actions.append(createActionLink(item.profileUrl, copy.viewProfile));
+    }
+    if (item.websiteUrl) {
+      actions.append(createActionLink(item.websiteUrl, copy.website, true));
+    }
+    return actions;
+  }
+
+  function createActionLink(href, label, external = false) {
+    const link = document.createElement('a');
+    link.className = 'partners-action';
+    link.href = href;
+    link.textContent = label;
+    if (external) {
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+    }
+    return link;
+  }
+
+  function createSocialRow(item) {
+    if (!item.socials.length) return null;
+    const row = document.createElement('div');
+    row.className = 'partners-social-row';
+    row.replaceChildren(
+      ...item.socials.map((social) => {
+        const link = document.createElement('a');
+        link.href = social.href;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.ariaLabel = social.label;
+        const image = document.createElement('img');
+        image.src = `/discover/social-network-assets/${social.assetName}.png`;
+        image.alt = '';
+        image.loading = 'lazy';
+        link.append(image);
+        return link;
+      })
+    );
+    return row;
+  }
+
+  function comparePartners(a, b) {
+    if (a.highlighted !== b.highlighted) return a.highlighted ? -1 : 1;
+    if (a.verified !== b.verified) return a.verified ? -1 : 1;
+    return a.name.localeCompare(b.name, fieldLocale, { sensitivity: 'base' });
+  }
+
+  function setSkeleton(isVisible) {
+    if (skeleton) skeleton.hidden = !isVisible;
+  }
+
+  function setStatus(kind) {
+    if (!statusPanel || !statusTitle || !statusBody) return;
+    statusPanel.hidden = !kind;
+    if (!kind) return;
+    const isError = kind === 'error';
+    statusTitle.textContent = isError ? copy.errorTitle : copy.emptyTitle;
+    statusBody.textContent = isError ? copy.errorBody : copy.emptyBody;
+    if (statusRetry) statusRetry.hidden = !isError;
+  }
+
+  function parseFirestoreFields(fields) {
+    return Object.fromEntries(
+      Object.entries(fields).map(([key, value]) => [key, parseFirestoreValue(value)])
+    );
+  }
+
+  function parseFirestoreValue(value) {
+    if (!value || typeof value !== 'object') return null;
+    if ('stringValue' in value) return value.stringValue;
+    if ('booleanValue' in value) return Boolean(value.booleanValue);
+    if ('integerValue' in value) return Number(value.integerValue);
+    if ('doubleValue' in value) return Number(value.doubleValue);
+    if ('timestampValue' in value) return value.timestampValue;
+    if ('nullValue' in value) return null;
+    if ('arrayValue' in value) return (value.arrayValue.values ?? []).map(parseFirestoreValue);
+    if ('mapValue' in value) return parseFirestoreFields(value.mapValue.fields ?? {});
+    return null;
+  }
+
+  function localizedDescription(fields) {
+    const primary = isEnglish ? fields.descriptionEn : fields.description;
+    const fallback = isEnglish ? fields.description : fields.descriptionEn;
+    return cleanText(primary) || cleanText(fallback);
+  }
+
+  function labelsForCsv(value, labelByKey) {
+    return uniqueTokens(value)
+      .map((token) => labelByKey.get(token) || humanize(token))
+      .filter(Boolean)
+      .slice(0, 4);
+  }
+
+  function countriesForCsv(value) {
+    return uniqueTokens(value)
+      .map((token) => countryName(token))
+      .filter(Boolean)
+      .slice(0, 3);
+  }
+
+  function uniqueTokens(value) {
+    const values = Array.isArray(value)
+      ? value
+      : cleanText(value)
+        ? cleanText(value).split(',')
+        : [];
+    return [...new Set(values.map(cleanText).filter(Boolean))];
+  }
+
+  function countryName(value) {
+    const code = cleanText(value).toUpperCase();
+    if (!code) return '';
+    if (code === 'GLOBAL') return 'Global';
+    if (!/^[A-Z]{2}$/.test(code)) return humanize(value);
+    try {
+      return new Intl.DisplayNames([fieldLocale], { type: 'region' }).of(code) || code;
+    } catch {
+      return code;
+    }
+  }
+
+  function socialLinksForPreview(social) {
+    if (!social || typeof social !== 'object') return [];
+    return socialPreviewOptions
+      .map((option) => {
+        const href = socialHref(option.key, social[option.key]);
+        return href ? { ...option, href } : null;
+      })
+      .filter(Boolean);
+  }
+
+  function socialHref(key, value) {
+    const text = cleanText(value);
+    if (!text) return '';
+    if (key === 'email' && !/^(mailto:|https?:\/\/)/i.test(text)) {
+      return `mailto:${text}`;
+    }
+    return externalUrl(text);
+  }
+
+  function externalUrl(value) {
+    const text = cleanText(value);
+    if (!text) return '';
+    if (/^(mailto:|tel:)/i.test(text)) return text;
+    try {
+      const url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`);
+      return ['http:', 'https:'].includes(url.protocol) ? url.toString() : '';
+    } catch {
+      return '';
+    }
+  }
+
+  function imageSource(value) {
+    const text = cleanText(value);
+    if (!text) return '';
+    if (/^data:image\/(?:png|jpe?g|webp|gif|svg\+xml);base64,/i.test(text)) return text;
+    if (text.startsWith('/')) return text;
+    try {
+      const url = new URL(text);
+      if (url.hostname === 'goldencrowvs.com') return `${url.pathname}${url.search}`;
+    } catch {
+      // Fall through to the general external URL sanitizer.
+    }
+    return externalUrl(text);
+  }
+
+  function readColor(value) {
+    const text = cleanText(value);
+    return /^#[0-9a-f]{6}$/i.test(text) ? text : '#14958f';
+  }
+
+  function initials(value) {
+    const words = cleanText(value).split(/\s+/).filter(Boolean);
+    return words
+      .slice(0, 2)
+      .map((word) => word[0]?.toLocaleUpperCase(fieldLocale))
+      .join('') || 'PG';
+  }
+
+  function humanize(value) {
+    return cleanText(value)
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^./, (letter) => letter.toLocaleUpperCase(fieldLocale));
+  }
+
+  function cleanText(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : '';
+  }
+</script>
+
+<style is:global>
+  .partners-hub {
+    min-height: 100vh;
+    background: #ffffff;
+    color: #292333;
+    padding-top: 96px;
+  }
+
+  .partners-shell {
+    width: min(1184px, calc(100% - 44px));
+    margin: 0 auto;
+  }
+
+  .partners-hero {
+    border-bottom: 1px solid #e9e5ed;
+    background:
+      linear-gradient(180deg, rgba(248, 246, 250, 0.8), rgba(255, 255, 255, 0)),
+      #ffffff;
+    padding: 34px 0 32px;
+  }
+
+  .partners-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    align-items: stretch;
+    gap: 52px;
+  }
+
+  .partners-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 28px;
+    color: #706b79;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .partners-breadcrumb a {
+    color: #6b40b4;
+    text-decoration: none;
+  }
+
+  .partners-breadcrumb a:hover,
+  .partners-breadcrumb a:focus-visible {
+    color: #c52f6d;
+  }
+
+  .partners-breadcrumb span[aria-hidden="true"] {
+    width: 7px;
+    height: 7px;
+    border-top: 1.5px solid currentColor;
+    border-right: 1.5px solid currentColor;
+    transform: rotate(45deg);
+  }
+
+  .partners-eyebrow {
+    margin: 0 0 15px;
+    color: #14958f;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0;
+    line-height: 1.6;
+    text-transform: uppercase;
+  }
+
+  .partners-hero-copy h1 {
+    margin: 0;
+    color: #292333;
+    font-size: 52px;
+    font-weight: 620;
+    letter-spacing: 0;
+    line-height: 1.05;
+  }
+
+  .partners-hero-copy > p:not(.partners-eyebrow) {
+    max-width: 720px;
+    margin: 20px 0 0;
+    color: #706b79;
+    font-size: 17px;
+    line-height: 1.7;
+  }
+
+  .partners-live-panel {
+    display: grid;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .partners-count-card {
+    display: grid;
+    align-content: center;
+    gap: 8px;
+    min-height: 128px;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 12px 34px rgba(41, 35, 51, 0.08);
+  }
+
+  .partners-count-card span {
+    color: #c52f6d;
+    font-size: 34px;
+    font-weight: 720;
+    line-height: 1;
+  }
+
+  .partners-count-card strong {
+    color: #514a58;
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.35;
+  }
+
+  .partners-workbench {
+    padding: 28px 0 56px;
+  }
+
+  .partners-toolbar {
+    position: sticky;
+    z-index: 5;
+    top: 94px;
+    display: grid;
+    gap: 12px;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 12px;
+    box-shadow: 0 10px 28px rgba(41, 35, 51, 0.08);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .partners-segments {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .partners-segment {
+    display: flex;
+    min-width: 0;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid #e1dce8;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #514a58;
+    padding: 9px 14px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 680;
+    letter-spacing: 0;
+    line-height: 1.35;
+    cursor: pointer;
+  }
+
+  .partners-segment[aria-pressed="true"] {
+    border-color: color-mix(in srgb, #14958f 48%, #e1dce8);
+    background: #eef8f5;
+    color: #0e6f6b;
+  }
+
+  .partners-segment:hover,
+  .partners-segment:focus-visible {
+    border-color: #14958f;
+    color: #0e6f6b;
+  }
+
+  .partners-segment strong {
+    min-width: 22px;
+    border-radius: 999px;
+    background: rgba(41, 35, 51, 0.08);
+    padding: 2px 7px;
+    color: inherit;
+    font-size: 11px;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  .partners-result-summary {
+    min-height: 18px;
+    margin: 0;
+    color: #706b79;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .partners-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    padding-top: 24px;
+  }
+
+  .partners-card {
+    --partner-accent: #14958f;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    min-width: 0;
+    min-height: 100%;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #292333;
+    padding: 18px;
+    box-shadow: 0 1px 2px rgba(41, 35, 51, 0.04);
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  }
+
+  .partners-card:hover {
+    border-color: color-mix(in srgb, var(--partner-accent) 36%, #e9e5ed);
+    box-shadow: 0 16px 38px rgba(41, 35, 51, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .partners-card-highlighted {
+    border-top-color: var(--partner-accent);
+    border-top-width: 3px;
+  }
+
+  .partners-card-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+    margin-bottom: 16px;
+  }
+
+  .partners-avatar {
+    display: inline-flex;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--partner-accent) 12%, #ffffff);
+    color: var(--partner-accent);
+    font-size: 13px;
+    font-weight: 760;
+  }
+
+  .partners-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #ffffff;
+    padding: 5px;
+  }
+
+  .partners-identity {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+  }
+
+  .partners-identity span {
+    color: #706b79;
+    font-size: 11px;
+    font-weight: 620;
+    letter-spacing: 0;
+    line-height: 1.35;
+    text-transform: uppercase;
+  }
+
+  .partners-identity strong {
+    overflow: hidden;
+    color: #514a58;
+    font-size: 13px;
+    font-weight: 690;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .partners-type {
+    align-self: start;
+    border: 1px solid #e1dce8;
+    border-radius: 999px;
+    color: #706b79;
+    padding: 5px 9px;
+    font-size: 11px;
+    font-weight: 680;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .partners-card-text {
+    min-width: 0;
+  }
+
+  .partners-card-text h2 {
+    margin: 0;
+    color: #292333;
+    font-size: 21px;
+    font-weight: 650;
+    letter-spacing: 0;
+    line-height: 1.18;
+  }
+
+  .partners-card-text p {
+    display: -webkit-box;
+    min-height: 72px;
+    margin: 12px 0 0;
+    overflow: hidden;
+    color: #706b79;
+    font-size: 14px;
+    line-height: 1.62;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .partners-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 16px;
+  }
+
+  .partners-chip-row[hidden] {
+    display: none;
+  }
+
+  .partners-chip {
+    max-width: 100%;
+    border: 1px solid #e9e5ed;
+    border-radius: 999px;
+    background: #f8f6fa;
+    color: #514a58;
+    padding: 6px 9px;
+    font-size: 12px;
+    font-weight: 620;
+    line-height: 1.2;
+  }
+
+  .partners-card-footer {
+    display: grid;
+    gap: 13px;
+    margin-top: 18px;
+  }
+
+  .partners-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .partners-action {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in srgb, var(--partner-accent) 42%, #e1dce8);
+    border-radius: 8px;
+    background: #ffffff;
+    color: color-mix(in srgb, var(--partner-accent) 80%, #292333);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 690;
+    line-height: 1.2;
+    text-decoration: none;
+  }
+
+  .partners-action:hover,
+  .partners-action:focus-visible {
+    background: color-mix(in srgb, var(--partner-accent) 10%, #ffffff);
+  }
+
+  .partners-social-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .partners-social-row a {
+    display: inline-flex;
+    width: 34px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e9e5ed;
+    border-radius: 999px;
+    background: #ffffff;
+    text-decoration: none;
+  }
+
+  .partners-social-row a:hover,
+  .partners-social-row a:focus-visible {
+    border-color: var(--partner-accent);
+  }
+
+  .partners-social-row img {
+    display: block;
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+  }
+
+  .partners-status {
+    margin-top: 24px;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 28px;
+    text-align: center;
+  }
+
+  .partners-status[hidden] {
+    display: none;
+  }
+
+  .partners-status h2 {
+    margin: 0;
+    color: #292333;
+    font-size: 24px;
+    font-weight: 640;
+    line-height: 1.2;
+  }
+
+  .partners-status p {
+    max-width: 520px;
+    margin: 10px auto 0;
+    color: #706b79;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .partners-status-action {
+    min-height: 38px;
+    margin-top: 18px;
+    border: 1px solid #14958f;
+    border-radius: 8px;
+    background: #14958f;
+    color: #ffffff;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 690;
+    cursor: pointer;
+  }
+
+  .partners-skeleton {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    padding-top: 24px;
+  }
+
+  .partners-skeleton[hidden] {
+    display: none;
+  }
+
+  .partners-skeleton-card {
+    min-height: 286px;
+    border: 1px solid #e9e5ed;
+    border-radius: 8px;
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0)),
+      #f8f6fa;
+    background-size: 180% 100%;
+    animation: partners-pulse 1.25s ease-in-out infinite;
+  }
+
+  @keyframes partners-pulse {
+    from {
+      background-position: 120% 0;
+    }
+    to {
+      background-position: -120% 0;
+    }
+  }
+
+  @media (max-width: 980px) {
+    .partners-hero-grid {
+      grid-template-columns: 1fr;
+      gap: 28px;
+    }
+
+    .partners-live-panel {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: none;
+    }
+
+    .partners-grid,
+    .partners-skeleton {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 720px) {
+    .partners-hub {
+      padding-top: 78px;
+    }
+
+    .partners-shell {
+      width: min(100% - 28px, 1184px);
+    }
+
+    .partners-hero {
+      padding: 26px 0 24px;
+    }
+
+    .partners-breadcrumb {
+      margin-bottom: 20px;
+    }
+
+    .partners-hero-copy h1 {
+      font-size: 40px;
+    }
+
+    .partners-hero-copy > p:not(.partners-eyebrow) {
+      font-size: 16px;
+    }
+
+    .partners-toolbar {
+      top: 78px;
+    }
+
+    .partners-grid,
+    .partners-skeleton {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .partners-live-panel,
+    .partners-segments {
+      grid-template-columns: 1fr;
+    }
+
+    .partners-count-card {
+      min-height: 102px;
+    }
+
+    .partners-card-header {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .partners-type {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+  }
+</style>

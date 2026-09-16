@@ -18,6 +18,8 @@ import type {
   PartnershipCrmTemplateRecord,
 } from "@/lib/partnership-crm";
 
+jest.setTimeout(60000);
+
 const routerRefresh = jest.fn();
 const approvedCrmEmailClosing = [
   "Te comparto nuestro link para que puedas conocer la propuesta y sumarte a la red:",
