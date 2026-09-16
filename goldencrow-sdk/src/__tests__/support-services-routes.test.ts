@@ -244,6 +244,28 @@ describe("support service admin routes", () => {
     expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 
+  it("rejects request forms as service offer outputs", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        outputSlots: [
+          {
+            role: "form",
+            objectType: "pgo_form",
+            mutationMode: "new_object",
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
+  });
+
   it("rejects free-text service offer turnaround values", async () => {
     const fastify = await buildTestServer();
 

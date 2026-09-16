@@ -765,6 +765,12 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         400,
       );
     }
+    if (slot.objectType === FORM_OBJECT_TYPE) {
+      throw new AdminRepositoryError(
+        "Output slots cannot produce request forms.",
+        400,
+      );
+    }
   }
 
   if (document.commercialTerms?.pricingModel === "fixed") {

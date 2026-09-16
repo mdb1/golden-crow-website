@@ -21,6 +21,7 @@ import {
 const ServiceStageSchema = z.enum(SUPPORT_SERVICE_STAGES);
 const OfferStatusSchema = z.enum(SUPPORT_SERVICE_OFFER_STATUSES);
 const TransactionStatusSchema = z.enum(SUPPORT_SERVICE_TRANSACTION_STATUSES);
+const FORM_OBJECT_TYPE = "pgo_form";
 const FormFieldTypeSchema = z.enum([
   "text",
   "number",
@@ -114,7 +115,10 @@ const InputSlotSchema = z.object({
 });
 const OutputSlotSchema = z.object({
   role: RoleSchema,
-  objectType: ObjectTypeSchema,
+  objectType: ObjectTypeSchema.refine(
+    (value) => value !== FORM_OBJECT_TYPE,
+    "Output slots cannot produce request forms.",
+  ),
   mutationMode: MutationModeSchema,
 });
 const PricingModelSchema = z.enum([

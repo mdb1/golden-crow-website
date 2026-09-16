@@ -4863,6 +4863,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Cada slot de entrada necesita un rol.",
   "Every output slot needs a role and object type.":
     "Cada slot de salida necesita un rol y un tipo de objeto.",
+  "Output slots cannot produce request forms.":
+    "Los slots de salida no pueden producir formularios de solicitud.",
   "Fixed price amount must be numeric.":
     "El importe de precio fijo debe ser numérico.",
   "Fixed price currency is required.":

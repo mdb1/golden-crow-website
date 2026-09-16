@@ -160,6 +160,10 @@ const OFFERS_QUERY_KEY = "god-mode-support-service-offers";
 const TRANSACTIONS_QUERY_KEY = "god-mode-support-service-transactions";
 const LIVE_OFFERS_QUERY_KEY = "god-mode-support-service-offers-live-picker";
 const FORM_OBJECT_TYPE = "pgo_form";
+const DEFAULT_OUTPUT_OBJECT_TYPE = "pgo_pdf_report";
+const OUTPUT_OBJECT_OPTIONS = POCKET_GENES_OBJECT_OPTIONS.filter(
+  (object) => object.value !== FORM_OBJECT_TYPE,
+);
 const TURNAROUND_UNITS = [
   { value: "w", label: "Weeks" },
   { value: "d", label: "Days" },
@@ -377,6 +381,21 @@ function withoutFormInputSlots(slots: SupportServiceInputSlot[]) {
   return slots.filter((slot) => !isFormInputSlot(slot));
 }
 
+function defaultOutputSlot(): SupportServiceOutputSlot {
+  return {
+    role: "report",
+    objectType: DEFAULT_OUTPUT_OBJECT_TYPE,
+    mutationMode: "new_object",
+  };
+}
+
+function serviceOutputSlots(slots: SupportServiceOutputSlot[]) {
+  const outputSlots = slots.filter(
+    (slot) => slot.objectType && slot.objectType !== FORM_OBJECT_TYPE,
+  );
+  return outputSlots.length ? outputSlots : [defaultOutputSlot()];
+}
+
 function defaultOfferForm(): OfferFormState {
   return {
     serviceId: "pgs_",
@@ -394,7 +413,7 @@ function defaultOfferForm(): OfferFormState {
     supportsFormShape: false,
     formShape: defaultFormShape(),
     inputSlots: [],
-    outputSlots: [],
+    outputSlots: [defaultOutputSlot()],
     acceptedConditionsText: "",
     scopeRulesText: "",
     commercialTerms: {
@@ -455,7 +474,9 @@ function offerFormFromCatalog(
     inputSlots: hasFormShape
       ? withFormInputSlot(catalogInputSlots)
       : withoutFormInputSlots(catalogInputSlots),
-    outputSlots: catalogOffer.outputSlots.map((slot) => ({ ...slot })),
+    outputSlots: serviceOutputSlots(
+      catalogOffer.outputSlots.map((slot) => ({ ...slot })),
+    ),
     acceptedConditionsText: catalogOffer.acceptedConditions.join("\n"),
     scopeRulesText: catalogOffer.scopeRules.join("\n"),
     commercialTerms: {
@@ -499,7 +520,9 @@ function offerFormFromRecord(record: SupportServiceOfferRecord): OfferFormState 
     inputSlots: hasFormShape
       ? withFormInputSlot(recordInputSlots)
       : withoutFormInputSlots(recordInputSlots),
-    outputSlots: record.outputSlots.map((slot) => ({ ...slot })),
+    outputSlots: serviceOutputSlots(
+      record.outputSlots.map((slot) => ({ ...slot })),
+    ),
     acceptedConditionsText: record.acceptedConditions.join("\n"),
     scopeRulesText: record.scopeRules.join("\n"),
     commercialTerms: record.commercialTerms ?? {
@@ -749,6 +772,9 @@ function offerPayloadFromForm(
   for (const slot of form.outputSlots) {
     if (!slot.role.trim() || !slot.objectType) {
       throw new Error("Every output slot needs a role and object type.");
+    }
+    if (slot.objectType === FORM_OBJECT_TYPE) {
+      throw new Error("Output slots cannot produce request forms.");
     }
   }
   const pricingModel = form.commercialTerms.pricingModel ?? "not_specified";
@@ -2729,11 +2755,7 @@ function OutputSlotEditor({
       index,
       draft: slot
         ? { ...slot }
-        : {
-            role: "",
-            objectType: POCKET_GENES_OBJECT_OPTIONS[0]?.value || "pgo_form",
-            mutationMode: "new_object",
-          },
+        : defaultOutputSlot(),
     });
   }
 
@@ -2755,6 +2777,10 @@ function OutputSlotEditor({
     }
     if (!slotDialog.draft.objectType) {
       setSlotError(t("Object type is required."));
+      return;
+    }
+    if (slotDialog.draft.objectType === FORM_OBJECT_TYPE) {
+      setSlotError(t("Output slots cannot produce request forms."));
       return;
     }
 
@@ -2835,6 +2861,7 @@ function OutputSlotEditor({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
+                        disabled={form.outputSlots.length <= 1}
                         onClick={() =>
                           setForm((current) => ({
                             ...current,
@@ -2887,6 +2914,7 @@ function OutputSlotEditor({
                 <ObjectTypeSelect
                   value={slotDialog.draft.objectType}
                   onChange={(objectType) => updateSlotDraft({ objectType })}
+                  excludeForm
                 />
               </Field>
               <Field label="Mutation">
@@ -3631,17 +3659,23 @@ function StagePicker({
 function ObjectTypeSelect({
   value,
   onChange,
+  excludeForm = false,
 }: {
   value: string;
   onChange: (value: string) => void;
+  excludeForm?: boolean;
 }) {
+  const options = excludeForm
+    ? OUTPUT_OBJECT_OPTIONS
+    : POCKET_GENES_OBJECT_OPTIONS;
+
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {POCKET_GENES_OBJECT_OPTIONS.map((object) => (
+        {options.map((object) => (
           <SelectItem key={object.value} value={object.value}>
             {object.label}
           </SelectItem>
