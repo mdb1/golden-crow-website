@@ -1,18 +1,23 @@
 import { redirect } from "next/navigation";
-import { SupportServicesBrowser } from "@/components/god-mode/support-services-workbench";
+import { SupportServiceTransactionWorkbench } from "@/components/god-mode/support-services-workbench";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { appText } from "@/lib/language";
 import { getServerAppLanguage } from "@/lib/server-language";
 
-export default async function GodModeServiceOffersPage() {
+export default async function GodModeServiceTransactionDetailPage({
+  params,
+}: {
+  params: Promise<{ transactionId: string }>;
+}) {
   const adminContext = await getAdminContextServer();
 
   if (!adminContext.isBootstrap) {
     redirect("/2pq-dashboard");
   }
 
+  const { transactionId } = await params;
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
 
@@ -22,14 +27,15 @@ export default async function GodModeServiceOffersPage() {
         header={
           <PageHero
             eyebrow="GOD MODE"
-            title="Service Offers"
-            description={t(
-              "Pocket Genes service catalog offers using pgs_* definitions.",
-            )}
+            title="Service Transaction"
+            description={t("Edit a Pocket Genes pgr_* service transaction.")}
           />
         }
       >
-        <SupportServicesBrowser kind="offers" />
+        <SupportServiceTransactionWorkbench
+          mode="edit"
+          transactionId={decodeURIComponent(transactionId)}
+        />
       </HeaderUnclutterScope>
     </div>
   );

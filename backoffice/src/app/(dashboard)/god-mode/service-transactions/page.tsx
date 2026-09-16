@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { SupportServicesWorkbench } from "@/components/god-mode/support-services-workbench";
+import { SupportServicesBrowser } from "@/components/god-mode/support-services-workbench";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { getAdminContextServer } from "@/lib/admin-context-server";
@@ -29,7 +29,7 @@ export default async function GodModeServiceTransactionsPage() {
           />
         }
       >
-        <SupportServicesWorkbench kind="transactions" />
+        <SupportServicesBrowser kind="transactions" />
       </HeaderUnclutterScope>
     </div>
   );

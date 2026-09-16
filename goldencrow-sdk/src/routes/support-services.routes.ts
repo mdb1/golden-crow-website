@@ -21,6 +21,18 @@ import {
 const ServiceStageSchema = z.enum(SUPPORT_SERVICE_STAGES);
 const OfferStatusSchema = z.enum(SUPPORT_SERVICE_OFFER_STATUSES);
 const TransactionStatusSchema = z.enum(SUPPORT_SERVICE_TRANSACTION_STATUSES);
+const FormFieldTypeSchema = z.enum([
+  "text",
+  "number",
+  "integer",
+  "boolean",
+  "date",
+  "datetime",
+  "enum",
+  "multi_enum",
+  "string_list",
+]);
+const MutationModeSchema = z.enum(["new_object", "new_revision"]);
 const ServiceIdSchema = z
   .string()
   .trim()
@@ -33,14 +45,84 @@ const RequestIdSchema = z
   .string()
   .trim()
   .regex(/^pgr_[a-z0-9_]+$/, "Use a pgr_* request ID.");
-const JsonObjectSchema = z.record(z.string(), z.unknown());
-const JsonObjectArraySchema = z.array(JsonObjectSchema).max(50);
+const FormShapeIdSchema = z
+  .string()
+  .trim()
+  .regex(/^pgfs_[a-z0-9_]+$/, "Use a pgfs_* form shape ID.");
+const ObjectIdSchema = z
+  .string()
+  .trim()
+  .regex(/^obj_[a-z0-9_]+$/, "Use an obj_* object ID.");
+const ObjectTypeSchema = z
+  .string()
+  .trim()
+  .regex(/^pgo_[a-z0-9_]+$/, "Use a pgo_* object type.");
+const RoleSchema = z
+  .string()
+  .trim()
+  .regex(/^[a-z][a-z0-9_]*$/, "Use a lowercase role key.");
+const OptionalEmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(180)
+  .refine(
+    (value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+    "Requester email must be blank or a valid email.",
+  )
+  .optional();
 const ObjectRefSchema = z.object({
-  objectId: z.string().trim().min(1).max(160),
+  objectId: ObjectIdSchema,
   revision: z.coerce.number().int().positive(),
 });
+const FormFieldOptionSchema = z.object({
+  value: z.string().trim().min(1).max(120),
+  label: z.string().trim().min(1).max(180),
+});
+const FormFieldSchema = z.object({
+  key: z
+    .string()
+    .trim()
+    .regex(/^[a-z][a-z0-9_]*$/, "Use a lowercase form field key."),
+  label: z.string().trim().min(1).max(180),
+  type: FormFieldTypeSchema,
+  required: z.boolean(),
+  options: z.array(FormFieldOptionSchema).max(50).optional(),
+});
+const FormShapeSchema = z.object({
+  id: FormShapeIdSchema,
+  version: z.string().trim().min(1).max(40),
+  allowUnknownFields: z.boolean().optional(),
+  fields: z.array(FormFieldSchema).min(2).max(100),
+});
+const InputSlotSchema = z.object({
+  role: RoleSchema,
+  acceptedTypes: z.array(ObjectTypeSchema).min(1).max(20),
+  required: z.boolean(),
+  cardinality: z.object({
+    min: z.coerce.number().int().min(0),
+    max: z.coerce.number().int().positive(),
+  }),
+});
+const OutputSlotSchema = z.object({
+  role: RoleSchema,
+  objectType: ObjectTypeSchema,
+  mutationMode: MutationModeSchema,
+});
+const CommercialTermsSchema = z.object({
+  price: z.object({
+    amount: z.coerce.number().min(0),
+    currency: z.string().trim().regex(/^[A-Z]{3}$/),
+    basis: z.string().trim().min(1).max(180),
+    isMock: z.boolean().optional(),
+  }),
+  turnaround: z.string().trim().min(1).max(180),
+  turnaroundStartsAt: z.string().trim().max(500).optional(),
+  taxAndPaymentPolicy: z.string().trim().max(1000).optional(),
+  failurePolicy: z.string().trim().max(1000).optional(),
+});
 const TransactionSlotSchema = z.object({
-  role: z.string().trim().min(1).max(120),
+  role: RoleSchema,
   objectRef: ObjectRefSchema,
 });
 const ListQuerySchema = z.object({
@@ -63,22 +145,22 @@ const OfferBodySchema = z.object({
   stages: z.array(ServiceStageSchema).min(1).max(3).optional(),
   status: OfferStatusSchema.optional(),
   availability: z.string().trim().max(120).optional(),
-  description: z.string().trim().max(4000).optional(),
-  shortContract: z.string().trim().max(500).optional(),
-  providerWork: z.string().trim().max(4000).optional(),
-  formShape: JsonObjectSchema.optional(),
-  inputSlots: JsonObjectArraySchema.optional(),
-  outputSlots: JsonObjectArraySchema.optional(),
-  acceptedConditions: z.array(z.string().trim().max(1000)).max(30).optional(),
-  scopeRules: z.array(z.string().trim().max(1000)).max(30).optional(),
-  commercialTerms: JsonObjectSchema.optional(),
+  description: z.string().trim().min(1).max(4000),
+  shortContract: z.string().trim().min(1).max(500),
+  providerWork: z.string().trim().min(1).max(4000),
+  formShape: FormShapeSchema,
+  inputSlots: z.array(InputSlotSchema).max(50).optional(),
+  outputSlots: z.array(OutputSlotSchema).min(1).max(50),
+  acceptedConditions: z.array(z.string().trim().min(1).max(1000)).min(1).max(30),
+  scopeRules: z.array(z.string().trim().min(1).max(1000)).min(1).max(30),
+  commercialTerms: CommercialTermsSchema,
 });
 const TransactionBodySchema = z.object({
   requestId: RequestIdSchema,
   serviceId: ServiceIdSchema,
   serviceVersion: z.string().trim().min(1).max(40).optional(),
   status: TransactionStatusSchema.optional(),
-  requesterEmail: z.string().trim().toLowerCase().max(180).optional(),
+  requesterEmail: OptionalEmailSchema,
   subjectId: z.string().trim().max(160).optional(),
   formRef: ObjectRefSchema,
   inputs: z.array(TransactionSlotSchema).max(50).optional(),

@@ -46,6 +46,76 @@ const bootstrapContext: AdminContext = {
   projectAccess: ["mydnamap"],
 };
 
+const validOfferPayload = {
+  serviceId: "pgs_final_report",
+  serviceVersion: "1.0.0",
+  name: "Create the final self-contained report",
+  providerId: "pgp_report_studio",
+  stages: ["bioinformatics"],
+  status: "active",
+  availability: "backoffice",
+  description:
+    "Combine the complete test order with the interactive genomic result into a final PDF.",
+  shortContract: "form + test_order + pgi1 -> final PDF",
+  providerWork:
+    "Verify the match and scope, perform report review, and issue a complete PDF.",
+  formShape: {
+    id: "pgfs_final_report",
+    version: "1.0.0",
+    allowUnknownFields: false,
+    fields: [
+      {
+        key: "requested_at",
+        label: "Requested at",
+        type: "datetime",
+        required: true,
+      },
+      {
+        key: "requested_by",
+        label: "Requested by",
+        type: "text",
+        required: true,
+      },
+      {
+        key: "language",
+        label: "Report language",
+        type: "enum",
+        required: true,
+        options: [{ value: "en", label: "English" }],
+      },
+    ],
+  },
+  inputSlots: [
+    {
+      role: "test_order",
+      acceptedTypes: ["pgo_test_order"],
+      required: true,
+      cardinality: { min: 1, max: 1 },
+    },
+  ],
+  outputSlots: [
+    {
+      role: "report",
+      objectType: "pgo_pdf_report",
+      mutationMode: "new_object",
+    },
+  ],
+  acceptedConditions: ["The order and result identify the same subject."],
+  scopeRules: ["Respect the requested order scope."],
+  commercialTerms: {
+    price: {
+      amount: 15000,
+      currency: "ARS",
+      basis: "per accepted request",
+      isMock: true,
+    },
+    turnaround: "1 business day",
+    turnaroundStartsAt: "accepted after required inputs are available",
+    taxAndPaymentPolicy: "Not specified",
+    failurePolicy: "Assess fulfillment and remaining usable outputs.",
+  },
+};
+
 async function buildTestServer(
   context: AdminContext | null = bootstrapContext,
 ) {
@@ -88,15 +158,7 @@ describe("support service admin routes", () => {
     const response = await fastify.inject({
       method: "POST",
       url: "/admin/support-services/offers",
-      payload: {
-        serviceId: "pgs_final_report",
-        serviceVersion: "1.0.0",
-        name: "Create the final self-contained report",
-        providerId: "pgp_report_studio",
-        stages: ["bioinformatics"],
-        status: "active",
-        shortContract: "form + test_order + .pgi1.json → final PDF",
-      },
+      payload: validOfferPayload,
     });
 
     expect(response.statusCode).toBe(201);
@@ -121,9 +183,8 @@ describe("support service admin routes", () => {
       method: "POST",
       url: "/admin/support-services/offers",
       payload: {
+        ...validOfferPayload,
         serviceId: "final_report",
-        name: "Final report",
-        providerId: "pgp_report_studio",
       },
     });
 

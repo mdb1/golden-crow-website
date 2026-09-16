@@ -1734,8 +1734,20 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
   if (pathname === "/god-mode/crm") {
     return { eyebrow: "GOD MODE", title: "CRM", description: "Pocket Genes partnership outreach CRM." };
   }
+  if (pathname === "/god-mode/service-offers/new") {
+    return { eyebrow: "GOD MODE", title: "Alta de service offer", description: "Create a Pocket Genes pgs_* service definition." };
+  }
+  if (pathname.startsWith("/god-mode/service-offers/")) {
+    return { eyebrow: "GOD MODE", title: "Service Offer", description: "Edit a Pocket Genes pgs_* service definition." };
+  }
   if (pathname === "/god-mode/service-offers") {
     return { eyebrow: "GOD MODE", title: "Service Offers", description: "Pocket Genes service catalog offers." };
+  }
+  if (pathname === "/god-mode/service-transactions/new") {
+    return { eyebrow: "GOD MODE", title: "Alta de transaccion", description: "Create a Pocket Genes pgr_* service transaction." };
+  }
+  if (pathname.startsWith("/god-mode/service-transactions/")) {
+    return { eyebrow: "GOD MODE", title: "Service Transaction", description: "Edit a Pocket Genes pgr_* service transaction." };
   }
   if (pathname === "/god-mode/service-transactions") {
     return { eyebrow: "GOD MODE", title: "Service Transactions", description: "Pocket Genes service request transactions." };

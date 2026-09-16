@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { SupportServicesBrowser } from "@/components/god-mode/support-services-workbench";
+import { SupportServiceTransactionWorkbench } from "@/components/god-mode/support-services-workbench";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { appText } from "@/lib/language";
 import { getServerAppLanguage } from "@/lib/server-language";
 
-export default async function GodModeServiceOffersPage() {
+export default async function GodModeNewServiceTransactionPage() {
   const adminContext = await getAdminContextServer();
 
   if (!adminContext.isBootstrap) {
@@ -22,14 +22,12 @@ export default async function GodModeServiceOffersPage() {
         header={
           <PageHero
             eyebrow="GOD MODE"
-            title="Service Offers"
-            description={t(
-              "Pocket Genes service catalog offers using pgs_* definitions.",
-            )}
+            title="Alta de transaccion"
+            description={t("Create a Pocket Genes pgr_* service transaction.")}
           />
         }
       >
-        <SupportServicesBrowser kind="offers" />
+        <SupportServiceTransactionWorkbench mode="create" />
       </HeaderUnclutterScope>
     </div>
   );

@@ -273,6 +273,89 @@ function cleanStringArray(value: unknown) {
     : [];
 }
 
+function numericValue(value: unknown, fallback: number) {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function stringValueArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.map(cleanString).filter((item) => item.length > 0)
+    : [];
+}
+
+function normalizeFormShape(value: unknown) {
+  const formShape = optionalRecord(value);
+  const fields = optionalRecordArray(formShape.fields).map((field) => ({
+    key: cleanString(field.key),
+    label: cleanString(field.label),
+    type: cleanString(field.type) || "text",
+    required: Boolean(field.required),
+    options: optionalRecordArray(field.options).map((option) => ({
+      value: cleanString(option.value),
+      label: cleanString(option.label) || cleanString(option.value),
+    })),
+  }));
+
+  return {
+    id: cleanString(formShape.id),
+    version: cleanString(formShape.version) || "1.0.0",
+    allowUnknownFields: Boolean(
+      formShape.allowUnknownFields ?? formShape.allow_unknown_fields,
+    ),
+    fields,
+  };
+}
+
+function normalizeOfferInputSlots(value: unknown) {
+  return optionalRecordArray(value).map((slot) => {
+    const cardinality = optionalRecord(slot.cardinality);
+    return {
+      role: cleanString(slot.role),
+      acceptedTypes: stringValueArray(
+        slot.acceptedTypes ?? slot.accepted_types,
+      ),
+      required: Boolean(slot.required),
+      cardinality: {
+        min: numericValue(cardinality.min, slot.required ? 1 : 0),
+        max: numericValue(cardinality.max, 1),
+      },
+    };
+  });
+}
+
+function normalizeOfferOutputSlots(value: unknown) {
+  return optionalRecordArray(value).map((slot) => ({
+    role: cleanString(slot.role),
+    objectType: cleanString(slot.objectType ?? slot.object_type),
+    mutationMode:
+      cleanString(slot.mutationMode ?? slot.mutation_mode) === "new_revision"
+        ? "new_revision"
+        : "new_object",
+  }));
+}
+
+function normalizeCommercialTerms(value: unknown) {
+  const terms = optionalRecord(value);
+  const price = optionalRecord(terms.price);
+  return {
+    price: {
+      amount: numericValue(price.amount, 0),
+      currency: cleanString(price.currency).toUpperCase() || "ARS",
+      basis: cleanString(price.basis),
+      isMock: Boolean(price.isMock ?? price.is_mock),
+    },
+    turnaround: cleanString(terms.turnaround),
+    turnaroundStartsAt: cleanString(
+      terms.turnaroundStartsAt ?? terms.turnaround_starts_at,
+    ),
+    taxAndPaymentPolicy: cleanString(
+      terms.taxAndPaymentPolicy ?? terms.tax_and_payment_policy,
+    ),
+    failurePolicy: cleanString(terms.failurePolicy ?? terms.failure_policy),
+  };
+}
+
 function normalizeStage(value: unknown): SupportServiceStage | null {
   const normalized = normalizeKey(cleanString(value));
   return STAGE_SET.has(normalized)
@@ -408,12 +491,12 @@ function offerDocument(input: SupportServiceOfferInput) {
     description: cleanString(input.description),
     shortContract: cleanString(input.shortContract),
     providerWork: cleanString(input.providerWork),
-    formShape: optionalRecord(input.formShape),
-    inputSlots: optionalRecordArray(input.inputSlots),
-    outputSlots: optionalRecordArray(input.outputSlots),
+    formShape: normalizeFormShape(input.formShape),
+    inputSlots: normalizeOfferInputSlots(input.inputSlots),
+    outputSlots: normalizeOfferOutputSlots(input.outputSlots),
     acceptedConditions: cleanStringArray(input.acceptedConditions),
     scopeRules: cleanStringArray(input.scopeRules),
-    commercialTerms: optionalRecord(input.commercialTerms),
+    commercialTerms: normalizeCommercialTerms(input.commercialTerms),
     normalizedName: normalizeName(`${name} ${serviceId} ${providerId}`),
   };
 }
@@ -444,6 +527,15 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
   if (!document.name) {
     throw new AdminRepositoryError("Service offer name is required.", 400);
   }
+  if (!document.description) {
+    throw new AdminRepositoryError("Service offer description is required.", 400);
+  }
+  if (!document.shortContract) {
+    throw new AdminRepositoryError("Service offer contract is required.", 400);
+  }
+  if (!document.providerWork) {
+    throw new AdminRepositoryError("Provider work is required.", 400);
+  }
   if (!/^pgs_[a-z0-9_]+$/.test(document.serviceId)) {
     throw new AdminRepositoryError(
       "Service ID must use the pgs_* convention.",
@@ -455,6 +547,131 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
       "Provider ID must use the pgp_* convention.",
       400,
     );
+  }
+  if (!/^pgfs_[a-z0-9_]+$/.test(document.formShape.id)) {
+    throw new AdminRepositoryError(
+      "Form shape ID must use the pgfs_* convention.",
+      400,
+    );
+  }
+  if (document.formShape.fields.length < 2) {
+    throw new AdminRepositoryError(
+      "Form shape must declare requested_at, requested_by, and service fields.",
+      400,
+    );
+  }
+
+  const fieldKeys = new Set<string>();
+  for (const field of document.formShape.fields) {
+    if (!/^[a-z][a-z0-9_]*$/.test(field.key)) {
+      throw new AdminRepositoryError(
+        "Form field keys must be lowercase identifier keys.",
+        400,
+      );
+    }
+    if (fieldKeys.has(field.key)) {
+      throw new AdminRepositoryError(
+        `Duplicate form field key: ${field.key}.`,
+        400,
+      );
+    }
+    fieldKeys.add(field.key);
+    if (!field.label) {
+      throw new AdminRepositoryError(
+        `Form field ${field.key} needs a label.`,
+        400,
+      );
+    }
+    if (
+      ["enum", "multi_enum"].includes(field.type) &&
+      field.options.length === 0
+    ) {
+      throw new AdminRepositoryError(
+        `Form field ${field.key} needs enum options.`,
+        400,
+      );
+    }
+  }
+
+  for (const requiredKey of ["requested_at", "requested_by"]) {
+    if (!fieldKeys.has(requiredKey)) {
+      throw new AdminRepositoryError(
+        `Form shape must include ${requiredKey}.`,
+        400,
+      );
+    }
+  }
+
+  for (const slot of document.inputSlots) {
+    if (!/^[a-z][a-z0-9_]*$/.test(slot.role)) {
+      throw new AdminRepositoryError(
+        "Input slot roles must be lowercase identifier keys.",
+        400,
+      );
+    }
+    if (slot.acceptedTypes.length === 0) {
+      throw new AdminRepositoryError(
+        `Input slot ${slot.role} needs accepted object types.`,
+        400,
+      );
+    }
+    if (
+      slot.acceptedTypes.some((objectType) => !/^pgo_[a-z0-9_]+$/.test(objectType))
+    ) {
+      throw new AdminRepositoryError(
+        `Input slot ${slot.role} has an invalid pgo_* object type.`,
+        400,
+      );
+    }
+    if (slot.cardinality.max < slot.cardinality.min) {
+      throw new AdminRepositoryError(
+        `Input slot ${slot.role} has invalid cardinality.`,
+        400,
+      );
+    }
+  }
+
+  if (document.outputSlots.length === 0) {
+    throw new AdminRepositoryError(
+      "At least one output slot is required.",
+      400,
+    );
+  }
+  for (const slot of document.outputSlots) {
+    if (!/^[a-z][a-z0-9_]*$/.test(slot.role)) {
+      throw new AdminRepositoryError(
+        "Output slot roles must be lowercase identifier keys.",
+        400,
+      );
+    }
+    if (!/^pgo_[a-z0-9_]+$/.test(slot.objectType)) {
+      throw new AdminRepositoryError(
+        `Output slot ${slot.role} needs a pgo_* object type.`,
+        400,
+      );
+    }
+  }
+
+  if (document.acceptedConditions.length === 0) {
+    throw new AdminRepositoryError(
+      "At least one accepted condition is required.",
+      400,
+    );
+  }
+  if (document.scopeRules.length === 0) {
+    throw new AdminRepositoryError(
+      "At least one scope rule is required.",
+      400,
+    );
+  }
+  if (!document.commercialTerms.price.currency) {
+    throw new AdminRepositoryError("Price currency is required.", 400);
+  }
+  if (!document.commercialTerms.price.basis) {
+    throw new AdminRepositoryError("Price basis is required.", 400);
+  }
+  if (!document.commercialTerms.turnaround) {
+    throw new AdminRepositoryError("Turnaround is required.", 400);
   }
 }
 
@@ -476,6 +693,32 @@ function validateTransactionDocument(
   if (!document.formRef) {
     throw new AdminRepositoryError(
       "A transaction requires a form object reference.",
+      400,
+    );
+  }
+  if (!/^obj_[a-z0-9_]+$/.test(document.formRef.objectId)) {
+    throw new AdminRepositoryError(
+      "Form reference must use an obj_* object ID.",
+      400,
+    );
+  }
+  for (const slot of [...document.inputs, ...document.outputs]) {
+    if (!/^[a-z][a-z0-9_]*$/.test(slot.role)) {
+      throw new AdminRepositoryError(
+        "Transaction slot roles must be lowercase identifier keys.",
+        400,
+      );
+    }
+    if (!/^obj_[a-z0-9_]+$/.test(slot.objectRef.objectId)) {
+      throw new AdminRepositoryError(
+        `Transaction slot ${slot.role} must reference an obj_* object ID.`,
+        400,
+      );
+    }
+  }
+  if (document.status === "completed" && document.outputs.length === 0) {
+    throw new AdminRepositoryError(
+      "Completed transactions require at least one output object.",
       400,
     );
   }
@@ -501,14 +744,14 @@ function toOfferRecord(id: string, data: Record<string, unknown>) {
     description: cleanString(data.description),
     shortContract: cleanString(data.shortContract ?? data.short_contract),
     providerWork: cleanString(data.providerWork ?? data.provider_work),
-    formShape: optionalRecord(data.formShape ?? data.form_shape),
-    inputSlots: optionalRecordArray(data.inputSlots ?? data.input_slots),
-    outputSlots: optionalRecordArray(data.outputSlots ?? data.output_slots),
+    formShape: normalizeFormShape(data.formShape ?? data.form_shape),
+    inputSlots: normalizeOfferInputSlots(data.inputSlots ?? data.input_slots),
+    outputSlots: normalizeOfferOutputSlots(data.outputSlots ?? data.output_slots),
     acceptedConditions: cleanStringArray(
       data.acceptedConditions ?? data.accepted_conditions,
     ),
     scopeRules: cleanStringArray(data.scopeRules ?? data.scope_rules),
-    commercialTerms: optionalRecord(
+    commercialTerms: normalizeCommercialTerms(
       data.commercialTerms ?? data.mock_commercial_terms,
     ),
     normalizedName:
