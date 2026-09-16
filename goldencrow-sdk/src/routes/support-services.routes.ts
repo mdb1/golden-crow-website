@@ -171,8 +171,14 @@ const OfferBodySchema = z.object({
   formShape: FormShapeSchema.optional(),
   inputSlots: z.array(InputSlotSchema).max(50).optional(),
   outputSlots: z.array(OutputSlotSchema).min(1).max(50),
-  acceptedConditions: z.array(z.string().trim().min(1).max(1000)).min(1).max(30),
-  scopeRules: z.array(z.string().trim().min(1).max(1000)).min(1).max(30),
+  acceptedConditions: z
+    .array(z.string().trim().min(1).max(1000))
+    .max(30)
+    .optional(),
+  scopeRules: z
+    .array(z.string().trim().min(1).max(1000))
+    .max(30)
+    .optional(),
   commercialTerms: CommercialTermsSchema.optional(),
 });
 const TransactionBodySchema = z.object({

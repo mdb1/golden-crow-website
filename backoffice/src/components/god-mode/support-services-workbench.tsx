@@ -760,12 +760,8 @@ function offerPayloadFromForm(
       throw new Error("Fixed price currency is required.");
     }
   }
-  if (splitLines(form.acceptedConditionsText).length === 0) {
-    throw new Error("At least one accepted condition is required.");
-  }
-  if (splitLines(form.scopeRulesText).length === 0) {
-    throw new Error("At least one scope rule is required.");
-  }
+  const acceptedConditions = splitLines(form.acceptedConditionsText);
+  const scopeRules = splitLines(form.scopeRulesText);
 
   return {
     serviceId: generatedIds.serviceId,
@@ -799,8 +795,8 @@ function offerPayloadFromForm(
       ...slot,
       role: slot.role.trim(),
     })),
-    acceptedConditions: splitLines(form.acceptedConditionsText),
-    scopeRules: splitLines(form.scopeRulesText),
+    acceptedConditions: acceptedConditions.length ? acceptedConditions : undefined,
+    scopeRules: scopeRules.length ? scopeRules : undefined,
     commercialTerms: commercialTermsPayload(form.commercialTerms),
   };
 }
@@ -1715,6 +1711,13 @@ export function SupportServiceOfferWorkbench({
         <SlotEditors form={form} setForm={setForm} />
         <TermsEditor form={form} setForm={setForm} />
         <Section title="Acceptance and scope">
+          <div className="grid gap-2">
+            <p className="text-sm text-muted-foreground">
+              {t(
+                "Accepted conditions are the facts that must be true before the provider accepts the request. Scope rules are the boundaries the provider must follow while doing the work. This block is optional; add one rule per line only when the service needs explicit limits.",
+              )}
+            </p>
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Field label="Accepted conditions">
               <Textarea
@@ -1726,7 +1729,7 @@ export function SupportServiceOfferWorkbench({
                   }))
                 }
                 rows={8}
-                required
+                placeholder={t("One accepted condition per line")}
               />
             </Field>
             <Field label="Scope rules">
@@ -1739,7 +1742,7 @@ export function SupportServiceOfferWorkbench({
                   }))
                 }
                 rows={8}
-                required
+                placeholder={t("One scope rule per line")}
               />
             </Field>
           </div>

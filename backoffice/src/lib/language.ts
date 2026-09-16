@@ -4705,6 +4705,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Una entrada de formulario requiere una forma de formulario habilitada.",
   "Acceptance and scope": "Aceptación y alcance",
   "Accepted conditions": "Condiciones aceptadas",
+  "Accepted conditions are the facts that must be true before the provider accepts the request. Scope rules are the boundaries the provider must follow while doing the work. This block is optional; add one rule per line only when the service needs explicit limits.":
+    "Las condiciones aceptadas son los hechos que deben cumplirse antes de que el proveedor acepte la solicitud. Las reglas de alcance son los límites que el proveedor debe respetar mientras realiza el trabajo. Este bloque es opcional; agregá una regla por línea solo cuando el servicio necesite límites explícitos.",
   "Accepted types": "Tipos aceptados",
   "Add field": "Agregar campo",
   "Add form field": "Agregar campo de formulario",
@@ -4776,6 +4778,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "No object bindings are defined for this service.":
     "No hay vínculos de objetos definidos para este servicio.",
   "No output slots defined.": "No hay slots de salida definidos.",
+  "One accepted condition per line": "Una condición aceptada por línea",
+  "One scope rule per line": "Una regla de alcance por línea",
   "No provider selected": "Sin proveedor seleccionado",
   "No providers found in the loaded page.":
     "No se encontraron proveedores en la página cargada.",

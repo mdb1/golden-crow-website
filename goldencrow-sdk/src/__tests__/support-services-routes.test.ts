@@ -210,6 +210,24 @@ describe("support service admin routes", () => {
     expect(offerBody).not.toHaveProperty("commercialTerms");
   });
 
+  it("creates a service offer without acceptance and scope rules", async () => {
+    const fastify = await buildTestServer();
+    const payload: Record<string, unknown> = { ...validOfferPayload };
+    delete payload.acceptedConditions;
+    delete payload.scopeRules;
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload,
+    });
+
+    expect(response.statusCode).toBe(201);
+    const [, offerBody] = mockCreateSupportServiceOffer.mock.calls.at(-1) ?? [];
+    expect(offerBody).not.toHaveProperty("acceptedConditions");
+    expect(offerBody).not.toHaveProperty("scopeRules");
+  });
+
   it("rejects service offers outside the pgs_* convention", async () => {
     const fastify = await buildTestServer();
 

@@ -767,18 +767,6 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
     }
   }
 
-  if (document.acceptedConditions.length === 0) {
-    throw new AdminRepositoryError(
-      "At least one accepted condition is required.",
-      400,
-    );
-  }
-  if (document.scopeRules.length === 0) {
-    throw new AdminRepositoryError(
-      "At least one scope rule is required.",
-      400,
-    );
-  }
   if (document.commercialTerms?.pricingModel === "fixed") {
     const price = optionalRecord(document.commercialTerms.price);
     if (!Number.isFinite(price.amount)) {
