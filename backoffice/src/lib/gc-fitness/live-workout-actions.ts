@@ -28,6 +28,7 @@ import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
+import { exerciseIdentityKey } from "./exercise-identity-match";
 import { getTrainerTimezone } from "./trainer-timezone";
 import {
   finalizeSessionSchema,
@@ -937,6 +938,25 @@ export async function getPreviousSessionForClient(
     // exercise is its most recent — its completion time is the exercise's
     // lastLoggedAt. Fall back to startedAt when completed_at is absent.
     const logCompletedAt = toIso(data.completed_at) ?? toIso(data.startedAt);
+    // gc-fitness#1111 — exerciseId → identity key, from this log's frozen snapshot.
+    const snapshotIdentityByExerciseId = new Map<string, string>();
+    const snapshotExercises = (
+      (data.templateSnapshot as Record<string, unknown> | undefined)?.exercises ?? []
+    ) as Array<Record<string, unknown>>;
+    for (const entry of snapshotExercises) {
+      const id = typeof entry.exerciseId === "string" ? entry.exerciseId : "";
+      if (!id) continue;
+      const name = entry.name as { en?: unknown } | string | undefined;
+      const nameEN =
+        typeof name === "string"
+          ? name
+          : typeof name?.en === "string"
+            ? name.en
+            : "";
+      const metric = entry.metric === "time" ? "time" : "reps";
+      const key = exerciseIdentityKey(nameEN, metric);
+      if (key) snapshotIdentityByExerciseId.set(id, key);
+    }
     // Logs are newest-first; first time we see an exercise wins. Within a log
     // keep the heaviest working set as the representative "last time".
     for (const raw of sets) {
@@ -952,7 +972,7 @@ export async function getPreviousSessionForClient(
       const best = sameExercise.reduce((acc, s) =>
         num(s.weight_kg, 0) > num(acc.weight_kg, 0) ? s : acc,
       );
-      map[exerciseId] = {
+      const summary = {
         weightKg: num(best.weight_kg, 0),
         reps: num(best.reps, 0),
         durationSeconds:
@@ -961,6 +981,19 @@ export async function getPreviousSessionForClient(
             : null,
         lastLoggedAt: logCompletedAt,
       };
+      map[exerciseId] = summary;
+      // gc-fitness#1111 — ALSO file it under the exercise's IDENTITY (english name +
+      // metric), because the same exercise lives under more than one document id: the
+      // library is double-seeded, and which twin a routine froze depends on the day it
+      // was authored. Without this, a client who squatted last week under the other id
+      // gets the routine's target offered as if they had never done the exercise.
+      //
+      // The identity comes from THIS log's frozen snapshot, which carries the name and
+      // the metric — no extra reads, and it still works for a twin later deleted. The
+      // `map[…]` guard above runs newest-log-first, so the value filed under the identity
+      // is the most recent one across ALL of the exercise's ids.
+      const identity = snapshotIdentityByExerciseId.get(exerciseId);
+      if (identity && !map[identity]) map[identity] = summary;
     }
   }
   return map;
