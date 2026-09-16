@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Building2,
   CheckCircle2,
   CircleAlert,
   FileText,
@@ -14,8 +15,9 @@ import {
   Plus,
   RefreshCw,
   Search,
+  UserRound,
   Trash2,
-  X,
+  Wand2,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -23,6 +25,14 @@ import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -44,12 +54,17 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   POCKET_GENES_OBJECT_OPTIONS,
-  POCKET_GENES_PROVIDER_OPTIONS,
   POCKET_GENES_SERVICE_OPTIONS,
   catalogServiceById,
   objectLabel,
 } from "@/lib/pocket-genes-service-catalog";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
+import type {
+  DiscoverIndividualRecord,
+  DiscoverIndividualsPage,
+  DiscoverOrganizationRecord,
+  DiscoverOrganizationsPage,
+} from "@/lib/discover";
 import { appText } from "@/lib/language";
 import {
   SUPPORT_SERVICE_FORM_FIELD_TYPES,
@@ -70,6 +85,7 @@ import {
   type SupportServiceOfferRecord,
   type SupportServiceOffersPage,
   type SupportServiceOutputSlot,
+  type SupportServiceProviderKind,
   type SupportServiceStage,
   type SupportServiceTransactionInput,
   type SupportServiceTransactionRecord,
@@ -94,12 +110,14 @@ type OfferFormState = {
   serviceId: string;
   serviceVersion: string;
   name: string;
+  serviceCategory: string;
+  providerKind: SupportServiceProviderKind;
   providerId: string;
+  providerName: string;
   stages: SupportServiceStage[];
   status: NonNullable<SupportServiceOfferInput["status"]>;
   availability: string;
   description: string;
-  shortContract: string;
   providerWork: string;
   formShape: {
     id: string;
@@ -184,24 +202,91 @@ function formFieldsFromRecord(fields: SupportServiceFormField[] = []) {
 }
 
 function defaultOfferForm(): OfferFormState {
-  return offerFormFromCatalog(POCKET_GENES_SERVICE_OPTIONS[0]);
+  return {
+    serviceId: "pgs_",
+    serviceVersion: "1.0.0",
+    name: "",
+    serviceCategory: "",
+    providerKind: "organization",
+    providerId: "",
+    providerName: "",
+    stages: ["test_planning"],
+    status: "draft",
+    availability: "backoffice",
+    description: "",
+    providerWork: "",
+    formShape: {
+      id: "pgfs_",
+      version: "1.0.0",
+      allowUnknownFields: false,
+      fields: formFieldsFromRecord([
+        {
+          key: "requested_at",
+          label: "Requested at",
+          type: "datetime",
+          required: true,
+        },
+        {
+          key: "requested_by",
+          label: "Requested by",
+          type: "text",
+          required: true,
+        },
+      ]),
+    },
+    inputSlots: [],
+    outputSlots: [],
+    acceptedConditionsText: "",
+    scopeRulesText: "",
+    commercialTerms: {
+      price: {
+        amount: 0,
+        currency: "ARS",
+        basis: "per accepted request",
+        isMock: false,
+      },
+      turnaround: "",
+      turnaroundStartsAt: "",
+      taxAndPaymentPolicy: "",
+      failurePolicy: "",
+    },
+  };
+}
+
+function singleInputSlot(slot: SupportServiceInputSlot): SupportServiceInputSlot {
+  const objectType = slot.objectType || slot.acceptedTypes[0] || "";
+  return {
+    ...slot,
+    objectType,
+    acceptedTypes: objectType ? [objectType] : [],
+  };
 }
 
 function offerFormFromCatalog(
   catalogOffer = POCKET_GENES_SERVICE_OPTIONS[0],
+  currentProvider: Pick<
+    OfferFormState,
+    "providerKind" | "providerId" | "providerName"
+  > = {
+    providerKind: "organization",
+    providerId: "",
+    providerName: "",
+  },
 ): OfferFormState {
   return {
     serviceId: catalogOffer.serviceId,
     serviceVersion: catalogOffer.serviceVersion,
     name: catalogOffer.name,
-    providerId: catalogOffer.providerId,
+    serviceCategory: catalogOffer.name,
+    providerKind: currentProvider.providerKind,
+    providerId: currentProvider.providerId,
+    providerName: currentProvider.providerName,
     stages: catalogOffer.stages.length
       ? catalogOffer.stages
       : ["test_planning"],
     status: "draft",
     availability: catalogOffer.availability || "backoffice",
     description: catalogOffer.description,
-    shortContract: catalogOffer.shortContract,
     providerWork: catalogOffer.providerWork,
     formShape: {
       id: catalogOffer.formShape.id,
@@ -209,7 +294,9 @@ function offerFormFromCatalog(
       allowUnknownFields: Boolean(catalogOffer.formShape.allowUnknownFields),
       fields: formFieldsFromRecord(catalogOffer.formShape.fields),
     },
-    inputSlots: catalogOffer.inputSlots.map((slot) => ({ ...slot })),
+    inputSlots: catalogOffer.inputSlots.map((slot) =>
+      singleInputSlot({ ...slot }),
+    ),
     outputSlots: catalogOffer.outputSlots.map((slot) => ({ ...slot })),
     acceptedConditionsText: catalogOffer.acceptedConditions.join("\n"),
     scopeRulesText: catalogOffer.scopeRules.join("\n"),
@@ -228,12 +315,14 @@ function offerFormFromRecord(record: SupportServiceOfferRecord): OfferFormState 
     serviceId: record.serviceId,
     serviceVersion: record.serviceVersion,
     name: record.name,
+    serviceCategory: record.serviceCategory ?? "",
+    providerKind: record.providerKind ?? "organization",
     providerId: record.providerId,
+    providerName: record.providerName ?? "",
     stages: record.stages.length ? record.stages : ["test_planning"],
     status: record.status,
     availability: record.availability,
     description: record.description,
-    shortContract: record.shortContract,
     providerWork: record.providerWork,
     formShape: {
       id: record.formShape.id,
@@ -241,7 +330,7 @@ function offerFormFromRecord(record: SupportServiceOfferRecord): OfferFormState 
       allowUnknownFields: Boolean(record.formShape.allowUnknownFields),
       fields: formFieldsFromRecord(record.formShape.fields),
     },
-    inputSlots: record.inputSlots.map((slot) => ({ ...slot })),
+    inputSlots: record.inputSlots.map((slot) => singleInputSlot({ ...slot })),
     outputSlots: record.outputSlots.map((slot) => ({ ...slot })),
     acceptedConditionsText: record.acceptedConditions.join("\n"),
     scopeRulesText: record.scopeRules.join("\n"),
@@ -265,6 +354,32 @@ function makeRequestId(serviceId: string) {
   return `pgr_${serviceId.replace(/^pgs_/, "")}_${stamp}`;
 }
 
+function slotObjectType(slot: SupportServiceInputSlot) {
+  return slot.objectType || slot.acceptedTypes[0] || "";
+}
+
+function contractObjectLabel(value: string) {
+  return objectLabel(value).replace(/^Pocket Genes /, "");
+}
+
+function calculatedShortContract(
+  inputSlots: SupportServiceInputSlot[],
+  outputSlots: SupportServiceOutputSlot[],
+) {
+  const inputs = inputSlots.map((slot) => {
+    const objectType = slotObjectType(slot) || "pgo_object";
+    return `${slot.role || "input"}:${contractObjectLabel(objectType)}`;
+  });
+  const outputs = outputSlots.map((slot) => {
+    const objectType = slot.objectType || "pgo_object";
+    return `${slot.role || "output"}:${contractObjectLabel(objectType)}`;
+  });
+  const left = ["form", ...inputs].join(" + ");
+  const right = outputs.length ? outputs.join(" + ") : "provider output";
+
+  return `${left} -> ${right}`;
+}
+
 function emptyObjectRefDraft(
   slot: SupportServiceInputSlot | SupportServiceOutputSlot,
 ): ObjectRefDraft {
@@ -274,25 +389,37 @@ function emptyObjectRefDraft(
     objectId: "",
     revision: "1",
     required,
-    acceptedTypes: "acceptedTypes" in slot ? slot.acceptedTypes : [slot.objectType],
+    acceptedTypes:
+      "acceptedTypes" in slot ? [slotObjectType(slot)].filter(Boolean) : [slot.objectType],
   };
 }
 
-function transactionFormForService(
-  serviceId: string,
-  offers: SupportServiceOfferRecord[],
+function emptyTransactionForm(): TransactionFormState {
+  return {
+    requestId: "pgr_",
+    serviceId: "",
+    serviceVersion: "1.0.0",
+    status: "submitted",
+    requesterEmail: "",
+    subjectId: "",
+    formObjectId: "obj_",
+    formRevision: "1",
+    inputs: [],
+    outputs: [],
+    notes: "",
+  };
+}
+
+function transactionFormForOffer(
+  offer: SupportServiceOfferRecord,
 ): TransactionFormState {
-  const offer =
-    offers.find((candidate) => candidate.serviceId === serviceId) ??
-    catalogServiceById(serviceId);
-  const version = offer?.serviceVersion ?? "1.0.0";
-  const inputSlots = offer?.inputSlots ?? [];
-  const outputSlots = offer?.outputSlots ?? [];
+  const inputSlots = offer.inputSlots ?? [];
+  const outputSlots = offer.outputSlots ?? [];
 
   return {
-    requestId: makeRequestId(serviceId),
-    serviceId,
-    serviceVersion: version,
+    requestId: makeRequestId(offer.serviceId),
+    serviceId: offer.serviceId,
+    serviceVersion: offer.serviceVersion,
     status: "submitted",
     requesterEmail: "",
     subjectId: "",
@@ -302,6 +429,20 @@ function transactionFormForService(
     outputs: outputSlots.map(emptyObjectRefDraft),
     notes: "",
   };
+}
+
+function transactionFormForService(
+  serviceId: string,
+  offers: SupportServiceOfferRecord[],
+): TransactionFormState {
+  const offer = offers.find((candidate) => candidate.serviceId === serviceId);
+  return offer
+    ? transactionFormForOffer(offer)
+    : {
+        ...emptyTransactionForm(),
+        requestId: serviceId ? makeRequestId(serviceId) : "pgr_",
+        serviceId,
+      };
 }
 
 function transactionFormFromRecord(
@@ -362,17 +503,16 @@ function assertPositiveInteger(value: string, label: string) {
 
 function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
   assertIdentifier(form.serviceId, "pgs", "Service ID");
-  assertIdentifier(form.providerId, "pgp", "Provider ID");
   assertIdentifier(form.formShape.id, "pgfs", "Form shape ID");
 
   if (!form.name.trim()) {
     throw new Error("Offer name is required.");
   }
+  if (!form.providerId.trim()) {
+    throw new Error("Choose an organization or professional provider.");
+  }
   if (!form.description.trim()) {
     throw new Error("Description is required.");
-  }
-  if (!form.shortContract.trim()) {
-    throw new Error("Short contract is required.");
   }
   if (!form.providerWork.trim()) {
     throw new Error("Provider work is required.");
@@ -417,8 +557,8 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
     if (!slot.role.trim()) {
       throw new Error("Every input slot needs a role.");
     }
-    if (slot.acceptedTypes.length === 0) {
-      throw new Error(`Input slot ${slot.role} needs at least one accepted type.`);
+    if (!slotObjectType(slot)) {
+      throw new Error(`Input slot ${slot.role} needs one object type.`);
     }
     if (slot.cardinality.min < 0 || slot.cardinality.max < slot.cardinality.min) {
       throw new Error(`Input slot ${slot.role} has invalid cardinality.`);
@@ -449,12 +589,15 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
     serviceId: form.serviceId.trim(),
     serviceVersion: form.serviceVersion.trim() || "1.0.0",
     name: form.name.trim(),
+    serviceCategory: form.serviceCategory.trim(),
+    providerKind: form.providerKind,
     providerId: form.providerId.trim(),
+    providerName: form.providerName.trim(),
     stages: form.stages,
     status: form.status,
     availability: form.availability.trim(),
     description: form.description.trim(),
-    shortContract: form.shortContract.trim(),
+    shortContract: calculatedShortContract(form.inputSlots, form.outputSlots),
     providerWork: form.providerWork.trim(),
     formShape: {
       id: form.formShape.id.trim(),
@@ -465,6 +608,8 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
     inputSlots: form.inputSlots.map((slot) => ({
       ...slot,
       role: slot.role.trim(),
+      objectType: slotObjectType(slot),
+      acceptedTypes: [slotObjectType(slot)],
     })),
     outputSlots: form.outputSlots.map((slot) => ({
       ...slot,
@@ -781,27 +926,16 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                 </SelectContent>
               </Select>
             ) : (
-              <Select
-                value={filters.serviceId || "all"}
-                onValueChange={(value) =>
+              <Input
+                value={filters.serviceId}
+                onChange={(event) =>
                   setFilters((current) => ({
                     ...current,
-                    serviceId: value === "all" ? "" : value,
+                    serviceId: event.target.value,
                   }))
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t("All services")}</SelectItem>
-                  {POCKET_GENES_SERVICE_OPTIONS.map((service) => (
-                    <SelectItem key={service.value} value={service.value}>
-                      {service.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder={t("Filter by service ID")}
+              />
             )}
           </div>
         </div>
@@ -866,8 +1000,13 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                         {offer.serviceId} · v{offer.serviceVersion}
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {offer.providerId}
+                    <TableCell className="min-w-[13rem]">
+                      <div className="text-sm font-medium">
+                        {offer.providerName || offer.providerId}
+                      </div>
+                      <div className="font-mono text-xs text-muted-foreground">
+                        {offer.providerKind} · {offer.providerId}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
@@ -1065,12 +1204,21 @@ export function SupportServiceOfferWorkbench({
     onError: (error) => setToast(mutationErrorToast(error, nextToastId())),
   });
 
-  function applyCatalogService(serviceId: string) {
+  const shortContractPreview = calculatedShortContract(
+    form.inputSlots,
+    form.outputSlots,
+  );
+
+  function applyMockTemplate(serviceId: string) {
     const catalog = catalogServiceById(serviceId);
     if (!catalog) {
       return;
     }
-    const next = offerFormFromCatalog(catalog);
+    const next = offerFormFromCatalog(catalog, {
+      providerKind: form.providerKind,
+      providerId: form.providerId,
+      providerName: form.providerName,
+    });
     setForm((current) => ({
       ...next,
       status: current.status,
@@ -1110,47 +1258,38 @@ export function SupportServiceOfferWorkbench({
             }
           }}
         />
-        <Section title="Catalog identity">
+        <Section title="Offer identity">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="grid gap-1">
+              <div className="text-sm font-medium text-foreground">
+                {form.name || t("New service offer")}
+              </div>
+              <div className="font-mono text-xs text-muted-foreground">
+                {form.serviceId || "pgs_"} · v{form.serviceVersion || "1.0.0"}
+              </div>
+            </div>
+            <MockTemplatePicker onSelect={applyMockTemplate} />
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Field label="Catalog service">
-              <Select value={form.serviceId} onValueChange={applyCatalogService}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {POCKET_GENES_SERVICE_OPTIONS.map((service) => (
-                    <SelectItem key={service.value} value={service.value}>
-                      {service.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Provider">
-              <Select
-                value={form.providerId}
-                onValueChange={(providerId) =>
-                  setForm((current) => ({ ...current, providerId }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {POCKET_GENES_PROVIDER_OPTIONS.map((provider) => (
-                    <SelectItem key={provider.value} value={provider.value}>
-                      {provider.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
             <Field label="Offer name">
               <Input
                 value={form.name}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, name: event.target.value }))
                 }
+                required
+              />
+            </Field>
+            <Field label="Service ID">
+              <Input
+                value={form.serviceId}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    serviceId: event.target.value,
+                  }))
+                }
+                placeholder="pgs_..."
                 required
               />
             </Field>
@@ -1166,6 +1305,61 @@ export function SupportServiceOfferWorkbench({
                 required
               />
             </Field>
+            <Field label="Service category">
+              <Input
+                value={form.serviceCategory}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    serviceCategory: event.target.value,
+                  }))
+                }
+                placeholder={t("Optional general category")}
+              />
+            </Field>
+            <Field label="Provider kind">
+              <Select
+                value={form.providerKind}
+                onValueChange={(providerKind) =>
+                  setForm((current) => ({
+                    ...current,
+                    providerKind: providerKind as SupportServiceProviderKind,
+                    providerId:
+                      providerKind === current.providerKind
+                        ? current.providerId
+                        : "",
+                    providerName:
+                      providerKind === current.providerKind
+                        ? current.providerName
+                        : "",
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="organization">
+                    {t("Organization")}
+                  </SelectItem>
+                  <SelectItem value="individual">
+                    {t("Professional individual")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <ProviderPicker
+              kind={form.providerKind}
+              selectedId={form.providerId}
+              selectedName={form.providerName}
+              onSelect={(provider) =>
+                setForm((current) => ({
+                  ...current,
+                  providerId: provider.id,
+                  providerName: provider.name,
+                }))
+              }
+            />
             <Field label="Status">
               <Select
                 value={form.status}
@@ -1207,18 +1401,12 @@ export function SupportServiceOfferWorkbench({
         </Section>
         <Section title="Contract">
           <div className="grid gap-4">
-            <Field label="Short contract">
-              <Input
-                value={form.shortContract}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    shortContract: event.target.value,
-                  }))
-                }
-                required
-              />
-            </Field>
+            <div className="grid gap-2 text-sm font-medium">
+              <span>{t("Calculated short contract")}</span>
+              <div className="rounded border border-border/70 bg-muted/30 px-3 py-2 font-mono text-xs text-foreground">
+                {shortContractPreview}
+              </div>
+            </div>
             <Field label="Description">
               <Textarea
                 value={form.description}
@@ -1285,6 +1473,287 @@ export function SupportServiceOfferWorkbench({
   );
 }
 
+function MockTemplatePicker({
+  onSelect,
+}: {
+  onSelect: (serviceId: string) => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const [open, setOpen] = useState(false);
+
+  function selectTemplate(serviceId: string) {
+    onSelect(serviceId);
+    setOpen(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Wand2 className="h-4 w-4" />
+        <span>{t("Prefill with mocked template")}</span>
+      </Button>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>{t("Prefill with mocked template")}</DialogTitle>
+          <DialogDescription>
+            {t("Choose one Pocket-Genes-Wiki template to prefill editable fields.")}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[28rem] overflow-y-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("Template")}</TableHead>
+                <TableHead>{t("Stages")}</TableHead>
+                <TableHead>{t("Contract")}</TableHead>
+                <TableHead className="text-right">{t("Actions")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {POCKET_GENES_SERVICE_OPTIONS.map((template) => (
+                <TableRow key={template.serviceId}>
+                  <TableCell className="min-w-[16rem]">
+                    <div className="font-medium text-foreground">
+                      {template.name}
+                    </div>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {template.serviceId} · v{template.serviceVersion}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {template.stages.map((stage) => (
+                        <Badge key={stage} variant="secondary">
+                          {t(stageLabel(stage))}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell className="max-w-[22rem] truncate text-sm text-muted-foreground">
+                    {calculatedShortContract(
+                      template.inputSlots.map((slot) => singleInputSlot(slot)),
+                      template.outputSlots,
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => selectTemplate(template.serviceId)}
+                    >
+                      {t("Use template")}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type ProviderRecord =
+  | DiscoverOrganizationRecord
+  | DiscoverIndividualRecord;
+
+function providerMeta(provider: ProviderRecord, kind: SupportServiceProviderKind) {
+  return kind === "organization"
+    ? (provider as DiscoverOrganizationRecord).organizationType ?? ""
+    : (provider as DiscoverIndividualRecord).individualType ?? "";
+}
+
+function ProviderPicker({
+  kind,
+  selectedId,
+  selectedName,
+  onSelect,
+}: {
+  kind: SupportServiceProviderKind;
+  selectedId: string;
+  selectedName: string;
+  onSelect: (provider: { id: string; name: string }) => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const endpoint =
+    kind === "organization" ? "/discover/organizations" : "/discover/individuals";
+
+  const providerQuery = useInfiniteQuery({
+    queryKey: ["support-service-provider-picker", kind],
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: "20" });
+      if (typeof pageParam === "string" && pageParam) {
+        params.set("cursor", pageParam);
+      }
+      return sdkFetch<DiscoverOrganizationsPage | DiscoverIndividualsPage>(
+        `${endpoint}?${params.toString()}`,
+      );
+    },
+    initialPageParam: "",
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: open,
+  });
+
+  const providers = useMemo(() => {
+    const pages = providerQuery.data?.pages ?? [];
+    return pages.flatMap((page): ProviderRecord[] =>
+      "organizations" in page ? page.organizations : page.individuals,
+    );
+  }, [providerQuery.data?.pages]);
+
+  const filteredProviders = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) {
+      return providers;
+    }
+
+    return providers.filter((provider) =>
+      [
+        provider.id,
+        provider.name,
+        provider.status,
+        providerMeta(provider, kind),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalized),
+    );
+  }, [kind, providers, query]);
+
+  function chooseProvider(provider: ProviderRecord) {
+    onSelect({ id: provider.id, name: provider.name });
+    setOpen(false);
+  }
+
+  return (
+    <div className="grid gap-2 text-sm font-medium">
+      <span>{t("Provider")}</span>
+      <div className="flex flex-col gap-2 rounded border border-border/70 bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium text-foreground">
+            {selectedName || selectedId || t("No provider selected")}
+          </div>
+          <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+            {kind === "organization" ? (
+              <Building2 className="h-3.5 w-3.5" />
+            ) : (
+              <UserRound className="h-3.5 w-3.5" />
+            )}
+            <span>{selectedId || t("Pick a Discover publisher")}</span>
+          </div>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+          <Search className="h-4 w-4" />
+          <span>{t("Choose provider")}</span>
+        </Button>
+      </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>
+              {kind === "organization"
+                ? t("Choose organization provider")
+                : t("Choose professional provider")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("Select a Discover publisher record for this service offer.")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("Search loaded providers")}
+                className="pl-9"
+              />
+            </label>
+            <div className="max-h-[24rem] overflow-y-auto rounded border border-border/70">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("Provider")}</TableHead>
+                    <TableHead>{t("Status")}</TableHead>
+                    <TableHead>{t("Type")}</TableHead>
+                    <TableHead className="text-right">{t("Actions")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {providerQuery.isLoading ? (
+                    Array.from({ length: 4 }).map((_, index) => (
+                      <TableRow key={index}>
+                        <TableCell colSpan={4}>
+                          <Skeleton className="h-9 w-full" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : filteredProviders.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
+                        {t("No providers found in the loaded page.")}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredProviders.map((provider) => (
+                      <TableRow key={provider.id}>
+                        <TableCell className="min-w-[16rem]">
+                          <div className="font-medium text-foreground">
+                            {provider.name}
+                          </div>
+                          <div className="font-mono text-xs text-muted-foreground">
+                            {provider.id}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={provider.status === "active" ? "default" : "outline"}>
+                            {provider.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[16rem] truncate text-sm text-muted-foreground">
+                          {providerMeta(provider, kind) || "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => chooseProvider(provider)}
+                          >
+                            {t("Select")}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          <DialogFooter>
+            {providerQuery.hasNextPage ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => providerQuery.fetchNextPage()}
+                disabled={providerQuery.isFetchingNextPage}
+              >
+                {providerQuery.isFetchingNextPage ? t("Loading...") : t("Load more")}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function FormShapeEditor({
   form,
   setForm,
@@ -1294,37 +1763,32 @@ function FormShapeEditor({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const [fieldDialog, setFieldDialog] = useState<{
+    index: number | null;
+    draft: FormFieldDraft;
+  } | null>(null);
+  const [fieldError, setFieldError] = useState("");
 
-  function updateField(index: number, patch: Partial<FormFieldDraft>) {
-    setForm((current) => ({
-      ...current,
-      formShape: {
-        ...current.formShape,
-        fields: current.formShape.fields.map((field, fieldIndex) =>
-          fieldIndex === index ? { ...field, ...patch } : field,
-        ),
-      },
-    }));
+  function emptyFieldDraft(): FormFieldDraft {
+    return {
+      key: "",
+      label: "",
+      type: "text",
+      required: false,
+      options: [],
+      optionsText: "",
+    };
   }
 
-  function addField() {
-    setForm((current) => ({
-      ...current,
-      formShape: {
-        ...current.formShape,
-        fields: [
-          ...current.formShape.fields,
-          {
-            key: "",
-            label: "",
-            type: "text",
-            required: false,
-            options: [],
-            optionsText: "",
-          },
-        ],
-      },
-    }));
+  function openFieldDialog(index: number | null) {
+    setFieldError("");
+    setFieldDialog({
+      index,
+      draft:
+        index == null
+          ? emptyFieldDraft()
+          : { ...form.formShape.fields[index] },
+    });
   }
 
   function removeField(index: number) {
@@ -1332,9 +1796,66 @@ function FormShapeEditor({
       ...current,
       formShape: {
         ...current.formShape,
-        fields: current.formShape.fields.filter((_, fieldIndex) => fieldIndex !== index),
+        fields: current.formShape.fields.filter(
+          (_, fieldIndex) => fieldIndex !== index,
+        ),
       },
     }));
+  }
+
+  function updateFieldDraft(patch: Partial<FormFieldDraft>) {
+    setFieldDialog((current) =>
+      current
+        ? { ...current, draft: { ...current.draft, ...patch } }
+        : current,
+    );
+  }
+
+  function saveFieldDraft() {
+    if (!fieldDialog) {
+      return;
+    }
+
+    const draft = fieldDialog.draft;
+    if (!draft.key.trim() || !draft.label.trim()) {
+      setFieldError(t("Field key and label are required."));
+      return;
+    }
+    if (
+      (draft.type === "enum" || draft.type === "multi_enum") &&
+      splitLines(draft.optionsText).length === 0
+    ) {
+      setFieldError(t("Enum fields need at least one option."));
+      return;
+    }
+
+    const nextField: FormFieldDraft = {
+      ...draft,
+      key: draft.key.trim(),
+      label: draft.label.trim(),
+      options:
+        draft.type === "enum" || draft.type === "multi_enum"
+          ? parseOptionsText(draft.optionsText)
+          : [],
+      optionsText:
+        draft.type === "enum" || draft.type === "multi_enum"
+          ? draft.optionsText
+          : "",
+    };
+
+    setForm((current) => ({
+      ...current,
+      formShape: {
+        ...current.formShape,
+        fields:
+          fieldDialog.index == null
+            ? [...current.formShape.fields, nextField]
+            : current.formShape.fields.map((field, fieldIndex) =>
+                fieldIndex === fieldDialog.index ? nextField : field,
+              ),
+      },
+    }));
+    setFieldDialog(null);
   }
 
   return (
@@ -1380,6 +1901,20 @@ function FormShapeEditor({
           <span>{t("Allow unknown fields")}</span>
         </label>
       </div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm text-muted-foreground">
+          {form.formShape.fields.length} {t("fields")}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => openFieldDialog(null)}
+        >
+          <Plus className="h-4 w-4" />
+          <span>{t("Add field")}</span>
+        </Button>
+      </div>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -1395,26 +1930,113 @@ function FormShapeEditor({
           <TableBody>
             {form.formShape.fields.map((field, index) => (
               <TableRow key={`${field.key}-${index}`}>
-                <TableCell className="min-w-[12rem]">
-                  <Input
-                    value={field.key}
-                    onChange={(event) => updateField(index, { key: event.target.value })}
-                    required
-                  />
+                <TableCell className="min-w-[12rem] font-mono text-sm">
+                  {field.key}
                 </TableCell>
                 <TableCell className="min-w-[12rem]">
-                  <Input
-                    value={field.label}
-                    onChange={(event) => updateField(index, { label: event.target.value })}
-                    required
-                  />
+                  {field.label}
                 </TableCell>
-                <TableCell className="min-w-[10rem]">
+                <TableCell>
+                  {t(
+                    SUPPORT_SERVICE_FORM_FIELD_TYPES.find(
+                      (option) => option.value === field.type,
+                    )?.label ?? field.type,
+                  )}
+                </TableCell>
+                <TableCell>
+                  {field.required ? (
+                    <Badge variant="outline">{t("Required")}</Badge>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {splitLines(field.optionsText).length || "-"}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => openFieldDialog(index)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      <span className="sr-only">{t("Edit")}</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => removeField(index)}
+                      disabled={
+                        field.key === "requested_at" ||
+                        field.key === "requested_by"
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">{t("Delete")}</span>
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <Dialog
+        open={Boolean(fieldDialog)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFieldDialog(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {fieldDialog?.index == null
+                ? t("Add form field")
+                : t("Edit form field")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("Configure one form field for the support service request form.")}
+            </DialogDescription>
+          </DialogHeader>
+          {fieldDialog ? (
+            <div className="grid gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Key">
+                  <Input
+                    value={fieldDialog.draft.key}
+                    onChange={(event) =>
+                      updateFieldDraft({ key: event.target.value })
+                    }
+                    disabled={
+                      fieldDialog.draft.key === "requested_at" ||
+                      fieldDialog.draft.key === "requested_by"
+                    }
+                    placeholder="lowercase_key"
+                  />
+                </Field>
+                <Field label="Label">
+                  <Input
+                    value={fieldDialog.draft.label}
+                    onChange={(event) =>
+                      updateFieldDraft({ label: event.target.value })
+                    }
+                  />
+                </Field>
+                <Field label="Type">
                   <Select
-                    value={field.type}
+                    value={fieldDialog.draft.type}
                     onValueChange={(type) =>
-                      updateField(index, {
+                      updateFieldDraft({
                         type: type as SupportServiceFormFieldType,
+                        optionsText:
+                          type === "enum" || type === "multi_enum"
+                            ? fieldDialog.draft.optionsText
+                            : "",
                       })
                     }
                   >
@@ -1429,48 +2051,51 @@ function FormShapeEditor({
                       ))}
                     </SelectContent>
                   </Select>
-                </TableCell>
-                <TableCell>
+                </Field>
+                <label className="flex items-center gap-3 pt-7 text-sm font-medium">
                   <Checkbox
-                    checked={field.required}
+                    checked={fieldDialog.draft.required}
                     onCheckedChange={(checked) =>
-                      updateField(index, { required: checked === true })
+                      updateFieldDraft({ required: checked === true })
                     }
                   />
-                </TableCell>
-                <TableCell className="min-w-[16rem]">
-                  <Textarea
-                    value={field.optionsText}
-                    onChange={(event) =>
-                      updateField(index, { optionsText: event.target.value })
-                    }
-                    rows={3}
-                    disabled={field.type !== "enum" && field.type !== "multi_enum"}
-                    placeholder="value | Label"
-                    className="font-mono text-xs"
-                  />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => removeField(index)}
-                    disabled={field.key === "requested_at" || field.key === "requested_by"}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">{t("Delete")}</span>
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      <Button type="button" variant="outline" size="sm" onClick={addField}>
-        <Plus className="h-4 w-4" />
-        <span>{t("Add field")}</span>
-      </Button>
+                  <span>{t("Required")}</span>
+                </label>
+              </div>
+              <Field label="Options">
+                <Textarea
+                  value={fieldDialog.draft.optionsText}
+                  onChange={(event) =>
+                    updateFieldDraft({ optionsText: event.target.value })
+                  }
+                  rows={5}
+                  disabled={
+                    fieldDialog.draft.type !== "enum" &&
+                    fieldDialog.draft.type !== "multi_enum"
+                  }
+                  placeholder="value | Label"
+                  className="font-mono text-xs"
+                />
+              </Field>
+              {fieldError ? (
+                <p className="text-sm text-destructive">{fieldError}</p>
+              ) : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setFieldDialog(null)}
+            >
+              {t("Cancel")}
+            </Button>
+            <Button type="button" onClick={saveFieldDraft}>
+              {t("Save field")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Section>
   );
 }
@@ -1501,25 +2126,82 @@ function InputSlotEditor({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const [slotDialog, setSlotDialog] = useState<{
+    index: number | null;
+    draft: {
+      role: string;
+      objectType: string;
+      required: boolean;
+      min: string;
+      max: string;
+    };
+  } | null>(null);
+  const [slotError, setSlotError] = useState("");
 
-  function updateSlot(index: number, patch: Partial<SupportServiceInputSlot>) {
-    setForm((current) => ({
-      ...current,
-      inputSlots: current.inputSlots.map((slot, slotIndex) =>
-        slotIndex === index ? { ...slot, ...patch } : slot,
-      ),
-    }));
+  function openSlotDialog(index: number | null) {
+    const slot = index == null ? null : form.inputSlots[index];
+    setSlotError("");
+    setSlotDialog({
+      index,
+      draft: {
+        role: slot?.role ?? "",
+        objectType:
+          (slot ? slotObjectType(slot) : "") ||
+          POCKET_GENES_OBJECT_OPTIONS[0]?.value ||
+          "",
+        required: slot?.required ?? false,
+        min: String(slot?.cardinality.min ?? 0),
+        max: String(slot?.cardinality.max ?? 1),
+      },
+    });
   }
 
-  function toggleAcceptedType(index: number, objectType: string) {
-    const slot = form.inputSlots[index];
-    if (!slot) {
+  function updateSlotDraft(patch: Partial<NonNullable<typeof slotDialog>["draft"]>) {
+    setSlotDialog((current) =>
+      current
+        ? { ...current, draft: { ...current.draft, ...patch } }
+        : current,
+    );
+  }
+
+  function saveSlotDraft() {
+    if (!slotDialog) {
       return;
     }
-    const nextTypes = slot.acceptedTypes.includes(objectType)
-      ? slot.acceptedTypes.filter((value) => value !== objectType)
-      : [...slot.acceptedTypes, objectType];
-    updateSlot(index, { acceptedTypes: nextTypes });
+
+    const min = Number(slotDialog.draft.min);
+    const max = Number(slotDialog.draft.max);
+    if (!slotDialog.draft.role.trim()) {
+      setSlotError(t("Role is required."));
+      return;
+    }
+    if (!slotDialog.draft.objectType) {
+      setSlotError(t("Object type is required."));
+      return;
+    }
+    if (!Number.isInteger(min) || min < 0 || !Number.isInteger(max) || max < 1 || max < min) {
+      setSlotError(t("Cardinality must use valid whole numbers."));
+      return;
+    }
+
+    const nextSlot: SupportServiceInputSlot = {
+      role: slotDialog.draft.role.trim(),
+      objectType: slotDialog.draft.objectType,
+      acceptedTypes: [slotDialog.draft.objectType],
+      required: slotDialog.draft.required,
+      cardinality: { min, max },
+    };
+
+    setForm((current) => ({
+      ...current,
+      inputSlots:
+        slotDialog.index == null
+          ? [...current.inputSlots, nextSlot]
+          : current.inputSlots.map((slot, slotIndex) =>
+              slotIndex === slotDialog.index ? nextSlot : slot,
+            ),
+    }));
+    setSlotDialog(null);
   }
 
   return (
@@ -1530,95 +2212,170 @@ function InputSlotEditor({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() =>
-            setForm((current) => ({
-              ...current,
-              inputSlots: [
-                ...current.inputSlots,
-                {
-                  role: "",
-                  acceptedTypes: [],
-                  required: false,
-                  cardinality: { min: 0, max: 1 },
-                },
-              ],
-            }))
-          }
+          onClick={() => openSlotDialog(null)}
         >
           <Plus className="h-4 w-4" />
           <span>{t("Add input")}</span>
         </Button>
       </div>
-      {form.inputSlots.map((slot, index) => (
-        <div key={`${slot.role}-${index}`} className="grid gap-3 border-t border-border/70 pt-3">
-          <div className="grid gap-3 md:grid-cols-[1fr_7rem_7rem_auto]">
-            <Field label="Role">
-              <Input
-                value={slot.role}
-                onChange={(event) => updateSlot(index, { role: event.target.value })}
-              />
-            </Field>
-            <Field label="Min">
-              <Input
-                value={slot.cardinality.min}
-                onChange={(event) =>
-                  updateSlot(index, {
-                    cardinality: {
-                      ...slot.cardinality,
-                      min: Number(event.target.value),
-                    },
-                  })
-                }
-                type="number"
-                min={0}
-              />
-            </Field>
-            <Field label="Max">
-              <Input
-                value={slot.cardinality.max}
-                onChange={(event) =>
-                  updateSlot(index, {
-                    cardinality: {
-                      ...slot.cardinality,
-                      max: Number(event.target.value),
-                    },
-                  })
-                }
-                type="number"
-                min={1}
-              />
-            </Field>
-            <label className="flex items-center gap-3 pt-7 text-sm font-medium">
-              <Checkbox
-                checked={slot.required}
-                onCheckedChange={(checked) =>
-                  updateSlot(index, { required: checked === true })
-                }
-              />
-              <span>{t("Required")}</span>
-            </label>
-          </div>
-          <ObjectTypeChecklist
-            selected={slot.acceptedTypes}
-            onToggle={(objectType) => toggleAcceptedType(index, objectType)}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              setForm((current) => ({
-                ...current,
-                inputSlots: current.inputSlots.filter((_, slotIndex) => slotIndex !== index),
-              }))
-            }
-            className="justify-self-start text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span>{t("Remove input slot")}</span>
-          </Button>
-        </div>
-      ))}
+      <div className="overflow-x-auto rounded border border-border/70">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("Role")}</TableHead>
+              <TableHead>{t("Object type")}</TableHead>
+              <TableHead>{t("Cardinality")}</TableHead>
+              <TableHead>{t("Required")}</TableHead>
+              <TableHead className="text-right">{t("Actions")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {form.inputSlots.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                  {t("No input slots defined.")}
+                </TableCell>
+              </TableRow>
+            ) : (
+              form.inputSlots.map((slot, index) => (
+                <TableRow key={`${slot.role}-${index}`}>
+                  <TableCell className="font-mono text-sm">
+                    {slot.role || "-"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">
+                      {objectLabel(slotObjectType(slot))}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {slot.cardinality.min}-{slot.cardinality.max}
+                  </TableCell>
+                  <TableCell>
+                    {slot.required ? (
+                      <Badge variant="outline">{t("Required")}</Badge>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => openSlotDialog(index)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">{t("Edit")}</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            inputSlots: current.inputSlots.filter(
+                              (_, slotIndex) => slotIndex !== index,
+                            ),
+                          }))
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">{t("Delete")}</span>
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <Dialog
+        open={Boolean(slotDialog)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSlotDialog(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {slotDialog?.index == null ? t("Add input slot") : t("Edit input slot")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("Each input slot accepts one Pocket Genes object type.")}
+            </DialogDescription>
+          </DialogHeader>
+          {slotDialog ? (
+            <div className="grid gap-4">
+              <Field label="Role">
+                <Input
+                  value={slotDialog.draft.role}
+                  onChange={(event) =>
+                    updateSlotDraft({ role: event.target.value })
+                  }
+                  placeholder="test_order"
+                />
+              </Field>
+              <Field label="Object type">
+                <ObjectTypeSelect
+                  value={slotDialog.draft.objectType}
+                  onChange={(objectType) => updateSlotDraft({ objectType })}
+                />
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
+                <Field label="Min">
+                  <Input
+                    value={slotDialog.draft.min}
+                    onChange={(event) =>
+                      updateSlotDraft({ min: event.target.value })
+                    }
+                    type="number"
+                    min={0}
+                  />
+                </Field>
+                <Field label="Max">
+                  <Input
+                    value={slotDialog.draft.max}
+                    onChange={(event) =>
+                      updateSlotDraft({ max: event.target.value })
+                    }
+                    type="number"
+                    min={1}
+                  />
+                </Field>
+                <label className="flex items-center gap-3 pt-7 text-sm font-medium">
+                  <Checkbox
+                    checked={slotDialog.draft.required}
+                    onCheckedChange={(checked) =>
+                      updateSlotDraft({ required: checked === true })
+                    }
+                  />
+                  <span>{t("Required")}</span>
+                </label>
+              </div>
+              {slotError ? (
+                <p className="text-sm text-destructive">{slotError}</p>
+              ) : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSlotDialog(null)}
+            >
+              {t("Cancel")}
+            </Button>
+            <Button type="button" onClick={saveSlotDraft}>
+              {t("Save input slot")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1632,14 +2389,63 @@ function OutputSlotEditor({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const [slotDialog, setSlotDialog] = useState<{
+    index: number | null;
+    draft: SupportServiceOutputSlot;
+  } | null>(null);
+  const [slotError, setSlotError] = useState("");
 
-  function updateSlot(index: number, patch: Partial<SupportServiceOutputSlot>) {
+  function openSlotDialog(index: number | null) {
+    const slot = index == null ? null : form.outputSlots[index];
+    setSlotError("");
+    setSlotDialog({
+      index,
+      draft: slot
+        ? { ...slot }
+        : {
+            role: "",
+            objectType: POCKET_GENES_OBJECT_OPTIONS[0]?.value || "pgo_form",
+            mutationMode: "new_object",
+          },
+    });
+  }
+
+  function updateSlotDraft(patch: Partial<SupportServiceOutputSlot>) {
+    setSlotDialog((current) =>
+      current
+        ? { ...current, draft: { ...current.draft, ...patch } }
+        : current,
+    );
+  }
+
+  function saveSlotDraft() {
+    if (!slotDialog) {
+      return;
+    }
+    if (!slotDialog.draft.role.trim()) {
+      setSlotError(t("Role is required."));
+      return;
+    }
+    if (!slotDialog.draft.objectType) {
+      setSlotError(t("Object type is required."));
+      return;
+    }
+
+    const nextSlot: SupportServiceOutputSlot = {
+      ...slotDialog.draft,
+      role: slotDialog.draft.role.trim(),
+    };
+
     setForm((current) => ({
       ...current,
-      outputSlots: current.outputSlots.map((slot, slotIndex) =>
-        slotIndex === index ? { ...slot, ...patch } : slot,
-      ),
+      outputSlots:
+        slotDialog.index == null
+          ? [...current.outputSlots, nextSlot]
+          : current.outputSlots.map((slot, slotIndex) =>
+              slotIndex === slotDialog.index ? nextSlot : slot,
+            ),
     }));
+    setSlotDialog(null);
   }
 
   return (
@@ -1650,72 +2456,152 @@ function OutputSlotEditor({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() =>
-            setForm((current) => ({
-              ...current,
-              outputSlots: [
-                ...current.outputSlots,
-                { role: "", objectType: "pgo_form", mutationMode: "new_object" },
-              ],
-            }))
-          }
+          onClick={() => openSlotDialog(null)}
         >
           <Plus className="h-4 w-4" />
           <span>{t("Add output")}</span>
         </Button>
       </div>
-      {form.outputSlots.map((slot, index) => (
-        <div key={`${slot.role}-${index}`} className="grid gap-3 border-t border-border/70 pt-3 md:grid-cols-[1fr_1fr_12rem_auto]">
-          <Field label="Role">
-            <Input
-              value={slot.role}
-              onChange={(event) => updateSlot(index, { role: event.target.value })}
-            />
-          </Field>
-          <Field label="Object type">
-            <ObjectTypeSelect
-              value={slot.objectType}
-              onChange={(objectType) => updateSlot(index, { objectType })}
-            />
-          </Field>
-          <Field label="Mutation">
-            <Select
-              value={slot.mutationMode}
-              onValueChange={(mutationMode) =>
-                updateSlot(index, {
-                  mutationMode: mutationMode as SupportServiceMutationMode,
-                })
-              }
+      <div className="overflow-x-auto rounded border border-border/70">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("Role")}</TableHead>
+              <TableHead>{t("Object type")}</TableHead>
+              <TableHead>{t("Mutation")}</TableHead>
+              <TableHead className="text-right">{t("Actions")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {form.outputSlots.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
+                  {t("No output slots defined.")}
+                </TableCell>
+              </TableRow>
+            ) : (
+              form.outputSlots.map((slot, index) => (
+                <TableRow key={`${slot.role}-${index}`}>
+                  <TableCell className="font-mono text-sm">
+                    {slot.role || "-"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">
+                      {objectLabel(slot.objectType)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {t(mutationModeLabel(slot.mutationMode))}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => openSlotDialog(index)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">{t("Edit")}</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            outputSlots: current.outputSlots.filter(
+                              (_, slotIndex) => slotIndex !== index,
+                            ),
+                          }))
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">{t("Delete")}</span>
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <Dialog
+        open={Boolean(slotDialog)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSlotDialog(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {slotDialog?.index == null ? t("Add output slot") : t("Edit output slot")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("Define the object produced or revised by this service offer.")}
+            </DialogDescription>
+          </DialogHeader>
+          {slotDialog ? (
+            <div className="grid gap-4">
+              <Field label="Role">
+                <Input
+                  value={slotDialog.draft.role}
+                  onChange={(event) =>
+                    updateSlotDraft({ role: event.target.value })
+                  }
+                  placeholder="report"
+                />
+              </Field>
+              <Field label="Object type">
+                <ObjectTypeSelect
+                  value={slotDialog.draft.objectType}
+                  onChange={(objectType) => updateSlotDraft({ objectType })}
+                />
+              </Field>
+              <Field label="Mutation">
+                <Select
+                  value={slotDialog.draft.mutationMode}
+                  onValueChange={(mutationMode) =>
+                    updateSlotDraft({
+                      mutationMode: mutationMode as SupportServiceMutationMode,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPPORT_SERVICE_MUTATION_MODES.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {t(option.label)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              {slotError ? (
+                <p className="text-sm text-destructive">{slotError}</p>
+              ) : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSlotDialog(null)}
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SUPPORT_SERVICE_MUTATION_MODES.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {t(option.label)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={() =>
-              setForm((current) => ({
-                ...current,
-                outputSlots: current.outputSlots.filter((_, slotIndex) => slotIndex !== index),
-              }))
-            }
-            className="mt-7 text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="sr-only">{t("Delete")}</span>
-          </Button>
-        </div>
-      ))}
+              {t("Cancel")}
+            </Button>
+            <Button type="button" onClick={saveSlotDraft}>
+              {t("Save output slot")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1887,7 +2773,7 @@ export function SupportServiceTransactionWorkbench({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<TransactionFormState>(() =>
-    transactionFormForService(POCKET_GENES_SERVICE_OPTIONS[0].serviceId, []),
+    emptyTransactionForm(),
   );
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
@@ -1924,29 +2810,40 @@ export function SupportServiceTransactionWorkbench({
     }
   }, [liveOffers, transactionQuery.data?.transaction]);
 
+  useEffect(() => {
+    if (!isEditing && !form.serviceId && liveOffers[0]) {
+      setForm(transactionFormForOffer(liveOffers[0]));
+    }
+  }, [form.serviceId, isEditing, liveOffers]);
+
   const serviceChoices = useMemo(() => {
     const seen = new Set<string>();
-    return [
-      ...liveOffers.map((offer) => ({
-        value: offer.serviceId,
-        label: `${offer.name} (${offer.serviceId})`,
-      })),
-      ...POCKET_GENES_SERVICE_OPTIONS.map((offer) => ({
-        value: offer.serviceId,
-        label: `${offer.name} (${offer.serviceId})`,
-      })),
-    ].filter((choice) => {
+    const choices = liveOffers.map((offer) => ({
+      value: offer.serviceId,
+      label: `${offer.name} (${offer.serviceId})`,
+    }));
+
+    if (
+      form.serviceId &&
+      !choices.some((choice) => choice.value === form.serviceId)
+    ) {
+      choices.push({
+        value: form.serviceId,
+        label: `${form.serviceId} (${t("missing active offer")})`,
+      });
+    }
+
+    return choices.filter((choice) => {
       if (seen.has(choice.value)) {
         return false;
       }
       seen.add(choice.value);
       return true;
     });
-  }, [liveOffers]);
+  }, [form.serviceId, liveOffers, t]);
 
   const selectedOffer =
-    liveOffers.find((offer) => offer.serviceId === form.serviceId) ??
-    catalogServiceById(form.serviceId);
+    liveOffers.find((offer) => offer.serviceId === form.serviceId) ?? null;
 
   const saveMutation = useMutation({
     mutationFn: async (payload: SupportServiceTransactionInput) => {
@@ -2048,9 +2945,13 @@ export function SupportServiceTransactionWorkbench({
         <Section title="Request identity">
           <div className="grid gap-4 lg:grid-cols-2">
             <Field label="Service">
-              <Select value={form.serviceId} onValueChange={handleServiceChange}>
+              <Select
+                value={form.serviceId}
+                onValueChange={handleServiceChange}
+                disabled={serviceChoices.length === 0}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder={t("Choose active service offer")} />
                 </SelectTrigger>
                 <SelectContent>
                   {serviceChoices.map((service) => (
@@ -2131,6 +3032,12 @@ export function SupportServiceTransactionWorkbench({
               />
             </Field>
           </div>
+          {serviceChoices.length === 0 ? (
+            <div className="flex items-center gap-2 rounded border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
+              <CircleAlert className="h-4 w-4" />
+              <span>{t("No active service offers are available for transactions.")}</span>
+            </div>
+          ) : null}
           {selectedOffer ? (
             <div className="rounded border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
               <div className="font-medium text-foreground">{selectedOffer.name}</div>
@@ -2413,27 +3320,5 @@ function ObjectTypeSelect({
         ))}
       </SelectContent>
     </Select>
-  );
-}
-
-function ObjectTypeChecklist({
-  selected,
-  onToggle,
-}: {
-  selected: string[];
-  onToggle: (value: string) => void;
-}) {
-  return (
-    <div className="grid max-h-52 grid-cols-1 gap-2 overflow-y-auto rounded border border-border/70 p-3 sm:grid-cols-2">
-      {POCKET_GENES_OBJECT_OPTIONS.map((object) => (
-        <label key={object.value} className="flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={selected.includes(object.value)}
-            onCheckedChange={() => onToggle(object.value)}
-          />
-          <span className="min-w-0 truncate">{object.label}</span>
-        </label>
-      ))}
-    </div>
   );
 }

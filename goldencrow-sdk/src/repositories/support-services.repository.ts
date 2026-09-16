@@ -9,6 +9,8 @@ import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 
 const adminDb = adminDbFor("mydnamap");
+const FEED_ORGANIZATIONS_COLLECTION = "feed_organizations";
+const FEED_INDIVIDUALS_COLLECTION = "feed_individuals";
 const SERVICE_OFFERS_COLLECTION = "service_offers";
 const SERVICE_TRANSACTIONS_COLLECTION = "service_transactions";
 const MAX_PAGE_SIZE = 50;
@@ -45,6 +47,7 @@ export type SupportServiceOfferStatus =
   (typeof SUPPORT_SERVICE_OFFER_STATUSES)[number];
 export type SupportServiceTransactionStatus =
   (typeof SUPPORT_SERVICE_TRANSACTION_STATUSES)[number];
+export type SupportServiceProviderKind = "organization" | "individual";
 
 type ListOptions = {
   cursor?: string;
@@ -65,7 +68,10 @@ export interface SupportServiceOfferInput {
   serviceId?: string;
   serviceVersion?: string;
   name?: string;
+  serviceCategory?: string;
+  providerKind?: SupportServiceProviderKind;
   providerId?: string;
+  providerName?: string;
   stages?: string[];
   status?: SupportServiceOfferStatus;
   availability?: string;
@@ -86,7 +92,10 @@ export interface SupportServiceOfferRecord {
   serviceId: string;
   serviceVersion: string;
   name: string;
+  serviceCategory: string;
+  providerKind: SupportServiceProviderKind;
   providerId: string;
+  providerName: string;
   stages: SupportServiceStage[];
   status: SupportServiceOfferStatus;
   availability: string;
@@ -169,6 +178,7 @@ const OFFER_STATUS_SET = new Set<string>(SUPPORT_SERVICE_OFFER_STATUSES);
 const TRANSACTION_STATUS_SET = new Set<string>(
   SUPPORT_SERVICE_TRANSACTION_STATUSES,
 );
+const PROVIDER_KIND_SET = new Set<string>(["organization", "individual"]);
 
 function requireGodMode(context: AdminContext) {
   if (!context.isBootstrap) {
@@ -310,11 +320,15 @@ function normalizeFormShape(value: unknown) {
 function normalizeOfferInputSlots(value: unknown) {
   return optionalRecordArray(value).map((slot) => {
     const cardinality = optionalRecord(slot.cardinality);
+    const acceptedTypes = stringValueArray(
+      slot.acceptedTypes ?? slot.accepted_types,
+    );
+    const objectType =
+      cleanString(slot.objectType ?? slot.object_type) || acceptedTypes[0] || "";
     return {
       role: cleanString(slot.role),
-      acceptedTypes: stringValueArray(
-        slot.acceptedTypes ?? slot.accepted_types,
-      ),
+      objectType,
+      acceptedTypes: objectType ? [objectType] : [],
       required: Boolean(slot.required),
       cardinality: {
         min: numericValue(cardinality.min, slot.required ? 1 : 0),
@@ -333,6 +347,40 @@ function normalizeOfferOutputSlots(value: unknown) {
         ? "new_revision"
         : "new_object",
   }));
+}
+
+function normalizeProviderKind(value: unknown): SupportServiceProviderKind {
+  const normalized = normalizeKey(cleanString(value));
+  return PROVIDER_KIND_SET.has(normalized)
+    ? (normalized as SupportServiceProviderKind)
+    : "organization";
+}
+
+function contractObjectTypeLabel(value: string) {
+  return value.replace(/^pgo_/, "");
+}
+
+function supportServiceShortContract({
+  inputSlots,
+  outputSlots,
+}: {
+  inputSlots: ReturnType<typeof normalizeOfferInputSlots>;
+  outputSlots: ReturnType<typeof normalizeOfferOutputSlots>;
+}) {
+  const inputs = inputSlots.map((slot) => {
+    const objectType = slot.objectType || slot.acceptedTypes[0] || "object";
+    return `${slot.role}:${contractObjectTypeLabel(objectType)}`;
+  });
+  const outputs = outputSlots.map((slot) => {
+    const objectType = slot.objectType || "object";
+    return `${slot.role}:${contractObjectTypeLabel(objectType)}`;
+  });
+  const left = ["form", ...inputs].join(" + ");
+  const right = outputs.length
+    ? outputs.join(" + ")
+    : "provider_output";
+
+  return `${left} -> ${right}`;
 }
 
 function normalizeCommercialTerms(value: unknown) {
@@ -476,28 +524,37 @@ function offerDocument(input: SupportServiceOfferInput) {
   const name = cleanString(input.name);
   const serviceId = cleanString(input.serviceId);
   const providerId = cleanString(input.providerId);
+  const providerName = cleanString(input.providerName);
   const serviceVersion = cleanString(input.serviceVersion) || "1.0.0";
   const stages = normalizeStages(input.stages);
+  const inputSlots = normalizeOfferInputSlots(input.inputSlots);
+  const outputSlots = normalizeOfferOutputSlots(input.outputSlots);
+  const serviceCategory = cleanString(input.serviceCategory);
 
   return {
     schemaVersion: 1,
     serviceId,
     serviceVersion,
     name,
+    serviceCategory,
+    providerKind: normalizeProviderKind(input.providerKind),
     providerId,
+    providerName,
     stages,
     status: normalizeOfferStatus(input.status),
     availability: cleanString(input.availability) || "backoffice",
     description: cleanString(input.description),
-    shortContract: cleanString(input.shortContract),
+    shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
     providerWork: cleanString(input.providerWork),
     formShape: normalizeFormShape(input.formShape),
-    inputSlots: normalizeOfferInputSlots(input.inputSlots),
-    outputSlots: normalizeOfferOutputSlots(input.outputSlots),
+    inputSlots,
+    outputSlots,
     acceptedConditions: cleanStringArray(input.acceptedConditions),
     scopeRules: cleanStringArray(input.scopeRules),
     commercialTerms: normalizeCommercialTerms(input.commercialTerms),
-    normalizedName: normalizeName(`${name} ${serviceId} ${providerId}`),
+    normalizedName: normalizeName(
+      `${name} ${serviceId} ${serviceCategory} ${providerId} ${providerName}`,
+    ),
   };
 }
 
@@ -542,9 +599,12 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
       400,
     );
   }
-  if (!document.providerId || !/^pgp_[a-z0-9_]+$/.test(document.providerId)) {
+  if (!PROVIDER_KIND_SET.has(document.providerKind)) {
+    throw new AdminRepositoryError("Provider kind is required.", 400);
+  }
+  if (!document.providerId) {
     throw new AdminRepositoryError(
-      "Provider ID must use the pgp_* convention.",
+      "Provider ID is required and must reference a Discover publisher.",
       400,
     );
   }
@@ -609,9 +669,9 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         400,
       );
     }
-    if (slot.acceptedTypes.length === 0) {
+    if (slot.acceptedTypes.length !== 1) {
       throw new AdminRepositoryError(
-        `Input slot ${slot.role} needs accepted object types.`,
+        `Input slot ${slot.role} must accept exactly one object type.`,
         400,
       );
     }
@@ -727,7 +787,15 @@ function validateTransactionDocument(
 function toOfferRecord(id: string, data: Record<string, unknown>) {
   const serviceId = cleanString(data.serviceId ?? data.service_id);
   const providerId = cleanString(data.providerId ?? data.provider_id);
+  const providerName = cleanString(data.providerName ?? data.provider_name);
   const name = cleanString(data.name);
+  const inputSlots = normalizeOfferInputSlots(data.inputSlots ?? data.input_slots);
+  const outputSlots = normalizeOfferOutputSlots(
+    data.outputSlots ?? data.output_slots,
+  );
+  const serviceCategory = cleanString(
+    data.serviceCategory ?? data.service_category,
+  );
 
   return {
     id,
@@ -737,16 +805,19 @@ function toOfferRecord(id: string, data: Record<string, unknown>) {
     serviceVersion:
       cleanString(data.serviceVersion ?? data.service_version) || "1.0.0",
     name,
+    serviceCategory,
+    providerKind: normalizeProviderKind(data.providerKind ?? data.provider_kind),
     providerId,
+    providerName,
     stages: normalizeStages(data.stages),
     status: normalizeOfferStatus(data.status),
     availability: cleanString(data.availability),
     description: cleanString(data.description),
-    shortContract: cleanString(data.shortContract ?? data.short_contract),
+    shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
     providerWork: cleanString(data.providerWork ?? data.provider_work),
     formShape: normalizeFormShape(data.formShape ?? data.form_shape),
-    inputSlots: normalizeOfferInputSlots(data.inputSlots ?? data.input_slots),
-    outputSlots: normalizeOfferOutputSlots(data.outputSlots ?? data.output_slots),
+    inputSlots,
+    outputSlots,
     acceptedConditions: cleanStringArray(
       data.acceptedConditions ?? data.accepted_conditions,
     ),
@@ -756,7 +827,9 @@ function toOfferRecord(id: string, data: Record<string, unknown>) {
     ),
     normalizedName:
       cleanString(data.normalizedName) ||
-      normalizeName(`${name} ${serviceId} ${providerId}`),
+      normalizeName(
+        `${name} ${serviceId} ${serviceCategory} ${providerId} ${providerName}`,
+      ),
     createdAt: timestampToIso(data.createdAt),
     updatedAt: timestampToIso(data.updatedAt),
     createdByEmail: cleanString(data.createdByEmail),
@@ -954,6 +1027,30 @@ async function getTransactionSnapshot(transactionId: string) {
   return snapshot.exists ? snapshot : null;
 }
 
+async function assertOfferProviderExists(
+  document: ReturnType<typeof offerDocument>,
+) {
+  const collectionName =
+    document.providerKind === "individual"
+      ? FEED_INDIVIDUALS_COLLECTION
+      : FEED_ORGANIZATIONS_COLLECTION;
+  const snapshot = await adminDb
+    .collection(collectionName)
+    .doc(document.providerId)
+    .get();
+
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError(
+      `Provider must reference an existing ${
+        document.providerKind === "individual"
+          ? "feed_individuals"
+          : "feed_organizations"
+      } document.`,
+      400,
+    );
+  }
+}
+
 export async function listSupportServiceOffers(
   context: AdminContext,
   options: OfferListOptions = {},
@@ -998,6 +1095,7 @@ export async function createSupportServiceOffer(
   requireGodMode(context);
   const document = offerDocument(input);
   validateOfferDocument(document);
+  await assertOfferProviderExists(document);
 
   const ref = adminDb.collection(SERVICE_OFFERS_COLLECTION).doc();
   await ref.set(
@@ -1026,6 +1124,7 @@ export async function updateSupportServiceOffer(
 
   const document = offerDocument(input);
   validateOfferDocument(document);
+  await assertOfferProviderExists(document);
   await snapshot.ref.set(
     withoutUndefined({
       ...document,

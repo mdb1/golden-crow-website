@@ -46,10 +46,13 @@ function normalizeInputSlot(slot: Record<string, unknown>): SupportServiceInputS
   const cardinality = record(slot.cardinality);
   const min = Number(cardinality.min ?? (slot.required ? 1 : 0));
   const max = Number(cardinality.max ?? 1);
+  const acceptedTypes = stringArray(slot.accepted_types ?? slot.acceptedTypes);
+  const objectType = cleanString(slot.object_type ?? slot.objectType) || acceptedTypes[0] || "";
 
   return {
     role: cleanString(slot.role),
-    acceptedTypes: stringArray(slot.accepted_types ?? slot.acceptedTypes),
+    objectType,
+    acceptedTypes: objectType ? [objectType] : [],
     required: Boolean(slot.required),
     cardinality: {
       min: Number.isFinite(min) ? min : slot.required ? 1 : 0,

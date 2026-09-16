@@ -50,7 +50,10 @@ const validOfferPayload = {
   serviceId: "pgs_final_report",
   serviceVersion: "1.0.0",
   name: "Create the final self-contained report",
-  providerId: "pgp_report_studio",
+  serviceCategory: "Final report production",
+  providerKind: "organization",
+  providerId: "feed-org-1",
+  providerName: "Pocket Genes Report Studio",
   stages: ["bioinformatics"],
   status: "active",
   availability: "backoffice",
@@ -170,7 +173,8 @@ describe("support service admin routes", () => {
     expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
       bootstrapContext,
       expect.objectContaining({
-        providerId: "pgp_report_studio",
+        providerKind: "organization",
+        providerId: "feed-org-1",
         stages: ["bioinformatics"],
       }),
     );

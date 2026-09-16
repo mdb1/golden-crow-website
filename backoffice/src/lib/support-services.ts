@@ -28,6 +28,7 @@ export type SupportServiceOfferStatus =
   (typeof SUPPORT_SERVICE_OFFER_STATUSES)[number]["value"];
 export type SupportServiceTransactionStatus =
   (typeof SUPPORT_SERVICE_TRANSACTION_STATUSES)[number]["value"];
+export type SupportServiceProviderKind = "organization" | "individual";
 
 export const SUPPORT_SERVICE_FORM_FIELD_TYPES = [
   { value: "text", label: "Text" },
@@ -73,6 +74,7 @@ export interface SupportServiceFormShape {
 
 export interface SupportServiceInputSlot {
   role: string;
+  objectType?: string;
   acceptedTypes: string[];
   required: boolean;
   cardinality: {
@@ -104,7 +106,10 @@ export interface SupportServiceOfferInput {
   serviceId: string;
   serviceVersion?: string;
   name: string;
+  serviceCategory?: string;
+  providerKind?: SupportServiceProviderKind;
   providerId: string;
+  providerName?: string;
   stages?: SupportServiceStage[];
   status?: SupportServiceOfferStatus;
   availability?: string;

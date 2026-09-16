@@ -33,14 +33,12 @@ const FormFieldTypeSchema = z.enum([
   "string_list",
 ]);
 const MutationModeSchema = z.enum(["new_object", "new_revision"]);
+const ProviderKindSchema = z.enum(["organization", "individual"]);
 const ServiceIdSchema = z
   .string()
   .trim()
   .regex(/^pgs_[a-z0-9_]+$/, "Use a pgs_* service ID.");
-const ProviderIdSchema = z
-  .string()
-  .trim()
-  .regex(/^pgp_[a-z0-9_]+$/, "Use a pgp_* provider ID.");
+const ProviderIdSchema = z.string().trim().min(1).max(180);
 const RequestIdSchema = z
   .string()
   .trim()
@@ -97,7 +95,10 @@ const FormShapeSchema = z.object({
 });
 const InputSlotSchema = z.object({
   role: RoleSchema,
-  acceptedTypes: z.array(ObjectTypeSchema).min(1).max(20),
+  objectType: ObjectTypeSchema.optional(),
+  acceptedTypes: z
+    .array(ObjectTypeSchema)
+    .length(1, "Each input slot accepts exactly one object type."),
   required: z.boolean(),
   cardinality: z.object({
     min: z.coerce.number().int().min(0),
@@ -141,12 +142,15 @@ const OfferBodySchema = z.object({
   serviceId: ServiceIdSchema,
   serviceVersion: z.string().trim().min(1).max(40).optional(),
   name: z.string().trim().min(1).max(180),
+  serviceCategory: z.string().trim().max(180).optional(),
+  providerKind: ProviderKindSchema,
   providerId: ProviderIdSchema,
+  providerName: z.string().trim().max(180).optional(),
   stages: z.array(ServiceStageSchema).min(1).max(3).optional(),
   status: OfferStatusSchema.optional(),
   availability: z.string().trim().max(120).optional(),
   description: z.string().trim().min(1).max(4000),
-  shortContract: z.string().trim().min(1).max(500),
+  shortContract: z.string().trim().max(500).optional(),
   providerWork: z.string().trim().min(1).max(4000),
   formShape: FormShapeSchema,
   inputSlots: z.array(InputSlotSchema).max(50).optional(),
