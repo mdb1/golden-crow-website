@@ -207,7 +207,11 @@ const SUPPORT_SERVICE_FORM_CLASS = cn(
 const SUPPORT_SERVICE_HEADER_CLASS =
   "border-b border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.90)_54%,rgba(240,249,255,0.72))] px-5 py-4 dark:border-violet-400/14 dark:bg-[linear-gradient(145deg,rgba(30,24,57,0.94),rgba(12,35,54,0.68))]";
 const SUPPORT_SERVICE_SECTION_CLASS =
-  "mx-4 my-4 grid gap-4 rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(250,250,255,0.94)_58%,rgba(245,243,255,0.86))] px-4 py-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.86))] lg:mx-5 lg:px-5 lg:py-5";
+  "mx-4 my-6 grid gap-6 rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(250,250,255,0.94)_58%,rgba(245,243,255,0.86))] px-4 py-5 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.86))] lg:mx-6 lg:px-6 lg:py-6";
+const SUPPORT_SERVICE_SUBSECTION_CLASS =
+  "grid gap-4 rounded-2xl border border-violet-100/70 bg-white/70 p-4 shadow-sm dark:border-violet-400/14 dark:bg-slate-950/36";
+const SUPPORT_SERVICE_SUBSECTION_TITLE_CLASS =
+  "text-xs font-bold uppercase tracking-[0.18em] text-violet-700 dark:text-violet-200";
 const SUPPORT_SERVICE_SOFT_BUTTON_CLASS =
   "h-9 rounded-xl border-violet-200/80 bg-white/78 px-3 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18";
 const SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS =
@@ -3070,7 +3074,7 @@ function SlotEditors({
 }) {
   return (
     <Section title="Slots">
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-2 xl:gap-8">
         <InputSlotEditor form={form} setForm={setForm} />
         <OutputSlotEditor form={form} setForm={setForm} />
       </div>
@@ -3159,9 +3163,11 @@ function InputSlotEditor({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className={SUPPORT_SERVICE_SUBSECTION_CLASS}>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="font-heading text-base font-semibold">{t("Input slots")}</h3>
+        <h3 className={SUPPORT_SERVICE_SUBSECTION_TITLE_CLASS}>
+          {t("Input slots")}
+        </h3>
         <Button
           type="button"
           variant="outline"
@@ -3369,9 +3375,11 @@ function OutputSlotEditor({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className={SUPPORT_SERVICE_SUBSECTION_CLASS}>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="font-heading text-base font-semibold">{t("Output slots")}</h3>
+        <h3 className={SUPPORT_SERVICE_SUBSECTION_TITLE_CLASS}>
+          {t("Output slots")}
+        </h3>
         <Button
           type="button"
           variant="outline"
@@ -4171,11 +4179,11 @@ function Section({
 
   return (
     <section className={SUPPORT_SERVICE_SECTION_CLASS}>
-      <div className="flex items-center gap-2">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-700 dark:bg-violet-500/12 dark:text-violet-100">
+      <div className="flex items-center gap-3 border-b border-violet-100/80 pb-4 dark:border-violet-400/14">
+        <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/18 dark:bg-violet-500/12 dark:text-violet-100">
           <FileText className="h-4 w-4" />
         </span>
-        <h3 className="font-heading text-lg font-semibold text-foreground">
+        <h3 className="font-heading text-xl font-semibold text-foreground">
           {t(title)}
         </h3>
       </div>
