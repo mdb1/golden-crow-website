@@ -7,21 +7,35 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import {
   ArrowLeft,
   Building2,
+  Check,
   CheckCircle2,
   CircleAlert,
   FileText,
   Filter,
+  Loader2,
   Pencil,
   Plus,
   RefreshCw,
+  Save,
   Search,
+  Settings2,
   UserRound,
   Trash2,
+  UploadCloud,
   Wand2,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -83,6 +97,7 @@ import {
   type SupportServiceMutationMode,
   type SupportServiceOfferInput,
   type SupportServiceOfferRecord,
+  type SupportServiceOfferStatus,
   type SupportServiceOffersPage,
   type SupportServiceOutputSlot,
   type SupportServicePricingModel,
@@ -152,6 +167,12 @@ type TransactionFormState = {
   inputs: ObjectRefDraft[];
   outputs: ObjectRefDraft[];
   notes: string;
+};
+
+type ServiceOfferPublishDialogState = {
+  status: "publishing" | "success" | "error";
+  offerId?: string;
+  message?: string;
 };
 
 const SERVICE_PAGE_SIZE = 20;
@@ -569,6 +590,53 @@ function calculatedShortContract(
   const right = outputs.length ? outputs.join(" + ") : "provider output";
 
   return `${left} -> ${right}`;
+}
+
+function serviceOfferStatusDescription(
+  status: SupportServiceOfferStatus,
+  t: (text: string) => string,
+) {
+  if (status === "active") {
+    return t("Active service offers are published and can be selected by new service transactions.");
+  }
+
+  if (status === "paused") {
+    return t("Paused service offers stay saved, but should not receive new transaction requests until they are published again.");
+  }
+
+  if (status === "archived") {
+    return t("Archived service offers stay available for audit and historical transactions, but are removed from normal operation.");
+  }
+
+  return t("Draft service offers stay private while the contract is still being shaped. Publish when the service is ready to receive transactions.");
+}
+
+function serviceOfferStatusBadgeClass(status: SupportServiceOfferStatus) {
+  if (status === "active") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/24 dark:bg-emerald-500/12 dark:text-emerald-200";
+  }
+
+  if (status === "paused") {
+    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/26 dark:bg-amber-500/12 dark:text-amber-200";
+  }
+
+  if (status === "archived") {
+    return "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-500/30 dark:bg-slate-800/70 dark:text-slate-200";
+  }
+
+  return "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-400/26 dark:bg-sky-500/12 dark:text-sky-200";
+}
+
+function PublishedIndicator({ t }: { t: (text: string) => string }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold uppercase text-emerald-700 shadow-[0_10px_28px_-18px_rgba(5,150,105,0.65)] dark:border-emerald-400/26 dark:bg-emerald-500/12 dark:text-emerald-200">
+      <span className="relative flex h-2.5 w-2.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
+      </span>
+      {t("Published")}
+    </div>
+  );
 }
 
 function emptyObjectRefDraft(
@@ -1372,9 +1440,23 @@ export function SupportServiceOfferWorkbench({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<OfferFormState>(() => defaultOfferForm());
+  const [savedForm, setSavedForm] = useState<OfferFormState>(() =>
+    defaultOfferForm(),
+  );
+  const [persistedOfferId, setPersistedOfferId] = useState<string | null>(
+    offerId ?? null,
+  );
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusDraft, setStatusDraft] = useState<SupportServiceOfferStatus>(
+    "draft",
+  );
+  const [publishDialog, setPublishDialog] =
+    useState<ServiceOfferPublishDialogState | null>(null);
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const isEditing = mode === "edit";
+  const effectiveOfferId = offerId ?? persistedOfferId ?? undefined;
+  const hasPersistedOffer = Boolean(effectiveOfferId);
 
   function nextToastId() {
     setToastCounter((current) => current + 1);
@@ -1392,7 +1474,11 @@ export function SupportServiceOfferWorkbench({
 
   useEffect(() => {
     if (offerQuery.data?.offer) {
-      setForm(offerFormFromRecord(offerQuery.data.offer));
+      const nextForm = offerFormFromRecord(offerQuery.data.offer);
+      setForm(nextForm);
+      setSavedForm(nextForm);
+      setPersistedOfferId(offerQuery.data.offer.id);
+      setStatusDraft(offerQuery.data.offer.status);
     }
   }, [offerQuery.data?.offer]);
 
@@ -1412,10 +1498,10 @@ export function SupportServiceOfferWorkbench({
       (providerOffersQuery.data?.offers ?? [])
         .filter(
           (offer) =>
-            offer.providerId === form.providerId && offer.id !== offerId,
+            offer.providerId === form.providerId && offer.id !== effectiveOfferId,
         )
         .map((offer) => offer.serviceId),
-    [form.providerId, offerId, providerOffersQuery.data?.offers],
+    [form.providerId, effectiveOfferId, providerOffersQuery.data?.offers],
   );
 
   useEffect(() => {
@@ -1444,25 +1530,14 @@ export function SupportServiceOfferWorkbench({
   const saveMutation = useMutation({
     mutationFn: async (payload: SupportServiceOfferInput) => {
       const path =
-        isEditing && offerId
-          ? `/admin/support-services/offers/${encodeURIComponent(offerId)}`
+        effectiveOfferId
+          ? `/admin/support-services/offers/${encodeURIComponent(effectiveOfferId)}`
           : "/admin/support-services/offers";
       return sdkFetch<{ offer: SupportServiceOfferRecord }>(path, {
-        method: isEditing ? "PUT" : "POST",
+        method: effectiveOfferId ? "PUT" : "POST",
         body: JSON.stringify(payload),
       });
     },
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: [OFFERS_QUERY_KEY] });
-      setToast({
-        id: nextToastId(),
-        tone: "success",
-        message: t("Service offer saved."),
-      });
-      router.push(`/god-mode/service-offers/${result.offer.id}`);
-      router.refresh();
-    },
-    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
   const deleteMutation = useMutation({
@@ -1487,6 +1562,12 @@ export function SupportServiceOfferWorkbench({
     form.serviceId,
     reservedServiceIds,
   );
+  const changed = JSON.stringify(form) !== JSON.stringify(savedForm);
+  const isWorking = saveMutation.isPending || deleteMutation.isPending;
+  const canPublishCurrentOffer = hasPersistedOffer && form.status !== "active";
+  const statusOptions = SUPPORT_SERVICE_OFFER_STATUSES.filter(
+    (option) => form.status === "active" || option.value !== "active",
+  );
 
   function applyMockTemplate(serviceId: string) {
     const catalog = catalogServiceById(serviceId);
@@ -1509,16 +1590,101 @@ export function SupportServiceOfferWorkbench({
     );
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function persistOffer(
+    status: SupportServiceOfferStatus,
+    {
+      redirectToOffer = mode === "create",
+      showToast = true,
+      successMessage = "Service offer saved.",
+    }: {
+      redirectToOffer?: boolean;
+      showToast?: boolean;
+      successMessage?: string;
+    } = {},
+  ) {
     try {
       if (form.providerId.trim() && providerOffersQuery.isFetching) {
         throw new Error("Generated service ID is still checking existing offers.");
       }
-      saveMutation.mutate(offerPayloadFromForm(form, reservedServiceIds));
+
+      const result = await saveMutation.mutateAsync(
+        offerPayloadFromForm({ ...form, status }, reservedServiceIds),
+      );
+      await queryClient.invalidateQueries({ queryKey: [OFFERS_QUERY_KEY] });
+
+      const nextForm = offerFormFromRecord(result.offer);
+      setForm(nextForm);
+      setSavedForm(nextForm);
+      setPersistedOfferId(result.offer.id);
+      setStatusDraft(result.offer.status);
+
+      if (showToast) {
+        setToast({
+          id: nextToastId(),
+          tone: "success",
+          message: t(successMessage),
+        });
+      }
+
+      if (redirectToOffer) {
+        router.push(`/god-mode/service-offers/${result.offer.id}`);
+      }
+      router.refresh();
+      return result.offer;
     } catch (error) {
       setToast(mutationErrorToast(error, nextToastId(), t));
+      return null;
     }
+  }
+
+  async function saveCurrentOffer() {
+    const status = hasPersistedOffer ? form.status : "draft";
+    await persistOffer(status, {
+      successMessage: hasPersistedOffer
+        ? "Service offer saved."
+        : "Service offer draft saved.",
+    });
+  }
+
+  async function saveStatusDraft() {
+    if (statusDraft === form.status) {
+      setStatusDialogOpen(false);
+      return;
+    }
+
+    const saved = await persistOffer(statusDraft, {
+      redirectToOffer: false,
+      successMessage: "Service offer status updated.",
+    });
+    if (saved) {
+      setStatusDialogOpen(false);
+    }
+  }
+
+  async function publishOffer() {
+    setPublishDialog({ status: "publishing" });
+    const published = await persistOffer("active", {
+      redirectToOffer: false,
+      showToast: false,
+    });
+    if (!published) {
+      setPublishDialog({
+        status: "error",
+        message: t("Publishing stopped. Review the service offer requirements and try again."),
+      });
+      return;
+    }
+
+    setPublishDialog({
+      status: "success",
+      offerId: published.id,
+      message: t("This service offer is now published."),
+    });
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void saveCurrentOffer();
   }
 
   if (isEditing && offerQuery.isLoading) {
@@ -1537,13 +1703,14 @@ export function SupportServiceOfferWorkbench({
           title={isEditing ? "Editar service offer" : "Alta de service offer"}
           backHref="/god-mode/service-offers"
           backLabel="Back to Service Offers"
-          isSaving={saveMutation.isPending}
+          isSaving={isWorking}
           canDelete={isEditing}
           onDelete={() => {
             if (window.confirm(t("Delete this service offer?"))) {
               deleteMutation.mutate();
             }
           }}
+          saveLabel={hasPersistedOffer ? "Save changes" : "Save draft"}
         />
         <Section title="Offer identity">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1648,28 +1815,6 @@ export function SupportServiceOfferWorkbench({
                 })
               }
             />
-            <Field label="Status">
-              <Select
-                value={form.status}
-                onValueChange={(status) =>
-                  setForm((current) => ({
-                    ...current,
-                    status: status as OfferFormState["status"],
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUPPORT_SERVICE_OFFER_STATUSES.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(option.label)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
             <Field label="Availability">
               <Input
                 value={form.availability}
@@ -1687,6 +1832,22 @@ export function SupportServiceOfferWorkbench({
             onChange={(stages) => setForm((current) => ({ ...current, stages }))}
           />
         </Section>
+        <ServiceOfferStatusBlock
+          status={form.status}
+          statusDraft={statusDraft}
+          statusOptions={statusOptions.map((option) => option.value)}
+          canChangeStatus={hasPersistedOffer}
+          isWorking={isWorking}
+          dialogOpen={statusDialogOpen}
+          onDialogOpenChange={(open) => {
+            if (open) {
+              setStatusDraft(form.status);
+            }
+            setStatusDialogOpen(open);
+          }}
+          onStatusDraftChange={setStatusDraft}
+          onSaveStatusDraft={() => void saveStatusDraft()}
+        />
         <Section title="Contract">
           <div className="grid gap-4">
             <div className="grid gap-2 text-sm font-medium">
@@ -1767,8 +1928,369 @@ export function SupportServiceOfferWorkbench({
             </Field>
           </div>
         </Section>
+        <ServiceOfferPublishFooter
+          changed={changed}
+          mode={hasPersistedOffer ? "edit" : "create"}
+          isWorking={isWorking}
+          pending={saveMutation.isPending}
+          canPublishCurrentOffer={canPublishCurrentOffer}
+          onSaveChanges={() => void saveCurrentOffer()}
+          onPublish={() => void publishOffer()}
+        />
       </form>
+      <ServiceOfferPublishDialog
+        dialog={publishDialog}
+        offerName={form.name}
+        onOpenOffer={(id) => {
+          setPublishDialog(null);
+          router.push(`/god-mode/service-offers/${id}`);
+        }}
+        onBackToOffers={() => {
+          setPublishDialog(null);
+          router.push("/god-mode/service-offers");
+        }}
+        onClose={() => setPublishDialog(null)}
+      />
     </>
+  );
+}
+
+function ServiceOfferStatusBlock({
+  status,
+  statusDraft,
+  statusOptions,
+  canChangeStatus,
+  isWorking,
+  dialogOpen,
+  onDialogOpenChange,
+  onStatusDraftChange,
+  onSaveStatusDraft,
+}: {
+  status: SupportServiceOfferStatus;
+  statusDraft: SupportServiceOfferStatus;
+  statusOptions: SupportServiceOfferStatus[];
+  canChangeStatus: boolean;
+  isWorking: boolean;
+  dialogOpen: boolean;
+  onDialogOpenChange: (open: boolean) => void;
+  onStatusDraftChange: (status: SupportServiceOfferStatus) => void;
+  onSaveStatusDraft: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <Section title="Service offer state">
+      <div className="overflow-hidden rounded-2xl border border-violet-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(245,243,255,0.90)_58%,rgba(240,249,255,0.72))] p-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/18 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.82))]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                {t("Current status")}
+              </span>
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold",
+                  serviceOfferStatusBadgeClass(status),
+                )}
+              >
+                {t(offerStatusLabel(status))}
+              </span>
+              {status === "active" ? <PublishedIndicator t={t} /> : null}
+            </div>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+              {serviceOfferStatusDescription(status, t)}
+            </p>
+            {status !== "active" ? (
+              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-200">
+                {t("Active status is available only through Publish service offer.")}
+              </p>
+            ) : null}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onDialogOpenChange(true)}
+            disabled={!canChangeStatus || isWorking}
+            className="h-10 shrink-0 rounded-xl border-violet-200/80 bg-white/78 px-3 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+          >
+            <Settings2 className="h-4 w-4" />
+            {t("Change status")}
+          </Button>
+        </div>
+
+        <AlertDialog open={dialogOpen} onOpenChange={onDialogOpenChange}>
+          <AlertDialogContent className="max-w-xl overflow-hidden rounded-2xl border border-violet-100 bg-white p-0 shadow-[0_34px_120px_rgba(109,40,217,0.22)] dark:border-violet-300/22 dark:bg-slate-950">
+            <AlertDialogHeader className="border-b border-violet-100 px-6 py-5 text-left dark:border-violet-300/16">
+              <AlertDialogTitle className="font-heading text-xl font-semibold">
+                {t("Change service offer status")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("Pick the state that best matches what should happen next for this service offer.")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <div className="px-6 py-5">
+              <div
+                role="radiogroup"
+                aria-label={t("Service offer status options")}
+                className="grid gap-3"
+              >
+                {statusOptions.map((option) => {
+                  const selected = statusDraft === option;
+
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => onStatusDraftChange(option)}
+                      className={cn(
+                        "flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition",
+                        selected
+                          ? "border-violet-300 bg-violet-50 text-violet-950 shadow-[0_14px_36px_-28px_rgba(109,40,217,0.65)] dark:border-violet-300/36 dark:bg-violet-500/14 dark:text-violet-50"
+                          : "border-violet-100 bg-white/82 text-foreground hover:border-violet-200 hover:bg-violet-50/70 dark:border-violet-400/16 dark:bg-slate-950/42 dark:hover:bg-violet-500/10",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+                          selected
+                            ? "border-violet-500 bg-violet-600 text-white"
+                            : "border-violet-200 bg-white text-transparent dark:border-violet-400/24 dark:bg-slate-950",
+                        )}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold">
+                          {t(offerStatusLabel(option))}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                          {serviceOfferStatusDescription(option, t)}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {status !== "active" ? (
+                <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-200">
+                  {t("Active status is available only through Publish service offer.")}
+                </p>
+              ) : null}
+            </div>
+
+            <AlertDialogFooter className="mx-0 mb-0 gap-3 border-violet-100 bg-violet-50/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
+              <AlertDialogCancel disabled={isWorking}>
+                {t("Cancel")}
+              </AlertDialogCancel>
+              <Button
+                type="button"
+                onClick={onSaveStatusDraft}
+                disabled={isWorking || statusDraft === status}
+                className="h-10 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+              >
+                {isWorking ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                {t("Save")}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </Section>
+  );
+}
+
+function ServiceOfferPublishFooter({
+  changed,
+  mode,
+  isWorking,
+  pending,
+  canPublishCurrentOffer,
+  onSaveChanges,
+  onPublish,
+}: {
+  changed: boolean;
+  mode: "create" | "edit";
+  isWorking: boolean;
+  pending: boolean;
+  canPublishCurrentOffer: boolean;
+  onSaveChanges: () => void;
+  onPublish: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const primaryIsSave = mode === "edit";
+
+  return (
+    <div className="sticky bottom-0 z-20 border-t border-violet-100/80 bg-white/92 px-5 py-4 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur dark:border-violet-400/14 dark:bg-slate-950/88">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 text-sm text-muted-foreground">
+          {changed ? t("Unsaved changes") : t("No unsaved changes")}
+        </div>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            size="lg"
+            onClick={primaryIsSave ? onSaveChanges : onPublish}
+            disabled={isWorking}
+            variant={canPublishCurrentOffer ? "outline" : "default"}
+            className={cn(
+              "h-14 min-w-[min(100%,14rem)] justify-center rounded-xl text-base font-semibold",
+              canPublishCurrentOffer
+                ? "border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-950 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+                : "bg-violet-600 text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700",
+            )}
+          >
+            {pending ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : primaryIsSave ? (
+              <Save className="h-5 w-5" />
+            ) : (
+              <UploadCloud className="h-5 w-5" />
+            )}
+            {primaryIsSave
+              ? pending
+                ? t("Saving...")
+                : t("Save changes")
+              : pending
+                ? t("Publishing...")
+                : t("Publish service offer")}
+          </Button>
+          {canPublishCurrentOffer ? (
+            <Button
+              type="button"
+              size="lg"
+              onClick={onPublish}
+              disabled={isWorking}
+              className="h-14 min-w-[min(100%,18rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+            >
+              {pending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <UploadCloud className="h-5 w-5" />
+              )}
+              {pending ? t("Publishing...") : t("Publish service offer")}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ServiceOfferPublishDialog({
+  dialog,
+  offerName,
+  onOpenOffer,
+  onBackToOffers,
+  onClose,
+}: {
+  dialog: ServiceOfferPublishDialogState | null;
+  offerName: string;
+  onOpenOffer: (offerId: string) => void;
+  onBackToOffers: () => void;
+  onClose: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <Dialog
+      open={Boolean(dialog)}
+      onOpenChange={(open) => {
+        if (!open && dialog?.status !== "publishing") {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent
+        showCloseButton={dialog?.status !== "publishing"}
+        className="max-w-xl overflow-hidden rounded-[2rem] border border-violet-100 [background:linear-gradient(155deg,rgba(255,255,255,0.98),rgba(245,243,255,0.98)_54%,rgba(240,249,255,0.90))] p-0 text-violet-950 shadow-[0_34px_120px_rgba(109,40,217,0.22)] dark:border-violet-300/22 dark:[background:linear-gradient(150deg,rgba(30,24,57,0.98),rgba(18,23,40,0.96)_48%,rgba(76,29,149,0.20))] dark:text-violet-50"
+      >
+        <DialogHeader className="border-b border-violet-100 px-6 py-5 dark:border-violet-300/16">
+          <DialogTitle className="font-heading text-2xl font-semibold">
+            {dialog?.status === "success"
+              ? t("Published service offer")
+              : dialog?.status === "error"
+                ? t("Publish needs attention")
+                : t("Publishing service offer")}
+          </DialogTitle>
+          <DialogDescription className="text-violet-950/70 dark:text-violet-50/70">
+            {dialog?.message ??
+              t("Saving the service contract and making it available for transactions.")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="px-6 py-6">
+          <div className="flex items-start gap-4 rounded-[1.5rem] border border-violet-100 bg-white/75 px-5 py-5 shadow-sm dark:border-violet-300/16 dark:bg-violet-950/24">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-violet-700 shadow-sm dark:bg-violet-400/12 dark:text-violet-100">
+              {dialog?.status === "success" ? (
+                <CheckCircle2 className="h-5 w-5" />
+              ) : dialog?.status === "error" ? (
+                <CircleAlert className="h-5 w-5" />
+              ) : (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="font-heading text-lg font-semibold">
+                {dialog?.status === "success"
+                  ? offerName || t("Service offer")
+                  : dialog?.status === "error"
+                    ? t("Nothing was published")
+                    : t("Publishing in progress")}
+              </p>
+              <p className="mt-2 text-sm text-violet-950/70 dark:text-violet-50/70">
+                {dialog?.status === "success"
+                  ? t("The offer is saved with status active and can be selected by new service transactions.")
+                  : dialog?.status === "error"
+                    ? t("The offer stayed unchanged. Fix the form requirement and publish again.")
+                    : t("Validating provider, contract slots, form shape, and output requirements.")}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {dialog?.status === "error" ? (
+          <DialogFooter className="gap-3 border-violet-100/90 bg-white/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
+            <Button
+              type="button"
+              onClick={onClose}
+              className="h-10 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+            >
+              {t("OK")}
+            </Button>
+          </DialogFooter>
+        ) : dialog?.status === "success" ? (
+          <DialogFooter className="gap-3 border-violet-100/90 bg-white/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onBackToOffers}
+              className="h-9 rounded-xl border-violet-200/80 bg-white/78 px-3 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+            >
+              {t("Back to Service Offers")}
+            </Button>
+            {dialog.offerId ? (
+              <Button
+                type="button"
+                onClick={() => onOpenOffer(dialog.offerId!)}
+                className="h-10 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+              >
+                {t("Open offer")}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -3485,6 +4007,7 @@ function WorkbenchTopbar({
   isSaving,
   canDelete,
   onDelete,
+  saveLabel = "Save",
 }: {
   title: string;
   backHref: string;
@@ -3492,6 +4015,7 @@ function WorkbenchTopbar({
   isSaving: boolean;
   canDelete: boolean;
   onDelete: () => void;
+  saveLabel?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -3525,7 +4049,7 @@ function WorkbenchTopbar({
         ) : null}
         <Button type="submit" size="sm" disabled={isSaving}>
           <CheckCircle2 className="h-4 w-4" />
-          <span>{isSaving ? t("Saving...") : t("Save")}</span>
+          <span>{isSaving ? t("Saving...") : t(saveLabel)}</span>
         </Button>
       </div>
     </div>

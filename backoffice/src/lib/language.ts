@@ -4832,6 +4832,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service offer saved.": "Oferta de servicio guardada.",
   "Service transaction deleted.": "Transacción de servicio eliminada.",
   "Service transaction saved.": "Transacción de servicio guardada.",
+  "Service offer": "Oferta de servicio",
   "Service version": "Versión del servicio",
   Slots: "Slots",
   Stages: "Etapas",
@@ -4854,6 +4855,40 @@ const SPANISH_TEXT: Record<string, string> = {
   "At least one stage is required.": "Se requiere al menos una etapa.",
   "At least one output slot is required.":
     "Se requiere al menos un slot de salida.",
+  "Active service offers are published and can be selected by new service transactions.":
+    "Las ofertas de servicio activas están publicadas y se pueden seleccionar en nuevas transacciones de servicio.",
+  "Paused service offers stay saved, but should not receive new transaction requests until they are published again.":
+    "Las ofertas de servicio pausadas quedan guardadas, pero no deberían recibir nuevas solicitudes hasta que se publiquen otra vez.",
+  "Archived service offers stay available for audit and historical transactions, but are removed from normal operation.":
+    "Las ofertas de servicio archivadas quedan disponibles para auditoría y transacciones históricas, pero se retiran de la operación normal.",
+  "Draft service offers stay private while the contract is still being shaped. Publish when the service is ready to receive transactions.":
+    "Las ofertas de servicio en borrador quedan privadas mientras se termina de definir el contrato. Publicá cuando el servicio esté listo para recibir transacciones.",
+  "Service offer state": "Estado de la oferta de servicio",
+  "Active status is available only through Publish service offer.":
+    "El estado activo solo está disponible desde Publicar oferta de servicio.",
+  "Change service offer status": "Cambiar estado de la oferta de servicio",
+  "Pick the state that best matches what should happen next for this service offer.":
+    "Elegí el estado que mejor represente lo que debe pasar ahora con esta oferta de servicio.",
+  "Service offer status options": "Opciones de estado de la oferta de servicio",
+  "Publish service offer": "Publicar oferta de servicio",
+  "Published service offer": "Oferta de servicio publicada",
+  "Publishing service offer": "Publicando oferta de servicio",
+  "Saving the service contract and making it available for transactions.":
+    "Guardando el contrato del servicio y dejándolo disponible para transacciones.",
+  "The offer is saved with status active and can be selected by new service transactions.":
+    "La oferta quedó guardada con estado activo y se puede seleccionar en nuevas transacciones de servicio.",
+  "The offer stayed unchanged. Fix the form requirement and publish again.":
+    "La oferta quedó sin cambios. Corregí el requisito del formulario y publicá de nuevo.",
+  "Validating provider, contract slots, form shape, and output requirements.":
+    "Validando proveedor, slots del contrato, forma de formulario y requisitos de salida.",
+  "Open offer": "Abrir oferta",
+  "Service offer draft saved.": "Borrador de oferta de servicio guardado.",
+  "Service offer status updated.":
+    "Estado de la oferta de servicio actualizado.",
+  "Publishing stopped. Review the service offer requirements and try again.":
+    "La publicación se detuvo. Revisá los requisitos de la oferta de servicio e intentá de nuevo.",
+  "This service offer is now published.":
+    "Esta oferta de servicio ya está publicada.",
   "A form shape requires exactly one pgo_form input slot.":
     "Una forma de formulario requiere exactamente un slot de entrada pgo_form.",
   "A pgo_form input slot requires a form shape.":
