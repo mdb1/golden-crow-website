@@ -56,7 +56,6 @@ const validOfferPayload = {
   providerName: "Pocket Genes Report Studio",
   stages: ["bioinformatics"],
   status: "active",
-  availability: "backoffice",
   description:
     "Combine the complete test order with the interactive genomic result into a final PDF.",
   shortContract: "form + test_order + pgi1 -> final PDF",
@@ -264,6 +263,50 @@ describe("support service admin routes", () => {
 
     expect(response.statusCode).toBe(400);
     expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
+  });
+
+  it("accepts sourced same-identity revision outputs", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        serviceId: "pgs_sample_transport",
+        inputSlots: [
+          {
+            role: "blood_sample",
+            objectType: "pgo_blood_sample",
+            acceptedTypes: ["pgo_blood_sample"],
+            required: true,
+            cardinality: { min: 1, max: 1 },
+          },
+        ],
+        formShape: undefined,
+        outputSlots: [
+          {
+            role: "delivered_specimen",
+            objectType: "same_as:blood_sample",
+            mutationMode: "new_revision",
+            sameIdentityAsInput: "blood_sample",
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
+      bootstrapContext,
+      expect.objectContaining({
+        outputSlots: [
+          expect.objectContaining({
+            objectType: "same_as:blood_sample",
+            sameIdentityAsInput: "blood_sample",
+          }),
+        ],
+      }),
+    );
   });
 
   it("rejects support service form shapes that allow unknown fields", async () => {

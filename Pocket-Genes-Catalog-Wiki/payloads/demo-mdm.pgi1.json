@@ -1,0 +1,182 @@
+{
+  "panels": [
+    {
+      "id": 1,
+      "background_image": null,
+      "name": "Synthetic wellness panel",
+      "description": "Demo MyDNAMap panel encoded as a real MDMAPIModel payload.",
+      "categories": [
+        {
+          "name": "Example metabolism",
+          "description": null,
+          "category_icon": "bolt.fill",
+          "genome": [
+            {
+              "gen": "PGGENE_A",
+              "snp": "rsPG0001",
+              "ideal_gen": "AA",
+              "my_gen": "AG"
+            },
+            {
+              "gen": "PGGENE_B",
+              "snp": "rsPG0002",
+              "ideal_gen": null,
+              "my_gen": "TT"
+            }
+          ],
+          "ideal_gen_percentage": 50.0
+        }
+      ]
+    }
+  ],
+  "pharmacos": {
+    "name": "Synthetic pharmacogenetics",
+    "description": "Demo pharmacogenetic section.",
+    "categories": [
+      {
+        "name": "Demo medication group",
+        "sf_icon": null,
+        "types": [
+          {
+            "name": "Demo drug type",
+            "sf_icon": "pills.fill",
+            "drugs": [
+              {
+                "name": "Demo medication",
+                "risk": "low",
+                "description": "Synthetic example only.",
+                "analyzed_genes": [
+                  {
+                    "gen": "PGGENE_A",
+                    "genotype": "AG",
+                    "effect": "normal metabolism example",
+                    "conclusion": null
+                  }
+                ],
+                "result": "No clinical medication advice is asserted by this fixture."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "pathology": {
+    "name": "Synthetic pathology",
+    "description": "Demo pathology section.",
+    "categories": [
+      {
+        "category_icon": "cross.case.fill",
+        "name": "Example condition category",
+        "description": null,
+        "conditions": [
+          {
+            "condition": "Synthetic demonstration condition",
+            "is_genetic_variant": true,
+            "gen_variant": {
+              "title": "Demo PGGENE_A finding",
+              "icon": "dna",
+              "condition": "Synthetic demonstration condition",
+              "explanation": "Illustrative finding only; no real diagnosis is made.",
+              "gen_info": {
+                "gen": "PGGENE_A",
+                "nm": "NM_DEMO.1",
+                "c_dna": "c.101A>G",
+                "protein": "p.Demo34Gly",
+                "cigosity": "homozygous",
+                "depth": "42",
+                "snv": "SNV",
+                "classification": "demo",
+                "description": "Synthetic variant description.",
+                "variant_description": "Synthetic example derived from the demo annotated VCF."
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ancestry": {
+    "charts": [
+      {
+        "name": "Demo region",
+        "percentage": 100.0,
+        "color": "#5B8DEF",
+        "sub_sectors": null
+      }
+    ],
+    "lineage": {
+      "paternal_lineage": {
+        "haplogroup": {
+          "title": "Demo paternal haplogroup",
+          "desription": "Synthetic paternal haplogroup text."
+        },
+        "migration": {
+          "title": "Demo paternal migration",
+          "desription": "Synthetic paternal migration text."
+        },
+        "history": {
+          "title": "Demo paternal history",
+          "desription": "Synthetic paternal history text."
+        }
+      },
+      "maternal_lineage": {
+        "haplogroup": {
+          "title": "Demo maternal haplogroup",
+          "desription": "Synthetic maternal haplogroup text."
+        },
+        "migration": {
+          "title": "Demo maternal migration",
+          "desription": "Synthetic maternal migration text."
+        },
+        "history": {
+          "title": "Demo maternal history",
+          "desription": "Synthetic maternal history text."
+        }
+      }
+    },
+    "world_map": {
+      "image_url": "https://example.invalid/demo-map.png",
+      "genetic_distribution": "Synthetic distribution only.",
+      "lineage": "Synthetic lineage only.",
+      "halogroups": "Synthetic haplogroups only.",
+      "limitations": "Fixture only; not a real ancestry inference.",
+      "more_info": {
+        "explanation": "Demo explanation.",
+        "description": "Demo description."
+      }
+    }
+  },
+  "variants": [
+    {
+      "id": "var_demo_001",
+      "chrom": "PG_DEMO_1",
+      "position": 101,
+      "reference": "A",
+      "alternate": "G",
+      "quality": 99.0,
+      "info": "PGGENE=PGGENE_A",
+      "filter": "PASS"
+    },
+    {
+      "id": "var_demo_002",
+      "chrom": "PG_DEMO_1",
+      "position": 401,
+      "reference": "A",
+      "alternate": "T",
+      "quality": 98.0,
+      "info": "PGGENE=PGGENE_B",
+      "filter": "PASS"
+    },
+    {
+      "id": "var_demo_003",
+      "chrom": "PG_DEMO_1",
+      "position": 701,
+      "reference": "A",
+      "alternate": "C",
+      "quality": 97.0,
+      "info": "PGGENE=PGGENE_C",
+      "filter": "PASS"
+    }
+  ]
+}

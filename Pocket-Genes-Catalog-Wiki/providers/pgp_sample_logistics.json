@@ -1,0 +1,33 @@
+{
+  "provider_id": "pgp_sample_logistics",
+  "name": "Origin Sample Services",
+  "kind": "sample_collection_and_transport_provider",
+  "description": "Fictional provider coordinating real biological sample collection by qualified staff and, when a separate transport service is requested, transporting already collected specimens while preserving identity, custody and condition records.",
+  "supported_stages": [
+    "wet_lab"
+  ],
+  "country_codes": [
+    "AR"
+  ],
+  "service_ids": [
+    "pgs_collection_request",
+    "pgs_sample_transport"
+  ],
+  "contacts": {
+    "website": "https://originsamples.example",
+    "operations_email": "operations@originsamples.example",
+    "integration_email": "integrations@originsamples.example"
+  },
+  "api_capability_proposal": {
+    "status": "illustrative_not_live",
+    "contract_id": "pg_api_service_requests_v1",
+    "base_url": "https://originsamples.example/api/v1",
+    "execution_modes": [
+      "biological_sample_collection",
+      "physical_transport"
+    ],
+    "completion_model": "asynchronous",
+    "callbacks": "signed_callback_to_preregistered_pocket_genes_endpoint",
+    "state_semantics": "A collection request schedules or records the intended biological sample collection event. Transport is a separate service that moves an already collected specimen and returns the same specimen object_id at a later revision with destination and custody evidence."
+  }
+}

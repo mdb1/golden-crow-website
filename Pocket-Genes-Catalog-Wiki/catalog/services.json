@@ -1,0 +1,3469 @@
+{
+  "status": "mock_catalog",
+  "services": [
+    {
+      "name": "Structure submitted symptoms",
+      "stages": [
+        "test_planning"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Turn the submitted observations into a reusable symptom bundle. A professional or organization can supply this service.",
+      "serviceId": "pgs_symptom_intake",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_clinical_planning",
+      "shortContract": "form:form -> symptoms:bundle_of_symptoms",
+      "providerWork": "Review the form, clarify wording if needed, and return structured entries with provenance.",
+      "formShape": {
+        "id": "pgfs_symptom_intake",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "subject_id",
+            "label": "Subject identifier",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "observations",
+            "label": "Reported observations",
+            "type": "string_list",
+            "required": true
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-16T12:00:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "subject_id",
+            "value": "subject_demo_001"
+          },
+          {
+            "key": "observations",
+            "value": [
+              "Synthetic observation A",
+              "Synthetic observation B"
+            ]
+          }
+        ],
+        "formShapeId": "pgfs_symptom_intake",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_symptom_intake",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-16T12:00:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-16T12:00:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "subject_id",
+              "value": "subject_demo_001"
+            },
+            {
+              "key": "observations",
+              "value": [
+                "Synthetic observation A",
+                "Synthetic observation B"
+              ]
+            }
+          ],
+          "form_shape_id": "pgfs_symptom_intake",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "symptoms",
+          "objectType": "pgo_bundle_of_symptoms",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "The form identifies one subject and contains at least one observation.",
+        "Record whether each structured item is reported, observed or uncertain; do not silently replace a report with a confirmed finding."
+      ],
+      "scopeRules": [
+        "This service structures supplied information; it does not itself establish a diagnosis."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "1d",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_symptom_intake",
+        "service_id": "pgs_symptom_intake",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_symptom_intake",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_symptom_intake",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "symptoms",
+            "object_ref": {
+              "object_id": "obj_demo_symptoms",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Meridian Clinical Planning",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Prioritize candidate genes",
+      "stages": [
+        "test_planning"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Use a symptom bundle to return a ranked or selected bundle of candidate genes for subsequent test planning.",
+      "serviceId": "pgs_gene_prioritization",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_clinical_planning",
+      "shortContract": "form:form + bundle_of_symptoms:bundle_of_symptoms -> candidate_genes:bundle_of_candidate_genes",
+      "providerWork": "Apply the provider method and professional review where included; return genes, evidence and ranking rationale.",
+      "formShape": {
+        "id": "pgfs_gene_prioritization",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "ranking_mode",
+            "label": "Ranking mode",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "ranked",
+                "label": "Ranked list"
+              },
+              {
+                "value": "selected",
+                "label": "Selected set"
+              }
+            ]
+          },
+          {
+            "key": "maximum_genes",
+            "label": "Maximum genes",
+            "type": "integer",
+            "required": true
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-16T12:06:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "ranking_mode",
+            "value": "ranked"
+          },
+          {
+            "key": "maximum_genes",
+            "value": 3
+          }
+        ],
+        "formShapeId": "pgfs_gene_prioritization",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_gene_prioritization",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-16T12:06:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-16T12:06:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "ranking_mode",
+              "value": "ranked"
+            },
+            {
+              "key": "maximum_genes",
+              "value": 3
+            }
+          ],
+          "form_shape_id": "pgfs_gene_prioritization",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "bundle_of_symptoms",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_bundle_of_symptoms"
+          ],
+          "objectType": "pgo_bundle_of_symptoms"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "candidate_genes",
+          "objectType": "pgo_bundle_of_candidate_genes",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "The provider accepts the symptom bundle schema and any declared terminology profile.",
+        "The symptom bundle represents one identified subject."
+      ],
+      "scopeRules": [
+        "Candidate status and supporting reasons must be preserved. Ranking does not establish that these genes are affected."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "1d",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_gene_prioritization",
+        "service_id": "pgs_gene_prioritization",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_gene_prioritization",
+              "revision": 1
+            }
+          },
+          {
+            "role": "bundle_of_symptoms",
+            "object_ref": {
+              "object_id": "obj_demo_symptoms",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_gene_prioritization",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "candidate_genes",
+            "object_ref": {
+              "object_id": "obj_demo_genes",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Meridian Clinical Planning",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Record informed consent",
+      "stages": [
+        "test_planning"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Receive the completed consent-specific form and produce an informed-consent record for the stated scope.",
+      "serviceId": "pgs_informed_consent",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_clinical_planning",
+      "shortContract": "form:form -> consent:informed_consent",
+      "providerWork": "Present or verify the consent material and record the completed consent process as specified by the provider service.",
+      "formShape": {
+        "id": "pgfs_informed_consent",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "subject_id",
+            "label": "Subject identifier",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "signer_name",
+            "label": "Signer name",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "signer_capacity",
+            "label": "Signer capacity",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "self",
+                "label": "Self"
+              },
+              {
+                "value": "representative",
+                "label": "Representative"
+              }
+            ]
+          },
+          {
+            "key": "consent_text_id",
+            "label": "Consent text identifier",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "consent_text_version",
+            "label": "Consent text version",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "scope_description",
+            "label": "Scope being consented to",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "accepted",
+            "label": "Accepted",
+            "type": "boolean",
+            "required": true
+          },
+          {
+            "key": "signature_evidence_id",
+            "label": "Signature evidence identifier",
+            "type": "text",
+            "required": true
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-16T12:00:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "subject_id",
+            "value": "subject_demo_001"
+          },
+          {
+            "key": "signer_name",
+            "value": "Alex Example"
+          },
+          {
+            "key": "signer_capacity",
+            "value": "self"
+          },
+          {
+            "key": "consent_text_id",
+            "value": "consent_demo_testing"
+          },
+          {
+            "key": "consent_text_version",
+            "value": "1.0.0"
+          },
+          {
+            "key": "scope_description",
+            "value": "Demo testing and processing for PGGENE_A, PGGENE_B and PGGENE_C"
+          },
+          {
+            "key": "accepted",
+            "value": true
+          },
+          {
+            "key": "signature_evidence_id",
+            "value": "signature_demo_001"
+          }
+        ],
+        "formShapeId": "pgfs_informed_consent",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_informed_consent",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-16T12:00:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-16T12:00:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "subject_id",
+              "value": "subject_demo_001"
+            },
+            {
+              "key": "signer_name",
+              "value": "Alex Example"
+            },
+            {
+              "key": "signer_capacity",
+              "value": "self"
+            },
+            {
+              "key": "consent_text_id",
+              "value": "consent_demo_testing"
+            },
+            {
+              "key": "consent_text_version",
+              "value": "1.0.0"
+            },
+            {
+              "key": "scope_description",
+              "value": "Demo testing and processing for PGGENE_A, PGGENE_B and PGGENE_C"
+            },
+            {
+              "key": "accepted",
+              "value": true
+            },
+            {
+              "key": "signature_evidence_id",
+              "value": "signature_demo_001"
+            }
+          ],
+          "form_shape_id": "pgfs_informed_consent",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "consent",
+          "objectType": "pgo_informed_consent",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "The consent text, its version, signer identity and signature or acceptance evidence must be recoverable in the resulting object.",
+        "Only an accepted consent for the appropriate scope can satisfy the test-ordering contract. A submission alone is not proof of valid consent."
+      ],
+      "scopeRules": [
+        "The record retains what was consented to, when and by whom. Subsequent use must fit that scope."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "1d",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_informed_consent",
+        "service_id": "pgs_informed_consent",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_informed_consent",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_informed_consent",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "consent",
+            "object_ref": {
+              "object_id": "obj_demo_consent",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Meridian Clinical Planning",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Create the test order",
+      "stages": [
+        "test_planning"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Combine the consent record, candidate genes and patient/request context into the formal test order.",
+      "serviceId": "pgs_test_ordering",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_clinical_planning",
+      "shortContract": "form:form + informed_consent:informed_consent + bundle_of_candidate_genes:bundle_of_candidate_genes -> test_order:test_order",
+      "providerWork": "Review consent and test selection, consolidate the patient context, and issue the order with explicit fulfillment requirements.",
+      "formShape": {
+        "id": "pgfs_test_ordering",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "subject_id",
+            "label": "Subject identifier",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "patient_name",
+            "label": "Patient name",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "objective",
+            "label": "Intended objective",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "clinical_suspicion",
+            "label": "Clinical suspicion",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "reference_id",
+            "label": "Reference identifier",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "variant_classes",
+            "label": "Requested variant classes",
+            "type": "multi_enum",
+            "required": true,
+            "options": [
+              {
+                "value": "SNV",
+                "label": "Single-nucleotide variants"
+              },
+              {
+                "value": "small_indel",
+                "label": "Small insertions/deletions"
+              }
+            ]
+          },
+          {
+            "key": "required_output_types",
+            "label": "Required deliverables",
+            "type": "multi_enum",
+            "required": true,
+            "options": [
+              {
+                "value": "pgo_interactive_report",
+                "label": "Interactive report"
+              },
+              {
+                "value": "pgo_pdf_report",
+                "label": "PDF report"
+              }
+            ]
+          },
+          {
+            "key": "patient_date_of_birth",
+            "label": "Patient date of birth",
+            "type": "date",
+            "required": true
+          },
+          {
+            "key": "patient_identifier",
+            "label": "Patient identifier",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "wet_lab_output_type",
+            "label": "Laboratory handoff format",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "pgo_sequence_reads",
+                "label": "FASTQ reads"
+              },
+              {
+                "value": "pgo_aligned_reads",
+                "label": "Aligned reads (BAM)"
+              },
+              {
+                "value": "pgo_unannotated_vcf",
+                "label": "Unannotated variants (VCF)"
+              },
+              {
+                "value": "pgo_annotated_vcf",
+                "label": "Annotated variants (VCF)"
+              }
+            ]
+          },
+          {
+            "key": "required_profile",
+            "label": "Required analytical profile",
+            "type": "text",
+            "required": true
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-16T12:11:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "subject_id",
+            "value": "subject_demo_001"
+          },
+          {
+            "key": "patient_name",
+            "value": "Alex Example"
+          },
+          {
+            "key": "objective",
+            "value": "Evaluate the synthetic three-gene demonstration"
+          },
+          {
+            "key": "clinical_suspicion",
+            "value": "Demo clinical hypothesis only"
+          },
+          {
+            "key": "reference_id",
+            "value": "PG_DEMO_REF_1"
+          },
+          {
+            "key": "variant_classes",
+            "value": [
+              "SNV",
+              "small_indel"
+            ]
+          },
+          {
+            "key": "required_output_types",
+            "value": [
+              "pgo_interactive_report",
+              "pgo_pdf_report"
+            ]
+          },
+          {
+            "key": "patient_date_of_birth",
+            "value": "1990-01-01"
+          },
+          {
+            "key": "patient_identifier",
+            "value": "PATIENT-DEMO-001"
+          },
+          {
+            "key": "wet_lab_output_type",
+            "value": "pgo_sequence_reads"
+          },
+          {
+            "key": "required_profile",
+            "value": "pg_demo_small_variant_v1"
+          }
+        ],
+        "formShapeId": "pgfs_test_ordering",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_test_ordering",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-16T12:11:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-16T12:11:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "subject_id",
+              "value": "subject_demo_001"
+            },
+            {
+              "key": "patient_name",
+              "value": "Alex Example"
+            },
+            {
+              "key": "objective",
+              "value": "Evaluate the synthetic three-gene demonstration"
+            },
+            {
+              "key": "clinical_suspicion",
+              "value": "Demo clinical hypothesis only"
+            },
+            {
+              "key": "reference_id",
+              "value": "PG_DEMO_REF_1"
+            },
+            {
+              "key": "variant_classes",
+              "value": [
+                "SNV",
+                "small_indel"
+              ]
+            },
+            {
+              "key": "required_output_types",
+              "value": [
+                "pgo_interactive_report",
+                "pgo_pdf_report"
+              ]
+            },
+            {
+              "key": "patient_date_of_birth",
+              "value": "1990-01-01"
+            },
+            {
+              "key": "patient_identifier",
+              "value": "PATIENT-DEMO-001"
+            },
+            {
+              "key": "wet_lab_output_type",
+              "value": "pgo_sequence_reads"
+            },
+            {
+              "key": "required_profile",
+              "value": "pg_demo_small_variant_v1"
+            }
+          ],
+          "form_shape_id": "pgfs_test_ordering",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "informed_consent",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_informed_consent"
+          ],
+          "objectType": "pgo_informed_consent"
+        },
+        {
+          "role": "bundle_of_candidate_genes",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_bundle_of_candidate_genes"
+          ],
+          "objectType": "pgo_bundle_of_candidate_genes"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "test_order",
+          "objectType": "pgo_test_order",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "Patient and subject references agree across the form and input objects.",
+        "The consent is accepted and its scope covers the proposed order.",
+        "The provider confirms the selected tests and scope within its offered test-ordering process."
+      ],
+      "scopeRules": [
+        "Create data.scope and data.fulfillment explicitly; retain patient identity, objective, clinical suspicion and consent reference.",
+        "The final report must be generatable from this complete order plus the interactive result and the report service form.",
+        "The candidate-gene bundle feeds test ordering directly; no suggested-tests intermediate object is required.",
+        "The ordering form supplies patient_name, patient_date_of_birth and patient_identifier for the patient record. wet_lab_output_type selects the laboratory handoff; required_output_types maps to fulfillment.final_output_types; required_profile sets the analytical profile."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "1d",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_test_ordering",
+        "service_id": "pgs_test_ordering",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_test_ordering",
+              "revision": 1
+            }
+          },
+          {
+            "role": "informed_consent",
+            "object_ref": {
+              "object_id": "obj_demo_consent",
+              "revision": 1
+            }
+          },
+          {
+            "role": "bundle_of_candidate_genes",
+            "object_ref": {
+              "object_id": "obj_demo_genes",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_test_ordering",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "test_order",
+            "object_ref": {
+              "object_id": "obj_demo_order",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Meridian Clinical Planning",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Create an actual biological sample collection request",
+      "stages": [
+        "wet_lab"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Create a request for a qualified collector or laboratory to obtain a real biological sample from the subject. This means phlebotomy, swab, saliva, biopsy, or embryo-material collection; it is not courier pickup, package pickup, truck pickup, or sample transport.",
+      "serviceId": "pgs_collection_request",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_sample_logistics",
+      "shortContract": "form:form + test_order:test_order -> collection_request:collection_request",
+      "providerWork": "Verify the subject, consent, requested material, collection method, collection site, collection window, and preparation profile; schedule or perform the biological sample collection.",
+      "formShape": {
+        "id": "pgfs_collection_request",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "subject_id",
+            "label": "Subject identifier",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "collection_site",
+            "label": "Biological sample collection site",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "requested_sample_type",
+            "label": "Sample type to collect",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "blood",
+                "label": "Blood draw"
+              },
+              {
+                "value": "buccal_swab",
+                "label": "Buccal swab"
+              },
+              {
+                "value": "saliva",
+                "label": "Saliva sample"
+              },
+              {
+                "value": "tissue",
+                "label": "Tissue biopsy"
+              },
+              {
+                "value": "embryo_material",
+                "label": "Embryo material collection"
+              }
+            ]
+          },
+          {
+            "key": "collection_method",
+            "label": "Collection method",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "phlebotomy",
+                "label": "Phlebotomy / venous blood draw"
+              },
+              {
+                "value": "buccal_swab",
+                "label": "Buccal swab performed on the subject"
+              },
+              {
+                "value": "saliva_kit",
+                "label": "Saliva kit completed by the subject"
+              },
+              {
+                "value": "tissue_biopsy",
+                "label": "Tissue biopsy performed by a qualified provider"
+              },
+              {
+                "value": "embryo_biopsy",
+                "label": "Embryo biopsy material collection"
+              }
+            ]
+          },
+          {
+            "key": "collection_window_start",
+            "label": "Sample collection window start",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "collection_window_end",
+            "label": "Sample collection window end",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "preparation_profile",
+            "label": "Collection preparation profile",
+            "type": "text",
+            "required": true
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-16T12:25:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "subject_id",
+            "value": "subject_demo_001"
+          },
+          {
+            "key": "collection_site",
+            "value": "Demo clinical collection room, 100 Example Avenue, Demo City, AR"
+          },
+          {
+            "key": "requested_sample_type",
+            "value": "blood"
+          },
+          {
+            "key": "collection_method",
+            "value": "phlebotomy"
+          },
+          {
+            "key": "collection_window_start",
+            "value": "2026-09-16T13:00:00Z"
+          },
+          {
+            "key": "collection_window_end",
+            "value": "2026-09-16T15:00:00Z"
+          },
+          {
+            "key": "preparation_profile",
+            "value": "EDTA tube, subject identity check, consent confirmed before draw"
+          }
+        ],
+        "formShapeId": "pgfs_collection_request",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_collection_request",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-16T12:25:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-16T12:25:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "subject_id",
+              "value": "subject_demo_001"
+            },
+            {
+              "key": "collection_site",
+              "value": "Demo clinical collection room, 100 Example Avenue, Demo City, AR"
+            },
+            {
+              "key": "requested_sample_type",
+              "value": "blood"
+            },
+            {
+              "key": "collection_method",
+              "value": "phlebotomy"
+            },
+            {
+              "key": "collection_window_start",
+              "value": "2026-09-16T13:00:00Z"
+            },
+            {
+              "key": "collection_window_end",
+              "value": "2026-09-16T15:00:00Z"
+            },
+            {
+              "key": "preparation_profile",
+              "value": "EDTA tube, subject identity check, consent confirmed before draw"
+            }
+          ],
+          "form_shape_id": "pgfs_collection_request",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "test_order",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_test_order"
+          ],
+          "objectType": "pgo_test_order"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "collection_request",
+          "objectType": "pgo_collection_request",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "The request identifies the subject or source, the linked test order, the biological material to obtain, and the qualified collection method.",
+        "The assigned provider accepts the sample collection site, time window, consent state, and preparation profile before the collection is scheduled or performed.",
+        "This is an actual biological sample collection request. It is explicitly not a courier pickup, package pickup, truck pickup, or transport order."
+      ],
+      "scopeRules": [
+        "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
+        "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
+        "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
+        "The collection_request describes the intended biological collection event. A physical sample object is created or linked only when the sample is actually obtained.",
+        "Transportation after collection belongs to pgs_sample_transport or another explicit transport service, never to pgs_collection_request."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "2h",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_collection_request",
+        "service_id": "pgs_collection_request",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_collection_request",
+              "revision": 1
+            }
+          },
+          {
+            "role": "test_order",
+            "object_ref": {
+              "object_id": "obj_demo_order",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_collection_request",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "collection_request",
+            "object_ref": {
+              "object_id": "obj_demo_collection",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Origin Sample Services",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Transport an already collected specimen",
+      "stages": [
+        "wet_lab"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Move an already biologically collected physical specimen from origin to destination and record custody and receipt. This is the transport service; it does not create or replace the biological sample collection request.",
+      "serviceId": "pgs_sample_transport",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_sample_logistics",
+      "shortContract": "form:form + collection_request:collection_request + blood_sample:blood_sample -> delivered_specimen:same_as:blood_sample",
+      "providerWork": "Perform the physical handoff and transport of the existing specimen, record custody, and obtain destination receipt.",
+      "formShape": {
+        "id": "pgfs_sample_transport",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "contact_name",
+            "label": "Origin contact name",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "contact_phone",
+            "label": "Origin contact phone",
+            "type": "text",
+            "required": true
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-16T12:35:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "contact_name",
+            "value": "Example Contact"
+          },
+          {
+            "key": "contact_phone",
+            "value": "+54-DEMO-ONLY"
+          }
+        ],
+        "formShapeId": "pgfs_sample_transport",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_sample_transport",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-16T12:35:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-16T12:35:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "contact_name",
+              "value": "Example Contact"
+            },
+            {
+              "key": "contact_phone",
+              "value": "+54-DEMO-ONLY"
+            }
+          ],
+          "form_shape_id": "pgfs_sample_transport",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "collection_request",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_collection_request"
+          ],
+          "objectType": "pgo_collection_request"
+        },
+        {
+          "role": "blood_sample",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_blood_sample"
+          ],
+          "objectType": "pgo_blood_sample"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "delivered_specimen",
+          "objectType": "same_as:blood_sample",
+          "mutationMode": "new_revision",
+          "sameIdentityAsInput": "blood_sample"
+        }
+      ],
+      "acceptedConditions": [
+        "The specimen reference identifies a real sample that has already been biologically collected.",
+        "The transport provider accepts pickup and delivery locations, availability and handling requirements before dispatch.",
+        "The collection_request input documents the prior or intended biological sample collection; it is not the transport order itself."
+      ],
+      "scopeRules": [
+        "Reject references where object_type or revision differ from the submitted collection_request and physical specimen.",
+        "Preserve object_id; return a new revision with destination, custody events and receipt status.",
+        "If transport or receipt fails, record the real state. Do not fabricate a delivered specimen or create another pickup automatically."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "1d",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_sample_transport",
+        "service_id": "pgs_sample_transport",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_sample_transport",
+              "revision": 1
+            }
+          },
+          {
+            "role": "collection_request",
+            "object_ref": {
+              "object_id": "obj_demo_collection",
+              "revision": 1
+            }
+          },
+          {
+            "role": "blood_sample",
+            "object_ref": {
+              "object_id": "obj_demo_blood",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_sample_transport",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "delivered_specimen",
+            "object_ref": {
+              "object_id": "obj_demo_blood",
+              "revision": 2
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Origin Sample Services",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Extract DNA from an accepted specimen",
+      "stages": [
+        "wet_lab"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Produce an identified DNA sample from one compatible blood, tissue or embryo-biopsy specimen.",
+      "serviceId": "pgs_dna_extraction",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_precision_lab",
+      "shortContract": "form:form + blood_sample:blood_sample + test_order:test_order -> dna_sample:dna_sample + source_specimen:same_as:blood_sample",
+      "providerWork": "Perform the accepted extraction method and return the DNA identity, measured properties and source lineage.",
+      "formShape": {
+        "id": "pgfs_dna_extraction",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "extraction_profile",
+            "label": "Extraction profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "demo_blood_dna_v1",
+                "label": "Demo blood DNA extraction"
+              },
+              {
+                "value": "demo_tissue_dna_v1",
+                "label": "Demo tissue DNA extraction"
+              },
+              {
+                "value": "demo_embryo_biopsy_dna_v1",
+                "label": "Demo embryo-biopsy DNA extraction"
+              }
+            ]
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-16T15:05:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "extraction_profile",
+            "value": "demo_blood_dna_v1"
+          }
+        ],
+        "formShapeId": "pgfs_dna_extraction",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_dna_extraction",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-16T15:05:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-16T15:05:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "extraction_profile",
+              "value": "demo_blood_dna_v1"
+            }
+          ],
+          "form_shape_id": "pgfs_dna_extraction",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "blood_sample",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_blood_sample"
+          ],
+          "objectType": "pgo_blood_sample"
+        },
+        {
+          "role": "test_order",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_test_order"
+          ],
+          "objectType": "pgo_test_order"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "dna_sample",
+          "objectType": "pgo_dna_sample",
+          "mutationMode": "new_object"
+        },
+        {
+          "role": "source_specimen",
+          "objectType": "same_as:blood_sample",
+          "mutationMode": "new_revision",
+          "sameIdentityAsInput": "blood_sample"
+        }
+      ],
+      "acceptedConditions": [
+        "Exactly one specimen occupies the specimen slot; accepted_types are alternatives, not three required inputs.",
+        "The specimen is received at this provider, available for the planned procedure and accepted under the selected extraction profile.",
+        "For pgo_embryo_sample, data.material_kind must equal embryo_biopsy. A whole_embryo is rejected by this service.",
+        "The blood, tissue or embryo-biopsy material must match the selected extraction profile."
+      ],
+      "scopeRules": [
+        "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
+        "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
+        "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
+        "The extracted DNA has its own object_id and a lineage reference to the source specimen. Record source consumption or remaining quantity in specimen tracking.",
+        "Return a new revision of the source physical object recording consumed material and remaining quantity. This fixture consumes the entire provided aliquot. Physical execution must lock the current revision to prevent concurrent reuse."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "1d",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_dna_extraction",
+        "service_id": "pgs_dna_extraction",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_dna_extraction",
+              "revision": 1
+            }
+          },
+          {
+            "role": "blood_sample",
+            "object_ref": {
+              "object_id": "obj_demo_blood",
+              "revision": 2
+            }
+          },
+          {
+            "role": "test_order",
+            "object_ref": {
+              "object_id": "obj_demo_order",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_dna_extraction",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "dna_sample",
+            "object_ref": {
+              "object_id": "obj_demo_dna",
+              "revision": 1
+            }
+          },
+          {
+            "role": "source_specimen",
+            "object_ref": {
+              "object_id": "obj_demo_blood",
+              "revision": 3
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Atlas Precision Laboratory",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Sequence the requested scope",
+      "stages": [
+        "wet_lab"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Process an accepted DNA sample and deliver FASTQ reads supporting the contracted order scope.",
+      "serviceId": "pgs_sequencing",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_precision_lab",
+      "shortContract": "form:form + dna_sample:dna_sample + test_order:test_order -> reads:sequence_reads + source_dna:same_as:dna_sample",
+      "providerWork": "Prepare and run the laboratory work, assess the requested scope, and deliver the contracted read files and support evidence.",
+      "formShape": {
+        "id": "pgfs_sequencing",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "sequencing_profile",
+            "label": "Sequencing profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "pg_demo_targeted_reads_v1",
+                "label": "Demo targeted read profile"
+              }
+            ]
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-16T16:05:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "sequencing_profile",
+            "value": "pg_demo_targeted_reads_v1"
+          }
+        ],
+        "formShapeId": "pgfs_sequencing",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_sequencing",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-16T16:05:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-16T16:05:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "sequencing_profile",
+              "value": "pg_demo_targeted_reads_v1"
+            }
+          ],
+          "form_shape_id": "pgfs_sequencing",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "dna_sample",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_dna_sample"
+          ],
+          "objectType": "pgo_dna_sample"
+        },
+        {
+          "role": "test_order",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_test_order"
+          ],
+          "objectType": "pgo_test_order"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "reads",
+          "objectType": "pgo_sequence_reads",
+          "mutationMode": "new_object"
+        },
+        {
+          "role": "source_dna",
+          "objectType": "same_as:dna_sample",
+          "mutationMode": "new_revision",
+          "sameIdentityAsInput": "dna_sample"
+        }
+      ],
+      "acceptedConditions": [
+        "The provider has accepted the DNA identity, quantity, quality and physical availability.",
+        "The sequencing profile supports the order scope and requested variant classes."
+      ],
+      "scopeRules": [
+        "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
+        "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
+        "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
+        "Carry forward data.analysis_support with status, evaluated_genes, supported_variant_classes, evidence and limitations. Do not infer an adequately assessed gene from absence of VCF rows.",
+        "If the input cannot support the requested scope, return awaiting_input or failed with the affected scope; do not report a complete negative result.",
+        "FASTQ is the output of this particular contract. A different laboratory contract may deliver BAM or VCF and combine later transformations internally.",
+        "The digital deliverable carries the run/profile, reference and assessment evidence needed to evaluate its suitability for the order.",
+        "Return a new revision of the source physical object recording consumed material and remaining quantity. This fixture consumes the entire provided aliquot. Physical execution must lock the current revision to prevent concurrent reuse."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "3d",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_sequencing",
+        "service_id": "pgs_sequencing",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_sequencing",
+              "revision": 1
+            }
+          },
+          {
+            "role": "dna_sample",
+            "object_ref": {
+              "object_id": "obj_demo_dna",
+              "revision": 1
+            }
+          },
+          {
+            "role": "test_order",
+            "object_ref": {
+              "object_id": "obj_demo_order",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_sequencing",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "reads",
+            "object_ref": {
+              "object_id": "obj_demo_fastq",
+              "revision": 1
+            }
+          },
+          {
+            "role": "source_dna",
+            "object_ref": {
+              "object_id": "obj_demo_dna",
+              "revision": 2
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Atlas Precision Laboratory",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Align sequence reads",
+      "stages": [
+        "bioinformatics"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Align accepted FASTQ reads to the order reference and return an aligned-read object.",
+      "serviceId": "pgs_read_alignment",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_variant_analysis",
+      "shortContract": "form:form + sequence_reads:sequence_reads + test_order:test_order -> aligned_reads:aligned_reads",
+      "providerWork": "Run the alignment and quality assessment under the declared profile; retain input and reference provenance.",
+      "formShape": {
+        "id": "pgfs_read_alignment",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "alignment_profile",
+            "label": "Alignment profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "pg_demo_alignment_v1",
+                "label": "Demo alignment profile"
+              }
+            ]
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-17T12:05:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "alignment_profile",
+            "value": "pg_demo_alignment_v1"
+          }
+        ],
+        "formShapeId": "pgfs_read_alignment",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_read_alignment",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-17T12:05:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-17T12:05:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "alignment_profile",
+              "value": "pg_demo_alignment_v1"
+            }
+          ],
+          "form_shape_id": "pgfs_read_alignment",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "sequence_reads",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_sequence_reads"
+          ],
+          "objectType": "pgo_sequence_reads"
+        },
+        {
+          "role": "test_order",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_test_order"
+          ],
+          "objectType": "pgo_test_order"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "aligned_reads",
+          "objectType": "pgo_aligned_reads",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "Read layout, encoding and sequencing profile are supported.",
+        "The specified reference is available to the provider and agrees with the order."
+      ],
+      "scopeRules": [
+        "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
+        "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
+        "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
+        "Carry forward data.analysis_support with status, evaluated_genes, supported_variant_classes, evidence and limitations. Do not infer an adequately assessed gene from absence of VCF rows.",
+        "If the input cannot support the requested scope, return awaiting_input or failed with the affected scope; do not report a complete negative result."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "6h",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_read_alignment",
+        "service_id": "pgs_read_alignment",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_read_alignment",
+              "revision": 1
+            }
+          },
+          {
+            "role": "sequence_reads",
+            "object_ref": {
+              "object_id": "obj_demo_fastq",
+              "revision": 1
+            }
+          },
+          {
+            "role": "test_order",
+            "object_ref": {
+              "object_id": "obj_demo_order",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_read_alignment",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "aligned_reads",
+            "object_ref": {
+              "object_id": "obj_demo_bam",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Variant Analysis Cooperative",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Call variants in the requested scope",
+      "stages": [
+        "bioinformatics"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Derive an unannotated VCF from aligned reads for the contracted genes, regions and variant classes.",
+      "serviceId": "pgs_variant_calling",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_variant_analysis",
+      "shortContract": "form:form + aligned_reads:aligned_reads + test_order:test_order -> variants:unannotated_vcf",
+      "providerWork": "Call the agreed classes, assess support across the requested scope and produce a native VCF with registered provenance.",
+      "formShape": {
+        "id": "pgfs_variant_calling",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "calling_profile",
+            "label": "Calling profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "pg_demo_calling_v1",
+                "label": "Demo variant-calling profile"
+              }
+            ]
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-17T13:05:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "calling_profile",
+            "value": "pg_demo_calling_v1"
+          }
+        ],
+        "formShapeId": "pgfs_variant_calling",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_variant_calling",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-17T13:05:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-17T13:05:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "calling_profile",
+              "value": "pg_demo_calling_v1"
+            }
+          ],
+          "form_shape_id": "pgfs_variant_calling",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "aligned_reads",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_aligned_reads"
+          ],
+          "objectType": "pgo_aligned_reads"
+        },
+        {
+          "role": "test_order",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_test_order"
+          ],
+          "objectType": "pgo_test_order"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "variants",
+          "objectType": "pgo_unannotated_vcf",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "The alignment reference matches the order and the calling profile.",
+        "Input data and support evidence meet the accepted calling requirements."
+      ],
+      "scopeRules": [
+        "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
+        "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
+        "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
+        "Carry forward data.analysis_support with status, evaluated_genes, supported_variant_classes, evidence and limitations. Do not infer an adequately assessed gene from absence of VCF rows.",
+        "If the input cannot support the requested scope, return awaiting_input or failed with the affected scope; do not report a complete negative result.",
+        "Retain analytical-support evidence separately from the variant list inside the registered object; an empty variant list does not establish a complete negative result."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "6h",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_variant_calling",
+        "service_id": "pgs_variant_calling",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_variant_calling",
+              "revision": 1
+            }
+          },
+          {
+            "role": "aligned_reads",
+            "object_ref": {
+              "object_id": "obj_demo_bam",
+              "revision": 1
+            }
+          },
+          {
+            "role": "test_order",
+            "object_ref": {
+              "object_id": "obj_demo_order",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_variant_calling",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "variants",
+            "object_ref": {
+              "object_id": "obj_demo_unannotated_vcf",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Variant Analysis Cooperative",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Annotate a VCF",
+      "stages": [
+        "bioinformatics"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Add the agreed variant annotations while preserving source identity, variant provenance and analytical limitations.",
+      "serviceId": "pgs_variant_annotation",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_variant_analysis",
+      "shortContract": "form:form + unannotated_vcf:unannotated_vcf + test_order:test_order -> annotated_variants:annotated_vcf",
+      "providerWork": "Enrich variants using the provider annotation profile and record the knowledge-source versions and limitations.",
+      "formShape": {
+        "id": "pgfs_variant_annotation",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "annotation_profile",
+            "label": "Annotation profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "PG_DEMO_ANN_V1",
+                "label": "Demo annotation profile"
+              }
+            ]
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-17T14:05:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "annotation_profile",
+            "value": "PG_DEMO_ANN_V1"
+          }
+        ],
+        "formShapeId": "pgfs_variant_annotation",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_variant_annotation",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-17T14:05:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-17T14:05:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "annotation_profile",
+              "value": "PG_DEMO_ANN_V1"
+            }
+          ],
+          "form_shape_id": "pgfs_variant_annotation",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "unannotated_vcf",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_unannotated_vcf"
+          ],
+          "objectType": "pgo_unannotated_vcf"
+        },
+        {
+          "role": "test_order",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_test_order"
+          ],
+          "objectType": "pgo_test_order"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "annotated_variants",
+          "objectType": "pgo_annotated_vcf",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "The VCF encoding, reference and variant representation are accepted.",
+        "Required analytical-support information is available in the registered object."
+      ],
+      "scopeRules": [
+        "When a test_order is supplied, resolve its pinned revision and enforce data.scope.genes, reference_id and variant_classes plus data.fulfillment requirements.",
+        "When an order is supplied, respect data.fulfillment.scope_policy=requested_only. Additional capability does not expand that order.",
+        "Without a test_order, annotate within the input object's declared source scope and available analytical-support evidence. An existing compatible unannotated VCF can use this service independently.",
+        "Carry forward data.analysis_support with status, evaluated_genes, supported_variant_classes, evidence and limitations. Do not infer an adequately assessed gene from absence of VCF rows.",
+        "When a supplied order cannot be supported by the input, return awaiting_input or failed with the affected scope. Without an order, preserve the input limitations and never claim a broader assessment.",
+        "Annotation adds information about supplied variants; it cannot recover data missing from the input analysis.",
+        "The annotated and unannotated types share .vcf but have different accepted semantic profiles."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "4h",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_variant_annotation",
+        "service_id": "pgs_variant_annotation",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_variant_annotation",
+              "revision": 1
+            }
+          },
+          {
+            "role": "unannotated_vcf",
+            "object_ref": {
+              "object_id": "obj_demo_unannotated_vcf",
+              "revision": 1
+            }
+          },
+          {
+            "role": "test_order",
+            "object_ref": {
+              "object_id": "obj_demo_order",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_variant_annotation",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "annotated_variants",
+            "object_ref": {
+              "object_id": "obj_demo_annotated_vcf",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Variant Analysis Cooperative",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Produce an interactive genomic result",
+      "stages": [
+        "bioinformatics"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Convert an annotated VCF into a registered Pocket Genes interactive report backed by a native MyDNAMap .pgi1.json payload that matches MDMAPIModel.",
+      "serviceId": "pgs_interactive_interpretation",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_variant_analysis",
+      "shortContract": "form:form + annotated_vcf:annotated_vcf -> interactive_report:interactive_report",
+      "providerWork": "Produce or register a native PGI payload, validate it against the matching provider schema, attach support evidence and limitations, and return the Pocket Genes registration object.",
+      "formShape": {
+        "id": "pgfs_interactive_interpretation",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "interpretation_profile",
+            "label": "Interpretation profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "pg_demo_mdm_pgi1_v1",
+                "label": "Demo PGI1 MDMAPIModel profile"
+              }
+            ]
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-17T15:05:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "interpretation_profile",
+            "value": "pg_demo_mdm_pgi1_v1"
+          }
+        ],
+        "formShapeId": "pgfs_interactive_interpretation",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_interactive_interpretation",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-17T15:05:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-17T15:05:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "interpretation_profile",
+              "value": "pg_demo_mdm_pgi1_v1"
+            }
+          ],
+          "form_shape_id": "pgfs_interactive_interpretation",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "annotated_vcf",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_annotated_vcf"
+          ],
+          "objectType": "pgo_annotated_vcf"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "interactive_report",
+          "objectType": "pgo_interactive_report",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "The annotated VCF object declares an accepted annotation profile, source scope and analytical-support evidence.",
+        "The requested demo result is .pgi1.json version 1.0.0 and must validate against schemas/protocol/pgi1-mdm.schema.json.",
+        "The returned pgo_interactive_report stores native_format and payload_ref metadata that match the raw PGI file."
+      ],
+      "scopeRules": [
+        "The demo genomic content is derived from the VCF and registered as a native MDMAPIModel payload; a symptom bundle is not an input.",
+        "Carry source scope and limitations into the Pocket Genes registration object. A pipeline compares that declared support with its linked order.",
+        "No test_order is a required input to this specific conversion. It can be purchased for an existing compatible annotated VCF.",
+        "PGI2/AGAPIModel and PGI3/TwoPQAPIModel use the same pgo_interactive_report registration concept, but require their own native payload sources and schemas.",
+        "Clinical relevance or report sections live in the native PGI payload and provider profile; patient-specific conclusions belong to the appropriately scoped reporting service."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "1d",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_interactive_interpretation",
+        "service_id": "pgs_interactive_interpretation",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_interactive_interpretation",
+              "revision": 1
+            }
+          },
+          {
+            "role": "annotated_vcf",
+            "object_ref": {
+              "object_id": "obj_demo_annotated_vcf",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_interactive_interpretation",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "interactive_report",
+            "object_ref": {
+              "object_id": "obj_demo_interactive",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Variant Analysis Cooperative",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Create the final self-contained report",
+      "stages": [
+        "bioinformatics"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Combine the complete test order with a registered PGI payload into a final PDF for the requested objective.",
+      "serviceId": "pgs_final_report",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_report_studio",
+      "shortContract": "form:form + test_order:test_order + interactive_report:interactive_report -> report:pdf_report",
+      "providerWork": "Verify the order match, native PGI schema, support evidence and scope, perform included report review, and issue a complete PDF using the selected presentation.",
+      "formShape": {
+        "id": "pgfs_final_report",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "language",
+            "label": "Report language",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "en",
+                "label": "English"
+              },
+              {
+                "value": "es-AR",
+                "label": "Spanish, Argentina"
+              }
+            ]
+          },
+          {
+            "key": "presentation",
+            "label": "Presentation",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "clinical",
+                "label": "Clinical report"
+              },
+              {
+                "value": "patient",
+                "label": "Patient-facing report"
+              }
+            ]
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-17T16:05:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "language",
+            "value": "en"
+          },
+          {
+            "key": "presentation",
+            "value": "clinical"
+          }
+        ],
+        "formShapeId": "pgfs_final_report",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_final_report",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-17T16:05:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-17T16:05:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "language",
+              "value": "en"
+            },
+            {
+              "key": "presentation",
+              "value": "clinical"
+            }
+          ],
+          "form_shape_id": "pgfs_final_report",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "test_order",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_test_order"
+          ],
+          "objectType": "pgo_test_order"
+        },
+        {
+          "role": "interactive_report",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_interactive_report"
+          ],
+          "objectType": "pgo_interactive_report"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "report",
+          "objectType": "pgo_pdf_report",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "The order and registered PGI object identify the same subject and compatible specimen/source lineage.",
+        "The order contains patient identity, clinical objective, suspicion and required reporting context.",
+        "The PGI object contains native_format, payload_ref, support evidence, limitations and producer information required by the reporting profile.",
+        "The raw payload validates against the matching PGI schema: pgi1-mdm, pgi2-ag or pgi3-2pq.",
+        "The selected provider service includes the review/issuance responsibilities required by its report profile. Rendering alone does not supply missing professional conclusions or authorizations."
+      ],
+      "scopeRules": [
+        "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
+        "Resolve the pgo_interactive_report object, then validate its raw payload using native_format.schema_path before rendering.",
+        "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
+        "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
+        "Carry forward data.analysis_support with status, evaluated_genes, supported_variant_classes, evidence and limitations. Do not infer an adequately assessed gene from absence of provider payload rows.",
+        "If the input cannot support the requested scope, return awaiting_input or failed with the affected scope; do not report a complete negative result.",
+        "The order, registered PGI object and this service form are sufficient under this contract; do not require the original intake form or symptom bundle.",
+        "Both successful requested-scope assessment and explicit limitations must appear in the final self-contained report as appropriate."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "1d",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_final_report",
+        "service_id": "pgs_final_report",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_final_report",
+              "revision": 1
+            }
+          },
+          {
+            "role": "test_order",
+            "object_ref": {
+              "object_id": "obj_demo_order",
+              "revision": 1
+            }
+          },
+          {
+            "role": "interactive_report",
+            "object_ref": {
+              "object_id": "obj_demo_interactive",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_final_report",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "report",
+            "object_ref": {
+              "object_id": "obj_demo_pdf",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Clarity Report Studio",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Analyze a metaphase image bundle",
+      "stages": [
+        "bioinformatics"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Review a compatible bundle of metaphase images and return a structured karyotype result without a sequencing step.",
+      "serviceId": "pgs_karyotype_analysis",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_cytogenetics",
+      "shortContract": "form:form + image_bundle:image_bundle -> karyotype_result:karyotype_result",
+      "providerWork": "Perform digital image analysis and the professional review included in the offered cytogenetics service.",
+      "formShape": {
+        "id": "pgfs_karyotype_analysis",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "subject_id",
+            "label": "Subject identifier",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "objective",
+            "label": "Analysis objective",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "analysis_profile",
+            "label": "Analysis profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "pg_demo_metaphase_review_v1",
+                "label": "Demo metaphase image review"
+              }
+            ]
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-16T12:35:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "subject_id",
+            "value": "subject_demo_001"
+          },
+          {
+            "key": "objective",
+            "value": "Demonstrate image-based cytogenetic review"
+          },
+          {
+            "key": "analysis_profile",
+            "value": "pg_demo_metaphase_review_v1"
+          }
+        ],
+        "formShapeId": "pgfs_karyotype_analysis",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_karyotype_analysis",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-16T12:35:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-16T12:35:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "subject_id",
+              "value": "subject_demo_001"
+            },
+            {
+              "key": "objective",
+              "value": "Demonstrate image-based cytogenetic review"
+            },
+            {
+              "key": "analysis_profile",
+              "value": "pg_demo_metaphase_review_v1"
+            }
+          ],
+          "form_shape_id": "pgfs_karyotype_analysis",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        },
+        {
+          "role": "image_bundle",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_image_bundle"
+          ],
+          "objectType": "pgo_image_bundle"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "karyotype_result",
+          "objectType": "pgo_karyotype_result",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "The image bundle declares a metaphase-imaging profile accepted by the provider.",
+        "Subject identity, acquisition context, image count and image quality satisfy the selected review profile."
+      ],
+      "scopeRules": [
+        "A generic image MIME type is insufficient; the acquisition profile and content must match the analysis.",
+        "This three-stage catalog places digital image analysis in bioinformatics, used here as the broader digital-analysis stage.",
+        "Report the examined material, findings, support and limitations for the selected scope."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "1d",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_karyotype_analysis",
+        "service_id": "pgs_karyotype_analysis",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_karyotype_analysis",
+              "revision": 1
+            }
+          },
+          {
+            "role": "image_bundle",
+            "object_ref": {
+              "object_id": "obj_demo_images",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_karyotype_analysis",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "karyotype_result",
+            "object_ref": {
+              "object_id": "obj_demo_karyotype",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Chromosome Image Services",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    },
+    {
+      "name": "Prepare a consultation summary PDF",
+      "stages": [
+        "test_planning"
+      ],
+      "availability": "mock_catalog_only",
+      "description": "Create a standalone professional summary from the submitted form, demonstrating a service with no additional input objects.",
+      "serviceId": "pgs_form_to_pdf",
+      "schemaVersion": 1,
+      "serviceVersion": 1,
+      "providerId": "pgp_clinical_planning",
+      "shortContract": "form:form -> summary:pdf_report",
+      "providerWork": "Review the submitted information within the service scope and issue a clearly labeled consultation summary.",
+      "formShape": {
+        "id": "pgfs_form_to_pdf",
+        "version": 1,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "subject_id",
+            "label": "Subject identifier",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "patient_name",
+            "label": "Patient name",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "objective",
+            "label": "Consultation objective",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "submitted_information",
+            "label": "Information to review",
+            "type": "string_list",
+            "required": true
+          },
+          {
+            "key": "language",
+            "label": "Report language",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "en",
+                "label": "English"
+              },
+              {
+                "value": "es-AR",
+                "label": "Spanish, Argentina"
+              }
+            ]
+          }
+        ],
+        "allowUnknownFields": false
+      },
+      "sampleFormData": {
+        "fields": [
+          {
+            "key": "requested_at",
+            "value": "2026-09-16T12:00:00Z"
+          },
+          {
+            "key": "requested_by",
+            "value": "user_demo_001"
+          },
+          {
+            "key": "subject_id",
+            "value": "subject_demo_001"
+          },
+          {
+            "key": "patient_name",
+            "value": "Alex Example"
+          },
+          {
+            "key": "objective",
+            "value": "Summarize the demonstration request"
+          },
+          {
+            "key": "submitted_information",
+            "value": [
+              "Synthetic consultation note A",
+              "Synthetic consultation note B"
+            ]
+          },
+          {
+            "key": "language",
+            "value": "en"
+          }
+        ],
+        "formShapeId": "pgfs_form_to_pdf",
+        "formShapeVersion": 1
+      },
+      "sampleFormObject": {
+        "object_id": "obj_demo_form_form_to_pdf",
+        "object_type": "pgo_form",
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "created_at": "2026-09-16T12:00:00Z",
+        "created_by": "user_demo_001",
+        "input_refs": [],
+        "data": {
+          "fields": [
+            {
+              "key": "requested_at",
+              "value": "2026-09-16T12:00:00Z"
+            },
+            {
+              "key": "requested_by",
+              "value": "user_demo_001"
+            },
+            {
+              "key": "subject_id",
+              "value": "subject_demo_001"
+            },
+            {
+              "key": "patient_name",
+              "value": "Alex Example"
+            },
+            {
+              "key": "objective",
+              "value": "Summarize the demonstration request"
+            },
+            {
+              "key": "submitted_information",
+              "value": [
+                "Synthetic consultation note A",
+                "Synthetic consultation note B"
+              ]
+            },
+            {
+              "key": "language",
+              "value": "en"
+            }
+          ],
+          "form_shape_id": "pgfs_form_to_pdf",
+          "form_shape_version": 1
+        },
+        "files": []
+      },
+      "inputSlots": [
+        {
+          "role": "form",
+          "required": true,
+          "cardinality": {
+            "min": 1,
+            "max": 1
+          },
+          "acceptedTypes": [
+            "pgo_form"
+          ],
+          "objectType": "pgo_form"
+        }
+      ],
+      "outputSlots": [
+        {
+          "role": "summary",
+          "objectType": "pgo_pdf_report",
+          "mutationMode": "new_object"
+        }
+      ],
+      "acceptedConditions": [
+        "The form contains the information required for the offered summary service.",
+        "The provider labels the document as a consultation summary and preserves the source/assessment distinction."
+      ],
+      "scopeRules": [
+        "This PDF is a planning-stage summary. Sharing pgo_pdf_report with a final genomic report does not make the two documents semantically interchangeable.",
+        "Document-purpose and required-content profiles determine which later services can accept it."
+      ],
+      "commercialTerms": {
+        "price": {
+          "summary": "Calculated after submission"
+        },
+        "turnaround": "1d",
+        "pricingModel": "calculated_after_submission"
+      },
+      "sampleRequest": {
+        "request_id": "pgr_demo_form_to_pdf",
+        "service_id": "pgs_form_to_pdf",
+        "service_version": 1,
+        "inputs": [
+          {
+            "role": "form",
+            "object_ref": {
+              "object_id": "obj_demo_form_form_to_pdf",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "sampleResult": {
+        "request_id": "pgr_demo_form_to_pdf",
+        "status": "completed",
+        "outputs": [
+          {
+            "role": "summary",
+            "object_ref": {
+              "object_id": "obj_demo_consultation_pdf",
+              "revision": 1
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "serviceCategory": "",
+      "providerName": "Meridian Clinical Planning",
+      "providerKind": "organization",
+      "regions": [
+        "AR"
+      ],
+      "providerApiContractId": "pg_api_service_requests_v1"
+    }
+  ],
+  "schemaVersion": 1,
+  "serviceCount": 15,
+  "usagePolicyRef": {
+    "policyId": "pg_usage_policy_service_requests_v1",
+    "path": "catalog/usage-policy.json"
+  }
+}

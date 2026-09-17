@@ -1,0 +1,724 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pocketgenes.example/protocol/pgi3-2pq/1.0.0/schema.json",
+  "title": "PGI3 TwoPQAPIModel",
+  "description": ".pgi3.json native provider payload matching the app TwoPQAPIModel Codable contract.",
+  "$ref": "#/$defs/TwoPQAPIModel",
+  "$defs": {
+    "TwoPQAPIModel": {
+      "type": "object",
+      "properties": {
+        "main_case": {
+          "$ref": "#/$defs/TwoPQMainCaseReference"
+        },
+        "entities": {
+          "$ref": "#/$defs/TwoPQEntities"
+        }
+      },
+      "required": [
+        "main_case",
+        "entities"
+      ],
+      "additionalProperties": false
+    },
+    "TwoPQMainCaseReference": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sibling_case_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        },
+        "parent_batch_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "children_sampling_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        },
+        "last_updated": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "sibling_case_ids",
+        "children_sampling_ids"
+      ],
+      "additionalProperties": false
+    },
+    "TwoPQEntities": {
+      "type": "object",
+      "properties": {
+        "batches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TwoPQBatch"
+          },
+          "minItems": 0
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TwoPQCase"
+          },
+          "minItems": 0
+        },
+        "samplings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TwoPQSampling"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "batches",
+        "cases",
+        "samplings"
+      ],
+      "additionalProperties": false
+    },
+    "TwoPQBatch": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "batch"
+        },
+        "scope": {
+          "$ref": "#/$defs/TwoPQScope"
+        },
+        "identity": {
+          "$ref": "#/$defs/TwoPQIdentity"
+        },
+        "status": {
+          "$ref": "#/$defs/TwoPQStatus"
+        },
+        "execution": {
+          "$ref": "#/$defs/TwoPQExecution"
+        },
+        "relations": {
+          "$ref": "#/$defs/TwoPQBatchRelations"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timestamps": {
+          "$ref": "#/$defs/TwoPQTimestamps"
+        },
+        "audit": {
+          "$ref": "#/$defs/TwoPQAudit"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "scope",
+        "identity",
+        "status",
+        "execution",
+        "relations",
+        "timestamps",
+        "audit"
+      ],
+      "additionalProperties": false
+    },
+    "TwoPQScope": {
+      "type": "object",
+      "properties": {
+        "institutionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doctorId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "patientId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TwoPQIdentity": {
+      "type": "object",
+      "properties": {
+        "batchLabel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "caseLabel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sampleId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "caseLabelSnapshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TwoPQStatus": {
+      "type": "object",
+      "properties": {
+        "analysisStatus": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "caseStatus": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "processingStatus": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "qcStatus": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TwoPQExecution": {
+      "type": "object",
+      "properties": {
+        "platform": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scheduling": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "providerName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "providerFormat": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "contactName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "contactEmail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "phoneNumber": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TwoPQBatchRelations": {
+      "type": "object",
+      "properties": {
+        "caseIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "caseIds"
+      ],
+      "additionalProperties": false
+    },
+    "TwoPQTimestamps": {
+      "type": "object",
+      "properties": {
+        "createdAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updatedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TwoPQAudit": {
+      "type": "object",
+      "properties": {
+        "createdByEmail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updatedByEmail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TwoPQCase": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "case"
+        },
+        "scope": {
+          "$ref": "#/$defs/TwoPQScope"
+        },
+        "identity": {
+          "$ref": "#/$defs/TwoPQIdentity"
+        },
+        "classification": {
+          "$ref": "#/$defs/TwoPQCaseClassification"
+        },
+        "status": {
+          "$ref": "#/$defs/TwoPQStatus"
+        },
+        "logistics": {
+          "$ref": "#/$defs/TwoPQCaseLogistics"
+        },
+        "relations": {
+          "$ref": "#/$defs/TwoPQCaseRelations"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timestamps": {
+          "$ref": "#/$defs/TwoPQTimestamps"
+        },
+        "audit": {
+          "$ref": "#/$defs/TwoPQAudit"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "scope",
+        "identity",
+        "classification",
+        "status",
+        "logistics",
+        "relations",
+        "timestamps",
+        "audit"
+      ],
+      "additionalProperties": false
+    },
+    "TwoPQCaseClassification": {
+      "type": "object",
+      "properties": {
+        "caseType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TwoPQCaseLogistics": {
+      "type": "object",
+      "properties": {
+        "trackingNumber": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requestedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TwoPQCaseRelations": {
+      "type": "object",
+      "properties": {
+        "batchId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "samplingIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "samplingIds"
+      ],
+      "additionalProperties": false
+    },
+    "TwoPQSampling": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "sampling"
+        },
+        "scope": {
+          "$ref": "#/$defs/TwoPQScope"
+        },
+        "identity": {
+          "$ref": "#/$defs/TwoPQIdentity"
+        },
+        "specimen": {
+          "$ref": "#/$defs/TwoPQSpecimen"
+        },
+        "status": {
+          "$ref": "#/$defs/TwoPQStatus"
+        },
+        "dates": {
+          "$ref": "#/$defs/TwoPQSamplingDates"
+        },
+        "relations": {
+          "$ref": "#/$defs/TwoPQSamplingRelations"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timestamps": {
+          "$ref": "#/$defs/TwoPQTimestamps"
+        },
+        "audit": {
+          "$ref": "#/$defs/TwoPQAudit"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "scope",
+        "identity",
+        "specimen",
+        "status",
+        "dates",
+        "relations",
+        "timestamps",
+        "audit"
+      ],
+      "additionalProperties": false
+    },
+    "TwoPQSpecimen": {
+      "type": "object",
+      "properties": {
+        "sampleType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TwoPQSamplingDates": {
+      "type": "object",
+      "properties": {
+        "collectionDate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receptionDate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TwoPQSamplingRelations": {
+      "type": "object",
+      "properties": {
+        "caseId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  }
+}

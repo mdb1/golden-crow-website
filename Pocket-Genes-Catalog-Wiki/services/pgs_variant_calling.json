@@ -1,0 +1,204 @@
+{
+  "name": "Call variants in the requested scope",
+  "stages": [
+    "bioinformatics"
+  ],
+  "availability": "mock_catalog_only",
+  "description": "Derive an unannotated VCF from aligned reads for the contracted genes, regions and variant classes.",
+  "serviceId": "pgs_variant_calling",
+  "schemaVersion": 1,
+  "serviceVersion": 1,
+  "providerId": "pgp_variant_analysis",
+  "shortContract": "form:form + aligned_reads:aligned_reads + test_order:test_order -> variants:unannotated_vcf",
+  "providerWork": "Call the agreed classes, assess support across the requested scope and produce a native VCF with registered provenance.",
+  "formShape": {
+    "id": "pgfs_variant_calling",
+    "version": 1,
+    "fields": [
+      {
+        "key": "requested_at",
+        "label": "Requested at",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "requested_by",
+        "label": "Requested by",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "calling_profile",
+        "label": "Calling profile",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "pg_demo_calling_v1",
+            "label": "Demo variant-calling profile"
+          }
+        ]
+      }
+    ],
+    "allowUnknownFields": false
+  },
+  "sampleFormData": {
+    "fields": [
+      {
+        "key": "requested_at",
+        "value": "2026-09-17T13:05:00Z"
+      },
+      {
+        "key": "requested_by",
+        "value": "user_demo_001"
+      },
+      {
+        "key": "calling_profile",
+        "value": "pg_demo_calling_v1"
+      }
+    ],
+    "formShapeId": "pgfs_variant_calling",
+    "formShapeVersion": 1
+  },
+  "sampleFormObject": {
+    "object_id": "obj_demo_form_variant_calling",
+    "object_type": "pgo_form",
+    "schema_version": "1.0.0",
+    "revision": 1,
+    "created_at": "2026-09-17T13:05:00Z",
+    "created_by": "user_demo_001",
+    "input_refs": [],
+    "data": {
+      "fields": [
+        {
+          "key": "requested_at",
+          "value": "2026-09-17T13:05:00Z"
+        },
+        {
+          "key": "requested_by",
+          "value": "user_demo_001"
+        },
+        {
+          "key": "calling_profile",
+          "value": "pg_demo_calling_v1"
+        }
+      ],
+      "form_shape_id": "pgfs_variant_calling",
+      "form_shape_version": 1
+    },
+    "files": []
+  },
+  "inputSlots": [
+    {
+      "role": "form",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_form"
+      ],
+      "objectType": "pgo_form"
+    },
+    {
+      "role": "aligned_reads",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_aligned_reads"
+      ],
+      "objectType": "pgo_aligned_reads"
+    },
+    {
+      "role": "test_order",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_test_order"
+      ],
+      "objectType": "pgo_test_order"
+    }
+  ],
+  "outputSlots": [
+    {
+      "role": "variants",
+      "objectType": "pgo_unannotated_vcf",
+      "mutationMode": "new_object"
+    }
+  ],
+  "acceptedConditions": [
+    "The alignment reference matches the order and the calling profile.",
+    "Input data and support evidence meet the accepted calling requirements."
+  ],
+  "scopeRules": [
+    "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
+    "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
+    "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
+    "Carry forward data.analysis_support with status, evaluated_genes, supported_variant_classes, evidence and limitations. Do not infer an adequately assessed gene from absence of VCF rows.",
+    "If the input cannot support the requested scope, return awaiting_input or failed with the affected scope; do not report a complete negative result.",
+    "Retain analytical-support evidence separately from the variant list inside the registered object; an empty variant list does not establish a complete negative result."
+  ],
+  "commercialTerms": {
+    "price": {
+      "summary": "Calculated after submission"
+    },
+    "turnaround": "6h",
+    "pricingModel": "calculated_after_submission"
+  },
+  "sampleRequest": {
+    "request_id": "pgr_demo_variant_calling",
+    "service_id": "pgs_variant_calling",
+    "service_version": 1,
+    "inputs": [
+      {
+        "role": "form",
+        "object_ref": {
+          "object_id": "obj_demo_form_variant_calling",
+          "revision": 1
+        }
+      },
+      {
+        "role": "aligned_reads",
+        "object_ref": {
+          "object_id": "obj_demo_bam",
+          "revision": 1
+        }
+      },
+      {
+        "role": "test_order",
+        "object_ref": {
+          "object_id": "obj_demo_order",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "sampleResult": {
+    "request_id": "pgr_demo_variant_calling",
+    "status": "completed",
+    "outputs": [
+      {
+        "role": "variants",
+        "object_ref": {
+          "object_id": "obj_demo_unannotated_vcf",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "status": "active",
+  "serviceCategory": "",
+  "providerName": "Variant Analysis Cooperative",
+  "providerKind": "organization",
+  "regions": [
+    "AR"
+  ],
+  "providerApiContractId": "pg_api_service_requests_v1"
+}

@@ -1,4 +1,0 @@
-jsonschema>=4.26,<5
-pysam>=0.24,<0.25
-flowio>=1.4,<2
-pypdf>=5,<7

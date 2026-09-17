@@ -64,6 +64,13 @@ const ObjectTypeSchema = z
   .string()
   .trim()
   .regex(/^pgo_[a-z0-9_]+$/, "Use a pgo_* object type.");
+const SameIdentityObjectTypeSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^same_as:[a-z][a-z0-9_]*$/,
+    "Use same_as:<input_role> for revised source objects.",
+  );
 const RoleSchema = z
   .string()
   .trim()
@@ -107,24 +114,71 @@ const FormShapeSchema = z.object({
 });
 const InputSlotSchema = z.object({
   role: RoleSchema,
-  objectType: ObjectTypeSchema.optional(),
+  objectType: ObjectTypeSchema,
   acceptedTypes: z
     .array(ObjectTypeSchema)
     .length(1, "Each input slot accepts exactly one object type."),
-  required: z.boolean(),
+  required: z.literal(true),
   cardinality: z.object({
-    min: z.coerce.number().int().min(0),
-    max: z.coerce.number().int().positive(),
+    min: z.literal(1),
+    max: z.literal(1),
   }),
+}).strict().superRefine((slot, ctx) => {
+  if (slot.acceptedTypes[0] !== slot.objectType) {
+    ctx.addIssue({
+      code: "custom",
+      message: "acceptedTypes must contain the same object type as objectType.",
+      path: ["acceptedTypes"],
+    });
+  }
 });
-const OutputSlotSchema = z.object({
-  role: RoleSchema,
-  objectType: ObjectTypeSchema.refine(
-    (value) => value !== FORM_OBJECT_TYPE,
-    "Output slots cannot produce request forms.",
-  ),
-  mutationMode: MutationModeSchema,
-});
+const OutputSlotSchema = z
+  .object({
+    role: RoleSchema,
+    objectType: z.union([
+      ObjectTypeSchema.refine(
+        (value) => value !== FORM_OBJECT_TYPE,
+        "Output slots cannot produce request forms.",
+      ),
+      SameIdentityObjectTypeSchema,
+    ]),
+    mutationMode: MutationModeSchema,
+    sameIdentityAsInput: RoleSchema.optional(),
+  })
+  .strict()
+  .superRefine((slot, ctx) => {
+    if (slot.mutationMode === "new_revision") {
+      if (!slot.sameIdentityAsInput) {
+        ctx.addIssue({
+          code: "custom",
+          message: "new_revision outputs must name sameIdentityAsInput.",
+          path: ["sameIdentityAsInput"],
+        });
+      } else if (slot.objectType !== `same_as:${slot.sameIdentityAsInput}`) {
+        ctx.addIssue({
+          code: "custom",
+          message: "new_revision outputs must use same_as:<input_role>.",
+          path: ["objectType"],
+        });
+      }
+      return;
+    }
+
+    if (slot.objectType.startsWith("same_as:")) {
+      ctx.addIssue({
+        code: "custom",
+        message: "same_as outputs must use new_revision.",
+        path: ["objectType"],
+      });
+    }
+    if (slot.sameIdentityAsInput) {
+      ctx.addIssue({
+        code: "custom",
+        message: "sameIdentityAsInput is only valid for new_revision outputs.",
+        path: ["sameIdentityAsInput"],
+      });
+    }
+  });
 const PricingModelSchema = z.enum([
   "not_specified",
   "free",
@@ -137,19 +191,15 @@ const CommercialTermsSchema = z.object({
     .object({
       amount: z.coerce.number().min(0).optional(),
       currency: z.string().trim().regex(/^[A-Z]{3}$/).optional(),
-      basis: z.string().trim().max(180).optional(),
-      isMock: z.boolean().optional(),
     })
+    .strict()
     .optional(),
   turnaround: TurnaroundSchema.optional(),
-  turnaroundStartsAt: z.string().trim().max(500).optional(),
-  taxAndPaymentPolicy: z.string().trim().max(1000).optional(),
-  failurePolicy: z.string().trim().max(1000).optional(),
-});
+}).strict();
 const TransactionSlotSchema = z.object({
   role: RoleSchema,
   objectRef: ObjectRefSchema,
-});
+}).strict();
 const ListQuerySchema = z.object({
   cursor: z.string().trim().datetime().optional(),
   limit: z.coerce.number().int().positive().max(50).optional(),
@@ -173,7 +223,6 @@ const OfferBodySchema = z.object({
   providerName: z.string().trim().max(180).optional(),
   stages: z.array(ServiceStageSchema).min(1).max(3).optional(),
   status: OfferStatusSchema.optional(),
-  availability: z.string().trim().max(120).optional(),
   description: z.string().trim().min(1).max(4000),
   shortContract: z.string().trim().max(500).optional(),
   providerWork: z.string().trim().min(1).max(4000),
@@ -189,7 +238,7 @@ const OfferBodySchema = z.object({
     .max(30)
     .optional(),
   commercialTerms: CommercialTermsSchema.optional(),
-});
+}).strict();
 const TransactionBodySchema = z.object({
   requestId: RequestIdSchema,
   serviceId: ServiceIdSchema,
@@ -197,11 +246,11 @@ const TransactionBodySchema = z.object({
   status: TransactionStatusSchema.optional(),
   requesterEmail: OptionalEmailSchema,
   subjectId: z.string().trim().max(160).optional(),
-  formRef: ObjectRefSchema.nullable().optional(),
   inputs: z.array(TransactionSlotSchema).max(50).optional(),
   outputs: z.array(TransactionSlotSchema).max(50).optional(),
+  missingRequiredInputRoles: z.array(RoleSchema).max(50).optional(),
   notes: z.string().trim().max(4000).optional(),
-});
+}).strict();
 const OfferParamsSchema = z.object({
   offerId: z.string().trim().min(1),
 });

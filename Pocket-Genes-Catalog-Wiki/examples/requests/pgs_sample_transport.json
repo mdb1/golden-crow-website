@@ -1,0 +1,28 @@
+{
+  "request_id": "pgr_demo_sample_transport",
+  "service_id": "pgs_sample_transport",
+  "service_version": 1,
+  "inputs": [
+    {
+      "role": "form",
+      "object_ref": {
+        "object_id": "obj_demo_form_sample_transport",
+        "revision": 1
+      }
+    },
+    {
+      "role": "collection_request",
+      "object_ref": {
+        "object_id": "obj_demo_collection",
+        "revision": 1
+      }
+    },
+    {
+      "role": "blood_sample",
+      "object_ref": {
+        "object_id": "obj_demo_blood",
+        "revision": 1
+      }
+    }
+  ]
+}

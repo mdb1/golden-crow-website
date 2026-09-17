@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.0.0",
+  "policy_id": "pg_usage_policy_service_requests_v1",
+  "status": "proposed",
+  "calendar_timezone": "UTC",
+  "token_status_defaults": {
+    "token_balance": 20,
+    "max_token_usage_per_day": 5,
+    "cooldown_seconds": 300,
+    "next_request_at": null
+  },
+  "token_model": {
+    "tokens_consumed_per_admitted_transaction": 1,
+    "automatic_replenishment": "none",
+    "initial_grant_applies_once": true,
+    "monetary_value": false,
+    "transferable": false,
+    "exchangeable": false,
+    "additional_usage_source": "Pocket Genes contact request and authorized administrative adjustment"
+  },
+  "transaction_accounting": {
+    "authoritative_collection": "service_transactions",
+    "charged_account_field": "charged_user_id",
+    "consumed_at_field": "token_consumed_at",
+    "refunded_at_field": "token_refunded_at",
+    "daily_count_source": "global_service_transactions",
+    "daily_count_interval": "day_start <= token_consumed_at < next_day_start",
+    "daily_count_timezone": "UTC",
+    "count_admitted_statuses": [
+      "received",
+      "validating",
+      "accepted",
+      "queued",
+      "running",
+      "awaiting_input",
+      "completed",
+      "rejected",
+      "failed",
+      "cancelled"
+    ],
+    "excluded_records": [
+      "attempts rejected before admission",
+      "drafts without token_consumed_at",
+      "ordinary reads, downloads, notifications, clarification replies, status updates, output registration, contact requests and limit-extension requests"
+    ],
+    "refund_rule": "A restored token increments token_balance and sets token_refunded_at on the original transaction without changing token_consumed_at, daily usage, or cooldown."
+  },
+  "admission_gate": {
+    "must_run_before_provider_dispatch": true,
+    "must_resolve_idempotency_before_new_consumption": true,
+    "must_validate_form_and_input_compatibility_before_consumption": true,
+    "atomic_commit_facts": [
+      "create authoritative global transaction",
+      "set charged_user_id",
+      "set token_consumed_at from server time",
+      "deduct one token",
+      "set next_request_at",
+      "persist idempotency mapping",
+      "persist durable dispatch instruction"
+    ],
+    "denied_attempts_do_not": [
+      "deduct a token",
+      "change next_request_at",
+      "dispatch provider work",
+      "create a token-consuming transaction"
+    ]
+  },
+  "pipeline_policy": {
+    "planning_consumes_tokens": false,
+    "each_admitted_service_step_consumes_tokens": true,
+    "combined_published_service_consumes_tokens": 1,
+    "blocked_step_state": "waiting_for_limits",
+    "automatic_retry_must_recheck_limits": true
+  },
+  "stable_error_codes": [
+    "token_balance_exhausted",
+    "token_daily_limit_reached",
+    "token_cooldown_active"
+  ],
+  "end_user_presentation": {
+    "preferred_term": "Limits",
+    "explanation": "Service request limits help keep Pocket Genes reliable and give providers time to manage incoming requests.",
+    "contact_suffix": "Need to use more services? Contact us to request higher usage limits.",
+    "messages": {
+      "token_daily_limit_reached": "You've reached your service request limit for today. You can request another service after {time}.",
+      "token_balance_exhausted": "You've reached your current service request limit.",
+      "token_cooldown_active": "You can request another service in {remaining_time}."
+    },
+    "disallowed_patterns": [
+      "token wallet",
+      "coin icon",
+      "token price",
+      "purchase action",
+      "refill package",
+      "upgrade paywall"
+    ]
+  }
+}

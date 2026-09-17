@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pocketgenes.example/protocol/token-usage-policy/1.0.0/schema.json",
+  "title": "Pocket Genes token usage policy v1.0.0",
+  "description": "Catalog-level policy for service-request admission limits. Individual service definitions do not carry token costs.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "policy_id": {
+      "type": "string",
+      "const": "pg_usage_policy_service_requests_v1"
+    },
+    "status": {
+      "type": "string",
+      "const": "proposed"
+    },
+    "calendar_timezone": {
+      "type": "string",
+      "const": "UTC"
+    },
+    "token_status_defaults": {
+      "type": "object",
+      "properties": {
+        "token_balance": {
+          "type": "integer",
+          "const": 20
+        },
+        "max_token_usage_per_day": {
+          "type": "integer",
+          "const": 5
+        },
+        "cooldown_seconds": {
+          "type": "integer",
+          "const": 300
+        },
+        "next_request_at": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "token_balance",
+        "max_token_usage_per_day",
+        "cooldown_seconds",
+        "next_request_at"
+      ],
+      "additionalProperties": false
+    },
+    "token_model": {
+      "type": "object",
+      "properties": {
+        "tokens_consumed_per_admitted_transaction": {
+          "type": "integer",
+          "const": 1
+        },
+        "automatic_replenishment": {
+          "type": "string",
+          "const": "none"
+        },
+        "initial_grant_applies_once": {
+          "type": "boolean",
+          "const": true
+        },
+        "monetary_value": {
+          "type": "boolean",
+          "const": false
+        },
+        "transferable": {
+          "type": "boolean",
+          "const": false
+        },
+        "exchangeable": {
+          "type": "boolean",
+          "const": false
+        },
+        "additional_usage_source": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "tokens_consumed_per_admitted_transaction",
+        "automatic_replenishment",
+        "initial_grant_applies_once",
+        "monetary_value",
+        "transferable",
+        "exchangeable",
+        "additional_usage_source"
+      ],
+      "additionalProperties": false
+    },
+    "transaction_accounting": {
+      "type": "object",
+      "properties": {
+        "authoritative_collection": {
+          "type": "string",
+          "const": "service_transactions"
+        },
+        "charged_account_field": {
+          "type": "string",
+          "const": "charged_user_id"
+        },
+        "consumed_at_field": {
+          "type": "string",
+          "const": "token_consumed_at"
+        },
+        "refunded_at_field": {
+          "type": "string",
+          "const": "token_refunded_at"
+        },
+        "daily_count_source": {
+          "type": "string",
+          "const": "global_service_transactions"
+        },
+        "daily_count_interval": {
+          "type": "string",
+          "minLength": 1
+        },
+        "daily_count_timezone": {
+          "type": "string",
+          "const": "UTC"
+        },
+        "count_admitted_statuses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "received",
+              "validating",
+              "accepted",
+              "queued",
+              "running",
+              "awaiting_input",
+              "completed",
+              "rejected",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "minItems": 10,
+          "maxItems": 10,
+          "uniqueItems": true
+        },
+        "excluded_records": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "refund_rule": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "authoritative_collection",
+        "charged_account_field",
+        "consumed_at_field",
+        "refunded_at_field",
+        "daily_count_source",
+        "daily_count_interval",
+        "daily_count_timezone",
+        "count_admitted_statuses",
+        "excluded_records",
+        "refund_rule"
+      ],
+      "additionalProperties": false
+    },
+    "admission_gate": {
+      "type": "object",
+      "properties": {
+        "must_run_before_provider_dispatch": {
+          "type": "boolean",
+          "const": true
+        },
+        "must_resolve_idempotency_before_new_consumption": {
+          "type": "boolean",
+          "const": true
+        },
+        "must_validate_form_and_input_compatibility_before_consumption": {
+          "type": "boolean",
+          "const": true
+        },
+        "atomic_commit_facts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "denied_attempts_do_not": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "must_run_before_provider_dispatch",
+        "must_resolve_idempotency_before_new_consumption",
+        "must_validate_form_and_input_compatibility_before_consumption",
+        "atomic_commit_facts",
+        "denied_attempts_do_not"
+      ],
+      "additionalProperties": false
+    },
+    "pipeline_policy": {
+      "type": "object",
+      "properties": {
+        "planning_consumes_tokens": {
+          "type": "boolean",
+          "const": false
+        },
+        "each_admitted_service_step_consumes_tokens": {
+          "type": "boolean",
+          "const": true
+        },
+        "combined_published_service_consumes_tokens": {
+          "type": "integer",
+          "const": 1
+        },
+        "blocked_step_state": {
+          "type": "string",
+          "const": "waiting_for_limits"
+        },
+        "automatic_retry_must_recheck_limits": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "planning_consumes_tokens",
+        "each_admitted_service_step_consumes_tokens",
+        "combined_published_service_consumes_tokens",
+        "blocked_step_state",
+        "automatic_retry_must_recheck_limits"
+      ],
+      "additionalProperties": false
+    },
+    "stable_error_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "token_balance_exhausted",
+          "token_daily_limit_reached",
+          "token_cooldown_active"
+        ]
+      },
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true
+    },
+    "end_user_presentation": {
+      "type": "object",
+      "properties": {
+        "preferred_term": {
+          "type": "string",
+          "const": "Limits"
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contact_suffix": {
+          "type": "string",
+          "minLength": 1
+        },
+        "messages": {
+          "type": "object",
+          "properties": {
+            "token_daily_limit_reached": {
+              "type": "string",
+              "minLength": 1
+            },
+            "token_balance_exhausted": {
+              "type": "string",
+              "minLength": 1
+            },
+            "token_cooldown_active": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "token_daily_limit_reached",
+            "token_balance_exhausted",
+            "token_cooldown_active"
+          ],
+          "additionalProperties": false
+        },
+        "disallowed_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "preferred_term",
+        "explanation",
+        "contact_suffix",
+        "messages",
+        "disallowed_patterns"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "policy_id",
+    "status",
+    "calendar_timezone",
+    "token_status_defaults",
+    "token_model",
+    "transaction_accounting",
+    "admission_gate",
+    "pipeline_policy",
+    "stable_error_codes",
+    "end_user_presentation"
+  ],
+  "additionalProperties": false
+}

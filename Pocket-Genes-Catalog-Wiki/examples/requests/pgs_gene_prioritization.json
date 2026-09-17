@@ -1,0 +1,21 @@
+{
+  "request_id": "pgr_demo_gene_prioritization",
+  "service_id": "pgs_gene_prioritization",
+  "service_version": 1,
+  "inputs": [
+    {
+      "role": "form",
+      "object_ref": {
+        "object_id": "obj_demo_form_gene_prioritization",
+        "revision": 1
+      }
+    },
+    {
+      "role": "bundle_of_symptoms",
+      "object_ref": {
+        "object_id": "obj_demo_symptoms",
+        "revision": 1
+      }
+    }
+  ]
+}

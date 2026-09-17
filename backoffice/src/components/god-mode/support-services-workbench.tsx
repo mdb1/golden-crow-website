@@ -136,7 +136,6 @@ type OfferFormState = {
   providerName: string;
   stages: SupportServiceStage[];
   status: NonNullable<SupportServiceOfferInput["status"]>;
-  availability: string;
   description: string;
   providerWork: string;
   supportsFormShape: boolean;
@@ -170,6 +169,7 @@ type TransactionFormState = {
   subjectId: string;
   inputs: ObjectRefDraft[];
   outputs: ObjectRefDraft[];
+  missingRequiredInputRoles: string[];
   notes: string;
 };
 
@@ -511,7 +511,6 @@ function defaultOfferForm(): OfferFormState {
     providerName: "",
     stages: ["test_planning"],
     status: "draft",
-    availability: "backoffice",
     description: "",
     providerWork: "",
     supportsFormShape: false,
@@ -568,7 +567,6 @@ function offerFormFromCatalog(
       ? catalogOffer.stages
       : ["test_planning"],
     status: "draft",
-    availability: catalogOffer.availability || "backoffice",
     description: catalogOffer.description,
     providerWork: catalogOffer.providerWork,
     supportsFormShape: hasFormShape,
@@ -614,7 +612,6 @@ function offerFormFromRecord(record: SupportServiceOfferRecord): OfferFormState 
     providerName: record.providerName ?? "",
     stages: record.stages.length ? record.stages : ["test_planning"],
     status: record.status,
-    availability: record.availability,
     description: record.description,
     providerWork: record.providerWork,
     supportsFormShape: hasFormShape,
@@ -786,7 +783,34 @@ function predictedStagesForContract(
 }
 
 function contractObjectLabel(value: string) {
+  if (value.startsWith("same_as:")) {
+    return value;
+  }
   return objectLabel(value).replace(/^Pocket Genes /, "");
+}
+
+function sameIdentityObjectType(role: string) {
+  return `same_as:${role}`;
+}
+
+function outputObjectLabel(slot: SupportServiceOutputSlot) {
+  if (slot.objectType.startsWith("same_as:")) {
+    const sourceRole = slot.sameIdentityAsInput ?? slot.objectType.replace(/^same_as:/, "");
+    return `same_as:${sourceRole}`;
+  }
+
+  return objectLabel(slot.objectType);
+}
+
+function bindingTypeLabel(type: string) {
+  return type.startsWith("same_as:") ? type : objectLabel(type);
+}
+
+function outputRevisionSourceRoles(inputSlots: SupportServiceInputSlot[]) {
+  return inputSlots
+    .filter((slot) => slotObjectType(slot) !== FORM_OBJECT_TYPE)
+    .map((slot) => slot.role)
+    .filter(Boolean);
 }
 
 function calculatedShortContract(
@@ -801,7 +825,7 @@ function calculatedShortContract(
     const objectType = slot.objectType || "pgo_object";
     return `${slot.role || "output"}:${contractObjectLabel(objectType)}`;
   });
-  const left = inputs.length ? inputs.join(" + ") : "no input";
+  const left = inputs.length ? inputs.join(" + ") : "none";
   const right = outputs.length ? outputs.join(" + ") : "provider output";
 
   return `${left} -> ${right}`;
@@ -864,7 +888,9 @@ function emptyObjectRefDraft(
     revision: "1",
     required,
     acceptedTypes:
-      "acceptedTypes" in slot ? [slotObjectType(slot)].filter(Boolean) : [slot.objectType],
+      "acceptedTypes" in slot
+        ? [slotObjectType(slot)].filter(Boolean)
+        : [outputObjectLabel(slot)],
   };
 }
 
@@ -878,6 +904,7 @@ function emptyTransactionForm(): TransactionFormState {
     subjectId: "",
     inputs: [],
     outputs: [],
+    missingRequiredInputRoles: [],
     notes: "",
   };
 }
@@ -897,6 +924,7 @@ function transactionFormForOffer(
     subjectId: "",
     inputs: inputSlots.map(emptyObjectRefDraft),
     outputs: outputSlots.map(emptyObjectRefDraft),
+    missingRequiredInputRoles: [],
     notes: "",
   };
 }
@@ -944,6 +972,7 @@ function transactionFormFromRecord(
           required: false,
           acceptedTypes: [],
         })),
+        missingRequiredInputRoles: record.missingRequiredInputRoles,
       };
   const inputByRole = new Map(record.inputs.map((slot) => [slot.role, slot]));
   const outputByRole = new Map(record.outputs.map((slot) => [slot.role, slot]));
@@ -975,6 +1004,7 @@ function transactionFormFromRecord(
           }
         : slot;
     }),
+    missingRequiredInputRoles: record.missingRequiredInputRoles,
     notes: record.notes,
   };
 }
@@ -1084,7 +1114,25 @@ function offerPayloadFromForm(
     if (!slot.role.trim() || !slot.objectType) {
       throw new Error("Every output slot needs a role and object type.");
     }
-    if (slot.objectType === FORM_OBJECT_TYPE) {
+    if (slot.mutationMode === "new_revision") {
+      if (!slot.sameIdentityAsInput) {
+        throw new Error("New revision outputs need a source input role.");
+      }
+      const sourceInputSlot = form.inputSlots.find(
+        (inputSlot) => inputSlot.role === slot.sameIdentityAsInput,
+      );
+      if (!sourceInputSlot) {
+        throw new Error("New revision outputs must reference an existing input role.");
+      }
+      if (slotObjectType(sourceInputSlot) === FORM_OBJECT_TYPE) {
+        throw new Error("New revision outputs cannot revise the request form input.");
+      }
+      if (slot.objectType !== sameIdentityObjectType(slot.sameIdentityAsInput)) {
+        throw new Error("New revision outputs must use same_as:<input_role>.");
+      }
+    } else if (slot.sameIdentityAsInput || slot.objectType.startsWith("same_as:")) {
+      throw new Error("same_as outputs must use New revision.");
+    } else if (slot.objectType === FORM_OBJECT_TYPE) {
       throw new Error("Output slots cannot produce request forms.");
     }
   }
@@ -1110,7 +1158,6 @@ function offerPayloadFromForm(
     providerName: form.providerName.trim(),
     stages: form.stages,
     status: form.status,
-    availability: form.availability.trim(),
     description: form.description.trim(),
     shortContract: calculatedShortContract(form.inputSlots, form.outputSlots),
     providerWork: form.providerWork.trim(),
@@ -1135,10 +1182,19 @@ function offerPayloadFromForm(
         cardinality: { min: 1, max: 1 },
       };
     }),
-    outputSlots: form.outputSlots.map((slot) => ({
-      ...slot,
-      role: slot.role.trim(),
-    })),
+    outputSlots: form.outputSlots.map((slot) => {
+      const sameIdentityAsInput =
+        slot.mutationMode === "new_revision" ? slot.sameIdentityAsInput : undefined;
+
+      return {
+        role: slot.role.trim(),
+        objectType: sameIdentityAsInput
+          ? sameIdentityObjectType(sameIdentityAsInput)
+          : slot.objectType,
+        mutationMode: slot.mutationMode,
+        sameIdentityAsInput,
+      };
+    }),
     acceptedConditions: acceptedConditions.length ? acceptedConditions : undefined,
     scopeRules: scopeRules.length ? scopeRules : undefined,
     commercialTerms: commercialTermsPayload(form.commercialTerms),
@@ -1183,9 +1239,12 @@ function transactionPayloadFromForm(
   assertIdentifier(form.requestId, "pgr", "Request ID");
   assertIdentifier(form.serviceId, "pgs", "Service ID");
   const requiredInputs = form.inputs.filter((slot) => slot.required);
+  const missingRequiredInputRoles = requiredInputs
+    .filter((slot) => !slot.objectId.trim())
+    .map((slot) => slot.role);
   for (const slot of requiredInputs) {
-    if (!slot.objectId.trim()) {
-      throw new Error(`Input ${slot.role} is required.`);
+    if (!slot.objectId.trim() && slot.acceptedTypes.includes(FORM_OBJECT_TYPE)) {
+      throw new Error(`Input ${slot.role} is required before creating the transaction.`);
     }
   }
 
@@ -1231,9 +1290,9 @@ function transactionPayloadFromForm(
     status: form.status,
     requesterEmail: form.requesterEmail.trim(),
     subjectId: form.subjectId.trim(),
-    formRef: null,
     inputs,
     outputs,
+    missingRequiredInputRoles,
     notes: form.notes.trim(),
   };
 }
@@ -2401,6 +2460,7 @@ function ShortContractVisual({
       slots: inputSlots.map((slot) => ({
         role: slot.role || inputRoleForObjectType(slotObjectType(slot)),
         objectType: slotObjectType(slot),
+        label: objectLabel(slotObjectType(slot)),
       })),
     },
     {
@@ -2410,6 +2470,7 @@ function ShortContractVisual({
       slots: outputSlots.map((slot) => ({
         role: slot.role || "output",
         objectType: slot.objectType,
+        label: outputObjectLabel(slot),
       })),
     },
   ];
@@ -2439,7 +2500,7 @@ function ShortContractVisual({
                           {slot.role}
                         </span>
                         <span className="block truncate font-medium text-foreground">
-                          {objectLabel(slot.objectType)}
+                          {slot.label}
                         </span>
                       </span>
                     </div>
@@ -3728,6 +3789,7 @@ function OutputSlotEditor({
     draft: SupportServiceOutputSlot;
   } | null>(null);
   const [slotError, setSlotError] = useState("");
+  const revisionSourceRoles = outputRevisionSourceRoles(form.inputSlots);
 
   function openSlotDialog(index: number | null) {
     const slot = index == null ? null : form.outputSlots[index];
@@ -3735,7 +3797,14 @@ function OutputSlotEditor({
     setSlotDialog({
       index,
       draft: slot
-        ? { ...slot }
+        ? {
+            ...slot,
+            sameIdentityAsInput:
+              slot.sameIdentityAsInput ??
+              (slot.objectType.startsWith("same_as:")
+                ? slot.objectType.replace(/^same_as:/, "")
+                : undefined),
+          }
         : defaultOutputSlot(),
     });
   }
@@ -3756,18 +3825,33 @@ function OutputSlotEditor({
       setSlotError(t("Role is required."));
       return;
     }
-    if (!slotDialog.draft.objectType) {
-      setSlotError(t("Object type is required."));
-      return;
-    }
-    if (slotDialog.draft.objectType === FORM_OBJECT_TYPE) {
-      setSlotError(t("Output slots cannot produce request forms."));
-      return;
+    if (slotDialog.draft.mutationMode === "new_revision") {
+      if (!slotDialog.draft.sameIdentityAsInput) {
+        setSlotError(t("Choose the input role that keeps the same object identity."));
+        return;
+      }
+    } else {
+      if (!slotDialog.draft.objectType) {
+        setSlotError(t("Object type is required."));
+        return;
+      }
+      if (slotDialog.draft.objectType === FORM_OBJECT_TYPE) {
+        setSlotError(t("Output slots cannot produce request forms."));
+        return;
+      }
     }
 
+    const sameIdentityAsInput =
+      slotDialog.draft.mutationMode === "new_revision"
+        ? slotDialog.draft.sameIdentityAsInput
+        : undefined;
     const nextSlot: SupportServiceOutputSlot = {
       ...slotDialog.draft,
       role: slotDialog.draft.role.trim(),
+      objectType: sameIdentityAsInput
+        ? sameIdentityObjectType(sameIdentityAsInput)
+        : slotDialog.draft.objectType,
+      sameIdentityAsInput,
     };
 
     setForm((current) => ({
@@ -3824,7 +3908,7 @@ function OutputSlotEditor({
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">
-                      {objectLabel(slot.objectType)}
+                      {outputObjectLabel(slot)}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -3894,21 +3978,33 @@ function OutputSlotEditor({
                   placeholder="report"
                 />
               </Field>
-              <Field label="Object type">
-                <ObjectTypeSelect
-                  value={slotDialog.draft.objectType}
-                  onChange={(objectType) => updateSlotDraft({ objectType })}
-                  excludeForm
-                />
-              </Field>
               <Field label="Mutation">
                 <Select
                   value={slotDialog.draft.mutationMode}
-                  onValueChange={(mutationMode) =>
+                  onValueChange={(mutationMode) => {
+                    const nextMode = mutationMode as SupportServiceMutationMode;
+                    if (nextMode === "new_revision") {
+                      const sourceRole =
+                        slotDialog.draft.sameIdentityAsInput ??
+                        revisionSourceRoles[0] ??
+                        "";
+                      updateSlotDraft({
+                        mutationMode: nextMode,
+                        sameIdentityAsInput: sourceRole || undefined,
+                        objectType: sourceRole
+                          ? sameIdentityObjectType(sourceRole)
+                          : "",
+                      });
+                      return;
+                    }
                     updateSlotDraft({
-                      mutationMode: mutationMode as SupportServiceMutationMode,
-                    })
-                  }
+                      mutationMode: nextMode,
+                      sameIdentityAsInput: undefined,
+                      objectType: slotDialog.draft.objectType.startsWith("same_as:")
+                        ? DEFAULT_OUTPUT_OBJECT_TYPE
+                        : slotDialog.draft.objectType,
+                    });
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -3922,6 +4018,39 @@ function OutputSlotEditor({
                   </SelectContent>
                 </Select>
               </Field>
+              {slotDialog.draft.mutationMode === "new_revision" ? (
+                <Field label="Same identity as input">
+                  <Select
+                    value={slotDialog.draft.sameIdentityAsInput ?? ""}
+                    onValueChange={(sourceRole) =>
+                      updateSlotDraft({
+                        sameIdentityAsInput: sourceRole,
+                        objectType: sameIdentityObjectType(sourceRole),
+                      })
+                    }
+                    disabled={revisionSourceRoles.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("Choose source input")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {revisionSourceRoles.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              ) : (
+                <Field label="Object type">
+                  <ObjectTypeSelect
+                    value={slotDialog.draft.objectType}
+                    onChange={(objectType) => updateSlotDraft({ objectType })}
+                    excludeForm
+                  />
+                </Field>
+              )}
               {slotError ? (
                 <p className="text-sm text-destructive">{slotError}</p>
               ) : null}
@@ -4163,7 +4292,7 @@ export function SupportServiceTransactionWorkbench({
     queryKey: [LIVE_OFFERS_QUERY_KEY],
     queryFn: () =>
       sdkFetch<SupportServiceOffersPage>(
-        "/admin/support-services/offers?limit=50",
+        "/admin/support-services/offers?limit=50&status=active",
       ),
     enabled: !isEditing,
   });
@@ -4462,6 +4591,17 @@ export function SupportServiceTransactionWorkbench({
         </Section>
         <Section title="Input object bindings">
           <ObjectRefTable slots={form.inputs} onChange={updateInputRef} />
+          {form.missingRequiredInputRoles.length ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-800 shadow-sm dark:border-amber-400/25 dark:bg-amber-500/12 dark:text-amber-100">
+              <CircleAlert className="h-4 w-4" />
+              <span>{t("Pending required inputs")}</span>
+              {form.missingRequiredInputRoles.map((role) => (
+                <Badge key={role} variant="outline" className="font-mono">
+                  {role}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
         </Section>
         <Section title="Output object bindings">
           <ObjectRefTable slots={form.outputs} onChange={updateOutputRef} />
@@ -4511,7 +4651,11 @@ function ObjectRefTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {slots.map((slot, index) => (
+          {slots.map((slot, index) => {
+            const mustAttachNow =
+              slot.required && slot.acceptedTypes.includes(FORM_OBJECT_TYPE);
+
+            return (
             <TableRow key={`${slot.role}-${index}`}>
               <TableCell className="font-mono text-sm">
                 {slot.role}
@@ -4525,7 +4669,7 @@ function ObjectRefTable({
                 <div className="flex flex-wrap gap-1">
                   {slot.acceptedTypes.map((type) => (
                     <Badge key={type} variant="secondary">
-                      {objectLabel(type)}
+                      {bindingTypeLabel(type)}
                     </Badge>
                   ))}
                 </div>
@@ -4536,7 +4680,7 @@ function ObjectRefTable({
                   onChange={(event) =>
                     onChange(index, { objectId: event.target.value })
                   }
-                  required={slot.required}
+                  required={mustAttachNow}
                   placeholder="obj_..."
                 />
               </TableCell>
@@ -4547,11 +4691,12 @@ function ObjectRefTable({
                     onChange(index, { revision: event.target.value })
                   }
                   inputMode="numeric"
-                  required={slot.required || Boolean(slot.objectId)}
+                  required={mustAttachNow || Boolean(slot.objectId)}
                 />
               </TableCell>
             </TableRow>
-          ))}
+          );
+          })}
         </TableBody>
       </Table>
     </div>

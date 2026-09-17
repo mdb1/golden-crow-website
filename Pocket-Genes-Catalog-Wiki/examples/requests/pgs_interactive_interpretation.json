@@ -1,0 +1,21 @@
+{
+  "request_id": "pgr_demo_interactive_interpretation",
+  "service_id": "pgs_interactive_interpretation",
+  "service_version": 1,
+  "inputs": [
+    {
+      "role": "form",
+      "object_ref": {
+        "object_id": "obj_demo_form_interactive_interpretation",
+        "revision": 1
+      }
+    },
+    {
+      "role": "annotated_vcf",
+      "object_ref": {
+        "object_id": "obj_demo_annotated_vcf",
+        "revision": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,307 @@
+{
+  "name": "Create an actual biological sample collection request",
+  "stages": [
+    "wet_lab"
+  ],
+  "availability": "mock_catalog_only",
+  "description": "Create a request for a qualified collector or laboratory to obtain a real biological sample from the subject. This means phlebotomy, swab, saliva, biopsy, or embryo-material collection; it is not courier pickup, package pickup, truck pickup, or sample transport.",
+  "serviceId": "pgs_collection_request",
+  "schemaVersion": 1,
+  "serviceVersion": 1,
+  "providerId": "pgp_sample_logistics",
+  "shortContract": "form:form + test_order:test_order -> collection_request:collection_request",
+  "providerWork": "Verify the subject, consent, requested material, collection method, collection site, collection window, and preparation profile; schedule or perform the biological sample collection.",
+  "formShape": {
+    "id": "pgfs_collection_request",
+    "version": 1,
+    "fields": [
+      {
+        "key": "requested_at",
+        "label": "Requested at",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "requested_by",
+        "label": "Requested by",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "subject_id",
+        "label": "Subject identifier",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "collection_site",
+        "label": "Biological sample collection site",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "requested_sample_type",
+        "label": "Sample type to collect",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "blood",
+            "label": "Blood draw"
+          },
+          {
+            "value": "buccal_swab",
+            "label": "Buccal swab"
+          },
+          {
+            "value": "saliva",
+            "label": "Saliva sample"
+          },
+          {
+            "value": "tissue",
+            "label": "Tissue biopsy"
+          },
+          {
+            "value": "embryo_material",
+            "label": "Embryo material collection"
+          }
+        ]
+      },
+      {
+        "key": "collection_method",
+        "label": "Collection method",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "phlebotomy",
+            "label": "Phlebotomy / venous blood draw"
+          },
+          {
+            "value": "buccal_swab",
+            "label": "Buccal swab performed on the subject"
+          },
+          {
+            "value": "saliva_kit",
+            "label": "Saliva kit completed by the subject"
+          },
+          {
+            "value": "tissue_biopsy",
+            "label": "Tissue biopsy performed by a qualified provider"
+          },
+          {
+            "value": "embryo_biopsy",
+            "label": "Embryo biopsy material collection"
+          }
+        ]
+      },
+      {
+        "key": "collection_window_start",
+        "label": "Sample collection window start",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "collection_window_end",
+        "label": "Sample collection window end",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "preparation_profile",
+        "label": "Collection preparation profile",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "allowUnknownFields": false
+  },
+  "sampleFormData": {
+    "fields": [
+      {
+        "key": "requested_at",
+        "value": "2026-09-16T12:25:00Z"
+      },
+      {
+        "key": "requested_by",
+        "value": "user_demo_001"
+      },
+      {
+        "key": "subject_id",
+        "value": "subject_demo_001"
+      },
+      {
+        "key": "collection_site",
+        "value": "Demo clinical collection room, 100 Example Avenue, Demo City, AR"
+      },
+      {
+        "key": "requested_sample_type",
+        "value": "blood"
+      },
+      {
+        "key": "collection_method",
+        "value": "phlebotomy"
+      },
+      {
+        "key": "collection_window_start",
+        "value": "2026-09-16T13:00:00Z"
+      },
+      {
+        "key": "collection_window_end",
+        "value": "2026-09-16T15:00:00Z"
+      },
+      {
+        "key": "preparation_profile",
+        "value": "EDTA tube, subject identity check, consent confirmed before draw"
+      }
+    ],
+    "formShapeId": "pgfs_collection_request",
+    "formShapeVersion": 1
+  },
+  "sampleFormObject": {
+    "object_id": "obj_demo_form_collection_request",
+    "object_type": "pgo_form",
+    "schema_version": "1.0.0",
+    "revision": 1,
+    "created_at": "2026-09-16T12:25:00Z",
+    "created_by": "user_demo_001",
+    "input_refs": [],
+    "data": {
+      "fields": [
+        {
+          "key": "requested_at",
+          "value": "2026-09-16T12:25:00Z"
+        },
+        {
+          "key": "requested_by",
+          "value": "user_demo_001"
+        },
+        {
+          "key": "subject_id",
+          "value": "subject_demo_001"
+        },
+        {
+          "key": "collection_site",
+          "value": "Demo clinical collection room, 100 Example Avenue, Demo City, AR"
+        },
+        {
+          "key": "requested_sample_type",
+          "value": "blood"
+        },
+        {
+          "key": "collection_method",
+          "value": "phlebotomy"
+        },
+        {
+          "key": "collection_window_start",
+          "value": "2026-09-16T13:00:00Z"
+        },
+        {
+          "key": "collection_window_end",
+          "value": "2026-09-16T15:00:00Z"
+        },
+        {
+          "key": "preparation_profile",
+          "value": "EDTA tube, subject identity check, consent confirmed before draw"
+        }
+      ],
+      "form_shape_id": "pgfs_collection_request",
+      "form_shape_version": 1
+    },
+    "files": []
+  },
+  "inputSlots": [
+    {
+      "role": "form",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_form"
+      ],
+      "objectType": "pgo_form"
+    },
+    {
+      "role": "test_order",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_test_order"
+      ],
+      "objectType": "pgo_test_order"
+    }
+  ],
+  "outputSlots": [
+    {
+      "role": "collection_request",
+      "objectType": "pgo_collection_request",
+      "mutationMode": "new_object"
+    }
+  ],
+  "acceptedConditions": [
+    "The request identifies the subject or source, the linked test order, the biological material to obtain, and the qualified collection method.",
+    "The assigned provider accepts the sample collection site, time window, consent state, and preparation profile before the collection is scheduled or performed.",
+    "This is an actual biological sample collection request. It is explicitly not a courier pickup, package pickup, truck pickup, or transport order."
+  ],
+  "scopeRules": [
+    "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
+    "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
+    "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
+    "The collection_request describes the intended biological collection event. A physical sample object is created or linked only when the sample is actually obtained.",
+    "Transportation after collection belongs to pgs_sample_transport or another explicit transport service, never to pgs_collection_request."
+  ],
+  "commercialTerms": {
+    "price": {
+      "summary": "Calculated after submission"
+    },
+    "turnaround": "2h",
+    "pricingModel": "calculated_after_submission"
+  },
+  "sampleRequest": {
+    "request_id": "pgr_demo_collection_request",
+    "service_id": "pgs_collection_request",
+    "service_version": 1,
+    "inputs": [
+      {
+        "role": "form",
+        "object_ref": {
+          "object_id": "obj_demo_form_collection_request",
+          "revision": 1
+        }
+      },
+      {
+        "role": "test_order",
+        "object_ref": {
+          "object_id": "obj_demo_order",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "sampleResult": {
+    "request_id": "pgr_demo_collection_request",
+    "status": "completed",
+    "outputs": [
+      {
+        "role": "collection_request",
+        "object_ref": {
+          "object_id": "obj_demo_collection",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "status": "active",
+  "serviceCategory": "",
+  "providerName": "Origin Sample Services",
+  "providerKind": "organization",
+  "regions": [
+    "AR"
+  ],
+  "providerApiContractId": "pg_api_service_requests_v1"
+}

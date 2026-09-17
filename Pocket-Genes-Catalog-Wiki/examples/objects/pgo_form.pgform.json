@@ -1,0 +1,35 @@
+{
+  "object_id": "obj_demo_form_symptom_intake",
+  "object_type": "pgo_form",
+  "schema_version": "1.0.0",
+  "revision": 1,
+  "created_at": "2026-09-16T12:00:00Z",
+  "created_by": "user_demo_001",
+  "input_refs": [],
+  "data": {
+    "form_shape_id": "pgfs_symptom_intake",
+    "form_shape_version": 1,
+    "fields": [
+      {
+        "key": "requested_at",
+        "value": "2026-09-16T12:00:00Z"
+      },
+      {
+        "key": "requested_by",
+        "value": "user_demo_001"
+      },
+      {
+        "key": "subject_id",
+        "value": "subject_demo_001"
+      },
+      {
+        "key": "observations",
+        "value": [
+          "Synthetic observation A",
+          "Synthetic observation B"
+        ]
+      }
+    ]
+  },
+  "files": []
+}

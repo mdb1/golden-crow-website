@@ -1,0 +1,703 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pocketgenes.example/protocol/pgi1-mdm/1.0.0/schema.json",
+  "title": "PGI1 MDMAPIModel",
+  "description": ".pgi1.json native provider payload matching the app MDMAPIModel Codable contract.",
+  "$ref": "#/$defs/MDMAPIModel",
+  "$defs": {
+    "MDMAPIModel": {
+      "type": "object",
+      "properties": {
+        "panels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PanelAPIModel"
+          },
+          "minItems": 0
+        },
+        "pharmacos": {
+          "$ref": "#/$defs/PharmageneticAPIModel"
+        },
+        "pathology": {
+          "$ref": "#/$defs/PathologyAPIModel"
+        },
+        "ancestry": {
+          "$ref": "#/$defs/AncestryAPIModel"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VariantAPIModel"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "panels",
+        "pharmacos",
+        "pathology",
+        "ancestry",
+        "variants"
+      ],
+      "additionalProperties": false
+    },
+    "PanelAPIModel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "background_image": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "categories": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CategoryAPIModel"
+              },
+              "minItems": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "CategoryAPIModel": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "category_icon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "genome": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/GenomeAPIModel"
+              },
+              "minItems": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ideal_gen_percentage": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "GenomeAPIModel": {
+      "type": "object",
+      "properties": {
+        "gen": {
+          "type": "string"
+        },
+        "snp": {
+          "type": "string"
+        },
+        "ideal_gen": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "my_gen": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "gen",
+        "snp",
+        "my_gen"
+      ],
+      "additionalProperties": false
+    },
+    "PharmageneticAPIModel": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PharmageneticCategoryAPIModel"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "categories"
+      ],
+      "additionalProperties": false
+    },
+    "PharmageneticCategoryAPIModel": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sf_icon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrugCategoryAPIModel"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "name",
+        "types"
+      ],
+      "additionalProperties": false
+    },
+    "DrugCategoryAPIModel": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sf_icon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "drugs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrugsLevelAPIModel"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "name",
+        "drugs"
+      ],
+      "additionalProperties": false
+    },
+    "DrugsLevelAPIModel": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "risk": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "veryHigh"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "analyzed_genes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DrugGenAPIModel"
+          },
+          "minItems": 0
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "analyzed_genes"
+      ],
+      "additionalProperties": false
+    },
+    "DrugGenAPIModel": {
+      "type": "object",
+      "properties": {
+        "gen": {
+          "type": "string"
+        },
+        "genotype": {
+          "type": "string"
+        },
+        "effect": {
+          "type": "string"
+        },
+        "conclusion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "gen",
+        "genotype",
+        "effect"
+      ],
+      "additionalProperties": false
+    },
+    "PathologyAPIModel": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PathologyCategory"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "categories"
+      ],
+      "additionalProperties": false
+    },
+    "PathologyCategory": {
+      "type": "object",
+      "properties": {
+        "category_icon": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConditionAPIModel"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "category_icon",
+        "name",
+        "conditions"
+      ],
+      "additionalProperties": false
+    },
+    "ConditionAPIModel": {
+      "type": "object",
+      "properties": {
+        "condition": {
+          "type": "string"
+        },
+        "is_genetic_variant": {
+          "type": "boolean"
+        },
+        "gen_variant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GenVariantAPIModel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "condition",
+        "is_genetic_variant"
+      ],
+      "additionalProperties": false
+    },
+    "GenVariantAPIModel": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "condition": {
+          "type": "string"
+        },
+        "explanation": {
+          "type": "string"
+        },
+        "gen_info": {
+          "$ref": "#/$defs/GenVariantInfoAPIModel"
+        }
+      },
+      "required": [
+        "title",
+        "icon",
+        "condition",
+        "explanation",
+        "gen_info"
+      ],
+      "additionalProperties": false
+    },
+    "GenVariantInfoAPIModel": {
+      "type": "object",
+      "properties": {
+        "gen": {
+          "type": "string"
+        },
+        "nm": {
+          "type": "string"
+        },
+        "c_dna": {
+          "type": "string"
+        },
+        "protein": {
+          "type": "string"
+        },
+        "cigosity": {
+          "type": "string"
+        },
+        "depth": {
+          "type": "string"
+        },
+        "snv": {
+          "type": "string"
+        },
+        "classification": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "variant_description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "gen",
+        "nm",
+        "c_dna",
+        "protein",
+        "cigosity",
+        "depth",
+        "snv",
+        "classification",
+        "description",
+        "variant_description"
+      ],
+      "additionalProperties": false
+    },
+    "AncestryAPIModel": {
+      "type": "object",
+      "properties": {
+        "charts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AncestryChartAPIModel"
+          },
+          "minItems": 0
+        },
+        "lineage": {
+          "$ref": "#/$defs/LineageAPIModel"
+        },
+        "world_map": {
+          "$ref": "#/$defs/WorldMapAPIModel"
+        }
+      },
+      "required": [
+        "charts",
+        "lineage",
+        "world_map"
+      ],
+      "additionalProperties": false
+    },
+    "AncestryChartAPIModel": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "percentage": {
+          "type": "number"
+        },
+        "color": {
+          "type": "string"
+        },
+        "sub_sectors": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/AncestryChartAPIModel"
+              },
+              "minItems": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "percentage",
+        "color"
+      ],
+      "additionalProperties": false
+    },
+    "LineageAPIModel": {
+      "type": "object",
+      "properties": {
+        "paternal_lineage": {
+          "$ref": "#/$defs/LineageDetailsAPIModel"
+        },
+        "maternal_lineage": {
+          "$ref": "#/$defs/LineageDetailsAPIModel"
+        }
+      },
+      "required": [
+        "paternal_lineage",
+        "maternal_lineage"
+      ],
+      "additionalProperties": false
+    },
+    "LineageDetailsAPIModel": {
+      "type": "object",
+      "properties": {
+        "haplogroup": {
+          "$ref": "#/$defs/LineageInfoAPIModel"
+        },
+        "migration": {
+          "$ref": "#/$defs/LineageInfoAPIModel"
+        },
+        "history": {
+          "$ref": "#/$defs/LineageInfoAPIModel"
+        }
+      },
+      "required": [
+        "haplogroup",
+        "migration",
+        "history"
+      ],
+      "additionalProperties": false
+    },
+    "LineageInfoAPIModel": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "desription": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "desription"
+      ],
+      "additionalProperties": false
+    },
+    "WorldMapAPIModel": {
+      "type": "object",
+      "properties": {
+        "image_url": {
+          "type": "string"
+        },
+        "genetic_distribution": {
+          "type": "string"
+        },
+        "lineage": {
+          "type": "string"
+        },
+        "halogroups": {
+          "type": "string"
+        },
+        "limitations": {
+          "type": "string"
+        },
+        "more_info": {
+          "$ref": "#/$defs/MoreInfoAPIModel"
+        }
+      },
+      "required": [
+        "image_url",
+        "genetic_distribution",
+        "lineage",
+        "halogroups",
+        "limitations",
+        "more_info"
+      ],
+      "additionalProperties": false
+    },
+    "MoreInfoAPIModel": {
+      "type": "object",
+      "properties": {
+        "explanation": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "explanation",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "VariantAPIModel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "chrom": {
+          "type": "string"
+        },
+        "position": {
+          "type": "integer"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "alternate": {
+          "type": "string"
+        },
+        "quality": {
+          "type": "number"
+        },
+        "info": {
+          "type": "string"
+        },
+        "filter": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "chrom",
+        "position",
+        "reference",
+        "alternate",
+        "quality",
+        "info",
+        "filter"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

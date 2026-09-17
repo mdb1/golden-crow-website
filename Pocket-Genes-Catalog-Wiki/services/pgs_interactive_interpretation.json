@@ -1,0 +1,185 @@
+{
+  "name": "Produce an interactive genomic result",
+  "stages": [
+    "bioinformatics"
+  ],
+  "availability": "mock_catalog_only",
+  "description": "Convert an annotated VCF into a registered Pocket Genes interactive report backed by a native MyDNAMap .pgi1.json payload that matches MDMAPIModel.",
+  "serviceId": "pgs_interactive_interpretation",
+  "schemaVersion": 1,
+  "serviceVersion": 1,
+  "providerId": "pgp_variant_analysis",
+  "shortContract": "form:form + annotated_vcf:annotated_vcf -> interactive_report:interactive_report",
+  "providerWork": "Produce or register a native PGI payload, validate it against the matching provider schema, attach support evidence and limitations, and return the Pocket Genes registration object.",
+  "formShape": {
+    "id": "pgfs_interactive_interpretation",
+    "version": 1,
+    "fields": [
+      {
+        "key": "requested_at",
+        "label": "Requested at",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "requested_by",
+        "label": "Requested by",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "interpretation_profile",
+        "label": "Interpretation profile",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "pg_demo_mdm_pgi1_v1",
+            "label": "Demo PGI1 MDMAPIModel profile"
+          }
+        ]
+      }
+    ],
+    "allowUnknownFields": false
+  },
+  "sampleFormData": {
+    "fields": [
+      {
+        "key": "requested_at",
+        "value": "2026-09-17T15:05:00Z"
+      },
+      {
+        "key": "requested_by",
+        "value": "user_demo_001"
+      },
+      {
+        "key": "interpretation_profile",
+        "value": "pg_demo_mdm_pgi1_v1"
+      }
+    ],
+    "formShapeId": "pgfs_interactive_interpretation",
+    "formShapeVersion": 1
+  },
+  "sampleFormObject": {
+    "object_id": "obj_demo_form_interactive_interpretation",
+    "object_type": "pgo_form",
+    "schema_version": "1.0.0",
+    "revision": 1,
+    "created_at": "2026-09-17T15:05:00Z",
+    "created_by": "user_demo_001",
+    "input_refs": [],
+    "data": {
+      "fields": [
+        {
+          "key": "requested_at",
+          "value": "2026-09-17T15:05:00Z"
+        },
+        {
+          "key": "requested_by",
+          "value": "user_demo_001"
+        },
+        {
+          "key": "interpretation_profile",
+          "value": "pg_demo_mdm_pgi1_v1"
+        }
+      ],
+      "form_shape_id": "pgfs_interactive_interpretation",
+      "form_shape_version": 1
+    },
+    "files": []
+  },
+  "inputSlots": [
+    {
+      "role": "form",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_form"
+      ],
+      "objectType": "pgo_form"
+    },
+    {
+      "role": "annotated_vcf",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_annotated_vcf"
+      ],
+      "objectType": "pgo_annotated_vcf"
+    }
+  ],
+  "outputSlots": [
+    {
+      "role": "interactive_report",
+      "objectType": "pgo_interactive_report",
+      "mutationMode": "new_object"
+    }
+  ],
+  "acceptedConditions": [
+    "The annotated VCF object declares an accepted annotation profile, source scope and analytical-support evidence.",
+    "The requested demo result is .pgi1.json version 1.0.0 and must validate against schemas/protocol/pgi1-mdm.schema.json.",
+    "The returned pgo_interactive_report stores native_format and payload_ref metadata that match the raw PGI file."
+  ],
+  "scopeRules": [
+    "The demo genomic content is derived from the VCF and registered as a native MDMAPIModel payload; a symptom bundle is not an input.",
+    "Carry source scope and limitations into the Pocket Genes registration object. A pipeline compares that declared support with its linked order.",
+    "No test_order is a required input to this specific conversion. It can be purchased for an existing compatible annotated VCF.",
+    "PGI2/AGAPIModel and PGI3/TwoPQAPIModel use the same pgo_interactive_report registration concept, but require their own native payload sources and schemas.",
+    "Clinical relevance or report sections live in the native PGI payload and provider profile; patient-specific conclusions belong to the appropriately scoped reporting service."
+  ],
+  "commercialTerms": {
+    "price": {
+      "summary": "Calculated after submission"
+    },
+    "turnaround": "1d",
+    "pricingModel": "calculated_after_submission"
+  },
+  "sampleRequest": {
+    "request_id": "pgr_demo_interactive_interpretation",
+    "service_id": "pgs_interactive_interpretation",
+    "service_version": 1,
+    "inputs": [
+      {
+        "role": "form",
+        "object_ref": {
+          "object_id": "obj_demo_form_interactive_interpretation",
+          "revision": 1
+        }
+      },
+      {
+        "role": "annotated_vcf",
+        "object_ref": {
+          "object_id": "obj_demo_annotated_vcf",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "sampleResult": {
+    "request_id": "pgr_demo_interactive_interpretation",
+    "status": "completed",
+    "outputs": [
+      {
+        "role": "interactive_report",
+        "object_ref": {
+          "object_id": "obj_demo_interactive",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "status": "active",
+  "serviceCategory": "",
+  "providerName": "Variant Analysis Cooperative",
+  "providerKind": "organization",
+  "regions": [
+    "AR"
+  ],
+  "providerApiContractId": "pg_api_service_requests_v1"
+}

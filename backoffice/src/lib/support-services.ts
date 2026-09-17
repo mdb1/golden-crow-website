@@ -92,6 +92,7 @@ export interface SupportServiceOutputSlot {
   role: string;
   objectType: string;
   mutationMode: SupportServiceMutationMode;
+  sameIdentityAsInput?: string;
 }
 
 export interface SupportServiceCommercialTerms {
@@ -99,13 +100,8 @@ export interface SupportServiceCommercialTerms {
   price?: {
     amount?: number;
     currency?: string;
-    basis?: string;
-    isMock?: boolean;
   };
   turnaround?: string;
-  turnaroundStartsAt?: string;
-  taxAndPaymentPolicy?: string;
-  failurePolicy?: string;
 }
 
 export interface SupportServiceOfferInput {
@@ -118,7 +114,6 @@ export interface SupportServiceOfferInput {
   providerName?: string;
   stages?: SupportServiceStage[];
   status?: SupportServiceOfferStatus;
-  availability?: string;
   description?: string;
   shortContract?: string;
   providerWork?: string;
@@ -163,18 +158,17 @@ export interface SupportServiceTransactionInput {
   status?: SupportServiceTransactionStatus;
   requesterEmail?: string;
   subjectId?: string;
-  formRef?: SupportServiceObjectRef | null;
   inputs?: SupportServiceTransactionSlot[];
   outputs?: SupportServiceTransactionSlot[];
+  missingRequiredInputRoles?: string[];
   notes?: string;
 }
 
 export interface SupportServiceTransactionRecord
-  extends Required<Omit<SupportServiceTransactionInput, "formRef">> {
+  extends Required<SupportServiceTransactionInput> {
   id: string;
   schemaVersion: number;
   serviceVersion: number;
-  formRef: SupportServiceObjectRef | null;
   status: SupportServiceTransactionStatus;
   normalizedName: string;
   createdAt?: string;

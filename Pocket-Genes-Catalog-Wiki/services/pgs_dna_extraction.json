@@ -1,0 +1,226 @@
+{
+  "name": "Extract DNA from an accepted specimen",
+  "stages": [
+    "wet_lab"
+  ],
+  "availability": "mock_catalog_only",
+  "description": "Produce an identified DNA sample from one compatible blood, tissue or embryo-biopsy specimen.",
+  "serviceId": "pgs_dna_extraction",
+  "schemaVersion": 1,
+  "serviceVersion": 1,
+  "providerId": "pgp_precision_lab",
+  "shortContract": "form:form + blood_sample:blood_sample + test_order:test_order -> dna_sample:dna_sample + source_specimen:same_as:blood_sample",
+  "providerWork": "Perform the accepted extraction method and return the DNA identity, measured properties and source lineage.",
+  "formShape": {
+    "id": "pgfs_dna_extraction",
+    "version": 1,
+    "fields": [
+      {
+        "key": "requested_at",
+        "label": "Requested at",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "requested_by",
+        "label": "Requested by",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "extraction_profile",
+        "label": "Extraction profile",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "demo_blood_dna_v1",
+            "label": "Demo blood DNA extraction"
+          },
+          {
+            "value": "demo_tissue_dna_v1",
+            "label": "Demo tissue DNA extraction"
+          },
+          {
+            "value": "demo_embryo_biopsy_dna_v1",
+            "label": "Demo embryo-biopsy DNA extraction"
+          }
+        ]
+      }
+    ],
+    "allowUnknownFields": false
+  },
+  "sampleFormData": {
+    "fields": [
+      {
+        "key": "requested_at",
+        "value": "2026-09-16T15:05:00Z"
+      },
+      {
+        "key": "requested_by",
+        "value": "user_demo_001"
+      },
+      {
+        "key": "extraction_profile",
+        "value": "demo_blood_dna_v1"
+      }
+    ],
+    "formShapeId": "pgfs_dna_extraction",
+    "formShapeVersion": 1
+  },
+  "sampleFormObject": {
+    "object_id": "obj_demo_form_dna_extraction",
+    "object_type": "pgo_form",
+    "schema_version": "1.0.0",
+    "revision": 1,
+    "created_at": "2026-09-16T15:05:00Z",
+    "created_by": "user_demo_001",
+    "input_refs": [],
+    "data": {
+      "fields": [
+        {
+          "key": "requested_at",
+          "value": "2026-09-16T15:05:00Z"
+        },
+        {
+          "key": "requested_by",
+          "value": "user_demo_001"
+        },
+        {
+          "key": "extraction_profile",
+          "value": "demo_blood_dna_v1"
+        }
+      ],
+      "form_shape_id": "pgfs_dna_extraction",
+      "form_shape_version": 1
+    },
+    "files": []
+  },
+  "inputSlots": [
+    {
+      "role": "form",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_form"
+      ],
+      "objectType": "pgo_form"
+    },
+    {
+      "role": "blood_sample",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_blood_sample"
+      ],
+      "objectType": "pgo_blood_sample"
+    },
+    {
+      "role": "test_order",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_test_order"
+      ],
+      "objectType": "pgo_test_order"
+    }
+  ],
+  "outputSlots": [
+    {
+      "role": "dna_sample",
+      "objectType": "pgo_dna_sample",
+      "mutationMode": "new_object"
+    },
+    {
+      "role": "source_specimen",
+      "objectType": "same_as:blood_sample",
+      "mutationMode": "new_revision",
+      "sameIdentityAsInput": "blood_sample"
+    }
+  ],
+  "acceptedConditions": [
+    "Exactly one specimen occupies the specimen slot; accepted_types are alternatives, not three required inputs.",
+    "The specimen is received at this provider, available for the planned procedure and accepted under the selected extraction profile.",
+    "For pgo_embryo_sample, data.material_kind must equal embryo_biopsy. A whole_embryo is rejected by this service.",
+    "The blood, tissue or embryo-biopsy material must match the selected extraction profile."
+  ],
+  "scopeRules": [
+    "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
+    "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
+    "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
+    "The extracted DNA has its own object_id and a lineage reference to the source specimen. Record source consumption or remaining quantity in specimen tracking.",
+    "Return a new revision of the source physical object recording consumed material and remaining quantity. This fixture consumes the entire provided aliquot. Physical execution must lock the current revision to prevent concurrent reuse."
+  ],
+  "commercialTerms": {
+    "price": {
+      "summary": "Calculated after submission"
+    },
+    "turnaround": "1d",
+    "pricingModel": "calculated_after_submission"
+  },
+  "sampleRequest": {
+    "request_id": "pgr_demo_dna_extraction",
+    "service_id": "pgs_dna_extraction",
+    "service_version": 1,
+    "inputs": [
+      {
+        "role": "form",
+        "object_ref": {
+          "object_id": "obj_demo_form_dna_extraction",
+          "revision": 1
+        }
+      },
+      {
+        "role": "blood_sample",
+        "object_ref": {
+          "object_id": "obj_demo_blood",
+          "revision": 2
+        }
+      },
+      {
+        "role": "test_order",
+        "object_ref": {
+          "object_id": "obj_demo_order",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "sampleResult": {
+    "request_id": "pgr_demo_dna_extraction",
+    "status": "completed",
+    "outputs": [
+      {
+        "role": "dna_sample",
+        "object_ref": {
+          "object_id": "obj_demo_dna",
+          "revision": 1
+        }
+      },
+      {
+        "role": "source_specimen",
+        "object_ref": {
+          "object_id": "obj_demo_blood",
+          "revision": 3
+        }
+      }
+    ]
+  },
+  "status": "active",
+  "serviceCategory": "",
+  "providerName": "Atlas Precision Laboratory",
+  "providerKind": "organization",
+  "regions": [
+    "AR"
+  ],
+  "providerApiContractId": "pg_api_service_requests_v1"
+}

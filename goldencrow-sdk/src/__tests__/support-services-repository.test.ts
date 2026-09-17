@@ -84,7 +84,6 @@ const baseOffer = {
   providerName: "Pocket Genes",
   stages: ["bioinformatics"],
   status: "active" as const,
-  availability: "backoffice",
   description: "Create a report.",
   shortContract: "form:form -> report:pdf_report",
   providerWork: "Review and issue a report.",
