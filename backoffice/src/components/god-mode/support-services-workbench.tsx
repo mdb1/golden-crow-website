@@ -161,6 +161,9 @@ const TRANSACTIONS_QUERY_KEY = "god-mode-support-service-transactions";
 const LIVE_OFFERS_QUERY_KEY = "god-mode-support-service-offers-live-picker";
 const FORM_OBJECT_TYPE = "pgo_form";
 const DEFAULT_OUTPUT_OBJECT_TYPE = "pgo_pdf_report";
+const INPUT_OBJECT_OPTIONS = POCKET_GENES_OBJECT_OPTIONS.filter(
+  (object) => object.value !== FORM_OBJECT_TYPE,
+);
 const OUTPUT_OBJECT_OPTIONS = POCKET_GENES_OBJECT_OPTIONS.filter(
   (object) => object.value !== FORM_OBJECT_TYPE,
 );
@@ -2453,7 +2456,7 @@ function InputSlotEditor({
         role: slot?.role ?? "",
         objectType:
           (slot ? slotObjectType(slot) : "") ||
-          POCKET_GENES_OBJECT_OPTIONS[0]?.value ||
+          INPUT_OBJECT_OPTIONS[0]?.value ||
           "",
         required: slot?.required ?? false,
         min: String(slot?.cardinality.min ?? 0),
@@ -2486,18 +2489,8 @@ function InputSlotEditor({
       return;
     }
     if (slotDialog.draft.objectType === FORM_OBJECT_TYPE) {
-      const existingFormSlotIndex = form.inputSlots.findIndex(isFormInputSlot);
-      if (!form.supportsFormShape) {
-        setSlotError(t("A form input requires an enabled form shape."));
-        return;
-      }
-      if (
-        existingFormSlotIndex !== -1 &&
-        existingFormSlotIndex !== slotDialog.index
-      ) {
-        setSlotError(t("Only one form input slot is allowed."));
-        return;
-      }
+      setSlotError(t("Form inputs are managed by Support form input."));
+      return;
     }
     if (!Number.isInteger(min) || min < 0 || !Number.isInteger(max) || max < 1 || max < min) {
       setSlotError(t("Cardinality must use valid whole numbers."));
@@ -2557,57 +2550,63 @@ function InputSlotEditor({
                 </TableCell>
               </TableRow>
             ) : (
-              form.inputSlots.map((slot, index) => (
-                <TableRow key={`${slot.role}-${index}`}>
-                  <TableCell className="font-mono text-sm">
-                    {slot.role || "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">
-                      {objectLabel(slotObjectType(slot))}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {slot.cardinality.min}-{slot.cardinality.max}
-                  </TableCell>
-                  <TableCell>
-                    {slot.required ? (
-                      <Badge variant="outline">{t("Required")}</Badge>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => openSlotDialog(index)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                        <span className="sr-only">{t("Edit")}</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() =>
-                          setForm((current) => ({
-                            ...current,
-                            inputSlots: current.inputSlots.filter(
-                              (_, slotIndex) => slotIndex !== index,
-                            ),
-                          }))
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">{t("Delete")}</span>
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              form.inputSlots.map((slot, index) => {
+                const isManagedFormSlot = isFormInputSlot(slot);
+
+                return (
+                  <TableRow key={`${slot.role}-${index}`}>
+                    <TableCell className="font-mono text-sm">
+                      {slot.role || "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {objectLabel(slotObjectType(slot))}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {slot.cardinality.min}-{slot.cardinality.max}
+                    </TableCell>
+                    <TableCell>
+                      {slot.required ? (
+                        <Badge variant="outline">{t("Required")}</Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={isManagedFormSlot}
+                          onClick={() => openSlotDialog(index)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">{t("Edit")}</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={isManagedFormSlot}
+                          onClick={() =>
+                            setForm((current) => ({
+                              ...current,
+                              inputSlots: current.inputSlots.filter(
+                                (_, slotIndex) => slotIndex !== index,
+                              ),
+                            }))
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">{t("Delete")}</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -2644,6 +2643,7 @@ function InputSlotEditor({
                 <ObjectTypeSelect
                   value={slotDialog.draft.objectType}
                   onChange={(objectType) => updateSlotDraft({ objectType })}
+                  excludeForm
                 />
               </Field>
               <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">

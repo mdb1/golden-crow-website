@@ -4756,6 +4756,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Filter by service ID": "Filtrar por ID de servicio",
   "Fixed price": "Precio fijo",
   "Form input": "Entrada de formulario",
+  "Form inputs are managed by Support form input.":
+    "Las entradas de formulario se gestionan con Soportar entrada de formulario.",
   "Form shape ID": "ID de forma de formulario",
   "Form shape version": "Versión de forma de formulario",
   Hours: "Horas",
