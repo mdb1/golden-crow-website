@@ -259,7 +259,14 @@ export const config = {
     // self-hosted via next.config rewrites (#378) — otherwise this middleware
     // would route them through the NextAuth branch and redirect the handler to
     // /login, breaking the proxied sign-in flow.
-    "/((?!login|access-denied|botfarm|api/auth|api/sdk|open-api|_next/static|_next/image|favicon.ico|gc-fitness|api/gc-fitness|patient-portal|pgflex|publisher-portal|__).*)",
+    // `f` y `.well-known` son PÚBLICOS (#1037 / S6): `/f/r/{id}` es la landing del
+    // link que alguien manda por WhatsApp — quien la abre normalmente no tiene
+    // cuenta — y los dos archivos de `/.well-known/` los descargan los CDN de Apple
+    // y Google, que no traen ninguna cookie. Sin esta exclusión los tres caen en la
+    // rama de NextAuth y terminan en /login: el link "no anda" y los Universal
+    // Links fallan en silencio, porque un AASA que responde 302 es un AASA que no
+    // existe.
+    "/((?!login|access-denied|botfarm|api/auth|api/sdk|open-api|_next/static|_next/image|favicon.ico|gc-fitness|api/gc-fitness|patient-portal|pgflex|publisher-portal|f/|\\.well-known|__).*)",
     "/patient-portal/:path*",
     "/pgflex/:path*",
     "/publisher-portal/:path*",
