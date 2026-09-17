@@ -4744,6 +4744,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Delete this service transaction?": "¿Eliminar esta transacción de servicio?",
   "Each input slot accepts one Pocket Genes object type.":
     "Cada slot de entrada acepta un tipo de objeto Pocket Genes.",
+  "Choose the object type. The input key and one required file are generated automatically.":
+    "Elegí el tipo de objeto. La clave de entrada y el único archivo requerido se generan automáticamente.",
   "Edit form field": "Editar campo de formulario",
   "Edit input slot": "Editar slot de entrada",
   "Edit output slot": "Editar slot de salida",
@@ -4763,6 +4765,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Hours: "Horas",
   "In progress": "En progreso",
   "Input object bindings": "Vínculos de objetos de entrada",
+  "Input key": "Clave de entrada",
   "Input slots": "Slots de entrada",
   Inputs: "Entradas",
   Integer: "Entero",
@@ -4889,6 +4892,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "La publicación se detuvo. Revisá los requisitos de la oferta de servicio e intentá de nuevo.",
   "This service offer is now published.":
     "Esta oferta de servicio ya está publicada.",
+  "This input type is already added.":
+    "Este tipo de entrada ya está agregado.",
   "A form shape requires exactly one pgo_form input slot.":
     "Una forma de formulario requiere exactamente un slot de entrada pgo_form.",
   "A pgo_form input slot requires a form shape.":
@@ -4897,6 +4902,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Cada campo de formulario necesita clave y etiqueta.",
   "Every input slot needs a role.":
     "Cada slot de entrada necesita un rol.",
+  "Every input slot needs one object type.":
+    "Cada slot de entrada necesita un tipo de objeto.",
   "Every output slot needs a role and object type.":
     "Cada slot de salida necesita un rol y un tipo de objeto.",
   "Output slots cannot produce request forms.":

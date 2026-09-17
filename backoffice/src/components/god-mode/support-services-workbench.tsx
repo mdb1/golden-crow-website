@@ -397,6 +397,10 @@ function isFormInputSlot(slot: SupportServiceInputSlot) {
   return slotObjectType(slot) === FORM_OBJECT_TYPE;
 }
 
+function inputRoleForObjectType(objectType: string) {
+  return objectType.replace(/^pgo_/, "") || "input";
+}
+
 function withFormInputSlot(slots: SupportServiceInputSlot[]) {
   return slots.some(isFormInputSlot) ? slots : [defaultFormInputSlot(), ...slots];
 }
@@ -449,10 +453,15 @@ function defaultOfferForm(): OfferFormState {
 
 function singleInputSlot(slot: SupportServiceInputSlot): SupportServiceInputSlot {
   const objectType = slot.objectType || slot.acceptedTypes[0] || "";
+  const isFormSlot = objectType === FORM_OBJECT_TYPE;
+
   return {
     ...slot,
+    role: isFormSlot ? "form" : inputRoleForObjectType(objectType),
     objectType,
     acceptedTypes: objectType ? [objectType] : [],
+    required: true,
+    cardinality: { min: 1, max: 1 },
   };
 }
 
@@ -829,16 +838,16 @@ function offerPayloadFromForm(
     }
   }
 
+  const seenInputTypes = new Set<string>();
   for (const slot of form.inputSlots) {
-    if (!slot.role.trim()) {
-      throw new Error("Every input slot needs a role.");
+    const objectType = slotObjectType(slot);
+    if (!objectType) {
+      throw new Error("Every input slot needs one object type.");
     }
-    if (!slotObjectType(slot)) {
-      throw new Error(`Input slot ${slot.role} needs one object type.`);
+    if (seenInputTypes.has(objectType)) {
+      throw new Error("This input type is already added.");
     }
-    if (slot.cardinality.min < 0 || slot.cardinality.max < slot.cardinality.min) {
-      throw new Error(`Input slot ${slot.role} has invalid cardinality.`);
-    }
+    seenInputTypes.add(objectType);
   }
   for (const slot of form.outputSlots) {
     if (!slot.role.trim() || !slot.objectType) {
@@ -882,12 +891,19 @@ function offerPayloadFromForm(
           fields,
         }
       : undefined,
-    inputSlots: form.inputSlots.map((slot) => ({
-      ...slot,
-      role: slot.role.trim(),
-      objectType: slotObjectType(slot),
-      acceptedTypes: [slotObjectType(slot)],
-    })),
+    inputSlots: form.inputSlots.map((slot) => {
+      const objectType = slotObjectType(slot);
+      const isFormSlot = objectType === FORM_OBJECT_TYPE;
+
+      return {
+        ...slot,
+        role: isFormSlot ? "form" : inputRoleForObjectType(objectType),
+        objectType,
+        acceptedTypes: [objectType],
+        required: true,
+        cardinality: { min: 1, max: 1 },
+      };
+    }),
     outputSlots: form.outputSlots.map((slot) => ({
       ...slot,
       role: slot.role.trim(),
@@ -2960,11 +2976,7 @@ function InputSlotEditor({
   const [slotDialog, setSlotDialog] = useState<{
     index: number | null;
     draft: {
-      role: string;
       objectType: string;
-      required: boolean;
-      min: string;
-      max: string;
     };
   } | null>(null);
   const [slotError, setSlotError] = useState("");
@@ -2975,14 +2987,10 @@ function InputSlotEditor({
     setSlotDialog({
       index,
       draft: {
-        role: slot?.role ?? "",
         objectType:
           (slot ? slotObjectType(slot) : "") ||
           INPUT_OBJECT_OPTIONS[0]?.value ||
           "",
-        required: slot?.required ?? false,
-        min: String(slot?.cardinality.min ?? 0),
-        max: String(slot?.cardinality.max ?? 1),
       },
     });
   }
@@ -3000,12 +3008,6 @@ function InputSlotEditor({
       return;
     }
 
-    const min = Number(slotDialog.draft.min);
-    const max = Number(slotDialog.draft.max);
-    if (!slotDialog.draft.role.trim()) {
-      setSlotError(t("Role is required."));
-      return;
-    }
     if (!slotDialog.draft.objectType) {
       setSlotError(t("Object type is required."));
       return;
@@ -3014,17 +3016,20 @@ function InputSlotEditor({
       setSlotError(t("Form inputs are managed by Support form input."));
       return;
     }
-    if (!Number.isInteger(min) || min < 0 || !Number.isInteger(max) || max < 1 || max < min) {
-      setSlotError(t("Cardinality must use valid whole numbers."));
+    const duplicateSlotIndex = form.inputSlots.findIndex(
+      (slot) => slotObjectType(slot) === slotDialog.draft.objectType,
+    );
+    if (duplicateSlotIndex !== -1 && duplicateSlotIndex !== slotDialog.index) {
+      setSlotError(t("This input type is already added."));
       return;
     }
 
     const nextSlot: SupportServiceInputSlot = {
-      role: slotDialog.draft.role.trim(),
+      role: inputRoleForObjectType(slotDialog.draft.objectType),
       objectType: slotDialog.draft.objectType,
       acceptedTypes: [slotDialog.draft.objectType],
-      required: slotDialog.draft.required,
-      cardinality: { min, max },
+      required: true,
+      cardinality: { min: 1, max: 1 },
     };
 
     setForm((current) => ({
@@ -3057,17 +3062,15 @@ function InputSlotEditor({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t("Role")}</TableHead>
+              <TableHead>{t("Input key")}</TableHead>
               <TableHead>{t("Object type")}</TableHead>
-              <TableHead>{t("Cardinality")}</TableHead>
-              <TableHead>{t("Required")}</TableHead>
               <TableHead className="text-right">{t("Actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {form.inputSlots.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={3} className="py-8 text-center text-sm text-muted-foreground">
                   {t("No input slots defined.")}
                 </TableCell>
               </TableRow>
@@ -3084,16 +3087,6 @@ function InputSlotEditor({
                       <Badge variant="secondary">
                         {objectLabel(slotObjectType(slot))}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {slot.cardinality.min}-{slot.cardinality.max}
-                    </TableCell>
-                    <TableCell>
-                      {slot.required ? (
-                        <Badge variant="outline">{t("Required")}</Badge>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -3147,20 +3140,11 @@ function InputSlotEditor({
               {slotDialog?.index == null ? t("Add input slot") : t("Edit input slot")}
             </DialogTitle>
             <DialogDescription>
-              {t("Each input slot accepts one Pocket Genes object type.")}
+              {t("Choose the object type. The input key and one required file are generated automatically.")}
             </DialogDescription>
           </DialogHeader>
           {slotDialog ? (
             <div className="grid gap-4">
-              <Field label="Role">
-                <Input
-                  value={slotDialog.draft.role}
-                  onChange={(event) =>
-                    updateSlotDraft({ role: event.target.value })
-                  }
-                  placeholder="test_order"
-                />
-              </Field>
               <Field label="Object type">
                 <ObjectTypeSelect
                   value={slotDialog.draft.objectType}
@@ -3168,37 +3152,11 @@ function InputSlotEditor({
                   excludeForm
                 />
               </Field>
-              <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
-                <Field label="Min">
-                  <Input
-                    value={slotDialog.draft.min}
-                    onChange={(event) =>
-                      updateSlotDraft({ min: event.target.value })
-                    }
-                    type="number"
-                    min={0}
-                  />
-                </Field>
-                <Field label="Max">
-                  <Input
-                    value={slotDialog.draft.max}
-                    onChange={(event) =>
-                      updateSlotDraft({ max: event.target.value })
-                    }
-                    type="number"
-                    min={1}
-                  />
-                </Field>
-                <label className="flex items-center gap-3 pt-7 text-sm font-medium">
-                  <Checkbox
-                    checked={slotDialog.draft.required}
-                    onCheckedChange={(checked) =>
-                      updateSlotDraft({ required: checked === true })
-                    }
-                  />
-                  <span>{t("Required")}</span>
-                </label>
-              </div>
+              <Field label="Input key">
+                <GeneratedValue
+                  value={inputRoleForObjectType(slotDialog.draft.objectType)}
+                />
+              </Field>
               {slotError ? (
                 <p className="text-sm text-destructive">{slotError}</p>
               ) : null}
