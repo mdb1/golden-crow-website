@@ -4695,6 +4695,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Ofertas del catálogo de servicios Pocket Genes.",
   "Pocket Genes service catalog offers using pgs_* definitions.":
     "Ofertas del catálogo de servicios Pocket Genes con definiciones pgs_*.",
+  "Pocket Genes service contract": "Contrato de servicio Pocket Genes",
   "Create a Pocket Genes pgr_* service transaction.":
     "Crear una transacción de servicio Pocket Genes pgr_*.",
   "Edit a Pocket Genes pgr_* service transaction.":

@@ -196,6 +196,25 @@ const TURNAROUND_UNITS = [
   { value: "m", label: "Minutes" },
 ] as const;
 
+const SUPPORT_SERVICE_PANEL_CLASS =
+  "overflow-hidden rounded-2xl border border-violet-100/80 bg-white/92 shadow-[0_22px_62px_-46px_rgba(109,40,217,0.46)] dark:border-violet-400/16 dark:bg-slate-950/50";
+const SUPPORT_SERVICE_FORM_CLASS = cn(
+  SUPPORT_SERVICE_PANEL_CLASS,
+  "[&_[data-slot=input]]:h-11 [&_[data-slot=input]]:rounded-xl [&_[data-slot=input]]:border-violet-200/75 [&_[data-slot=input]]:bg-white/90 [&_[data-slot=input]]:px-4 [&_[data-slot=input]]:shadow-sm [&_[data-slot=input]]:focus-visible:border-violet-400 [&_[data-slot=input]]:focus-visible:ring-violet-300/35 dark:[&_[data-slot=input]]:border-violet-400/18 dark:[&_[data-slot=input]]:bg-slate-950/45",
+  "[&_[data-slot=textarea]]:rounded-xl [&_[data-slot=textarea]]:border-violet-200/75 [&_[data-slot=textarea]]:bg-white/90 [&_[data-slot=textarea]]:px-4 [&_[data-slot=textarea]]:py-3 [&_[data-slot=textarea]]:shadow-sm [&_[data-slot=textarea]]:focus-visible:border-violet-400 [&_[data-slot=textarea]]:focus-visible:ring-violet-300/35 dark:[&_[data-slot=textarea]]:border-violet-400/18 dark:[&_[data-slot=textarea]]:bg-slate-950/45",
+  "[&_[data-slot=select-trigger]]:h-11 [&_[data-slot=select-trigger]]:w-full [&_[data-slot=select-trigger]]:rounded-xl [&_[data-slot=select-trigger]]:border-violet-200/75 [&_[data-slot=select-trigger]]:bg-white/90 [&_[data-slot=select-trigger]]:px-4 [&_[data-slot=select-trigger]]:shadow-sm [&_[data-slot=select-trigger]]:focus-visible:border-violet-400 [&_[data-slot=select-trigger]]:focus-visible:ring-violet-300/35 dark:[&_[data-slot=select-trigger]]:border-violet-400/18 dark:[&_[data-slot=select-trigger]]:bg-slate-950/45",
+);
+const SUPPORT_SERVICE_HEADER_CLASS =
+  "border-b border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.90)_54%,rgba(240,249,255,0.72))] px-5 py-4 dark:border-violet-400/14 dark:bg-[linear-gradient(145deg,rgba(30,24,57,0.94),rgba(12,35,54,0.68))]";
+const SUPPORT_SERVICE_SECTION_CLASS =
+  "mx-4 my-4 grid gap-4 rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(250,250,255,0.94)_58%,rgba(245,243,255,0.86))] px-4 py-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.86))] lg:mx-5 lg:px-5 lg:py-5";
+const SUPPORT_SERVICE_SOFT_BUTTON_CLASS =
+  "h-9 rounded-xl border-violet-200/80 bg-white/78 px-3 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18";
+const SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS =
+  "h-9 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700";
+const SUPPORT_SERVICE_TABLE_SHELL_CLASS =
+  "overflow-x-auto rounded-2xl border border-violet-100/80 bg-white/80 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42";
+
 type TurnaroundUnit = (typeof TURNAROUND_UNITS)[number]["value"];
 
 function emptyFilters(): ServiceFilters {
@@ -1156,8 +1175,8 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
         onDismiss={() => setToast(null)}
         language={language}
       />
-      <section className="glass-panel overflow-hidden">
-        <div className="flex flex-col gap-4 border-b border-border/70 p-4 lg:p-5">
+      <section className={SUPPORT_SERVICE_PANEL_CLASS}>
+        <div className={cn("flex flex-col gap-4", SUPPORT_SERVICE_HEADER_CLASS)}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-2">
               <h2 className="font-heading text-xl font-semibold text-foreground">
@@ -1171,11 +1190,12 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                 variant="outline"
                 size="sm"
                 onClick={() => listQuery.refetch()}
+                className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
               >
                 <RefreshCw className="h-4 w-4" />
                 <span>{t("Refresh")}</span>
               </Button>
-              <Button asChild size="sm">
+              <Button asChild size="sm" className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}>
                 <Link href={`${route}/new`}>
                   <Plus className="h-4 w-4" />
                   <span>{t(createLabel)}</span>
@@ -1253,7 +1273,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
             )}
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
           <Table>
             <TableHeader>
               {isOffers ? (
@@ -1291,7 +1311,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-muted-foreground">
                       <FileText className="h-8 w-8" />
                       <p className="text-sm">{t("No records found.")}</p>
-                      <Button asChild size="sm">
+                      <Button asChild size="sm" className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}>
                         <Link href={`${route}/new`}>
                           <Plus className="h-4 w-4" />
                           <span>{t(createLabel)}</span>
@@ -1402,6 +1422,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
               size="sm"
               onClick={() => listQuery.fetchNextPage()}
               disabled={listQuery.isFetchingNextPage}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
             >
               {listQuery.isFetchingNextPage ? t("Loading...") : t("Load more")}
             </Button>
@@ -1711,7 +1732,7 @@ export function SupportServiceOfferWorkbench({
         onDismiss={() => setToast(null)}
         language={language}
       />
-      <form className="glass-panel overflow-hidden" onSubmit={handleSubmit}>
+      <form className={SUPPORT_SERVICE_FORM_CLASS} onSubmit={handleSubmit}>
         <WorkbenchTopbar
           title={isEditing ? "Editar service offer" : "Alta de service offer"}
           backHref="/god-mode/service-offers"
@@ -2398,7 +2419,13 @@ function MockTemplatePicker({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(true)}
+        className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+      >
         <Wand2 className="h-4 w-4" />
         <span>{t("Prefill with mocked template")}</span>
       </Button>
@@ -2451,6 +2478,7 @@ function MockTemplatePicker({
                       variant="outline"
                       size="sm"
                       onClick={() => selectTemplate(template.serviceId)}
+                      className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
                     >
                       {t("Use template")}
                     </Button>
@@ -2543,7 +2571,7 @@ function ProviderPicker({
   return (
     <div className="grid gap-2 text-sm font-medium">
       <span>{t("Provider")}</span>
-      <div className="flex flex-col gap-2 rounded border border-border/70 bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 rounded-2xl border border-violet-100/80 bg-white/78 p-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="truncate text-sm font-medium text-foreground">
             {selectedName || selectedId || t("No provider selected")}
@@ -2557,7 +2585,13 @@ function ProviderPicker({
             <span>{selectedId || t("Pick a Discover publisher")}</span>
           </div>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+        >
           <Search className="h-4 w-4" />
           <span>{t("Choose provider")}</span>
         </Button>
@@ -2584,7 +2618,7 @@ function ProviderPicker({
                 className="pl-9"
               />
             </label>
-            <div className="max-h-[24rem] overflow-y-auto rounded border border-border/70">
+            <div className="max-h-[24rem] overflow-y-auto rounded-2xl border border-violet-100/80 bg-white/80 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -2634,6 +2668,7 @@ function ProviderPicker({
                             variant="outline"
                             size="sm"
                             onClick={() => chooseProvider(provider)}
+                            className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
                           >
                             {t("Select")}
                           </Button>
@@ -2652,6 +2687,7 @@ function ProviderPicker({
                 variant="outline"
                 onClick={() => providerQuery.fetchNextPage()}
                 disabled={providerQuery.isFetchingNextPage}
+                className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
               >
                 {providerQuery.isFetchingNextPage ? t("Loading...") : t("Load more")}
               </Button>
@@ -2827,12 +2863,13 @@ function FormShapeEditor({
           variant="outline"
           size="sm"
           onClick={() => openFieldDialog(null)}
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
         >
           <Plus className="h-4 w-4" />
           <span>{t("Add field")}</span>
         </Button>
       </div>
-      <div className="overflow-x-auto">
+      <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -3004,10 +3041,15 @@ function FormShapeEditor({
               type="button"
               variant="outline"
               onClick={() => setFieldDialog(null)}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
             >
               {t("Cancel")}
             </Button>
-            <Button type="button" onClick={saveFieldDraft}>
+            <Button
+              type="button"
+              onClick={saveFieldDraft}
+              className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+            >
               {t("Save field")}
             </Button>
           </DialogFooter>
@@ -3125,12 +3167,13 @@ function InputSlotEditor({
           variant="outline"
           size="sm"
           onClick={() => openSlotDialog(null)}
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
         >
           <Plus className="h-4 w-4" />
           <span>{t("Add input")}</span>
         </Button>
       </div>
-      <div className="overflow-x-auto rounded border border-border/70">
+      <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -3239,10 +3282,15 @@ function InputSlotEditor({
               type="button"
               variant="outline"
               onClick={() => setSlotDialog(null)}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
             >
               {t("Cancel")}
             </Button>
-            <Button type="button" onClick={saveSlotDraft}>
+            <Button
+              type="button"
+              onClick={saveSlotDraft}
+              className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+            >
               {t("Save input slot")}
             </Button>
           </DialogFooter>
@@ -3329,12 +3377,13 @@ function OutputSlotEditor({
           variant="outline"
           size="sm"
           onClick={() => openSlotDialog(null)}
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
         >
           <Plus className="h-4 w-4" />
           <span>{t("Add output")}</span>
         </Button>
       </div>
-      <div className="overflow-x-auto rounded border border-border/70">
+      <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -3467,10 +3516,15 @@ function OutputSlotEditor({
               type="button"
               variant="outline"
               onClick={() => setSlotDialog(null)}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
             >
               {t("Cancel")}
             </Button>
-            <Button type="button" onClick={saveSlotDraft}>
+            <Button
+              type="button"
+              onClick={saveSlotDraft}
+              className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+            >
               {t("Save output slot")}
             </Button>
           </DialogFooter>
@@ -3825,7 +3879,7 @@ export function SupportServiceTransactionWorkbench({
         onDismiss={() => setToast(null)}
         language={language}
       />
-      <form className="glass-panel overflow-hidden" onSubmit={handleSubmit}>
+      <form className={SUPPORT_SERVICE_FORM_CLASS} onSubmit={handleSubmit}>
         <WorkbenchTopbar
           title={isEditing ? "Editar transaccion" : "Alta de transaccion"}
           backHref="/god-mode/service-transactions"
@@ -3920,13 +3974,13 @@ export function SupportServiceTransactionWorkbench({
             </Field>
           </div>
           {serviceChoices.length === 0 ? (
-            <div className="flex items-center gap-2 rounded border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 rounded-2xl border border-violet-100/80 bg-white/78 p-3 text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
               <CircleAlert className="h-4 w-4" />
               <span>{t("No service offers are available for transactions.")}</span>
             </div>
           ) : null}
           {selectedOffer ? (
-            <div className="rounded border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-violet-100/80 bg-white/78 p-3 text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
               <div className="font-medium text-foreground">{selectedOffer.name}</div>
               <div>{selectedOffer.shortContract}</div>
             </div>
@@ -3972,7 +4026,7 @@ function ObjectRefTable({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
       <Table>
         <TableHeader>
           <TableRow>
@@ -4051,15 +4105,29 @@ function WorkbenchTopbar({
   const t = (text: string) => appText(language, text);
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border/70 p-4 lg:flex-row lg:items-center lg:justify-between lg:p-5">
+    <div className={cn("flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between", SUPPORT_SERVICE_HEADER_CLASS)}>
       <div className="flex min-w-0 items-center gap-2">
-        <h2 className="font-heading text-xl font-semibold text-foreground">
-          {t(title)}
-        </h2>
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-violet-200 bg-violet-100 text-violet-700 shadow-inner dark:border-violet-400/20 dark:bg-violet-500/14 dark:text-violet-100">
+          <FileText className="h-5 w-5" />
+        </div>
+        <div>
+          <h2 className="font-heading text-xl font-semibold text-foreground">
+            {t(title)}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {t("Pocket Genes service contract")}
+          </p>
+        </div>
         <HeaderUnclutterButton />
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button asChild type="button" variant="outline" size="sm">
+        <Button
+          asChild
+          type="button"
+          variant="outline"
+          size="sm"
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+        >
           <Link href={backHref}>
             <ArrowLeft className="h-4 w-4" />
             <span>{t(backLabel)}</span>
@@ -4071,13 +4139,18 @@ function WorkbenchTopbar({
             variant="outline"
             size="sm"
             onClick={onDelete}
-            className="border-destructive/30 text-destructive hover:text-destructive"
+            className="h-9 rounded-xl border-destructive/30 bg-white/78 px-3 text-destructive shadow-sm hover:bg-destructive/5 hover:text-destructive dark:bg-slate-950/50"
           >
             <Trash2 className="h-4 w-4" />
             <span>{t("Delete")}</span>
           </Button>
         ) : null}
-        <Button type="submit" size="sm" disabled={isSaving}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={isSaving}
+          className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+        >
           <CheckCircle2 className="h-4 w-4" />
           <span>{isSaving ? t("Saving...") : t(saveLabel)}</span>
         </Button>
@@ -4097,10 +4170,15 @@ function Section({
   const t = (text: string) => appText(language, text);
 
   return (
-    <section className="grid gap-4 border-b border-border/70 p-4 last:border-b-0 lg:p-5">
-      <h3 className="font-heading text-base font-semibold text-foreground">
-        {t(title)}
-      </h3>
+    <section className={SUPPORT_SERVICE_SECTION_CLASS}>
+      <div className="flex items-center gap-2">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-700 dark:bg-violet-500/12 dark:text-violet-100">
+          <FileText className="h-4 w-4" />
+        </span>
+        <h3 className="font-heading text-lg font-semibold text-foreground">
+          {t(title)}
+        </h3>
+      </div>
       {children}
     </section>
   );
@@ -4108,7 +4186,7 @@ function Section({
 
 function GeneratedValue({ value }: { value: string }) {
   return (
-    <div className="flex min-h-10 items-center rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-sm text-muted-foreground">
+    <div className="flex min-h-11 items-center rounded-xl border border-violet-100 bg-white/78 px-4 py-2 font-mono text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
       {value}
     </div>
   );
@@ -4125,8 +4203,10 @@ function Field({
   const t = (text: string) => appText(language, text);
 
   return (
-    <Label className="grid gap-2 text-sm font-medium">
-      <span>{t(label)}</span>
+    <Label className="grid gap-2 text-sm font-medium text-foreground">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {t(label)}
+      </span>
       {children}
     </Label>
   );
