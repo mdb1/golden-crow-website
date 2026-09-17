@@ -1743,33 +1743,6 @@ export function SupportServiceOfferWorkbench({
             <MockTemplatePicker onSelect={applyMockTemplate} />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Field label="Offer name">
-              <Input
-                value={form.name}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, name: event.target.value }))
-                }
-                required
-              />
-            </Field>
-            <Field label="Service ID">
-              <GeneratedValue value={offerIdsPreview?.serviceId ?? "pgs_"} />
-            </Field>
-            <Field label="Service version">
-              <GeneratedValue value={String(form.serviceVersion || 1)} />
-            </Field>
-            <Field label="Service category">
-              <Input
-                value={form.serviceCategory}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    serviceCategory: event.target.value,
-                  }))
-                }
-                placeholder={t("Optional general category")}
-              />
-            </Field>
             <Field label="Provider kind">
               <Select
                 value={form.providerKind}
@@ -1831,15 +1804,31 @@ export function SupportServiceOfferWorkbench({
                 })
               }
             />
-            <Field label="Availability">
+            <Field label="Offer name">
               <Input
-                value={form.availability}
+                value={form.name}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, name: event.target.value }))
+                }
+                required
+              />
+            </Field>
+            <Field label="Service ID">
+              <GeneratedValue value={offerIdsPreview?.serviceId ?? "pgs_"} />
+            </Field>
+            <Field label="Service version">
+              <GeneratedValue value={String(form.serviceVersion || 1)} />
+            </Field>
+            <Field label="Service category">
+              <Input
+                value={form.serviceCategory}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    availability: event.target.value,
+                    serviceCategory: event.target.value,
                   }))
                 }
+                placeholder={t("Optional general category")}
               />
             </Field>
           </div>
@@ -1848,22 +1837,6 @@ export function SupportServiceOfferWorkbench({
             onChange={(stages) => setForm((current) => ({ ...current, stages }))}
           />
         </Section>
-        <ServiceOfferStatusBlock
-          status={form.status}
-          statusDraft={statusDraft}
-          statusOptions={statusOptions.map((option) => option.value)}
-          canChangeStatus={hasPersistedOffer}
-          isWorking={isWorking}
-          dialogOpen={statusDialogOpen}
-          onDialogOpenChange={(open) => {
-            if (open) {
-              setStatusDraft(form.status);
-            }
-            setStatusDialogOpen(open);
-          }}
-          onStatusDraftChange={setStatusDraft}
-          onSaveStatusDraft={() => void saveStatusDraft()}
-        />
         <Section title="Contract">
           <div className="grid gap-4">
             <div className="grid gap-2 text-sm font-medium">
@@ -1950,6 +1923,22 @@ export function SupportServiceOfferWorkbench({
             </Field>
           </div>
         </Section>
+        <ServiceOfferStatusBlock
+          status={form.status}
+          statusDraft={statusDraft}
+          statusOptions={statusOptions.map((option) => option.value)}
+          canChangeStatus={hasPersistedOffer}
+          isWorking={isWorking}
+          dialogOpen={statusDialogOpen}
+          onDialogOpenChange={(open) => {
+            if (open) {
+              setStatusDraft(form.status);
+            }
+            setStatusDialogOpen(open);
+          }}
+          onStatusDraftChange={setStatusDraft}
+          onSaveStatusDraft={() => void saveStatusDraft()}
+        />
         <ServiceOfferPublishFooter
           changed={changed}
           mode={hasPersistedOffer ? "edit" : "create"}
