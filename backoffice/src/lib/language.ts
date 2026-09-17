@@ -4854,7 +4854,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Choose an organization or professional provider.":
     "Elegí una organización o un profesional proveedor.",
   "Description is required.": "La descripción es obligatoria.",
+  "Requester-facing summary shown in the app as the service offer description. Use it to explain what the service is, when someone should request it, and what outcome they can expect.":
+    "Resumen orientado al solicitante que se muestra en la app como descripción de la oferta de servicio. Usalo para explicar qué es el servicio, cuándo conviene pedirlo y qué resultado puede esperar la persona.",
   "Provider work is required.": "El trabajo del proveedor es obligatorio.",
+  "Operational description of what the provider does after the request is submitted. It appears in the service detail context to clarify the provider-side work, not as the short marketing summary.":
+    "Descripción operativa de lo que hace el proveedor después de que se envía la solicitud. Aparece en el contexto de detalle del servicio para aclarar el trabajo del proveedor, no como resumen comercial corto.",
   "At least one stage is required.": "Se requiere al menos una etapa.",
   "At least one output slot is required.":
     "Se requiere al menos un slot de salida.",

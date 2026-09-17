@@ -1873,6 +1873,9 @@ export function SupportServiceOfferWorkbench({
               </div>
             </div>
             <Field label="Description">
+              <p className="text-xs leading-5 text-muted-foreground">
+                {t("Requester-facing summary shown in the app as the service offer description. Use it to explain what the service is, when someone should request it, and what outcome they can expect.")}
+              </p>
               <Textarea
                 value={form.description}
                 onChange={(event) =>
@@ -1886,6 +1889,9 @@ export function SupportServiceOfferWorkbench({
               />
             </Field>
             <Field label="Provider work">
+              <p className="text-xs leading-5 text-muted-foreground">
+                {t("Operational description of what the provider does after the request is submitted. It appears in the service detail context to clarify the provider-side work, not as the short marketing summary.")}
+              </p>
               <Textarea
                 value={form.providerWork}
                 onChange={(event) =>
