@@ -158,6 +158,7 @@ const ListQuerySchema = z.object({
 });
 const ListOffersQuerySchema = ListQuerySchema.extend({
   stage: z.string().trim().max(40).optional(),
+  serviceId: z.string().trim().max(160).optional(),
 });
 const ListTransactionsQuerySchema = ListQuerySchema.extend({
   serviceId: z.string().trim().max(160).optional(),

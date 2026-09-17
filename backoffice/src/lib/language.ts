@@ -4687,6 +4687,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Editar service offer": "Editar oferta de servicio",
   "Alta de transaccion": "Alta de transacción",
   "Editar transaccion": "Editar transacción",
+  "Detalle de transaccion": "Detalle de transacción",
   "Create a Pocket Genes pgs_* service definition.":
     "Crear una definición de servicio Pocket Genes pgs_*.",
   "Edit a Pocket Genes pgs_* service definition.":
@@ -4772,6 +4773,10 @@ const SPANISH_TEXT: Record<string, string> = {
   Integer: "Entero",
   Key: "Clave",
   Label: "Etiqueta",
+  "Linked service": "Servicio vinculado",
+  "Loading linked service...": "Cargando servicio vinculado...",
+  "Linked service offer not found.":
+    "No se encontró la oferta de servicio vinculada.",
   Max: "Máximo",
   Min: "Mínimo",
   "Multi enum": "Enum múltiple",

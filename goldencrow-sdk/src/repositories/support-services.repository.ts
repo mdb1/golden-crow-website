@@ -63,6 +63,7 @@ type ListOptions = {
 
 type OfferListOptions = ListOptions & {
   stage?: string;
+  serviceId?: string;
 };
 
 type TransactionListOptions = ListOptions & {
@@ -1046,10 +1047,12 @@ function matchesOfferFilters(
 ) {
   const status = normalizeKey(cleanString(options.status));
   const stage = normalizeKey(cleanString(options.stage));
+  const serviceId = cleanString(options.serviceId);
 
   return (
     matchesTextSearch(offer, options.query) &&
     (!status || status === "all" || offer.status === status) &&
+    (!serviceId || offer.serviceId === serviceId) &&
     (!stage ||
       stage === "all" ||
       offer.stages.includes(stage as SupportServiceStage))
@@ -1191,6 +1194,21 @@ async function getTransactionSnapshot(transactionId: string) {
   return snapshot.exists ? snapshot : null;
 }
 
+async function getTransactionSnapshotByIdOrRequestId(transactionId: string) {
+  const snapshot = await getTransactionSnapshot(transactionId);
+  if (snapshot) {
+    return snapshot;
+  }
+
+  const requestSnapshot = await adminDb
+    .collection(SERVICE_TRANSACTIONS_COLLECTION)
+    .where("requestId", "==", transactionId)
+    .limit(1)
+    .get();
+
+  return requestSnapshot.docs[0] ?? null;
+}
+
 async function assertOfferProviderExists(
   document: ReturnType<typeof offerDocument>,
 ) {
@@ -1225,6 +1243,7 @@ export async function listSupportServiceOffers(
   const hasFilters = Boolean(
     cleanString(options.query) ||
       (cleanString(options.status) && cleanString(options.status) !== "all") ||
+      cleanString(options.serviceId) ||
       (cleanString(options.stage) && cleanString(options.stage) !== "all"),
   );
   const result = await listWithFilters({
@@ -1347,7 +1366,7 @@ export async function getSupportServiceTransaction(
   transactionId: string,
 ) {
   requireGodMode(context);
-  const snapshot = await getTransactionSnapshot(transactionId);
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
@@ -1383,7 +1402,7 @@ export async function updateSupportServiceTransaction(
   input: SupportServiceTransactionInput,
 ) {
   requireGodMode(context);
-  const snapshot = await getTransactionSnapshot(transactionId);
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
@@ -1400,7 +1419,7 @@ export async function updateSupportServiceTransaction(
     }),
   );
 
-  return getSupportServiceTransaction(context, transactionId);
+  return getSupportServiceTransaction(context, snapshot.id);
 }
 
 export async function deleteSupportServiceTransaction(
@@ -1408,7 +1427,7 @@ export async function deleteSupportServiceTransaction(
   transactionId: string,
 ) {
   requireGodMode(context);
-  const snapshot = await getTransactionSnapshot(transactionId);
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }

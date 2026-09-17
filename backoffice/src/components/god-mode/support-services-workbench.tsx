@@ -184,6 +184,7 @@ const PROVIDER_OFFER_LOOKUP_LIMIT = 100;
 const OFFERS_QUERY_KEY = "god-mode-support-service-offers";
 const TRANSACTIONS_QUERY_KEY = "god-mode-support-service-transactions";
 const LIVE_OFFERS_QUERY_KEY = "god-mode-support-service-offers-live-picker";
+const EMPTY_SUPPORT_SERVICE_OFFERS: SupportServiceOfferRecord[] = [];
 const FORM_OBJECT_TYPE = "pgo_form";
 const DEFAULT_OUTPUT_OBJECT_TYPE = "pgo_pdf_report";
 const INPUT_OBJECT_OPTIONS = POCKET_GENES_OBJECT_OPTIONS.filter(
@@ -918,7 +919,32 @@ function transactionFormFromRecord(
   record: SupportServiceTransactionRecord,
   offers: SupportServiceOfferRecord[],
 ): TransactionFormState {
-  const base = transactionFormForService(record.serviceId, offers);
+  const offer = offers.find(
+    (candidate) => candidate.serviceId === record.serviceId,
+  );
+  const base = offer
+    ? transactionFormForOffer(offer)
+    : {
+        ...emptyTransactionForm(),
+        requestId: record.requestId,
+        serviceId: record.serviceId,
+        serviceVersion: record.serviceVersion,
+        status: record.status,
+        inputs: record.inputs.map((slot) => ({
+          role: slot.role,
+          objectId: slot.objectRef.objectId,
+          revision: String(slot.objectRef.revision),
+          required: true,
+          acceptedTypes: [],
+        })),
+        outputs: record.outputs.map((slot) => ({
+          role: slot.role,
+          objectId: slot.objectRef.objectId,
+          revision: String(slot.objectRef.revision),
+          required: false,
+          acceptedTypes: [],
+        })),
+      };
   const inputByRole = new Map(record.inputs.map((slot) => [slot.role, slot]));
   const outputByRole = new Map(record.outputs.map((slot) => [slot.role, slot]));
 
@@ -1557,7 +1583,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                   <TableRow key={transaction.id}>
                     <TableCell className="min-w-[16rem]">
                       <Link
-                        href={`${route}/${encodeURIComponent(transaction.id)}`}
+                        href={`${route}/${encodeURIComponent(transaction.requestId)}`}
                         className="font-mono text-sm font-medium text-foreground hover:underline"
                       >
                         {transaction.requestId}
@@ -1586,7 +1612,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActions
-                        editHref={`${route}/${encodeURIComponent(transaction.id)}`}
+                        editHref={`${route}/${encodeURIComponent(transaction.requestId)}`}
                         onDelete={() => handleDelete(transaction)}
                       />
                     </TableCell>
@@ -4121,15 +4147,6 @@ export function SupportServiceTransactionWorkbench({
     return toastCounter;
   }
 
-  const offersQuery = useQuery({
-    queryKey: [LIVE_OFFERS_QUERY_KEY],
-    queryFn: () =>
-      sdkFetch<SupportServiceOffersPage>(
-        "/admin/support-services/offers?limit=50",
-      ),
-  });
-  const liveOffers = offersQuery.data?.offers ?? [];
-
   const transactionQuery = useQuery({
     queryKey: [TRANSACTIONS_QUERY_KEY, transactionId],
     queryFn: () =>
@@ -4140,12 +4157,35 @@ export function SupportServiceTransactionWorkbench({
       ),
     enabled: isEditing && Boolean(transactionId),
   });
+  const transactionRecord = transactionQuery.data?.transaction ?? null;
+
+  const offersQuery = useQuery({
+    queryKey: [LIVE_OFFERS_QUERY_KEY],
+    queryFn: () =>
+      sdkFetch<SupportServiceOffersPage>(
+        "/admin/support-services/offers?limit=50",
+      ),
+    enabled: !isEditing,
+  });
+  const linkedOfferQuery = useQuery({
+    queryKey: [LIVE_OFFERS_QUERY_KEY, "linked", transactionRecord?.serviceId],
+    queryFn: () =>
+      sdkFetch<SupportServiceOffersPage>(
+        `/admin/support-services/offers?limit=1&serviceId=${encodeURIComponent(
+          transactionRecord?.serviceId ?? "",
+        )}`,
+      ),
+    enabled: isEditing && Boolean(transactionRecord?.serviceId),
+  });
+  const liveOffers = isEditing
+    ? linkedOfferQuery.data?.offers ?? EMPTY_SUPPORT_SERVICE_OFFERS
+    : offersQuery.data?.offers ?? EMPTY_SUPPORT_SERVICE_OFFERS;
 
   useEffect(() => {
-    if (transactionQuery.data?.transaction) {
-      setForm(transactionFormFromRecord(transactionQuery.data.transaction, liveOffers));
+    if (transactionRecord) {
+      setForm(transactionFormFromRecord(transactionRecord, liveOffers));
     }
-  }, [liveOffers, transactionQuery.data?.transaction]);
+  }, [liveOffers, transactionRecord]);
 
   useEffect(() => {
     if (!isEditing && !form.serviceId && liveOffers[0]) {
@@ -4154,6 +4194,10 @@ export function SupportServiceTransactionWorkbench({
   }, [form.serviceId, isEditing, liveOffers]);
 
   const serviceChoices = useMemo(() => {
+    if (isEditing) {
+      return [];
+    }
+
     const seen = new Set<string>();
     const choices = liveOffers.map((offer) => ({
       value: offer.serviceId,
@@ -4177,7 +4221,7 @@ export function SupportServiceTransactionWorkbench({
       seen.add(choice.value);
       return true;
     });
-  }, [form.serviceId, liveOffers, t]);
+  }, [form.serviceId, isEditing, liveOffers, t]);
 
   const selectedOffer =
     liveOffers.find((offer) => offer.serviceId === form.serviceId) ?? null;
@@ -4202,7 +4246,11 @@ export function SupportServiceTransactionWorkbench({
         tone: "success",
         message: t("Service transaction saved."),
       });
-      router.push(`/god-mode/service-transactions/${result.transaction.id}`);
+      router.push(
+        `/god-mode/service-transactions/${encodeURIComponent(
+          result.transaction.requestId,
+        )}`,
+      );
       router.refresh();
     },
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
@@ -4249,7 +4297,7 @@ export function SupportServiceTransactionWorkbench({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      if (!selectedOffer) {
+      if (!isEditing && !selectedOffer) {
         throw new Error("Choose an existing service offer.");
       }
       saveMutation.mutate(transactionPayloadFromForm(form));
@@ -4258,7 +4306,10 @@ export function SupportServiceTransactionWorkbench({
     }
   }
 
-  if ((isEditing && transactionQuery.isLoading) || offersQuery.isLoading) {
+  if (
+    (isEditing && transactionQuery.isLoading) ||
+    (!isEditing && offersQuery.isLoading)
+  ) {
     return <Skeleton className="h-[34rem] w-full" />;
   }
 
@@ -4271,7 +4322,7 @@ export function SupportServiceTransactionWorkbench({
       />
       <form className={SUPPORT_SERVICE_FORM_CLASS} onSubmit={handleSubmit}>
         <WorkbenchTopbar
-          title={isEditing ? "Editar transaccion" : "Alta de transaccion"}
+          title={isEditing ? "Detalle de transaccion" : "Alta de transaccion"}
           backHref="/god-mode/service-transactions"
           backLabel="Back to Service Transactions"
           isSaving={saveMutation.isPending}
@@ -4285,22 +4336,51 @@ export function SupportServiceTransactionWorkbench({
         <Section title="Request identity">
           <div className="grid gap-4 lg:grid-cols-2">
             <Field label="Service">
-              <Select
-                value={form.serviceId}
-                onValueChange={handleServiceChange}
-                disabled={serviceChoices.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("Choose active service offer")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {serviceChoices.map((service) => (
-                    <SelectItem key={service.value} value={service.value}>
-                      {service.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isEditing ? (
+                <div className="grid min-h-24 gap-2 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 text-sm shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                  <div className="font-medium text-foreground">
+                    {selectedOffer?.name || t("Linked service")}
+                  </div>
+                  <div className="font-mono text-xs text-muted-foreground">
+                    {form.serviceId || "-"} · v{form.serviceVersion || 1}
+                  </div>
+                  {selectedOffer ? (
+                    <div className="text-muted-foreground">
+                      {selectedOffer.shortContract || "-"}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      {linkedOfferQuery.isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CircleAlert className="h-4 w-4" />
+                      )}
+                      <span>
+                        {linkedOfferQuery.isLoading
+                          ? t("Loading linked service...")
+                          : t("Linked service offer not found.")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Select
+                  value={form.serviceId}
+                  onValueChange={handleServiceChange}
+                  disabled={serviceChoices.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("Choose active service offer")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {serviceChoices.map((service) => (
+                      <SelectItem key={service.value} value={service.value}>
+                        {service.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </Field>
             <Field label="Status">
               <Select
@@ -4325,16 +4405,20 @@ export function SupportServiceTransactionWorkbench({
               </Select>
             </Field>
             <Field label="Request ID">
-              <Input
-                value={form.requestId}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    requestId: event.target.value,
-                  }))
-                }
-                required
-              />
+              {isEditing ? (
+                <GeneratedValue value={form.requestId || transactionId || "pgr_"} />
+              ) : (
+                <Input
+                  value={form.requestId}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      requestId: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              )}
             </Field>
             <Field label="Service version">
               <GeneratedValue value={String(form.serviceVersion || 1)} />
@@ -4363,13 +4447,13 @@ export function SupportServiceTransactionWorkbench({
               />
             </Field>
           </div>
-          {serviceChoices.length === 0 ? (
+          {!isEditing && serviceChoices.length === 0 ? (
             <div className="flex items-center gap-2 rounded-2xl border border-violet-100/80 bg-white/78 p-3 text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
               <CircleAlert className="h-4 w-4" />
               <span>{t("No service offers are available for transactions.")}</span>
             </div>
           ) : null}
-          {selectedOffer ? (
+          {!isEditing && selectedOffer ? (
             <div className="rounded-2xl border border-violet-100/80 bg-white/78 p-3 text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
               <div className="font-medium text-foreground">{selectedOffer.name}</div>
               <div>{selectedOffer.shortContract}</div>
