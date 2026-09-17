@@ -2955,9 +2955,9 @@ function ProviderPicker({
   }
 
   return (
-    <div className="grid gap-2 text-sm font-medium">
+    <div className="grid w-full min-w-0 gap-2 text-sm font-medium">
       <span>{t("Provider")}</span>
-      <div className="flex flex-col gap-2 rounded-2xl border border-violet-100/80 bg-white/78 p-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex w-full min-w-0 flex-col gap-2 rounded-2xl border border-violet-100/80 bg-white/78 p-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="truncate text-sm font-medium text-foreground">
             {selectedName || selectedId || t("No provider selected")}
@@ -2976,14 +2976,14 @@ function ProviderPicker({
           variant="outline"
           size="sm"
           onClick={() => setOpen(true)}
-          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+          className={cn(SUPPORT_SERVICE_SOFT_BUTTON_CLASS, "w-full sm:w-auto")}
         >
           <Search className="h-4 w-4" />
           <span>{t("Choose provider")}</span>
         </Button>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="w-[min(calc(100vw-2rem),64rem)] max-w-none">
           <DialogHeader>
             <DialogTitle>
               {kind === "organization"
