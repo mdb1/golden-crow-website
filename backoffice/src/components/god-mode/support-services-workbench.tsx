@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
+  Binary,
   Building2,
   Check,
   CheckCircle2,
   CircleAlert,
+  ClipboardList,
   FileText,
   Filter,
+  FlaskConical,
   Loader2,
   Pencil,
   Plus,
@@ -195,6 +198,54 @@ const TURNAROUND_UNITS = [
   { value: "h", label: "Hours" },
   { value: "m", label: "Minutes" },
 ] as const;
+const STAGE_ORDER: SupportServiceStage[] = SUPPORT_SERVICE_STAGES.map(
+  (stage) => stage.value,
+);
+const TEST_PLANNING_OUTPUT_OBJECTS = new Set([
+  "pgo_bundle_of_symptoms",
+  "pgo_bundle_of_candidate_genes",
+  "pgo_informed_consent",
+  "pgo_test_order",
+]);
+const WET_LAB_OUTPUT_OBJECTS = new Set([
+  "pgo_collection_request",
+  "pgo_blood_sample",
+  "pgo_tissue_sample",
+  "pgo_embryo_sample",
+  "pgo_dna_sample",
+  "pgo_sequence_reads",
+  "pgo_sequence_data",
+]);
+const BIOINFORMATICS_OUTPUT_OBJECTS = new Set([
+  "pgo_aligned_reads",
+  "pgo_unannotated_vcf",
+  "pgo_annotated_vcf",
+  "pgo_interactive_report",
+  "pgo_karyotype_result",
+  "pgo_flow_cytometry_data",
+]);
+const TEST_PLANNING_CONTEXT_OBJECTS = new Set([
+  "pgo_bundle_of_symptoms",
+  "pgo_bundle_of_candidate_genes",
+  "pgo_informed_consent",
+]);
+const WET_LAB_CONTEXT_OBJECTS = new Set([
+  "pgo_collection_request",
+  "pgo_blood_sample",
+  "pgo_tissue_sample",
+  "pgo_embryo_sample",
+  "pgo_dna_sample",
+]);
+const BIOINFORMATICS_CONTEXT_OBJECTS = new Set([
+  "pgo_sequence_reads",
+  "pgo_sequence_data",
+  "pgo_aligned_reads",
+  "pgo_unannotated_vcf",
+  "pgo_annotated_vcf",
+  "pgo_interactive_report",
+  "pgo_karyotype_result",
+  "pgo_flow_cytometry_data",
+]);
 
 const SUPPORT_SERVICE_PANEL_CLASS =
   "overflow-hidden rounded-2xl border border-violet-100/80 bg-white/92 shadow-[0_22px_62px_-46px_rgba(109,40,217,0.46)] dark:border-violet-400/16 dark:bg-slate-950/50";
@@ -601,6 +652,136 @@ function makeRequestId(serviceId: string) {
 
 function slotObjectType(slot: SupportServiceInputSlot) {
   return slot.objectType || slot.acceptedTypes[0] || "";
+}
+
+function isSupportServiceStage(value: string): value is SupportServiceStage {
+  return STAGE_ORDER.includes(value as SupportServiceStage);
+}
+
+function sortedStages(stages: SupportServiceStage[]) {
+  return STAGE_ORDER.filter((stage) => stages.includes(stage));
+}
+
+function sameStages(
+  left: SupportServiceStage[],
+  right: SupportServiceStage[],
+) {
+  const sortedLeft = sortedStages(left);
+  const sortedRight = sortedStages(right);
+
+  return (
+    sortedLeft.length === sortedRight.length &&
+    sortedLeft.every((stage, index) => stage === sortedRight[index])
+  );
+}
+
+function catalogStagesForObject(objectType: string) {
+  return (
+    POCKET_GENES_OBJECT_OPTIONS.find((object) => object.value === objectType)
+      ?.stages.filter(isSupportServiceStage) ?? []
+  );
+}
+
+function outputStageHints(
+  objectType: string,
+  inputTypes: string[],
+): SupportServiceStage[] {
+  if (!objectType || objectType === FORM_OBJECT_TYPE) {
+    return [];
+  }
+
+  if (objectType.startsWith("same_as:")) {
+    return inputTypes.some((inputType) =>
+      WET_LAB_CONTEXT_OBJECTS.has(inputType),
+    )
+      ? ["wet_lab"]
+      : [];
+  }
+
+  if (TEST_PLANNING_OUTPUT_OBJECTS.has(objectType)) {
+    return ["test_planning"];
+  }
+
+  if (WET_LAB_OUTPUT_OBJECTS.has(objectType)) {
+    return ["wet_lab"];
+  }
+
+  if (BIOINFORMATICS_OUTPUT_OBJECTS.has(objectType)) {
+    return ["bioinformatics"];
+  }
+
+  if (objectType === DEFAULT_OUTPUT_OBJECT_TYPE) {
+    if (
+      inputTypes.some((inputType) =>
+        BIOINFORMATICS_CONTEXT_OBJECTS.has(inputType),
+      )
+    ) {
+      return ["bioinformatics"];
+    }
+
+    if (
+      inputTypes.some((inputType) => WET_LAB_CONTEXT_OBJECTS.has(inputType))
+    ) {
+      return ["wet_lab"];
+    }
+
+    return ["test_planning"];
+  }
+
+  const catalogStages = catalogStagesForObject(objectType);
+  return catalogStages.length === 1 ? catalogStages : [];
+}
+
+function inputStageHints(objectType: string): SupportServiceStage[] {
+  if (!objectType || objectType === FORM_OBJECT_TYPE) {
+    return [];
+  }
+
+  if (BIOINFORMATICS_CONTEXT_OBJECTS.has(objectType)) {
+    return ["bioinformatics"];
+  }
+
+  if (WET_LAB_CONTEXT_OBJECTS.has(objectType)) {
+    return ["wet_lab"];
+  }
+
+  if (TEST_PLANNING_CONTEXT_OBJECTS.has(objectType)) {
+    return ["test_planning"];
+  }
+
+  const catalogStages = catalogStagesForObject(objectType);
+  return catalogStages.length === 1 ? catalogStages : [];
+}
+
+function predictedStagesForContract(
+  inputSlots: SupportServiceInputSlot[],
+  outputSlots: SupportServiceOutputSlot[],
+): SupportServiceStage[] {
+  const inputTypes = inputSlots
+    .map(slotObjectType)
+    .filter((objectType) => objectType && objectType !== FORM_OBJECT_TYPE);
+  const outputTypes = outputSlots
+    .map((slot) => slot.objectType)
+    .filter((objectType) => objectType && objectType !== FORM_OBJECT_TYPE);
+  const predicted = new Set<SupportServiceStage>();
+
+  for (const objectType of outputTypes) {
+    for (const stage of outputStageHints(objectType, inputTypes)) {
+      predicted.add(stage);
+    }
+  }
+
+  if (predicted.size === 0) {
+    for (const objectType of inputTypes) {
+      for (const stage of inputStageHints(objectType)) {
+        predicted.add(stage);
+      }
+    }
+  }
+
+  return sortedStages(
+    predicted.size ? Array.from(predicted) : ["test_planning"],
+  );
 }
 
 function contractObjectLabel(value: string) {
@@ -1606,6 +1787,31 @@ export function SupportServiceOfferWorkbench({
   const statusOptions = SUPPORT_SERVICE_OFFER_STATUSES.filter(
     (option) => form.status === "active" || option.value !== "active",
   );
+  const predictedStages = useMemo(
+    () => predictedStagesForContract(form.inputSlots, form.outputSlots),
+    [form.inputSlots, form.outputSlots],
+  );
+  const lastPredictedStagesRef =
+    useRef<SupportServiceStage[]>(predictedStages);
+
+  useEffect(() => {
+    const previousPrediction = lastPredictedStagesRef.current;
+    if (sameStages(previousPrediction, predictedStages)) {
+      return;
+    }
+
+    setForm((current) => {
+      if (
+        current.stages.length === 0 ||
+        sameStages(current.stages, previousPrediction)
+      ) {
+        return { ...current, stages: predictedStages };
+      }
+
+      return current;
+    });
+    lastPredictedStagesRef.current = predictedStages;
+  }, [predictedStages]);
 
   function applyMockTemplate(serviceId: string) {
     const catalog = catalogServiceById(serviceId);
@@ -1854,10 +2060,6 @@ export function SupportServiceOfferWorkbench({
               />
             </Field>
           </div>
-          <StagePicker
-            value={form.stages}
-            onChange={(stages) => setForm((current) => ({ ...current, stages }))}
-          />
         </Section>
         <Section title="Contract">
           <div className="grid gap-4">
@@ -1942,6 +2144,15 @@ export function SupportServiceOfferWorkbench({
         <ShortContractVisual
           inputSlots={form.inputSlots}
           outputSlots={form.outputSlots}
+          stages={form.stages}
+          predictedStages={predictedStages}
+          onStagesChange={(stages) =>
+            setForm((current) => ({ ...current, stages }))
+          }
+          onApplyStagePrediction={() => {
+            lastPredictedStagesRef.current = predictedStages;
+            setForm((current) => ({ ...current, stages: predictedStages }));
+          }}
         />
         <ServiceOfferStatusBlock
           status={form.status}
@@ -2141,9 +2352,17 @@ function ServiceOfferStatusBlock({
 function ShortContractVisual({
   inputSlots,
   outputSlots,
+  stages,
+  predictedStages,
+  onStagesChange,
+  onApplyStagePrediction,
 }: {
   inputSlots: SupportServiceInputSlot[];
   outputSlots: SupportServiceOutputSlot[];
+  stages: SupportServiceStage[];
+  predictedStages: SupportServiceStage[];
+  onStagesChange: (stages: SupportServiceStage[]) => void;
+  onApplyStagePrediction: () => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -2216,7 +2435,170 @@ function ShortContractVisual({
           </div>
         ))}
       </div>
+      <StagePipeline
+        value={stages}
+        predictedValue={predictedStages}
+        onChange={onStagesChange}
+        onApplyPrediction={onApplyStagePrediction}
+      />
     </Section>
+  );
+}
+
+function stagePipelineDescription(stage: SupportServiceStage) {
+  if (stage === "wet_lab") {
+    return "Specimen logistics, extraction, sequencing, and lab-produced source files.";
+  }
+
+  if (stage === "bioinformatics") {
+    return "Digital analysis, variant interpretation, images, PGI1, and reports.";
+  }
+
+  return "Forms, consent, candidate genes, and order construction.";
+}
+
+function stagePipelineIcon(stage: SupportServiceStage) {
+  if (stage === "wet_lab") {
+    return FlaskConical;
+  }
+
+  if (stage === "bioinformatics") {
+    return Binary;
+  }
+
+  return ClipboardList;
+}
+
+function StagePipeline({
+  value,
+  predictedValue,
+  onChange,
+  onApplyPrediction,
+}: {
+  value: SupportServiceStage[];
+  predictedValue: SupportServiceStage[];
+  onChange: (value: SupportServiceStage[]) => void;
+  onApplyPrediction: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const selectedStages = sortedStages(value);
+  const selectedSet = new Set(selectedStages);
+  const predictedSet = new Set(predictedValue);
+  const matchesPrediction = sameStages(selectedStages, predictedValue);
+
+  function toggle(stage: SupportServiceStage) {
+    if (selectedSet.has(stage)) {
+      if (selectedStages.length <= 1) {
+        return;
+      }
+
+      onChange(selectedStages.filter((current) => current !== stage));
+      return;
+    }
+
+    onChange(sortedStages([...selectedStages, stage]));
+  }
+
+  return (
+    <div className="grid gap-4 rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.92),rgba(245,243,255,0.78))] p-4 shadow-sm dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(15,23,42,0.72),rgba(46,30,88,0.34))]">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="grid gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className={SUPPORT_SERVICE_SUBSECTION_TITLE_CLASS}>
+              {t("Stage pipeline")}
+            </p>
+            <Badge
+              variant="outline"
+              className={cn(
+                "border-violet-200 bg-white/82 text-violet-700 dark:border-violet-400/22 dark:bg-violet-500/10 dark:text-violet-100",
+                !matchesPrediction &&
+                  "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-200",
+              )}
+            >
+              {matchesPrediction ? t("Best-effort prediction") : t("Manually adjusted")}
+            </Badge>
+          </div>
+          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+            {t("Stages are inferred from the current input and output objects. Use the checkboxes only when the catalog needs a manual correction.")}
+          </p>
+        </div>
+        {!matchesPrediction ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onApplyPrediction}
+            className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+          >
+            <Wand2 className="h-4 w-4" />
+            <span>{t("Use suggested pipeline")}</span>
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-stretch">
+        {SUPPORT_SERVICE_STAGES.map((stage, index) => {
+          const selected = selectedSet.has(stage.value);
+          const predicted = predictedSet.has(stage.value);
+          const StageIcon = stagePipelineIcon(stage.value);
+
+          return (
+            <div key={stage.value} className="contents">
+              <div
+                className={cn(
+                  "grid min-h-36 gap-3 rounded-2xl border p-4 transition",
+                  selected
+                    ? "border-violet-300 bg-white text-foreground shadow-[0_18px_44px_-34px_rgba(109,40,217,0.70)] dark:border-violet-300/34 dark:bg-slate-950/54"
+                    : "border-violet-100/70 bg-white/52 text-muted-foreground dark:border-violet-400/12 dark:bg-slate-950/24",
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className={cn(
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border shadow-inner",
+                        selected
+                          ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-400/22 dark:bg-violet-500/12 dark:text-violet-100"
+                          : "border-violet-100 bg-white/70 text-muted-foreground dark:border-violet-400/12 dark:bg-slate-950/40",
+                      )}
+                    >
+                      <StageIcon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-heading text-base font-semibold text-foreground">
+                        {t(stage.label)}
+                      </span>
+                      {predicted ? (
+                        <span className="mt-1 inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/12 dark:text-violet-100">
+                          {t("Suggested by inputs and outputs")}
+                        </span>
+                      ) : null}
+                    </span>
+                  </div>
+                  <Checkbox
+                    checked={selected}
+                    onCheckedChange={() => toggle(stage.value)}
+                    disabled={selected && selectedStages.length <= 1}
+                    aria-label={t(stage.label)}
+                  />
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {t(stagePipelineDescription(stage.value))}
+                </p>
+              </div>
+              {index < SUPPORT_SERVICE_STAGES.length - 1 ? (
+                <div className="hidden items-center justify-center md:flex">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-100 bg-white text-violet-700 shadow-sm dark:border-violet-400/18 dark:bg-slate-950/70 dark:text-violet-100">
+                    <ArrowRight className="h-5 w-5" />
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -4217,42 +4599,6 @@ function Field({
       </span>
       {children}
     </Label>
-  );
-}
-
-function StagePicker({
-  value,
-  onChange,
-}: {
-  value: SupportServiceStage[];
-  onChange: (value: SupportServiceStage[]) => void;
-}) {
-  const { language } = useAppLanguage();
-  const t = (text: string) => appText(language, text);
-
-  function toggle(stage: SupportServiceStage) {
-    onChange(
-      value.includes(stage)
-        ? value.filter((current) => current !== stage)
-        : [...value, stage],
-    );
-  }
-
-  return (
-    <div className="grid gap-2">
-      <p className="text-sm font-medium">{t("Stages")}</p>
-      <div className="flex flex-wrap gap-3">
-        {SUPPORT_SERVICE_STAGES.map((stage) => (
-          <label key={stage.value} className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={value.includes(stage.value)}
-              onCheckedChange={() => toggle(stage.value)}
-            />
-            <span>{t(stage.label)}</span>
-          </label>
-        ))}
-      </div>
-    </div>
   );
 }
 

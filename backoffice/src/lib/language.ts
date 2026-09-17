@@ -4842,7 +4842,20 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service offer": "Oferta de servicio",
   "Service version": "Versión del servicio",
   Slots: "Slots",
+  "Stage pipeline": "Pipeline de etapas",
   Stages: "Etapas",
+  "Stages are inferred from the current input and output objects. Use the checkboxes only when the catalog needs a manual correction.":
+    "Las etapas se infieren a partir de los objetos actuales de entrada y salida. Usá los checkboxes solo cuando el catálogo necesite una corrección manual.",
+  "Best-effort prediction": "Predicción automática",
+  "Manually adjusted": "Ajustado manualmente",
+  "Use suggested pipeline": "Usar pipeline sugerido",
+  "Suggested by inputs and outputs": "Sugerido por entradas y salidas",
+  "Forms, consent, candidate genes, and order construction.":
+    "Formularios, consentimiento, genes candidatos y construcción de órdenes.",
+  "Specimen logistics, extraction, sequencing, and lab-produced source files.":
+    "Logística de muestras, extracción, secuenciación y archivos producidos por laboratorio.",
+  "Digital analysis, variant interpretation, images, PGI1, and reports.":
+    "Análisis digital, interpretación de variantes, imágenes, PGI1 y reportes.",
   "String list": "Lista de strings",
   "Subject ID": "ID de sujeto",
   Submitted: "Enviado",
