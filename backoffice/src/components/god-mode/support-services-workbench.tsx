@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  ArrowRight,
   Building2,
   Check,
   CheckCircle2,
@@ -1569,10 +1570,6 @@ export function SupportServiceOfferWorkbench({
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
-  const shortContractPreview = calculatedShortContract(
-    form.inputSlots,
-    form.outputSlots,
-  );
   const offerIdsPreview = generatedOfferIds(
     form.providerName,
     form.serviceId,
@@ -1839,12 +1836,6 @@ export function SupportServiceOfferWorkbench({
         </Section>
         <Section title="Contract">
           <div className="grid gap-4">
-            <div className="grid gap-2 text-sm font-medium">
-              <span>{t("Calculated short contract")}</span>
-              <div className="rounded border border-border/70 bg-muted/30 px-3 py-2 font-mono text-xs text-foreground">
-                {shortContractPreview}
-              </div>
-            </div>
             <Field label="Description">
               <p className="text-xs leading-5 text-muted-foreground">
                 {t("Requester-facing summary shown in the app as the service offer description. Use it to explain what the service is, when someone should request it, and what outcome they can expect.")}
@@ -1923,6 +1914,10 @@ export function SupportServiceOfferWorkbench({
             </Field>
           </div>
         </Section>
+        <ShortContractVisual
+          inputSlots={form.inputSlots}
+          outputSlots={form.outputSlots}
+        />
         <ServiceOfferStatusBlock
           status={form.status}
           statusDraft={statusDraft}
@@ -2113,6 +2108,88 @@ function ServiceOfferStatusBlock({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      </div>
+    </Section>
+  );
+}
+
+function ShortContractVisual({
+  inputSlots,
+  outputSlots,
+}: {
+  inputSlots: SupportServiceInputSlot[];
+  outputSlots: SupportServiceOutputSlot[];
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  const contractGroups = [
+    {
+      key: "inputs",
+      label: "Inputs",
+      emptyLabel: "No inputs",
+      slots: inputSlots.map((slot) => ({
+        role: slot.role || inputRoleForObjectType(slotObjectType(slot)),
+        objectType: slotObjectType(slot),
+      })),
+    },
+    {
+      key: "outputs",
+      label: "Outputs",
+      emptyLabel: "No outputs",
+      slots: outputSlots.map((slot) => ({
+        role: slot.role || "output",
+        objectType: slot.objectType,
+      })),
+    },
+  ];
+
+  return (
+    <Section title="Calculated short contract">
+      <div className="grid gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4 md:grid-cols-[1fr_auto_1fr] md:items-stretch">
+        {contractGroups.map((group, groupIndex) => (
+          <div key={group.key} className="contents">
+            <div className="grid gap-3 rounded-xl border border-border/70 bg-background/80 p-3 shadow-sm">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <FileText className="h-4 w-4" />
+                <span>{t(group.label)}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {group.slots.length ? (
+                  group.slots.map((slot, index) => (
+                    <div
+                      key={`${group.key}-${slot.role}-${slot.objectType}-${index}`}
+                      className="flex min-w-[12rem] items-center gap-3 rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm shadow-sm dark:border-violet-400/16 dark:bg-slate-950/50"
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700 dark:bg-violet-500/12 dark:text-violet-100">
+                        <FileText className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate font-mono text-xs text-muted-foreground">
+                          {slot.role}
+                        </span>
+                        <span className="block truncate font-medium text-foreground">
+                          {objectLabel(slot.objectType)}
+                        </span>
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
+                    {t(group.emptyLabel)}
+                  </div>
+                )}
+              </div>
+            </div>
+            {groupIndex === 0 ? (
+              <div className="flex items-center justify-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-100 bg-white text-violet-700 shadow-sm dark:border-violet-400/18 dark:bg-slate-950/70 dark:text-violet-100">
+                  <ArrowRight className="h-5 w-5" />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ))}
       </div>
     </Section>
   );

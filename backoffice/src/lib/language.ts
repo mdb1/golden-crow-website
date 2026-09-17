@@ -4779,6 +4779,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "New revision": "Nueva revisión",
   "New service offer": "Nueva oferta de servicio",
   "No input slots defined.": "No hay slots de entrada definidos.",
+  "No inputs": "Sin entradas",
+  "No outputs": "Sin salidas",
   "No object bindings are defined for this service.":
     "No hay vínculos de objetos definidos para este servicio.",
   "No output slots defined.": "No hay slots de salida definidos.",
@@ -4803,6 +4805,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Optional general category": "Categoría general opcional",
   Options: "Opciones",
   "Output object bindings": "Vínculos de objetos de salida",
+  Outputs: "Salidas",
   "Output slots": "Slots de salida",
   Paused: "Pausado",
   "Pick a Discover publisher": "Elegí un publicador de Discover",
