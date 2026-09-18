@@ -121,12 +121,15 @@ export function GCFitnessShell({
   trainerEmail,
   isAdmin,
   birthdayNotificationCount,
+  openReportsCount = 0,
 }: {
   children: React.ReactNode;
   trainerUid: string | null;
   trainerEmail: string | null;
   isAdmin: boolean;
   birthdayNotificationCount: number;
+  /** gc-fitness #1050 — open moderation reports; rides the admin link. */
+  openReportsCount?: number;
 }) {
   const pathname = usePathname();
   const t = useTranslations("shell");
@@ -155,6 +158,7 @@ export function GCFitnessShell({
     "/gc-fitness/chat": unreadChatTotal,
     "/gc-fitness/notifications": notificationsBadge,
     "/gc-fitness/clients": newClientBadges.clients,
+    "/gc-fitness/admin": openReportsCount,
   };
 
   if (shellHidden) {

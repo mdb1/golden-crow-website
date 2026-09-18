@@ -846,6 +846,12 @@ const NON_DELETION_ADMIN_KINDS = new Set([
   "transfer_client",
   "unlink_client",
   "set_entitlement",
+  // gc-fitness #1050 — moderation verbs are reversible flags, not deletions.
+  "moderation_hide",
+  "moderation_suspend",
+  "moderation_dismiss",
+  "moderation_unsuspend",
+  "moderation_unhide",
 ]);
 
 function adminOperationTitle(kind: string, summaryAction: string | null): string {
@@ -853,6 +859,11 @@ function adminOperationTitle(kind: string, summaryAction: string | null): string
   if (kind === "unlink_client") return "Desvinculó un cliente de su coach";
   if (kind === "set_entitlement") return "Cambió el plan de un usuario";
   if (kind === "delete_coach_cascade") return "Eliminó un coach (cascada)";
+  if (kind === "moderation_hide") return "Moderación: ocultó contenido reportado";
+  if (kind === "moderation_suspend") return "Moderación: suspendió una cuenta";
+  if (kind === "moderation_dismiss") return "Moderación: descartó reportes";
+  if (kind === "moderation_unsuspend") return "Moderación: levantó una suspensión";
+  if (kind === "moderation_unhide") return "Moderación: volvió a mostrar contenido";
   if (kind === "delete_client_cascade") {
     if (summaryAction === "deactivate_client") return "Desactivó un cliente";
     if (summaryAction === "remove_pending_client") return "Eliminó un cliente pendiente";
@@ -874,6 +885,8 @@ function adminOperationMeta(op: RawAdminOperation): string[] {
   if (typeof docs === "number") parts.push(`${docs} docs`);
   if (typeof s.tier === "string") parts.push(`tier: ${s.tier}`);
   if (typeof s.email === "string") parts.push(s.email);
+  if (typeof s.targetType === "string") parts.push(String(s.targetType));
+  if (typeof s.resolvedReports === "number") parts.push(`${s.resolvedReports} reportes`);
   if (op.errorMessage) parts.push(`error: ${op.errorMessage}`);
   return parts;
 }

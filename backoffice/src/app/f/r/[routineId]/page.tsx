@@ -72,6 +72,9 @@ async function readCard(routineId: string): Promise<RoutineCard | null> {
   // Un autor suspendido sale del feed y también de acá: si no, un link viejo sería la
   // puerta de atrás a contenido moderado.
   if (data.authorSuspended === true) return null;
+  // Y una tarjeta escondida por moderación (S10) tampoco se sirve: el Admin SDK
+  // pasa por encima de las reglas, así que la protección tiene que venir de acá.
+  if (data.hidden === true) return null;
 
   const handle = typeof data.authorHandle === "string" ? data.authorHandle : "";
   const displayName =

@@ -12,6 +12,7 @@ import {
   promoteUserToAdmin,
 } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
+import { countOpenReports } from "@/lib/gc-fitness/moderation-actions";
 import { AdminSubmitButton } from "./_components/admin-submit-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +69,7 @@ export default async function AdminPage({
 
   const coaches = await listCoachesForAdmin();
   const allowlistRows = await listCoachAllowlist();
+  const openReportsCount = await countOpenReports().catch(() => 0);
 
   async function addAllowlistEmailAction(formData: FormData) {
     "use server";
@@ -289,6 +291,23 @@ export default async function AdminPage({
         <CardContent>
           <Button asChild variant="outline" className="rounded-full">
             <Link href="/gc-fitness/admin/coach-activity">Open recent coach activity</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className={openReportsCount > 0 ? "border-amber-500/50" : undefined}>
+        <CardHeader>
+          <CardTitle className="text-xl">Moderación</CardTitle>
+          <CardDescription>
+            Reportes de perfiles, rutinas, comentarios y mensajes. SLA de 24 h (App Store 1.2).
+            {openReportsCount > 0
+              ? ` Hay ${openReportsCount} ${openReportsCount === 1 ? "reporte abierto" : "reportes abiertos"}.`
+              : " Sin reportes abiertos."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/gc-fitness/admin/moderation">Abrir cola de moderación</Link>
           </Button>
         </CardContent>
       </Card>
