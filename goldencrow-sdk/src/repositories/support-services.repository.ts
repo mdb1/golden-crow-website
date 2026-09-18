@@ -63,6 +63,7 @@ type ListOptions = {
 
 type OfferListOptions = ListOptions & {
   stage?: string;
+  serviceId?: string;
 };
 
 type TransactionListOptions = ListOptions & {
@@ -71,7 +72,7 @@ type TransactionListOptions = ListOptions & {
 
 export interface SupportServiceOfferInput {
   serviceId?: string;
-  serviceVersion?: string;
+  serviceVersion?: number;
   name?: string;
   serviceCategory?: string;
   providerKind?: SupportServiceProviderKind;
@@ -79,7 +80,6 @@ export interface SupportServiceOfferInput {
   providerName?: string;
   stages?: string[];
   status?: SupportServiceOfferStatus;
-  availability?: string;
   description?: string;
   shortContract?: string;
   providerWork?: string;
@@ -95,7 +95,7 @@ export interface SupportServiceOfferRecord {
   id: string;
   schemaVersion: number;
   serviceId: string;
-  serviceVersion: string;
+  serviceVersion: number;
   name: string;
   serviceCategory: string;
   providerKind: SupportServiceProviderKind;
@@ -103,7 +103,6 @@ export interface SupportServiceOfferRecord {
   providerName: string;
   stages: SupportServiceStage[];
   status: SupportServiceOfferStatus;
-  availability: string;
   description: string;
   shortContract: string;
   providerWork: string;
@@ -138,13 +137,13 @@ export interface SupportServiceTransactionOutputSlot {
 export interface SupportServiceTransactionInput {
   requestId?: string;
   serviceId?: string;
-  serviceVersion?: string;
+  serviceVersion?: number;
   status?: SupportServiceTransactionStatus;
   requesterEmail?: string;
   subjectId?: string;
-  formRef?: SupportServiceTransactionsInputRef | null;
   inputs?: SupportServiceTransactionInputSlot[];
   outputs?: SupportServiceTransactionOutputSlot[];
+  missingRequiredInputRoles?: string[];
   notes?: string;
 }
 
@@ -153,13 +152,13 @@ export interface SupportServiceTransactionRecord {
   schemaVersion: number;
   requestId: string;
   serviceId: string;
-  serviceVersion: string;
+  serviceVersion: number;
   status: SupportServiceTransactionStatus;
   requesterEmail: string;
   subjectId: string;
-  formRef: SupportServiceTransactionsInputRef | null;
   inputs: SupportServiceTransactionInputSlot[];
   outputs: SupportServiceTransactionOutputSlot[];
+  missingRequiredInputRoles: string[];
   notes: string;
   normalizedName: string;
   createdAt?: string;
@@ -189,6 +188,11 @@ const PRICING_MODEL_SET = new Set<string>([
   "free",
   "fixed",
   "calculated_after_submission",
+]);
+const PUBLISHED_OFFER_STATUSES = new Set<SupportServiceOfferStatus>([
+  "active",
+  "paused",
+  "archived",
 ]);
 const FORM_OBJECT_TYPE = "pgo_form";
 
@@ -300,10 +304,43 @@ function numericValue(value: unknown, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function versionNumber(value: unknown, fallback = 1) {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  const text = cleanString(value);
+  const match = text.match(/^([1-9]\d*)(?:\.0\.0)?$/);
+  return match ? Number(match[1]) : fallback;
+}
+
 function stringValueArray(value: unknown) {
   return Array.isArray(value)
     ? value.map(cleanString).filter((item) => item.length > 0)
     : [];
+}
+
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(stableValue);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.keys(value as Record<string, unknown>)
+    .sort()
+    .reduce<Record<string, unknown>>((result, key) => {
+      const item = (value as Record<string, unknown>)[key];
+      if (item !== undefined) {
+        result[key] = stableValue(item);
+      }
+      return result;
+    }, {});
+}
+
+function stableString(value: unknown) {
+  return JSON.stringify(stableValue(value));
 }
 
 function normalizeFormShape(value: unknown) {
@@ -326,7 +363,7 @@ function normalizeFormShape(value: unknown) {
 
   return {
     id,
-    version: cleanString(formShape.version) || "1.0.0",
+    version: versionNumber(formShape.version),
     allowUnknownFields: Boolean(
       formShape.allowUnknownFields ?? formShape.allow_unknown_fields,
     ),
@@ -336,7 +373,6 @@ function normalizeFormShape(value: unknown) {
 
 function normalizeOfferInputSlots(value: unknown) {
   return optionalRecordArray(value).map((slot) => {
-    const cardinality = optionalRecord(slot.cardinality);
     const acceptedTypes = stringValueArray(
       slot.acceptedTypes ?? slot.accepted_types,
     );
@@ -346,11 +382,8 @@ function normalizeOfferInputSlots(value: unknown) {
       role: cleanString(slot.role),
       objectType,
       acceptedTypes: objectType ? [objectType] : [],
-      required: Boolean(slot.required),
-      cardinality: {
-        min: numericValue(cardinality.min, slot.required ? 1 : 0),
-        max: numericValue(cardinality.max, 1),
-      },
+      required: true,
+      cardinality: { min: 1, max: 1 },
     };
   });
 }
@@ -363,6 +396,9 @@ function normalizeOfferOutputSlots(value: unknown) {
       cleanString(slot.mutationMode ?? slot.mutation_mode) === "new_revision"
         ? "new_revision"
         : "new_object",
+    sameIdentityAsInput:
+      cleanString(slot.sameIdentityAsInput ?? slot.same_identity_as_input) ||
+      undefined,
   }));
 }
 
@@ -375,6 +411,12 @@ function normalizeProviderKind(value: unknown): SupportServiceProviderKind {
 
 function contractObjectTypeLabel(value: string) {
   return value.replace(/^pgo_/, "");
+}
+
+function inputRoleForObjectType(objectType: string) {
+  return objectType === FORM_OBJECT_TYPE
+    ? "form"
+    : objectType.replace(/^pgo_/, "") || "input";
 }
 
 function supportServiceShortContract({
@@ -392,7 +434,7 @@ function supportServiceShortContract({
     const objectType = slot.objectType || "object";
     return `${slot.role}:${contractObjectTypeLabel(objectType)}`;
   });
-  const left = inputs.length ? inputs.join(" + ") : "no_input";
+  const left = inputs.length ? inputs.join(" + ") : "none";
   const right = outputs.length
     ? outputs.join(" + ")
     : "provider_output";
@@ -426,11 +468,6 @@ function normalizeCommercialTerms(value: unknown) {
       price: withoutUndefined({
         amount: numericValue(price.amount, 0),
         currency: cleanString(price.currency).toUpperCase() || "ARS",
-        basis: cleanString(price.basis) || undefined,
-        isMock:
-          price.isMock === undefined && price.is_mock === undefined
-            ? undefined
-            : Boolean(price.isMock ?? price.is_mock),
       }),
       turnaround: turnaround || undefined,
     });
@@ -563,7 +600,7 @@ function offerDocument(input: SupportServiceOfferInput) {
   const serviceId = cleanString(input.serviceId);
   const providerId = cleanString(input.providerId);
   const providerName = cleanString(input.providerName);
-  const serviceVersion = cleanString(input.serviceVersion) || "1.0.0";
+  const serviceVersion = versionNumber(input.serviceVersion);
   const stages = normalizeStages(input.stages);
   const inputSlots = normalizeOfferInputSlots(input.inputSlots);
   const outputSlots = normalizeOfferOutputSlots(input.outputSlots);
@@ -580,7 +617,6 @@ function offerDocument(input: SupportServiceOfferInput) {
     providerName,
     stages,
     status: normalizeOfferStatus(input.status),
-    availability: cleanString(input.availability) || "backoffice",
     description: cleanString(input.description),
     shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
     providerWork: cleanString(input.providerWork),
@@ -606,15 +642,108 @@ function transactionDocument(input: SupportServiceTransactionInput) {
     schemaVersion: 1,
     requestId,
     serviceId,
-    serviceVersion: cleanString(input.serviceVersion) || "1.0.0",
+    serviceVersion: versionNumber(input.serviceVersion),
     status: normalizeTransactionStatus(input.status),
     requesterEmail,
     subjectId,
-    formRef: objectRefFromUnknown(input.formRef),
     inputs: inputSlotsFromUnknown(input.inputs),
     outputs: outputSlotsFromUnknown(input.outputs),
+    missingRequiredInputRoles: cleanStringArray(input.missingRequiredInputRoles),
     notes: cleanString(input.notes),
     normalizedName: normalizeName(`${requestId} ${serviceId} ${requesterEmail}`),
+  };
+}
+
+type SupportServiceOfferDocument = ReturnType<typeof offerDocument>;
+
+function comparableFormShape(formShape: SupportServiceOfferDocument["formShape"]) {
+  if (!formShape) {
+    return null;
+  }
+
+  const { version: _version, ...shape } = formShape;
+  return shape;
+}
+
+function comparableOfferDefinition(document: SupportServiceOfferDocument) {
+  const {
+    serviceVersion: _serviceVersion,
+    status: _status,
+    normalizedName: _normalizedName,
+    formShape,
+    ...definition
+  } = document;
+
+  return {
+    ...definition,
+    formShape: comparableFormShape(formShape),
+  };
+}
+
+function applyOfferVersions(
+  document: SupportServiceOfferDocument,
+  previousDocument?: SupportServiceOfferDocument,
+) {
+  if (!previousDocument) {
+    return {
+      ...document,
+      serviceVersion: 1,
+      formShape: document.formShape
+        ? { ...document.formShape, version: 1 }
+        : undefined,
+    };
+  }
+
+  const previousWasPublished = PUBLISHED_OFFER_STATUSES.has(
+    previousDocument.status,
+  );
+  const serviceChanged =
+    stableString(comparableOfferDefinition(document)) !==
+    stableString(comparableOfferDefinition(previousDocument));
+  const formShapeChanged =
+    stableString(comparableFormShape(document.formShape)) !==
+    stableString(comparableFormShape(previousDocument.formShape));
+
+  return {
+    ...document,
+    serviceVersion:
+      previousWasPublished && serviceChanged
+        ? previousDocument.serviceVersion + 1
+        : previousDocument.serviceVersion,
+    formShape: document.formShape
+      ? {
+          ...document.formShape,
+          version:
+            previousWasPublished &&
+            previousDocument.formShape &&
+            formShapeChanged
+              ? previousDocument.formShape.version + 1
+              : previousDocument.formShape
+                ? previousDocument.formShape.version
+                : 1,
+        }
+      : undefined,
+  };
+}
+
+type SupportServiceTransactionDocument = ReturnType<typeof transactionDocument>;
+
+function applyTransactionOfferContract(
+  document: SupportServiceTransactionDocument,
+  offer: SupportServiceOfferRecord,
+  options: { serviceVersion?: number } = {},
+): SupportServiceTransactionDocument {
+  const suppliedInputRoles = new Set(document.inputs.map((slot) => slot.role));
+  const missingRequiredInputRoles = offer.inputSlots
+    .filter((slot) => Boolean(slot.required))
+    .map((slot) => cleanString(slot.role))
+    .filter((role) => role && !suppliedInputRoles.has(role));
+
+  return {
+    ...document,
+    serviceId: offer.serviceId,
+    serviceVersion: options.serviceVersion ?? offer.serviceVersion,
+    missingRequiredInputRoles,
   };
 }
 
@@ -653,6 +782,12 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
     if (!/^pgfs_[a-z0-9_]+$/.test(cleanString(document.formShape.id))) {
       throw new AdminRepositoryError(
         "Form shape ID must use the pgfs_* convention.",
+        400,
+      );
+    }
+    if (document.formShape.allowUnknownFields) {
+      throw new AdminRepositoryError(
+        "Support service form shapes must reject unknown fields.",
         400,
       );
     }
@@ -717,10 +852,25 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
     );
   }
 
+  const seenInputTypes = new Set<string>();
+  const inputRoles = new Set<string>();
+  const inputSlotByRole = new Map<string, (typeof document.inputSlots)[number]>();
   for (const slot of document.inputSlots) {
     if (!/^[a-z][a-z0-9_]*$/.test(slot.role)) {
       throw new AdminRepositoryError(
         "Input slot roles must be lowercase identifier keys.",
+        400,
+      );
+    }
+    if (!/^pgo_[a-z0-9_]+$/.test(slot.objectType)) {
+      throw new AdminRepositoryError(
+        `Input slot ${slot.role} needs a pgo_* object type.`,
+        400,
+      );
+    }
+    if (slot.role !== inputRoleForObjectType(slot.objectType)) {
+      throw new AdminRepositoryError(
+        `Input slot ${slot.role} must use the generated role for ${slot.objectType}.`,
         400,
       );
     }
@@ -730,20 +880,27 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         400,
       );
     }
-    if (
-      slot.acceptedTypes.some((objectType) => !/^pgo_[a-z0-9_]+$/.test(objectType))
-    ) {
+    if (slot.acceptedTypes[0] !== slot.objectType) {
       throw new AdminRepositoryError(
-        `Input slot ${slot.role} has an invalid pgo_* object type.`,
+        `Input slot ${slot.role} acceptedTypes must match its object type.`,
         400,
       );
     }
-    if (slot.cardinality.max < slot.cardinality.min) {
+    if (!slot.required || slot.cardinality.min !== 1 || slot.cardinality.max !== 1) {
       throw new AdminRepositoryError(
-        `Input slot ${slot.role} has invalid cardinality.`,
+        `Input slot ${slot.role} must be required with 1:1 cardinality.`,
         400,
       );
     }
+    if (seenInputTypes.has(slot.objectType)) {
+      throw new AdminRepositoryError(
+        `Duplicate input object type: ${slot.objectType}.`,
+        400,
+      );
+    }
+    seenInputTypes.add(slot.objectType);
+    inputRoles.add(slot.role);
+    inputSlotByRole.set(slot.role, slot);
   }
 
   if (document.outputSlots.length === 0) {
@@ -759,26 +916,53 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         400,
       );
     }
+    if (slot.mutationMode === "new_revision") {
+      if (!slot.sameIdentityAsInput) {
+        throw new AdminRepositoryError(
+          `Output slot ${slot.role} must point to sameIdentityAsInput.`,
+          400,
+        );
+      }
+      if (!inputRoles.has(slot.sameIdentityAsInput)) {
+        throw new AdminRepositoryError(
+          `Output slot ${slot.role} references an unknown input role.`,
+          400,
+        );
+      }
+      if (inputSlotByRole.get(slot.sameIdentityAsInput)?.objectType === FORM_OBJECT_TYPE) {
+        throw new AdminRepositoryError(
+          `Output slot ${slot.role} cannot revise the request form input.`,
+          400,
+        );
+      }
+      if (slot.objectType !== `same_as:${slot.sameIdentityAsInput}`) {
+        throw new AdminRepositoryError(
+          `Output slot ${slot.role} must use same_as:${slot.sameIdentityAsInput}.`,
+          400,
+        );
+      }
+      continue;
+    }
+    if (slot.sameIdentityAsInput || slot.objectType.startsWith("same_as:")) {
+      throw new AdminRepositoryError(
+        `Output slot ${slot.role} can only use same_as for new_revision.`,
+        400,
+      );
+    }
     if (!/^pgo_[a-z0-9_]+$/.test(slot.objectType)) {
       throw new AdminRepositoryError(
         `Output slot ${slot.role} needs a pgo_* object type.`,
         400,
       );
     }
+    if (slot.objectType === FORM_OBJECT_TYPE) {
+      throw new AdminRepositoryError(
+        "Output slots cannot produce request forms.",
+        400,
+      );
+    }
   }
 
-  if (document.acceptedConditions.length === 0) {
-    throw new AdminRepositoryError(
-      "At least one accepted condition is required.",
-      400,
-    );
-  }
-  if (document.scopeRules.length === 0) {
-    throw new AdminRepositoryError(
-      "At least one scope rule is required.",
-      400,
-    );
-  }
   if (document.commercialTerms?.pricingModel === "fixed") {
     const price = optionalRecord(document.commercialTerms.price);
     if (!Number.isFinite(price.amount)) {
@@ -799,6 +983,7 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
 
 function validateTransactionDocument(
   document: ReturnType<typeof transactionDocument>,
+  offer?: SupportServiceOfferRecord,
 ) {
   if (!/^pgr_[a-z0-9_]+$/.test(document.requestId)) {
     throw new AdminRepositoryError(
@@ -812,12 +997,16 @@ function validateTransactionDocument(
       400,
     );
   }
-  if (document.formRef && !/^obj_[a-z0-9_]+$/.test(document.formRef.objectId)) {
-    throw new AdminRepositoryError(
-      "Form reference must use an obj_* object ID.",
-      400,
-    );
-  }
+  const offerInputRoles = new Set(
+    offer?.inputSlots.map((slot) => cleanString(slot.role)) ?? [],
+  );
+  const offerOutputRoles = new Set(
+    offer?.outputSlots.map((slot) => cleanString(slot.role)) ?? [],
+  );
+  const formRole = cleanString(
+    offer?.inputSlots.find((slot) => slot.objectType === FORM_OBJECT_TYPE)?.role,
+  );
+  const suppliedInputRoles = new Set<string>();
   for (const slot of [...document.inputs, ...document.outputs]) {
     if (!/^[a-z][a-z0-9_]*$/.test(slot.role)) {
       throw new AdminRepositoryError(
@@ -828,6 +1017,49 @@ function validateTransactionDocument(
     if (!/^obj_[a-z0-9_]+$/.test(slot.objectRef.objectId)) {
       throw new AdminRepositoryError(
         `Transaction slot ${slot.role} must reference an obj_* object ID.`,
+        400,
+      );
+    }
+  }
+  for (const slot of document.inputs) {
+    if (offer && !offerInputRoles.has(slot.role)) {
+      throw new AdminRepositoryError(
+        `Input slot ${slot.role} is not declared by the selected service offer.`,
+        400,
+      );
+    }
+    suppliedInputRoles.add(slot.role);
+  }
+  for (const slot of document.outputs) {
+    if (offer && !offerOutputRoles.has(slot.role)) {
+      throw new AdminRepositoryError(
+        `Output slot ${slot.role} is not declared by the selected service offer.`,
+        400,
+      );
+    }
+  }
+  if (formRole && !suppliedInputRoles.has(formRole)) {
+    throw new AdminRepositoryError(
+      "Transactions for offers with a pgo_form slot must include the filled form object before creation.",
+      400,
+    );
+  }
+  for (const role of document.missingRequiredInputRoles) {
+    if (!/^[a-z][a-z0-9_]*$/.test(role)) {
+      throw new AdminRepositoryError(
+        "Missing input roles must be lowercase identifier keys.",
+        400,
+      );
+    }
+    if (role === formRole) {
+      throw new AdminRepositoryError(
+        "The pgo_form input cannot be deferred through missingRequiredInputRoles.",
+        400,
+      );
+    }
+    if (offer && !offerInputRoles.has(role)) {
+      throw new AdminRepositoryError(
+        `Missing input role ${role} is not declared by the selected service offer.`,
         400,
       );
     }
@@ -858,8 +1090,7 @@ function toOfferRecord(id: string, data: Record<string, unknown>) {
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     serviceId,
-    serviceVersion:
-      cleanString(data.serviceVersion ?? data.service_version) || "1.0.0",
+    serviceVersion: versionNumber(data.serviceVersion ?? data.service_version),
     name,
     serviceCategory,
     providerKind: normalizeProviderKind(data.providerKind ?? data.provider_kind),
@@ -867,7 +1098,6 @@ function toOfferRecord(id: string, data: Record<string, unknown>) {
     providerName,
     stages: normalizeStages(data.stages),
     status: normalizeOfferStatus(data.status),
-    availability: cleanString(data.availability),
     description: cleanString(data.description),
     shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
     providerWork: cleanString(data.providerWork ?? data.provider_work),
@@ -904,14 +1134,15 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     requestId,
     serviceId,
-    serviceVersion:
-      cleanString(data.serviceVersion ?? data.service_version) || "1.0.0",
+    serviceVersion: versionNumber(data.serviceVersion ?? data.service_version),
     status: normalizeTransactionStatus(data.status),
     requesterEmail,
     subjectId: cleanString(data.subjectId ?? data.subject_id),
-    formRef: objectRefFromUnknown(data.formRef ?? data.form_ref),
     inputs: inputSlotsFromUnknown(data.inputs),
     outputs: outputSlotsFromUnknown(data.outputs),
+    missingRequiredInputRoles: cleanStringArray(
+      data.missingRequiredInputRoles ?? data.missing_required_input_roles,
+    ),
     notes: cleanString(data.notes),
     normalizedName:
       cleanString(data.normalizedName) ||
@@ -938,10 +1169,12 @@ function matchesOfferFilters(
 ) {
   const status = normalizeKey(cleanString(options.status));
   const stage = normalizeKey(cleanString(options.stage));
+  const serviceId = cleanString(options.serviceId);
 
   return (
     matchesTextSearch(offer, options.query) &&
     (!status || status === "all" || offer.status === status) &&
+    (!serviceId || offer.serviceId === serviceId) &&
     (!stage ||
       stage === "all" ||
       offer.stages.includes(stage as SupportServiceStage))
@@ -1075,12 +1308,36 @@ async function getOfferSnapshot(offerId: string) {
   return snapshot.exists ? snapshot : null;
 }
 
+async function getOfferSnapshotByServiceId(serviceId: string) {
+  const snapshot = await adminDb
+    .collection(SERVICE_OFFERS_COLLECTION)
+    .where("serviceId", "==", serviceId)
+    .limit(1)
+    .get();
+  return snapshot.docs[0] ?? null;
+}
+
 async function getTransactionSnapshot(transactionId: string) {
   const snapshot = await adminDb
     .collection(SERVICE_TRANSACTIONS_COLLECTION)
     .doc(transactionId)
     .get();
   return snapshot.exists ? snapshot : null;
+}
+
+async function getTransactionSnapshotByIdOrRequestId(transactionId: string) {
+  const snapshot = await getTransactionSnapshot(transactionId);
+  if (snapshot) {
+    return snapshot;
+  }
+
+  const requestSnapshot = await adminDb
+    .collection(SERVICE_TRANSACTIONS_COLLECTION)
+    .where("requestId", "==", transactionId)
+    .limit(1)
+    .get();
+
+  return requestSnapshot.docs[0] ?? null;
 }
 
 async function assertOfferProviderExists(
@@ -1117,6 +1374,7 @@ export async function listSupportServiceOffers(
   const hasFilters = Boolean(
     cleanString(options.query) ||
       (cleanString(options.status) && cleanString(options.status) !== "all") ||
+      cleanString(options.serviceId) ||
       (cleanString(options.stage) && cleanString(options.stage) !== "all"),
   );
   const result = await listWithFilters({
@@ -1149,7 +1407,7 @@ export async function createSupportServiceOffer(
   input: SupportServiceOfferInput,
 ) {
   requireGodMode(context);
-  const document = offerDocument(input);
+  const document = applyOfferVersions(offerDocument(input));
   validateOfferDocument(document);
   await assertOfferProviderExists(document);
 
@@ -1178,7 +1436,10 @@ export async function updateSupportServiceOffer(
     throw new AdminRepositoryError("Service offer not found.", 404);
   }
 
-  const document = offerDocument(input);
+  const previousDocument = offerDocument(
+    toOfferRecord(offerId, snapshot.data() ?? {}),
+  );
+  const document = applyOfferVersions(offerDocument(input), previousDocument);
   validateOfferDocument(document);
   await assertOfferProviderExists(document);
   await snapshot.ref.set(
@@ -1236,12 +1497,12 @@ export async function getSupportServiceTransaction(
   transactionId: string,
 ) {
   requireGodMode(context);
-  const snapshot = await getTransactionSnapshot(transactionId);
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
 
-  return toTransactionRecord(transactionId, snapshot.data() ?? {});
+  return toTransactionRecord(snapshot.id, snapshot.data() ?? {});
 }
 
 export async function createSupportServiceTransaction(
@@ -1249,8 +1510,23 @@ export async function createSupportServiceTransaction(
   input: SupportServiceTransactionInput,
 ) {
   requireGodMode(context);
-  const document = transactionDocument(input);
-  validateTransactionDocument(document);
+  const initialDocument = transactionDocument(input);
+  const offerSnapshot = await getOfferSnapshotByServiceId(initialDocument.serviceId);
+  if (!offerSnapshot) {
+    throw new AdminRepositoryError(
+      "Service transaction must reference an existing service offer.",
+      400,
+    );
+  }
+  const offer = toOfferRecord(offerSnapshot.id, offerSnapshot.data() ?? {});
+  if (offer.status !== "active") {
+    throw new AdminRepositoryError(
+      "Only active service offers are selectable for new transactions.",
+      400,
+    );
+  }
+  const document = applyTransactionOfferContract(initialDocument, offer);
+  validateTransactionDocument(document, offer);
 
   const ref = adminDb.collection(SERVICE_TRANSACTIONS_COLLECTION).doc();
   await ref.set(
@@ -1272,13 +1548,31 @@ export async function updateSupportServiceTransaction(
   input: SupportServiceTransactionInput,
 ) {
   requireGodMode(context);
-  const snapshot = await getTransactionSnapshot(transactionId);
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
 
-  const document = transactionDocument(input);
-  validateTransactionDocument(document);
+  const previous = toTransactionRecord(snapshot.id, snapshot.data() ?? {});
+  const offerSnapshot = await getOfferSnapshotByServiceId(previous.serviceId);
+  if (!offerSnapshot) {
+    throw new AdminRepositoryError(
+      "Linked service offer not found for this transaction.",
+      400,
+    );
+  }
+  const offer = toOfferRecord(offerSnapshot.id, offerSnapshot.data() ?? {});
+  const document = applyTransactionOfferContract(
+    transactionDocument({
+      ...input,
+      requestId: previous.requestId,
+      serviceId: previous.serviceId,
+      serviceVersion: previous.serviceVersion,
+    }),
+    offer,
+    { serviceVersion: previous.serviceVersion },
+  );
+  validateTransactionDocument(document, offer);
   await snapshot.ref.set(
     withoutUndefined({
       ...document,
@@ -1289,7 +1583,7 @@ export async function updateSupportServiceTransaction(
     }),
   );
 
-  return getSupportServiceTransaction(context, transactionId);
+  return getSupportServiceTransaction(context, snapshot.id);
 }
 
 export async function deleteSupportServiceTransaction(
@@ -1297,7 +1591,7 @@ export async function deleteSupportServiceTransaction(
   transactionId: string,
 ) {
   requireGodMode(context);
-  const snapshot = await getTransactionSnapshot(transactionId);
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }

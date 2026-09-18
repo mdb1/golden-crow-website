@@ -1,0 +1,821 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pocketgenes.example/protocol/pgi2-ag/1.0.0/schema.json",
+  "title": "PGI2 AGAPIModel",
+  "description": ".pgi2.json native provider payload matching the app AGAPIModel Codable contract.",
+  "$ref": "#/$defs/AGAPIModel",
+  "$defs": {
+    "AGAPIModel": {
+      "type": "object",
+      "properties": {
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VariantAPIModel"
+          },
+          "minItems": 0
+        },
+        "result": {
+          "$ref": "#/$defs/ResultAPIModel"
+        },
+        "resume": {
+          "$ref": "#/$defs/ResumeAPIModel"
+        },
+        "information": {
+          "$ref": "#/$defs/InformationAPIModel"
+        },
+        "panel_information": {
+          "$ref": "#/$defs/PanelInfoAPIModel"
+        },
+        "genomic_methods": {
+          "$ref": "#/$defs/GenomicMethodsAPIModel"
+        },
+        "methodological_limitations": {
+          "$ref": "#/$defs/MethodologyLimitationsAPIModel"
+        },
+        "disclaimer": {
+          "$ref": "#/$defs/DisclaimerAPIModel"
+        },
+        "sequenced_regions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SequencedGenAPIModel"
+          },
+          "minItems": 0
+        },
+        "sequence": {
+          "$ref": "#/$defs/SequenceAPIModel"
+        },
+        "genetic_counseling": {
+          "$ref": "#/$defs/GeneticCounselingAPIModel"
+        },
+        "variant_interpretations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VariantInterpretationAPIModel"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "variants",
+        "result",
+        "resume",
+        "information",
+        "panel_information",
+        "genomic_methods",
+        "methodological_limitations",
+        "disclaimer",
+        "sequenced_regions",
+        "sequence",
+        "genetic_counseling",
+        "variant_interpretations"
+      ],
+      "additionalProperties": false
+    },
+    "VariantAPIModel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "chrom": {
+          "type": "string"
+        },
+        "position": {
+          "type": "integer"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "alternate": {
+          "type": "string"
+        },
+        "quality": {
+          "type": "number"
+        },
+        "info": {
+          "type": "string"
+        },
+        "filter": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "chrom",
+        "position",
+        "reference",
+        "alternate",
+        "quality",
+        "info",
+        "filter"
+      ],
+      "additionalProperties": false
+    },
+    "ResultAPIModel": {
+      "type": "object",
+      "properties": {
+        "cards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TitleDescriptionAPIModel"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "cards"
+      ],
+      "additionalProperties": false
+    },
+    "TitleDescriptionAPIModel": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "ResumeAPIModel": {
+      "type": "object",
+      "properties": {
+        "prioritized_genetic_variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GeneticVariantAPIModel"
+          },
+          "minItems": 0
+        },
+        "copy_number_variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GeneticVariantAPIModel"
+          },
+          "minItems": 0
+        },
+        "other_identified_genetic_variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GeneticVariantAPIModel"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "prioritized_genetic_variants",
+        "copy_number_variants",
+        "other_identified_genetic_variants"
+      ],
+      "additionalProperties": false
+    },
+    "GeneticVariantAPIModel": {
+      "type": "object",
+      "properties": {
+        "variant_number": {
+          "type": "integer"
+        },
+        "gene": {
+          "type": "string"
+        },
+        "hg39_position": {
+          "type": "string"
+        },
+        "variant": {
+          "type": "string"
+        },
+        "zygosity": {
+          "type": "string"
+        },
+        "classification": {
+          "type": "string"
+        },
+        "condition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "variant_number",
+        "gene",
+        "hg39_position",
+        "variant",
+        "zygosity",
+        "classification",
+        "condition"
+      ],
+      "additionalProperties": false
+    },
+    "InformationAPIModel": {
+      "type": "object",
+      "properties": {
+        "case_information": {
+          "$ref": "#/$defs/CaseInfoAPIModel"
+        },
+        "medical_information": {
+          "$ref": "#/$defs/MedicalInfo"
+        },
+        "patient_information": {
+          "$ref": "#/$defs/PatientInfoAPIModel"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReferenceAPIModel"
+          },
+          "minItems": 0
+        },
+        "clinical_diagnosis": {
+          "type": "string"
+        },
+        "hpo_terms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HpoTermAPIModel"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "case_information",
+        "medical_information",
+        "patient_information",
+        "references",
+        "clinical_diagnosis",
+        "hpo_terms"
+      ],
+      "additionalProperties": false
+    },
+    "CaseInfoAPIModel": {
+      "type": "object",
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "sample_id": {
+          "type": "string"
+        },
+        "sample_type": {
+          "type": "string"
+        },
+        "cnvs": {
+          "type": "boolean"
+        },
+        "mtdna": {
+          "type": "boolean"
+        },
+        "reception_date": {
+          "type": "string"
+        },
+        "sequencing_date": {
+          "type": "string"
+        },
+        "report_date": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "sample_id",
+        "sample_type",
+        "cnvs",
+        "mtdna",
+        "reception_date",
+        "sequencing_date",
+        "report_date"
+      ],
+      "additionalProperties": false
+    },
+    "MedicalInfo": {
+      "type": "object",
+      "properties": {
+        "doctor_name": {
+          "type": "string"
+        },
+        "clinic": {
+          "type": "string"
+        },
+        "lab": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "doctor_name",
+        "clinic",
+        "lab",
+        "email"
+      ],
+      "additionalProperties": false
+    },
+    "PatientInfoAPIModel": {
+      "type": "object",
+      "properties": {
+        "patient_name": {
+          "type": "string"
+        },
+        "dni_ci": {
+          "type": "string"
+        },
+        "sex": {
+          "type": "string"
+        },
+        "birth_date": {
+          "type": "string"
+        },
+        "age": {
+          "type": "string"
+        },
+        "legal_guardian": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "patient_name",
+        "dni_ci",
+        "sex",
+        "birth_date",
+        "age",
+        "legal_guardian"
+      ],
+      "additionalProperties": false
+    },
+    "ReferenceAPIModel": {
+      "type": "object",
+      "properties": {
+        "sample_id": {
+          "type": "string"
+        },
+        "relation": {
+          "type": "string"
+        },
+        "full_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sample_id",
+        "relation",
+        "full_name"
+      ],
+      "additionalProperties": false
+    },
+    "HpoTermAPIModel": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "hpo_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "hpo_id"
+      ],
+      "additionalProperties": false
+    },
+    "PanelInfoAPIModel": {
+      "type": "object",
+      "properties": {
+        "a_vision_info": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "regions_info": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "mitocondrial_sequence": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "cover_diseases": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "panel_content": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        }
+      },
+      "required": [
+        "a_vision_info",
+        "regions_info",
+        "mitocondrial_sequence",
+        "cover_diseases",
+        "panel_content"
+      ],
+      "additionalProperties": false
+    },
+    "GenomicMethodsAPIModel": {
+      "type": "object",
+      "properties": {
+        "extraction_and_sequencing": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "bioinformatic_processing": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "databases_used": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "variant_interpretation": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "results_categorization": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        }
+      },
+      "required": [
+        "extraction_and_sequencing",
+        "bioinformatic_processing",
+        "databases_used",
+        "variant_interpretation",
+        "results_categorization"
+      ],
+      "additionalProperties": false
+    },
+    "MethodologyLimitationsAPIModel": {
+      "type": "object",
+      "properties": {
+        "limited_coverage": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "interpretation_errors": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "structural_variants": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "public_databases": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "unknown_variants": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "test_errors": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        },
+        "evolving_evidence": {
+          "$ref": "#/$defs/TitleDescriptionAPIModel"
+        }
+      },
+      "required": [
+        "limited_coverage",
+        "interpretation_errors",
+        "structural_variants",
+        "public_databases",
+        "unknown_variants",
+        "test_errors",
+        "evolving_evidence"
+      ],
+      "additionalProperties": false
+    },
+    "DisclaimerAPIModel": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "SequencedGenAPIModel": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "analyzed_genes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        },
+        "color": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "analyzed_genes",
+        "color"
+      ],
+      "additionalProperties": false
+    },
+    "SequenceAPIModel": {
+      "type": "object",
+      "properties": {
+        "laboratory": {
+          "type": "string"
+        },
+        "genomic_library": {
+          "type": "string"
+        },
+        "sequencing_platform": {
+          "type": "string"
+        },
+        "expected_mean_coverage": {
+          "type": "string"
+        },
+        "protocol": {
+          "type": "string"
+        },
+        "samples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SampleCoverageAPIModel"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "laboratory",
+        "genomic_library",
+        "sequencing_platform",
+        "expected_mean_coverage",
+        "protocol",
+        "samples"
+      ],
+      "additionalProperties": false
+    },
+    "SampleCoverageAPIModel": {
+      "type": "object",
+      "properties": {
+        "relation": {
+          "type": "string"
+        },
+        "sample_id": {
+          "type": "string"
+        },
+        "quality": {
+          "type": "string"
+        },
+        "mean_coverage": {
+          "type": "integer"
+        },
+        "coverage_over_20x": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "relation",
+        "sample_id",
+        "quality",
+        "mean_coverage",
+        "coverage_over_20x",
+        "icon"
+      ],
+      "additionalProperties": false
+    },
+    "GeneticCounselingAPIModel": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "VariantInterpretationAPIModel": {
+      "type": "object",
+      "properties": {
+        "variant_number": {
+          "type": "integer"
+        },
+        "variant_name": {
+          "type": "string"
+        },
+        "acmg_classification": {
+          "type": "string"
+        },
+        "associated_phenotypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        },
+        "variant_details": {
+          "$ref": "#/$defs/VariantDetails"
+        },
+        "post_analysis": {
+          "$ref": "#/$defs/PostAnalysis"
+        },
+        "quality_metrics": {
+          "$ref": "#/$defs/QualityMetrics"
+        },
+        "gnomad": {
+          "$ref": "#/$defs/GnomADInfo"
+        },
+        "functional_prediction": {
+          "$ref": "#/$defs/FunctionalPrediction"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "interpretation": {
+          "type": "string"
+        },
+        "reference": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "variant_number",
+        "variant_name",
+        "acmg_classification",
+        "associated_phenotypes",
+        "variant_details",
+        "post_analysis",
+        "quality_metrics",
+        "gnomad",
+        "functional_prediction",
+        "summary",
+        "interpretation",
+        "reference"
+      ],
+      "additionalProperties": false
+    },
+    "VariantDetails": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "position": {
+          "type": "string"
+        },
+        "transcripts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        },
+        "exon": {
+          "type": "string"
+        },
+        "total_exons": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "description",
+        "position",
+        "transcripts",
+        "exon",
+        "total_exons"
+      ],
+      "additionalProperties": false
+    },
+    "PostAnalysis": {
+      "type": "object",
+      "properties": {
+        "classification": {
+          "type": "string"
+        },
+        "original": {
+          "type": "string"
+        },
+        "criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "classification",
+        "original",
+        "criteria"
+      ],
+      "additionalProperties": false
+    },
+    "QualityMetrics": {
+      "type": "object",
+      "properties": {
+        "proband": {
+          "$ref": "#/$defs/SampleQuality"
+        },
+        "father": {
+          "$ref": "#/$defs/SampleQuality"
+        },
+        "mother": {
+          "$ref": "#/$defs/SampleQuality"
+        }
+      },
+      "required": [
+        "proband",
+        "father",
+        "mother"
+      ],
+      "additionalProperties": false
+    },
+    "SampleQuality": {
+      "type": "object",
+      "properties": {
+        "zygosity": {
+          "type": "string"
+        },
+        "quality": {
+          "type": "string"
+        },
+        "depth": {
+          "type": "string"
+        },
+        "allele_fraction": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "zygosity",
+        "quality",
+        "depth",
+        "allele_fraction"
+      ],
+      "additionalProperties": false
+    },
+    "GnomADInfo": {
+      "type": "object",
+      "properties": {
+        "allele_total": {
+          "type": "number"
+        },
+        "allele_count": {
+          "type": "integer"
+        },
+        "allele_max": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "allele_total",
+        "allele_count",
+        "allele_max"
+      ],
+      "additionalProperties": false
+    },
+    "FunctionalPrediction": {
+      "type": "object",
+      "properties": {
+        "revel": {
+          "type": "string"
+        },
+        "conservation": {
+          "type": "string"
+        },
+        "gerp": {
+          "type": "string"
+        },
+        "phastcons_100_vertebrates": {
+          "type": "string"
+        },
+        "splicing_prediction": {
+          "type": "string"
+        },
+        "spliceai": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "revel",
+        "conservation",
+        "gerp",
+        "phastcons_100_vertebrates",
+        "splicing_prediction",
+        "spliceai"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

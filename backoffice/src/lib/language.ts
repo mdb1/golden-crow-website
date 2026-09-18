@@ -4687,6 +4687,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Editar service offer": "Editar oferta de servicio",
   "Alta de transaccion": "Alta de transacción",
   "Editar transaccion": "Editar transacción",
+  "Detalle de transaccion": "Detalle de transacción",
   "Create a Pocket Genes pgs_* service definition.":
     "Crear una definición de servicio Pocket Genes pgs_*.",
   "Edit a Pocket Genes pgs_* service definition.":
@@ -4695,6 +4696,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Ofertas del catálogo de servicios Pocket Genes.",
   "Pocket Genes service catalog offers using pgs_* definitions.":
     "Ofertas del catálogo de servicios Pocket Genes con definiciones pgs_*.",
+  "Pocket Genes service contract": "Contrato de servicio Pocket Genes",
   "Create a Pocket Genes pgr_* service transaction.":
     "Crear una transacción de servicio Pocket Genes pgr_*.",
   "Edit a Pocket Genes pgr_* service transaction.":
@@ -4705,6 +4707,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Una entrada de formulario requiere una forma de formulario habilitada.",
   "Acceptance and scope": "Aceptación y alcance",
   "Accepted conditions": "Condiciones aceptadas",
+  "Accepted conditions are the facts that must be true before the provider accepts the request. Scope rules are the boundaries the provider must follow while doing the work. This block is optional; add one rule per line only when the service needs explicit limits.":
+    "Las condiciones aceptadas son los hechos que deben cumplirse antes de que el proveedor acepte la solicitud. Las reglas de alcance son los límites que el proveedor debe respetar mientras realiza el trabajo. Este bloque es opcional; agregá una regla por línea solo cuando el servicio necesite límites explícitos.",
   "Accepted types": "Tipos aceptados",
   "Add field": "Agregar campo",
   "Add form field": "Agregar campo de formulario",
@@ -4713,7 +4717,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add output": "Agregar salida",
   "Add output slot": "Agregar slot de salida",
   "All stages": "Todas las etapas",
-  "Allow unknown fields": "Permitir campos desconocidos",
   "Awaiting input": "Esperando entrada",
   "Back to Service Offers": "Volver a ofertas de servicio",
   "Back to Service Transactions": "Volver a transacciones de servicio",
@@ -4743,6 +4746,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Delete this service transaction?": "¿Eliminar esta transacción de servicio?",
   "Each input slot accepts one Pocket Genes object type.":
     "Cada slot de entrada acepta un tipo de objeto Pocket Genes.",
+  "Choose the object type. The input key and one required file are generated automatically.":
+    "Elegí el tipo de objeto. La clave de entrada y el único archivo requerido se generan automáticamente.",
   "Edit form field": "Editar campo de formulario",
   "Edit input slot": "Editar slot de entrada",
   "Edit output slot": "Editar slot de salida",
@@ -4755,16 +4760,23 @@ const SPANISH_TEXT: Record<string, string> = {
   "Filter by service ID": "Filtrar por ID de servicio",
   "Fixed price": "Precio fijo",
   "Form input": "Entrada de formulario",
+  "Form inputs are managed by Support form input.":
+    "Las entradas de formulario se gestionan con Soportar entrada de formulario.",
   "Form shape ID": "ID de forma de formulario",
   "Form shape version": "Versión de forma de formulario",
   Hours: "Horas",
   "In progress": "En progreso",
   "Input object bindings": "Vínculos de objetos de entrada",
+  "Input key": "Clave de entrada",
   "Input slots": "Slots de entrada",
   Inputs: "Entradas",
   Integer: "Entero",
   Key: "Clave",
   Label: "Etiqueta",
+  "Linked service": "Servicio vinculado",
+  "Loading linked service...": "Cargando servicio vinculado...",
+  "Linked service offer not found.":
+    "No se encontró la oferta de servicio vinculada.",
   Max: "Máximo",
   Min: "Mínimo",
   "Multi enum": "Enum múltiple",
@@ -4773,9 +4785,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "New revision": "Nueva revisión",
   "New service offer": "Nueva oferta de servicio",
   "No input slots defined.": "No hay slots de entrada definidos.",
+  "No inputs": "Sin entradas",
+  "No outputs": "Sin salidas",
   "No object bindings are defined for this service.":
     "No hay vínculos de objetos definidos para este servicio.",
   "No output slots defined.": "No hay slots de salida definidos.",
+  "One accepted condition per line": "Una condición aceptada por línea",
+  "One scope rule per line": "Una regla de alcance por línea",
   "No provider selected": "Sin proveedor seleccionado",
   "No providers found in the loaded page.":
     "No se encontraron proveedores en la página cargada.",
@@ -4795,6 +4811,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Optional general category": "Categoría general opcional",
   Options: "Opciones",
   "Output object bindings": "Vínculos de objetos de salida",
+  Outputs: "Salidas",
   "Output slots": "Slots de salida",
   Paused: "Pausado",
   "Pick a Discover publisher": "Elegí un publicador de Discover",
@@ -4827,9 +4844,23 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service offer saved.": "Oferta de servicio guardada.",
   "Service transaction deleted.": "Transacción de servicio eliminada.",
   "Service transaction saved.": "Transacción de servicio guardada.",
+  "Service offer": "Oferta de servicio",
   "Service version": "Versión del servicio",
   Slots: "Slots",
+  "Stage pipeline": "Pipeline de etapas",
   Stages: "Etapas",
+  "Stages are inferred from the current input and output objects. Use the checkboxes only when the catalog needs a manual correction.":
+    "Las etapas se infieren a partir de los objetos actuales de entrada y salida. Usá los checkboxes solo cuando el catálogo necesite una corrección manual.",
+  "Best-effort prediction": "Predicción automática",
+  "Manually adjusted": "Ajustado manualmente",
+  "Use suggested pipeline": "Usar pipeline sugerido",
+  "Suggested by inputs and outputs": "Sugerido por entradas y salidas",
+  "Forms, consent, candidate genes, and order construction.":
+    "Formularios, consentimiento, genes candidatos y construcción de órdenes.",
+  "Specimen logistics, extraction, sequencing, and lab-produced source files.":
+    "Logística de muestras, extracción, secuenciación y archivos producidos por laboratorio.",
+  "Digital analysis, variant interpretation, images, PGI1, and reports.":
+    "Análisis digital, interpretación de variantes, imágenes, PGI1 y reportes.",
   "String list": "Lista de strings",
   "Subject ID": "ID de sujeto",
   Submitted: "Enviado",
@@ -4845,10 +4876,50 @@ const SPANISH_TEXT: Record<string, string> = {
   "Choose an organization or professional provider.":
     "Elegí una organización o un profesional proveedor.",
   "Description is required.": "La descripción es obligatoria.",
+  "Requester-facing summary shown in the app as the service offer description. Use it to explain what the service is, when someone should request it, and what outcome they can expect.":
+    "Resumen orientado al solicitante que se muestra en la app como descripción de la oferta de servicio. Usalo para explicar qué es el servicio, cuándo conviene pedirlo y qué resultado puede esperar la persona.",
   "Provider work is required.": "El trabajo del proveedor es obligatorio.",
+  "Operational description of what the provider does after the request is submitted. It appears in the service detail context to clarify the provider-side work, not as the short marketing summary.":
+    "Descripción operativa de lo que hace el proveedor después de que se envía la solicitud. Aparece en el contexto de detalle del servicio para aclarar el trabajo del proveedor, no como resumen comercial corto.",
   "At least one stage is required.": "Se requiere al menos una etapa.",
   "At least one output slot is required.":
     "Se requiere al menos un slot de salida.",
+  "Active service offers are published and can be selected by new service transactions.":
+    "Las ofertas de servicio activas están publicadas y se pueden seleccionar en nuevas transacciones de servicio.",
+  "Paused service offers stay saved, but should not receive new transaction requests until they are published again.":
+    "Las ofertas de servicio pausadas quedan guardadas, pero no deberían recibir nuevas solicitudes hasta que se publiquen otra vez.",
+  "Archived service offers stay available for audit and historical transactions, but are removed from normal operation.":
+    "Las ofertas de servicio archivadas quedan disponibles para auditoría y transacciones históricas, pero se retiran de la operación normal.",
+  "Draft service offers stay private while the contract is still being shaped. Publish when the service is ready to receive transactions.":
+    "Las ofertas de servicio en borrador quedan privadas mientras se termina de definir el contrato. Publicá cuando el servicio esté listo para recibir transacciones.",
+  "Service offer state": "Estado de la oferta de servicio",
+  "Active status is available only through Publish service offer.":
+    "El estado activo solo está disponible desde Publicar oferta de servicio.",
+  "Change service offer status": "Cambiar estado de la oferta de servicio",
+  "Pick the state that best matches what should happen next for this service offer.":
+    "Elegí el estado que mejor represente lo que debe pasar ahora con esta oferta de servicio.",
+  "Service offer status options": "Opciones de estado de la oferta de servicio",
+  "Publish service offer": "Publicar oferta de servicio",
+  "Published service offer": "Oferta de servicio publicada",
+  "Publishing service offer": "Publicando oferta de servicio",
+  "Saving the service contract and making it available for transactions.":
+    "Guardando el contrato del servicio y dejándolo disponible para transacciones.",
+  "The offer is saved with status active and can be selected by new service transactions.":
+    "La oferta quedó guardada con estado activo y se puede seleccionar en nuevas transacciones de servicio.",
+  "The offer stayed unchanged. Fix the form requirement and publish again.":
+    "La oferta quedó sin cambios. Corregí el requisito del formulario y publicá de nuevo.",
+  "Validating provider, contract slots, form shape, and output requirements.":
+    "Validando proveedor, slots del contrato, forma de formulario y requisitos de salida.",
+  "Open offer": "Abrir oferta",
+  "Service offer draft saved.": "Borrador de oferta de servicio guardado.",
+  "Service offer status updated.":
+    "Estado de la oferta de servicio actualizado.",
+  "Publishing stopped. Review the service offer requirements and try again.":
+    "La publicación se detuvo. Revisá los requisitos de la oferta de servicio e intentá de nuevo.",
+  "This service offer is now published.":
+    "Esta oferta de servicio ya está publicada.",
+  "This input type is already added.":
+    "Este tipo de entrada ya está agregado.",
   "A form shape requires exactly one pgo_form input slot.":
     "Una forma de formulario requiere exactamente un slot de entrada pgo_form.",
   "A pgo_form input slot requires a form shape.":
@@ -4857,8 +4928,12 @@ const SPANISH_TEXT: Record<string, string> = {
     "Cada campo de formulario necesita clave y etiqueta.",
   "Every input slot needs a role.":
     "Cada slot de entrada necesita un rol.",
+  "Every input slot needs one object type.":
+    "Cada slot de entrada necesita un tipo de objeto.",
   "Every output slot needs a role and object type.":
     "Cada slot de salida necesita un rol y un tipo de objeto.",
+  "Output slots cannot produce request forms.":
+    "Los slots de salida no pueden producir formularios de solicitud.",
   "Fixed price amount must be numeric.":
     "El importe de precio fijo debe ser numérico.",
   "Fixed price currency is required.":

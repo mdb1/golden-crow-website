@@ -1,11 +1,12 @@
-import objectsCatalog from "../../../Pocket-Genes-Wiki/catalog/objects.json";
-import providersCatalog from "../../../Pocket-Genes-Wiki/catalog/providers.json";
-import servicesCatalog from "../../../Pocket-Genes-Wiki/catalog/services.json";
+import objectsCatalog from "../../../Pocket-Genes-Catalog-Wiki/catalog/objects.json";
+import providersCatalog from "../../../Pocket-Genes-Catalog-Wiki/catalog/providers.json";
+import servicesCatalog from "../../../Pocket-Genes-Catalog-Wiki/catalog/services.json";
 import type {
   SupportServiceFormFieldType,
   SupportServiceInputSlot,
   SupportServiceOfferInput,
   SupportServiceOutputSlot,
+  SupportServicePricingModel,
   SupportServiceStage,
 } from "@/lib/support-services";
 
@@ -13,6 +14,15 @@ type RawCatalog = Record<string, unknown>;
 
 function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function versionNumber(value: unknown) {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  const text = cleanString(value);
+  const match = text.match(/^([1-9]\d*)(?:\.0\.0)?$/);
+  return match ? Number(match[1]) : 1;
 }
 
 function stringArray(value: unknown) {
@@ -70,6 +80,9 @@ function normalizeOutputSlot(slot: Record<string, unknown>): SupportServiceOutpu
       "new_revision"
         ? "new_revision"
         : "new_object",
+    sameIdentityAsInput:
+      cleanString(slot.same_identity_as_input ?? slot.sameIdentityAsInput) ||
+      undefined,
   };
 }
 
@@ -85,32 +98,43 @@ export const POCKET_GENES_OBJECT_OPTIONS = rawObjects.map((object) => ({
 }));
 
 export const POCKET_GENES_PROVIDER_OPTIONS = rawProviders.map((provider) => ({
-  value: cleanString(provider.provider_id),
+  value: cleanString(provider.provider_id ?? provider.providerId),
   label: cleanString(provider.name),
   kind: cleanString(provider.kind),
-  serviceIds: stringArray(provider.service_ids),
+  serviceIds: stringArray(provider.service_ids ?? provider.serviceIds),
 }));
 
 export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
-  const formShape = record(service.form_shape);
-  const commercialTerms = record(service.mock_commercial_terms);
+  const formShape = record(service.form_shape ?? service.formShape);
+  const commercialTerms = record(
+    service.mock_commercial_terms ??
+      service.mockCommercialTerms ??
+      service.commercialTerms,
+  );
+  const commercialPrice = record(commercialTerms.price);
+  const pricingModel = cleanString(
+    commercialTerms.pricing_model ?? commercialTerms.pricingModel,
+  );
+  const priceAmount = Number(commercialPrice.amount);
+  const priceCurrency = cleanString(commercialPrice.currency);
 
   return {
-    value: cleanString(service.service_id),
+    value: cleanString(service.service_id ?? service.serviceId),
     label: cleanString(service.name),
-    serviceId: cleanString(service.service_id),
-    serviceVersion: cleanString(service.service_version) || "1.0.0",
+    serviceId: cleanString(service.service_id ?? service.serviceId),
+    serviceVersion: versionNumber(service.service_version ?? service.serviceVersion),
     name: cleanString(service.name),
-    providerId: cleanString(service.provider_id),
+    providerId: cleanString(service.provider_id ?? service.providerId),
     stages: stringArray(service.stages).map(normalizeStage),
-    availability: cleanString(service.availability),
     description: cleanString(service.description),
-    shortContract: cleanString(service.short_contract),
-    providerWork: cleanString(service.provider_work),
+    shortContract: cleanString(service.short_contract ?? service.shortContract),
+    providerWork: cleanString(service.provider_work ?? service.providerWork),
     formShape: {
       id: cleanString(formShape.id),
-      version: cleanString(formShape.version) || "1.0.0",
-      allowUnknownFields: Boolean(formShape.allow_unknown_fields),
+      version: versionNumber(formShape.version),
+      allowUnknownFields: Boolean(
+        formShape.allow_unknown_fields ?? formShape.allowUnknownFields,
+      ),
       fields: recordArray(formShape.fields).map((field) => ({
         key: cleanString(field.key),
         label: cleanString(field.label),
@@ -123,23 +147,26 @@ export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
         })),
       })),
     },
-    inputSlots: recordArray(service.input_slots).map(normalizeInputSlot),
-    outputSlots: recordArray(service.output_slots).map(normalizeOutputSlot),
-    acceptedConditions: stringArray(service.accepted_conditions),
-    scopeRules: stringArray(service.scope_rules),
+    inputSlots: recordArray(service.input_slots ?? service.inputSlots).map(
+      normalizeInputSlot,
+    ),
+    outputSlots: recordArray(service.output_slots ?? service.outputSlots).map(
+      normalizeOutputSlot,
+    ),
+    acceptedConditions: stringArray(
+      service.accepted_conditions ?? service.acceptedConditions,
+    ),
+    scopeRules: stringArray(service.scope_rules ?? service.scopeRules),
     commercialTerms: {
-      price: {
-        amount: Number(record(commercialTerms.price).amount ?? 0),
-        currency: cleanString(record(commercialTerms.price).currency) || "ARS",
-        basis: cleanString(record(commercialTerms.price).basis),
-        isMock: Boolean(record(commercialTerms.price).is_mock),
-      },
+      pricingModel: (pricingModel as SupportServicePricingModel) || undefined,
+      price:
+        Number.isFinite(priceAmount) || priceCurrency
+          ? {
+              amount: Number.isFinite(priceAmount) ? priceAmount : undefined,
+              currency: priceCurrency || undefined,
+            }
+          : undefined,
       turnaround: cleanString(commercialTerms.turnaround),
-      turnaroundStartsAt: cleanString(commercialTerms.turnaround_starts_at),
-      taxAndPaymentPolicy: cleanString(
-        commercialTerms.tax_and_payment_policy,
-      ),
-      failurePolicy: cleanString(commercialTerms.failure_policy),
     },
   } satisfies SupportServiceOfferInput & {
     value: string;

@@ -1,0 +1,52 @@
+{
+  "object_id": "obj_demo_form_collection_request",
+  "object_type": "pgo_form",
+  "schema_version": "1.0.0",
+  "revision": 1,
+  "created_at": "2026-09-16T12:25:00Z",
+  "created_by": "user_demo_001",
+  "input_refs": [],
+  "data": {
+    "form_shape_id": "pgfs_collection_request",
+    "form_shape_version": 1,
+    "fields": [
+      {
+        "key": "requested_at",
+        "value": "2026-09-16T12:25:00Z"
+      },
+      {
+        "key": "requested_by",
+        "value": "user_demo_001"
+      },
+      {
+        "key": "subject_id",
+        "value": "subject_demo_001"
+      },
+      {
+        "key": "collection_site",
+        "value": "Demo clinical collection room, 100 Example Avenue, Demo City, AR"
+      },
+      {
+        "key": "requested_sample_type",
+        "value": "blood"
+      },
+      {
+        "key": "collection_method",
+        "value": "phlebotomy"
+      },
+      {
+        "key": "collection_window_start",
+        "value": "2026-09-16T13:00:00Z"
+      },
+      {
+        "key": "collection_window_end",
+        "value": "2026-09-16T15:00:00Z"
+      },
+      {
+        "key": "preparation_profile",
+        "value": "EDTA tube, subject identity check, consent confirmed before draw"
+      }
+    ]
+  },
+  "files": []
+}

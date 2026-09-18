@@ -72,7 +72,7 @@ export interface SupportServiceFormField {
 
 export interface SupportServiceFormShape {
   id: string;
-  version: string;
+  version: number;
   allowUnknownFields?: boolean;
   fields: SupportServiceFormField[];
 }
@@ -92,6 +92,7 @@ export interface SupportServiceOutputSlot {
   role: string;
   objectType: string;
   mutationMode: SupportServiceMutationMode;
+  sameIdentityAsInput?: string;
 }
 
 export interface SupportServiceCommercialTerms {
@@ -99,18 +100,13 @@ export interface SupportServiceCommercialTerms {
   price?: {
     amount?: number;
     currency?: string;
-    basis?: string;
-    isMock?: boolean;
   };
   turnaround?: string;
-  turnaroundStartsAt?: string;
-  taxAndPaymentPolicy?: string;
-  failurePolicy?: string;
 }
 
 export interface SupportServiceOfferInput {
   serviceId: string;
-  serviceVersion?: string;
+  serviceVersion?: number;
   name: string;
   serviceCategory?: string;
   providerKind?: SupportServiceProviderKind;
@@ -118,7 +114,6 @@ export interface SupportServiceOfferInput {
   providerName?: string;
   stages?: SupportServiceStage[];
   status?: SupportServiceOfferStatus;
-  availability?: string;
   description?: string;
   shortContract?: string;
   providerWork?: string;
@@ -134,7 +129,7 @@ export interface SupportServiceOfferRecord
   extends Required<Omit<SupportServiceOfferInput, "formShape" | "commercialTerms">> {
   id: string;
   schemaVersion: number;
-  serviceVersion: string;
+  serviceVersion: number;
   formShape?: SupportServiceFormShape;
   commercialTerms?: SupportServiceCommercialTerms;
   stages: SupportServiceStage[];
@@ -159,22 +154,21 @@ export interface SupportServiceTransactionSlot {
 export interface SupportServiceTransactionInput {
   requestId: string;
   serviceId: string;
-  serviceVersion?: string;
+  serviceVersion?: number;
   status?: SupportServiceTransactionStatus;
   requesterEmail?: string;
   subjectId?: string;
-  formRef?: SupportServiceObjectRef | null;
   inputs?: SupportServiceTransactionSlot[];
   outputs?: SupportServiceTransactionSlot[];
+  missingRequiredInputRoles?: string[];
   notes?: string;
 }
 
 export interface SupportServiceTransactionRecord
-  extends Required<Omit<SupportServiceTransactionInput, "formRef">> {
+  extends Required<SupportServiceTransactionInput> {
   id: string;
   schemaVersion: number;
-  serviceVersion: string;
-  formRef: SupportServiceObjectRef | null;
+  serviceVersion: number;
   status: SupportServiceTransactionStatus;
   normalizedName: string;
   createdAt?: string;

@@ -1,0 +1,21 @@
+{
+  "request_id": "pgr_demo_collection_request",
+  "service_id": "pgs_collection_request",
+  "service_version": 1,
+  "inputs": [
+    {
+      "role": "form",
+      "object_ref": {
+        "object_id": "obj_demo_form_collection_request",
+        "revision": 1
+      }
+    },
+    {
+      "role": "test_order",
+      "object_ref": {
+        "object_id": "obj_demo_order",
+        "revision": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "request_id": "pgr_demo_variant_calling",
+  "service_id": "pgs_variant_calling",
+  "service_version": 1,
+  "inputs": [
+    {
+      "role": "form",
+      "object_ref": {
+        "object_id": "obj_demo_form_variant_calling",
+        "revision": 1
+      }
+    },
+    {
+      "role": "aligned_reads",
+      "object_ref": {
+        "object_id": "obj_demo_bam",
+        "revision": 1
+      }
+    },
+    {
+      "role": "test_order",
+      "object_ref": {
+        "object_id": "obj_demo_order",
+        "revision": 1
+      }
+    }
+  ]
+}

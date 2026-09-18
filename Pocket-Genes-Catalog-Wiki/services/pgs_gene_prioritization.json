@@ -1,0 +1,198 @@
+{
+  "name": "Prioritize candidate genes",
+  "stages": [
+    "test_planning"
+  ],
+  "availability": "mock_catalog_only",
+  "description": "Use a symptom bundle to return a ranked or selected bundle of candidate genes for subsequent test planning.",
+  "serviceId": "pgs_gene_prioritization",
+  "schemaVersion": 1,
+  "serviceVersion": 1,
+  "providerId": "pgp_clinical_planning",
+  "shortContract": "form:form + bundle_of_symptoms:bundle_of_symptoms -> candidate_genes:bundle_of_candidate_genes",
+  "providerWork": "Apply the provider method and professional review where included; return genes, evidence and ranking rationale.",
+  "formShape": {
+    "id": "pgfs_gene_prioritization",
+    "version": 1,
+    "fields": [
+      {
+        "key": "requested_at",
+        "label": "Requested at",
+        "type": "datetime",
+        "required": true
+      },
+      {
+        "key": "requested_by",
+        "label": "Requested by",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "ranking_mode",
+        "label": "Ranking mode",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "ranked",
+            "label": "Ranked list"
+          },
+          {
+            "value": "selected",
+            "label": "Selected set"
+          }
+        ]
+      },
+      {
+        "key": "maximum_genes",
+        "label": "Maximum genes",
+        "type": "integer",
+        "required": true
+      }
+    ],
+    "allowUnknownFields": false
+  },
+  "sampleFormData": {
+    "fields": [
+      {
+        "key": "requested_at",
+        "value": "2026-09-16T12:06:00Z"
+      },
+      {
+        "key": "requested_by",
+        "value": "user_demo_001"
+      },
+      {
+        "key": "ranking_mode",
+        "value": "ranked"
+      },
+      {
+        "key": "maximum_genes",
+        "value": 3
+      }
+    ],
+    "formShapeId": "pgfs_gene_prioritization",
+    "formShapeVersion": 1
+  },
+  "sampleFormObject": {
+    "object_id": "obj_demo_form_gene_prioritization",
+    "object_type": "pgo_form",
+    "schema_version": "1.0.0",
+    "revision": 1,
+    "created_at": "2026-09-16T12:06:00Z",
+    "created_by": "user_demo_001",
+    "input_refs": [],
+    "data": {
+      "fields": [
+        {
+          "key": "requested_at",
+          "value": "2026-09-16T12:06:00Z"
+        },
+        {
+          "key": "requested_by",
+          "value": "user_demo_001"
+        },
+        {
+          "key": "ranking_mode",
+          "value": "ranked"
+        },
+        {
+          "key": "maximum_genes",
+          "value": 3
+        }
+      ],
+      "form_shape_id": "pgfs_gene_prioritization",
+      "form_shape_version": 1
+    },
+    "files": []
+  },
+  "inputSlots": [
+    {
+      "role": "form",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_form"
+      ],
+      "objectType": "pgo_form"
+    },
+    {
+      "role": "bundle_of_symptoms",
+      "required": true,
+      "cardinality": {
+        "min": 1,
+        "max": 1
+      },
+      "acceptedTypes": [
+        "pgo_bundle_of_symptoms"
+      ],
+      "objectType": "pgo_bundle_of_symptoms"
+    }
+  ],
+  "outputSlots": [
+    {
+      "role": "candidate_genes",
+      "objectType": "pgo_bundle_of_candidate_genes",
+      "mutationMode": "new_object"
+    }
+  ],
+  "acceptedConditions": [
+    "The provider accepts the symptom bundle schema and any declared terminology profile.",
+    "The symptom bundle represents one identified subject."
+  ],
+  "scopeRules": [
+    "Candidate status and supporting reasons must be preserved. Ranking does not establish that these genes are affected."
+  ],
+  "commercialTerms": {
+    "price": {
+      "summary": "Calculated after submission"
+    },
+    "turnaround": "1d",
+    "pricingModel": "calculated_after_submission"
+  },
+  "sampleRequest": {
+    "request_id": "pgr_demo_gene_prioritization",
+    "service_id": "pgs_gene_prioritization",
+    "service_version": 1,
+    "inputs": [
+      {
+        "role": "form",
+        "object_ref": {
+          "object_id": "obj_demo_form_gene_prioritization",
+          "revision": 1
+        }
+      },
+      {
+        "role": "bundle_of_symptoms",
+        "object_ref": {
+          "object_id": "obj_demo_symptoms",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "sampleResult": {
+    "request_id": "pgr_demo_gene_prioritization",
+    "status": "completed",
+    "outputs": [
+      {
+        "role": "candidate_genes",
+        "object_ref": {
+          "object_id": "obj_demo_genes",
+          "revision": 1
+        }
+      }
+    ]
+  },
+  "status": "active",
+  "serviceCategory": "",
+  "providerName": "Meridian Clinical Planning",
+  "providerKind": "organization",
+  "regions": [
+    "AR"
+  ],
+  "providerApiContractId": "pg_api_service_requests_v1"
+}

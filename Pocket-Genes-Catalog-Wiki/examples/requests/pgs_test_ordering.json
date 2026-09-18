@@ -1,0 +1,28 @@
+{
+  "request_id": "pgr_demo_test_ordering",
+  "service_id": "pgs_test_ordering",
+  "service_version": 1,
+  "inputs": [
+    {
+      "role": "form",
+      "object_ref": {
+        "object_id": "obj_demo_form_test_ordering",
+        "revision": 1
+      }
+    },
+    {
+      "role": "informed_consent",
+      "object_ref": {
+        "object_id": "obj_demo_consent",
+        "revision": 1
+      }
+    },
+    {
+      "role": "bundle_of_candidate_genes",
+      "object_ref": {
+        "object_id": "obj_demo_genes",
+        "revision": 1
+      }
+    }
+  ]
+}

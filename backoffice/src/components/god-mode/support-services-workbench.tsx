@@ -1,27 +1,45 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  ArrowRight,
+  Binary,
   Building2,
+  Check,
   CheckCircle2,
   CircleAlert,
+  ClipboardList,
   FileText,
   Filter,
+  FlaskConical,
+  Loader2,
   Pencil,
   Plus,
   RefreshCw,
+  Save,
   Search,
+  Settings2,
   UserRound,
   Trash2,
+  UploadCloud,
   Wand2,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -83,6 +101,7 @@ import {
   type SupportServiceMutationMode,
   type SupportServiceOfferInput,
   type SupportServiceOfferRecord,
+  type SupportServiceOfferStatus,
   type SupportServiceOffersPage,
   type SupportServiceOutputSlot,
   type SupportServicePricingModel,
@@ -109,7 +128,7 @@ type FormFieldDraft = SupportServiceFormField & {
 
 type OfferFormState = {
   serviceId: string;
-  serviceVersion: string;
+  serviceVersion: number;
   name: string;
   serviceCategory: string;
   providerKind: SupportServiceProviderKind;
@@ -117,13 +136,12 @@ type OfferFormState = {
   providerName: string;
   stages: SupportServiceStage[];
   status: NonNullable<SupportServiceOfferInput["status"]>;
-  availability: string;
   description: string;
   providerWork: string;
   supportsFormShape: boolean;
   formShape: {
     id: string;
-    version: string;
+    version: number;
     allowUnknownFields: boolean;
     fields: FormFieldDraft[];
   };
@@ -145,13 +163,20 @@ type ObjectRefDraft = {
 type TransactionFormState = {
   requestId: string;
   serviceId: string;
-  serviceVersion: string;
+  serviceVersion: number;
   status: NonNullable<SupportServiceTransactionInput["status"]>;
   requesterEmail: string;
   subjectId: string;
   inputs: ObjectRefDraft[];
   outputs: ObjectRefDraft[];
+  missingRequiredInputRoles: string[];
   notes: string;
+};
+
+type ServiceOfferPublishDialogState = {
+  status: "publishing" | "success" | "error";
+  offerId?: string;
+  message?: string;
 };
 
 const SERVICE_PAGE_SIZE = 20;
@@ -159,13 +184,92 @@ const PROVIDER_OFFER_LOOKUP_LIMIT = 100;
 const OFFERS_QUERY_KEY = "god-mode-support-service-offers";
 const TRANSACTIONS_QUERY_KEY = "god-mode-support-service-transactions";
 const LIVE_OFFERS_QUERY_KEY = "god-mode-support-service-offers-live-picker";
+const EMPTY_SUPPORT_SERVICE_OFFERS: SupportServiceOfferRecord[] = [];
 const FORM_OBJECT_TYPE = "pgo_form";
+const DEFAULT_OUTPUT_OBJECT_TYPE = "pgo_pdf_report";
+const INPUT_OBJECT_OPTIONS = POCKET_GENES_OBJECT_OPTIONS.filter(
+  (object) => object.value !== FORM_OBJECT_TYPE,
+);
+const OUTPUT_OBJECT_OPTIONS = POCKET_GENES_OBJECT_OPTIONS.filter(
+  (object) => object.value !== FORM_OBJECT_TYPE,
+);
 const TURNAROUND_UNITS = [
   { value: "w", label: "Weeks" },
   { value: "d", label: "Days" },
   { value: "h", label: "Hours" },
   { value: "m", label: "Minutes" },
 ] as const;
+const STAGE_ORDER: SupportServiceStage[] = SUPPORT_SERVICE_STAGES.map(
+  (stage) => stage.value,
+);
+const TEST_PLANNING_OUTPUT_OBJECTS = new Set([
+  "pgo_bundle_of_symptoms",
+  "pgo_bundle_of_candidate_genes",
+  "pgo_informed_consent",
+  "pgo_test_order",
+]);
+const WET_LAB_OUTPUT_OBJECTS = new Set([
+  "pgo_collection_request",
+  "pgo_blood_sample",
+  "pgo_tissue_sample",
+  "pgo_embryo_sample",
+  "pgo_dna_sample",
+  "pgo_sequence_reads",
+  "pgo_sequence_data",
+]);
+const BIOINFORMATICS_OUTPUT_OBJECTS = new Set([
+  "pgo_aligned_reads",
+  "pgo_unannotated_vcf",
+  "pgo_annotated_vcf",
+  "pgo_interactive_report",
+  "pgo_karyotype_result",
+  "pgo_flow_cytometry_data",
+]);
+const TEST_PLANNING_CONTEXT_OBJECTS = new Set([
+  "pgo_bundle_of_symptoms",
+  "pgo_bundle_of_candidate_genes",
+  "pgo_informed_consent",
+]);
+const WET_LAB_CONTEXT_OBJECTS = new Set([
+  "pgo_collection_request",
+  "pgo_blood_sample",
+  "pgo_tissue_sample",
+  "pgo_embryo_sample",
+  "pgo_dna_sample",
+]);
+const BIOINFORMATICS_CONTEXT_OBJECTS = new Set([
+  "pgo_sequence_reads",
+  "pgo_sequence_data",
+  "pgo_aligned_reads",
+  "pgo_unannotated_vcf",
+  "pgo_annotated_vcf",
+  "pgo_interactive_report",
+  "pgo_karyotype_result",
+  "pgo_flow_cytometry_data",
+]);
+
+const SUPPORT_SERVICE_PANEL_CLASS =
+  "overflow-hidden rounded-2xl border border-violet-100/80 bg-white/92 shadow-[0_22px_62px_-46px_rgba(109,40,217,0.46)] dark:border-violet-400/16 dark:bg-slate-950/50";
+const SUPPORT_SERVICE_FORM_CLASS = cn(
+  SUPPORT_SERVICE_PANEL_CLASS,
+  "[&_[data-slot=input]]:h-11 [&_[data-slot=input]]:rounded-xl [&_[data-slot=input]]:border-violet-200/75 [&_[data-slot=input]]:bg-white/90 [&_[data-slot=input]]:px-4 [&_[data-slot=input]]:shadow-sm [&_[data-slot=input]]:focus-visible:border-violet-400 [&_[data-slot=input]]:focus-visible:ring-violet-300/35 dark:[&_[data-slot=input]]:border-violet-400/18 dark:[&_[data-slot=input]]:bg-slate-950/45",
+  "[&_[data-slot=textarea]]:rounded-xl [&_[data-slot=textarea]]:border-violet-200/75 [&_[data-slot=textarea]]:bg-white/90 [&_[data-slot=textarea]]:px-4 [&_[data-slot=textarea]]:py-3 [&_[data-slot=textarea]]:shadow-sm [&_[data-slot=textarea]]:focus-visible:border-violet-400 [&_[data-slot=textarea]]:focus-visible:ring-violet-300/35 dark:[&_[data-slot=textarea]]:border-violet-400/18 dark:[&_[data-slot=textarea]]:bg-slate-950/45",
+  "[&_[data-slot=select-trigger]]:h-11 [&_[data-slot=select-trigger]]:w-full [&_[data-slot=select-trigger]]:rounded-xl [&_[data-slot=select-trigger]]:border-violet-200/75 [&_[data-slot=select-trigger]]:bg-white/90 [&_[data-slot=select-trigger]]:px-4 [&_[data-slot=select-trigger]]:shadow-sm [&_[data-slot=select-trigger]]:focus-visible:border-violet-400 [&_[data-slot=select-trigger]]:focus-visible:ring-violet-300/35 dark:[&_[data-slot=select-trigger]]:border-violet-400/18 dark:[&_[data-slot=select-trigger]]:bg-slate-950/45",
+);
+const SUPPORT_SERVICE_HEADER_CLASS =
+  "border-b border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.90)_54%,rgba(240,249,255,0.72))] px-5 py-4 dark:border-violet-400/14 dark:bg-[linear-gradient(145deg,rgba(30,24,57,0.94),rgba(12,35,54,0.68))]";
+const SUPPORT_SERVICE_SECTION_CLASS =
+  "mx-4 my-6 grid gap-6 rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(250,250,255,0.94)_58%,rgba(245,243,255,0.86))] px-4 py-5 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.86))] lg:mx-6 lg:px-6 lg:py-6";
+const SUPPORT_SERVICE_SUBSECTION_CLASS =
+  "grid gap-4 rounded-2xl border border-violet-100/70 bg-white/70 p-4 shadow-sm dark:border-violet-400/14 dark:bg-slate-950/36";
+const SUPPORT_SERVICE_SUBSECTION_TITLE_CLASS =
+  "text-xs font-bold uppercase tracking-[0.18em] text-violet-700 dark:text-violet-200";
+const SUPPORT_SERVICE_SOFT_BUTTON_CLASS =
+  "h-9 rounded-xl border-violet-200/80 bg-white/78 px-3 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18";
+const SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS =
+  "h-9 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700";
+const SUPPORT_SERVICE_TABLE_SHELL_CLASS =
+  "overflow-x-auto rounded-2xl border border-violet-100/80 bg-white/80 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42";
 
 type TurnaroundUnit = (typeof TURNAROUND_UNITS)[number]["value"];
 
@@ -336,7 +440,7 @@ function formFieldsFromRecord(fields: SupportServiceFormField[] = []) {
 function defaultFormShape() {
   return {
     id: "pgfs_",
-    version: "1.0.0",
+    version: 1,
     allowUnknownFields: false,
     fields: formFieldsFromRecord([
       {
@@ -369,6 +473,10 @@ function isFormInputSlot(slot: SupportServiceInputSlot) {
   return slotObjectType(slot) === FORM_OBJECT_TYPE;
 }
 
+function inputRoleForObjectType(objectType: string) {
+  return objectType.replace(/^pgo_/, "") || "input";
+}
+
 function withFormInputSlot(slots: SupportServiceInputSlot[]) {
   return slots.some(isFormInputSlot) ? slots : [defaultFormInputSlot(), ...slots];
 }
@@ -377,10 +485,25 @@ function withoutFormInputSlots(slots: SupportServiceInputSlot[]) {
   return slots.filter((slot) => !isFormInputSlot(slot));
 }
 
+function defaultOutputSlot(): SupportServiceOutputSlot {
+  return {
+    role: "report",
+    objectType: DEFAULT_OUTPUT_OBJECT_TYPE,
+    mutationMode: "new_object",
+  };
+}
+
+function serviceOutputSlots(slots: SupportServiceOutputSlot[]) {
+  const outputSlots = slots.filter(
+    (slot) => slot.objectType && slot.objectType !== FORM_OBJECT_TYPE,
+  );
+  return outputSlots.length ? outputSlots : [defaultOutputSlot()];
+}
+
 function defaultOfferForm(): OfferFormState {
   return {
     serviceId: "pgs_",
-    serviceVersion: "1.0.0",
+    serviceVersion: 1,
     name: "",
     serviceCategory: "",
     providerKind: "organization",
@@ -388,13 +511,12 @@ function defaultOfferForm(): OfferFormState {
     providerName: "",
     stages: ["test_planning"],
     status: "draft",
-    availability: "backoffice",
     description: "",
     providerWork: "",
     supportsFormShape: false,
     formShape: defaultFormShape(),
     inputSlots: [],
-    outputSlots: [],
+    outputSlots: [defaultOutputSlot()],
     acceptedConditionsText: "",
     scopeRulesText: "",
     commercialTerms: {
@@ -406,10 +528,15 @@ function defaultOfferForm(): OfferFormState {
 
 function singleInputSlot(slot: SupportServiceInputSlot): SupportServiceInputSlot {
   const objectType = slot.objectType || slot.acceptedTypes[0] || "";
+  const isFormSlot = objectType === FORM_OBJECT_TYPE;
+
   return {
     ...slot,
+    role: isFormSlot ? "form" : inputRoleForObjectType(objectType),
     objectType,
     acceptedTypes: objectType ? [objectType] : [],
+    required: true,
+    cardinality: { min: 1, max: 1 },
   };
 }
 
@@ -440,7 +567,6 @@ function offerFormFromCatalog(
       ? catalogOffer.stages
       : ["test_planning"],
     status: "draft",
-    availability: catalogOffer.availability || "backoffice",
     description: catalogOffer.description,
     providerWork: catalogOffer.providerWork,
     supportsFormShape: hasFormShape,
@@ -455,7 +581,9 @@ function offerFormFromCatalog(
     inputSlots: hasFormShape
       ? withFormInputSlot(catalogInputSlots)
       : withoutFormInputSlots(catalogInputSlots),
-    outputSlots: catalogOffer.outputSlots.map((slot) => ({ ...slot })),
+    outputSlots: serviceOutputSlots(
+      catalogOffer.outputSlots.map((slot) => ({ ...slot })),
+    ),
     acceptedConditionsText: catalogOffer.acceptedConditions.join("\n"),
     scopeRulesText: catalogOffer.scopeRules.join("\n"),
     commercialTerms: {
@@ -484,7 +612,6 @@ function offerFormFromRecord(record: SupportServiceOfferRecord): OfferFormState 
     providerName: record.providerName ?? "",
     stages: record.stages.length ? record.stages : ["test_planning"],
     status: record.status,
-    availability: record.availability,
     description: record.description,
     providerWork: record.providerWork,
     supportsFormShape: hasFormShape,
@@ -499,7 +626,9 @@ function offerFormFromRecord(record: SupportServiceOfferRecord): OfferFormState 
     inputSlots: hasFormShape
       ? withFormInputSlot(recordInputSlots)
       : withoutFormInputSlots(recordInputSlots),
-    outputSlots: record.outputSlots.map((slot) => ({ ...slot })),
+    outputSlots: serviceOutputSlots(
+      record.outputSlots.map((slot) => ({ ...slot })),
+    ),
     acceptedConditionsText: record.acceptedConditions.join("\n"),
     scopeRulesText: record.scopeRules.join("\n"),
     commercialTerms: record.commercialTerms ?? {
@@ -523,8 +652,165 @@ function slotObjectType(slot: SupportServiceInputSlot) {
   return slot.objectType || slot.acceptedTypes[0] || "";
 }
 
+function isSupportServiceStage(value: string): value is SupportServiceStage {
+  return STAGE_ORDER.includes(value as SupportServiceStage);
+}
+
+function sortedStages(stages: SupportServiceStage[]) {
+  return STAGE_ORDER.filter((stage) => stages.includes(stage));
+}
+
+function sameStages(
+  left: SupportServiceStage[],
+  right: SupportServiceStage[],
+) {
+  const sortedLeft = sortedStages(left);
+  const sortedRight = sortedStages(right);
+
+  return (
+    sortedLeft.length === sortedRight.length &&
+    sortedLeft.every((stage, index) => stage === sortedRight[index])
+  );
+}
+
+function catalogStagesForObject(objectType: string) {
+  return (
+    POCKET_GENES_OBJECT_OPTIONS.find((object) => object.value === objectType)
+      ?.stages.filter(isSupportServiceStage) ?? []
+  );
+}
+
+function outputStageHints(
+  objectType: string,
+  inputTypes: string[],
+): SupportServiceStage[] {
+  if (!objectType || objectType === FORM_OBJECT_TYPE) {
+    return [];
+  }
+
+  if (objectType.startsWith("same_as:")) {
+    return inputTypes.some((inputType) =>
+      WET_LAB_CONTEXT_OBJECTS.has(inputType),
+    )
+      ? ["wet_lab"]
+      : [];
+  }
+
+  if (TEST_PLANNING_OUTPUT_OBJECTS.has(objectType)) {
+    return ["test_planning"];
+  }
+
+  if (WET_LAB_OUTPUT_OBJECTS.has(objectType)) {
+    return ["wet_lab"];
+  }
+
+  if (BIOINFORMATICS_OUTPUT_OBJECTS.has(objectType)) {
+    return ["bioinformatics"];
+  }
+
+  if (objectType === DEFAULT_OUTPUT_OBJECT_TYPE) {
+    if (
+      inputTypes.some((inputType) =>
+        BIOINFORMATICS_CONTEXT_OBJECTS.has(inputType),
+      )
+    ) {
+      return ["bioinformatics"];
+    }
+
+    if (
+      inputTypes.some((inputType) => WET_LAB_CONTEXT_OBJECTS.has(inputType))
+    ) {
+      return ["wet_lab"];
+    }
+
+    return ["test_planning"];
+  }
+
+  const catalogStages = catalogStagesForObject(objectType);
+  return catalogStages.length === 1 ? catalogStages : [];
+}
+
+function inputStageHints(objectType: string): SupportServiceStage[] {
+  if (!objectType || objectType === FORM_OBJECT_TYPE) {
+    return [];
+  }
+
+  if (BIOINFORMATICS_CONTEXT_OBJECTS.has(objectType)) {
+    return ["bioinformatics"];
+  }
+
+  if (WET_LAB_CONTEXT_OBJECTS.has(objectType)) {
+    return ["wet_lab"];
+  }
+
+  if (TEST_PLANNING_CONTEXT_OBJECTS.has(objectType)) {
+    return ["test_planning"];
+  }
+
+  const catalogStages = catalogStagesForObject(objectType);
+  return catalogStages.length === 1 ? catalogStages : [];
+}
+
+function predictedStagesForContract(
+  inputSlots: SupportServiceInputSlot[],
+  outputSlots: SupportServiceOutputSlot[],
+): SupportServiceStage[] {
+  const inputTypes = inputSlots
+    .map(slotObjectType)
+    .filter((objectType) => objectType && objectType !== FORM_OBJECT_TYPE);
+  const outputTypes = outputSlots
+    .map((slot) => slot.objectType)
+    .filter((objectType) => objectType && objectType !== FORM_OBJECT_TYPE);
+  const predicted = new Set<SupportServiceStage>();
+
+  for (const objectType of outputTypes) {
+    for (const stage of outputStageHints(objectType, inputTypes)) {
+      predicted.add(stage);
+    }
+  }
+
+  if (predicted.size === 0) {
+    for (const objectType of inputTypes) {
+      for (const stage of inputStageHints(objectType)) {
+        predicted.add(stage);
+      }
+    }
+  }
+
+  return sortedStages(
+    predicted.size ? Array.from(predicted) : ["test_planning"],
+  );
+}
+
 function contractObjectLabel(value: string) {
+  if (value.startsWith("same_as:")) {
+    return value;
+  }
   return objectLabel(value).replace(/^Pocket Genes /, "");
+}
+
+function sameIdentityObjectType(role: string) {
+  return `same_as:${role}`;
+}
+
+function outputObjectLabel(slot: SupportServiceOutputSlot) {
+  if (slot.objectType.startsWith("same_as:")) {
+    const sourceRole = slot.sameIdentityAsInput ?? slot.objectType.replace(/^same_as:/, "");
+    return `same_as:${sourceRole}`;
+  }
+
+  return objectLabel(slot.objectType);
+}
+
+function bindingTypeLabel(type: string) {
+  return type.startsWith("same_as:") ? type : objectLabel(type);
+}
+
+function outputRevisionSourceRoles(inputSlots: SupportServiceInputSlot[]) {
+  return inputSlots
+    .filter((slot) => slotObjectType(slot) !== FORM_OBJECT_TYPE)
+    .map((slot) => slot.role)
+    .filter(Boolean);
 }
 
 function calculatedShortContract(
@@ -539,10 +825,57 @@ function calculatedShortContract(
     const objectType = slot.objectType || "pgo_object";
     return `${slot.role || "output"}:${contractObjectLabel(objectType)}`;
   });
-  const left = inputs.length ? inputs.join(" + ") : "no input";
+  const left = inputs.length ? inputs.join(" + ") : "none";
   const right = outputs.length ? outputs.join(" + ") : "provider output";
 
   return `${left} -> ${right}`;
+}
+
+function serviceOfferStatusDescription(
+  status: SupportServiceOfferStatus,
+  t: (text: string) => string,
+) {
+  if (status === "active") {
+    return t("Active service offers are published and can be selected by new service transactions.");
+  }
+
+  if (status === "paused") {
+    return t("Paused service offers stay saved, but should not receive new transaction requests until they are published again.");
+  }
+
+  if (status === "archived") {
+    return t("Archived service offers stay available for audit and historical transactions, but are removed from normal operation.");
+  }
+
+  return t("Draft service offers stay private while the contract is still being shaped. Publish when the service is ready to receive transactions.");
+}
+
+function serviceOfferStatusBadgeClass(status: SupportServiceOfferStatus) {
+  if (status === "active") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/24 dark:bg-emerald-500/12 dark:text-emerald-200";
+  }
+
+  if (status === "paused") {
+    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/26 dark:bg-amber-500/12 dark:text-amber-200";
+  }
+
+  if (status === "archived") {
+    return "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-500/30 dark:bg-slate-800/70 dark:text-slate-200";
+  }
+
+  return "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-400/26 dark:bg-sky-500/12 dark:text-sky-200";
+}
+
+function PublishedIndicator({ t }: { t: (text: string) => string }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold uppercase text-emerald-700 shadow-[0_10px_28px_-18px_rgba(5,150,105,0.65)] dark:border-emerald-400/26 dark:bg-emerald-500/12 dark:text-emerald-200">
+      <span className="relative flex h-2.5 w-2.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
+      </span>
+      {t("Published")}
+    </div>
+  );
 }
 
 function emptyObjectRefDraft(
@@ -555,7 +888,9 @@ function emptyObjectRefDraft(
     revision: "1",
     required,
     acceptedTypes:
-      "acceptedTypes" in slot ? [slotObjectType(slot)].filter(Boolean) : [slot.objectType],
+      "acceptedTypes" in slot
+        ? [slotObjectType(slot)].filter(Boolean)
+        : [outputObjectLabel(slot)],
   };
 }
 
@@ -563,12 +898,13 @@ function emptyTransactionForm(): TransactionFormState {
   return {
     requestId: "pgr_",
     serviceId: "",
-    serviceVersion: "1.0.0",
+    serviceVersion: 1,
     status: "submitted",
     requesterEmail: "",
     subjectId: "",
     inputs: [],
     outputs: [],
+    missingRequiredInputRoles: [],
     notes: "",
   };
 }
@@ -588,6 +924,7 @@ function transactionFormForOffer(
     subjectId: "",
     inputs: inputSlots.map(emptyObjectRefDraft),
     outputs: outputSlots.map(emptyObjectRefDraft),
+    missingRequiredInputRoles: [],
     notes: "",
   };
 }
@@ -610,7 +947,33 @@ function transactionFormFromRecord(
   record: SupportServiceTransactionRecord,
   offers: SupportServiceOfferRecord[],
 ): TransactionFormState {
-  const base = transactionFormForService(record.serviceId, offers);
+  const offer = offers.find(
+    (candidate) => candidate.serviceId === record.serviceId,
+  );
+  const base = offer
+    ? transactionFormForOffer(offer)
+    : {
+        ...emptyTransactionForm(),
+        requestId: record.requestId,
+        serviceId: record.serviceId,
+        serviceVersion: record.serviceVersion,
+        status: record.status,
+        inputs: record.inputs.map((slot) => ({
+          role: slot.role,
+          objectId: slot.objectRef.objectId,
+          revision: String(slot.objectRef.revision),
+          required: true,
+          acceptedTypes: [],
+        })),
+        outputs: record.outputs.map((slot) => ({
+          role: slot.role,
+          objectId: slot.objectRef.objectId,
+          revision: String(slot.objectRef.revision),
+          required: false,
+          acceptedTypes: [],
+        })),
+        missingRequiredInputRoles: record.missingRequiredInputRoles,
+      };
   const inputByRole = new Map(record.inputs.map((slot) => [slot.role, slot]));
   const outputByRole = new Map(record.outputs.map((slot) => [slot.role, slot]));
 
@@ -641,6 +1004,7 @@ function transactionFormFromRecord(
           }
         : slot;
     }),
+    missingRequiredInputRoles: record.missingRequiredInputRoles,
     notes: record.notes,
   };
 }
@@ -735,20 +1099,41 @@ function offerPayloadFromForm(
     }
   }
 
+  const seenInputTypes = new Set<string>();
   for (const slot of form.inputSlots) {
-    if (!slot.role.trim()) {
-      throw new Error("Every input slot needs a role.");
+    const objectType = slotObjectType(slot);
+    if (!objectType) {
+      throw new Error("Every input slot needs one object type.");
     }
-    if (!slotObjectType(slot)) {
-      throw new Error(`Input slot ${slot.role} needs one object type.`);
+    if (seenInputTypes.has(objectType)) {
+      throw new Error("This input type is already added.");
     }
-    if (slot.cardinality.min < 0 || slot.cardinality.max < slot.cardinality.min) {
-      throw new Error(`Input slot ${slot.role} has invalid cardinality.`);
-    }
+    seenInputTypes.add(objectType);
   }
   for (const slot of form.outputSlots) {
     if (!slot.role.trim() || !slot.objectType) {
       throw new Error("Every output slot needs a role and object type.");
+    }
+    if (slot.mutationMode === "new_revision") {
+      if (!slot.sameIdentityAsInput) {
+        throw new Error("New revision outputs need a source input role.");
+      }
+      const sourceInputSlot = form.inputSlots.find(
+        (inputSlot) => inputSlot.role === slot.sameIdentityAsInput,
+      );
+      if (!sourceInputSlot) {
+        throw new Error("New revision outputs must reference an existing input role.");
+      }
+      if (slotObjectType(sourceInputSlot) === FORM_OBJECT_TYPE) {
+        throw new Error("New revision outputs cannot revise the request form input.");
+      }
+      if (slot.objectType !== sameIdentityObjectType(slot.sameIdentityAsInput)) {
+        throw new Error("New revision outputs must use same_as:<input_role>.");
+      }
+    } else if (slot.sameIdentityAsInput || slot.objectType.startsWith("same_as:")) {
+      throw new Error("same_as outputs must use New revision.");
+    } else if (slot.objectType === FORM_OBJECT_TYPE) {
+      throw new Error("Output slots cannot produce request forms.");
     }
   }
   const pricingModel = form.commercialTerms.pricingModel ?? "not_specified";
@@ -760,16 +1145,12 @@ function offerPayloadFromForm(
       throw new Error("Fixed price currency is required.");
     }
   }
-  if (splitLines(form.acceptedConditionsText).length === 0) {
-    throw new Error("At least one accepted condition is required.");
-  }
-  if (splitLines(form.scopeRulesText).length === 0) {
-    throw new Error("At least one scope rule is required.");
-  }
+  const acceptedConditions = splitLines(form.acceptedConditionsText);
+  const scopeRules = splitLines(form.scopeRulesText);
 
   return {
     serviceId: generatedIds.serviceId,
-    serviceVersion: form.serviceVersion.trim() || "1.0.0",
+    serviceVersion: form.serviceVersion || 1,
     name: form.name.trim(),
     serviceCategory: form.serviceCategory.trim(),
     providerKind: form.providerKind,
@@ -777,30 +1158,45 @@ function offerPayloadFromForm(
     providerName: form.providerName.trim(),
     stages: form.stages,
     status: form.status,
-    availability: form.availability.trim(),
     description: form.description.trim(),
     shortContract: calculatedShortContract(form.inputSlots, form.outputSlots),
     providerWork: form.providerWork.trim(),
     formShape: form.supportsFormShape
       ? {
           id: generatedIds.formShapeId,
-          version: form.formShape.version.trim() || "1.0.0",
-          allowUnknownFields: form.formShape.allowUnknownFields,
+          version: form.formShape.version || 1,
+          allowUnknownFields: false,
           fields,
         }
       : undefined,
-    inputSlots: form.inputSlots.map((slot) => ({
-      ...slot,
-      role: slot.role.trim(),
-      objectType: slotObjectType(slot),
-      acceptedTypes: [slotObjectType(slot)],
-    })),
-    outputSlots: form.outputSlots.map((slot) => ({
-      ...slot,
-      role: slot.role.trim(),
-    })),
-    acceptedConditions: splitLines(form.acceptedConditionsText),
-    scopeRules: splitLines(form.scopeRulesText),
+    inputSlots: form.inputSlots.map((slot) => {
+      const objectType = slotObjectType(slot);
+      const isFormSlot = objectType === FORM_OBJECT_TYPE;
+
+      return {
+        ...slot,
+        role: isFormSlot ? "form" : inputRoleForObjectType(objectType),
+        objectType,
+        acceptedTypes: [objectType],
+        required: true,
+        cardinality: { min: 1, max: 1 },
+      };
+    }),
+    outputSlots: form.outputSlots.map((slot) => {
+      const sameIdentityAsInput =
+        slot.mutationMode === "new_revision" ? slot.sameIdentityAsInput : undefined;
+
+      return {
+        role: slot.role.trim(),
+        objectType: sameIdentityAsInput
+          ? sameIdentityObjectType(sameIdentityAsInput)
+          : slot.objectType,
+        mutationMode: slot.mutationMode,
+        sameIdentityAsInput,
+      };
+    }),
+    acceptedConditions: acceptedConditions.length ? acceptedConditions : undefined,
+    scopeRules: scopeRules.length ? scopeRules : undefined,
     commercialTerms: commercialTermsPayload(form.commercialTerms),
   };
 }
@@ -843,9 +1239,12 @@ function transactionPayloadFromForm(
   assertIdentifier(form.requestId, "pgr", "Request ID");
   assertIdentifier(form.serviceId, "pgs", "Service ID");
   const requiredInputs = form.inputs.filter((slot) => slot.required);
+  const missingRequiredInputRoles = requiredInputs
+    .filter((slot) => !slot.objectId.trim())
+    .map((slot) => slot.role);
   for (const slot of requiredInputs) {
-    if (!slot.objectId.trim()) {
-      throw new Error(`Input ${slot.role} is required.`);
+    if (!slot.objectId.trim() && slot.acceptedTypes.includes(FORM_OBJECT_TYPE)) {
+      throw new Error(`Input ${slot.role} is required before creating the transaction.`);
     }
   }
 
@@ -887,13 +1286,13 @@ function transactionPayloadFromForm(
   return {
     requestId: form.requestId.trim(),
     serviceId: form.serviceId.trim(),
-    serviceVersion: form.serviceVersion.trim() || "1.0.0",
+    serviceVersion: form.serviceVersion || 1,
     status: form.status,
     requesterEmail: form.requesterEmail.trim(),
     subjectId: form.subjectId.trim(),
-    formRef: null,
     inputs,
     outputs,
+    missingRequiredInputRoles,
     notes: form.notes.trim(),
   };
 }
@@ -1046,8 +1445,8 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
         onDismiss={() => setToast(null)}
         language={language}
       />
-      <section className="glass-panel overflow-hidden">
-        <div className="flex flex-col gap-4 border-b border-border/70 p-4 lg:p-5">
+      <section className={SUPPORT_SERVICE_PANEL_CLASS}>
+        <div className={cn("flex flex-col gap-4", SUPPORT_SERVICE_HEADER_CLASS)}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-2">
               <h2 className="font-heading text-xl font-semibold text-foreground">
@@ -1061,11 +1460,12 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                 variant="outline"
                 size="sm"
                 onClick={() => listQuery.refetch()}
+                className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
               >
                 <RefreshCw className="h-4 w-4" />
                 <span>{t("Refresh")}</span>
               </Button>
-              <Button asChild size="sm">
+              <Button asChild size="sm" className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}>
                 <Link href={`${route}/new`}>
                   <Plus className="h-4 w-4" />
                   <span>{t(createLabel)}</span>
@@ -1143,7 +1543,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
             )}
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
           <Table>
             <TableHeader>
               {isOffers ? (
@@ -1181,7 +1581,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-muted-foreground">
                       <FileText className="h-8 w-8" />
                       <p className="text-sm">{t("No records found.")}</p>
-                      <Button asChild size="sm">
+                      <Button asChild size="sm" className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}>
                         <Link href={`${route}/new`}>
                           <Plus className="h-4 w-4" />
                           <span>{t(createLabel)}</span>
@@ -1242,7 +1642,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                   <TableRow key={transaction.id}>
                     <TableCell className="min-w-[16rem]">
                       <Link
-                        href={`${route}/${encodeURIComponent(transaction.id)}`}
+                        href={`${route}/${encodeURIComponent(transaction.requestId)}`}
                         className="font-mono text-sm font-medium text-foreground hover:underline"
                       >
                         {transaction.requestId}
@@ -1271,7 +1671,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActions
-                        editHref={`${route}/${encodeURIComponent(transaction.id)}`}
+                        editHref={`${route}/${encodeURIComponent(transaction.requestId)}`}
                         onDelete={() => handleDelete(transaction)}
                       />
                     </TableCell>
@@ -1292,6 +1692,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
               size="sm"
               onClick={() => listQuery.fetchNextPage()}
               disabled={listQuery.isFetchingNextPage}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
             >
               {listQuery.isFetchingNextPage ? t("Loading...") : t("Load more")}
             </Button>
@@ -1347,9 +1748,23 @@ export function SupportServiceOfferWorkbench({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<OfferFormState>(() => defaultOfferForm());
+  const [savedForm, setSavedForm] = useState<OfferFormState>(() =>
+    defaultOfferForm(),
+  );
+  const [persistedOfferId, setPersistedOfferId] = useState<string | null>(
+    offerId ?? null,
+  );
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusDraft, setStatusDraft] = useState<SupportServiceOfferStatus>(
+    "draft",
+  );
+  const [publishDialog, setPublishDialog] =
+    useState<ServiceOfferPublishDialogState | null>(null);
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const isEditing = mode === "edit";
+  const effectiveOfferId = offerId ?? persistedOfferId ?? undefined;
+  const hasPersistedOffer = Boolean(effectiveOfferId);
 
   function nextToastId() {
     setToastCounter((current) => current + 1);
@@ -1367,7 +1782,11 @@ export function SupportServiceOfferWorkbench({
 
   useEffect(() => {
     if (offerQuery.data?.offer) {
-      setForm(offerFormFromRecord(offerQuery.data.offer));
+      const nextForm = offerFormFromRecord(offerQuery.data.offer);
+      setForm(nextForm);
+      setSavedForm(nextForm);
+      setPersistedOfferId(offerQuery.data.offer.id);
+      setStatusDraft(offerQuery.data.offer.status);
     }
   }, [offerQuery.data?.offer]);
 
@@ -1387,10 +1806,10 @@ export function SupportServiceOfferWorkbench({
       (providerOffersQuery.data?.offers ?? [])
         .filter(
           (offer) =>
-            offer.providerId === form.providerId && offer.id !== offerId,
+            offer.providerId === form.providerId && offer.id !== effectiveOfferId,
         )
         .map((offer) => offer.serviceId),
-    [form.providerId, offerId, providerOffersQuery.data?.offers],
+    [form.providerId, effectiveOfferId, providerOffersQuery.data?.offers],
   );
 
   useEffect(() => {
@@ -1419,25 +1838,14 @@ export function SupportServiceOfferWorkbench({
   const saveMutation = useMutation({
     mutationFn: async (payload: SupportServiceOfferInput) => {
       const path =
-        isEditing && offerId
-          ? `/admin/support-services/offers/${encodeURIComponent(offerId)}`
+        effectiveOfferId
+          ? `/admin/support-services/offers/${encodeURIComponent(effectiveOfferId)}`
           : "/admin/support-services/offers";
       return sdkFetch<{ offer: SupportServiceOfferRecord }>(path, {
-        method: isEditing ? "PUT" : "POST",
+        method: effectiveOfferId ? "PUT" : "POST",
         body: JSON.stringify(payload),
       });
     },
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: [OFFERS_QUERY_KEY] });
-      setToast({
-        id: nextToastId(),
-        tone: "success",
-        message: t("Service offer saved."),
-      });
-      router.push(`/god-mode/service-offers/${result.offer.id}`);
-      router.refresh();
-    },
-    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
   const deleteMutation = useMutation({
@@ -1453,15 +1861,42 @@ export function SupportServiceOfferWorkbench({
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
-  const shortContractPreview = calculatedShortContract(
-    form.inputSlots,
-    form.outputSlots,
-  );
   const offerIdsPreview = generatedOfferIds(
     form.providerName,
     form.serviceId,
     reservedServiceIds,
   );
+  const changed = JSON.stringify(form) !== JSON.stringify(savedForm);
+  const isWorking = saveMutation.isPending || deleteMutation.isPending;
+  const canPublishCurrentOffer = hasPersistedOffer && form.status !== "active";
+  const statusOptions = SUPPORT_SERVICE_OFFER_STATUSES.filter(
+    (option) => form.status === "active" || option.value !== "active",
+  );
+  const predictedStages = useMemo(
+    () => predictedStagesForContract(form.inputSlots, form.outputSlots),
+    [form.inputSlots, form.outputSlots],
+  );
+  const lastPredictedStagesRef =
+    useRef<SupportServiceStage[]>(predictedStages);
+
+  useEffect(() => {
+    const previousPrediction = lastPredictedStagesRef.current;
+    if (sameStages(previousPrediction, predictedStages)) {
+      return;
+    }
+
+    setForm((current) => {
+      if (
+        current.stages.length === 0 ||
+        sameStages(current.stages, previousPrediction)
+      ) {
+        return { ...current, stages: predictedStages };
+      }
+
+      return current;
+    });
+    lastPredictedStagesRef.current = predictedStages;
+  }, [predictedStages]);
 
   function applyMockTemplate(serviceId: string) {
     const catalog = catalogServiceById(serviceId);
@@ -1484,16 +1919,101 @@ export function SupportServiceOfferWorkbench({
     );
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function persistOffer(
+    status: SupportServiceOfferStatus,
+    {
+      redirectToOffer = mode === "create",
+      showToast = true,
+      successMessage = "Service offer saved.",
+    }: {
+      redirectToOffer?: boolean;
+      showToast?: boolean;
+      successMessage?: string;
+    } = {},
+  ) {
     try {
       if (form.providerId.trim() && providerOffersQuery.isFetching) {
         throw new Error("Generated service ID is still checking existing offers.");
       }
-      saveMutation.mutate(offerPayloadFromForm(form, reservedServiceIds));
+
+      const result = await saveMutation.mutateAsync(
+        offerPayloadFromForm({ ...form, status }, reservedServiceIds),
+      );
+      await queryClient.invalidateQueries({ queryKey: [OFFERS_QUERY_KEY] });
+
+      const nextForm = offerFormFromRecord(result.offer);
+      setForm(nextForm);
+      setSavedForm(nextForm);
+      setPersistedOfferId(result.offer.id);
+      setStatusDraft(result.offer.status);
+
+      if (showToast) {
+        setToast({
+          id: nextToastId(),
+          tone: "success",
+          message: t(successMessage),
+        });
+      }
+
+      if (redirectToOffer) {
+        router.push(`/god-mode/service-offers/${result.offer.id}`);
+      }
+      router.refresh();
+      return result.offer;
     } catch (error) {
       setToast(mutationErrorToast(error, nextToastId(), t));
+      return null;
     }
+  }
+
+  async function saveCurrentOffer() {
+    const status = hasPersistedOffer ? form.status : "draft";
+    await persistOffer(status, {
+      successMessage: hasPersistedOffer
+        ? "Service offer saved."
+        : "Service offer draft saved.",
+    });
+  }
+
+  async function saveStatusDraft() {
+    if (statusDraft === form.status) {
+      setStatusDialogOpen(false);
+      return;
+    }
+
+    const saved = await persistOffer(statusDraft, {
+      redirectToOffer: false,
+      successMessage: "Service offer status updated.",
+    });
+    if (saved) {
+      setStatusDialogOpen(false);
+    }
+  }
+
+  async function publishOffer() {
+    setPublishDialog({ status: "publishing" });
+    const published = await persistOffer("active", {
+      redirectToOffer: false,
+      showToast: false,
+    });
+    if (!published) {
+      setPublishDialog({
+        status: "error",
+        message: t("Publishing stopped. Review the service offer requirements and try again."),
+      });
+      return;
+    }
+
+    setPublishDialog({
+      status: "success",
+      offerId: published.id,
+      message: t("This service offer is now published."),
+    });
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void saveCurrentOffer();
   }
 
   if (isEditing && offerQuery.isLoading) {
@@ -1507,18 +2027,19 @@ export function SupportServiceOfferWorkbench({
         onDismiss={() => setToast(null)}
         language={language}
       />
-      <form className="glass-panel overflow-hidden" onSubmit={handleSubmit}>
+      <form className={SUPPORT_SERVICE_FORM_CLASS} onSubmit={handleSubmit}>
         <WorkbenchTopbar
           title={isEditing ? "Editar service offer" : "Alta de service offer"}
           backHref="/god-mode/service-offers"
           backLabel="Back to Service Offers"
-          isSaving={saveMutation.isPending}
+          isSaving={isWorking}
           canDelete={isEditing}
           onDelete={() => {
             if (window.confirm(t("Delete this service offer?"))) {
               deleteMutation.mutate();
             }
           }}
+          saveLabel={hasPersistedOffer ? "Save changes" : "Save draft"}
         />
         <Section title="Offer identity">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1528,49 +2049,13 @@ export function SupportServiceOfferWorkbench({
               </div>
               <div className="font-mono text-xs text-muted-foreground">
                 {`${offerIdsPreview?.serviceId ?? "pgs_"} · v${
-                  form.serviceVersion || "1.0.0"
+                  form.serviceVersion || 1
                 }`}
               </div>
             </div>
             <MockTemplatePicker onSelect={applyMockTemplate} />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Field label="Offer name">
-              <Input
-                value={form.name}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, name: event.target.value }))
-                }
-                required
-              />
-            </Field>
-            <Field label="Service ID">
-              <GeneratedValue value={offerIdsPreview?.serviceId ?? "pgs_"} />
-            </Field>
-            <Field label="Service version">
-              <Input
-                value={form.serviceVersion}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    serviceVersion: event.target.value,
-                  }))
-                }
-                required
-              />
-            </Field>
-            <Field label="Service category">
-              <Input
-                value={form.serviceCategory}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    serviceCategory: event.target.value,
-                  }))
-                }
-                placeholder={t("Optional general category")}
-              />
-            </Field>
             <Field label="Provider kind">
               <Select
                 value={form.providerKind}
@@ -1632,54 +2117,41 @@ export function SupportServiceOfferWorkbench({
                 })
               }
             />
-            <Field label="Status">
-              <Select
-                value={form.status}
-                onValueChange={(status) =>
-                  setForm((current) => ({
-                    ...current,
-                    status: status as OfferFormState["status"],
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUPPORT_SERVICE_OFFER_STATUSES.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(option.label)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Availability">
+            <Field label="Offer name">
               <Input
-                value={form.availability}
+                value={form.name}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, name: event.target.value }))
+                }
+                required
+              />
+            </Field>
+            <Field label="Service ID">
+              <GeneratedValue value={offerIdsPreview?.serviceId ?? "pgs_"} />
+            </Field>
+            <Field label="Service version">
+              <GeneratedValue value={String(form.serviceVersion || 1)} />
+            </Field>
+            <Field label="Service category">
+              <Input
+                value={form.serviceCategory}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    availability: event.target.value,
+                    serviceCategory: event.target.value,
                   }))
                 }
+                placeholder={t("Optional general category")}
               />
             </Field>
           </div>
-          <StagePicker
-            value={form.stages}
-            onChange={(stages) => setForm((current) => ({ ...current, stages }))}
-          />
         </Section>
         <Section title="Contract">
           <div className="grid gap-4">
-            <div className="grid gap-2 text-sm font-medium">
-              <span>{t("Calculated short contract")}</span>
-              <div className="rounded border border-border/70 bg-muted/30 px-3 py-2 font-mono text-xs text-foreground">
-                {shortContractPreview}
-              </div>
-            </div>
             <Field label="Description">
+              <p className="text-xs leading-5 text-muted-foreground">
+                {t("Requester-facing summary shown in the app as the service offer description. Use it to explain what the service is, when someone should request it, and what outcome they can expect.")}
+              </p>
               <Textarea
                 value={form.description}
                 onChange={(event) =>
@@ -1693,6 +2165,9 @@ export function SupportServiceOfferWorkbench({
               />
             </Field>
             <Field label="Provider work">
+              <p className="text-xs leading-5 text-muted-foreground">
+                {t("Operational description of what the provider does after the request is submitted. It appears in the service detail context to clarify the provider-side work, not as the short marketing summary.")}
+              </p>
               <Textarea
                 value={form.providerWork}
                 onChange={(event) =>
@@ -1715,6 +2190,13 @@ export function SupportServiceOfferWorkbench({
         <SlotEditors form={form} setForm={setForm} />
         <TermsEditor form={form} setForm={setForm} />
         <Section title="Acceptance and scope">
+          <div className="grid gap-2">
+            <p className="text-sm text-muted-foreground">
+              {t(
+                "Accepted conditions are the facts that must be true before the provider accepts the request. Scope rules are the boundaries the provider must follow while doing the work. This block is optional; add one rule per line only when the service needs explicit limits.",
+              )}
+            </p>
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Field label="Accepted conditions">
               <Textarea
@@ -1726,7 +2208,7 @@ export function SupportServiceOfferWorkbench({
                   }))
                 }
                 rows={8}
-                required
+                placeholder={t("One accepted condition per line")}
               />
             </Field>
             <Field label="Scope rules">
@@ -1739,13 +2221,658 @@ export function SupportServiceOfferWorkbench({
                   }))
                 }
                 rows={8}
-                required
+                placeholder={t("One scope rule per line")}
               />
             </Field>
           </div>
         </Section>
+        <ShortContractVisual
+          inputSlots={form.inputSlots}
+          outputSlots={form.outputSlots}
+          stages={form.stages}
+          predictedStages={predictedStages}
+          onStagesChange={(stages) =>
+            setForm((current) => ({ ...current, stages }))
+          }
+          onApplyStagePrediction={() => {
+            lastPredictedStagesRef.current = predictedStages;
+            setForm((current) => ({ ...current, stages: predictedStages }));
+          }}
+        />
+        <ServiceOfferStatusBlock
+          status={form.status}
+          statusDraft={statusDraft}
+          statusOptions={statusOptions.map((option) => option.value)}
+          canChangeStatus={hasPersistedOffer}
+          isWorking={isWorking}
+          dialogOpen={statusDialogOpen}
+          onDialogOpenChange={(open) => {
+            if (open) {
+              setStatusDraft(form.status);
+            }
+            setStatusDialogOpen(open);
+          }}
+          onStatusDraftChange={setStatusDraft}
+          onSaveStatusDraft={() => void saveStatusDraft()}
+        />
+        <ServiceOfferPublishFooter
+          changed={changed}
+          mode={hasPersistedOffer ? "edit" : "create"}
+          isWorking={isWorking}
+          pending={saveMutation.isPending}
+          canPublishCurrentOffer={canPublishCurrentOffer}
+          onSaveChanges={() => void saveCurrentOffer()}
+          onPublish={() => void publishOffer()}
+        />
       </form>
+      <ServiceOfferPublishDialog
+        dialog={publishDialog}
+        offerName={form.name}
+        onOpenOffer={(id) => {
+          setPublishDialog(null);
+          router.push(`/god-mode/service-offers/${id}`);
+        }}
+        onBackToOffers={() => {
+          setPublishDialog(null);
+          router.push("/god-mode/service-offers");
+        }}
+        onClose={() => setPublishDialog(null)}
+      />
     </>
+  );
+}
+
+function ServiceOfferStatusBlock({
+  status,
+  statusDraft,
+  statusOptions,
+  canChangeStatus,
+  isWorking,
+  dialogOpen,
+  onDialogOpenChange,
+  onStatusDraftChange,
+  onSaveStatusDraft,
+}: {
+  status: SupportServiceOfferStatus;
+  statusDraft: SupportServiceOfferStatus;
+  statusOptions: SupportServiceOfferStatus[];
+  canChangeStatus: boolean;
+  isWorking: boolean;
+  dialogOpen: boolean;
+  onDialogOpenChange: (open: boolean) => void;
+  onStatusDraftChange: (status: SupportServiceOfferStatus) => void;
+  onSaveStatusDraft: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <Section title="Service offer state">
+      <div className="overflow-hidden rounded-2xl border border-violet-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(245,243,255,0.90)_58%,rgba(240,249,255,0.72))] p-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/18 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.82))]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                {t("Current status")}
+              </span>
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold",
+                  serviceOfferStatusBadgeClass(status),
+                )}
+              >
+                {t(offerStatusLabel(status))}
+              </span>
+              {status === "active" ? <PublishedIndicator t={t} /> : null}
+            </div>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+              {serviceOfferStatusDescription(status, t)}
+            </p>
+            {status !== "active" ? (
+              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-200">
+                {t("Active status is available only through Publish service offer.")}
+              </p>
+            ) : null}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onDialogOpenChange(true)}
+            disabled={!canChangeStatus || isWorking}
+            className="h-10 shrink-0 rounded-xl border-violet-200/80 bg-white/78 px-3 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+          >
+            <Settings2 className="h-4 w-4" />
+            {t("Change status")}
+          </Button>
+        </div>
+
+        <AlertDialog open={dialogOpen} onOpenChange={onDialogOpenChange}>
+          <AlertDialogContent className="max-w-xl overflow-hidden rounded-2xl border border-violet-100 bg-white p-0 shadow-[0_34px_120px_rgba(109,40,217,0.22)] dark:border-violet-300/22 dark:bg-slate-950">
+            <AlertDialogHeader className="border-b border-violet-100 px-6 py-5 text-left dark:border-violet-300/16">
+              <AlertDialogTitle className="font-heading text-xl font-semibold">
+                {t("Change service offer status")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("Pick the state that best matches what should happen next for this service offer.")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <div className="px-6 py-5">
+              <div
+                role="radiogroup"
+                aria-label={t("Service offer status options")}
+                className="grid gap-3"
+              >
+                {statusOptions.map((option) => {
+                  const selected = statusDraft === option;
+
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => onStatusDraftChange(option)}
+                      className={cn(
+                        "flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition",
+                        selected
+                          ? "border-violet-300 bg-violet-50 text-violet-950 shadow-[0_14px_36px_-28px_rgba(109,40,217,0.65)] dark:border-violet-300/36 dark:bg-violet-500/14 dark:text-violet-50"
+                          : "border-violet-100 bg-white/82 text-foreground hover:border-violet-200 hover:bg-violet-50/70 dark:border-violet-400/16 dark:bg-slate-950/42 dark:hover:bg-violet-500/10",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+                          selected
+                            ? "border-violet-500 bg-violet-600 text-white"
+                            : "border-violet-200 bg-white text-transparent dark:border-violet-400/24 dark:bg-slate-950",
+                        )}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold">
+                          {t(offerStatusLabel(option))}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                          {serviceOfferStatusDescription(option, t)}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {status !== "active" ? (
+                <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-200">
+                  {t("Active status is available only through Publish service offer.")}
+                </p>
+              ) : null}
+            </div>
+
+            <AlertDialogFooter className="mx-0 mb-0 gap-3 border-violet-100 bg-violet-50/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
+              <AlertDialogCancel disabled={isWorking}>
+                {t("Cancel")}
+              </AlertDialogCancel>
+              <Button
+                type="button"
+                onClick={onSaveStatusDraft}
+                disabled={isWorking || statusDraft === status}
+                className="h-10 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+              >
+                {isWorking ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                {t("Save")}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </Section>
+  );
+}
+
+function ShortContractVisual({
+  inputSlots,
+  outputSlots,
+  stages,
+  predictedStages,
+  onStagesChange,
+  onApplyStagePrediction,
+}: {
+  inputSlots: SupportServiceInputSlot[];
+  outputSlots: SupportServiceOutputSlot[];
+  stages: SupportServiceStage[];
+  predictedStages: SupportServiceStage[];
+  onStagesChange: (stages: SupportServiceStage[]) => void;
+  onApplyStagePrediction: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  const contractGroups = [
+    {
+      key: "inputs",
+      label: "Inputs",
+      emptyLabel: "No inputs",
+      slots: inputSlots.map((slot) => ({
+        role: slot.role || inputRoleForObjectType(slotObjectType(slot)),
+        objectType: slotObjectType(slot),
+        label: objectLabel(slotObjectType(slot)),
+      })),
+    },
+    {
+      key: "outputs",
+      label: "Outputs",
+      emptyLabel: "No outputs",
+      slots: outputSlots.map((slot) => ({
+        role: slot.role || "output",
+        objectType: slot.objectType,
+        label: outputObjectLabel(slot),
+      })),
+    },
+  ];
+
+  return (
+    <Section title="Calculated short contract">
+      <div className="grid gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4 md:grid-cols-[1fr_auto_1fr] md:items-stretch">
+        {contractGroups.map((group, groupIndex) => (
+          <div key={group.key} className="contents">
+            <div className="grid gap-3 rounded-xl border border-border/70 bg-background/80 p-3 shadow-sm">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <FileText className="h-4 w-4" />
+                <span>{t(group.label)}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {group.slots.length ? (
+                  group.slots.map((slot, index) => (
+                    <div
+                      key={`${group.key}-${slot.role}-${slot.objectType}-${index}`}
+                      className="flex min-w-[12rem] items-center gap-3 rounded-xl border border-violet-100 bg-white px-3 py-2 text-sm shadow-sm dark:border-violet-400/16 dark:bg-slate-950/50"
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700 dark:bg-violet-500/12 dark:text-violet-100">
+                        <FileText className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate font-mono text-xs text-muted-foreground">
+                          {slot.role}
+                        </span>
+                        <span className="block truncate font-medium text-foreground">
+                          {slot.label}
+                        </span>
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
+                    {t(group.emptyLabel)}
+                  </div>
+                )}
+              </div>
+            </div>
+            {groupIndex === 0 ? (
+              <div className="flex items-center justify-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-100 bg-white text-violet-700 shadow-sm dark:border-violet-400/18 dark:bg-slate-950/70 dark:text-violet-100">
+                  <ArrowRight className="h-5 w-5" />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      <StagePipeline
+        value={stages}
+        predictedValue={predictedStages}
+        onChange={onStagesChange}
+        onApplyPrediction={onApplyStagePrediction}
+      />
+    </Section>
+  );
+}
+
+function stagePipelineDescription(stage: SupportServiceStage) {
+  if (stage === "wet_lab") {
+    return "Specimen logistics, extraction, sequencing, and lab-produced source files.";
+  }
+
+  if (stage === "bioinformatics") {
+    return "Digital analysis, variant interpretation, images, PGI1, and reports.";
+  }
+
+  return "Forms, consent, candidate genes, and order construction.";
+}
+
+function stagePipelineIcon(stage: SupportServiceStage) {
+  if (stage === "wet_lab") {
+    return FlaskConical;
+  }
+
+  if (stage === "bioinformatics") {
+    return Binary;
+  }
+
+  return ClipboardList;
+}
+
+function StagePipeline({
+  value,
+  predictedValue,
+  onChange,
+  onApplyPrediction,
+}: {
+  value: SupportServiceStage[];
+  predictedValue: SupportServiceStage[];
+  onChange: (value: SupportServiceStage[]) => void;
+  onApplyPrediction: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const selectedStages = sortedStages(value);
+  const selectedSet = new Set(selectedStages);
+  const predictedSet = new Set(predictedValue);
+  const matchesPrediction = sameStages(selectedStages, predictedValue);
+
+  function toggle(stage: SupportServiceStage) {
+    if (selectedSet.has(stage)) {
+      if (selectedStages.length <= 1) {
+        return;
+      }
+
+      onChange(selectedStages.filter((current) => current !== stage));
+      return;
+    }
+
+    onChange(sortedStages([...selectedStages, stage]));
+  }
+
+  return (
+    <div className="grid gap-4 rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.92),rgba(245,243,255,0.78))] p-4 shadow-sm dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(15,23,42,0.72),rgba(46,30,88,0.34))]">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="grid gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className={SUPPORT_SERVICE_SUBSECTION_TITLE_CLASS}>
+              {t("Stage pipeline")}
+            </p>
+            <Badge
+              variant="outline"
+              className={cn(
+                "border-violet-200 bg-white/82 text-violet-700 dark:border-violet-400/22 dark:bg-violet-500/10 dark:text-violet-100",
+                !matchesPrediction &&
+                  "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-200",
+              )}
+            >
+              {matchesPrediction ? t("Best-effort prediction") : t("Manually adjusted")}
+            </Badge>
+          </div>
+          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+            {t("Stages are inferred from the current input and output objects. Use the checkboxes only when the catalog needs a manual correction.")}
+          </p>
+        </div>
+        {!matchesPrediction ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onApplyPrediction}
+            className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+          >
+            <Wand2 className="h-4 w-4" />
+            <span>{t("Use suggested pipeline")}</span>
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-stretch">
+        {SUPPORT_SERVICE_STAGES.map((stage, index) => {
+          const selected = selectedSet.has(stage.value);
+          const predicted = predictedSet.has(stage.value);
+          const StageIcon = stagePipelineIcon(stage.value);
+
+          return (
+            <div key={stage.value} className="contents">
+              <div
+                className={cn(
+                  "grid min-h-36 gap-3 rounded-2xl border p-4 transition",
+                  selected
+                    ? "border-violet-300 bg-white text-foreground shadow-[0_18px_44px_-34px_rgba(109,40,217,0.70)] dark:border-violet-300/34 dark:bg-slate-950/54"
+                    : "border-violet-100/70 bg-white/52 text-muted-foreground dark:border-violet-400/12 dark:bg-slate-950/24",
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className={cn(
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border shadow-inner",
+                        selected
+                          ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-400/22 dark:bg-violet-500/12 dark:text-violet-100"
+                          : "border-violet-100 bg-white/70 text-muted-foreground dark:border-violet-400/12 dark:bg-slate-950/40",
+                      )}
+                    >
+                      <StageIcon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-heading text-base font-semibold text-foreground">
+                        {t(stage.label)}
+                      </span>
+                      {predicted ? (
+                        <span className="mt-1 inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/12 dark:text-violet-100">
+                          {t("Suggested by inputs and outputs")}
+                        </span>
+                      ) : null}
+                    </span>
+                  </div>
+                  <Checkbox
+                    checked={selected}
+                    onCheckedChange={() => toggle(stage.value)}
+                    disabled={selected && selectedStages.length <= 1}
+                    aria-label={t(stage.label)}
+                  />
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {t(stagePipelineDescription(stage.value))}
+                </p>
+              </div>
+              {index < SUPPORT_SERVICE_STAGES.length - 1 ? (
+                <div className="hidden items-center justify-center md:flex">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-100 bg-white text-violet-700 shadow-sm dark:border-violet-400/18 dark:bg-slate-950/70 dark:text-violet-100">
+                    <ArrowRight className="h-5 w-5" />
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ServiceOfferPublishFooter({
+  changed,
+  mode,
+  isWorking,
+  pending,
+  canPublishCurrentOffer,
+  onSaveChanges,
+  onPublish,
+}: {
+  changed: boolean;
+  mode: "create" | "edit";
+  isWorking: boolean;
+  pending: boolean;
+  canPublishCurrentOffer: boolean;
+  onSaveChanges: () => void;
+  onPublish: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const primaryIsSave = mode === "edit";
+
+  return (
+    <div className="sticky bottom-0 z-20 border-t border-violet-100/80 bg-white/92 px-5 py-4 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur dark:border-violet-400/14 dark:bg-slate-950/88">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 text-sm text-muted-foreground">
+          {changed ? t("Unsaved changes") : t("No unsaved changes")}
+        </div>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            size="lg"
+            onClick={primaryIsSave ? onSaveChanges : onPublish}
+            disabled={isWorking}
+            variant={canPublishCurrentOffer ? "outline" : "default"}
+            className={cn(
+              "h-14 min-w-[min(100%,14rem)] justify-center rounded-xl text-base font-semibold",
+              canPublishCurrentOffer
+                ? "border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-950 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+                : "bg-violet-600 text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700",
+            )}
+          >
+            {pending ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : primaryIsSave ? (
+              <Save className="h-5 w-5" />
+            ) : (
+              <UploadCloud className="h-5 w-5" />
+            )}
+            {primaryIsSave
+              ? pending
+                ? t("Saving...")
+                : t("Save changes")
+              : pending
+                ? t("Publishing...")
+                : t("Publish service offer")}
+          </Button>
+          {canPublishCurrentOffer ? (
+            <Button
+              type="button"
+              size="lg"
+              onClick={onPublish}
+              disabled={isWorking}
+              className="h-14 min-w-[min(100%,18rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+            >
+              {pending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <UploadCloud className="h-5 w-5" />
+              )}
+              {pending ? t("Publishing...") : t("Publish service offer")}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ServiceOfferPublishDialog({
+  dialog,
+  offerName,
+  onOpenOffer,
+  onBackToOffers,
+  onClose,
+}: {
+  dialog: ServiceOfferPublishDialogState | null;
+  offerName: string;
+  onOpenOffer: (offerId: string) => void;
+  onBackToOffers: () => void;
+  onClose: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <Dialog
+      open={Boolean(dialog)}
+      onOpenChange={(open) => {
+        if (!open && dialog?.status !== "publishing") {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent
+        showCloseButton={dialog?.status !== "publishing"}
+        className="max-w-xl overflow-hidden rounded-[2rem] border border-violet-100 [background:linear-gradient(155deg,rgba(255,255,255,0.98),rgba(245,243,255,0.98)_54%,rgba(240,249,255,0.90))] p-0 text-violet-950 shadow-[0_34px_120px_rgba(109,40,217,0.22)] dark:border-violet-300/22 dark:[background:linear-gradient(150deg,rgba(30,24,57,0.98),rgba(18,23,40,0.96)_48%,rgba(76,29,149,0.20))] dark:text-violet-50"
+      >
+        <DialogHeader className="border-b border-violet-100 px-6 py-5 dark:border-violet-300/16">
+          <DialogTitle className="font-heading text-2xl font-semibold">
+            {dialog?.status === "success"
+              ? t("Published service offer")
+              : dialog?.status === "error"
+                ? t("Publish needs attention")
+                : t("Publishing service offer")}
+          </DialogTitle>
+          <DialogDescription className="text-violet-950/70 dark:text-violet-50/70">
+            {dialog?.message ??
+              t("Saving the service contract and making it available for transactions.")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="px-6 py-6">
+          <div className="flex items-start gap-4 rounded-[1.5rem] border border-violet-100 bg-white/75 px-5 py-5 shadow-sm dark:border-violet-300/16 dark:bg-violet-950/24">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-violet-700 shadow-sm dark:bg-violet-400/12 dark:text-violet-100">
+              {dialog?.status === "success" ? (
+                <CheckCircle2 className="h-5 w-5" />
+              ) : dialog?.status === "error" ? (
+                <CircleAlert className="h-5 w-5" />
+              ) : (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="font-heading text-lg font-semibold">
+                {dialog?.status === "success"
+                  ? offerName || t("Service offer")
+                  : dialog?.status === "error"
+                    ? t("Nothing was published")
+                    : t("Publishing in progress")}
+              </p>
+              <p className="mt-2 text-sm text-violet-950/70 dark:text-violet-50/70">
+                {dialog?.status === "success"
+                  ? t("The offer is saved with status active and can be selected by new service transactions.")
+                  : dialog?.status === "error"
+                    ? t("The offer stayed unchanged. Fix the form requirement and publish again.")
+                    : t("Validating provider, contract slots, form shape, and output requirements.")}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {dialog?.status === "error" ? (
+          <DialogFooter className="gap-3 border-violet-100/90 bg-white/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
+            <Button
+              type="button"
+              onClick={onClose}
+              className="h-10 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+            >
+              {t("OK")}
+            </Button>
+          </DialogFooter>
+        ) : dialog?.status === "success" ? (
+          <DialogFooter className="gap-3 border-violet-100/90 bg-white/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onBackToOffers}
+              className="h-9 rounded-xl border-violet-200/80 bg-white/78 px-3 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+            >
+              {t("Back to Service Offers")}
+            </Button>
+            {dialog.offerId ? (
+              <Button
+                type="button"
+                onClick={() => onOpenOffer(dialog.offerId!)}
+                className="h-10 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+              >
+                {t("Open offer")}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1765,7 +2892,13 @@ function MockTemplatePicker({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(true)}
+        className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+      >
         <Wand2 className="h-4 w-4" />
         <span>{t("Prefill with mocked template")}</span>
       </Button>
@@ -1818,6 +2951,7 @@ function MockTemplatePicker({
                       variant="outline"
                       size="sm"
                       onClick={() => selectTemplate(template.serviceId)}
+                      className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
                     >
                       {t("Use template")}
                     </Button>
@@ -1908,9 +3042,9 @@ function ProviderPicker({
   }
 
   return (
-    <div className="grid gap-2 text-sm font-medium">
+    <div className="grid w-full min-w-0 gap-2 text-sm font-medium">
       <span>{t("Provider")}</span>
-      <div className="flex flex-col gap-2 rounded border border-border/70 bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex w-full min-w-0 flex-col gap-2 rounded-2xl border border-violet-100/80 bg-white/78 p-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="truncate text-sm font-medium text-foreground">
             {selectedName || selectedId || t("No provider selected")}
@@ -1924,13 +3058,19 @@ function ProviderPicker({
             <span>{selectedId || t("Pick a Discover publisher")}</span>
           </div>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+          className={cn(SUPPORT_SERVICE_SOFT_BUTTON_CLASS, "w-full sm:w-auto")}
+        >
           <Search className="h-4 w-4" />
           <span>{t("Choose provider")}</span>
         </Button>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="w-[min(calc(100vw-2rem),64rem)] max-w-none">
           <DialogHeader>
             <DialogTitle>
               {kind === "organization"
@@ -1951,7 +3091,7 @@ function ProviderPicker({
                 className="pl-9"
               />
             </label>
-            <div className="max-h-[24rem] overflow-y-auto rounded border border-border/70">
+            <div className="max-h-[24rem] overflow-y-auto rounded-2xl border border-violet-100/80 bg-white/80 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -2001,6 +3141,7 @@ function ProviderPicker({
                             variant="outline"
                             size="sm"
                             onClick={() => chooseProvider(provider)}
+                            className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
                           >
                             {t("Select")}
                           </Button>
@@ -2019,6 +3160,7 @@ function ProviderPicker({
                 variant="outline"
                 onClick={() => providerQuery.fetchNextPage()}
                 disabled={providerQuery.isFetchingNextPage}
+                className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
               >
                 {providerQuery.isFetchingNextPage ? t("Loading...") : t("Load more")}
               </Button>
@@ -2177,37 +3319,13 @@ function FormShapeEditor({
       </div>
       {!form.supportsFormShape ? null : (
         <>
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Field label="Form shape ID">
           <GeneratedValue value={formShapeIdsPreview?.formShapeId ?? "pgfs_"} />
         </Field>
         <Field label="Form shape version">
-          <Input
-            value={form.formShape.version}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                formShape: { ...current.formShape, version: event.target.value },
-              }))
-            }
-            required
-          />
+          <GeneratedValue value={String(form.formShape.version || 1)} />
         </Field>
-        <label className="flex items-center gap-3 pt-7 text-sm font-medium">
-          <Checkbox
-            checked={form.formShape.allowUnknownFields}
-            onCheckedChange={(checked) =>
-              setForm((current) => ({
-                ...current,
-                formShape: {
-                  ...current.formShape,
-                  allowUnknownFields: checked === true,
-                },
-              }))
-            }
-          />
-          <span>{t("Allow unknown fields")}</span>
-        </label>
       </div>
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm text-muted-foreground">
@@ -2218,12 +3336,13 @@ function FormShapeEditor({
           variant="outline"
           size="sm"
           onClick={() => openFieldDialog(null)}
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
         >
           <Plus className="h-4 w-4" />
           <span>{t("Add field")}</span>
         </Button>
       </div>
-      <div className="overflow-x-auto">
+      <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -2395,10 +3514,15 @@ function FormShapeEditor({
               type="button"
               variant="outline"
               onClick={() => setFieldDialog(null)}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
             >
               {t("Cancel")}
             </Button>
-            <Button type="button" onClick={saveFieldDraft}>
+            <Button
+              type="button"
+              onClick={saveFieldDraft}
+              className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+            >
               {t("Save field")}
             </Button>
           </DialogFooter>
@@ -2419,7 +3543,7 @@ function SlotEditors({
 }) {
   return (
     <Section title="Slots">
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-2 xl:gap-8">
         <InputSlotEditor form={form} setForm={setForm} />
         <OutputSlotEditor form={form} setForm={setForm} />
       </div>
@@ -2439,11 +3563,7 @@ function InputSlotEditor({
   const [slotDialog, setSlotDialog] = useState<{
     index: number | null;
     draft: {
-      role: string;
       objectType: string;
-      required: boolean;
-      min: string;
-      max: string;
     };
   } | null>(null);
   const [slotError, setSlotError] = useState("");
@@ -2454,14 +3574,10 @@ function InputSlotEditor({
     setSlotDialog({
       index,
       draft: {
-        role: slot?.role ?? "",
         objectType:
           (slot ? slotObjectType(slot) : "") ||
-          POCKET_GENES_OBJECT_OPTIONS[0]?.value ||
+          INPUT_OBJECT_OPTIONS[0]?.value ||
           "",
-        required: slot?.required ?? false,
-        min: String(slot?.cardinality.min ?? 0),
-        max: String(slot?.cardinality.max ?? 1),
       },
     });
   }
@@ -2479,41 +3595,28 @@ function InputSlotEditor({
       return;
     }
 
-    const min = Number(slotDialog.draft.min);
-    const max = Number(slotDialog.draft.max);
-    if (!slotDialog.draft.role.trim()) {
-      setSlotError(t("Role is required."));
-      return;
-    }
     if (!slotDialog.draft.objectType) {
       setSlotError(t("Object type is required."));
       return;
     }
     if (slotDialog.draft.objectType === FORM_OBJECT_TYPE) {
-      const existingFormSlotIndex = form.inputSlots.findIndex(isFormInputSlot);
-      if (!form.supportsFormShape) {
-        setSlotError(t("A form input requires an enabled form shape."));
-        return;
-      }
-      if (
-        existingFormSlotIndex !== -1 &&
-        existingFormSlotIndex !== slotDialog.index
-      ) {
-        setSlotError(t("Only one form input slot is allowed."));
-        return;
-      }
+      setSlotError(t("Form inputs are managed by Support form input."));
+      return;
     }
-    if (!Number.isInteger(min) || min < 0 || !Number.isInteger(max) || max < 1 || max < min) {
-      setSlotError(t("Cardinality must use valid whole numbers."));
+    const duplicateSlotIndex = form.inputSlots.findIndex(
+      (slot) => slotObjectType(slot) === slotDialog.draft.objectType,
+    );
+    if (duplicateSlotIndex !== -1 && duplicateSlotIndex !== slotDialog.index) {
+      setSlotError(t("This input type is already added."));
       return;
     }
 
     const nextSlot: SupportServiceInputSlot = {
-      role: slotDialog.draft.role.trim(),
+      role: inputRoleForObjectType(slotDialog.draft.objectType),
       objectType: slotDialog.draft.objectType,
       acceptedTypes: [slotDialog.draft.objectType],
-      required: slotDialog.draft.required,
-      cardinality: { min, max },
+      required: true,
+      cardinality: { min: 1, max: 1 },
     };
 
     setForm((current) => ({
@@ -2529,89 +3632,86 @@ function InputSlotEditor({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className={SUPPORT_SERVICE_SUBSECTION_CLASS}>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="font-heading text-base font-semibold">{t("Input slots")}</h3>
+        <h3 className={SUPPORT_SERVICE_SUBSECTION_TITLE_CLASS}>
+          {t("Input slots")}
+        </h3>
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={() => openSlotDialog(null)}
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
         >
           <Plus className="h-4 w-4" />
           <span>{t("Add input")}</span>
         </Button>
       </div>
-      <div className="overflow-x-auto rounded border border-border/70">
+      <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t("Role")}</TableHead>
+              <TableHead>{t("Input key")}</TableHead>
               <TableHead>{t("Object type")}</TableHead>
-              <TableHead>{t("Cardinality")}</TableHead>
-              <TableHead>{t("Required")}</TableHead>
               <TableHead className="text-right">{t("Actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {form.inputSlots.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={3} className="py-8 text-center text-sm text-muted-foreground">
                   {t("No input slots defined.")}
                 </TableCell>
               </TableRow>
             ) : (
-              form.inputSlots.map((slot, index) => (
-                <TableRow key={`${slot.role}-${index}`}>
-                  <TableCell className="font-mono text-sm">
-                    {slot.role || "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">
-                      {objectLabel(slotObjectType(slot))}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {slot.cardinality.min}-{slot.cardinality.max}
-                  </TableCell>
-                  <TableCell>
-                    {slot.required ? (
-                      <Badge variant="outline">{t("Required")}</Badge>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => openSlotDialog(index)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                        <span className="sr-only">{t("Edit")}</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() =>
-                          setForm((current) => ({
-                            ...current,
-                            inputSlots: current.inputSlots.filter(
-                              (_, slotIndex) => slotIndex !== index,
-                            ),
-                          }))
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">{t("Delete")}</span>
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              form.inputSlots.map((slot, index) => {
+                const isManagedFormSlot = isFormInputSlot(slot);
+
+                return (
+                  <TableRow key={`${slot.role}-${index}`}>
+                    <TableCell className="font-mono text-sm">
+                      {slot.role || "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {objectLabel(slotObjectType(slot))}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={isManagedFormSlot}
+                          onClick={() => openSlotDialog(index)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">{t("Edit")}</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={isManagedFormSlot}
+                          onClick={() =>
+                            setForm((current) => ({
+                              ...current,
+                              inputSlots: current.inputSlots.filter(
+                                (_, slotIndex) => slotIndex !== index,
+                              ),
+                            }))
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">{t("Delete")}</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -2630,57 +3730,23 @@ function InputSlotEditor({
               {slotDialog?.index == null ? t("Add input slot") : t("Edit input slot")}
             </DialogTitle>
             <DialogDescription>
-              {t("Each input slot accepts one Pocket Genes object type.")}
+              {t("Choose the object type. The input key and one required file are generated automatically.")}
             </DialogDescription>
           </DialogHeader>
           {slotDialog ? (
             <div className="grid gap-4">
-              <Field label="Role">
-                <Input
-                  value={slotDialog.draft.role}
-                  onChange={(event) =>
-                    updateSlotDraft({ role: event.target.value })
-                  }
-                  placeholder="test_order"
-                />
-              </Field>
               <Field label="Object type">
                 <ObjectTypeSelect
                   value={slotDialog.draft.objectType}
                   onChange={(objectType) => updateSlotDraft({ objectType })}
+                  excludeForm
                 />
               </Field>
-              <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
-                <Field label="Min">
-                  <Input
-                    value={slotDialog.draft.min}
-                    onChange={(event) =>
-                      updateSlotDraft({ min: event.target.value })
-                    }
-                    type="number"
-                    min={0}
-                  />
-                </Field>
-                <Field label="Max">
-                  <Input
-                    value={slotDialog.draft.max}
-                    onChange={(event) =>
-                      updateSlotDraft({ max: event.target.value })
-                    }
-                    type="number"
-                    min={1}
-                  />
-                </Field>
-                <label className="flex items-center gap-3 pt-7 text-sm font-medium">
-                  <Checkbox
-                    checked={slotDialog.draft.required}
-                    onCheckedChange={(checked) =>
-                      updateSlotDraft({ required: checked === true })
-                    }
-                  />
-                  <span>{t("Required")}</span>
-                </label>
-              </div>
+              <Field label="Input key">
+                <GeneratedValue
+                  value={inputRoleForObjectType(slotDialog.draft.objectType)}
+                />
+              </Field>
               {slotError ? (
                 <p className="text-sm text-destructive">{slotError}</p>
               ) : null}
@@ -2691,10 +3757,15 @@ function InputSlotEditor({
               type="button"
               variant="outline"
               onClick={() => setSlotDialog(null)}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
             >
               {t("Cancel")}
             </Button>
-            <Button type="button" onClick={saveSlotDraft}>
+            <Button
+              type="button"
+              onClick={saveSlotDraft}
+              className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+            >
               {t("Save input slot")}
             </Button>
           </DialogFooter>
@@ -2718,6 +3789,7 @@ function OutputSlotEditor({
     draft: SupportServiceOutputSlot;
   } | null>(null);
   const [slotError, setSlotError] = useState("");
+  const revisionSourceRoles = outputRevisionSourceRoles(form.inputSlots);
 
   function openSlotDialog(index: number | null) {
     const slot = index == null ? null : form.outputSlots[index];
@@ -2725,12 +3797,15 @@ function OutputSlotEditor({
     setSlotDialog({
       index,
       draft: slot
-        ? { ...slot }
-        : {
-            role: "",
-            objectType: POCKET_GENES_OBJECT_OPTIONS[0]?.value || "pgo_form",
-            mutationMode: "new_object",
-          },
+        ? {
+            ...slot,
+            sameIdentityAsInput:
+              slot.sameIdentityAsInput ??
+              (slot.objectType.startsWith("same_as:")
+                ? slot.objectType.replace(/^same_as:/, "")
+                : undefined),
+          }
+        : defaultOutputSlot(),
     });
   }
 
@@ -2750,14 +3825,33 @@ function OutputSlotEditor({
       setSlotError(t("Role is required."));
       return;
     }
-    if (!slotDialog.draft.objectType) {
-      setSlotError(t("Object type is required."));
-      return;
+    if (slotDialog.draft.mutationMode === "new_revision") {
+      if (!slotDialog.draft.sameIdentityAsInput) {
+        setSlotError(t("Choose the input role that keeps the same object identity."));
+        return;
+      }
+    } else {
+      if (!slotDialog.draft.objectType) {
+        setSlotError(t("Object type is required."));
+        return;
+      }
+      if (slotDialog.draft.objectType === FORM_OBJECT_TYPE) {
+        setSlotError(t("Output slots cannot produce request forms."));
+        return;
+      }
     }
 
+    const sameIdentityAsInput =
+      slotDialog.draft.mutationMode === "new_revision"
+        ? slotDialog.draft.sameIdentityAsInput
+        : undefined;
     const nextSlot: SupportServiceOutputSlot = {
       ...slotDialog.draft,
       role: slotDialog.draft.role.trim(),
+      objectType: sameIdentityAsInput
+        ? sameIdentityObjectType(sameIdentityAsInput)
+        : slotDialog.draft.objectType,
+      sameIdentityAsInput,
     };
 
     setForm((current) => ({
@@ -2773,20 +3867,23 @@ function OutputSlotEditor({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className={SUPPORT_SERVICE_SUBSECTION_CLASS}>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="font-heading text-base font-semibold">{t("Output slots")}</h3>
+        <h3 className={SUPPORT_SERVICE_SUBSECTION_TITLE_CLASS}>
+          {t("Output slots")}
+        </h3>
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={() => openSlotDialog(null)}
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
         >
           <Plus className="h-4 w-4" />
           <span>{t("Add output")}</span>
         </Button>
       </div>
-      <div className="overflow-x-auto rounded border border-border/70">
+      <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -2811,7 +3908,7 @@ function OutputSlotEditor({
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">
-                      {objectLabel(slot.objectType)}
+                      {outputObjectLabel(slot)}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -2832,6 +3929,7 @@ function OutputSlotEditor({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
+                        disabled={form.outputSlots.length <= 1}
                         onClick={() =>
                           setForm((current) => ({
                             ...current,
@@ -2880,20 +3978,33 @@ function OutputSlotEditor({
                   placeholder="report"
                 />
               </Field>
-              <Field label="Object type">
-                <ObjectTypeSelect
-                  value={slotDialog.draft.objectType}
-                  onChange={(objectType) => updateSlotDraft({ objectType })}
-                />
-              </Field>
               <Field label="Mutation">
                 <Select
                   value={slotDialog.draft.mutationMode}
-                  onValueChange={(mutationMode) =>
+                  onValueChange={(mutationMode) => {
+                    const nextMode = mutationMode as SupportServiceMutationMode;
+                    if (nextMode === "new_revision") {
+                      const sourceRole =
+                        slotDialog.draft.sameIdentityAsInput ??
+                        revisionSourceRoles[0] ??
+                        "";
+                      updateSlotDraft({
+                        mutationMode: nextMode,
+                        sameIdentityAsInput: sourceRole || undefined,
+                        objectType: sourceRole
+                          ? sameIdentityObjectType(sourceRole)
+                          : "",
+                      });
+                      return;
+                    }
                     updateSlotDraft({
-                      mutationMode: mutationMode as SupportServiceMutationMode,
-                    })
-                  }
+                      mutationMode: nextMode,
+                      sameIdentityAsInput: undefined,
+                      objectType: slotDialog.draft.objectType.startsWith("same_as:")
+                        ? DEFAULT_OUTPUT_OBJECT_TYPE
+                        : slotDialog.draft.objectType,
+                    });
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -2907,6 +4018,39 @@ function OutputSlotEditor({
                   </SelectContent>
                 </Select>
               </Field>
+              {slotDialog.draft.mutationMode === "new_revision" ? (
+                <Field label="Same identity as input">
+                  <Select
+                    value={slotDialog.draft.sameIdentityAsInput ?? ""}
+                    onValueChange={(sourceRole) =>
+                      updateSlotDraft({
+                        sameIdentityAsInput: sourceRole,
+                        objectType: sameIdentityObjectType(sourceRole),
+                      })
+                    }
+                    disabled={revisionSourceRoles.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("Choose source input")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {revisionSourceRoles.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              ) : (
+                <Field label="Object type">
+                  <ObjectTypeSelect
+                    value={slotDialog.draft.objectType}
+                    onChange={(objectType) => updateSlotDraft({ objectType })}
+                    excludeForm
+                  />
+                </Field>
+              )}
               {slotError ? (
                 <p className="text-sm text-destructive">{slotError}</p>
               ) : null}
@@ -2917,10 +4061,15 @@ function OutputSlotEditor({
               type="button"
               variant="outline"
               onClick={() => setSlotDialog(null)}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
             >
               {t("Cancel")}
             </Button>
-            <Button type="button" onClick={saveSlotDraft}>
+            <Button
+              type="button"
+              onClick={saveSlotDraft}
+              className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+            >
               {t("Save output slot")}
             </Button>
           </DialogFooter>
@@ -3127,15 +4276,6 @@ export function SupportServiceTransactionWorkbench({
     return toastCounter;
   }
 
-  const offersQuery = useQuery({
-    queryKey: [LIVE_OFFERS_QUERY_KEY],
-    queryFn: () =>
-      sdkFetch<SupportServiceOffersPage>(
-        "/admin/support-services/offers?limit=50",
-      ),
-  });
-  const liveOffers = offersQuery.data?.offers ?? [];
-
   const transactionQuery = useQuery({
     queryKey: [TRANSACTIONS_QUERY_KEY, transactionId],
     queryFn: () =>
@@ -3146,12 +4286,35 @@ export function SupportServiceTransactionWorkbench({
       ),
     enabled: isEditing && Boolean(transactionId),
   });
+  const transactionRecord = transactionQuery.data?.transaction ?? null;
+
+  const offersQuery = useQuery({
+    queryKey: [LIVE_OFFERS_QUERY_KEY],
+    queryFn: () =>
+      sdkFetch<SupportServiceOffersPage>(
+        "/admin/support-services/offers?limit=50&status=active",
+      ),
+    enabled: !isEditing,
+  });
+  const linkedOfferQuery = useQuery({
+    queryKey: [LIVE_OFFERS_QUERY_KEY, "linked", transactionRecord?.serviceId],
+    queryFn: () =>
+      sdkFetch<SupportServiceOffersPage>(
+        `/admin/support-services/offers?limit=1&serviceId=${encodeURIComponent(
+          transactionRecord?.serviceId ?? "",
+        )}`,
+      ),
+    enabled: isEditing && Boolean(transactionRecord?.serviceId),
+  });
+  const liveOffers = isEditing
+    ? linkedOfferQuery.data?.offers ?? EMPTY_SUPPORT_SERVICE_OFFERS
+    : offersQuery.data?.offers ?? EMPTY_SUPPORT_SERVICE_OFFERS;
 
   useEffect(() => {
-    if (transactionQuery.data?.transaction) {
-      setForm(transactionFormFromRecord(transactionQuery.data.transaction, liveOffers));
+    if (transactionRecord) {
+      setForm(transactionFormFromRecord(transactionRecord, liveOffers));
     }
-  }, [liveOffers, transactionQuery.data?.transaction]);
+  }, [liveOffers, transactionRecord]);
 
   useEffect(() => {
     if (!isEditing && !form.serviceId && liveOffers[0]) {
@@ -3160,6 +4323,10 @@ export function SupportServiceTransactionWorkbench({
   }, [form.serviceId, isEditing, liveOffers]);
 
   const serviceChoices = useMemo(() => {
+    if (isEditing) {
+      return [];
+    }
+
     const seen = new Set<string>();
     const choices = liveOffers.map((offer) => ({
       value: offer.serviceId,
@@ -3183,7 +4350,7 @@ export function SupportServiceTransactionWorkbench({
       seen.add(choice.value);
       return true;
     });
-  }, [form.serviceId, liveOffers, t]);
+  }, [form.serviceId, isEditing, liveOffers, t]);
 
   const selectedOffer =
     liveOffers.find((offer) => offer.serviceId === form.serviceId) ?? null;
@@ -3208,7 +4375,11 @@ export function SupportServiceTransactionWorkbench({
         tone: "success",
         message: t("Service transaction saved."),
       });
-      router.push(`/god-mode/service-transactions/${result.transaction.id}`);
+      router.push(
+        `/god-mode/service-transactions/${encodeURIComponent(
+          result.transaction.requestId,
+        )}`,
+      );
       router.refresh();
     },
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
@@ -3255,7 +4426,7 @@ export function SupportServiceTransactionWorkbench({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      if (!selectedOffer) {
+      if (!isEditing && !selectedOffer) {
         throw new Error("Choose an existing service offer.");
       }
       saveMutation.mutate(transactionPayloadFromForm(form));
@@ -3264,7 +4435,10 @@ export function SupportServiceTransactionWorkbench({
     }
   }
 
-  if ((isEditing && transactionQuery.isLoading) || offersQuery.isLoading) {
+  if (
+    (isEditing && transactionQuery.isLoading) ||
+    (!isEditing && offersQuery.isLoading)
+  ) {
     return <Skeleton className="h-[34rem] w-full" />;
   }
 
@@ -3275,9 +4449,9 @@ export function SupportServiceTransactionWorkbench({
         onDismiss={() => setToast(null)}
         language={language}
       />
-      <form className="glass-panel overflow-hidden" onSubmit={handleSubmit}>
+      <form className={SUPPORT_SERVICE_FORM_CLASS} onSubmit={handleSubmit}>
         <WorkbenchTopbar
-          title={isEditing ? "Editar transaccion" : "Alta de transaccion"}
+          title={isEditing ? "Detalle de transaccion" : "Alta de transaccion"}
           backHref="/god-mode/service-transactions"
           backLabel="Back to Service Transactions"
           isSaving={saveMutation.isPending}
@@ -3291,22 +4465,51 @@ export function SupportServiceTransactionWorkbench({
         <Section title="Request identity">
           <div className="grid gap-4 lg:grid-cols-2">
             <Field label="Service">
-              <Select
-                value={form.serviceId}
-                onValueChange={handleServiceChange}
-                disabled={serviceChoices.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("Choose active service offer")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {serviceChoices.map((service) => (
-                    <SelectItem key={service.value} value={service.value}>
-                      {service.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isEditing ? (
+                <div className="grid min-h-24 gap-2 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 text-sm shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                  <div className="font-medium text-foreground">
+                    {selectedOffer?.name || t("Linked service")}
+                  </div>
+                  <div className="font-mono text-xs text-muted-foreground">
+                    {form.serviceId || "-"} · v{form.serviceVersion || 1}
+                  </div>
+                  {selectedOffer ? (
+                    <div className="text-muted-foreground">
+                      {selectedOffer.shortContract || "-"}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      {linkedOfferQuery.isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CircleAlert className="h-4 w-4" />
+                      )}
+                      <span>
+                        {linkedOfferQuery.isLoading
+                          ? t("Loading linked service...")
+                          : t("Linked service offer not found.")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Select
+                  value={form.serviceId}
+                  onValueChange={handleServiceChange}
+                  disabled={serviceChoices.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("Choose active service offer")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {serviceChoices.map((service) => (
+                      <SelectItem key={service.value} value={service.value}>
+                        {service.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </Field>
             <Field label="Status">
               <Select
@@ -3331,28 +4534,23 @@ export function SupportServiceTransactionWorkbench({
               </Select>
             </Field>
             <Field label="Request ID">
-              <Input
-                value={form.requestId}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    requestId: event.target.value,
-                  }))
-                }
-                required
-              />
+              {isEditing ? (
+                <GeneratedValue value={form.requestId || transactionId || "pgr_"} />
+              ) : (
+                <Input
+                  value={form.requestId}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      requestId: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              )}
             </Field>
             <Field label="Service version">
-              <Input
-                value={form.serviceVersion}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    serviceVersion: event.target.value,
-                  }))
-                }
-                required
-              />
+              <GeneratedValue value={String(form.serviceVersion || 1)} />
             </Field>
             <Field label="Requester email">
               <Input
@@ -3378,14 +4576,14 @@ export function SupportServiceTransactionWorkbench({
               />
             </Field>
           </div>
-          {serviceChoices.length === 0 ? (
-            <div className="flex items-center gap-2 rounded border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
+          {!isEditing && serviceChoices.length === 0 ? (
+            <div className="flex items-center gap-2 rounded-2xl border border-violet-100/80 bg-white/78 p-3 text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
               <CircleAlert className="h-4 w-4" />
               <span>{t("No service offers are available for transactions.")}</span>
             </div>
           ) : null}
-          {selectedOffer ? (
-            <div className="rounded border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
+          {!isEditing && selectedOffer ? (
+            <div className="rounded-2xl border border-violet-100/80 bg-white/78 p-3 text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
               <div className="font-medium text-foreground">{selectedOffer.name}</div>
               <div>{selectedOffer.shortContract}</div>
             </div>
@@ -3393,6 +4591,17 @@ export function SupportServiceTransactionWorkbench({
         </Section>
         <Section title="Input object bindings">
           <ObjectRefTable slots={form.inputs} onChange={updateInputRef} />
+          {form.missingRequiredInputRoles.length ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-800 shadow-sm dark:border-amber-400/25 dark:bg-amber-500/12 dark:text-amber-100">
+              <CircleAlert className="h-4 w-4" />
+              <span>{t("Pending required inputs")}</span>
+              {form.missingRequiredInputRoles.map((role) => (
+                <Badge key={role} variant="outline" className="font-mono">
+                  {role}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
         </Section>
         <Section title="Output object bindings">
           <ObjectRefTable slots={form.outputs} onChange={updateOutputRef} />
@@ -3431,7 +4640,7 @@ function ObjectRefTable({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
       <Table>
         <TableHeader>
           <TableRow>
@@ -3442,7 +4651,11 @@ function ObjectRefTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {slots.map((slot, index) => (
+          {slots.map((slot, index) => {
+            const mustAttachNow =
+              slot.required && slot.acceptedTypes.includes(FORM_OBJECT_TYPE);
+
+            return (
             <TableRow key={`${slot.role}-${index}`}>
               <TableCell className="font-mono text-sm">
                 {slot.role}
@@ -3456,7 +4669,7 @@ function ObjectRefTable({
                 <div className="flex flex-wrap gap-1">
                   {slot.acceptedTypes.map((type) => (
                     <Badge key={type} variant="secondary">
-                      {objectLabel(type)}
+                      {bindingTypeLabel(type)}
                     </Badge>
                   ))}
                 </div>
@@ -3467,7 +4680,7 @@ function ObjectRefTable({
                   onChange={(event) =>
                     onChange(index, { objectId: event.target.value })
                   }
-                  required={slot.required}
+                  required={mustAttachNow}
                   placeholder="obj_..."
                 />
               </TableCell>
@@ -3478,11 +4691,12 @@ function ObjectRefTable({
                     onChange(index, { revision: event.target.value })
                   }
                   inputMode="numeric"
-                  required={slot.required || Boolean(slot.objectId)}
+                  required={mustAttachNow || Boolean(slot.objectId)}
                 />
               </TableCell>
             </TableRow>
-          ))}
+          );
+          })}
         </TableBody>
       </Table>
     </div>
@@ -3496,6 +4710,7 @@ function WorkbenchTopbar({
   isSaving,
   canDelete,
   onDelete,
+  saveLabel = "Save",
 }: {
   title: string;
   backHref: string;
@@ -3503,20 +4718,35 @@ function WorkbenchTopbar({
   isSaving: boolean;
   canDelete: boolean;
   onDelete: () => void;
+  saveLabel?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border/70 p-4 lg:flex-row lg:items-center lg:justify-between lg:p-5">
+    <div className={cn("flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between", SUPPORT_SERVICE_HEADER_CLASS)}>
       <div className="flex min-w-0 items-center gap-2">
-        <h2 className="font-heading text-xl font-semibold text-foreground">
-          {t(title)}
-        </h2>
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-violet-200 bg-violet-100 text-violet-700 shadow-inner dark:border-violet-400/20 dark:bg-violet-500/14 dark:text-violet-100">
+          <FileText className="h-5 w-5" />
+        </div>
+        <div>
+          <h2 className="font-heading text-xl font-semibold text-foreground">
+            {t(title)}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {t("Pocket Genes service contract")}
+          </p>
+        </div>
         <HeaderUnclutterButton />
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button asChild type="button" variant="outline" size="sm">
+        <Button
+          asChild
+          type="button"
+          variant="outline"
+          size="sm"
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+        >
           <Link href={backHref}>
             <ArrowLeft className="h-4 w-4" />
             <span>{t(backLabel)}</span>
@@ -3528,15 +4758,20 @@ function WorkbenchTopbar({
             variant="outline"
             size="sm"
             onClick={onDelete}
-            className="border-destructive/30 text-destructive hover:text-destructive"
+            className="h-9 rounded-xl border-destructive/30 bg-white/78 px-3 text-destructive shadow-sm hover:bg-destructive/5 hover:text-destructive dark:bg-slate-950/50"
           >
             <Trash2 className="h-4 w-4" />
             <span>{t("Delete")}</span>
           </Button>
         ) : null}
-        <Button type="submit" size="sm" disabled={isSaving}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={isSaving}
+          className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+        >
           <CheckCircle2 className="h-4 w-4" />
-          <span>{isSaving ? t("Saving...") : t("Save")}</span>
+          <span>{isSaving ? t("Saving...") : t(saveLabel)}</span>
         </Button>
       </div>
     </div>
@@ -3554,10 +4789,15 @@ function Section({
   const t = (text: string) => appText(language, text);
 
   return (
-    <section className="grid gap-4 border-b border-border/70 p-4 last:border-b-0 lg:p-5">
-      <h3 className="font-heading text-base font-semibold text-foreground">
-        {t(title)}
-      </h3>
+    <section className={SUPPORT_SERVICE_SECTION_CLASS}>
+      <div className="flex items-center gap-3 border-b border-violet-100/80 pb-4 dark:border-violet-400/14">
+        <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/18 dark:bg-violet-500/12 dark:text-violet-100">
+          <FileText className="h-4 w-4" />
+        </span>
+        <h3 className="font-heading text-xl font-semibold text-foreground">
+          {t(title)}
+        </h3>
+      </div>
       {children}
     </section>
   );
@@ -3565,7 +4805,7 @@ function Section({
 
 function GeneratedValue({ value }: { value: string }) {
   return (
-    <div className="flex min-h-10 items-center rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-sm text-muted-foreground">
+    <div className="flex min-h-11 items-center rounded-xl border border-violet-100 bg-white/78 px-4 py-2 font-mono text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
       {value}
     </div>
   );
@@ -3582,63 +4822,35 @@ function Field({
   const t = (text: string) => appText(language, text);
 
   return (
-    <Label className="grid gap-2 text-sm font-medium">
-      <span>{t(label)}</span>
+    <Label className="grid gap-2 text-sm font-medium text-foreground">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {t(label)}
+      </span>
       {children}
     </Label>
-  );
-}
-
-function StagePicker({
-  value,
-  onChange,
-}: {
-  value: SupportServiceStage[];
-  onChange: (value: SupportServiceStage[]) => void;
-}) {
-  const { language } = useAppLanguage();
-  const t = (text: string) => appText(language, text);
-
-  function toggle(stage: SupportServiceStage) {
-    onChange(
-      value.includes(stage)
-        ? value.filter((current) => current !== stage)
-        : [...value, stage],
-    );
-  }
-
-  return (
-    <div className="grid gap-2">
-      <p className="text-sm font-medium">{t("Stages")}</p>
-      <div className="flex flex-wrap gap-3">
-        {SUPPORT_SERVICE_STAGES.map((stage) => (
-          <label key={stage.value} className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={value.includes(stage.value)}
-              onCheckedChange={() => toggle(stage.value)}
-            />
-            <span>{t(stage.label)}</span>
-          </label>
-        ))}
-      </div>
-    </div>
   );
 }
 
 function ObjectTypeSelect({
   value,
   onChange,
+  excludeForm = false,
 }: {
   value: string;
   onChange: (value: string) => void;
+  excludeForm?: boolean;
 }) {
+  const options = excludeForm
+    ? OUTPUT_OBJECT_OPTIONS
+    : POCKET_GENES_OBJECT_OPTIONS;
+
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {POCKET_GENES_OBJECT_OPTIONS.map((object) => (
+        {options.map((object) => (
           <SelectItem key={object.value} value={object.value}>
             {object.label}
           </SelectItem>

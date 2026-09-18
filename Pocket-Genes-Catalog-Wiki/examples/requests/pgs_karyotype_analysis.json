@@ -1,0 +1,21 @@
+{
+  "request_id": "pgr_demo_karyotype_analysis",
+  "service_id": "pgs_karyotype_analysis",
+  "service_version": 1,
+  "inputs": [
+    {
+      "role": "form",
+      "object_ref": {
+        "object_id": "obj_demo_form_karyotype_analysis",
+        "revision": 1
+      }
+    },
+    {
+      "role": "image_bundle",
+      "object_ref": {
+        "object_id": "obj_demo_images",
+        "revision": 1
+      }
+    }
+  ]
+}

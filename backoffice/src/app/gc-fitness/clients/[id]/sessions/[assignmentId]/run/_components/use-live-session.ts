@@ -25,6 +25,7 @@ import type {
   SessionSetLog,
 } from "@/lib/gc-fitness/live-workout-types";
 import { resolveSetPrefill } from "@/lib/gc-fitness/weight-prefill";
+import { exerciseIdentityKey } from "@/lib/gc-fitness/exercise-identity-match";
 // quick-260714-m57 (#403) — per-set types (normal/warmup/failure/dropset).
 import {
   type SetType,
@@ -125,7 +126,17 @@ function initialRows(
   prescriptionUpdatedAt: Date | null,
 ): SetRowState[] {
   const count = Math.max(1, ex.sets);
-  const prev = previous[ex.exerciseId];
+  // gc-fitness#1111 — by id first, then by IDENTITY (english name + metric). The same
+  // exercise exists under more than one document id (the library is double-seeded), so a
+  // routine that froze the other twin would otherwise show no ANTERIOR at all and pre-fill
+  // the coach's target as if the client had never done it. `getPreviousSessionForClient`
+  // files every entry under both keys.
+  const identityKey = exerciseIdentityKey(
+    ex.name.en ?? "",
+    isTimeMetric(ex) ? "time" : "reps",
+  );
+  const prev =
+    previous[ex.exerciseId] ?? (identityKey ? previous[identityKey] : undefined);
   const time = isTimeMetric(ex);
   const lastLoggedAt = prev?.lastLoggedAt ? new Date(prev.lastLoggedAt) : null;
   const previousValue = prev
