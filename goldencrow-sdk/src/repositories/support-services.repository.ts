@@ -1265,6 +1265,12 @@ async function assertDeliveredOutputObjectsAvailable(
           400,
         );
       }
+      if (!Number.isInteger(objectData.upload_version_count) || Number(objectData.upload_version_count) < 1) {
+        throw new AdminRepositoryError(
+          `Output object ${output.objectCode} requires a positive upload_version_count.`,
+          400,
+        );
+      }
       if (cleanString(objectData.tracking_progress_status) !== "document_ready") {
         throw new AdminRepositoryError(
           `Output object ${output.objectCode} is not ready for download.`,

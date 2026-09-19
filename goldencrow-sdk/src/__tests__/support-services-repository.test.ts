@@ -267,6 +267,7 @@ describe("support service delivered transactions", () => {
     seedDoc("uploaded_objects", "uploaded-object-1", {
       object_code: "123456789",
       object_type: "pgo_pdf_report",
+      upload_version_count: 1,
       tracking_progress_status: "document_ready",
       download_url: "https://example.com/result.json",
     });
@@ -293,6 +294,28 @@ describe("support service delivered transactions", () => {
     await expect(
       updateSupportServiceTransaction(context, "transaction-1", deliveredInput),
     ).rejects.toThrow("Output object code 123456789 does not exist.");
+  });
+
+  it("rejects delivered when an uploaded object has no positive version", async () => {
+    seedDoc("object_codes", "123456789", {
+      uploaded_object_id: "uploaded-object-1",
+    });
+    seedDoc("uploaded_objects", "uploaded-object-1", {
+      object_code: "123456789",
+      object_type: "pgo_pdf_report",
+      upload_version_count: 0,
+      tracking_progress_status: "document_ready",
+      download_url: "https://example.com/result.json",
+    });
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceTransaction(context, "transaction-1", deliveredInput),
+    ).rejects.toThrow(
+      "Output object 123456789 requires a positive upload_version_count.",
+    );
   });
 
   it("rejects delivered when an output type does not match the offer", async () => {
