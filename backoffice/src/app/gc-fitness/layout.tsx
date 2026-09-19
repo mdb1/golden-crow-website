@@ -13,6 +13,7 @@ import { birthdayNotificationCountForTrainer } from "@/lib/gc-fitness/birthday-n
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { getCurrentGCFitnessUser } from "@/lib/gc-fitness/auth-helpers";
+import { countOpenReports } from "@/lib/gc-fitness/moderation-actions";
 
 // Issue #170 — tab titles. Pages export `generateMetadata` with their section
 // name (see lib/gc-fitness/page-metadata.ts); the template prefixes it so tabs
@@ -44,6 +45,7 @@ export default async function GCFitnessLayout({
   let trainerEmail: string | null = null;
   let isAdmin = false;
   let birthdayBadgeCount = 0;
+  let openReportsCount = 0;
   try {
     const user = await getCurrentGCFitnessUser();
     trainerUid = user.uid;
@@ -52,11 +54,16 @@ export default async function GCFitnessLayout({
     const timezone = await getTrainerTimezone().catch(() => "UTC");
     const todayCivil = civilDateToday(timezone);
     birthdayBadgeCount = await birthdayNotificationCountForTrainer(user.uid, todayCivil);
+    // gc-fitness #1050 — the moderation SLA is 24 h, so the count of open
+    // reports rides the admin link. Admins only; a failure here must not take
+    // the shell down.
+    if (isAdmin) openReportsCount = await countOpenReports().catch(() => 0);
   } catch {
     trainerUid = null;
     trainerEmail = null;
     isAdmin = false;
     birthdayBadgeCount = 0;
+    openReportsCount = 0;
   }
 
   return (
@@ -78,6 +85,7 @@ export default async function GCFitnessLayout({
             trainerEmail={trainerEmail}
             isAdmin={isAdmin}
             birthdayNotificationCount={birthdayBadgeCount}
+            openReportsCount={openReportsCount}
           >
             {children}
           </GCFitnessShell>

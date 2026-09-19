@@ -224,6 +224,27 @@ export const FirestoreCollections = {
    * against a later phase's targets.
    */
   nutritionLogs: "nutrition_logs",
+
+  // ── Social layer (gc-fitness #1037) — read by the moderation queue only ──
+  //
+  // The backoffice never writes these through rules: every mutation here is an
+  // Admin SDK write from `moderation-actions.ts`, and the apps' rules deny the
+  // same writes from a client (`suspended` is outside the profile whitelist,
+  // `hidden` cannot be created true nor updated at all).
+
+  /** Public identity of a user — `suspended` is what moderation flips. */
+  socialProfiles: "social_profiles",
+  /** Feed card projection of a published routine — `hidden` is what moderation flips. */
+  publicRoutines: "public_routines",
+  /** Comments on a public routine — `hidden` is what moderation flips. */
+  routineComments: "routine_comments",
+  /** DM threads; messages live in `dm_threads/{id}/messages/{id}`. */
+  dmThreads: "dm_threads",
+  /**
+   * The moderation queue (S10, #1050). Written by the `reportContent` callable,
+   * read and resolved ONLY here. `allow read, write: if false` for every client.
+   */
+  socialReports: "social_reports",
 } as const;
 
 /**
