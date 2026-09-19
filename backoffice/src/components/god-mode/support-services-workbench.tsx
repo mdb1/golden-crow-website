@@ -160,6 +160,12 @@ type ObjectRefDraft = {
   acceptedTypes: string[];
 };
 
+type OutputObjectDraft = {
+  role: string;
+  objectType: string;
+  objectCode: string;
+};
+
 type TransactionFormState = {
   requestId: string;
   serviceId: string;
@@ -168,7 +174,8 @@ type TransactionFormState = {
   requesterEmail: string;
   subjectId: string;
   inputs: ObjectRefDraft[];
-  outputs: ObjectRefDraft[];
+  outputObjects: OutputObjectDraft[];
+  outputReportCodesText: string;
   missingRequiredInputRoles: string[];
   notes: string;
 };
@@ -878,19 +885,26 @@ function PublishedIndicator({ t }: { t: (text: string) => string }) {
   );
 }
 
-function emptyObjectRefDraft(
-  slot: SupportServiceInputSlot | SupportServiceOutputSlot,
-): ObjectRefDraft {
-  const required = "required" in slot ? slot.required : false;
+function emptyObjectRefDraft(slot: SupportServiceInputSlot): ObjectRefDraft {
   return {
     role: slot.role,
     objectId: "",
     revision: "1",
-    required,
-    acceptedTypes:
-      "acceptedTypes" in slot
-        ? [slotObjectType(slot)].filter(Boolean)
-        : [outputObjectLabel(slot)],
+    required: slot.required,
+    acceptedTypes: [slotObjectType(slot)].filter(Boolean),
+  };
+}
+
+function outputObjectDraft(
+  slot: SupportServiceOutputSlot,
+  offer: SupportServiceOfferRecord,
+): OutputObjectDraft {
+  const inputRole = slot.sameIdentityAsInput || slot.objectType.replace(/^same_as:/, "");
+  const inputType = offer.inputSlots.find((input) => input.role === inputRole)?.objectType;
+  return {
+    role: slot.role,
+    objectType: slot.objectType.startsWith("same_as:") ? inputType || "" : slot.objectType,
+    objectCode: "",
   };
 }
 
@@ -899,11 +913,12 @@ function emptyTransactionForm(): TransactionFormState {
     requestId: "pgr_",
     serviceId: "",
     serviceVersion: 1,
-    status: "submitted",
+    status: "received",
     requesterEmail: "",
     subjectId: "",
     inputs: [],
-    outputs: [],
+    outputObjects: [],
+    outputReportCodesText: "",
     missingRequiredInputRoles: [],
     notes: "",
   };
@@ -919,11 +934,12 @@ function transactionFormForOffer(
     requestId: makeRequestId(offer.serviceId),
     serviceId: offer.serviceId,
     serviceVersion: offer.serviceVersion,
-    status: "submitted",
+    status: "received",
     requesterEmail: "",
     subjectId: "",
     inputs: inputSlots.map(emptyObjectRefDraft),
-    outputs: outputSlots.map(emptyObjectRefDraft),
+    outputObjects: outputSlots.map((slot) => outputObjectDraft(slot, offer)),
+    outputReportCodesText: "",
     missingRequiredInputRoles: [],
     notes: "",
   };
@@ -965,17 +981,18 @@ function transactionFormFromRecord(
           required: true,
           acceptedTypes: [],
         })),
-        outputs: record.outputs.map((slot) => ({
-          role: slot.role,
-          objectId: slot.objectRef.objectId,
-          revision: String(slot.objectRef.revision),
-          required: false,
-          acceptedTypes: [],
+        outputObjects: record.outputObjects.map((output) => ({
+          role: output.role,
+          objectType: output.objectType,
+          objectCode: output.objectCode,
         })),
+        outputReportCodesText: record.outputReports
+          .map((report) => report.reportCode)
+          .join("\n"),
         missingRequiredInputRoles: record.missingRequiredInputRoles,
       };
   const inputByRole = new Map(record.inputs.map((slot) => [slot.role, slot]));
-  const outputByRole = new Map(record.outputs.map((slot) => [slot.role, slot]));
+  const outputByRole = new Map(record.outputObjects.map((output) => [output.role, output]));
 
   return {
     ...base,
@@ -994,16 +1011,19 @@ function transactionFormFromRecord(
           }
         : slot;
     }),
-    outputs: base.outputs.map((slot) => {
-      const existing = outputByRole.get(slot.role);
+    outputObjects: base.outputObjects.map((output) => {
+      const existing = outputByRole.get(output.role);
       return existing
         ? {
-            ...slot,
-            objectId: existing.objectRef.objectId,
-            revision: String(existing.objectRef.revision),
+            ...output,
+            objectType: existing.objectType,
+            objectCode: existing.objectCode,
           }
-        : slot;
+        : output;
     }),
+    outputReportCodesText: record.outputReports
+      .map((report) => report.reportCode)
+      .join("\n"),
     missingRequiredInputRoles: record.missingRequiredInputRoles,
     notes: record.notes,
   };
@@ -1263,24 +1283,40 @@ function transactionPayloadFromForm(
         },
       };
     });
-  const outputs = form.outputs
-    .filter((slot) => slot.objectId.trim())
-    .map((slot) => {
-      assertIdentifier(slot.objectId, "obj", `Output ${slot.role} object ID`);
+  const outputObjects = form.outputObjects
+    .filter((output) => output.objectCode.trim())
+    .map((output) => {
+      const objectCode = output.objectCode.trim();
+      if (!/^\d{9}$/.test(objectCode)) {
+        throw new Error(`Output ${output.role} needs a 9-digit object code.`);
+      }
+      if (!/^pgo_[a-z0-9_]+$/.test(output.objectType)) {
+        throw new Error(`Output ${output.role} needs a concrete PGO object type.`);
+      }
       return {
-        role: slot.role,
-        objectRef: {
-          objectId: slot.objectId.trim(),
-          revision: assertPositiveInteger(
-            slot.revision,
-            `Output ${slot.role} revision`,
-          ),
-        },
+        role: output.role,
+        objectType: output.objectType,
+        objectCode,
       };
     });
+  const outputReports = form.outputReportCodesText
+    .split(/[\s,]+/)
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean)
+    .map((reportCode) => {
+      if (!/^[A-Z0-9]{6}$/.test(reportCode)) {
+        throw new Error("Optional report codes must contain exactly 6 letters or digits.");
+      }
+      return { reportCode };
+    });
 
-  if (form.status === "completed" && outputs.length === 0) {
-    throw new Error("Completed transactions need at least one output object.");
+  if (
+    form.status === "delivered" &&
+    outputObjects.length !== form.outputObjects.length
+  ) {
+    throw new Error(
+      "Delivered transactions need one uploaded object code for every promised output.",
+    );
   }
 
   return {
@@ -1291,7 +1327,8 @@ function transactionPayloadFromForm(
     requesterEmail: form.requesterEmail.trim(),
     subjectId: form.subjectId.trim(),
     inputs,
-    outputs,
+    outputObjects,
+    outputReports,
     missingRequiredInputRoles,
     notes: form.notes.trim(),
   };
@@ -1657,7 +1694,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                     <TableCell>
                       <Badge
                         variant={
-                          transaction.status === "completed" ? "default" : "outline"
+                          transaction.status === "delivered" ? "default" : "outline"
                         }
                       >
                         {t(transactionStatusLabel(transaction.status))}
@@ -4414,11 +4451,11 @@ export function SupportServiceTransactionWorkbench({
     }));
   }
 
-  function updateOutputRef(index: number, patch: Partial<ObjectRefDraft>) {
+  function updateOutputObject(index: number, patch: Partial<OutputObjectDraft>) {
     setForm((current) => ({
       ...current,
-      outputs: current.outputs.map((slot, slotIndex) =>
-        slotIndex === index ? { ...slot, ...patch } : slot,
+      outputObjects: current.outputObjects.map((output, outputIndex) =>
+        outputIndex === index ? { ...output, ...patch } : output,
       ),
     }));
   }
@@ -4603,8 +4640,30 @@ export function SupportServiceTransactionWorkbench({
             </div>
           ) : null}
         </Section>
-        <Section title="Output object bindings">
-          <ObjectRefTable slots={form.outputs} onChange={updateOutputRef} />
+        <Section title="Delivered output objects">
+          <OutputObjectTable
+            outputs={form.outputObjects}
+            status={form.status}
+            onChange={updateOutputObject}
+          />
+          <div className="mt-4">
+            <Field label="Optional report codes">
+              <Textarea
+                value={form.outputReportCodesText}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    outputReportCodesText: event.target.value,
+                  }))
+                }
+                rows={3}
+                placeholder={t("One 6-character report code per line")}
+              />
+            </Field>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {t("Reports may accompany a delivery, but they are not validated as service contract outputs.")}
+            </p>
+          </div>
         </Section>
         <Section title="Notes">
           <Textarea
@@ -4617,6 +4676,71 @@ export function SupportServiceTransactionWorkbench({
         </Section>
       </form>
     </>
+  );
+}
+
+function OutputObjectTable({
+  outputs,
+  status,
+  onChange,
+}: {
+  outputs: OutputObjectDraft[];
+  status: TransactionFormState["status"];
+  onChange: (index: number, patch: Partial<OutputObjectDraft>) => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  if (outputs.length === 0) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-destructive">
+        <CircleAlert className="h-4 w-4" />
+        <span>{t("The linked service contract has no output slots.")}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("Role")}</TableHead>
+            <TableHead>{t("Promised object type")}</TableHead>
+            <TableHead>{t("Object code")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {outputs.map((output, index) => (
+            <TableRow key={`${output.role}-${index}`}>
+              <TableCell className="font-mono text-sm">{output.role}</TableCell>
+              <TableCell className="min-w-[14rem]">
+                <Badge variant="secondary">{bindingTypeLabel(output.objectType)}</Badge>
+              </TableCell>
+              <TableCell className="min-w-[16rem]">
+                <Input
+                  value={output.objectCode}
+                  onChange={(event) =>
+                    onChange(index, {
+                      objectCode: event.target.value.replace(/\D/g, "").slice(0, 9),
+                    })
+                  }
+                  inputMode="numeric"
+                  required={status === "delivered"}
+                  placeholder="000000000"
+                  maxLength={9}
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {status === "delivered" ? (
+        <div className="border-t border-violet-100/80 px-4 py-3 text-sm text-muted-foreground dark:border-violet-400/14">
+          {t("Delivered is accepted only after every code resolves to a ready uploaded object of the promised type.")}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

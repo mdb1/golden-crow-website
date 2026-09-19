@@ -14,12 +14,14 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   SUPPORT_SERVICE_STAGES: ["test_planning", "wet_lab", "bioinformatics"],
   SUPPORT_SERVICE_OFFER_STATUSES: ["draft", "active", "paused", "archived"],
   SUPPORT_SERVICE_TRANSACTION_STATUSES: [
-    "draft",
-    "submitted",
+    "received",
+    "validating",
     "awaiting_input",
     "accepted",
-    "in_progress",
-    "completed",
+    "queued",
+    "running",
+    "delivered",
+    "rejected",
     "failed",
     "cancelled",
   ],
@@ -355,7 +357,7 @@ describe("support service admin routes", () => {
           id: "txn-1",
           requestId: "pgr_demo_final_report",
           serviceId: "pgs_final_report",
-          status: "submitted",
+          status: "received",
         },
       ],
       nextCursor: "2026-09-16T12:00:00.000Z",
@@ -363,7 +365,7 @@ describe("support service admin routes", () => {
 
     const response = await fastify.inject({
       method: "GET",
-      url: "/admin/support-services/transactions?serviceId=pgs_final_report&status=submitted&limit=20",
+      url: "/admin/support-services/transactions?serviceId=pgs_final_report&status=received&limit=20",
     });
 
     expect(response.statusCode).toBe(200);
@@ -371,7 +373,7 @@ describe("support service admin routes", () => {
       transactions: [
         expect.objectContaining({
           requestId: "pgr_demo_final_report",
-          status: "submitted",
+          status: "received",
         }),
       ],
       nextCursor: "2026-09-16T12:00:00.000Z",
@@ -380,7 +382,7 @@ describe("support service admin routes", () => {
       bootstrapContext,
       {
         serviceId: "pgs_final_report",
-        status: "submitted",
+        status: "received",
         limit: 20,
       },
     );
@@ -396,7 +398,7 @@ describe("support service admin routes", () => {
         requestId: "pgr_demo_final_report",
         serviceId: "pgs_final_report",
         serviceVersion: 1,
-        status: "submitted",
+        status: "received",
         inputs: [
           {
             role: "form",

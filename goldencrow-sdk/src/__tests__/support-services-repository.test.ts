@@ -21,21 +21,49 @@ function seedDoc(collectionName: string, id: string, data: MockData) {
   collectionStore(collectionName).set(id, clone(data));
 }
 
+function snapshotFor(collectionName: string, id: string, data?: MockData) {
+  return {
+    exists: Boolean(data),
+    id,
+    data: () => clone(data ?? {}),
+    ref: docRef(collectionName, id),
+  };
+}
+
 function docRef(collectionName: string, id: string) {
   return {
     id,
     async get() {
       const data = collectionStore(collectionName).get(id);
-      return {
-        exists: Boolean(data),
+      return snapshotFor(collectionName, id, data);
+    },
+    async set(data: MockData, options?: { merge?: boolean }) {
+      const previous = collectionStore(collectionName).get(id) ?? {};
+      collectionStore(collectionName).set(
         id,
-        data: () => clone(data ?? {}),
-        ref: docRef(collectionName, id),
-      };
+        clone(options?.merge ? { ...previous, ...data } : data),
+      );
     },
-    async set(data: MockData) {
-      collectionStore(collectionName).set(id, clone(data));
-    },
+  };
+}
+
+function collectionRef(name: string) {
+  return {
+    doc: jest.fn((id = `${name}-generated`) => docRef(name, id)),
+    where: jest.fn((field: string, operation: string, value: unknown) => ({
+      limit: jest.fn(() => ({
+        async get() {
+          if (operation !== "==") {
+            throw new Error(`Unsupported mock query operation: ${operation}`);
+          }
+          const docs = [...collectionStore(name).entries()]
+            .filter(([, data]) => data[field] === value)
+            .slice(0, 1)
+            .map(([id, data]) => snapshotFor(name, id, data));
+          return { docs, empty: docs.length === 0 };
+        },
+      })),
+    })),
   };
 }
 
@@ -56,9 +84,7 @@ jest.mock("firebase-admin/firestore", () => ({
 
 jest.mock("../config/firebase.js", () => ({
   adminDbFor: jest.fn(() => ({
-    collection: jest.fn((name: string) => ({
-      doc: jest.fn((id = `${name}-generated`) => docRef(name, id)),
-    })),
+    collection: jest.fn((name: string) => collectionRef(name)),
   })),
 }));
 
@@ -188,5 +214,147 @@ describe("support service repository versions", () => {
 
     expect(offer.serviceVersion).toBe(4);
     expect(offer.formShape?.version).toBe(3);
+  });
+});
+
+describe("support service delivered transactions", () => {
+  const transaction = {
+    schemaVersion: 1,
+    requestId: "pgr_report_1",
+    serviceId: "pgs_report",
+    serviceVersion: 3,
+    status: "running",
+    requesterEmail: "patient@example.com",
+    subjectId: "subject-1",
+    inputs: [
+      {
+        role: "form",
+        objectRef: { objectId: "obj_report_form", revision: 1 },
+      },
+    ],
+    output_objects: [],
+    output_reports: [],
+    missingRequiredInputRoles: [],
+    notes: "",
+    normalizedName: "pgr report 1 pgs report patient example com",
+  };
+
+  const deliveredInput = {
+    ...transaction,
+    status: "delivered" as const,
+    outputObjects: [
+      {
+        role: "report",
+        objectType: "pgo_pdf_report",
+        objectCode: "123456789",
+      },
+    ],
+    outputReports: [{ reportCode: "ABC123" }],
+  };
+
+  beforeEach(() => {
+    jest.resetModules();
+    collections.clear();
+    seedDoc("feed_organizations", "feed-org-1", { name: "Pocket Genes" });
+    seedDoc("service_offers", "offer-1", baseOffer);
+    seedDoc("service_transactions", "transaction-1", transaction);
+  });
+
+  it("marks a transaction delivered only when every promised object is ready", async () => {
+    seedDoc("object_codes", "123456789", {
+      uploaded_object_id: "uploaded-object-1",
+    });
+    seedDoc("uploaded_objects", "uploaded-object-1", {
+      object_code: "123456789",
+      object_type: "pgo_pdf_report",
+      tracking_progress_status: "document_ready",
+      download_url: "https://example.com/result.json",
+    });
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const result = await updateSupportServiceTransaction(
+      context,
+      "transaction-1",
+      deliveredInput,
+    );
+
+    expect(result.status).toBe("delivered");
+    expect(result.outputObjects).toEqual(deliveredInput.outputObjects);
+    expect(result.outputReports).toEqual(deliveredInput.outputReports);
+  });
+
+  it("rejects delivered when an output code is not available", async () => {
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceTransaction(context, "transaction-1", deliveredInput),
+    ).rejects.toThrow("Output object code 123456789 does not exist.");
+  });
+
+  it("rejects delivered when an output type does not match the offer", async () => {
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceTransaction(context, "transaction-1", {
+        ...deliveredInput,
+        outputObjects: [
+          {
+            role: "report",
+            objectType: "pgo_variant_call_file",
+            objectCode: "123456789",
+          },
+        ],
+      }),
+    ).rejects.toThrow(
+      "Output object report must be pgo_pdf_report, not pgo_variant_call_file.",
+    );
+  });
+
+  it("rejects legacy completed as a transaction status", async () => {
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceTransaction(context, "transaction-1", {
+        ...deliveredInput,
+        status: "completed" as never,
+      }),
+    ).rejects.toThrow("Unsupported service transaction status: completed.");
+  });
+
+  it("rejects a persisted legacy completed transaction instead of rewriting it", async () => {
+    seedDoc("service_transactions", "legacy-transaction", {
+      ...transaction,
+      status: "completed",
+    });
+    const { getSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      getSupportServiceTransaction(context, "legacy-transaction"),
+    ).rejects.toThrow("Unsupported service transaction status: completed.");
+  });
+
+  it("rejects malformed output snapshots instead of silently dropping them", async () => {
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceTransaction(context, "transaction-1", {
+        ...deliveredInput,
+        outputObjects: [{ role: "report" } as never],
+      }),
+    ).rejects.toThrow(
+      "Output object snapshot 1 requires role, object type, and object code.",
+    );
   });
 });

@@ -13,6 +13,10 @@ const FEED_ORGANIZATIONS_COLLECTION = "feed_organizations";
 const FEED_INDIVIDUALS_COLLECTION = "feed_individuals";
 const SERVICE_OFFERS_COLLECTION = "service_offers";
 const SERVICE_TRANSACTIONS_COLLECTION = "service_transactions";
+const OBJECT_CODES_COLLECTION = "object_codes";
+const UPLOADED_OBJECTS_COLLECTION = "uploaded_objects";
+const COMMUNITY_USERS_COLLECTION = "community_users";
+const REQUESTED_TRANSACTIONS_FIELD = "requestedServiceTransactions";
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = 20;
 const FILTERED_BATCH_LIMIT = MAX_PAGE_SIZE;
@@ -32,12 +36,14 @@ export const SUPPORT_SERVICE_OFFER_STATUSES = [
 ] as const;
 
 export const SUPPORT_SERVICE_TRANSACTION_STATUSES = [
-  "draft",
-  "submitted",
+  "received",
+  "validating",
   "awaiting_input",
   "accepted",
-  "in_progress",
-  "completed",
+  "queued",
+  "running",
+  "delivered",
+  "rejected",
   "failed",
   "cancelled",
 ] as const;
@@ -129,9 +135,14 @@ export interface SupportServiceTransactionInputSlot {
   objectRef: SupportServiceTransactionsInputRef;
 }
 
-export interface SupportServiceTransactionOutputSlot {
+export interface SupportServiceTransactionOutputObjectSnapshot {
   role: string;
-  objectRef: SupportServiceTransactionsInputRef;
+  objectType: string;
+  objectCode: string;
+}
+
+export interface SupportServiceTransactionOutputReportSnapshot {
+  reportCode: string;
 }
 
 export interface SupportServiceTransactionInput {
@@ -142,7 +153,8 @@ export interface SupportServiceTransactionInput {
   requesterEmail?: string;
   subjectId?: string;
   inputs?: SupportServiceTransactionInputSlot[];
-  outputs?: SupportServiceTransactionOutputSlot[];
+  outputObjects?: SupportServiceTransactionOutputObjectSnapshot[];
+  outputReports?: SupportServiceTransactionOutputReportSnapshot[];
   missingRequiredInputRoles?: string[];
   notes?: string;
 }
@@ -157,7 +169,8 @@ export interface SupportServiceTransactionRecord {
   requesterEmail: string;
   subjectId: string;
   inputs: SupportServiceTransactionInputSlot[];
-  outputs: SupportServiceTransactionOutputSlot[];
+  outputObjects: SupportServiceTransactionOutputObjectSnapshot[];
+  outputReports: SupportServiceTransactionOutputReportSnapshot[];
   missingRequiredInputRoles: string[];
   notes: string;
   normalizedName: string;
@@ -509,11 +522,22 @@ function normalizeOfferStatus(value: unknown): SupportServiceOfferStatus {
 
 function normalizeTransactionStatus(
   value: unknown,
+  rejectUnsupported = false,
 ): SupportServiceTransactionStatus {
   const normalized = normalizeKey(cleanString(value));
-  return TRANSACTION_STATUS_SET.has(normalized)
-    ? (normalized as SupportServiceTransactionStatus)
-    : "draft";
+  if (!normalized) {
+    return "received";
+  }
+  if (TRANSACTION_STATUS_SET.has(normalized)) {
+    return normalized as SupportServiceTransactionStatus;
+  }
+  if (rejectUnsupported) {
+    throw new AdminRepositoryError(
+      `Unsupported service transaction status: ${cleanString(value)}.`,
+      400,
+    );
+  }
+  return "received";
 }
 
 function objectRefFromUnknown(
@@ -569,30 +593,61 @@ function inputSlotsFromUnknown(
     );
 }
 
-function outputSlotsFromUnknown(
+function outputObjectsFromUnknown(
   value: unknown,
-): SupportServiceTransactionOutputSlot[] {
+): SupportServiceTransactionOutputObjectSnapshot[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
-  return value
-    .map((item) => {
-      if (!item || typeof item !== "object" || Array.isArray(item)) {
-        return null;
-      }
-
-      const record = item as Record<string, unknown>;
-      const role = cleanString(record.role);
-      const objectRef = objectRefFromUnknown(
-        record.objectRef ?? record.object_ref,
+  return value.map((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new AdminRepositoryError(
+        `Output object snapshot ${index + 1} must be an object.`,
+        400,
       );
+    }
 
-      return role && objectRef ? { role, objectRef } : null;
-    })
-    .filter((item): item is SupportServiceTransactionOutputSlot =>
-      Boolean(item),
-    );
+    const record = item as Record<string, unknown>;
+    const role = cleanString(record.role);
+    const objectType = cleanString(record.objectType ?? record.object_type);
+    const objectCode = cleanString(record.objectCode ?? record.object_code);
+    if (!role || !objectType || !objectCode) {
+      throw new AdminRepositoryError(
+        `Output object snapshot ${index + 1} requires role, object type, and object code.`,
+        400,
+      );
+    }
+
+    return { role, objectType, objectCode };
+  });
+}
+
+function outputReportsFromUnknown(
+  value: unknown,
+): SupportServiceTransactionOutputReportSnapshot[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new AdminRepositoryError(
+        `Output report snapshot ${index + 1} must be an object.`,
+        400,
+      );
+    }
+
+    const record = item as Record<string, unknown>;
+    const reportCode = cleanString(record.reportCode ?? record.report_code);
+    if (!reportCode) {
+      throw new AdminRepositoryError(
+        `Output report snapshot ${index + 1} requires a report code.`,
+        400,
+      );
+    }
+    return { reportCode };
+  });
 }
 
 function offerDocument(input: SupportServiceOfferInput) {
@@ -643,11 +698,12 @@ function transactionDocument(input: SupportServiceTransactionInput) {
     requestId,
     serviceId,
     serviceVersion: versionNumber(input.serviceVersion),
-    status: normalizeTransactionStatus(input.status),
+    status: normalizeTransactionStatus(input.status, true),
     requesterEmail,
     subjectId,
     inputs: inputSlotsFromUnknown(input.inputs),
-    outputs: outputSlotsFromUnknown(input.outputs),
+    output_objects: outputObjectsFromUnknown(input.outputObjects),
+    output_reports: outputReportsFromUnknown(input.outputReports),
     missingRequiredInputRoles: cleanStringArray(input.missingRequiredInputRoles),
     notes: cleanString(input.notes),
     normalizedName: normalizeName(`${requestId} ${serviceId} ${requesterEmail}`),
@@ -1003,11 +1059,14 @@ function validateTransactionDocument(
   const offerOutputRoles = new Set(
     offer?.outputSlots.map((slot) => cleanString(slot.role)) ?? [],
   );
+  const offerOutputSlots = new Map(
+    offer?.outputSlots.map((slot) => [cleanString(slot.role), slot]) ?? [],
+  );
   const formRole = cleanString(
     offer?.inputSlots.find((slot) => slot.objectType === FORM_OBJECT_TYPE)?.role,
   );
   const suppliedInputRoles = new Set<string>();
-  for (const slot of [...document.inputs, ...document.outputs]) {
+  for (const slot of document.inputs) {
     if (!/^[a-z][a-z0-9_]*$/.test(slot.role)) {
       throw new AdminRepositoryError(
         "Transaction slot roles must be lowercase identifier keys.",
@@ -1030,13 +1089,65 @@ function validateTransactionDocument(
     }
     suppliedInputRoles.add(slot.role);
   }
-  for (const slot of document.outputs) {
-    if (offer && !offerOutputRoles.has(slot.role)) {
+  const suppliedOutputRoles = new Set<string>();
+  for (const output of document.output_objects) {
+    if (!/^[a-z][a-z0-9_]*$/.test(output.role)) {
       throw new AdminRepositoryError(
-        `Output slot ${slot.role} is not declared by the selected service offer.`,
+        "Output object roles must be lowercase identifier keys.",
         400,
       );
     }
+    if (suppliedOutputRoles.has(output.role)) {
+      throw new AdminRepositoryError(
+        `Duplicate output object role: ${output.role}.`,
+        400,
+      );
+    }
+    suppliedOutputRoles.add(output.role);
+    if (!/^\d{9}$/.test(output.objectCode)) {
+      throw new AdminRepositoryError(
+        `Output object ${output.role} must use a 9-digit object code.`,
+        400,
+      );
+    }
+    if (!/^pgo_[a-z0-9_]+$/.test(output.objectType)) {
+      throw new AdminRepositoryError(
+        `Output object ${output.role} must declare a concrete pgo_* object type.`,
+        400,
+      );
+    }
+    if (offer && !offerOutputRoles.has(output.role)) {
+      throw new AdminRepositoryError(
+        `Output object ${output.role} is not declared by the selected service offer.`,
+        400,
+      );
+    }
+    const promisedSlot = offerOutputSlots.get(output.role);
+    if (promisedSlot) {
+      const promisedType = resolvedOutputObjectType(promisedSlot, offer);
+      if (output.objectType !== promisedType) {
+        throw new AdminRepositoryError(
+          `Output object ${output.role} must be ${promisedType}, not ${output.objectType}.`,
+          400,
+        );
+      }
+    }
+  }
+  const suppliedReportCodes = new Set<string>();
+  for (const report of document.output_reports) {
+    if (!/^[A-Z0-9]{6}$/.test(report.reportCode)) {
+      throw new AdminRepositoryError(
+        "Output reports must use an uppercase 6-character alphanumeric report code.",
+        400,
+      );
+    }
+    if (suppliedReportCodes.has(report.reportCode)) {
+      throw new AdminRepositoryError(
+        `Duplicate output report code: ${report.reportCode}.`,
+        400,
+      );
+    }
+    suppliedReportCodes.add(report.reportCode);
   }
   if (formRole && !suppliedInputRoles.has(formRole)) {
     throw new AdminRepositoryError(
@@ -1064,12 +1175,113 @@ function validateTransactionDocument(
       );
     }
   }
-  if (document.status === "completed" && document.outputs.length === 0) {
-    throw new AdminRepositoryError(
-      "Completed transactions require at least one output object.",
-      400,
-    );
+  if (document.status === "delivered") {
+    const expectedRoles = [...offerOutputRoles];
+    if (document.output_objects.length !== expectedRoles.length) {
+      throw new AdminRepositoryError(
+        "Delivered transactions require exactly one output object for every promised output slot.",
+        400,
+      );
+    }
+    for (const role of expectedRoles) {
+      if (!suppliedOutputRoles.has(role)) {
+        throw new AdminRepositoryError(
+          `Delivered transaction is missing promised output role ${role}.`,
+          400,
+        );
+      }
+    }
   }
+}
+
+function resolvedOutputObjectType(
+  slot: Record<string, unknown>,
+  offer?: SupportServiceOfferRecord,
+) {
+  const objectType = cleanString(slot.objectType);
+  if (!objectType.startsWith("same_as:")) {
+    return objectType;
+  }
+
+  const inputRole = cleanString(slot.sameIdentityAsInput) || objectType.slice(8);
+  return (
+    cleanString(
+      offer?.inputSlots.find((input) => cleanString(input.role) === inputRole)
+        ?.objectType,
+    ) || ""
+  );
+}
+
+async function assertDeliveredOutputObjectsAvailable(
+  document: ReturnType<typeof transactionDocument>,
+) {
+  if (document.status !== "delivered") {
+    return;
+  }
+
+  await Promise.all(
+    document.output_objects.map(async (output) => {
+      const codeSnapshot = await adminDb
+        .collection(OBJECT_CODES_COLLECTION)
+        .doc(output.objectCode)
+        .get();
+      if (!codeSnapshot.exists) {
+        throw new AdminRepositoryError(
+          `Output object code ${output.objectCode} does not exist.`,
+          400,
+        );
+      }
+
+      const codeData = codeSnapshot.data() ?? {};
+      const uploadedObjectId = cleanString(codeData.uploaded_object_id);
+      if (!uploadedObjectId) {
+        throw new AdminRepositoryError(
+          `Output object code ${output.objectCode} has no uploaded object.`,
+          400,
+        );
+      }
+
+      const objectSnapshot = await adminDb
+        .collection(UPLOADED_OBJECTS_COLLECTION)
+        .doc(uploadedObjectId)
+        .get();
+      if (!objectSnapshot.exists) {
+        throw new AdminRepositoryError(
+          `Uploaded object for code ${output.objectCode} does not exist.`,
+          400,
+        );
+      }
+
+      const objectData = objectSnapshot.data() ?? {};
+      if (cleanString(objectData.object_code) !== output.objectCode) {
+        throw new AdminRepositoryError(
+          `Uploaded object does not belong to object code ${output.objectCode}.`,
+          400,
+        );
+      }
+      if (cleanString(objectData.object_type) !== output.objectType) {
+        throw new AdminRepositoryError(
+          `Uploaded object ${output.objectCode} does not match ${output.objectType}.`,
+          400,
+        );
+      }
+      if (cleanString(objectData.tracking_progress_status) !== "document_ready") {
+        throw new AdminRepositoryError(
+          `Output object ${output.objectCode} is not ready for download.`,
+          400,
+        );
+      }
+      if (
+        !cleanString(objectData.download_url) &&
+        !cleanString(objectData.linked_file_id)
+      ) {
+        throw new AdminRepositoryError(
+          `Output object ${output.objectCode} has no downloadable payload.`,
+          400,
+        );
+      }
+    }),
+  );
 }
 
 function toOfferRecord(id: string, data: Record<string, unknown>) {
@@ -1135,11 +1347,12 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
     requestId,
     serviceId,
     serviceVersion: versionNumber(data.serviceVersion ?? data.service_version),
-    status: normalizeTransactionStatus(data.status),
+    status: normalizeTransactionStatus(data.status, true),
     requesterEmail,
     subjectId: cleanString(data.subjectId ?? data.subject_id),
     inputs: inputSlotsFromUnknown(data.inputs),
-    outputs: outputSlotsFromUnknown(data.outputs),
+    outputObjects: outputObjectsFromUnknown(data.output_objects),
+    outputReports: outputReportsFromUnknown(data.output_reports),
     missingRequiredInputRoles: cleanStringArray(
       data.missingRequiredInputRoles ?? data.missing_required_input_roles,
     ),
@@ -1527,6 +1740,7 @@ export async function createSupportServiceTransaction(
   }
   const document = applyTransactionOfferContract(initialDocument, offer);
   validateTransactionDocument(document, offer);
+  await assertDeliveredOutputObjectsAvailable(document);
 
   const ref = adminDb.collection(SERVICE_TRANSACTIONS_COLLECTION).doc();
   await ref.set(
@@ -1573,8 +1787,10 @@ export async function updateSupportServiceTransaction(
     { serviceVersion: previous.serviceVersion },
   );
   validateTransactionDocument(document, offer);
+  await assertDeliveredOutputObjectsAvailable(document);
   await snapshot.ref.set(
     withoutUndefined({
+      ...(snapshot.data() ?? {}),
       ...document,
       createdAt: snapshot.data()?.createdAt,
       createdByEmail: snapshot.data()?.createdByEmail,
@@ -1583,7 +1799,59 @@ export async function updateSupportServiceTransaction(
     }),
   );
 
+  await updateRequestedTransactionSummary(
+    snapshot.data() ?? {},
+    previous.requestId,
+    document.status,
+  );
+
   return getSupportServiceTransaction(context, snapshot.id);
+}
+
+async function updateRequestedTransactionSummary(
+  transactionData: Record<string, unknown>,
+  requestId: string,
+  status: SupportServiceTransactionStatus,
+) {
+  const requestedByUserId = cleanString(transactionData.requestedByUserId);
+  if (!requestedByUserId) {
+    return;
+  }
+
+  const userRef = adminDb
+    .collection(COMMUNITY_USERS_COLLECTION)
+    .doc(requestedByUserId);
+  const userSnapshot = await userRef.get();
+  if (!userSnapshot.exists) {
+    return;
+  }
+
+  const userData = userSnapshot.data() ?? {};
+  const summaries = Array.isArray(userData[REQUESTED_TRANSACTIONS_FIELD])
+    ? (userData[REQUESTED_TRANSACTIONS_FIELD] as unknown[])
+    : [];
+  let changed = false;
+  const updatedSummaries = summaries.map((summary) => {
+    if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
+      return summary;
+    }
+    const record = summary as Record<string, unknown>;
+    if (cleanString(record.serviceTransactionId) !== requestId) {
+      return summary;
+    }
+    changed = true;
+    return { ...record, status };
+  });
+
+  if (changed) {
+    await userRef.set(
+      {
+        [REQUESTED_TRANSACTIONS_FIELD]: updatedSummaries,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
 }
 
 export async function deleteSupportServiceTransaction(

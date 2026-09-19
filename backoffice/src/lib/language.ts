@@ -4718,6 +4718,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add output slot": "Agregar slot de salida",
   "All stages": "Todas las etapas",
   "Awaiting input": "Esperando entrada",
+  Accepted: "Aceptada",
+  Rejected: "Rechazada",
+  Validating: "Validando",
   "Back to Service Offers": "Volver a ofertas de servicio",
   "Back to Service Transactions": "Volver a transacciones de servicio",
   Bioinformatics: "Bioinformática",
@@ -4811,6 +4814,17 @@ const SPANISH_TEXT: Record<string, string> = {
   "Optional general category": "Categoría general opcional",
   Options: "Opciones",
   "Output object bindings": "Vínculos de objetos de salida",
+  "Delivered output objects": "Objetos de salida entregados",
+  "Promised object type": "Tipo de objeto prometido",
+  "Object code": "Código de objeto",
+  "Optional report codes": "Códigos de informe opcionales",
+  "One 6-character report code per line": "Un código de informe de 6 caracteres por línea",
+  "Reports may accompany a delivery, but they are not validated as service contract outputs.":
+    "Los informes pueden acompañar una entrega, pero no se validan como salidas obligatorias del contrato del servicio.",
+  "The linked service contract has no output slots.":
+    "El contrato de servicio vinculado no tiene slots de salida.",
+  "Delivered is accepted only after every code resolves to a ready uploaded object of the promised type.":
+    "El estado Entregada solo se acepta cuando cada código resuelve a un objeto cargado, listo y del tipo prometido.",
   Outputs: "Salidas",
   "Output slots": "Slots de salida",
   Paused: "Pausado",

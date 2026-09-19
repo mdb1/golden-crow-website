@@ -12,12 +12,14 @@ export const SUPPORT_SERVICE_OFFER_STATUSES = [
 ] as const;
 
 export const SUPPORT_SERVICE_TRANSACTION_STATUSES = [
-  { value: "draft", label: "Draft" },
-  { value: "submitted", label: "Submitted" },
+  { value: "received", label: "Received" },
+  { value: "validating", label: "Validating" },
   { value: "awaiting_input", label: "Awaiting input" },
   { value: "accepted", label: "Accepted" },
-  { value: "in_progress", label: "In progress" },
-  { value: "completed", label: "Completed" },
+  { value: "queued", label: "Queued" },
+  { value: "running", label: "Running" },
+  { value: "delivered", label: "Delivered" },
+  { value: "rejected", label: "Rejected" },
   { value: "failed", label: "Failed" },
   { value: "cancelled", label: "Cancelled" },
 ] as const;
@@ -151,6 +153,16 @@ export interface SupportServiceTransactionSlot {
   objectRef: SupportServiceObjectRef;
 }
 
+export interface SupportServiceTransactionOutputObject {
+  role: string;
+  objectType: string;
+  objectCode: string;
+}
+
+export interface SupportServiceTransactionOutputReport {
+  reportCode: string;
+}
+
 export interface SupportServiceTransactionInput {
   requestId: string;
   serviceId: string;
@@ -159,7 +171,8 @@ export interface SupportServiceTransactionInput {
   requesterEmail?: string;
   subjectId?: string;
   inputs?: SupportServiceTransactionSlot[];
-  outputs?: SupportServiceTransactionSlot[];
+  outputObjects?: SupportServiceTransactionOutputObject[];
+  outputReports?: SupportServiceTransactionOutputReport[];
   missingRequiredInputRoles?: string[];
   notes?: string;
 }
