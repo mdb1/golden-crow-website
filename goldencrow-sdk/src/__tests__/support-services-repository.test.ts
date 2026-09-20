@@ -44,6 +44,9 @@ function docRef(collectionName: string, id: string) {
         clone(options?.merge ? { ...previous, ...data } : data),
       );
     },
+    async delete() {
+      collectionStore(collectionName).delete(id);
+    },
   };
 }
 
@@ -379,5 +382,66 @@ describe("support service delivered transactions", () => {
     ).rejects.toThrow(
       "Output object snapshot 1 requires role, object type, and object code.",
     );
+  });
+
+  it("removes requester and organization references when deleting a transaction", async () => {
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      requestedByUserId: "user-1",
+    });
+    const matchingSummary = {
+      serviceTransactionId: transaction.requestId,
+      status: transaction.status,
+    };
+    const retainedSummary = {
+      serviceTransactionId: "pgr_other_1",
+      status: "received",
+    };
+    seedDoc("community_users", "user-1", {
+      requestedServiceTransactions: [matchingSummary, retainedSummary],
+    });
+    seedDoc("feed_organizations", "feed-org-1", {
+      name: "Pocket Genes",
+      requestedServiceTransactions: [matchingSummary, retainedSummary],
+    });
+    const { deleteSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await deleteSupportServiceTransaction(context, "transaction-1");
+
+    expect(collectionStore("service_transactions").has("transaction-1")).toBe(
+      false,
+    );
+    expect(collectionStore("community_users").get("user-1")).toMatchObject({
+      requestedServiceTransactions: [retainedSummary],
+    });
+    expect(collectionStore("feed_organizations").get("feed-org-1")).toMatchObject(
+      { requestedServiceTransactions: [retainedSummary] },
+    );
+  });
+
+  it("removes the recipient reference from an individual provider", async () => {
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      providerKind: "individual",
+      providerId: "feed-individual-1",
+      providerName: "Dr. Example",
+    });
+    seedDoc("feed_individuals", "feed-individual-1", {
+      name: "Dr. Example",
+      requestedServiceTransactions: [
+        { serviceTransactionId: transaction.requestId },
+      ],
+    });
+    const { deleteSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await deleteSupportServiceTransaction(context, transaction.requestId);
+
+    expect(
+      collectionStore("feed_individuals").get("feed-individual-1"),
+    ).toMatchObject({ requestedServiceTransactions: [] });
   });
 });

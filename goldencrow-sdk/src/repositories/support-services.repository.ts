@@ -1860,6 +1860,46 @@ async function updateRequestedTransactionSummary(
   }
 }
 
+async function removeRequestedTransactionSummary(
+  collectionName: string,
+  documentId: string,
+  transactionIds: Set<string>,
+) {
+  if (!documentId) {
+    return;
+  }
+
+  const ref = adminDb.collection(collectionName).doc(documentId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) {
+    return;
+  }
+
+  const data = snapshot.data() ?? {};
+  const summaries = Array.isArray(data[REQUESTED_TRANSACTIONS_FIELD])
+    ? (data[REQUESTED_TRANSACTIONS_FIELD] as unknown[])
+    : [];
+  const remainingSummaries = summaries.filter((summary) => {
+    if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
+      return true;
+    }
+    const serviceTransactionId = cleanString(
+      (summary as Record<string, unknown>).serviceTransactionId,
+    );
+    return !transactionIds.has(serviceTransactionId);
+  });
+
+  if (remainingSummaries.length !== summaries.length) {
+    await ref.set(
+      {
+        [REQUESTED_TRANSACTIONS_FIELD]: remainingSummaries,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+}
+
 export async function deleteSupportServiceTransaction(
   context: AdminContext,
   transactionId: string,
@@ -1870,5 +1910,36 @@ export async function deleteSupportServiceTransaction(
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
 
+  const transactionData = snapshot.data() ?? {};
+  const requestId = cleanString(transactionData.requestId);
+  const transactionIds = new Set(
+    [snapshot.id, requestId, cleanString(transactionId)].filter(Boolean),
+  );
+  const requestedByUserId = cleanString(transactionData.requestedByUserId);
+  const offerSnapshot = await getOfferSnapshotByServiceId(
+    cleanString(transactionData.serviceId),
+  );
+  const offer = offerSnapshot
+    ? toOfferRecord(offerSnapshot.id, offerSnapshot.data() ?? {})
+    : null;
+
+  await Promise.all([
+    removeRequestedTransactionSummary(
+      COMMUNITY_USERS_COLLECTION,
+      requestedByUserId,
+      transactionIds,
+    ),
+    ...(offer
+      ? [
+          removeRequestedTransactionSummary(
+            offer.providerKind === "individual"
+              ? FEED_INDIVIDUALS_COLLECTION
+              : FEED_ORGANIZATIONS_COLLECTION,
+            offer.providerId,
+            transactionIds,
+          ),
+        ]
+      : []),
+  ]);
   await snapshot.ref.delete();
 }
