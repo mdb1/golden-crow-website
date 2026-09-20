@@ -8,16 +8,8 @@
 //   • Too eager to SKIP → the backoffice quietly stops shipping. Every deploy
 //     looks fine, nothing turns red, and the bug is only found when someone
 //     notices a merged change never went live.
-//   • Too eager to BUILD → the fix does nothing. Coaches keep losing their
-//     filled-in forms to Server Action IDs rotating under them, and the file
-//     sitting in the repo reads like the problem was handled.
-//
-// The second one is not hypothetical: `.githooks/pre-commit` rewrites
-// `backoffice/src/lib/app-version.ts` on EVERY commit in this repo, so the
-// obvious "did backoffice/ change?" test answers YES for every commit ever
-// made. The exclusion of that one file is the entire fix, and the
-// "a marketing commit still bumps the version counter" case below is the one
-// that catches its removal.
+//   • Too eager to SKIP → the operator-visible version lags behind the pushed
+//     version and can no longer prove which release is running.
 //
 // Each case builds a throwaway git repo so the assertions are about real git
 // behavior — pathspecs, exit codes, a missing HEAD^ — rather than a mock of it.
@@ -112,23 +104,19 @@ describe("production", () => {
     expect(run()).toBe(RUN_BUILD);
   });
 
-  it("SKIPS a marketing commit that still bumps the version counter", () => {
-    // THE CASE THE WHOLE FIX EXISTS FOR. Verified against the five real
-    // 2026-09-14 commits in the issue: three of them look exactly like this.
-    // Without the `:(exclude)` pathspec this returns RUN_BUILD and the fix is
-    // a no-op that nothing would have noticed.
+  it("BUILDS a marketing commit that bumps the visible version counter", () => {
     write("pocket-genes/index.astro", "<html>new copy</html>");
     bumpVersionCounter();
     commit("Use gray event preview section headings");
 
-    expect(run()).toBe(SKIP_BUILD);
+    expect(run()).toBe(RUN_BUILD);
   });
 
-  it("SKIPS a commit that changes nothing but the version counter", () => {
+  it("BUILDS a commit that changes nothing but the version counter", () => {
     bumpVersionCounter();
     commit("bump only");
 
-    expect(run()).toBe(SKIP_BUILD);
+    expect(run()).toBe(RUN_BUILD);
   });
 
   it("BUILDS when backoffice changed alongside marketing", () => {

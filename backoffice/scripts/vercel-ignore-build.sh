@@ -53,28 +53,16 @@ if ! grep -q '"name": *"backoffice"' package.json 2>/dev/null; then
   exit 1
 fi
 
-# ── 3. Did this commit touch the backoffice, beyond the auto-bumped version? ─
-# THE EXCLUSION IS THE WHOLE FIX. `.githooks/pre-commit` runs
-# `bump-sidebar-version.py` on EVERY commit in this repo, which rewrites
-# `backoffice/src/lib/app-version.ts`. So a plain "did backoffice/ change?"
-# test answers YES for every commit ever made — a path filter without this line
-# would skip nothing and read as working. Checked against the five 2026-09-14
-# commits from the issue: all five touch app-version.ts and nothing else under
-# backoffice/ for three of them.
-#
-# The cost is that a push which only bumps the counter leaves the sidebar
-# showing the previous number. That is the right trade and arguably a fix on
-# its own: the number is a repo-wide COMMIT counter, not a deploy marker (it
-# moves for pocket-genes commits too), so today it routinely names a commit
-# that was never built. After this, it names the commit that produced the
-# running build.
+# ── 3. Did this commit touch the backoffice? ─────────────────────────────────
+# `.githooks/pre-commit` bumps `src/lib/app-version.ts` on every pushed commit.
+# That visible version is the operator's proof of the running release, so it
+# must count as a backoffice change and trigger a production deployment.
 #
 # `git diff --quiet` exits 0 when there is NO diff, 1 when there is one, and
 # 128 when git itself fails (a shallow clone with no HEAD^, say). Only the
 # explicit "no diff" answer is allowed to skip; everything else builds.
-VERSION_FILE_PATHSPEC=':(exclude)src/lib/app-version.ts'
-if git diff --quiet "HEAD^" "HEAD" -- . "$VERSION_FILE_PATHSPEC" 2>/dev/null; then
-  log "no changes under backoffice/ in $(git rev-parse --short HEAD) beyond the version bump — skipping build."
+if git diff --quiet "HEAD^" "HEAD" -- . 2>/dev/null; then
+  log "no changes under backoffice/ in $(git rev-parse --short HEAD) — skipping build."
   log "Server Action IDs keep pointing at the deployment coaches already have open."
   exit 0
 fi

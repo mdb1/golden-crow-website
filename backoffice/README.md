@@ -450,22 +450,19 @@ inverted: 0 aborts, 1 builds) when a production commit changed nothing under
 `backoffice/`. A canceled build is never promoted, so the production alias
 keeps pointing at the deployment coaches already have open and no IDs rotate.
 
-Two things about it are easy to get wrong and both are silent:
+Two things about it are important:
 
-- **The `:(exclude)src/lib/app-version.ts` pathspec is the entire fix.**
-  `.githooks/pre-commit` runs `bump-sidebar-version.py` on EVERY commit in this
-  repo, so a plain "did `backoffice/` change?" test answers YES always. Drop the
-  exclusion and the file still reads like the problem is handled while nothing
-  is ever skipped. The trade is that the sidebar number lags a marketing-only
-  push — which is arguably right, since it then names the commit that actually
-  produced the running build (it is a repo-wide commit counter, not a version).
+- **The visible version bump counts as a backoffice change.**
+  `.githooks/pre-commit` runs `bump-sidebar-version.py` on every pushed commit.
+  Production redeploys when that file changes so the authentication screen
+  always shows the committed version and operators can verify the bump shipped.
 - **It runs from the Root Directory** (`backoffice/`), so `.` means the
   backoffice subtree. The script asserts this via `package.json` and builds on
   any doubt, because the dangerous failure is a confident wrong "nothing
   changed" that stops shipping the backoffice with every deploy looking green.
 
 `scripts/__tests__/vercel-ignore-build.test.ts` drives it through real throwaway
-git repos. Mutate the exclusion away and two cases go red.
+git repos, including version-only and marketing-plus-version commits.
 
 Note this only helps commits that leave `backoffice/` alone. The `discover`
 surface (MyDNAMap) lives in the same Next app, so its commits legitimately
