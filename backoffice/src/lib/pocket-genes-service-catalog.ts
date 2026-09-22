@@ -153,6 +153,7 @@ export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
         type:
           (cleanString(field.type) as SupportServiceFormFieldType) || "text",
         required: Boolean(field.required),
+        helpInfoText: cleanString(field.helpInfoText) || undefined,
         options: recordArray(field.options).map((option) => ({
           value: cleanString(option.value),
           label: cleanString(option.label),

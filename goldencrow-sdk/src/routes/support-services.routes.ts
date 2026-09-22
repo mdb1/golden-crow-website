@@ -28,14 +28,27 @@ const TransactionStatusSchema = z.enum(SUPPORT_SERVICE_TRANSACTION_STATUSES);
 const FORM_OBJECT_TYPE = "pgo_form";
 const FormFieldTypeSchema = z.enum([
   "text",
+  "long_text",
+  "email",
+  "phone",
+  "url",
+  "address",
+  "postal_code",
+  "country_code",
+  "identifier",
   "number",
   "integer",
+  "positive_integer",
+  "percentage",
   "boolean",
   "date",
   "datetime",
+  "time",
   "enum",
   "multi_enum",
   "string_list",
+  "integer_list",
+  "number_list",
 ]);
 const MutationModeSchema = z.enum(["new_object", "new_revision"]);
 const ProviderKindSchema = z.enum(["organization", "individual"]);
@@ -97,19 +110,26 @@ const ObjectRefSchema = z.object({
   revision: z.coerce.number().int().positive(),
 });
 const FormFieldOptionSchema = z.object({
-  value: z.string().trim().min(1).max(120),
-  label: z.string().trim().min(1).max(180),
-});
+  value: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/),
+  label: z.string().trim().min(1).max(120),
+}).strict();
 const FormFieldSchema = z.object({
   key: z
     .string()
     .trim()
-    .regex(/^[a-z][a-z0-9_]*$/, "Use a lowercase form field key."),
-  label: z.string().trim().min(1).max(180),
+    .regex(
+      /^[a-z][a-z0-9_]{0,63}$/,
+      "Use a lowercase form field key up to 64 characters.",
+    ),
+  label: z.string().trim().min(1).max(120),
   type: FormFieldTypeSchema,
   required: z.boolean(),
-  options: z.array(FormFieldOptionSchema).max(50).optional(),
-});
+  options: z.array(FormFieldOptionSchema).max(100).optional(),
+  helpInfoText: z.string().trim().min(1).max(500).optional(),
+}).strict();
 const FormShapeSchema = z.object({
   id: FormShapeIdSchema,
   version: VersionSchema.optional(),
@@ -117,7 +137,7 @@ const FormShapeSchema = z.object({
     .literal(false)
     .describe("Support service forms reject undeclared fields."),
   fields: z.array(FormFieldSchema).min(2).max(100),
-});
+}).strict();
 const InputSlotSchema = z.object({
   role: RoleSchema,
   objectType: ServiceObjectTypeSchema,

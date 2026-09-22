@@ -1394,6 +1394,7 @@ function offerPayloadFromForm(
           label: field.label.trim(),
           type: field.type,
           required: field.required,
+          helpInfoText: field.helpInfoText?.trim() || undefined,
           options:
             field.type === "enum" || field.type === "multi_enum"
               ? parseOptionsText(field.optionsText)
@@ -3832,6 +3833,7 @@ function FormShapeEditor({
       label: "",
       type: "text",
       required: false,
+      helpInfoText: "",
       options: [],
       optionsText: "",
     };
@@ -3886,6 +3888,7 @@ function FormShapeEditor({
       ...draft,
       key: draft.key.trim(),
       label: draft.label.trim(),
+      helpInfoText: draft.helpInfoText?.trim() || undefined,
       options:
         draft.type === "enum" || draft.type === "multi_enum"
           ? parseOptionsText(draft.optionsText)
@@ -3967,6 +3970,7 @@ function FormShapeEditor({
                   <TableHead>{t("Label")}</TableHead>
                   <TableHead>{t("Type")}</TableHead>
                   <TableHead>{t("Required")}</TableHead>
+                  <TableHead>{t("Help info")}</TableHead>
                   <TableHead>{t("Options")}</TableHead>
                   <TableHead className="text-right">{t("Actions")}</TableHead>
                 </TableRow>
@@ -3993,6 +3997,9 @@ function FormShapeEditor({
                       ) : (
                         <span className="text-sm text-muted-foreground">-</span>
                       )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {field.helpInfoText || "-"}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {splitLines(field.optionsText).length || "-"}
@@ -4108,6 +4115,19 @@ function FormShapeEditor({
                       <span>{t("Required")}</span>
                     </label>
                   </div>
+                  <Field label="Help info text">
+                    <Textarea
+                      value={fieldDialog.draft.helpInfoText ?? ""}
+                      onChange={(event) =>
+                        updateFieldDraft({ helpInfoText: event.target.value })
+                      }
+                      rows={3}
+                      maxLength={500}
+                      placeholder={t(
+                        "Optional guidance shown from the field info button.",
+                      )}
+                    />
+                  </Field>
                   <Field label="Options">
                     <Textarea
                       value={fieldDialog.draft.optionsText}

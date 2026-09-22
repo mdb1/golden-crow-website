@@ -295,15 +295,33 @@ const PRICING_MODEL_SET = new Set<string>([
 const OBJECT_TYPE_SET = new Set<string>(SUPPORT_SERVICE_OBJECT_TYPES);
 const FORM_FIELD_TYPE_SET = new Set([
   "text",
+  "long_text",
+  "email",
+  "phone",
+  "url",
+  "address",
+  "postal_code",
+  "country_code",
+  "identifier",
   "number",
   "integer",
+  "positive_integer",
+  "percentage",
   "boolean",
   "date",
   "datetime",
+  "time",
   "enum",
   "multi_enum",
   "string_list",
+  "integer_list",
+  "number_list",
 ]);
+const ISO_COUNTRY_CODES = new Set(
+  "AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW".split(
+    " ",
+  ),
+);
 const PUBLISHED_OFFER_STATUSES = new Set<SupportServiceOfferStatus>([
   "active",
   "inactive",
@@ -756,6 +774,11 @@ function normalizeFormShape(value: unknown, serializedPgoShape = false) {
     throw new AdminRepositoryError("Form shape fields must be an array.", 400);
   }
   const fields = optionalRecordArray(formShape.fields).map((field) => {
+    rejectForbiddenKeys(
+      field,
+      serializedPgoShape ? ["helpInfoText"] : ["help_info_text"],
+      serializedPgoShape ? "Serialized PGO form field" : "Service form field",
+    );
     if (typeof field.required !== "boolean") {
       throw new AdminRepositoryError(
         `Form field ${cleanString(field.key) || "(unknown)"} required must be a boolean.`,
@@ -769,7 +792,20 @@ function normalizeFormShape(value: unknown, serializedPgoShape = false) {
         400,
       );
     }
-    return {
+    const helpInfoTextKey = serializedPgoShape
+      ? "help_info_text"
+      : "helpInfoText";
+    const helpInfoText = cleanString(field[helpInfoTextKey]);
+    if (
+      field[helpInfoTextKey] != null &&
+      (!helpInfoText || helpInfoText.length > 500)
+    ) {
+      throw new AdminRepositoryError(
+        `Form field ${cleanString(field.key) || "(unknown)"} help info must contain 1 to 500 characters.`,
+        400,
+      );
+    }
+    return withoutUndefined({
       key: cleanString(field.key),
       label: cleanString(field.label),
       type,
@@ -778,7 +814,8 @@ function normalizeFormShape(value: unknown, serializedPgoShape = false) {
         value: cleanString(option.value),
         label: cleanString(option.label) || cleanString(option.value),
       })),
-    };
+      helpInfoText: helpInfoText || undefined,
+    });
   });
   const allowUnknownFieldsKey = serializedPgoShape
     ? "allow_unknown_fields"
@@ -1638,7 +1675,7 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
       const label = cleanString(field.label);
       const type = cleanString(field.type);
       const options = optionalRecordArray(field.options);
-      if (!/^[a-z][a-z0-9_]*$/.test(key)) {
+      if (!/^[a-z][a-z0-9_]{0,63}$/.test(key)) {
         throw new AdminRepositoryError(
           "Form field keys must be lowercase identifier keys.",
           400,
@@ -1658,6 +1695,22 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
           400,
         );
       }
+      if (label.length > 120) {
+        throw new AdminRepositoryError(
+          `Form field ${key} label cannot exceed 120 characters.`,
+          400,
+        );
+      }
+      const helpInfoText = cleanString(field.helpInfoText);
+      if (
+        field.helpInfoText != null &&
+        (!helpInfoText || helpInfoText.length > 500)
+      ) {
+        throw new AdminRepositoryError(
+          `Form field ${key} help info must contain 1 to 500 characters.`,
+          400,
+        );
+      }
       if (["enum", "multi_enum"].includes(type) && options.length === 0) {
         throw new AdminRepositoryError(
           `Form field ${key} needs enum options.`,
@@ -1671,6 +1724,28 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         );
       }
       const optionValues = options.map((option) => cleanString(option.value));
+      if (options.length > 100) {
+        throw new AdminRepositoryError(
+          `Form field ${key} cannot declare more than 100 options.`,
+          400,
+        );
+      }
+      for (const option of options) {
+        const value = cleanString(option.value);
+        const optionLabel = cleanString(option.label);
+        if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) {
+          throw new AdminRepositoryError(
+            `Form field ${key} has an invalid option value.`,
+            400,
+          );
+        }
+        if (!optionLabel || optionLabel.length > 120) {
+          throw new AdminRepositoryError(
+            `Form field ${key} option labels must contain 1 to 120 characters.`,
+            400,
+          );
+        }
+      }
       if (new Set(optionValues).size !== optionValues.length) {
         throw new AdminRepositoryError(
           `Form field ${key} has duplicate option values.`,
@@ -2166,6 +2241,26 @@ function isValidDateTime(value: unknown) {
   );
 }
 
+function isValidHttpsUrl(value: unknown) {
+  if (typeof value !== "string" || value.trim() !== value) {
+    return false;
+  }
+  try {
+    const parsed = new URL(value);
+    return (
+      parsed.protocol.toLowerCase() === "https:" &&
+      Boolean(parsed.hostname) &&
+      !/\s/.test(parsed.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isValidTime(value: unknown) {
+  return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
 type NormalizedFormField = NonNullable<
   ReturnType<typeof normalizeFormShape>
 >["fields"][number];
@@ -2174,17 +2269,53 @@ function formAnswerMatchesField(value: unknown, field: NormalizedFormField) {
   const optionValues = new Set(field.options.map((option) => option.value));
   switch (field.type) {
     case "text":
+    case "long_text":
+    case "address":
       return typeof value === "string" && cleanString(value).length > 0;
+    case "email":
+      return (
+        typeof value === "string" &&
+        /^[^\s@]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/.test(
+          value,
+        )
+      );
+    case "phone":
+      return typeof value === "string" && /^\+[1-9]\d{7,14}$/.test(value);
+    case "url":
+      return isValidHttpsUrl(value);
+    case "postal_code":
+      return (
+        typeof value === "string" &&
+        /^[A-Za-z0-9](?:[A-Za-z0-9 -]{0,10}[A-Za-z0-9])?$/.test(value)
+      );
+    case "country_code":
+      return typeof value === "string" && ISO_COUNTRY_CODES.has(value);
+    case "identifier":
+      return (
+        typeof value === "string" &&
+        /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)
+      );
     case "number":
       return typeof value === "number" && Number.isFinite(value);
     case "integer":
       return typeof value === "number" && Number.isInteger(value);
+    case "positive_integer":
+      return typeof value === "number" && Number.isInteger(value) && value > 0;
+    case "percentage":
+      return (
+        typeof value === "number" &&
+        Number.isFinite(value) &&
+        value >= 0 &&
+        value <= 100
+      );
     case "boolean":
       return typeof value === "boolean";
     case "date":
       return isValidDateOnly(value);
     case "datetime":
       return isValidDateTime(value);
+    case "time":
+      return isValidTime(value);
     case "enum":
       return typeof value === "string" && optionValues.has(value);
     case "multi_enum":
@@ -2195,7 +2326,14 @@ function formAnswerMatchesField(value: unknown, field: NormalizedFormField) {
           (item): item is string =>
             typeof item === "string" && optionValues.has(item),
         ) &&
-        new Set(value).size === value.length
+        new Set(value).size === value.length &&
+        value.every(
+          (item, index) =>
+            index === 0 ||
+            field.options.findIndex(
+              (option) => option.value === value[index - 1],
+            ) < field.options.findIndex((option) => option.value === item),
+        )
       );
     case "string_list":
       return (
@@ -2204,6 +2342,22 @@ function formAnswerMatchesField(value: unknown, field: NormalizedFormField) {
         value.every(
           (item): item is string =>
             typeof item === "string" && cleanString(item).length > 0,
+        )
+      );
+    case "integer_list":
+      return (
+        Array.isArray(value) &&
+        value.length > 0 &&
+        value.every(
+          (item) => typeof item === "number" && Number.isInteger(item),
+        )
+      );
+    case "number_list":
+      return (
+        Array.isArray(value) &&
+        value.length > 0 &&
+        value.every(
+          (item) => typeof item === "number" && Number.isFinite(item),
         )
       );
     default:

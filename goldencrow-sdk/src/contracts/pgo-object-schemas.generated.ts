@@ -88,23 +88,39 @@ export const PGO_OBJECT_SCHEMAS: Readonly<
                   "properties": {
                     "key": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
                     },
                     "label": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 120
                     },
                     "type": {
                       "enum": [
                         "text",
+                        "long_text",
+                        "email",
+                        "phone",
+                        "url",
+                        "address",
+                        "postal_code",
+                        "country_code",
+                        "identifier",
                         "number",
                         "integer",
+                        "positive_integer",
+                        "percentage",
                         "boolean",
                         "date",
                         "datetime",
+                        "time",
                         "enum",
                         "multi_enum",
-                        "string_list"
+                        "string_list",
+                        "integer_list",
+                        "number_list"
                       ]
                     },
                     "required": {
@@ -112,16 +128,20 @@ export const PGO_OBJECT_SCHEMAS: Readonly<
                     },
                     "options": {
                       "type": "array",
+                      "maxItems": 100,
                       "items": {
                         "type": "object",
                         "properties": {
                           "value": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
                           },
                           "label": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "maxLength": 120
                           }
                         },
                         "required": [
@@ -130,6 +150,12 @@ export const PGO_OBJECT_SCHEMAS: Readonly<
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "help_info_text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500,
+                      "description": "Optional requester-facing guidance frozen with the immutable form shape."
                     }
                   },
                   "required": [

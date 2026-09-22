@@ -350,6 +350,7 @@ const baseOffer = {
         label: "Requested by",
         type: "text",
         required: true,
+        helpInfoText: "This value comes from the authenticated requester.",
       },
     ],
   },
@@ -544,6 +545,57 @@ describe("support service repository versions", () => {
 
     expect(offer.serviceVersion).toBe(4);
     expect(offer.formShape?.version).toBe(3);
+  });
+
+  it("persists the complete PGFS field vocabulary and camel-case help info", async () => {
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const newTypes = [
+      "long_text",
+      "email",
+      "phone",
+      "url",
+      "address",
+      "postal_code",
+      "country_code",
+      "identifier",
+      "positive_integer",
+      "percentage",
+      "time",
+      "integer_list",
+      "number_list",
+    ];
+
+    const offer = await updateSupportServiceOffer(context, "offer-1", {
+      ...baseOffer,
+      formShape: {
+        ...baseOffer.formShape,
+        fields: [
+          ...baseOffer.formShape.fields,
+          ...newTypes.map((type, index) => ({
+            key: `new_field_${index}`,
+            label: `New field ${index}`,
+            type,
+            required: false,
+            helpInfoText: `Guidance for ${type}`,
+          })),
+        ],
+      },
+    });
+
+    expect(offer.formShape?.fields.slice(2).map((field) => field.type)).toEqual(
+      newTypes,
+    );
+    expect(offer.formShape?.fields[2]).toEqual(
+      expect.objectContaining({
+        type: "long_text",
+        helpInfoText: "Guidance for long_text",
+      }),
+    );
+    expect(
+      collectionStore("service_offers").get("offer-1")?.formShape,
+    ).not.toHaveProperty("fields.2.help_info_text");
   });
 
   it("persists visibility without treating it as a contract version change", async () => {
@@ -836,6 +888,8 @@ describe("support service delivered transactions", () => {
                   type: "text",
                   required: true,
                   options: [],
+                  help_info_text:
+                    "This value comes from the authenticated requester.",
                 },
               ],
             },
@@ -2181,6 +2235,8 @@ describe("support service canonical transaction creation", () => {
                     type: "text",
                     required: true,
                     options: [],
+                    help_info_text:
+                      "This value comes from the authenticated requester.",
                   },
                 ],
               },
@@ -2339,6 +2395,121 @@ describe("support service canonical transaction creation", () => {
     expect(created.inputs[0]!.objectSnapshot.createdAt).toBe(
       "2026-09-16T11:59:00.000Z",
     );
+  });
+
+  it("validates new PGFS answer types and preserves frozen help info", async () => {
+    const input = creationInput();
+    const fields = [
+      { key: "contact", label: "Contact", type: "email", value: "user@example.com" },
+      { key: "phone", label: "Phone", type: "phone", value: "+5491112345678" },
+      { key: "portal", label: "Portal", type: "url", value: "https://example.com/form" },
+      { key: "country", label: "Country", type: "country_code", value: "AR" },
+      { key: "percentage", label: "Percentage", type: "percentage", value: 42.5 },
+      { key: "time", label: "Time", type: "time", value: "09:30" },
+      { key: "counts", label: "Counts", type: "integer_list", value: [1, 2] },
+      { key: "values", label: "Values", type: "number_list", value: [1, 2.5] },
+    ];
+    const offerFormShape = {
+      ...baseOffer.formShape,
+      fields: [
+        ...baseOffer.formShape.fields,
+        ...fields.map(({ value: _, ...field }) => ({
+          ...field,
+          required: true,
+          helpInfoText: `How to complete ${field.label}`,
+        })),
+      ],
+    };
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      formShape: offerFormShape,
+    });
+    const snapshot = input.inputs[0]!.objectSnapshot;
+    const data = snapshot.data as {
+      form_shape: { fields: Record<string, unknown>[] };
+      fields: Array<{ key: string; value: unknown }>;
+    };
+    data.form_shape.fields = [
+      ...data.form_shape.fields,
+      ...fields.map(({ value: _, ...field }) => ({
+        ...field,
+        required: true,
+        options: [],
+        help_info_text: `How to complete ${field.label}`,
+      })),
+    ];
+    data.fields.push(...fields.map(({ key, value }) => ({ key, value })));
+    seedDoc("file_storage", "stored-form-new", {
+      linked_object_code: "987654321",
+      file_type: "pgo_form",
+      owner_community_user_id: "feed-org-1",
+      provider_id: "feed-org-1",
+      file_content: JSON.stringify(serializedPgoWrapper(snapshot)),
+    });
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const created = await createSupportServiceTransaction(context, input);
+
+    const frozenFormShape = created.offerSnapshot.formShape as {
+      fields: Record<string, unknown>[];
+    };
+    expect(frozenFormShape.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "contact",
+          type: "email",
+          helpInfoText: "How to complete Contact",
+        }),
+      ]),
+    );
+  });
+
+  it("rejects semantically invalid values for new PGFS field types", async () => {
+    const input = creationInput();
+    const newField = {
+      key: "percentage",
+      label: "Percentage",
+      type: "percentage",
+      required: true,
+      helpInfoText: "Use a value from 0 to 100.",
+    };
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      formShape: {
+        ...baseOffer.formShape,
+        fields: [...baseOffer.formShape.fields, newField],
+      },
+    });
+    const snapshot = input.inputs[0]!.objectSnapshot;
+    const data = snapshot.data as {
+      form_shape: { fields: Record<string, unknown>[] };
+      fields: Array<{ key: string; value: unknown }>;
+    };
+    data.form_shape.fields.push({
+      key: newField.key,
+      label: newField.label,
+      type: newField.type,
+      required: newField.required,
+      options: [],
+      help_info_text: newField.helpInfoText,
+    });
+    data.fields.push({ key: "percentage", value: 101 });
+    seedDoc("file_storage", "stored-form-new", {
+      linked_object_code: "987654321",
+      file_type: "pgo_form",
+      owner_community_user_id: "feed-org-1",
+      provider_id: "feed-org-1",
+      file_content: JSON.stringify(serializedPgoWrapper(snapshot)),
+    });
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createSupportServiceTransaction(context, input),
+    ).rejects.toThrow("must be unique, declared, and match its frozen field type");
   });
 
   it("rejects a camel-case PGO envelope at the serialized file boundary", async () => {

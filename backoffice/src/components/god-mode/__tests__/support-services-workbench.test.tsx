@@ -76,6 +76,38 @@ const frozenOfferSnapshot = {
   providerKind: "organization" as const,
   providerName: "Frozen Lab",
   shortContract: "form:Form -> result:PDF report",
+  formShape: {
+    id: "pgfs_frozen_lab_1",
+    version: 2,
+    allowUnknownFields: false,
+    fields: [
+      {
+        key: "requested_at",
+        label: "Requested at",
+        type: "datetime" as const,
+        required: true,
+      },
+      {
+        key: "requested_by",
+        label: "Requested by",
+        type: "text" as const,
+        required: true,
+      },
+      {
+        key: "contact_email",
+        label: "Contact email",
+        type: "email" as const,
+        required: true,
+        helpInfoText: "Use the requester contact address.",
+      },
+      {
+        key: "sample_times",
+        label: "Sample times",
+        type: "integer_list" as const,
+        required: false,
+      },
+    ],
+  },
   inputSlots: [
     {
       role: "form",

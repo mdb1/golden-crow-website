@@ -39,14 +39,27 @@ export type SupportServicePricingModel =
 
 export const SUPPORT_SERVICE_FORM_FIELD_TYPES = [
   { value: "text", label: "Text" },
+  { value: "long_text", label: "Long text" },
+  { value: "email", label: "Email" },
+  { value: "phone", label: "Phone" },
+  { value: "url", label: "URL" },
+  { value: "address", label: "Address" },
+  { value: "postal_code", label: "Postal code" },
+  { value: "country_code", label: "Country code" },
+  { value: "identifier", label: "Identifier" },
   { value: "number", label: "Number" },
   { value: "integer", label: "Integer" },
+  { value: "positive_integer", label: "Positive integer" },
+  { value: "percentage", label: "Percentage" },
   { value: "boolean", label: "Boolean" },
   { value: "date", label: "Date" },
   { value: "datetime", label: "Date-time" },
+  { value: "time", label: "Time" },
   { value: "enum", label: "Enum" },
   { value: "multi_enum", label: "Multi enum" },
   { value: "string_list", label: "String list" },
+  { value: "integer_list", label: "Integer list" },
+  { value: "number_list", label: "Number list" },
 ] as const;
 
 export const SUPPORT_SERVICE_MUTATION_MODES = [
@@ -70,6 +83,7 @@ export interface SupportServiceFormField {
   type: SupportServiceFormFieldType;
   required: boolean;
   options?: SupportServiceFormFieldOption[];
+  helpInfoText?: string;
 }
 
 export interface SupportServiceFormShape {
