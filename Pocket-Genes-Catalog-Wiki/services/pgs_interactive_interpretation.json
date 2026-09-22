@@ -84,7 +84,40 @@
         }
       ],
       "form_shape_id": "pgfs_interactive_interpretation",
-      "form_shape_version": 1
+      "form_shape_version": 1,
+      "form_shape": {
+        "id": "pgfs_interactive_interpretation",
+        "version": 1,
+        "allow_unknown_fields": false,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "interpretation_profile",
+            "label": "Interpretation profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "pg_demo_mdm_pgi1_v1",
+                "label": "Demo PGI1 MDMAPIModel profile"
+              }
+            ]
+          }
+        ]
+      }
     },
     "files": []
   },
@@ -163,7 +196,7 @@
   },
   "sampleResult": {
     "request_id": "pgr_demo_interactive_interpretation",
-    "status": "completed",
+    "status": "delivered",
     "outputs": [
       {
         "role": "interactive_report",
@@ -181,5 +214,6 @@
   "regions": [
     "AR"
   ],
-  "providerApiContractId": "pg_api_service_requests_v1"
+  "providerApiContractId": "pg_api_service_requests_v1",
+  "isHiddenFromSearch": false
 }

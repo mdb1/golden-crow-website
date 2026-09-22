@@ -47,6 +47,33 @@
 - Discover feed item shared content belongs only at the `feed_items` root: `title`, `subtitle`, `body`, `htmlBody`, `imageUrl`, `sourceUrl`, and `sourceButtonText`. Never duplicate, read, write, preserve, or backfill these values inside typed payload nodes such as `news`, `researchUpdate`, `upcomingEvent`, or any other Discover feed type.
 - Typed Discover payload nodes must contain only type-specific fields. Do not add compatibility aliases such as `summary`, `detailBody`, nested `title`, nested `body`, nested `htmlBody`, nested `imageUrl`, `startsAt`, `journalName`, or `locationName`; normalize old records away from those aliases instead of propagating them. `topic` is valid only as the canonical field for `educationalExplainer`, never as a compatibility alias for `researchTopic`.
 
+## Persistent Field-Key Naming
+
+- Field naming is a per-collection contract. Prefer coherence inside a collection over applying one global case convention to every Firestore document.
+- Use this canonical table for document fields and every nested map stored under the listed collection:
+
+| Collection | Field-key convention | Canonical examples |
+| --- | --- | --- |
+| `service_offers` | lower camel case | `serviceId`, `isHiddenFromSearch`, `outputSlots` |
+| `service_transactions` | lower camel case | `outputObjects`, `outputReports`, `objectType`, `objectCode`, `reportCode` |
+| `uploaded_objects` | snake case | `object_type`, `object_code`, `object_owner_id`, `upload_version_count` |
+| `uploaded_reports` | snake case | `report_code`, `report_owner_id`, `upload_version_count` |
+| `file_storage` | snake case | `file_name`, `linked_object_code`, `linked_report_code` |
+| `object_owners` | snake case | `owner_name`, `owner_contact_email` |
+| `report_owners` | snake case | `owner_name`, `owner_contact_email` |
+| `object_codes` | snake case | `uploaded_object_id`, `owner_id` |
+| `report_codes` | snake case | `uploaded_report_id`, `owner_id` |
+
+- The same semantic value intentionally uses different spellings at different collection boundaries. For example, a `service_transactions.outputObjects[]` item uses `objectType` and `objectCode`, while the corresponding `uploaded_objects` document uses `object_type` and `object_code`.
+- Naming fixes are strict contract migrations within the affected collection. Do not add dual reads, fallback aliases, migration flags, or writes containing both spellings. Producers and consumers must move together, and the wrong convention for that collection must be rejected.
+- Collection names are identifiers rather than field keys and retain their canonical spelling.
+- Enum values, role values, IDs, and catalog identifiers are values rather than keys. Values such as `pgo_pdf_report`, `test_planning`, and `pgr_*` stay unchanged.
+- Versioned PGO JSON files are a separate serialization boundary. Their schemas may independently require snake-case payload keys such as `object_type`; decode those only through the PGO file-model/schema layer.
+- Keep collection-specific Firestore map construction separate from PGO file encoding and from service-transaction snapshots. A key mapping at one boundary does not determine the spelling at another boundary.
+- Centralize repeated canonical field names in contract constants where practical. Avoid freehand string literals for a shared persisted key.
+- A persisted-key change is incomplete until all writers, readers, schemas, validators, docs, fixtures, and negative tests have been updated in the same change.
+- Before accepting persistence work, search the affected code and Firestore schemas for both camel-case and snake-case variants. Every occurrence must match the table for the collection where it is persisted, be a declared serialized-file key, be a value, or be a negative test proving rejection.
+
 ## Auth Surface Isolation
 
 - There are two independent authentication circuits. They must coexist, but they must not share Firebase client apps, server cookies, login pages, redirects, or route handlers unless the user explicitly asks for a cross-surface auth migration.

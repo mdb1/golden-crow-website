@@ -101,7 +101,42 @@
             }
           ],
           "form_shape_id": "pgfs_symptom_intake",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_symptom_intake",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "subject_id",
+                "label": "Subject identifier",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "observations",
+                "label": "Reported observations",
+                "type": "string_list",
+                "required": true,
+                "options": []
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -156,7 +191,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_symptom_intake",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "symptoms",
@@ -174,7 +209,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Prioritize candidate genes",
@@ -280,7 +316,51 @@
             }
           ],
           "form_shape_id": "pgfs_gene_prioritization",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_gene_prioritization",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "ranking_mode",
+                "label": "Ranking mode",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "ranked",
+                    "label": "Ranked list"
+                  },
+                  {
+                    "value": "selected",
+                    "label": "Selected set"
+                  }
+                ]
+              },
+              {
+                "key": "maximum_genes",
+                "label": "Maximum genes",
+                "type": "integer",
+                "required": true,
+                "options": []
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -354,7 +434,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_gene_prioritization",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "candidate_genes",
@@ -372,7 +452,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Record informed consent",
@@ -562,7 +643,93 @@
             }
           ],
           "form_shape_id": "pgfs_informed_consent",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_informed_consent",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "subject_id",
+                "label": "Subject identifier",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "signer_name",
+                "label": "Signer name",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "signer_capacity",
+                "label": "Signer capacity",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "self",
+                    "label": "Self"
+                  },
+                  {
+                    "value": "representative",
+                    "label": "Representative"
+                  }
+                ]
+              },
+              {
+                "key": "consent_text_id",
+                "label": "Consent text identifier",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "consent_text_version",
+                "label": "Consent text version",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "scope_description",
+                "label": "Scope being consented to",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "accepted",
+                "label": "Accepted",
+                "type": "boolean",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "signature_evidence_id",
+                "label": "Signature evidence identifier",
+                "type": "text",
+                "required": true,
+                "options": []
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -617,7 +784,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_informed_consent",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "consent",
@@ -635,7 +802,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Create the test order",
@@ -907,7 +1075,140 @@
             }
           ],
           "form_shape_id": "pgfs_test_ordering",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_test_ordering",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "subject_id",
+                "label": "Subject identifier",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "patient_name",
+                "label": "Patient name",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "objective",
+                "label": "Intended objective",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "clinical_suspicion",
+                "label": "Clinical suspicion",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "reference_id",
+                "label": "Reference identifier",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "variant_classes",
+                "label": "Requested variant classes",
+                "type": "multi_enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "SNV",
+                    "label": "Single-nucleotide variants"
+                  },
+                  {
+                    "value": "small_indel",
+                    "label": "Small insertions/deletions"
+                  }
+                ]
+              },
+              {
+                "key": "required_output_types",
+                "label": "Required deliverables",
+                "type": "multi_enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "pgo_interactive_report",
+                    "label": "Interactive report"
+                  },
+                  {
+                    "value": "pgo_pdf_report",
+                    "label": "PDF report"
+                  }
+                ]
+              },
+              {
+                "key": "patient_date_of_birth",
+                "label": "Patient date of birth",
+                "type": "date",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "patient_identifier",
+                "label": "Patient identifier",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "wet_lab_output_type",
+                "label": "Laboratory handoff format",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "pgo_sequence_reads",
+                    "label": "FASTQ reads"
+                  },
+                  {
+                    "value": "pgo_aligned_reads",
+                    "label": "Aligned reads (BAM)"
+                  },
+                  {
+                    "value": "pgo_unannotated_vcf",
+                    "label": "Unannotated variants (VCF)"
+                  },
+                  {
+                    "value": "pgo_annotated_vcf",
+                    "label": "Annotated variants (VCF)"
+                  }
+                ]
+              },
+              {
+                "key": "required_profile",
+                "label": "Required analytical profile",
+                "type": "text",
+                "required": true,
+                "options": []
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -1004,7 +1305,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_test_ordering",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "test_order",
@@ -1022,7 +1323,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Create an actual biological sample collection request",
@@ -1232,7 +1534,119 @@
             }
           ],
           "form_shape_id": "pgfs_collection_request",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_collection_request",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "subject_id",
+                "label": "Subject identifier",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "collection_site",
+                "label": "Biological sample collection site",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_sample_type",
+                "label": "Sample type to collect",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "blood",
+                    "label": "Blood draw"
+                  },
+                  {
+                    "value": "buccal_swab",
+                    "label": "Buccal swab"
+                  },
+                  {
+                    "value": "saliva",
+                    "label": "Saliva sample"
+                  },
+                  {
+                    "value": "tissue",
+                    "label": "Tissue biopsy"
+                  },
+                  {
+                    "value": "embryo_material",
+                    "label": "Embryo material collection"
+                  }
+                ]
+              },
+              {
+                "key": "collection_method",
+                "label": "Collection method",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "phlebotomy",
+                    "label": "Phlebotomy / venous blood draw"
+                  },
+                  {
+                    "value": "buccal_swab",
+                    "label": "Buccal swab performed on the subject"
+                  },
+                  {
+                    "value": "saliva_kit",
+                    "label": "Saliva kit completed by the subject"
+                  },
+                  {
+                    "value": "tissue_biopsy",
+                    "label": "Tissue biopsy performed by a qualified provider"
+                  },
+                  {
+                    "value": "embryo_biopsy",
+                    "label": "Embryo biopsy material collection"
+                  }
+                ]
+              },
+              {
+                "key": "collection_window_start",
+                "label": "Sample collection window start",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "collection_window_end",
+                "label": "Sample collection window end",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "preparation_profile",
+                "label": "Collection preparation profile",
+                "type": "text",
+                "required": true,
+                "options": []
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -1311,7 +1725,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_collection_request",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "collection_request",
@@ -1329,7 +1743,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Transport an already collected specimen",
@@ -1425,7 +1840,42 @@
             }
           ],
           "form_shape_id": "pgfs_sample_transport",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_sample_transport",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "contact_name",
+                "label": "Origin contact name",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "contact_phone",
+                "label": "Origin contact phone",
+                "type": "text",
+                "required": true,
+                "options": []
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -1522,7 +1972,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_sample_transport",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "delivered_specimen",
@@ -1540,7 +1990,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Extract DNA from an accepted specimen",
@@ -1636,7 +2087,48 @@
             }
           ],
           "form_shape_id": "pgfs_dna_extraction",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_dna_extraction",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "extraction_profile",
+                "label": "Extraction profile",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "demo_blood_dna_v1",
+                    "label": "Demo blood DNA extraction"
+                  },
+                  {
+                    "value": "demo_tissue_dna_v1",
+                    "label": "Demo tissue DNA extraction"
+                  },
+                  {
+                    "value": "demo_embryo_biopsy_dna_v1",
+                    "label": "Demo embryo-biopsy DNA extraction"
+                  }
+                ]
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -1741,7 +2233,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_dna_extraction",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "dna_sample",
@@ -1766,7 +2258,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Sequence the requested scope",
@@ -1854,7 +2347,40 @@
             }
           ],
           "form_shape_id": "pgfs_sequencing",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_sequencing",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "sequencing_profile",
+                "label": "Sequencing profile",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "pg_demo_targeted_reads_v1",
+                    "label": "Demo targeted read profile"
+                  }
+                ]
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -1960,7 +2486,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_sequencing",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "reads",
@@ -1985,7 +2511,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Align sequence reads",
@@ -2073,7 +2600,40 @@
             }
           ],
           "form_shape_id": "pgfs_read_alignment",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_read_alignment",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "alignment_profile",
+                "label": "Alignment profile",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "pg_demo_alignment_v1",
+                    "label": "Demo alignment profile"
+                  }
+                ]
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -2170,7 +2730,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_read_alignment",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "aligned_reads",
@@ -2188,7 +2748,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Call variants in the requested scope",
@@ -2276,7 +2837,40 @@
             }
           ],
           "form_shape_id": "pgfs_variant_calling",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_variant_calling",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "calling_profile",
+                "label": "Calling profile",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "pg_demo_calling_v1",
+                    "label": "Demo variant-calling profile"
+                  }
+                ]
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -2374,7 +2968,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_variant_calling",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "variants",
@@ -2392,7 +2986,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Annotate a VCF",
@@ -2480,7 +3075,40 @@
             }
           ],
           "form_shape_id": "pgfs_variant_annotation",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_variant_annotation",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "annotation_profile",
+                "label": "Annotation profile",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "PG_DEMO_ANN_V1",
+                    "label": "Demo annotation profile"
+                  }
+                ]
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -2579,7 +3207,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_variant_annotation",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "annotated_variants",
@@ -2597,7 +3225,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Produce an interactive genomic result",
@@ -2685,7 +3314,40 @@
             }
           ],
           "form_shape_id": "pgfs_interactive_interpretation",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_interactive_interpretation",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "interpretation_profile",
+                "label": "Interpretation profile",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "pg_demo_mdm_pgi1_v1",
+                    "label": "Demo PGI1 MDMAPIModel profile"
+                  }
+                ]
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -2764,7 +3426,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_interactive_interpretation",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "interactive_report",
@@ -2782,7 +3444,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Create the final self-contained report",
@@ -2898,7 +3561,60 @@
             }
           ],
           "form_shape_id": "pgfs_final_report",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_final_report",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "language",
+                "label": "Report language",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "en",
+                    "label": "English"
+                  },
+                  {
+                    "value": "es-AR",
+                    "label": "Spanish, Argentina"
+                  }
+                ]
+              },
+              {
+                "key": "presentation",
+                "label": "Presentation",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "clinical",
+                    "label": "Clinical report"
+                  },
+                  {
+                    "value": "patient",
+                    "label": "Patient-facing report"
+                  }
+                ]
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -3001,7 +3717,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_final_report",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "report",
@@ -3019,7 +3735,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Analyze a metaphase image bundle",
@@ -3135,7 +3852,54 @@
             }
           ],
           "form_shape_id": "pgfs_karyotype_analysis",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_karyotype_analysis",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "subject_id",
+                "label": "Subject identifier",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "objective",
+                "label": "Analysis objective",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "analysis_profile",
+                "label": "Analysis profile",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "pg_demo_metaphase_review_v1",
+                    "label": "Demo metaphase image review"
+                  }
+                ]
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -3211,7 +3975,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_karyotype_analysis",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "karyotype_result",
@@ -3229,7 +3993,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     },
     {
       "name": "Prepare a consultation summary PDF",
@@ -3383,7 +4148,72 @@
             }
           ],
           "form_shape_id": "pgfs_form_to_pdf",
-          "form_shape_version": 1
+          "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_form_to_pdf",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "subject_id",
+                "label": "Subject identifier",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "patient_name",
+                "label": "Patient name",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "objective",
+                "label": "Consultation objective",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "submitted_information",
+                "label": "Information to review",
+                "type": "string_list",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "language",
+                "label": "Report language",
+                "type": "enum",
+                "required": true,
+                "options": [
+                  {
+                    "value": "en",
+                    "label": "English"
+                  },
+                  {
+                    "value": "es-AR",
+                    "label": "Spanish, Argentina"
+                  }
+                ]
+              }
+            ]
+          }
         },
         "files": []
       },
@@ -3439,7 +4269,7 @@
       },
       "sampleResult": {
         "request_id": "pgr_demo_form_to_pdf",
-        "status": "completed",
+        "status": "delivered",
         "outputs": [
           {
             "role": "summary",
@@ -3457,7 +4287,8 @@
       "regions": [
         "AR"
       ],
-      "providerApiContractId": "pg_api_service_requests_v1"
+      "providerApiContractId": "pg_api_service_requests_v1",
+      "isHiddenFromSearch": false
     }
   ],
   "schemaVersion": 1,

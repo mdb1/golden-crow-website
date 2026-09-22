@@ -4,9 +4,13 @@
   "services": 15,
   "providers": 6,
   "object_snapshots": 39,
-  "checks_run": 198,
+  "checks_run": 199,
   "scope": "Structural, reference, contract and native-fixture checks. Synthetic analytical support declarations are not clinical validation.",
   "checks": [
+    {
+      "check": "root_service_transaction_delivery_contract",
+      "status": "passed"
+    },
     {
       "check": "fixed_registry_counts",
       "status": "passed"

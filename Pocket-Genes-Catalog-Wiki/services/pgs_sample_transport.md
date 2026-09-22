@@ -6,6 +6,8 @@ This is the transport service. It does not create a `collection_request`, replac
 
 **Provider:** `pgp_sample_logistics`. **Service version:** `1`. **Stage:** Wet Lab.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Perform the physical handoff and transport of the existing specimen, record custody, and obtain destination receipt.
 
 **Input slots**
@@ -64,7 +66,42 @@ This is the transport service. It does not create a `collection_request`, replac
         "key": "contact_phone",
         "value": "+54-DEMO-ONLY"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_sample_transport",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "contact_name",
+          "label": "Origin contact name",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "contact_phone",
+          "label": "Origin contact phone",
+          "type": "text",
+          "required": true,
+          "options": []
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -108,7 +145,7 @@ This is the transport service. It does not create a `collection_request`, replac
 ```json
 {
   "request_id": "pgr_demo_sample_transport",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "delivered_specimen",

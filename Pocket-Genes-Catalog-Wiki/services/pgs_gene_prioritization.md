@@ -4,6 +4,8 @@ Use a symptom bundle to return a ranked or selected bundle of candidate genes fo
 
 **Provider:** `pgp_clinical_planning`. **Service version:** `1`. **Stage:** Test Planning.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Apply the provider method and professional review where included; return genes, evidence and ranking rationale.
 
 **Input slots**
@@ -61,7 +63,51 @@ Use a symptom bundle to return a ranked or selected bundle of candidate genes fo
         "key": "maximum_genes",
         "value": 3
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_gene_prioritization",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "ranking_mode",
+          "label": "Ranking mode",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "ranked",
+              "label": "Ranked list"
+            },
+            {
+              "value": "selected",
+              "label": "Selected set"
+            }
+          ]
+        },
+        {
+          "key": "maximum_genes",
+          "label": "Maximum genes",
+          "type": "integer",
+          "required": true,
+          "options": []
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -98,7 +144,7 @@ Use a symptom bundle to return a ranked or selected bundle of candidate genes fo
 ```json
 {
   "request_id": "pgr_demo_gene_prioritization",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "candidate_genes",

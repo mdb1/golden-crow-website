@@ -29,7 +29,42 @@
           "Synthetic observation B"
         ]
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_symptom_intake",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "subject_id",
+          "label": "Subject identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "observations",
+          "label": "Reported observations",
+          "type": "string_list",
+          "required": true,
+          "options": []
+        }
+      ]
+    }
   },
   "files": []
 }

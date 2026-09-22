@@ -1,6 +1,6 @@
 # Form — `pgo_form`
 
-A service-specific list of filled fields accompanying every service request. The shape belongs to service configuration; the form is the completed request object.
+A completed, service-specific request form. The published shape belongs to service configuration, while every submitted object carries an immutable copy of that exact shape so the app can reconstruct the complete form without loading the current offer.
 
 | Attribute | Value |
 | --- | --- |
@@ -19,6 +19,16 @@ A service-specific list of filled fields accompanying every service request. The
 | --- | --- | --- | --- |
 | `form_shape_id` | string | Yes | Identifier of the form_shape published by the requested service. minLength: 1 |
 | `form_shape_version` | integer | Yes | Exact integer version of the form_shape used to fill and validate this form. minimum: 1 |
+| `form_shape` | object | Yes | Immutable snapshot of the exact published shape used for this submission. Its `id` and `version` must equal the two fields above. |
+| `form_shape.id` | string | Yes | Exact published shape identifier. |
+| `form_shape.version` | integer | Yes | Positive lifecycle counter pinned when the request was submitted. |
+| `form_shape.allow_unknown_fields` | boolean | Yes | Must be `false`; it is never configurable. |
+| `form_shape.fields` | array | Yes | Ordered field definitions used to reconstruct labels, controls, requiredness and choices. Keys must be unique. |
+| `form_shape.fields[].key` | string | Yes | Stable field key. |
+| `form_shape.fields[].label` | string | Yes | User-facing label frozen at submission time. |
+| `form_shape.fields[].type` | enum | Yes | One of `text`, `number`, `integer`, `boolean`, `date`, `datetime`, `enum`, `multi_enum`, `string_list`. |
+| `form_shape.fields[].required` | boolean | Yes | Whether the completed object must contain an answer for this key. |
+| `form_shape.fields[].options` | array | Yes | Non-empty only for `enum` and `multi_enum`; every option has unique non-empty `value` and `label`. Empty for every other type. |
 | `fields` | array | Yes | Filled request fields, including requested_at and requested_by. minItems: 2 |
 | `fields[].key` | string | Yes | Field key declared in the service form_shape. minLength: 1 |
 | `fields[].value` | string/number/boolean/array | Yes | Filled value. Actual type, requiredness, and enum options are enforced by the referenced form_shape. |
@@ -37,7 +47,42 @@ A service-specific list of filled fields accompanying every service request. The
   "input_refs": [],
   "data": {
     "form_shape_id": "pgfs_symptom_intake",
-    "form_shape_version": "1.0.0",
+    "form_shape_version": 1,
+    "form_shape": {
+      "id": "pgfs_symptom_intake",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "subject_id",
+          "label": "Subject identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "observations",
+          "label": "Reported observations",
+          "type": "string_list",
+          "required": true,
+          "options": []
+        }
+      ]
+    },
     "fields": [
       {
         "key": "requested_at",
@@ -66,9 +111,11 @@ A service-specific list of filled fields accompanying every service request. The
 
 **Validation and JSON logic**
 
-- Resolve the exact form_shape_id and form_shape_version before accepting a request.
-- Field keys must be unique. Validate every field against its shape-defined type, enum options and requiredness.
+- `form_shape` is required and immutable. Its ID and integer version must match `form_shape_id` and `form_shape_version`; a consumer must never substitute the current offer shape.
+- Shape keys and answer keys must each be unique. Unknown answers and `allow_unknown_fields: true` are invalid.
+- Validate every answer against the embedded type, enum options and requiredness. Optional unanswered fields remain in `form_shape.fields` and are omitted from `data.fields`, which lets the explorer show the whole original form as submitted.
 - requested_at and requested_by must appear exactly once. requested_at must be a date-time and requested_by must identify the actual requester.
+- `date` uses `YYYY-MM-DD`; `datetime` uses ISO 8601; `integer` is a JSON number with no fractional part; `multi_enum` and `string_list` are arrays of strings.
 - The service can require only this form, or this form plus additional objects.
 - Common request fields are platform-populated or verified; they are not editable evidence of someone else making a request.
 

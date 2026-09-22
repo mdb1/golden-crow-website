@@ -408,13 +408,14 @@ function rejectForbiddenKeys(
   record: Record<string, unknown>,
   forbiddenKeys: readonly string[],
   context: string,
+  namingStyle = "snake-case",
 ) {
   const found = forbiddenKeys.filter((key) =>
     Object.prototype.hasOwnProperty.call(record, key),
   );
   if (found.length > 0) {
     throw new AdminRepositoryError(
-      `${context} uses forbidden snake-case field${found.length === 1 ? "" : "s"}: ${found.join(", ")}.`,
+      `${context} uses forbidden ${namingStyle} field${found.length === 1 ? "" : "s"}: ${found.join(", ")}.`,
       400,
     );
   }
@@ -2691,12 +2692,13 @@ async function assertProvisionedFormInputsAvailable(
       const uploadedData = uploadedSnapshot.data() ?? {};
       rejectForbiddenKeys(
         uploadedData,
-        ["object_type", "object_code"],
+        ["objectType", "objectCode"],
         `Request form uploaded object ${uploadedObjectId}`,
+        "camel-case",
       );
       if (
-        cleanString(uploadedData.objectCode) !== objectCode ||
-        cleanString(uploadedData.objectType) !== FORM_OBJECT_TYPE ||
+        cleanString(uploadedData.object_code) !== objectCode ||
+        cleanString(uploadedData.object_type) !== FORM_OBJECT_TYPE ||
         cleanString(uploadedData.linked_file_id) !== fileStorageId ||
         cleanString(uploadedData.object_owner_id) !== objectOwnerId ||
         cleanString(uploadedData.owner_community_user_id) !== objectOwnerId ||
@@ -3085,11 +3087,12 @@ async function assertDeliveredOutputObjectsAvailable(
       const objectData = objectSnapshot.data() ?? {};
       rejectForbiddenKeys(
         objectData,
-        ["object_type", "object_code"],
+        ["objectType", "objectCode"],
         `Uploaded object ${output.objectCode}`,
+        "camel-case",
       );
       if (
-        cleanString(objectData.objectCode) !== output.objectCode
+        cleanString(objectData.object_code) !== output.objectCode
       ) {
         throw new AdminRepositoryError(
           `Uploaded object does not belong to object code ${output.objectCode}.`,
@@ -3097,7 +3100,7 @@ async function assertDeliveredOutputObjectsAvailable(
         );
       }
       if (
-        cleanString(objectData.objectType) !== output.objectType
+        cleanString(objectData.object_type) !== output.objectType
       ) {
         throw new AdminRepositoryError(
           `Uploaded object ${output.objectCode} does not match ${output.objectType}.`,
@@ -3232,11 +3235,11 @@ async function assertDeliveredOutputObjectsAvailable(
         }
         if (
           downloaded.downloadUrl !== downloadUrl ||
-          cleanString(objectData.objectId) !== downloaded.envelope.objectId ||
-          Number(objectData.objectRevision) !== downloaded.envelope.revision ||
-          cleanString(objectData.objectType) !== downloaded.envelope.objectType ||
-          cleanString(objectData.contentSha256) !== downloaded.contentSha256 ||
-          Number(objectData.contentSizeBytes) !== downloaded.contentSizeBytes
+          cleanString(objectData.object_id) !== downloaded.envelope.objectId ||
+          Number(objectData.object_revision) !== downloaded.envelope.revision ||
+          cleanString(objectData.object_type) !== downloaded.envelope.objectType ||
+          cleanString(objectData.content_sha256) !== downloaded.contentSha256 ||
+          Number(objectData.content_size_bytes) !== downloaded.contentSizeBytes
         ) {
           throw new AdminRepositoryError(
             `Output object ${output.objectCode} download content changed after it was attached.`,
@@ -4772,16 +4775,16 @@ export async function attachSupportServiceTransactionOutputObject(
       owner_id: providerOwnerId,
     });
     firestoreTransaction.set(uploadedObjectRef, {
-      schemaVersion: 1,
-      objectCode,
-      objectType: expectedObjectType,
-      objectId: downloaded.envelope.objectId,
-      objectRevision: downloaded.envelope.revision,
+      schema_version: 1,
+      object_code: objectCode,
+      object_type: expectedObjectType,
+      object_id: downloaded.envelope.objectId,
+      object_revision: downloaded.envelope.revision,
       file_name: fileName,
       download_url: downloaded.downloadUrl,
       linked_file_id: null,
-      contentSha256: downloaded.contentSha256,
-      contentSizeBytes: downloaded.contentSizeBytes,
+      content_sha256: downloaded.contentSha256,
+      content_size_bytes: downloaded.contentSizeBytes,
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       object_owner_id: providerOwnerId,
@@ -4789,16 +4792,16 @@ export async function attachSupportServiceTransactionOutputObject(
       owner_public_profile_id: providerOwnerId,
       owner_name: ownerName,
       owner_email: ownerEmail,
-      providerId: latest.providerId,
-      providerKind: latest.providerKind,
+      provider_id: latest.providerId,
+      provider_kind: latest.providerKind,
       provider_name: cleanString(latest.providerSnapshot.name),
-      serviceTransactionId: latest.requestId,
-      offerId: latest.offerId,
-      outputRole: role,
+      service_transaction_id: latest.requestId,
+      offer_id: latest.offerId,
+      output_role: role,
       date_created: FieldValue.serverTimestamp(),
       date_modified: FieldValue.serverTimestamp(),
-      createdByEmail: context.email,
-      updatedByEmail: context.email,
+      created_by_email: context.email,
+      updated_by_email: context.email,
     });
     firestoreTransaction.set(
       ownerCommunityRef,

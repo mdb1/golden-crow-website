@@ -4,6 +4,8 @@ Combine the complete test order with a registered PGI payload into a final PDF f
 
 **Provider:** `pgp_report_studio`. **Service version:** `1`. **Stage:** Bioinformatics.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Verify the order match, native PGI schema, support evidence and scope, perform included report review, and issue a complete PDF using the selected presentation.
 
 **Input slots**
@@ -62,7 +64,60 @@ Combine the complete test order with a registered PGI payload into a final PDF f
         "key": "presentation",
         "value": "clinical"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_final_report",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "language",
+          "label": "Report language",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "en",
+              "label": "English"
+            },
+            {
+              "value": "es-AR",
+              "label": "Spanish, Argentina"
+            }
+          ]
+        },
+        {
+          "key": "presentation",
+          "label": "Presentation",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "clinical",
+              "label": "Clinical report"
+            },
+            {
+              "value": "patient",
+              "label": "Patient-facing report"
+            }
+          ]
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -106,7 +161,7 @@ Combine the complete test order with a registered PGI payload into a final PDF f
 ```json
 {
   "request_id": "pgr_demo_final_report",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "report",

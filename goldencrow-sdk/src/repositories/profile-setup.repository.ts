@@ -489,7 +489,7 @@ export async function getProfileSetupState(
     getBoolean(profileData.onboardingCompleted) ?? false;
   const fullName =
     pickFirstString(publicProfileData, ["fullName", "full_name"]) ||
-    pickFirstString(reportOwnerData, ["owner_name", "ownerName"]) ||
+    pickFirstString(reportOwnerData, ["owner_name"]) ||
     pickFirstString(profileData, ["displayName"]) ||
     getString(authUser.displayName);
   const username =
@@ -799,8 +799,8 @@ export async function completeProfileSetup(
       owner_company: ownerCompany || null,
       owner_contact_number: ownerContactNumber || null,
       owner_bio: ownerBio || null,
-      createdAt: pickFirstString(reportOwnerData, ["createdAt"]) || now,
-      updatedAt: now,
+      created_at: pickFirstString(reportOwnerData, ["created_at"]) || now,
+      updated_at: now,
     },
     { merge: true },
   );

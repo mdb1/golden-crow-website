@@ -4,6 +4,8 @@ Convert an annotated VCF into a registered Pocket Genes interactive report backe
 
 **Provider:** `pgp_variant_analysis`. **Service version:** `1`. **Stage:** Bioinformatics.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Produce or register a native PGI payload, validate it against the matching provider schema, attach support evidence and limitations, and return the Pocket Genes registration object.
 
 **Input slots**
@@ -56,7 +58,40 @@ Convert an annotated VCF into a registered Pocket Genes interactive report backe
         "key": "interpretation_profile",
         "value": "pg_demo_mdm_pgi1_v1"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_interactive_interpretation",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "interpretation_profile",
+          "label": "Interpretation profile",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "pg_demo_mdm_pgi1_v1",
+              "label": "Demo PGI1 MDMAPIModel profile"
+            }
+          ]
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -93,7 +128,7 @@ Convert an annotated VCF into a registered Pocket Genes interactive report backe
 ```json
 {
   "request_id": "pgr_demo_interactive_interpretation",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "interactive_report",

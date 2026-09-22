@@ -1,6 +1,6 @@
 {
   "request_id": "pgr_demo_read_alignment",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "aligned_reads",

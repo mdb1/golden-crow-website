@@ -755,7 +755,7 @@ function reportCodePayload(patient: ReportingPatientRecord, reportId: string) {
     owner_id: patient.id,
     uploaded_report_id: reportId,
     source: "aws_s3",
-    updatedAt: FieldValue.serverTimestamp(),
+    updated_at: FieldValue.serverTimestamp(),
   };
 }
 

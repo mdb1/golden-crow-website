@@ -1,6 +1,6 @@
 {
   "request_id": "pgr_demo_dna_extraction",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "dna_sample",

@@ -41,7 +41,72 @@
         "key": "language",
         "value": "en"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_form_to_pdf",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "subject_id",
+          "label": "Subject identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "patient_name",
+          "label": "Patient name",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "objective",
+          "label": "Consultation objective",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "submitted_information",
+          "label": "Information to review",
+          "type": "string_list",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "language",
+          "label": "Report language",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "en",
+              "label": "English"
+            },
+            {
+              "value": "es-AR",
+              "label": "Spanish, Argentina"
+            }
+          ]
+        }
+      ]
+    }
   },
   "files": []
 }

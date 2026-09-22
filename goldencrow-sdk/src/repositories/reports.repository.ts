@@ -201,13 +201,14 @@ function buildUploadedReportPayload(options: {
   const existingData = options.existingData ?? {};
 
   return {
-    ...existingData,
     file_name: options.fileName,
     download_url: normalizeString(existingData.download_url) ?? "",
     linked_file_id: options.fileId,
     upload_version_count: normalizeUploadVersionCount(existingData.upload_version_count),
     provider_format: "2pq",
     provider_name: options.ownerEmail,
+    tracking_progress_status:
+      normalizeString(existingData.tracking_progress_status) ?? "document_ready",
     report_code: options.reportCode,
     report_owner_id: options.ownerId,
     owner_name: options.ownerEmail,

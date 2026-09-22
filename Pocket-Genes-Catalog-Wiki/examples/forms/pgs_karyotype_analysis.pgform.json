@@ -30,7 +30,54 @@
         "key": "analysis_profile",
         "value": "pg_demo_metaphase_review_v1"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_karyotype_analysis",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "subject_id",
+          "label": "Subject identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "objective",
+          "label": "Analysis objective",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "analysis_profile",
+          "label": "Analysis profile",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "pg_demo_metaphase_review_v1",
+              "label": "Demo metaphase image review"
+            }
+          ]
+        }
+      ]
+    }
   },
   "files": []
 }

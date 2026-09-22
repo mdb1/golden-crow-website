@@ -1,6 +1,6 @@
 {
   "request_id": "pgr_demo_variant_calling",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "variants",

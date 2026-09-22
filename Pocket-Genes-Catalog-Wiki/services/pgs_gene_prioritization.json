@@ -102,7 +102,51 @@
         }
       ],
       "form_shape_id": "pgfs_gene_prioritization",
-      "form_shape_version": 1
+      "form_shape_version": 1,
+      "form_shape": {
+        "id": "pgfs_gene_prioritization",
+        "version": 1,
+        "allow_unknown_fields": false,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "ranking_mode",
+            "label": "Ranking mode",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "ranked",
+                "label": "Ranked list"
+              },
+              {
+                "value": "selected",
+                "label": "Selected set"
+              }
+            ]
+          },
+          {
+            "key": "maximum_genes",
+            "label": "Maximum genes",
+            "type": "integer",
+            "required": true,
+            "options": []
+          }
+        ]
+      }
     },
     "files": []
   },
@@ -176,7 +220,7 @@
   },
   "sampleResult": {
     "request_id": "pgr_demo_gene_prioritization",
-    "status": "completed",
+    "status": "delivered",
     "outputs": [
       {
         "role": "candidate_genes",
@@ -194,5 +238,6 @@
   "regions": [
     "AR"
   ],
-  "providerApiContractId": "pg_api_service_requests_v1"
+  "providerApiContractId": "pg_api_service_requests_v1",
+  "isHiddenFromSearch": false
 }

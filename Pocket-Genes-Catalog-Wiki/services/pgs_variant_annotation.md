@@ -4,6 +4,8 @@ Add the agreed variant annotations while preserving source identity, variant pro
 
 **Provider:** `pgp_variant_analysis`. **Service version:** `1`. **Stage:** Bioinformatics.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Enrich variants using the provider annotation profile and record the knowledge-source versions and limitations.
 
 **Input slots**
@@ -57,7 +59,40 @@ Add the agreed variant annotations while preserving source identity, variant pro
         "key": "annotation_profile",
         "value": "PG_DEMO_ANN_V1"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_variant_annotation",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "annotation_profile",
+          "label": "Annotation profile",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "PG_DEMO_ANN_V1",
+              "label": "Demo annotation profile"
+            }
+          ]
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -101,7 +136,7 @@ Add the agreed variant annotations while preserving source identity, variant pro
 ```json
 {
   "request_id": "pgr_demo_variant_annotation",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "annotated_variants",

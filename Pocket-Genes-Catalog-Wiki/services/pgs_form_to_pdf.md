@@ -4,6 +4,8 @@ Create a standalone professional summary from the submitted form, demonstrating 
 
 **Provider:** `pgp_clinical_planning`. **Service version:** `1`. **Stage:** Test Planning.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Review the submitted information within the service scope and issue a clearly labeled consultation summary.
 
 **Input slots**
@@ -78,7 +80,72 @@ Create a standalone professional summary from the submitted form, demonstrating 
         "key": "language",
         "value": "en"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_form_to_pdf",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "subject_id",
+          "label": "Subject identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "patient_name",
+          "label": "Patient name",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "objective",
+          "label": "Consultation objective",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "submitted_information",
+          "label": "Information to review",
+          "type": "string_list",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "language",
+          "label": "Report language",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "en",
+              "label": "English"
+            },
+            {
+              "value": "es-AR",
+              "label": "Spanish, Argentina"
+            }
+          ]
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -108,7 +175,7 @@ Create a standalone professional summary from the submitted form, demonstrating 
 ```json
 {
   "request_id": "pgr_demo_form_to_pdf",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "summary",

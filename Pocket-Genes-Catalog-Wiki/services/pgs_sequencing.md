@@ -4,6 +4,8 @@ Process an accepted DNA sample and deliver FASTQ reads supporting the contracted
 
 **Provider:** `pgp_precision_lab`. **Service version:** `1`. **Stage:** Wet Lab.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Prepare and run the laboratory work, assess the requested scope, and deliver the contracted read files and support evidence.
 
 **Input slots**
@@ -58,7 +60,40 @@ Process an accepted DNA sample and deliver FASTQ reads supporting the contracted
         "key": "sequencing_profile",
         "value": "pg_demo_targeted_reads_v1"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_sequencing",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "sequencing_profile",
+          "label": "Sequencing profile",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "pg_demo_targeted_reads_v1",
+              "label": "Demo targeted read profile"
+            }
+          ]
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -102,7 +137,7 @@ Process an accepted DNA sample and deliver FASTQ reads supporting the contracted
 ```json
 {
   "request_id": "pgr_demo_sequencing",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "reads",

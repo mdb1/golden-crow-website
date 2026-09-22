@@ -26,7 +26,51 @@
         "key": "maximum_genes",
         "value": 3
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_gene_prioritization",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "ranking_mode",
+          "label": "Ranking mode",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "ranked",
+              "label": "Ranked list"
+            },
+            {
+              "value": "selected",
+              "label": "Selected set"
+            }
+          ]
+        },
+        {
+          "key": "maximum_genes",
+          "label": "Maximum genes",
+          "type": "integer",
+          "required": true,
+          "options": []
+        }
+      ]
+    }
   },
   "files": []
 }

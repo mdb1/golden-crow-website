@@ -84,7 +84,40 @@
         }
       ],
       "form_shape_id": "pgfs_variant_calling",
-      "form_shape_version": 1
+      "form_shape_version": 1,
+      "form_shape": {
+        "id": "pgfs_variant_calling",
+        "version": 1,
+        "allow_unknown_fields": false,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "calling_profile",
+            "label": "Calling profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "pg_demo_calling_v1",
+                "label": "Demo variant-calling profile"
+              }
+            ]
+          }
+        ]
+      }
     },
     "files": []
   },
@@ -182,7 +215,7 @@
   },
   "sampleResult": {
     "request_id": "pgr_demo_variant_calling",
-    "status": "completed",
+    "status": "delivered",
     "outputs": [
       {
         "role": "variants",
@@ -200,5 +233,6 @@
   "regions": [
     "AR"
   ],
-  "providerApiContractId": "pg_api_service_requests_v1"
+  "providerApiContractId": "pg_api_service_requests_v1",
+  "isHiddenFromSearch": false
 }

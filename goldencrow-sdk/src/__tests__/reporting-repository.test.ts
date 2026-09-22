@@ -320,6 +320,7 @@ describe("reporting repository", () => {
         owner_id: "PAT-00001",
         uploaded_report_id: "aws-report-1",
         source: "aws_s3",
+        updated_at: expect.anything(),
       }),
       { merge: true },
     );

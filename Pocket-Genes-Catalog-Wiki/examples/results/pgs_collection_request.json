@@ -1,6 +1,6 @@
 {
   "request_id": "pgr_demo_collection_request",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "collection_request",

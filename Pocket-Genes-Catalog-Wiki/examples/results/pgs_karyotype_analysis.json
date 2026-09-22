@@ -1,6 +1,6 @@
 {
   "request_id": "pgr_demo_karyotype_analysis",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "karyotype_result",

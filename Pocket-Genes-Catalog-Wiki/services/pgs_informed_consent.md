@@ -4,6 +4,8 @@ Receive the completed consent-specific form and produce an informed-consent reco
 
 **Provider:** `pgp_clinical_planning`. **Service version:** `1`. **Stage:** Test Planning.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Present or verify the consent material and record the completed consent process as specified by the provider service.
 
 **Input slots**
@@ -90,7 +92,93 @@ Receive the completed consent-specific form and produce an informed-consent reco
         "key": "signature_evidence_id",
         "value": "signature_demo_001"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_informed_consent",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "subject_id",
+          "label": "Subject identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "signer_name",
+          "label": "Signer name",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "signer_capacity",
+          "label": "Signer capacity",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "self",
+              "label": "Self"
+            },
+            {
+              "value": "representative",
+              "label": "Representative"
+            }
+          ]
+        },
+        {
+          "key": "consent_text_id",
+          "label": "Consent text identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "consent_text_version",
+          "label": "Consent text version",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "scope_description",
+          "label": "Scope being consented to",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "accepted",
+          "label": "Accepted",
+          "type": "boolean",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "signature_evidence_id",
+          "label": "Signature evidence identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -120,7 +208,7 @@ Receive the completed consent-specific form and produce an informed-consent reco
 ```json
 {
   "request_id": "pgr_demo_informed_consent",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "consent",

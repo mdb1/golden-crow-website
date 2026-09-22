@@ -1,6 +1,6 @@
 {
   "request_id": "pgr_demo_sequencing",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "reads",

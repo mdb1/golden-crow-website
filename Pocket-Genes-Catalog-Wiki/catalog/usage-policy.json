@@ -1,76 +1,83 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.2.0",
   "policy_id": "pg_usage_policy_service_requests_v1",
   "status": "proposed",
   "calendar_timezone": "UTC",
-  "token_status_defaults": {
-    "token_balance": 20,
-    "max_token_usage_per_day": 5,
-    "cooldown_seconds": 300,
-    "next_request_at": null
+  "policy_configuration_defaults": {
+    "policy_id": "pg_usage_policy_service_requests_v1",
+    "total_transaction_limit": 20,
+    "daily_transaction_limit": 5,
+    "cooldown_seconds": 300
   },
-  "token_model": {
-    "tokens_consumed_per_admitted_transaction": 1,
-    "automatic_replenishment": "none",
-    "initial_grant_applies_once": true,
-    "monetary_value": false,
-    "transferable": false,
-    "exchangeable": false,
-    "additional_usage_source": "Pocket Genes contact request and authorized administrative adjustment"
-  },
-  "transaction_accounting": {
+  "functional_accounting": {
     "authoritative_collection": "service_transactions",
-    "charged_account_field": "charged_user_id",
-    "consumed_at_field": "token_consumed_at",
-    "refunded_at_field": "token_refunded_at",
-    "daily_count_source": "global_service_transactions",
-    "daily_count_interval": "day_start <= token_consumed_at < next_day_start",
+    "requester_field": "requestedByUserId",
+    "transaction_time_field": "requestedAt",
+    "daily_count_interval": "utc_day_start <= requestedAt < next_utc_day_start and requestedAt <= now",
     "daily_count_timezone": "UTC",
-    "count_admitted_statuses": [
-      "received",
-      "validating",
-      "accepted",
-      "queued",
-      "running",
-      "awaiting_input",
-      "completed",
-      "rejected",
-      "failed",
-      "cancelled"
+    "deduplication_key": "service_transactions document ID",
+    "remaining_total_formula": "max(0, total_transaction_limit - count(transactions where requestedAt <= now))",
+    "today_count_formula": "count(transactions where utc_day_start <= requestedAt < next_utc_day_start and requestedAt <= now)",
+    "last_transaction_formula": "max(requestedAt where requestedAt <= now)",
+    "cooldown_deadline_formula": "last_transaction_requestedAt + cooldown_seconds",
+    "next_allowed_formula": "later of cooldown deadline and next UTC day start when the daily limit is active",
+    "seven_day_formula": "group actual transaction requestedAt timestamps into seven UTC day buckets",
+    "recompute_on": [
+      "opening account status",
+      "refreshing account status",
+      "immediately before approving a service request",
+      "receiving a changed service transaction list",
+      "crossing a UTC day boundary while the view is active"
     ],
-    "excluded_records": [
-      "attempts rejected before admission",
-      "drafts without token_consumed_at",
-      "ordinary reads, downloads, notifications, clarification replies, status updates, output registration, contact requests and limit-extension requests"
-    ],
-    "refund_rule": "A restored token increments token_balance and sets token_refunded_at on the original transaction without changing token_consumed_at, daily usage, or cooldown."
+    "forbidden_persisted_fields": [
+      "admitted_usage_count",
+      "admitted_usage_day_start",
+      "today_usage_count",
+      "tokens_consumed_today",
+      "tokens_remaining_today",
+      "last_request_at",
+      "next_request_at",
+      "cooldown_started_at",
+      "cooldown_ends_at",
+      "pending_admissions",
+      "token_balance"
+    ]
   },
   "admission_gate": {
     "must_run_before_provider_dispatch": true,
-    "must_resolve_idempotency_before_new_consumption": true,
-    "must_validate_form_and_input_compatibility_before_consumption": true,
-    "atomic_commit_facts": [
-      "create authoritative global transaction",
-      "set charged_user_id",
-      "set token_consumed_at from server time",
-      "deduct one token",
-      "set next_request_at",
-      "persist idempotency mapping",
-      "persist durable dispatch instruction"
+    "must_run_before_form_object_persistence": true,
+    "must_reload_root_transactions": true,
+    "derived_state_persistence_forbidden": true,
+    "post_approval_limit_revalidation_forbidden": true,
+    "only_external_io_failures_may_interrupt_after_approval": true,
+    "ordered_steps": [
+      "validate active offer and declared input roles",
+      "validate the complete form shape and every submitted value without writing data",
+      "load the active Discover publisher and resolve its public owner UID without writing data",
+      "load stable policy configuration",
+      "load every root service transaction requested by the current user",
+      "calculate total usage, UTC daily usage, latest transaction and cooldown in memory",
+      "approve or deny the request without persisting calculated usage state",
+      "create and register the provider-owned form object when required",
+      "download the requester local form copy when required",
+      "create the service transaction and publish the reduced user summary"
     ],
     "denied_attempts_do_not": [
-      "deduct a token",
-      "change next_request_at",
+      "persist counters, balances, timestamps or cooldown deadlines",
       "dispatch provider work",
-      "create a token-consuming transaction"
+      "create a service transaction",
+      "create file_storage data",
+      "create uploaded_objects data",
+      "reserve an object_codes code",
+      "normalize or mutate object_owners"
     ]
   },
   "pipeline_policy": {
-    "planning_consumes_tokens": false,
-    "each_admitted_service_step_consumes_tokens": true,
-    "combined_published_service_consumes_tokens": 1,
+    "planning_consumes_capacity": false,
+    "each_created_service_transaction_counts_once": true,
+    "combined_published_service_counts_as": 1,
     "blocked_step_state": "waiting_for_limits",
-    "automatic_retry_must_recheck_limits": true
+    "automatic_retry_must_recalculate_from_transactions": true
   },
   "stable_error_codes": [
     "token_balance_exhausted",
@@ -85,6 +92,22 @@
       "token_daily_limit_reached": "You've reached your service request limit for today. You can request another service after {time}.",
       "token_balance_exhausted": "You've reached your current service request limit.",
       "token_cooldown_active": "You can request another service in {remaining_time}."
+    },
+    "account_status": {
+      "day_bucket_timezone": "UTC",
+      "reset_timestamp_display_timezone": "device_local",
+      "seven_day_chart_bucket_timezone": "UTC",
+      "countdown_refresh_seconds": 1,
+      "overlapping_wait_rule": "later_deadline",
+      "visible_metrics": [
+        "configured_cooldown",
+        "derived_last_transaction_time",
+        "derived_today_usage_over_daily_limit",
+        "derived_remaining_over_total_limit",
+        "derived_current_day_start",
+        "derived_next_reset",
+        "derived_last_seven_utc_days"
+      ]
     },
     "disallowed_patterns": [
       "token wallet",

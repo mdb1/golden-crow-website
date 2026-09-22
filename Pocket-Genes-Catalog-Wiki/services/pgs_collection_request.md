@@ -4,6 +4,8 @@ Create a request for a qualified collector or laboratory to obtain a real biolog
 
 **Provider:** `pgp_sample_logistics`. **Service version:** `1`. **Stage:** Wet Lab.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Verify the subject, consent, requested material, collection method, collection site, collection window, and preparation profile; schedule or perform the biological sample collection.
 
 **Input slots**
@@ -86,7 +88,119 @@ Create a request for a qualified collector or laboratory to obtain a real biolog
         "key": "preparation_profile",
         "value": "EDTA tube, subject identity check, consent confirmed before draw"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_collection_request",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "subject_id",
+          "label": "Subject identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "collection_site",
+          "label": "Biological sample collection site",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_sample_type",
+          "label": "Sample type to collect",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "blood",
+              "label": "Blood draw"
+            },
+            {
+              "value": "buccal_swab",
+              "label": "Buccal swab"
+            },
+            {
+              "value": "saliva",
+              "label": "Saliva sample"
+            },
+            {
+              "value": "tissue",
+              "label": "Tissue biopsy"
+            },
+            {
+              "value": "embryo_material",
+              "label": "Embryo material collection"
+            }
+          ]
+        },
+        {
+          "key": "collection_method",
+          "label": "Collection method",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "phlebotomy",
+              "label": "Phlebotomy / venous blood draw"
+            },
+            {
+              "value": "buccal_swab",
+              "label": "Buccal swab performed on the subject"
+            },
+            {
+              "value": "saliva_kit",
+              "label": "Saliva kit completed by the subject"
+            },
+            {
+              "value": "tissue_biopsy",
+              "label": "Tissue biopsy performed by a qualified provider"
+            },
+            {
+              "value": "embryo_biopsy",
+              "label": "Embryo biopsy material collection"
+            }
+          ]
+        },
+        {
+          "key": "collection_window_start",
+          "label": "Sample collection window start",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "collection_window_end",
+          "label": "Sample collection window end",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "preparation_profile",
+          "label": "Collection preparation profile",
+          "type": "text",
+          "required": true,
+          "options": []
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -123,7 +237,7 @@ Create a request for a qualified collector or laboratory to obtain a real biolog
 ```json
 {
   "request_id": "pgr_demo_collection_request",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "collection_request",

@@ -112,7 +112,54 @@
         }
       ],
       "form_shape_id": "pgfs_karyotype_analysis",
-      "form_shape_version": 1
+      "form_shape_version": 1,
+      "form_shape": {
+        "id": "pgfs_karyotype_analysis",
+        "version": 1,
+        "allow_unknown_fields": false,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "subject_id",
+            "label": "Subject identifier",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "objective",
+            "label": "Analysis objective",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "analysis_profile",
+            "label": "Analysis profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "pg_demo_metaphase_review_v1",
+                "label": "Demo metaphase image review"
+              }
+            ]
+          }
+        ]
+      }
     },
     "files": []
   },
@@ -188,7 +235,7 @@
   },
   "sampleResult": {
     "request_id": "pgr_demo_karyotype_analysis",
-    "status": "completed",
+    "status": "delivered",
     "outputs": [
       {
         "role": "karyotype_result",
@@ -206,5 +253,6 @@
   "regions": [
     "AR"
   ],
-  "providerApiContractId": "pg_api_service_requests_v1"
+  "providerApiContractId": "pg_api_service_requests_v1",
+  "isHiddenFromSearch": false
 }

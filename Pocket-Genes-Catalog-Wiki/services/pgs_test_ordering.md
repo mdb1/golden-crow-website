@@ -4,6 +4,8 @@ Combine the consent record, candidate genes and patient/request context into the
 
 **Provider:** `pgp_clinical_planning`. **Service version:** `1`. **Stage:** Test Planning.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Review consent and test selection, consolidate the patient context, and issue the order with explicit fulfillment requirements.
 
 **Input slots**
@@ -113,7 +115,140 @@ Combine the consent record, candidate genes and patient/request context into the
         "key": "required_profile",
         "value": "pg_demo_small_variant_v1"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_test_ordering",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "subject_id",
+          "label": "Subject identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "patient_name",
+          "label": "Patient name",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "objective",
+          "label": "Intended objective",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "clinical_suspicion",
+          "label": "Clinical suspicion",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "reference_id",
+          "label": "Reference identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "variant_classes",
+          "label": "Requested variant classes",
+          "type": "multi_enum",
+          "required": true,
+          "options": [
+            {
+              "value": "SNV",
+              "label": "Single-nucleotide variants"
+            },
+            {
+              "value": "small_indel",
+              "label": "Small insertions/deletions"
+            }
+          ]
+        },
+        {
+          "key": "required_output_types",
+          "label": "Required deliverables",
+          "type": "multi_enum",
+          "required": true,
+          "options": [
+            {
+              "value": "pgo_interactive_report",
+              "label": "Interactive report"
+            },
+            {
+              "value": "pgo_pdf_report",
+              "label": "PDF report"
+            }
+          ]
+        },
+        {
+          "key": "patient_date_of_birth",
+          "label": "Patient date of birth",
+          "type": "date",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "patient_identifier",
+          "label": "Patient identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "wet_lab_output_type",
+          "label": "Laboratory handoff format",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "pgo_sequence_reads",
+              "label": "FASTQ reads"
+            },
+            {
+              "value": "pgo_aligned_reads",
+              "label": "Aligned reads (BAM)"
+            },
+            {
+              "value": "pgo_unannotated_vcf",
+              "label": "Unannotated variants (VCF)"
+            },
+            {
+              "value": "pgo_annotated_vcf",
+              "label": "Annotated variants (VCF)"
+            }
+          ]
+        },
+        {
+          "key": "required_profile",
+          "label": "Required analytical profile",
+          "type": "text",
+          "required": true,
+          "options": []
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -157,7 +292,7 @@ Combine the consent record, candidate genes and patient/request context into the
 ```json
 {
   "request_id": "pgr_demo_test_ordering",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "test_order",

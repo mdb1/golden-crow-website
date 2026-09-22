@@ -548,7 +548,40 @@
             "key": "annotation_profile",
             "value": "PG_DEMO_ANN_V1"
           }
-        ]
+        ],
+        "form_shape": {
+          "id": "pgfs_variant_annotation",
+          "version": 1,
+          "allow_unknown_fields": false,
+          "fields": [
+            {
+              "key": "requested_at",
+              "label": "Requested at",
+              "type": "datetime",
+              "required": true,
+              "options": []
+            },
+            {
+              "key": "requested_by",
+              "label": "Requested by",
+              "type": "text",
+              "required": true,
+              "options": []
+            },
+            {
+              "key": "annotation_profile",
+              "label": "Annotation profile",
+              "type": "enum",
+              "required": true,
+              "options": [
+                {
+                  "value": "PG_DEMO_ANN_V1",
+                  "label": "Demo annotation profile"
+                }
+              ]
+            }
+          ]
+        }
       },
       "files": []
     },

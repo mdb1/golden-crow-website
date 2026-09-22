@@ -4,6 +4,8 @@ Align accepted FASTQ reads to the order reference and return an aligned-read obj
 
 **Provider:** `pgp_variant_analysis`. **Service version:** `1`. **Stage:** Bioinformatics.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Run the alignment and quality assessment under the declared profile; retain input and reference provenance.
 
 **Input slots**
@@ -57,7 +59,40 @@ Align accepted FASTQ reads to the order reference and return an aligned-read obj
         "key": "alignment_profile",
         "value": "pg_demo_alignment_v1"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_read_alignment",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "alignment_profile",
+          "label": "Alignment profile",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "pg_demo_alignment_v1",
+              "label": "Demo alignment profile"
+            }
+          ]
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -101,7 +136,7 @@ Align accepted FASTQ reads to the order reference and return an aligned-read obj
 ```json
 {
   "request_id": "pgr_demo_read_alignment",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "aligned_reads",

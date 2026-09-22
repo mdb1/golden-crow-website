@@ -248,30 +248,264 @@
     },
     "form_data": {
       "type": "object",
+      "description": "Form: data payload in the shared Pocket Genes object envelope.",
       "properties": {
         "form_shape_id": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^pgfs_[A-Za-z0-9_]+$"
+          "description": "Identifier of the form_shape published by the requested service."
         },
         "form_shape_version": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Exact integer version of the form_shape used to fill and validate this form."
+        },
+        "form_shape": {
+          "type": "object",
+          "description": "Immutable copy of the exact published form shape used for this submission. It makes the form independently reconstructable after the offer changes.",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "allow_unknown_fields": {
+              "const": false
+            },
+            "fields": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "type": {
+                    "enum": [
+                      "text",
+                      "number",
+                      "integer",
+                      "boolean",
+                      "date",
+                      "datetime",
+                      "enum",
+                      "multi_enum",
+                      "string_list"
+                    ]
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "label"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "key",
+                  "label",
+                  "type",
+                  "required",
+                  "options"
+                ],
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "enum",
+                            "multi_enum"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "options": {
+                          "minItems": 1
+                        }
+                      }
+                    },
+                    "else": {
+                      "properties": {
+                        "options": {
+                          "maxItems": 0
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "allOf": [
+                {
+                  "contains": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "const": "requested_at"
+                      },
+                      "type": {
+                        "const": "datetime"
+                      },
+                      "required": {
+                        "const": true
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "type",
+                      "required"
+                    ]
+                  },
+                  "minContains": 1,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "const": "requested_by"
+                      },
+                      "type": {
+                        "const": "text"
+                      },
+                      "required": {
+                        "const": true
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "type",
+                      "required"
+                    ]
+                  },
+                  "minContains": 1,
+                  "maxContains": 1
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "version",
+            "allow_unknown_fields",
+            "fields"
+          ],
+          "additionalProperties": false
         },
         "fields": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/form_field"
+            "type": "object",
+            "description": "One filled field.",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Field key declared in the service form_shape."
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "description": "Filled value. Actual type, requiredness, and enum options are enforced by the referenced form_shape."
+              }
+            },
+            "required": [
+              "key",
+              "value"
+            ],
+            "additionalProperties": false
           },
-          "minItems": 2
+          "minItems": 2,
+          "description": "Filled request fields, including requested_at and requested_by."
         }
       },
       "required": [
         "form_shape_id",
         "form_shape_version",
+        "form_shape",
         "fields"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "properties": {
+            "fields": {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "requested_at"
+                  }
+                },
+                "required": [
+                  "key"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          }
+        },
+        {
+          "properties": {
+            "fields": {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "requested_by"
+                  }
+                },
+                "required": [
+                  "key"
+                ]
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          }
+        }
+      ]
     },
     "file_descriptor": {
       "type": "object",
@@ -661,7 +895,7 @@
             "queued",
             "running",
             "awaiting_input",
-            "completed",
+            "delivered",
             "rejected",
             "failed",
             "cancelled"
@@ -680,27 +914,6 @@
           "type": "string",
           "minLength": 1,
           "format": "date-time"
-        },
-        "charged_user_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "token_consumed_at": {
-          "type": "string",
-          "minLength": 1,
-          "format": "date-time"
-        },
-        "token_refunded_at": {
-          "anyOf": [
-            {
-              "type": "string",
-              "minLength": 1,
-              "format": "date-time"
-            },
-            {
-              "type": "null"
-            }
-          ]
         },
         "outputs": {
           "type": "array",
@@ -763,7 +976,7 @@
             "queued",
             "running",
             "awaiting_input",
-            "completed",
+            "delivered",
             "rejected",
             "failed",
             "cancelled"
@@ -782,27 +995,6 @@
           "type": "string",
           "minLength": 1,
           "format": "date-time"
-        },
-        "charged_user_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "token_consumed_at": {
-          "type": "string",
-          "minLength": 1,
-          "format": "date-time"
-        },
-        "token_refunded_at": {
-          "anyOf": [
-            {
-              "type": "string",
-              "minLength": 1,
-              "format": "date-time"
-            },
-            {
-              "type": "null"
-            }
-          ]
         },
         "outputs": {
           "type": "array",
@@ -829,7 +1021,7 @@
           "if": {
             "properties": {
               "status": {
-                "const": "completed"
+                "const": "delivered"
               }
             }
           },
@@ -1021,6 +1213,10 @@
             "mock_catalog_only"
           ]
         },
+        "isHiddenFromSearch": {
+          "type": "boolean",
+          "description": "Discovery-only visibility flag. True excludes the offer from native available-service search/listing, without hiding or invalidating transactions already created from it."
+        },
         "description": {
           "type": "string",
           "minLength": 1
@@ -1105,6 +1301,7 @@
         "status",
         "stages",
         "availability",
+        "isHiddenFromSearch",
         "description",
         "shortContract",
         "providerWork",

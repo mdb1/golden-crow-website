@@ -4,6 +4,8 @@ Review a compatible bundle of metaphase images and return a structured karyotype
 
 **Provider:** `pgp_cytogenetics`. **Service version:** `1`. **Stage:** Bioinformatics.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Perform digital image analysis and the professional review included in the offered cytogenetics service.
 
 **Input slots**
@@ -66,7 +68,54 @@ Review a compatible bundle of metaphase images and return a structured karyotype
         "key": "analysis_profile",
         "value": "pg_demo_metaphase_review_v1"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_karyotype_analysis",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "subject_id",
+          "label": "Subject identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "objective",
+          "label": "Analysis objective",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "analysis_profile",
+          "label": "Analysis profile",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "pg_demo_metaphase_review_v1",
+              "label": "Demo metaphase image review"
+            }
+          ]
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -103,7 +152,7 @@ Review a compatible bundle of metaphase images and return a structured karyotype
 ```json
 {
   "request_id": "pgr_demo_karyotype_analysis",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "karyotype_result",

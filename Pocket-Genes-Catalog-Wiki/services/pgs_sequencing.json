@@ -84,7 +84,40 @@
         }
       ],
       "form_shape_id": "pgfs_sequencing",
-      "form_shape_version": 1
+      "form_shape_version": 1,
+      "form_shape": {
+        "id": "pgfs_sequencing",
+        "version": 1,
+        "allow_unknown_fields": false,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "sequencing_profile",
+            "label": "Sequencing profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "pg_demo_targeted_reads_v1",
+                "label": "Demo targeted read profile"
+              }
+            ]
+          }
+        ]
+      }
     },
     "files": []
   },
@@ -190,7 +223,7 @@
   },
   "sampleResult": {
     "request_id": "pgr_demo_sequencing",
-    "status": "completed",
+    "status": "delivered",
     "outputs": [
       {
         "role": "reads",
@@ -215,5 +248,6 @@
   "regions": [
     "AR"
   ],
-  "providerApiContractId": "pg_api_service_requests_v1"
+  "providerApiContractId": "pg_api_service_requests_v1",
+  "isHiddenFromSearch": false
 }

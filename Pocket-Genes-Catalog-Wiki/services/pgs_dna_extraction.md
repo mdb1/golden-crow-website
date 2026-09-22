@@ -4,6 +4,8 @@ Produce an identified DNA sample from one compatible blood, tissue or embryo-bio
 
 **Provider:** `pgp_precision_lab`. **Service version:** `1`. **Stage:** Wet Lab.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Perform the accepted extraction method and return the DNA identity, measured properties and source lineage.
 
 **Input slots**
@@ -58,7 +60,48 @@ Produce an identified DNA sample from one compatible blood, tissue or embryo-bio
         "key": "extraction_profile",
         "value": "demo_blood_dna_v1"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_dna_extraction",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "extraction_profile",
+          "label": "Extraction profile",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "demo_blood_dna_v1",
+              "label": "Demo blood DNA extraction"
+            },
+            {
+              "value": "demo_tissue_dna_v1",
+              "label": "Demo tissue DNA extraction"
+            },
+            {
+              "value": "demo_embryo_biopsy_dna_v1",
+              "label": "Demo embryo-biopsy DNA extraction"
+            }
+          ]
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -102,7 +145,7 @@ Produce an identified DNA sample from one compatible blood, tissue or embryo-bio
 ```json
 {
   "request_id": "pgr_demo_dna_extraction",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "dna_sample",

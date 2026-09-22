@@ -4,6 +4,8 @@ Derive an unannotated VCF from aligned reads for the contracted genes, regions a
 
 **Provider:** `pgp_variant_analysis`. **Service version:** `1`. **Stage:** Bioinformatics.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Call the agreed classes, assess support across the requested scope and produce a native VCF with registered provenance.
 
 **Input slots**
@@ -57,7 +59,40 @@ Derive an unannotated VCF from aligned reads for the contracted genes, regions a
         "key": "calling_profile",
         "value": "pg_demo_calling_v1"
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_variant_calling",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "calling_profile",
+          "label": "Calling profile",
+          "type": "enum",
+          "required": true,
+          "options": [
+            {
+              "value": "pg_demo_calling_v1",
+              "label": "Demo variant-calling profile"
+            }
+          ]
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -101,7 +136,7 @@ Derive an unannotated VCF from aligned reads for the contracted genes, regions a
 ```json
 {
   "request_id": "pgr_demo_variant_calling",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "variants",

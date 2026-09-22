@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pocketgenes.example/protocol/service-transaction/1.1.0/schema.json",
+  "title": "Pocket Genes root service transaction v1.1.0",
+  "description": "Strict root service_transactions record. Exact promised-output coverage and uploaded-object readiness require semantic backend validation against the frozen service offer.",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "requestId": {
+      "type": "string",
+      "pattern": "^pgr_[a-z0-9_]+$"
+    },
+    "offerId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "serviceId": {
+      "type": "string",
+      "pattern": "^pgs_[a-z0-9_]+$"
+    },
+    "serviceVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "received",
+        "validating",
+        "awaiting_input",
+        "accepted",
+        "queued",
+        "running",
+        "delivered",
+        "rejected",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "providerId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "providerKind": {
+      "type": "string",
+      "enum": [
+        "organization",
+        "individual"
+      ]
+    },
+    "requestedByUserId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requestedByUserEmail": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/input_slot"
+      }
+    },
+    "outputObjects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/output_object_snapshot"
+      }
+    },
+    "outputReports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/output_report_snapshot"
+      },
+      "uniqueItems": true
+    },
+    "missingRequiredInputRoles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "uniqueItems": true
+    },
+    "requestRevision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "issues": {
+      "type": "array"
+    },
+    "offerSnapshot": {
+      "type": "object"
+    },
+    "providerSnapshot": {
+      "type": "object"
+    },
+    "contractSource": {
+      "type": "string",
+      "minLength": 1
+    },
+    "attachmentsPending": {
+      "type": "boolean"
+    },
+    "requestedAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "requestedAtClient": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "createdAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "updatedAt": {
+      "$ref": "#/$defs/timestamp"
+    }
+  },
+  "required": [
+    "requestId",
+    "offerId",
+    "serviceId",
+    "serviceVersion",
+    "providerId",
+    "providerKind",
+    "requestedByUserId",
+    "requestedAt",
+    "requestedAtClient",
+    "status",
+    "requestRevision",
+    "idempotencyKey",
+    "inputs",
+    "outputObjects",
+    "outputReports",
+    "issues",
+    "missingRequiredInputRoles",
+    "offerSnapshot",
+    "providerSnapshot",
+    "contractSource",
+    "createdAt",
+    "updatedAt"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "delivered"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outputObjects": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "input_slot": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "objectRef": {
+          "type": "object",
+          "properties": {
+            "objectId": {
+              "type": "string",
+              "pattern": "^obj_[a-z0-9_]+$"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "objectId",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        "objectType": {
+          "type": "string",
+          "pattern": "^pgo_[a-z0-9_]+$"
+        },
+        "objectCode": {
+          "type": "string",
+          "pattern": "^[0-9]{9}$"
+        },
+        "uploadedObjectId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fileStorageId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objectOwnerId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objectSnapshot": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "role",
+        "objectRef",
+        "objectType",
+        "objectSnapshot"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "objectType": {
+                "const": "pgo_form"
+              }
+            },
+            "required": [
+              "objectType"
+            ]
+          },
+          "then": {
+            "properties": {
+              "role": {
+                "const": "form"
+              }
+            },
+            "required": [
+              "objectCode",
+              "uploadedObjectId",
+              "fileStorageId",
+              "objectOwnerId"
+            ]
+          }
+        }
+      ]
+    },
+    "timestamp": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "output_object_snapshot": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "objectType": {
+          "type": "string",
+          "enum": [
+            "pgo_form",
+            "pgo_bundle_of_symptoms",
+            "pgo_bundle_of_candidate_genes",
+            "pgo_informed_consent",
+            "pgo_test_order",
+            "pgo_collection_request",
+            "pgo_blood_sample",
+            "pgo_tissue_sample",
+            "pgo_embryo_sample",
+            "pgo_dna_sample",
+            "pgo_sequence_reads",
+            "pgo_sequence_data",
+            "pgo_aligned_reads",
+            "pgo_unannotated_vcf",
+            "pgo_annotated_vcf",
+            "pgo_interactive_report",
+            "pgo_pdf_report",
+            "pgo_image_bundle",
+            "pgo_karyotype_result",
+            "pgo_flow_cytometry_data"
+          ]
+        },
+        "objectCode": {
+          "type": "string",
+          "pattern": "^[0-9]{9}$"
+        }
+      },
+      "required": [
+        "role",
+        "objectType",
+        "objectCode"
+      ],
+      "additionalProperties": false
+    },
+    "output_report_snapshot": {
+      "type": "object",
+      "properties": {
+        "reportCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{6}$"
+        }
+      },
+      "required": [
+        "reportCode"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

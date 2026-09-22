@@ -4,6 +4,8 @@ Turn the submitted observations into a reusable symptom bundle. A professional o
 
 **Provider:** `pgp_clinical_planning`. **Service version:** `1`. **Stage:** Test Planning.
 
+**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+
 **Provider work:** Review the form, clarify wording if needed, and return structured entries with provenance.
 
 **Input slots**
@@ -63,7 +65,42 @@ Turn the submitted observations into a reusable symptom bundle. A professional o
           "Synthetic observation B"
         ]
       }
-    ]
+    ],
+    "form_shape": {
+      "id": "pgfs_symptom_intake",
+      "version": 1,
+      "allow_unknown_fields": false,
+      "fields": [
+        {
+          "key": "requested_at",
+          "label": "Requested at",
+          "type": "datetime",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "requested_by",
+          "label": "Requested by",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "subject_id",
+          "label": "Subject identifier",
+          "type": "text",
+          "required": true,
+          "options": []
+        },
+        {
+          "key": "observations",
+          "label": "Reported observations",
+          "type": "string_list",
+          "required": true,
+          "options": []
+        }
+      ]
+    }
   },
   "files": []
 }
@@ -93,7 +130,7 @@ Turn the submitted observations into a reusable symptom bundle. A professional o
 ```json
 {
   "request_id": "pgr_demo_symptom_intake",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "symptoms",

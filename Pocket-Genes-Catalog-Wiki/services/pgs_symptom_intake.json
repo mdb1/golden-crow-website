@@ -98,7 +98,42 @@
         }
       ],
       "form_shape_id": "pgfs_symptom_intake",
-      "form_shape_version": 1
+      "form_shape_version": 1,
+      "form_shape": {
+        "id": "pgfs_symptom_intake",
+        "version": 1,
+        "allow_unknown_fields": false,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "subject_id",
+            "label": "Subject identifier",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "observations",
+            "label": "Reported observations",
+            "type": "string_list",
+            "required": true,
+            "options": []
+          }
+        ]
+      }
     },
     "files": []
   },
@@ -153,7 +188,7 @@
   },
   "sampleResult": {
     "request_id": "pgr_demo_symptom_intake",
-    "status": "completed",
+    "status": "delivered",
     "outputs": [
       {
         "role": "symptoms",
@@ -171,5 +206,6 @@
   "regions": [
     "AR"
   ],
-  "providerApiContractId": "pg_api_service_requests_v1"
+  "providerApiContractId": "pg_api_service_requests_v1",
+  "isHiddenFromSearch": false
 }

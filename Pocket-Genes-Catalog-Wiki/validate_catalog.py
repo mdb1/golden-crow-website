@@ -1,6 +1,7 @@
 import copy
 import hashlib
 import json
+import math
 import re
 import sys
 from collections import Counter
@@ -162,13 +163,65 @@ def form_values(data):
     return {field['key']: field['value'] for field in data['fields']}
 
 
+FORM_FIELD_TYPES = {
+    'text', 'number', 'integer', 'boolean', 'date', 'datetime',
+    'enum', 'multi_enum', 'string_list'
+}
+
+
+def validate_form_shape_definition(shape):
+    require(isinstance(shape['version'], int) and shape['version'] >= 1, 'Form shape version must be an integer')
+    require(shape.get('allowUnknownFields') is False, 'allowUnknownFields must be false')
+    fields = shape['fields']
+    keys = [field['key'] for field in fields]
+    require(len(keys) == len(set(keys)), 'Duplicate form field keys')
+    require({'requested_at', 'requested_by'} <= set(keys), 'Missing base form fields')
+    by_key = {field['key']: field for field in fields}
+    require(by_key['requested_at']['type'] == 'datetime' and by_key['requested_at']['required'] is True, 'requested_at must be a required datetime')
+    require(by_key['requested_by']['type'] == 'text' and by_key['requested_by']['required'] is True, 'requested_by must be required text')
+    for field in fields:
+        require(isinstance(field['key'], str) and field['key'].strip(), 'Form field key is required')
+        require(isinstance(field['label'], str) and field['label'].strip(), 'Form field label is required')
+        require(field['type'] in FORM_FIELD_TYPES, 'Unknown form field type: ' + field['type'])
+        require(isinstance(field['required'], bool), 'Form field required must be boolean')
+        options = field.get('options', [])
+        if field['type'] in ['enum', 'multi_enum']:
+            require(options, 'Enum fields require options: ' + field['key'])
+            values = [option['value'] for option in options]
+            require(len(values) == len(set(values)), 'Duplicate form options: ' + field['key'])
+            require(all(option['value'].strip() and option['label'].strip() for option in options), 'Form option value and label are required')
+        else:
+            require(not options, 'Only enum fields may declare options: ' + field['key'])
+
+
+def immutable_form_shape(shape):
+    return {
+        'id': shape['id'],
+        'version': shape['version'],
+        'allow_unknown_fields': False,
+        'fields': [
+            {
+                'key': field['key'],
+                'label': field['label'],
+                'type': field['type'],
+                'required': field['required'],
+                'options': [
+                    {'value': option['value'], 'label': option['label']}
+                    for option in field.get('options', [])
+                ]
+            }
+            for field in shape['fields']
+        ]
+    }
+
+
 def validate_form(service, form):
     require('formShape' in service, 'Form input requires a formShape')
     shape = service['formShape']
-    require(isinstance(shape['version'], int) and shape['version'] >= 1, 'Form shape version must be an integer')
-    require(shape.get('allowUnknownFields') is False, 'allowUnknownFields must be false')
+    validate_form_shape_definition(shape)
     data = form['data']
     require(data['form_shape_id'] == shape['id'] and data['form_shape_version'] == shape['version'], 'Form shape/version mismatch')
+    require(data.get('form_shape') == immutable_form_shape(shape), 'Embedded form shape must exactly match the published shape')
     values = form_values(data)
     require(len(values) == len(data['fields']), 'Duplicate form fields')
     fields = {field['key']: field for field in shape['fields']}
@@ -182,8 +235,8 @@ def validate_form(service, form):
         kind = field['type']
         valid = {
             'text': isinstance(value, str),
-            'number': isinstance(value, (float, int)) and not isinstance(value, bool),
-            'integer': isinstance(value, int) and not isinstance(value, bool),
+            'number': isinstance(value, (float, int)) and not isinstance(value, bool) and math.isfinite(value),
+            'integer': isinstance(value, (float, int)) and not isinstance(value, bool) and math.isfinite(value) and value == int(value),
             'boolean': isinstance(value, bool),
             'date': isinstance(value, str),
             'datetime': isinstance(value, str),
@@ -192,9 +245,17 @@ def validate_form(service, form):
             'string_list': isinstance(value, list) and all(isinstance(v, str) for v in value)
         }.get(kind, False)
         require(valid, 'Wrong form value type: ' + key)
+        if field['required'] and kind == 'text':
+            require(value.strip(), 'Required text cannot be blank: ' + key)
         if kind in ['enum', 'multi_enum']:
             options = {option['value'] for option in field['options']}
             require(set(value if isinstance(value, list) else [value]) <= options, 'Invalid enum option: ' + key)
+            if kind == 'multi_enum':
+                require(len(value) == len(set(value)), 'Duplicate multi-enum value: ' + key)
+                require(not field['required'] or value, 'Required multi-enum cannot be empty: ' + key)
+        if kind == 'string_list':
+            require(all(item.strip() for item in value), 'String-list values cannot be blank: ' + key)
+            require(not field['required'] or value, 'Required string-list cannot be empty: ' + key)
         if kind in ['date', 'datetime']:
             FORMAT.check(value, 'date-time' if kind == 'datetime' else 'date')
 
@@ -299,6 +360,7 @@ def predicted_stages(service):
 def service_contract_rules(service):
     require(isinstance(service['serviceVersion'], int) and service['serviceVersion'] >= 1, 'Service version must be an integer')
     require(service['status'] == 'active', 'Catalog offers must be active')
+    require(type(service['isHiddenFromSearch']) is bool, 'isHiddenFromSearch must be a boolean')
     require(service['providerKind'] in ['organization', 'individual'], 'Invalid provider kind')
     require(service['providerId'] in provider_map, 'Unknown provider')
     require(service['serviceId'] in provider_map[service['providerId']]['service_ids'], 'Provider service list mismatch')
@@ -333,11 +395,7 @@ def service_contract_rules(service):
         require(len(form_slots) == 1, 'Only one pgo_form input slot is allowed')
         shape = service['formShape']
         require(shape['id'] == 'pgfs_' + service['serviceId'][4:], 'Form shape id must derive from service id')
-        require(isinstance(shape['version'], int) and shape['version'] >= 1, 'Form shape version must be an integer')
-        require(shape.get('allowUnknownFields') is False, 'allowUnknownFields must be false')
-        keys = [field['key'] for field in shape['fields']]
-        require(len(keys) == len(set(keys)), 'Duplicate form field keys')
-        require({'requested_at', 'requested_by'} <= set(keys), 'Missing base form fields')
+        validate_form_shape_definition(shape)
     else:
         require(all(slot['objectType'] != 'pgo_form' for slot in service['inputSlots']), 'pgo_form input requires Support form input/formShape')
 
@@ -381,6 +439,7 @@ def contract_integrity(service):
     result = service['sampleResult']
     validate_request(service, request)
     require(result['request_id'] == request['request_id'], 'Result belongs to another request')
+    require(result['status'] == 'delivered', 'Successful service results must use delivered')
     form_input = next((item for item in request['inputs'] if resolve(item['object_ref'])['object_type'] == 'pgo_form'), None)
     if 'formShape' in service:
         require(form_input is not None, 'Missing pgo_form input')
@@ -421,6 +480,146 @@ def contract_integrity(service):
                 compatible(order, obj)
 
 
+def resolved_transaction_output_type(service, slot):
+    object_type = slot['objectType']
+    if not object_type.startswith('same_as:'):
+        return object_type
+    input_role = slot.get('sameIdentityAsInput') or object_type.split(':', 1)[1]
+    input_slot = next(
+        (candidate for candidate in service['inputSlots'] if candidate['role'] == input_role),
+        None
+    )
+    require(input_slot is not None, 'same_as output references an unknown input role')
+    return input_slot['objectType']
+
+
+def validate_root_transaction(transaction, service):
+    validate_schema(read('schemas/protocol/service-transaction.schema.json'), transaction)
+    require(transaction['serviceId'] == service['serviceId'], 'Root transaction service ID mismatch')
+    require(transaction['serviceVersion'] == service['serviceVersion'], 'Root transaction service version mismatch')
+    outputs = transaction['outputObjects']
+    roles = [item['role'] for item in outputs]
+    require(len(roles) == len(set(roles)), 'Root transaction output roles must be unique')
+    report_codes = [item['reportCode'] for item in transaction['outputReports']]
+    require(len(report_codes) == len(set(report_codes)), 'Root transaction report codes must be unique')
+    if transaction['status'] != 'delivered':
+        return
+    expected = {slot['role']: resolved_transaction_output_type(service, slot) for slot in service['outputSlots']}
+    require(set(roles) == set(expected), 'Delivered root transaction must cover every promised output role exactly once')
+    for output in outputs:
+        require(output['objectType'] == expected[output['role']], 'Delivered root transaction output type mismatch')
+
+
+def root_transaction_contract():
+    service = services[0]
+    slots_by_role = {slot['role']: slot for slot in service['inputSlots']}
+    inputs = []
+    for item in service['sampleRequest']['inputs']:
+        slot = slots_by_role[item['role']]
+        transaction_input = {
+            'role': item['role'],
+            'objectRef': {
+                'objectId': item['object_ref']['object_id'],
+                'revision': item['object_ref']['revision']
+            },
+            'objectType': slot['objectType'],
+            'objectSnapshot': {}
+        }
+        if slot['objectType'] == 'pgo_form':
+            transaction_input.update({
+                'objectCode': '123456789',
+                'uploadedObjectId': 'uploaded_form_fixture',
+                'fileStorageId': 'stored_form_fixture',
+                'objectOwnerId': 'provider_owner_fixture'
+            })
+        inputs.append(transaction_input)
+
+    timestamp = '2026-09-20T00:00:00Z'
+    transaction = {
+        'requestId': 'pgr_delivered_contract_fixture',
+        'offerId': service['serviceId'],
+        'serviceId': service['serviceId'],
+        'serviceVersion': service['serviceVersion'],
+        'providerId': service['providerId'],
+        'providerKind': service['providerKind'],
+        'requestedByUserId': 'requester_fixture',
+        'requestedAt': timestamp,
+        'requestedAtClient': timestamp,
+        'status': 'delivered',
+        'requestRevision': 1,
+        'idempotencyKey': 'ios-pgr_delivered_contract_fixture',
+        'inputs': inputs,
+        'outputObjects': [
+            {
+                'role': slot['role'],
+                'objectType': resolved_transaction_output_type(service, slot),
+                'objectCode': str(index + 1).zfill(9)
+            }
+            for index, slot in enumerate(service['outputSlots'])
+        ],
+        'outputReports': [],
+        'issues': [],
+        'missingRequiredInputRoles': [],
+        'offerSnapshot': {
+            'offerId': service['serviceId'],
+            'name': service['name'],
+            'serviceId': service['serviceId'],
+            'serviceVersion': service['serviceVersion']
+        },
+        'providerSnapshot': {
+            'id': service['providerId'],
+            'kind': service['providerKind'],
+            'name': service['providerName']
+        },
+        'contractSource': 'pocket_genes_services_wiki_v1',
+        'createdAt': timestamp,
+        'updatedAt': timestamp
+    }
+    validate_root_transaction(transaction, service)
+
+    missing_output = copy.deepcopy(transaction)
+    missing_output['outputObjects'] = missing_output['outputObjects'][:-1]
+    reject(lambda: validate_root_transaction(missing_output, service))
+
+    wrong_type = copy.deepcopy(transaction)
+    wrong_type['outputObjects'][0]['objectType'] = 'pgo_form'
+    reject(lambda: validate_root_transaction(wrong_type, service))
+
+    duplicate_role = copy.deepcopy(transaction)
+    if len(duplicate_role['outputObjects']) == 1:
+        duplicate_role['outputObjects'].append(copy.deepcopy(duplicate_role['outputObjects'][0]))
+        duplicate_role['outputObjects'][1]['objectCode'] = '999999999'
+    else:
+        duplicate_role['outputObjects'][1]['role'] = duplicate_role['outputObjects'][0]['role']
+    reject(lambda: validate_root_transaction(duplicate_role, service))
+
+    legacy_finished = copy.deepcopy(transaction)
+    legacy_finished['status'] = 'completed'
+    reject(lambda: validate_root_transaction(legacy_finished, service))
+
+    bad_object_code = copy.deepcopy(transaction)
+    bad_object_code['outputObjects'][0]['objectCode'] = 'ABC123'
+    reject(lambda: validate_root_transaction(bad_object_code, service))
+
+    optional_report = copy.deepcopy(transaction)
+    optional_report['outputReports'] = [{'reportCode': 'A1B2C3'}]
+    validate_root_transaction(optional_report, service)
+
+    persisted_derived_usage = copy.deepcopy(transaction)
+    persisted_derived_usage['admitted_usage_count'] = 1
+    reject(lambda: validate_root_transaction(persisted_derived_usage, service))
+
+    form_input = next((item for item in transaction['inputs'] if item['objectType'] == 'pgo_form'), None)
+    if form_input is not None:
+        missing_form_registration = copy.deepcopy(transaction)
+        invalid_form = next(item for item in missing_form_registration['inputs'] if item['objectType'] == 'pgo_form')
+        invalid_form.pop('objectCode')
+        reject(lambda: validate_root_transaction(missing_form_registration, service))
+
+
+check('root_service_transaction_delivery_contract', root_transaction_contract)
+
+
 check('fixed_registry_counts', lambda: require(len(types) == 20 and len(service_map) == 15 and len(provider_map) == 6, 'Registry counts differ'))
 
 
@@ -428,35 +627,79 @@ def token_usage_policy():
     validate_schema(read('schemas/protocol/token-usage-policy.schema.json'), usage_policy)
     require(services_catalog['usagePolicyRef']['policyId'] == usage_policy['policy_id'], 'Services catalog usage policy mismatch')
     require(services_catalog['usagePolicyRef']['path'] == 'catalog/usage-policy.json', 'Services catalog usage policy path mismatch')
-    defaults = usage_policy['token_status_defaults']
+    defaults = usage_policy['policy_configuration_defaults']
     require(defaults == {
-        'token_balance': 20,
-        'max_token_usage_per_day': 5,
+        'policy_id': 'pg_usage_policy_service_requests_v1',
+        'total_transaction_limit': 20,
+        'daily_transaction_limit': 5,
         'cooldown_seconds': 300,
-        'next_request_at': None
-    }, 'Token defaults changed')
+    }, 'Stable usage policy defaults changed')
     require(usage_policy['calendar_timezone'] == 'UTC', 'Daily usage timezone must be UTC in v1')
-    require(usage_policy['token_model']['tokens_consumed_per_admitted_transaction'] == 1, 'Each admitted transaction must consume one token')
-    require(usage_policy['token_model']['automatic_replenishment'] == 'none', 'Automatic token replenishment is not allowed')
-    accounting = usage_policy['transaction_accounting']
+    accounting = usage_policy['functional_accounting']
     require(accounting['authoritative_collection'] == 'service_transactions', 'Wrong transaction collection')
-    require(accounting['charged_account_field'] == 'charged_user_id', 'Wrong charged account field')
-    require(accounting['consumed_at_field'] == 'token_consumed_at', 'Wrong consumed timestamp field')
-    require(accounting['refunded_at_field'] == 'token_refunded_at', 'Wrong refunded timestamp field')
-    require(accounting['daily_count_source'] == 'global_service_transactions', 'Daily usage must be computed from global transactions')
+    require(accounting['requester_field'] == 'requestedByUserId', 'Wrong requester field')
+    require(accounting['transaction_time_field'] == 'requestedAt', 'Wrong transaction timestamp field')
+    require(accounting['daily_count_timezone'] == 'UTC', 'Daily usage must use UTC')
+    forbidden = set(accounting['forbidden_persisted_fields'])
+    require({
+        'admitted_usage_count',
+        'admitted_usage_day_start',
+        'today_usage_count',
+        'tokens_consumed_today',
+        'tokens_remaining_today',
+        'last_request_at',
+        'next_request_at',
+        'cooldown_started_at',
+        'cooldown_ends_at',
+        'pending_admissions',
+        'token_balance'
+    } == forbidden, 'Derived usage-state prohibition list changed')
     gate = usage_policy['admission_gate']
     require(gate['must_run_before_provider_dispatch'], 'Admission gate must run before provider dispatch')
-    require(gate['must_resolve_idempotency_before_new_consumption'], 'Idempotency must resolve before token consumption')
+    require(gate['must_run_before_form_object_persistence'], 'Admission gate must run before form persistence')
+    require(gate['must_reload_root_transactions'], 'Admission must reload root transactions')
+    require(gate['derived_state_persistence_forbidden'], 'Derived usage state must never be persisted')
+    require(gate['post_approval_limit_revalidation_forbidden'], 'Limits cannot be re-evaluated after approval')
+    ordered_steps = gate['ordered_steps']
+    require(
+        ordered_steps.index('calculate total usage, UTC daily usage, latest transaction and cooldown in memory')
+        < ordered_steps.index('create and register the provider-owned form object when required'),
+        'Functional eligibility calculation must precede provider-owned form persistence'
+    )
+    require(
+        ordered_steps.index('create and register the provider-owned form object when required')
+        < ordered_steps.index('create the service transaction and publish the reduced user summary'),
+        'Form persistence must precede the final transaction write'
+    )
     pipeline = usage_policy['pipeline_policy']
-    require(pipeline['planning_consumes_tokens'] is False, 'Pipeline planning must not consume tokens')
-    require(pipeline['each_admitted_service_step_consumes_tokens'], 'Each admitted pipeline service step must consume a token')
-    require(pipeline['combined_published_service_consumes_tokens'] == 1, 'Combined published service must consume one token')
+    require(pipeline['planning_consumes_capacity'] is False, 'Pipeline planning must not consume capacity')
+    require(pipeline['each_created_service_transaction_counts_once'], 'Each transaction must count once')
+    require(pipeline['combined_published_service_counts_as'] == 1, 'Combined published service must count once')
     require(pipeline['blocked_step_state'] == 'waiting_for_limits', 'Wrong blocked pipeline state')
+    require(
+        pipeline['automatic_retry_must_recalculate_from_transactions'],
+        'Automatic retry must recalculate from root transactions'
+    )
     require(set(usage_policy['stable_error_codes']) == {
         'token_balance_exhausted',
         'token_daily_limit_reached',
         'token_cooldown_active'
     }, 'Stable token error codes differ')
+    account_status = usage_policy['end_user_presentation']['account_status']
+    require(account_status['day_bucket_timezone'] == 'UTC', 'Account day buckets must use UTC')
+    require(
+        account_status['reset_timestamp_display_timezone'] == 'device_local',
+        'UTC reset timestamps must be displayed in device-local time'
+    )
+    require(
+        account_status['seven_day_chart_bucket_timezone'] == 'UTC',
+        'Seven-day chart buckets must remain UTC'
+    )
+    require(account_status['countdown_refresh_seconds'] == 1, 'Countdown must refresh every second')
+    require(
+        account_status['overlapping_wait_rule'] == 'later_deadline',
+        'Overlapping cooldown and daily waits must use the later deadline'
+    )
 
 
 check('token_usage_policy', token_usage_policy)
@@ -583,6 +826,15 @@ check('consent_scope_and_physical_consumption', semantic_fixtures)
 def counterexamples():
     service = service_map['pgs_informed_consent']
     form = copy.deepcopy(service['sampleFormObject'])
+    form['data'].pop('form_shape')
+    reject(lambda: validate_form(service, form))
+    form = copy.deepcopy(service['sampleFormObject'])
+    form['data']['form_shape']['version'] += 1
+    reject(lambda: validate_form(service, form))
+    form = copy.deepcopy(service['sampleFormObject'])
+    form['data']['fields'].append({'key': 'undeclared_value', 'value': 'not allowed'})
+    reject(lambda: validate_form(service, form))
+    form = copy.deepcopy(service['sampleFormObject'])
     form['data']['fields'].append(copy.deepcopy(form['data']['fields'][0]))
     reject(lambda: validate_form(service, form))
     form = copy.deepcopy(service['sampleFormObject'])
@@ -632,6 +884,13 @@ def counterexamples():
     reject(lambda: service_contract_rules(bad_service))
     bad_service = copy.deepcopy(annotation)
     bad_service['status'] = 'draft'
+    reject(lambda: service_contract_rules(bad_service))
+    bad_service = copy.deepcopy(annotation)
+    bad_service['isHiddenFromSearch'] = 'true'
+    reject(lambda: service_contract_rules(bad_service))
+    bad_service = copy.deepcopy(annotation)
+    del bad_service['isHiddenFromSearch']
+    bad_service['is_hidden_from_search'] = False
     reject(lambda: service_contract_rules(bad_service))
     bad_service = copy.deepcopy(annotation)
     bad_service['commercialTerms'] = {'pricingModel': 'fixed', 'turnaround': '1d'}

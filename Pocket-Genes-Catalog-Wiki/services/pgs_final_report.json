@@ -112,7 +112,60 @@
         }
       ],
       "form_shape_id": "pgfs_final_report",
-      "form_shape_version": 1
+      "form_shape_version": 1,
+      "form_shape": {
+        "id": "pgfs_final_report",
+        "version": 1,
+        "allow_unknown_fields": false,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "language",
+            "label": "Report language",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "en",
+                "label": "English"
+              },
+              {
+                "value": "es-AR",
+                "label": "Spanish, Argentina"
+              }
+            ]
+          },
+          {
+            "key": "presentation",
+            "label": "Presentation",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "clinical",
+                "label": "Clinical report"
+              },
+              {
+                "value": "patient",
+                "label": "Patient-facing report"
+              }
+            ]
+          }
+        ]
+      }
     },
     "files": []
   },
@@ -215,7 +268,7 @@
   },
   "sampleResult": {
     "request_id": "pgr_demo_final_report",
-    "status": "completed",
+    "status": "delivered",
     "outputs": [
       {
         "role": "report",
@@ -233,5 +286,6 @@
   "regions": [
     "AR"
   ],
-  "providerApiContractId": "pg_api_service_requests_v1"
+  "providerApiContractId": "pg_api_service_requests_v1",
+  "isHiddenFromSearch": false
 }

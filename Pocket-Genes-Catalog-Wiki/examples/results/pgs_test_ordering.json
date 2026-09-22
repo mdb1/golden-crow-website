@@ -1,6 +1,6 @@
 {
   "request_id": "pgr_demo_test_ordering",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "test_order",

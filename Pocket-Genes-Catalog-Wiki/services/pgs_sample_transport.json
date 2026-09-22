@@ -92,7 +92,42 @@
         }
       ],
       "form_shape_id": "pgfs_sample_transport",
-      "form_shape_version": 1
+      "form_shape_version": 1,
+      "form_shape": {
+        "id": "pgfs_sample_transport",
+        "version": 1,
+        "allow_unknown_fields": false,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "contact_name",
+            "label": "Origin contact name",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "contact_phone",
+            "label": "Origin contact phone",
+            "type": "text",
+            "required": true,
+            "options": []
+          }
+        ]
+      }
     },
     "files": []
   },
@@ -189,7 +224,7 @@
   },
   "sampleResult": {
     "request_id": "pgr_demo_sample_transport",
-    "status": "completed",
+    "status": "delivered",
     "outputs": [
       {
         "role": "delivered_specimen",
@@ -207,5 +242,6 @@
   "regions": [
     "AR"
   ],
-  "providerApiContractId": "pg_api_service_requests_v1"
+  "providerApiContractId": "pg_api_service_requests_v1",
+  "isHiddenFromSearch": false
 }

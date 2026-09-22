@@ -13,7 +13,7 @@
       ],
       "nature": "virtual",
       "extension": ".pgform.json",
-      "description": "A service-specific list of filled fields accompanying every service request. The shape belongs to service configuration; the form is the completed request object.",
+      "description": "A completed service request whose immutable embedded shape preserves every field, label, type, choice and required rule needed to reconstruct it.",
       "icon": {
         "asset": "icons/pgo_form.svg",
         "symbol": "form",
@@ -24,24 +24,28 @@
           "name": "form_shape_id",
           "type": "string",
           "required": true,
-          "description": "Identifier of the form_shape published by the requested service."
+          "description": "Identifier of the exact published form shape used for this submission."
         },
         {
           "name": "form_shape_version",
           "type": "integer",
           "required": true,
-          "description": "Exact integer version of the form_shape used to fill and validate this form."
+          "description": "Positive integer version of the exact published form shape used for this submission."
+        },
+        {
+          "name": "form_shape",
+          "type": "object",
+          "required": true,
+          "description": "Immutable, closed snapshot used to validate and reconstruct the form independently of the current offer."
         },
         {
           "name": "fields",
           "type": "array<object>",
           "required": true,
-          "description": "Filled request fields, including requested_at and requested_by."
+          "description": "Typed submitted answers. Optional unanswered fields remain discoverable through form_shape.fields."
         }
       ],
       "data_schema": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://schemas.pocketgenes.example/objects/pgo_form/1.0.0/data.schema.json",
         "type": "object",
         "description": "Form: data payload in the shared Pocket Genes object envelope.",
         "properties": {
@@ -54,6 +58,171 @@
             "type": "integer",
             "minimum": 1,
             "description": "Exact integer version of the form_shape used to fill and validate this form."
+          },
+          "form_shape": {
+            "type": "object",
+            "description": "Immutable copy of the exact published form shape used for this submission. It makes the form independently reconstructable after the offer changes.",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "allow_unknown_fields": {
+                "const": false
+              },
+              "fields": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "type": {
+                      "enum": [
+                        "text",
+                        "number",
+                        "integer",
+                        "boolean",
+                        "date",
+                        "datetime",
+                        "enum",
+                        "multi_enum",
+                        "string_list"
+                      ]
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "value": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "value",
+                          "label"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "label",
+                    "type",
+                    "required",
+                    "options"
+                  ],
+                  "additionalProperties": false,
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "enum",
+                              "multi_enum"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "options": {
+                            "minItems": 1
+                          }
+                        }
+                      },
+                      "else": {
+                        "properties": {
+                          "options": {
+                            "maxItems": 0
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "allOf": [
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "const": "requested_at"
+                        },
+                        "type": {
+                          "const": "datetime"
+                        },
+                        "required": {
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "type",
+                        "required"
+                      ]
+                    },
+                    "minContains": 1,
+                    "maxContains": 1
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "const": "requested_by"
+                        },
+                        "type": {
+                          "const": "text"
+                        },
+                        "required": {
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "type",
+                        "required"
+                      ]
+                    },
+                    "minContains": 1,
+                    "maxContains": 1
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "version",
+              "allow_unknown_fields",
+              "fields"
+            ],
+            "additionalProperties": false
           },
           "fields": {
             "type": "array",
@@ -92,6 +261,7 @@
         "required": [
           "form_shape_id",
           "form_shape_version",
+          "form_shape",
           "fields"
         ],
         "additionalProperties": false,
@@ -139,6 +309,41 @@
       "example_data": {
         "form_shape_id": "pgfs_symptom_intake",
         "form_shape_version": 1,
+        "form_shape": {
+          "id": "pgfs_symptom_intake",
+          "version": 1,
+          "allow_unknown_fields": false,
+          "fields": [
+            {
+              "key": "requested_at",
+              "label": "Requested at",
+              "type": "datetime",
+              "required": true,
+              "options": []
+            },
+            {
+              "key": "requested_by",
+              "label": "Requested by",
+              "type": "text",
+              "required": true,
+              "options": []
+            },
+            {
+              "key": "subject_id",
+              "label": "Subject identifier",
+              "type": "text",
+              "required": true,
+              "options": []
+            },
+            {
+              "key": "observations",
+              "label": "Reported observations",
+              "type": "string_list",
+              "required": true,
+              "options": []
+            }
+          ]
+        },
         "fields": [
           {
             "key": "requested_at",
@@ -162,11 +367,11 @@
         ]
       },
       "validation_rules": [
-        "Resolve the exact form_shape_id and form_shape_version before accepting a request.",
-        "Field keys must be unique. Validate every field against its shape-defined type, enum options and requiredness.",
-        "requested_at and requested_by must appear exactly once. requested_at must be a date-time and requested_by must identify the actual requester.",
-        "The service can require only this form, or this form plus additional objects.",
-        "Common request fields are platform-populated or verified; they are not editable evidence of someone else making a request."
+        "form_shape is required, immutable, and its id/version must equal form_shape_id/form_shape_version.",
+        "Shape keys and answer keys are unique; undeclared answers and allow_unknown_fields true are invalid.",
+        "Validate each answer against the embedded type, requiredness and exact enum options.",
+        "requested_at and requested_by are required platform fields with datetime and text types respectively.",
+        "The completed pgo_form is provider-owned, while created_by preserves the authenticated requester identity."
       ],
       "use_cases": [
         "Symptom intake without existing pieces.",
@@ -186,6 +391,41 @@
         "data": {
           "form_shape_id": "pgfs_symptom_intake",
           "form_shape_version": 1,
+          "form_shape": {
+            "id": "pgfs_symptom_intake",
+            "version": 1,
+            "allow_unknown_fields": false,
+            "fields": [
+              {
+                "key": "requested_at",
+                "label": "Requested at",
+                "type": "datetime",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "requested_by",
+                "label": "Requested by",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "subject_id",
+                "label": "Subject identifier",
+                "type": "text",
+                "required": true,
+                "options": []
+              },
+              {
+                "key": "observations",
+                "label": "Reported observations",
+                "type": "string_list",
+                "required": true,
+                "options": []
+              }
+            ]
+          },
           "fields": [
             {
               "key": "requested_at",

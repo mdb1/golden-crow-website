@@ -1,6 +1,6 @@
 {
   "request_id": "pgr_demo_sample_transport",
-  "status": "completed",
+  "status": "delivered",
   "outputs": [
     {
       "role": "delivered_specimen",

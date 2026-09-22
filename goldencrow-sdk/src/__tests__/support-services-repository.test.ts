@@ -880,8 +880,8 @@ describe("support service delivered transactions", () => {
       owner_id: "feed-org-1",
     });
     seedDoc("uploaded_objects", "uploaded-form-1", {
-      objectCode: "987654321",
-      objectType: "pgo_form",
+      object_code: "987654321",
+      object_type: "pgo_form",
       linked_file_id: "stored-form-1",
       object_owner_id: "feed-org-1",
       owner_community_user_id: "feed-org-1",
@@ -969,10 +969,10 @@ describe("support service delivered transactions", () => {
     );
     expect(storedObject).toEqual(
       expect.objectContaining({
-        objectCode: attached.object.objectCode,
-        objectType: "pgo_pdf_report",
-        objectId: directOutputEnvelope.objectId,
-        objectRevision: 1,
+        object_code: attached.object.objectCode,
+        object_type: "pgo_pdf_report",
+        object_id: directOutputEnvelope.objectId,
+        object_revision: 1,
         file_name: "report.pgo.json",
         download_url: "https://objects.example/report.pgo.json",
         linked_file_id: null,
@@ -988,8 +988,8 @@ describe("support service delivered transactions", () => {
     expect(storedObject).not.toHaveProperty("objectSnapshot");
     expect(Object.keys(storedObject ?? {})).not.toEqual(
       expect.arrayContaining([
-        "object_type",
-        "object_code",
+        "objectType",
+        "objectCode",
         "downloadUrl",
         "fileName",
       ]),
@@ -1338,8 +1338,8 @@ describe("support service delivered transactions", () => {
       owner_id: "feed-org-1",
     });
     seedDoc("uploaded_objects", "uploaded-object-1", {
-      objectCode: "123456789",
-      objectType: "pgo_pdf_report",
+      object_code: "123456789",
+      object_type: "pgo_pdf_report",
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-file-1",
@@ -1384,8 +1384,8 @@ describe("support service delivered transactions", () => {
       owner_id: "feed-org-1",
     });
     seedDoc("uploaded_objects", "uploaded-object-1", {
-      objectCode: "123456789",
-      objectType: "pgo_pdf_report",
+      object_code: "123456789",
+      object_type: "pgo_pdf_report",
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-file-1",
@@ -1399,14 +1399,14 @@ describe("support service delivered transactions", () => {
     ).rejects.toThrow("invalid owner relationship or provenance snapshot");
   });
 
-  it("rejects obsolete snake-case uploaded-object identity fields", async () => {
+  it("rejects camel-case uploaded-object identity fields", async () => {
     seedDoc("object_codes", "123456789", {
       uploaded_object_id: "uploaded-object-1",
       owner_id: "feed-org-1",
     });
     seedDoc("uploaded_objects", "uploaded-object-1", {
-      object_code: "123456789",
-      object_type: "pgo_pdf_report",
+      objectCode: "123456789",
+      objectType: "pgo_pdf_report",
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-file-1",
@@ -1423,7 +1423,7 @@ describe("support service delivered transactions", () => {
     await expect(
       deliverSupportServiceTransaction(context, "transaction-1"),
     ).rejects.toThrow(
-      "Uploaded object 123456789 uses forbidden snake-case fields: object_type, object_code.",
+      "Uploaded object 123456789 uses forbidden camel-case fields: objectType, objectCode.",
     );
   });
 
@@ -1443,8 +1443,8 @@ describe("support service delivered transactions", () => {
       owner_id: "feed-org-1",
     });
     seedDoc("uploaded_objects", "uploaded-object-1", {
-      objectCode: "123456789",
-      objectType: "pgo_pdf_report",
+      object_code: "123456789",
+      object_type: "pgo_pdf_report",
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "missing-output-file",
@@ -1497,8 +1497,8 @@ describe("support service delivered transactions", () => {
       owner_id: "feed-org-1",
     });
     seedDoc("uploaded_objects", "uploaded-object-1", {
-      objectCode: "123456789",
-      objectType: "pgo_pdf_report",
+      object_code: "123456789",
+      object_type: "pgo_pdf_report",
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-file-1",
@@ -1529,8 +1529,8 @@ describe("support service delivered transactions", () => {
       owner_id: "feed-org-1",
     });
     seedDoc("uploaded_objects", "uploaded-object-1", {
-      objectCode: "123456789",
-      objectType: "pgo_pdf_report",
+      object_code: "123456789",
+      object_type: "pgo_pdf_report",
       upload_version_count: 0,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-file-1",
@@ -1680,8 +1680,8 @@ describe("support service delivered transactions", () => {
       owner_id: "provider-owner-1",
     });
     seedDoc("uploaded_objects", "uploaded-object-1", {
-      objectCode: "123456789",
-      objectType: "pgo_pdf_report",
+      object_code: "123456789",
+      object_type: "pgo_pdf_report",
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-file-1",
@@ -1799,8 +1799,8 @@ describe("support service delivered transactions", () => {
       owner_id: "feed-org-1",
     });
     seedDoc("uploaded_objects", "uploaded-object-1", {
-      objectCode: "222222222",
-      objectType: "pgo_sequence_data",
+      object_code: "222222222",
+      object_type: "pgo_sequence_data",
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-sequence-file",
@@ -2029,8 +2029,8 @@ describe("support service canonical transaction creation", () => {
       owner_id: "feed-org-1",
     });
     seedDoc("uploaded_objects", "uploaded-form-new", {
-      objectCode: "987654321",
-      objectType: "pgo_form",
+      object_code: "987654321",
+      object_type: "pgo_form",
       linked_file_id: "stored-form-new",
       object_owner_id: "feed-org-1",
       owner_community_user_id: "feed-org-1",

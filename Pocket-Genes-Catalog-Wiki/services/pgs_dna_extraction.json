@@ -92,7 +92,48 @@
         }
       ],
       "form_shape_id": "pgfs_dna_extraction",
-      "form_shape_version": 1
+      "form_shape_version": 1,
+      "form_shape": {
+        "id": "pgfs_dna_extraction",
+        "version": 1,
+        "allow_unknown_fields": false,
+        "fields": [
+          {
+            "key": "requested_at",
+            "label": "Requested at",
+            "type": "datetime",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "requested_by",
+            "label": "Requested by",
+            "type": "text",
+            "required": true,
+            "options": []
+          },
+          {
+            "key": "extraction_profile",
+            "label": "Extraction profile",
+            "type": "enum",
+            "required": true,
+            "options": [
+              {
+                "value": "demo_blood_dna_v1",
+                "label": "Demo blood DNA extraction"
+              },
+              {
+                "value": "demo_tissue_dna_v1",
+                "label": "Demo tissue DNA extraction"
+              },
+              {
+                "value": "demo_embryo_biopsy_dna_v1",
+                "label": "Demo embryo-biopsy DNA extraction"
+              }
+            ]
+          }
+        ]
+      }
     },
     "files": []
   },
@@ -197,7 +238,7 @@
   },
   "sampleResult": {
     "request_id": "pgr_demo_dna_extraction",
-    "status": "completed",
+    "status": "delivered",
     "outputs": [
       {
         "role": "dna_sample",
@@ -222,5 +263,6 @@
   "regions": [
     "AR"
   ],
-  "providerApiContractId": "pg_api_service_requests_v1"
+  "providerApiContractId": "pg_api_service_requests_v1",
+  "isHiddenFromSearch": false
 }
