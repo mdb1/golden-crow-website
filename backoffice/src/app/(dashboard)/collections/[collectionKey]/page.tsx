@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { CollectionBrowser } from "@/components/collection-browser";
 import { FileStorageBrowser } from "@/components/file-storage/file-storage-browser";
 import { HelperBanner } from "@/components/helper-banner";
+import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { ReportCodesBrowser } from "@/components/reports/report-codes-browser";
 import {
@@ -24,6 +25,22 @@ export default async function CollectionPage({
   const collection = getCollectionConfig(collectionKey);
   const section = getSectionDescriptor(collection.section);
 
+  if (collectionKey === "file_storage") {
+    return (
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow={section?.label ?? "Data"}
+            title={collection.title}
+            description={collection.description}
+          />
+        }
+      >
+        <FileStorageBrowser />
+      </HeaderUnclutterScope>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageHero
@@ -36,8 +53,6 @@ export default async function CollectionPage({
       </HelperBanner>
       {collectionKey === "report_codes" ? (
         <ReportCodesBrowser />
-      ) : collectionKey === "file_storage" ? (
-        <FileStorageBrowser />
       ) : (
         <CollectionBrowser collectionKey={collectionKey} />
       )}

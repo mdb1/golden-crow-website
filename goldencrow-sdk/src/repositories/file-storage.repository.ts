@@ -1,10 +1,20 @@
 import {
   DocumentReference,
+  FieldPath,
   GeoPoint,
+  type Query,
   Timestamp,
   type DocumentData,
 } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
+import {
+  identifyPgiNativeModel,
+  SUPPORTED_PGI_NATIVE_MODELS,
+} from "../lib/pgi-native-schema.js";
+import {
+  serializedPgoObjectSchemaError,
+  SUPPORTED_PGO_OBJECT_SCHEMA_TYPES,
+} from "../lib/pgo-object-schema.js";
 import type { ModerationDocumentRecord } from "../types/sdk.types.js";
 
 // Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
@@ -26,6 +36,21 @@ interface StoredFileDoc extends Record<string, unknown> {
 export class StoredFileValidationError extends Error {}
 export class StoredFileDeleteBlockedError extends Error {}
 export class StoredFileUpdateBlockedError extends Error {}
+
+export const MAX_STORED_FILE_CONTENT_BYTES = 900 * 1024;
+export const FILE_STORAGE_REQUEST_BODY_LIMIT_BYTES = 6 * 1024 * 1024;
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 50;
+const SUPPORTED_PGI_FILE_TYPES = new Set<string>(SUPPORTED_PGI_NATIVE_MODELS);
+const SUPPORTED_PGO_FILE_TYPES = new Set<string>(
+  SUPPORTED_PGO_OBJECT_SCHEMA_TYPES,
+);
+const CREATE_STORED_FILE_KEYS = new Set([
+  "file_name",
+  "creator_email",
+  "file_type",
+  "file_content",
+]);
 
 function normalizeString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -160,6 +185,130 @@ function compactJsonString(value: string): string {
   }
 }
 
+function normalizedStoredFileType(value: unknown): string {
+  const fileType = normalizeString(value)?.toLowerCase();
+  if (!fileType) {
+    throw new StoredFileValidationError("Stored file type is required.");
+  }
+  return fileType;
+}
+
+function defaultStoredFileName(fileType: string): string {
+  if (fileType === "mdm") {
+    return "report.pgi1.json";
+  }
+  if (fileType === "ag") {
+    return "report.pgi2.json";
+  }
+  if (fileType === "2pq") {
+    return "report.pgi3.json";
+  }
+  return `${fileType.replace(/^pgo_/, "")}.pgo.json`;
+}
+
+function normalizedStoredFileName(value: unknown, fileType: string): string {
+  const fileName = normalizeString(value) ?? defaultStoredFileName(fileType);
+  if (
+    fileName.length > 255 ||
+    fileName.includes("/") ||
+    fileName.includes("\\") ||
+    /[\u0000-\u001f\u007f]/.test(fileName)
+  ) {
+    throw new StoredFileValidationError(
+      "Stored file name must be a single safe file name up to 255 characters.",
+    );
+  }
+  return fileName;
+}
+
+function normalizedCreatorEmail(value: unknown): string | null {
+  const email = normalizeString(value)?.toLowerCase();
+  if (!email) {
+    return null;
+  }
+  if (email.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new StoredFileValidationError(
+      "Stored file creator_email must be a valid email address.",
+    );
+  }
+  return email;
+}
+
+export function validateStoredFileJsonContent(input: {
+  fileType: unknown;
+  fileContent: unknown;
+}): { fileType: string; fileContent: string } {
+  const fileType = normalizedStoredFileType(input.fileType);
+  const rawContent = normalizeString(input.fileContent);
+  if (!rawContent) {
+    throw new StoredFileValidationError("Stored file content is required.");
+  }
+  const fileContent = compactJsonString(rawContent);
+  const contentSizeBytes = Buffer.byteLength(fileContent, "utf8");
+  if (contentSizeBytes > MAX_STORED_FILE_CONTENT_BYTES) {
+    throw new StoredFileValidationError(
+      `Stored file content exceeds the ${MAX_STORED_FILE_CONTENT_BYTES}-byte inline Firestore limit.`,
+    );
+  }
+  const content = JSON.parse(fileContent) as unknown;
+
+  if (SUPPORTED_PGI_FILE_TYPES.has(fileType)) {
+    const identified = identifyPgiNativeModel(content);
+    if (!identified.ok) {
+      throw new StoredFileValidationError(identified.message);
+    }
+    if (identified.model !== fileType) {
+      throw new StoredFileValidationError(
+        `Stored file content matches ${identified.model}, not declared file_type ${fileType}.`,
+      );
+    }
+    return { fileType, fileContent };
+  }
+
+  if (SUPPORTED_PGO_FILE_TYPES.has(fileType)) {
+    const schemaError = serializedPgoObjectSchemaError(fileType, content);
+    if (schemaError) {
+      throw new StoredFileValidationError(
+        `Stored file content does not match the ${fileType} schema: ${schemaError}.`,
+      );
+    }
+    return { fileType, fileContent };
+  }
+
+  if (fileType.startsWith("pgo_")) {
+    throw new StoredFileValidationError(
+      `No runtime PGO schema is registered for file_type ${fileType}.`,
+    );
+  }
+
+  throw new StoredFileValidationError(
+    `Stored file type ${fileType} is not a supported JSON file type. Use mdm, ag, 2pq, or a registered pgo_* type.`,
+  );
+}
+
+function isSupportedJsonFileType(fileType: string) {
+  return (
+    SUPPORTED_PGI_FILE_TYPES.has(fileType) ||
+    SUPPORTED_PGO_FILE_TYPES.has(fileType)
+  );
+}
+
+function unchangedLegacyFileContent(nextValue: unknown, previousValue: unknown) {
+  if (nextValue === previousValue && typeof nextValue === "string") {
+    return nextValue;
+  }
+  if (typeof nextValue !== "string" || typeof previousValue !== "string") {
+    return null;
+  }
+  try {
+    const nextContent = compactJsonString(nextValue);
+    const previousContent = compactJsonString(previousValue);
+    return nextContent === previousContent ? nextContent : null;
+  } catch {
+    return null;
+  }
+}
+
 function sortStoredFileRecords(documents: ModerationDocumentRecord[]) {
   return [...documents].sort((left, right) => {
     const timestampDelta =
@@ -183,17 +332,56 @@ function buildStoredFilePayload(
   options?: {
     existingData?: StoredFileDoc;
     timestamp?: string;
+    requireCreatorEmail?: boolean;
   }
 ) {
   const nextTimestamp = options?.timestamp ?? new Date().toISOString();
-  const nextContent = normalizeString(nextData.file_content) ?? "";
+  const nextFileType = normalizedStoredFileType(nextData.file_type);
+  let validatedContent: { fileType: string; fileContent: string };
+  if (isSupportedJsonFileType(nextFileType)) {
+    validatedContent = validateStoredFileJsonContent({
+      fileType: nextFileType,
+      fileContent: nextData.file_content,
+    });
+  } else {
+    const existingFileType = options?.existingData
+      ? normalizedStoredFileType(options.existingData.file_type)
+      : undefined;
+    const unchangedContent = options?.existingData
+      ? unchangedLegacyFileContent(
+          nextData.file_content,
+          options.existingData.file_content,
+        )
+      : null;
+    if (existingFileType === nextFileType && unchangedContent !== null) {
+      validatedContent = {
+        fileType: nextFileType,
+        fileContent: unchangedContent,
+      };
+    } else {
+      validatedContent = validateStoredFileJsonContent({
+        fileType: nextFileType,
+        fileContent: nextData.file_content,
+      });
+    }
+  }
+
+  const creatorEmail = normalizedCreatorEmail(nextData.creator_email);
+  if (options?.requireCreatorEmail && !creatorEmail) {
+    throw new StoredFileValidationError(
+      "Stored file creator_email is required.",
+    );
+  }
 
   const payload: StoredFileDoc = {
     ...nextData,
-    file_name: normalizeString(nextData.file_name) ?? null,
-    creator_email: normalizeString(nextData.creator_email)?.toLowerCase() ?? null,
-    file_type: normalizeString(nextData.file_type)?.toLowerCase() ?? null,
-    file_content: compactJsonString(nextContent),
+    file_name: normalizedStoredFileName(
+      nextData.file_name,
+      validatedContent.fileType,
+    ),
+    creator_email: creatorEmail,
+    file_type: validatedContent.fileType,
+    file_content: validatedContent.fileContent,
     creation_date:
       normalizeDateValue(nextData.creation_date) ??
       normalizeDateValue(options?.existingData?.creation_date) ??
@@ -210,12 +398,37 @@ function buildStoredFilePayload(
   return payload;
 }
 
-export async function listStoredFileDocuments(): Promise<ModerationDocumentRecord[]> {
-  const snapshot = await adminDb.collection("file_storage").get();
-
-  return sortStoredFileRecords(
-    snapshot.docs.map((doc) => toRecord(doc.id, (doc.data() ?? {}) as Record<string, unknown>))
+export async function listStoredFileDocuments(options: {
+  cursor?: string;
+  limit?: number;
+} = {}): Promise<{
+  documents: ModerationDocumentRecord[];
+  nextCursor: string | null;
+}> {
+  const pageSize = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(1, Math.trunc(options.limit ?? DEFAULT_PAGE_SIZE)),
   );
+  let query: Query = adminDb
+    .collection("file_storage")
+    .orderBy(FieldPath.documentId(), "desc");
+  if (options.cursor) {
+    query = query.startAfter(options.cursor);
+  }
+  const snapshot = await query.limit(pageSize + 1).get();
+  const pageDocs = snapshot.docs.slice(0, pageSize);
+  const documents = sortStoredFileRecords(
+    pageDocs.map((doc) =>
+      toRecord(doc.id, (doc.data() ?? {}) as Record<string, unknown>),
+    ),
+  );
+  const lastPageDoc = pageDocs[pageDocs.length - 1];
+
+  return {
+    documents,
+    nextCursor:
+      snapshot.docs.length > pageSize && lastPageDoc ? lastPageDoc.id : null,
+  };
 }
 
 export async function getStoredFileDocument(
@@ -233,7 +446,22 @@ export async function createStoredFileDocument(
   data: Record<string, unknown>
 ): Promise<{ document: ModerationDocumentRecord }> {
   const storedFileRef = adminDb.collection("file_storage").doc();
-  const payload = buildStoredFilePayload(data as StoredFileDoc);
+  for (const key of Object.keys(data)) {
+    if (!CREATE_STORED_FILE_KEYS.has(key)) {
+      throw new StoredFileValidationError(
+        `Unsupported file_storage create key ${key}. Use only file_name, creator_email, file_type, and file_content; links and timestamps are server-owned.`,
+      );
+    }
+  }
+  const payload = buildStoredFilePayload(
+    {
+      ...(data as StoredFileDoc),
+      linked_object_code: null,
+      linked_report_code: null,
+    },
+    { requireCreatorEmail: true },
+  );
+  delete payload.linked_report_id;
 
   await storedFileRef.set(payload as DocumentData, { merge: false });
 
@@ -254,6 +482,18 @@ export async function updateStoredFileDocument(
       return { found: false, linkedReportVersionBumped: false };
     }
     const existingData = (snapshot.data() ?? {}) as StoredFileDoc;
+    const wrongCaseKey = Object.keys(data).find(
+      (key) =>
+        /[A-Z]/.test(key) &&
+        (!(key in existingData) ||
+          JSON.stringify(serializeValue(data[key])) !==
+            JSON.stringify(serializeValue(existingData[key]))),
+    );
+    if (wrongCaseKey) {
+      throw new StoredFileValidationError(
+        `file_storage uses snake_case keys; ${wrongCaseKey} is not allowed.`,
+      );
+    }
     const linkedObjectCode = normalizeString(existingData.linked_object_code);
     if (linkedObjectCode) {
       throw new StoredFileUpdateBlockedError(

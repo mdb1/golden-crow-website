@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, RefreshCcw, Search, X } from "lucide-react";
+import { ArrowRight, Plus, RefreshCcw, Search, X } from "lucide-react";
 import { ReportPill } from "@/components/reports/report-pill";
+import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -89,14 +90,37 @@ export function FileStorageBrowser() {
     });
   }, [pathname, router, searchParams]);
 
-  const { data, error, isLoading, isFetching, refetch } = useQuery({
+  const {
+    data,
+    error,
+    isLoading,
+    isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+  } = useInfiniteQuery({
     queryKey: ["file-storage-browser"],
-    queryFn: () => sdkFetch<{ documents: ModerationDocumentRecord[] }>("/file-storage"),
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: "20" });
+      if (pageParam) params.set("cursor", pageParam);
+      return sdkFetch<{
+        documents: ModerationDocumentRecord[];
+        nextCursor: string | null;
+      }>(`/file-storage?${params.toString()}`);
+    },
+    initialPageParam: "",
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
+
+  const loadedDocuments = useMemo(
+    () => data?.pages.flatMap((page) => page.documents) ?? [],
+    [data?.pages],
+  );
 
   const displayedDocuments = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const documents = sortDocuments(data?.documents ?? [], sortOption);
+    const documents = sortDocuments(loadedDocuments, sortOption);
 
     if (!normalizedQuery) {
       return documents;
@@ -117,7 +141,7 @@ export function FileStorageBrowser() {
         .toLowerCase()
         .includes(normalizedQuery);
     });
-  }, [data?.documents, query, sortOption]);
+  }, [loadedDocuments, query, sortOption]);
 
   if (isLoading) {
     return (
@@ -168,6 +192,13 @@ export function FileStorageBrowser() {
         </div>
       ) : null}
 
+      <div className="flex items-center gap-2">
+        <h2 className="font-heading text-xl font-semibold text-foreground">
+          Stored files
+        </h2>
+        <HeaderUnclutterButton />
+      </div>
+
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <label className="relative block w-full max-w-2xl">
@@ -194,13 +225,19 @@ export function FileStorageBrowser() {
           </Select>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <span>
-            Showing {displayedDocuments.length} of {data?.documents.length ?? 0} files
+            Showing {displayedDocuments.length} of {loadedDocuments.length} loaded files
           </span>
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCcw className="h-3.5 w-3.5" />
             {isFetching ? "Refreshing" : "Refresh"}
+          </Button>
+          <Button size="sm" asChild>
+            <Link href="/collections/file_storage/new">
+              <Plus className="h-3.5 w-3.5" />
+              Add new file
+            </Link>
           </Button>
         </div>
       </div>
@@ -294,6 +331,19 @@ export function FileStorageBrowser() {
           })
         )}
       </div>
+
+      {hasNextPage ? (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? "Loading..." : "Load more"}
+          </Button>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import { AppLanguageProvider } from "@/components/app-language-provider";
 import { FileStorageWorkbench } from "@/components/file-storage/file-storage-workbench";
 import type { ModerationDocumentRecord } from "@/lib/moderation-types";
 import { sdkFetch } from "@/lib/sdk-client";
@@ -33,7 +34,9 @@ function renderWorkbench(document: ModerationDocumentRecord) {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <FileStorageWorkbench document={document} />
+      <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
+        <FileStorageWorkbench document={document} />
+      </AppLanguageProvider>
     </QueryClientProvider>,
   );
 }

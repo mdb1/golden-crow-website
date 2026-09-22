@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, LoaderCircle, RotateCcw, Save, Trash2 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { DeveloperRawEditor } from "@/components/developer-raw-editor";
+import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { ReportPill } from "@/components/reports/report-pill";
 import {
   AlertDialog,
@@ -315,14 +316,10 @@ export function FileStorageWorkbench({
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="section-eyebrow">Reports</p>
-            <h2 className="font-heading text-xl font-semibold text-foreground">
+            <h2 className="flex items-center gap-2 font-heading text-xl font-semibold text-foreground">
               Stored file workbench
+              <HeaderUnclutterButton />
             </h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Manage the canonical stored-file record here with JSON validation,
-              linked-report context, and creator metadata before dropping into raw JSON.
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button

@@ -1,9 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { CommunityUserWorkbench } from "@/components/community/community-user-workbench";
 import { FileStorageWorkbench } from "@/components/file-storage/file-storage-workbench";
+import { FileStorageCreateWorkbench } from "@/components/file-storage/file-storage-create-workbench";
 import { PublicProfileWorkbench } from "@/components/community/public-profile-workbench";
 import { DocumentWorkbench } from "@/components/document-workbench";
 import { HelperBanner } from "@/components/helper-banner";
+import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { ReportOwnerWorkbench } from "@/components/reports/report-owner-workbench";
 import {
@@ -52,6 +54,26 @@ export default async function CollectionDocumentPage({
 
   const collection = getCollectionConfig(collectionKey);
   const section = getSectionDescriptor(collection.section);
+
+  if (
+    resolvedSearchParams.raw !== "1" &&
+    collectionKey === "file_storage" &&
+    documentId === "new"
+  ) {
+    return (
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow={section?.label ?? "Reports"}
+            title="Add new file"
+            description="Create validated JSON-backed file_storage content manually or with the schema-guided file wizard."
+          />
+        }
+      >
+        <FileStorageCreateWorkbench />
+      </HeaderUnclutterScope>
+    );
+  }
 
   let document: ModerationDocumentRecord;
   try {
@@ -106,18 +128,17 @@ export default async function CollectionDocumentPage({
     const file = parseStoredFileRecord(document);
 
     return (
-      <div className="flex flex-col gap-6">
-        <PageHero
-          eyebrow={section?.label ?? "Reports"}
-          title={file.fileName || document.id}
-          description="Typed stored-file manager for the Firebase file_storage collection, with JSON validation and linked-report context."
-        />
-        <HelperBanner title="Manage stored files with the typed editor first." tone="green">
-          Use this screen to review creator ownership, linked report code state,
-          and JSON validity before editing the stored file content itself.
-        </HelperBanner>
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow={section?.label ?? "Reports"}
+            title={file.fileName || document.id}
+            description="Typed stored-file manager for the Firebase file_storage collection, with JSON validation and linked-report context."
+          />
+        }
+      >
         <FileStorageWorkbench document={document} />
-      </div>
+      </HeaderUnclutterScope>
     );
   }
 

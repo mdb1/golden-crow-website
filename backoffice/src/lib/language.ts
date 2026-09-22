@@ -4853,6 +4853,13 @@ const SPANISH_TEXT: Record<string, string> = {
   Back: "Volver",
   "Continue with download URL": "Continuar con url de descarga",
   "Continue with file ID": "Continuar con file id",
+  "Continue with new file": "Continuar con nuevo file",
+  "Open file wizard": "Abrir asistente de archivos",
+  "File JSON": "JSON del archivo",
+  "File JSON is required.": "El JSON del archivo es obligatorio.",
+  "File JSON must be valid JSON.": "El contenido debe ser un JSON válido.",
+  "File JSON cannot exceed 900 KiB.":
+    "El JSON del archivo no puede superar 900 KiB.",
   "Create and link object": "Crear y vincular objeto",
   "Creating object...": "Creando objeto...",
   "Output object created and linked.": "Objeto de salida creado y vinculado.",
@@ -4869,6 +4876,12 @@ const SPANISH_TEXT: Record<string, string> = {
     "Proporcioná una URL pública de descarga. El SDK valida el contenido descargado contra el tipo PGO exacto antes de crear un objeto listo.",
   "Provide a File Storage file ID. The SDK loads and validates its content against the exact PGO type before creating a ready object.":
     "Proporcioná un file ID de File Storage. El SDK carga y valida su contenido contra el tipo PGO exacto antes de crear un objeto listo.",
+  "Write the finalized PGO JSON manually or build it with the file wizard. The file is created first and then linked to a new ready object.":
+    "Escribí manualmente el JSON PGO finalizado o construilo con el asistente de archivos. Primero se crea el archivo y luego se vincula a un objeto listo nuevo.",
+  "The stored file was already created. Retrying will reuse it and will not create a duplicate.":
+    "El archivo ya fue creado. Al reintentar se reutilizará y no se creará un duplicado.",
+  "The purple action first creates a validated File Storage record, then creates and links the ready output object.":
+    "La acción violeta primero crea un registro validado en File Storage y luego crea y vincula el objeto de salida listo.",
   "Only finalized PGO content JSON supplied by an HTTPS download URL is supported. In-progress objects are not accepted.":
     "Solo se admite contenido JSON PGO finalizado proporcionado mediante una URL de descarga HTTPS. No se aceptan objetos en proceso.",
   "Only finalized PGO content JSON from File Storage is supported. In-progress objects are not accepted.":

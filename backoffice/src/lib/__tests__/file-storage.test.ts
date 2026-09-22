@@ -2,7 +2,9 @@ import {
   getStoredFileLinkedObjectCode,
   getStoredFileLinkedReportKey,
   isStoredFileOrphan,
+  MAX_INLINE_STORED_FILE_BYTES,
   parseStoredFileRecord,
+  storedFileContentByteLength,
 } from "@/lib/file-storage";
 import type { ModerationDocumentRecord } from "@/lib/moderation-types";
 
@@ -43,5 +45,16 @@ describe("file storage links", () => {
     expect(getStoredFileLinkedReportKey(reportFile)).toBe("ABC123");
     expect(isStoredFileOrphan(reportFile)).toBe(false);
     expect(isStoredFileOrphan(orphanFile)).toBe(true);
+  });
+
+  it("measures the 900 KiB inline Firestore safety limit in UTF-8 bytes", () => {
+    expect(MAX_INLINE_STORED_FILE_BYTES).toBe(900 * 1024);
+    expect(storedFileContentByteLength("é")).toBe(2);
+    expect(storedFileContentByteLength('{\n  "value": "é"\n}')).toBe(
+      storedFileContentByteLength('{"value":"é"}'),
+    );
+    expect(
+      storedFileContentByteLength("x".repeat(MAX_INLINE_STORED_FILE_BYTES + 1)),
+    ).toBeGreaterThan(MAX_INLINE_STORED_FILE_BYTES);
   });
 });

@@ -2274,11 +2274,8 @@ export function TwoPQRecordWorkbench({
               data: {
                 file_name: modalState.fileName,
                 creator_email: adminContext.email,
-                linked_report_id: null,
                 file_type: "2pq",
                 file_content: modalState.preview,
-                creation_date: timestamp,
-                last_modified_date: timestamp,
               },
             }),
           },

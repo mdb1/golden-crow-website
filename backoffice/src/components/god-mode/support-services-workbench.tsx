@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
+import { FileJsonWizard } from "@/components/file-storage/file-json-wizard";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import {
   AlertDialog,
@@ -128,6 +129,13 @@ import {
   type SupportServiceTransactionsPage,
 } from "@/lib/support-services";
 import { cn } from "@/lib/utils";
+import {
+  defaultStoredFileName,
+  MAX_INLINE_STORED_FILE_BYTES,
+  storedFileContentByteLength,
+  validateStoredFileJson,
+} from "@/lib/file-storage";
+import type { ModerationDocumentRecord } from "@/lib/moderation-types";
 
 type WorkbenchKind = "offers" | "transactions";
 
@@ -195,9 +203,11 @@ type OutputObjectUploadDraft = {
   index: number;
   role: string;
   objectType: string;
-  source: "downloadUrl" | "fileStorageId" | null;
+  source: "downloadUrl" | "fileStorageId" | "newFile" | null;
   downloadUrl: string;
   fileStorageId: string;
+  newFileContent: string;
+  createdFileStorageId: string;
 };
 
 type CreatedOutputObject = {
@@ -5020,6 +5030,9 @@ export function SupportServiceTransactionWorkbench({
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [outputUploadDraft, setOutputUploadDraft] =
     useState<OutputObjectUploadDraft | null>(null);
+  const [createdOutputFileIds, setCreatedOutputFileIds] = useState<
+    Record<string, string>
+  >({});
   const [outputUploadError, setOutputUploadError] = useState("");
   const isEditing = mode === "edit";
 
@@ -5228,26 +5241,69 @@ export function SupportServiceTransactionWorkbench({
       if (!draft.source) {
         throw new Error("Choose an output object source.");
       }
-      const source =
-        draft.source === "downloadUrl"
-          ? { downloadUrl: draft.downloadUrl.trim() }
-          : { fileStorageId: draft.fileStorageId.trim() };
 
-      return sdkFetch<{
-        transaction: SupportServiceTransactionRecord;
-        object: CreatedOutputObject;
-      }>(
-        `/admin/support-services/transactions/${encodeURIComponent(
-          transactionId ?? "",
-        )}/output-objects`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            role: draft.role,
-            ...source,
-          }),
-        },
-      );
+      let source: { downloadUrl: string } | { fileStorageId: string };
+      if (draft.source === "downloadUrl") {
+        source = { downloadUrl: draft.downloadUrl.trim() };
+      } else if (draft.source === "fileStorageId") {
+        source = { fileStorageId: draft.fileStorageId.trim() };
+      } else {
+        let createdFileStorageId = draft.createdFileStorageId.trim();
+        if (!createdFileStorageId) {
+          const createdFile = await sdkFetch<{
+            document: ModerationDocumentRecord;
+          }>("/file-storage", {
+            method: "POST",
+            body: JSON.stringify({
+              data: {
+                file_name: defaultStoredFileName(draft.objectType, draft.role),
+                file_type: draft.objectType,
+                file_content: draft.newFileContent,
+              },
+            }),
+          });
+          createdFileStorageId = createdFile.document.id;
+          setCreatedOutputFileIds((current) => ({
+            ...current,
+            [draft.role]: createdFileStorageId,
+          }));
+          setOutputUploadDraft((current) =>
+            current &&
+            current.role === draft.role &&
+            current.source === "newFile"
+              ? { ...current, createdFileStorageId }
+              : current,
+          );
+        }
+        source = { fileStorageId: createdFileStorageId };
+      }
+
+      try {
+        return await sdkFetch<{
+          transaction: SupportServiceTransactionRecord;
+          object: CreatedOutputObject;
+        }>(
+          `/admin/support-services/transactions/${encodeURIComponent(
+            transactionId ?? "",
+          )}/output-objects`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              role: draft.role,
+              ...source,
+            }),
+          },
+        );
+      } catch (error) {
+        if (draft.source === "newFile" && "fileStorageId" in source) {
+          const reason =
+            error instanceof Error ? error.message : "The object link failed.";
+          throw new Error(
+            `File ${source.fileStorageId} was created, but the output object could not be linked. Retry to reuse this file without creating a duplicate. ${reason}`,
+          );
+        }
+        throw error;
+      }
     },
     onSuccess: async (result, draft) => {
       if (
@@ -5278,6 +5334,13 @@ export function SupportServiceTransactionWorkbench({
         { transaction: result.transaction },
       );
       setOutputUploadDraft(null);
+      if (draft.source === "newFile") {
+        setCreatedOutputFileIds((current) => {
+          const next = { ...current };
+          delete next[draft.role];
+          return next;
+        });
+      }
       setOutputUploadError("");
       await queryClient.invalidateQueries({
         queryKey: [TRANSACTIONS_QUERY_KEY],
@@ -5389,19 +5452,32 @@ export function SupportServiceTransactionWorkbench({
       index,
       role: output.role,
       objectType: output.objectType,
-      source: null,
+      source: createdOutputFileIds[output.role] ? "newFile" : null,
       downloadUrl: "",
       fileStorageId: "",
+      newFileContent: "",
+      createdFileStorageId: createdOutputFileIds[output.role] ?? "",
     });
   }
 
   function selectOutputUploadSource(
-    source: "downloadUrl" | "fileStorageId",
+    source: "downloadUrl" | "fileStorageId" | "newFile",
   ) {
     setOutputUploadError("");
     setOutputUploadDraft((current) =>
       current
-        ? { ...current, source, downloadUrl: "", fileStorageId: "" }
+        ? {
+            ...current,
+            source,
+            downloadUrl: "",
+            fileStorageId: "",
+            newFileContent: "",
+            createdFileStorageId:
+              source === "newFile"
+                ? createdOutputFileIds[current.role] ??
+                  current.createdFileStorageId
+                : current.createdFileStorageId,
+          }
         : null,
     );
   }
@@ -5415,6 +5491,8 @@ export function SupportServiceTransactionWorkbench({
             source: null,
             downloadUrl: "",
             fileStorageId: "",
+            newFileContent: "",
+            createdFileStorageId: "",
           }
         : null,
     );
@@ -5442,9 +5520,35 @@ export function SupportServiceTransactionWorkbench({
         setOutputUploadError(t("Use a valid HTTPS download URL."));
         return;
       }
-    } else if (!outputUploadDraft.fileStorageId.trim()) {
+    } else if (
+      outputUploadDraft.source === "fileStorageId" &&
+      !outputUploadDraft.fileStorageId.trim()
+    ) {
       setOutputUploadError(t("File ID is required."));
       return;
+    } else if (outputUploadDraft.source === "newFile") {
+      if (
+        !outputUploadDraft.createdFileStorageId.trim() &&
+        !outputUploadDraft.newFileContent.trim()
+      ) {
+        setOutputUploadError(t("File JSON is required."));
+        return;
+      }
+      if (
+        !outputUploadDraft.createdFileStorageId.trim() &&
+        !validateStoredFileJson(outputUploadDraft.newFileContent)
+      ) {
+        setOutputUploadError(t("File JSON must be valid JSON."));
+        return;
+      }
+      if (
+        !outputUploadDraft.createdFileStorageId.trim() &&
+        storedFileContentByteLength(outputUploadDraft.newFileContent) >
+          MAX_INLINE_STORED_FILE_BYTES
+      ) {
+        setOutputUploadError(t("File JSON cannot exceed 900 KiB."));
+        return;
+      }
     }
 
     setOutputUploadError("");
@@ -5452,6 +5556,7 @@ export function SupportServiceTransactionWorkbench({
       ...outputUploadDraft,
       downloadUrl: outputUploadDraft.downloadUrl.trim(),
       fileStorageId: outputUploadDraft.fileStorageId.trim(),
+      newFileContent: outputUploadDraft.newFileContent,
     });
   }
 
@@ -6059,7 +6164,9 @@ function OutputObjectUploadDialog({
   error: string;
   pending: boolean;
   onDraftChange: (draft: OutputObjectUploadDraft | null) => void;
-  onSourceSelect: (source: "downloadUrl" | "fileStorageId") => void;
+  onSourceSelect: (
+    source: "downloadUrl" | "fileStorageId" | "newFile",
+  ) => void;
   onBack: () => void;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -6067,6 +6174,7 @@ function OutputObjectUploadDialog({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const source = draft?.source ?? null;
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   return (
     <Dialog
@@ -6095,6 +6203,10 @@ function OutputObjectUploadDialog({
                   ? t(
                       "Provide a File Storage file ID. The SDK loads and validates its content against the exact PGO type before creating a ready object.",
                     )
+                  : source === "newFile"
+                    ? t(
+                        "Write the finalized PGO JSON manually or build it with the file wizard. The file is created first and then linked to a new ready object.",
+                      )
                   : t(
                       "Choose where the finalized PGO content should be loaded from.",
                     )}
@@ -6115,7 +6227,7 @@ function OutputObjectUploadDialog({
             </div>
 
             {!source ? (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <Button
                   type="button"
                   variant="outline"
@@ -6137,6 +6249,17 @@ function OutputObjectUploadDialog({
                   <FileText className="h-5 w-5 shrink-0" />
                   <span className="whitespace-normal leading-5">
                     {t("Continue with file ID")}
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto min-h-24 justify-start gap-3 rounded-2xl border-violet-200 px-5 py-4 text-left text-violet-800 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/26 dark:text-violet-100 dark:hover:bg-violet-500/10"
+                  onClick={() => onSourceSelect("newFile")}
+                >
+                  <Wand2 className="h-5 w-5 shrink-0" />
+                  <span className="whitespace-normal leading-5">
+                    {t("Continue with new file")}
                   </span>
                 </Button>
               </div>
@@ -6166,7 +6289,7 @@ function OutputObjectUploadDialog({
                   )}
                 </div>
               </>
-            ) : (
+            ) : source === "fileStorageId" ? (
               <>
                 <Field label="File ID">
                   <Input
@@ -6190,6 +6313,70 @@ function OutputObjectUploadDialog({
                   )}
                 </div>
               </>
+            ) : (
+              <>
+                <Field label="File JSON">
+                  <div className="grid gap-2">
+                    <Textarea
+                      value={draft?.newFileContent ?? ""}
+                      onChange={(event) =>
+                        draft &&
+                        onDraftChange({
+                          ...draft,
+                          newFileContent: event.target.value,
+                        })
+                      }
+                      placeholder="Write JSON manually or use the file wizard."
+                      className="min-h-64 font-mono text-xs leading-6"
+                      disabled={pending || Boolean(draft?.createdFileStorageId)}
+                      autoFocus
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="justify-self-start"
+                      onClick={() => setWizardOpen(true)}
+                      disabled={pending || Boolean(draft?.createdFileStorageId)}
+                    >
+                      <Wand2 className="h-4 w-4" />
+                      {t("Open file wizard")}
+                    </Button>
+                  </div>
+                </Field>
+                {draft?.createdFileStorageId ? (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950 dark:border-amber-400/28 dark:bg-amber-500/12 dark:text-amber-50">
+                    {t(
+                      "The stored file was already created. Retrying will reuse it and will not create a duplicate.",
+                    )}{" "}
+                    <Link
+                      href={`/collections/file_storage/${encodeURIComponent(
+                        draft.createdFileStorageId,
+                      )}`}
+                      target="_blank"
+                      className="font-mono font-semibold underline"
+                    >
+                      {draft.createdFileStorageId}
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
+                    {t(
+                      "The purple action first creates a validated File Storage record, then creates and links the ready output object.",
+                    )}
+                  </div>
+                )}
+                <FileJsonWizard
+                  open={wizardOpen}
+                  fileType={draft?.objectType ?? ""}
+                  initialJson={draft?.newFileContent ?? ""}
+                  onOpenChange={setWizardOpen}
+                  onSave={(newFileContent) =>
+                    draft && onDraftChange({ ...draft, newFileContent })
+                  }
+                />
+              </>
             )}
             {error ? (
               <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -6205,7 +6392,7 @@ function OutputObjectUploadDialog({
                 type="button"
                 variant="ghost"
                 onClick={onBack}
-                disabled={pending}
+                disabled={pending || Boolean(draft?.createdFileStorageId)}
               >
                 <ArrowLeft className="h-4 w-4" />
                 {t("Back")}
