@@ -15,6 +15,11 @@ jest.mock("node:crypto", () => ({
 }));
 
 const collections = new Map<string, Map<string, MockData>>();
+const writes: Array<{
+  collectionName: string;
+  id: string;
+  data: MockData;
+}> = [];
 let beforeNextTransaction: (() => void) | undefined;
 
 function clone<T>(value: T): T {
@@ -51,6 +56,7 @@ function docRef(collectionName: string, id: string) {
       return snapshotFor(collectionName, id, data);
     },
     async set(data: MockData, options?: { merge?: boolean }) {
+      writes.push({ collectionName, id, data });
       const previous = collectionStore(collectionName).get(id) ?? {};
       collectionStore(collectionName).set(
         id,
@@ -253,6 +259,7 @@ jest.mock("../config/firebase.js", () => ({
 
 afterEach(() => {
   beforeNextTransaction = undefined;
+  writes.length = 0;
   jest.restoreAllMocks();
 });
 
@@ -382,6 +389,108 @@ describe("support service repository versions", () => {
       owner_contact_email: "services@pocketgenes.example",
     });
     seedDoc("service_offers", "offer-1", baseOffer);
+  });
+
+  it("omits sameIdentityAsInput when persisting a new-object output slot", async () => {
+    const { createSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const offer = await createSupportServiceOffer(context, {
+      serviceId: "pgs_pocket_genes_1",
+      serviceVersion: 1,
+      name: "Nueva solicitud de consentimiento informado",
+      serviceCategory: "",
+      providerKind: "organization",
+      providerId: "feed-org-1",
+      providerName: "Pocket Genes",
+      stages: ["test_planning"],
+      status: "active",
+      isHiddenFromSearch: false,
+      description:
+        "Este servicio sirve para obtener consentimientos informados de pacientes.",
+      shortContract: "form:Form -> informed_consent:Informed consent",
+      providerWork:
+        "Enviamos un mail al paciente para solicitar el consentimiento informado.",
+      formShape: {
+        id: "pgfs_pocket_genes_1",
+        version: 1,
+        allowUnknownFields: false,
+        fields: [
+          {
+            key: "requested_at",
+            label: "Requested at",
+            type: "datetime",
+            required: true,
+          },
+          {
+            key: "requested_by",
+            label: "Requested by",
+            type: "text",
+            required: true,
+          },
+          {
+            key: "recipient_email",
+            label: "Email del paciente",
+            type: "text",
+            required: true,
+          },
+          {
+            key: "recipient_name",
+            label: "Nombre del paciente",
+            type: "text",
+            required: true,
+          },
+          {
+            key: "recipient_age",
+            label: "Edad del paciente",
+            type: "integer",
+            required: true,
+          },
+        ],
+      },
+      inputSlots: [
+        {
+          role: "form",
+          objectType: "pgo_form",
+          acceptedTypes: ["pgo_form"],
+          required: true,
+          cardinality: { min: 1, max: 1 },
+        },
+      ],
+      outputSlots: [
+        {
+          role: "informed_consent",
+          objectType: "pgo_informed_consent",
+          mutationMode: "new_object",
+        },
+      ],
+      acceptedConditions: ["El paciente debe conocer el pedido."],
+      scopeRules: ["El mail debe ser correcto."],
+      commercialTerms: {
+        pricingModel: "calculated_after_submission",
+        turnaround: "2d",
+      },
+    });
+
+    const createWrite = writes.find(
+      (write) => write.collectionName === "service_offers",
+    );
+    const persistedOutputSlots = createWrite?.data.outputSlots as
+      | Record<string, unknown>[]
+      | undefined;
+
+    expect(persistedOutputSlots).toEqual([
+      {
+        role: "informed_consent",
+        objectType: "pgo_informed_consent",
+        mutationMode: "new_object",
+      },
+    ]);
+    expect(persistedOutputSlots?.[0]).not.toHaveProperty(
+      "sameIdentityAsInput",
+    );
+    expect(offer.outputSlots[0]).not.toHaveProperty("sameIdentityAsInput");
   });
 
   it("increments service version when a published offer definition changes", async () => {

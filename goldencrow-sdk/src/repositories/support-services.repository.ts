@@ -817,6 +817,7 @@ function normalizeOfferOutputSlots(value: unknown) {
       ["object_type", "mutation_mode", "same_identity_as_input"],
       "Service offer output slot",
     );
+    const sameIdentityAsInput = cleanString(slot.sameIdentityAsInput);
     return {
       role: cleanString(slot.role),
       objectType: cleanString(slot.objectType),
@@ -824,8 +825,7 @@ function normalizeOfferOutputSlots(value: unknown) {
         cleanString(slot.mutationMode) === "new_revision"
           ? "new_revision"
           : "new_object",
-      sameIdentityAsInput:
-        cleanString(slot.sameIdentityAsInput) || undefined,
+      ...(sameIdentityAsInput ? { sameIdentityAsInput } : {}),
     };
   });
 }
