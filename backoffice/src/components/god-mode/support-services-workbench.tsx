@@ -1855,17 +1855,25 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
     mutationFn: async (
       record: SupportServiceOfferRecord | SupportServiceTransactionRecord,
     ) =>
-      sdkFetch(`${apiBasePath(kind)}/${encodeURIComponent(record.id)}`, {
+      sdkFetch<{ deleted: boolean; cleanupWarnings?: string[] }>(
+        `${apiBasePath(kind)}/${encodeURIComponent(record.id)}`,
+        {
         method: "DELETE",
-      }),
-    onSuccess: async () => {
+        },
+      ),
+    onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: [queryKey] });
+      const cleanupWarnings = result?.cleanupWarnings ?? [];
       setToast({
         id: nextToastId(),
         tone: "success",
-        message: isOffers
-          ? t("Service offer deleted.")
-          : t("Service transaction deleted."),
+        message:
+          cleanupWarnings.length > 0
+            ? `${t("Service transaction deleted. Secondary cleanup warnings:")} ${cleanupWarnings.join(" ")}`
+            : isOffers
+              ? t("Service offer deleted.")
+              : t("Service transaction deleted."),
+        durationMs: cleanupWarnings.length > 0 ? 15000 : undefined,
       });
     },
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
@@ -5228,16 +5236,21 @@ export function SupportServiceTransactionWorkbench({
 
   const deleteMutation = useMutation({
     mutationFn: () =>
-      sdkFetch(
+      sdkFetch<{ deleted: boolean; cleanupWarnings?: string[] }>(
         `/admin/support-services/transactions/${encodeURIComponent(
           transactionId ?? "",
         )}`,
         { method: "DELETE" },
       ),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       await queryClient.invalidateQueries({
         queryKey: [TRANSACTIONS_QUERY_KEY],
       });
+      if (result?.cleanupWarnings?.length) {
+        window.alert(
+          `${t("Service transaction deleted. Secondary cleanup warnings:")} ${result.cleanupWarnings.join(" ")}`,
+        );
+      }
       router.push("/god-mode/service-transactions");
       router.refresh();
     },

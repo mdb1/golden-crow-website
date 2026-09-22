@@ -281,6 +281,33 @@ describe("support services workbenches", () => {
     expect(screen.queryByText("No records found.")).toBeNull();
   });
 
+  it("reports secondary cleanup warnings after the root transaction is deleted", async () => {
+    jest.spyOn(window, "confirm").mockReturnValue(true);
+    sdkFetchMock.mockImplementation(async (_path, init) => {
+      if (init?.method === "DELETE") {
+        return {
+          deleted: true,
+          cleanupWarnings: ["Requester reference cleanup failed."],
+        };
+      }
+      return {
+        transactions: [runningTransaction],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithQueryClient(<SupportServicesBrowser kind="transactions" />);
+
+    await screen.findByText(runningTransaction.requestId);
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(
+      await screen.findByText(
+        /Service transaction deleted\. Secondary cleanup warnings: Requester reference cleanup failed\./,
+      ),
+    ).toBeTruthy();
+  });
+
   it("keeps the catalog pricing model and summary instead of coercing it to fixed", () => {
     expect(POCKET_GENES_SERVICE_OPTIONS.length).toBeGreaterThan(0);
     for (const offer of POCKET_GENES_SERVICE_OPTIONS) {

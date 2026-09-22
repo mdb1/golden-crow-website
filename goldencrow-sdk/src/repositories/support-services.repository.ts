@@ -5256,103 +5256,107 @@ export async function deleteSupportServiceTransaction(
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
 
-  await adminDb.runTransaction(async (firestoreTransaction) => {
-    const latestSnapshot = await firestoreTransaction.get(snapshot.ref);
-    if (!latestSnapshot.exists) {
-      throw new AdminRepositoryError("Service transaction not found.", 404);
-    }
-    const transactionData = latestSnapshot.data() ?? {};
-    const requestId = cleanString(transactionData.requestId);
-    const storedTransaction = toTransactionRecord(
-      latestSnapshot.id,
-      transactionData,
-    );
-    const idempotencyRef = adminDb
-      .collection(SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION)
-      .doc(idempotencyClaimId(storedTransaction.idempotencyKey));
-    const transactionIds = new Set(
-      [latestSnapshot.id, requestId, cleanString(transactionId)].filter(Boolean),
-    );
-    const requestedByUserId = cleanString(transactionData.requestedByUserId);
-    const storedProviderSnapshot = optionalRecord(
-      transactionData.providerSnapshot,
-    );
-    const providerId =
-      cleanString(transactionData.providerId) ||
-      cleanString(storedProviderSnapshot.id);
-    const providerKind =
-      cleanString(transactionData.providerKind) ||
-      cleanString(storedProviderSnapshot.kind);
-    const userRef = requestedByUserId
-      ? adminDb.collection(COMMUNITY_USERS_COLLECTION).doc(requestedByUserId)
-      : null;
-    const providerRef =
-      providerId && PROVIDER_KIND_SET.has(providerKind)
-        ? adminDb
-            .collection(
-              providerKind === "individual"
-                ? FEED_INDIVIDUALS_COLLECTION
-                : FEED_ORGANIZATIONS_COLLECTION,
-            )
-            .doc(providerId)
-        : null;
-    const [userSnapshot, providerDocumentSnapshot, idempotencySnapshot] =
-      await Promise.all([
-      userRef ? firestoreTransaction.get(userRef) : Promise.resolve(null),
-      providerRef
-        ? firestoreTransaction.get(providerRef)
-        : Promise.resolve(null),
-        firestoreTransaction.get(idempotencyRef),
-      ]);
-    if (userRef && userSnapshot?.exists) {
-      const summaryUpdate = requestedTransactionSummariesAfterRemoval(
-        userSnapshot.data() ?? {},
-        transactionIds,
-      );
-      if (
-        summaryUpdate.remainingSummaries.length !==
-        summaryUpdate.summaries.length
-      ) {
-        firestoreTransaction.set(
-          userRef,
-          {
-            [REQUESTED_TRANSACTIONS_FIELD]:
-              summaryUpdate.remainingSummaries,
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
+  const transactionData = snapshot.data() ?? {};
+  const requestId = cleanString(transactionData.requestId) || snapshot.id;
+  const transactionIds = new Set(
+    [snapshot.id, requestId, cleanString(transactionId)].filter(Boolean),
+  );
+  const requestedByUserId = cleanString(transactionData.requestedByUserId);
+  const storedProviderSnapshot = optionalRecord(
+    transactionData.providerSnapshot,
+  );
+  const providerId =
+    cleanString(transactionData.providerId) ||
+    cleanString(storedProviderSnapshot.id);
+  const providerKind =
+    cleanString(transactionData.providerKind) ||
+    cleanString(storedProviderSnapshot.kind);
+  const idempotencyKey = cleanString(transactionData.idempotencyKey);
+
+  // An explicit god-mode delete is authoritative. The root is removed first;
+  // malformed data or a secondary-index failure cannot veto that intention.
+  await snapshot.ref.delete();
+
+  const cleanupWarnings: string[] = [];
+  const cleanupSummaryReference = async (
+    reference: DocumentReference,
+    label: string,
+  ) => {
+    try {
+      await adminDb.runTransaction(async (firestoreTransaction) => {
+        const referenceSnapshot = await firestoreTransaction.get(reference);
+        if (!referenceSnapshot.exists) {
+          return;
+        }
+        const summaryUpdate = requestedTransactionSummariesAfterRemoval(
+          referenceSnapshot.data() ?? {},
+          transactionIds,
         );
-      }
-    }
-    if (providerRef && providerDocumentSnapshot?.exists) {
-      const summaryUpdate = requestedTransactionSummariesAfterRemoval(
-        providerDocumentSnapshot.data() ?? {},
-        transactionIds,
-      );
-      if (
-        summaryUpdate.remainingSummaries.length !==
-        summaryUpdate.summaries.length
-      ) {
-        firestoreTransaction.set(
-          providerRef,
-          {
-            [REQUESTED_TRANSACTIONS_FIELD]:
-              summaryUpdate.remainingSummaries,
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        );
-      }
-    }
-    if (!idempotencySnapshot.exists) {
-      firestoreTransaction.set(idempotencyRef, {
-        idempotencyKey: storedTransaction.idempotencyKey,
-        requestId: storedTransaction.requestId,
-        creationFingerprint: transactionCreationFingerprint(storedTransaction),
-        createdAt: FieldValue.serverTimestamp(),
-        deletedAt: FieldValue.serverTimestamp(),
+        if (
+          summaryUpdate.remainingSummaries.length !==
+          summaryUpdate.summaries.length
+        ) {
+          firestoreTransaction.set(
+            reference,
+            {
+              [REQUESTED_TRANSACTIONS_FIELD]:
+                summaryUpdate.remainingSummaries,
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
+        }
       });
+    } catch (error) {
+      cleanupWarnings.push(
+        `${label} cleanup failed: ${error instanceof Error ? error.message : "unknown error"}`,
+      );
     }
-    firestoreTransaction.delete(snapshot.ref);
-  });
+  };
+
+  if (requestedByUserId) {
+    await cleanupSummaryReference(
+      adminDb.collection(COMMUNITY_USERS_COLLECTION).doc(requestedByUserId),
+      "Requester reference",
+    );
+  }
+  if (providerId && PROVIDER_KIND_SET.has(providerKind)) {
+    await cleanupSummaryReference(
+      adminDb
+        .collection(
+          providerKind === "individual"
+            ? FEED_INDIVIDUALS_COLLECTION
+            : FEED_ORGANIZATIONS_COLLECTION,
+        )
+        .doc(providerId),
+      "Provider reference",
+    );
+  }
+  if (idempotencyKey) {
+    try {
+      const idempotencyRef = adminDb
+        .collection(SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION)
+        .doc(idempotencyClaimId(idempotencyKey));
+      await adminDb.runTransaction(async (firestoreTransaction) => {
+        const idempotencySnapshot = await firestoreTransaction.get(
+          idempotencyRef,
+        );
+        if (!idempotencySnapshot.exists) {
+          firestoreTransaction.set(idempotencyRef, {
+            idempotencyKey,
+            requestId,
+            creationFingerprint: `deleted:${snapshot.id}`,
+            createdAt: FieldValue.serverTimestamp(),
+            deletedAt: FieldValue.serverTimestamp(),
+          });
+        }
+      });
+    } catch (error) {
+      cleanupWarnings.push(
+        `Idempotency tombstone cleanup failed: ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+    }
+  }
+
+  return { cleanupWarnings };
 }

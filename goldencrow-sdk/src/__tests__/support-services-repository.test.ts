@@ -2023,6 +2023,69 @@ describe("support service delivered transactions", () => {
     ]);
   });
 
+  it("deletes a malformed root transaction before cleaning secondary references", async () => {
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      outputObjects: ["invalid-detail-snapshot"],
+    });
+    seedDoc("community_users", "user-1", {
+      requestedServiceTransactions: [
+        { serviceTransactionId: transaction.requestId },
+      ],
+    });
+    seedDoc("feed_organizations", "feed-org-1", {
+      requestedServiceTransactions: [
+        { serviceTransactionId: transaction.requestId },
+      ],
+    });
+    const { deleteSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const result = await deleteSupportServiceTransaction(
+      context,
+      "transaction-1",
+    );
+
+    expect(result.cleanupWarnings).toEqual([]);
+    expect(collectionStore("service_transactions").has("transaction-1")).toBe(
+      false,
+    );
+    expect(collectionStore("community_users").get("user-1")).toMatchObject({
+      requestedServiceTransactions: [],
+    });
+    expect(collectionStore("feed_organizations").get("feed-org-1")).toMatchObject({
+      requestedServiceTransactions: [],
+    });
+  });
+
+  it("keeps deletion successful when secondary cleanup fails", async () => {
+    seedDoc("service_transactions", "transaction-1", transaction);
+    seedDoc("community_users", "user-1", {
+      requestedServiceTransactions: [
+        { serviceTransactionId: transaction.requestId },
+      ],
+    });
+    beforeNextTransaction = () => {
+      throw new Error("secondary unavailable");
+    };
+    const { deleteSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const result = await deleteSupportServiceTransaction(
+      context,
+      "transaction-1",
+    );
+
+    expect(collectionStore("service_transactions").has("transaction-1")).toBe(
+      false,
+    );
+    expect(result.cleanupWarnings).toEqual([
+      "Requester reference cleanup failed: secondary unavailable",
+    ]);
+  });
+
   it("removes the recipient reference from an individual provider", async () => {
     const individualProvider = {
       providerKind: "individual",

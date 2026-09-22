@@ -555,13 +555,14 @@ export async function supportServicesRoutes(
     { schema: { params: TransactionParamsSchema } },
     async (request, reply) => {
       try {
-        await deleteSupportServiceTransaction(
+        const result = await deleteSupportServiceTransaction(
           request.adminContext!,
           request.params.transactionId,
         );
         return reply.send({
           deleted: true,
           transactionId: request.params.transactionId,
+          cleanupWarnings: result.cleanupWarnings,
         });
       } catch (error) {
         return sendRepositoryError(reply, error);

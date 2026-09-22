@@ -4909,6 +4909,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service offer deleted.": "Oferta de servicio eliminada.",
   "Service offer saved.": "Oferta de servicio guardada.",
   "Service transaction deleted.": "Transacción de servicio eliminada.",
+  "Service transaction deleted. Secondary cleanup warnings:":
+    "Transacción de servicio eliminada. Advertencias de limpieza secundaria:",
   "Service transaction saved.": "Transacción de servicio guardada.",
   "Service offer": "Oferta de servicio",
   "Service version": "Versión del servicio",
