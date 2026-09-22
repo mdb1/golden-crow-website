@@ -391,7 +391,18 @@ function sendRepositoryError(reply: FastifyReply, error: unknown) {
     return reply.status(error.statusCode).send({ error: error.message });
   }
 
-  throw error;
+  const errorName = error instanceof Error ? error.name : typeof error;
+  const message =
+    error instanceof Error && error.message.trim()
+      ? error.message.trim()
+      : "The support services request failed unexpectedly.";
+  return reply.status(500).send({
+    error: "Support services request failed.",
+    message,
+    errorName,
+    statusCode: 500,
+    hint: "The support services route failed before completing the Firebase request. Use the request path and Vercel request id from the backoffice log modal to inspect the server trace.",
+  });
 }
 
 export async function supportServicesRoutes(

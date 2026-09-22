@@ -7,6 +7,7 @@ import type { AdminContext } from "../types/sdk.types.js";
 
 const mockCreateSupportServiceOffer = jest.fn();
 const mockDeleteSupportServiceOffer = jest.fn();
+const mockListSupportServiceOffers = jest.fn();
 const mockListSupportServiceTransactions = jest.fn();
 const mockCreateSupportServiceTransaction = jest.fn();
 const mockAttachSupportServiceTransactionOutputObject = jest.fn();
@@ -58,7 +59,7 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   deliverSupportServiceTransaction: mockDeliverSupportServiceTransaction,
   getSupportServiceOffer: jest.fn(),
   getSupportServiceTransaction: jest.fn(),
-  listSupportServiceOffers: jest.fn(),
+  listSupportServiceOffers: mockListSupportServiceOffers,
   listSupportServiceTransactions: mockListSupportServiceTransactions,
   updateSupportServiceOffer: jest.fn(),
   updateSupportServiceTransaction: jest.fn(),
@@ -173,6 +174,10 @@ describe("support service admin routes", () => {
       name: "Create the final self-contained report",
     });
     mockDeleteSupportServiceOffer.mockResolvedValue(undefined);
+    mockListSupportServiceOffers.mockResolvedValue({
+      offers: [],
+      nextCursor: undefined,
+    });
     mockListSupportServiceTransactions.mockResolvedValue({
       transactions: [],
       nextCursor: undefined,
@@ -234,6 +239,27 @@ describe("support service admin routes", () => {
         stages: ["bioinformatics"],
       }),
     );
+  });
+
+  it("returns diagnostic JSON when a support service list fails unexpectedly", async () => {
+    const fastify = await buildTestServer();
+    mockListSupportServiceOffers.mockRejectedValue(
+      new Error("Firestore support services query failed."),
+    );
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/support-services/offers?limit=20",
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({
+      error: "Support services request failed.",
+      message: "Firestore support services query failed.",
+      errorName: "Error",
+      statusCode: 500,
+      hint: expect.stringContaining("Vercel request id"),
+    });
   });
 
   it("creates a service offer without form shape or commercial terms", async () => {

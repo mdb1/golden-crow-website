@@ -1580,6 +1580,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Action error log": "Log de error de acción",
   "Full error details for this failed action.":
     "Detalle completo del error para esta acción fallida.",
+  "Full request and response details for this failed list load.":
+    "Detalle completo de la request y la respuesta para esta carga fallida.",
+  "No log details are available.": "No hay detalles de log disponibles.",
   "No role assignment record is linked to this session.":
     "No hay un perfil asociado a esta sesión.",
   "Use 100 characters or fewer.": "Usá 100 caracteres o menos.",

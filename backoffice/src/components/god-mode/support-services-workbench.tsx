@@ -1834,6 +1834,27 @@ function mutationErrorToast(
   };
 }
 
+function requestErrorLog(error: unknown) {
+  if (error instanceof SdkRequestError) {
+    return error.details;
+  }
+
+  if (error instanceof Error) {
+    return [
+      `Error: ${error.message}`,
+      error.stack ? `Stack:\n${error.stack}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  try {
+    return `Error:\n${JSON.stringify(error, null, 2)}`;
+  } catch {
+    return `Error: ${String(error)}`;
+  }
+}
+
 function buildListPath(
   kind: WorkbenchKind,
   filters: ServiceFilters,
@@ -1878,6 +1899,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
   const [filters, setFilters] = useState<ServiceFilters>(() => emptyFilters());
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [listErrorLogOpen, setListErrorLogOpen] = useState(false);
   const isOffers = kind === "offers";
   const queryKey = isOffers ? OFFERS_QUERY_KEY : TRANSACTIONS_QUERY_KEY;
   const route = baseRoute(kind);
@@ -1914,6 +1936,16 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
     [listQuery.data?.pages],
   );
   const rows = isOffers ? offers : transactions;
+  const listErrorLog = useMemo(
+    () => (listQuery.error ? requestErrorLog(listQuery.error) : ""),
+    [listQuery.error],
+  );
+
+  useEffect(() => {
+    if (!listQuery.isError) {
+      setListErrorLogOpen(false);
+    }
+  }, [listQuery.isError]);
 
   const deleteMutation = useMutation({
     mutationFn: async (
@@ -1968,6 +2000,28 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
         onDismiss={() => setToast(null)}
         language={language}
       />
+      <Dialog open={listErrorLogOpen} onOpenChange={setListErrorLogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{t("Request log")}</DialogTitle>
+            <DialogDescription>
+              {t("Full request and response details for this failed list load.")}
+            </DialogDescription>
+          </DialogHeader>
+          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/80 bg-muted/30 p-3 font-mono text-xs leading-5 text-foreground">
+            {listErrorLog || t("No log details are available.")}
+          </pre>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setListErrorLogOpen(false)}
+            >
+              {t("Close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <section className={SUPPORT_SERVICE_PANEL_CLASS}>
         <div
           className={cn("flex flex-col gap-4", SUPPORT_SERVICE_HEADER_CLASS)}
@@ -2117,16 +2171,28 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                           ? listQuery.error.message
                           : t("Action failed.")}
                       </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => listQuery.refetch()}
-                        className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        <span>{t("Try again")}</span>
-                      </Button>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setListErrorLogOpen(true)}
+                          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+                        >
+                          <FileText className="h-4 w-4" />
+                          <span>{t("Show log")}</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => listQuery.refetch()}
+                          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          <span>{t("Try again")}</span>
+                        </Button>
+                      </div>
                     </div>
                   </TableCell>
                 </TableRow>

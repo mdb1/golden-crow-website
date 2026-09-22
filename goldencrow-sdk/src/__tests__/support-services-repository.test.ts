@@ -865,6 +865,23 @@ describe("support service pagination", () => {
     }
   });
 
+  it("returns empty pages for empty support service collections", async () => {
+    collections.clear();
+    const {
+      listSupportServiceOffers,
+      listSupportServiceTransactions,
+    } = await import("../repositories/support-services.repository.js");
+
+    await expect(listSupportServiceOffers(context)).resolves.toEqual({
+      offers: [],
+      nextCursor: undefined,
+    });
+    await expect(listSupportServiceTransactions(context)).resolves.toEqual({
+      transactions: [],
+      nextCursor: undefined,
+    });
+  });
+
   it("uses the document ID as a cursor tie-breaker for equal timestamps", async () => {
     const { listSupportServiceOffers } = await import(
       "../repositories/support-services.repository.js"

@@ -20,7 +20,7 @@ import {
   normalizePocketGenesCatalogFormShape,
 } from "@/lib/pocket-genes-service-catalog";
 import { appText } from "@/lib/language";
-import { sdkFetch } from "@/lib/sdk-client";
+import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 import type {
   SupportServiceOfferRecord,
   SupportServiceTransactionRecord,
@@ -38,7 +38,14 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/lib/sdk-client", () => ({
   sdkFetch: jest.fn(),
-  SdkRequestError: class SdkRequestError extends Error {},
+  SdkRequestError: class SdkRequestError extends Error {
+    details: string;
+
+    constructor(input?: string | { message?: string; details?: string }) {
+      super(typeof input === "object" ? input.message : input);
+      this.details = typeof input === "object" ? (input.details ?? "") : "";
+    }
+  },
 }));
 
 const sdkFetchMock = sdkFetch as jest.MockedFunction<typeof sdkFetch>;
@@ -256,13 +263,38 @@ describe("support services workbenches", () => {
   });
 
   it("shows transaction list load failures instead of a false empty state", async () => {
-    sdkFetchMock.mockRejectedValue(new Error("Stored transaction is invalid."));
+    sdkFetchMock.mockRejectedValue(
+      new SdkRequestError({
+        status: 500,
+        method: "GET",
+        path: "/admin/support-services/transactions?limit=20",
+        message: "Internal Server Error",
+        details:
+          "Request: GET /admin/support-services/transactions?limit=20\n\nStatus: 500 Internal Server Error\n\nResponse JSON:\n{\"error\":\"Stored transaction is invalid.\"}",
+      }),
+    );
 
     renderWithQueryClient(<SupportServicesBrowser kind="transactions" />);
 
     expect(await screen.findByText("Could not load records.")).toBeTruthy();
-    expect(screen.getByText("Stored transaction is invalid.")).toBeTruthy();
+    expect(screen.getByText("Internal Server Error")).toBeTruthy();
     expect(screen.queryByText("No records found.")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show log" }));
+
+    expect(await screen.findByText("Request log")).toBeTruthy();
+    expect(
+      screen.getByText((content) =>
+        content.includes(
+          "Request: GET /admin/support-services/transactions?limit=20",
+        ),
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText((content) =>
+        content.includes("Status: 500 Internal Server Error"),
+      ),
+    ).toBeTruthy();
   });
 
   it("shows remediation warnings without blocking the transaction detail", async () => {
