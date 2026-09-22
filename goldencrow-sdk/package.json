@@ -7,6 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "generate:pgo-schemas": "node scripts/generate-pgo-object-schemas.mjs",
+    "generate:pgi-schemas": "node scripts/generate-pgi-native-schemas.mjs",
     "start": "node dist/server.js",
     "test": "jest --config jest.config.cjs",
     "check:no-default-app": "bash ../scripts/check-no-default-app.sh"

@@ -113,30 +113,60 @@ const FormFieldOptionSchema = z.object({
   value: z
     .string()
     .trim()
-    .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/),
-  label: z.string().trim().min(1).max(120),
-}).strict();
-const FormFieldSchema = z.object({
-  key: z
-    .string()
-    .trim()
     .regex(
-      /^[a-z][a-z0-9_]{0,63}$/,
-      "Use a lowercase form field key up to 64 characters.",
+      /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/,
+      "Use an option value up to 128 characters with letters, numbers, dots, underscores, colons, or hyphens.",
     ),
   label: z.string().trim().min(1).max(120),
-  type: FormFieldTypeSchema,
-  required: z.boolean(),
-  options: z.array(FormFieldOptionSchema).max(100).optional(),
-  helpInfoText: z.string().trim().min(1).max(500).optional(),
 }).strict();
+const FormFieldSchema = z
+  .object({
+    key: z
+      .string()
+      .trim()
+      .regex(
+        /^[a-z][a-z0-9_]{0,63}$/,
+        "Use a lowercase form field key up to 64 characters.",
+      ),
+    label: z.string().trim().min(1).max(120),
+    type: FormFieldTypeSchema,
+    required: z.boolean(),
+    options: z.array(FormFieldOptionSchema).min(1).max(100).optional(),
+    helpInfoText: z.string().trim().min(1).max(500).optional(),
+  })
+  .strict()
+  .superRefine((field, ctx) => {
+    const usesOptions = field.type === "enum" || field.type === "multi_enum";
+    if (usesOptions && !field.options) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Enum fields require options.",
+        path: ["options"],
+      });
+    }
+    if (!usesOptions && field.options !== undefined) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Only enum fields may declare options.",
+        path: ["options"],
+      });
+    }
+    const values = field.options?.map((option) => option.value) ?? [];
+    if (new Set(values).size !== values.length) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Option values must be unique.",
+        path: ["options"],
+      });
+    }
+  });
 const FormShapeSchema = z.object({
   id: FormShapeIdSchema,
-  version: VersionSchema.optional(),
+  version: VersionSchema,
   allowUnknownFields: z
     .literal(false)
     .describe("Support service forms reject undeclared fields."),
-  fields: z.array(FormFieldSchema).min(2).max(100),
+  fields: z.array(FormFieldSchema),
 }).strict();
 const InputSlotSchema = z.object({
   role: RoleSchema,

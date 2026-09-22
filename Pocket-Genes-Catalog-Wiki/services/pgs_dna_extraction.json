@@ -16,18 +16,6 @@
     "version": 1,
     "fields": [
       {
-        "key": "requested_at",
-        "label": "Requested at",
-        "type": "datetime",
-        "required": true
-      },
-      {
-        "key": "requested_by",
-        "label": "Requested by",
-        "type": "text",
-        "required": true
-      },
-      {
         "key": "extraction_profile",
         "label": "Extraction profile",
         "type": "enum",
@@ -53,20 +41,10 @@
   "sampleFormData": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-16T15:05:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
         "key": "extraction_profile",
         "value": "demo_blood_dna_v1"
       }
-    ],
-    "formShapeId": "pgfs_dna_extraction",
-    "formShapeVersion": 1
+    ]
   },
   "sampleFormObject": {
     "object_id": "obj_demo_form_dna_extraction",
@@ -75,43 +53,9 @@
     "revision": 1,
     "created_at": "2026-09-16T15:05:00Z",
     "created_by": "user_demo_001",
-    "input_refs": [],
     "data": {
-      "fields": [
-        {
-          "key": "requested_at",
-          "value": "2026-09-16T15:05:00Z"
-        },
-        {
-          "key": "requested_by",
-          "value": "user_demo_001"
-        },
-        {
-          "key": "extraction_profile",
-          "value": "demo_blood_dna_v1"
-        }
-      ],
-      "form_shape_id": "pgfs_dna_extraction",
-      "form_shape_version": 1,
       "form_shape": {
-        "id": "pgfs_dna_extraction",
-        "version": 1,
-        "allow_unknown_fields": false,
         "fields": [
-          {
-            "key": "requested_at",
-            "label": "Requested at",
-            "type": "datetime",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "requested_by",
-            "label": "Requested by",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
           {
             "key": "extraction_profile",
             "label": "Extraction profile",
@@ -133,9 +77,14 @@
             ]
           }
         ]
-      }
-    },
-    "files": []
+      },
+      "fields": [
+        {
+          "key": "extraction_profile",
+          "value": "demo_blood_dna_v1"
+        }
+      ]
+    }
   },
   "inputSlots": [
     {
@@ -195,11 +144,10 @@
     "The blood, tissue or embryo-biopsy material must match the selected extraction profile."
   ],
   "scopeRules": [
-    "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
-    "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
     "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
     "The extracted DNA has its own object_id and a lineage reference to the source specimen. Record source consumption or remaining quantity in specimen tracking.",
-    "Return a new revision of the source physical object recording consumed material and remaining quantity. This fixture consumes the entire provided aliquot. Physical execution must lock the current revision to prevent concurrent reuse."
+    "Return a new revision of the source physical object recording consumed material and remaining quantity. This fixture consumes the entire provided aliquot. Physical execution must lock the current revision to prevent concurrent reuse.",
+    "Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities."
   ],
   "commercialTerms": {
     "price": {

@@ -1,151 +1,52 @@
-# Flow cytometry data — `pgo_flow_cytometry_data`
+# 20. Flow cytometry data — `pgo_flow_cytometry_data`
 
-Native FCS measurements with the panel and channel information a compatible cell-population analysis service requires.
+A titled reference to downloadable native flow-cytometry data.
 
-| Attribute | Value |
-| --- | --- |
-| Nature | virtual |
-| Stages | Wet lab, Bioinformatics |
-| Extension | .fcs |
-| Icon asset | icons/pgo_flow_cytometry_data.svg |
-| Icon subject | A small scatter plot with three distinct point clusters. |
-| JSON Schema | schemas/objects/pgo_flow_cytometry_data.schema.json |
-| Example record | examples/objects/pgo_flow_cytometry_data.pgobject.json |
+**Nature:** virtual  
+**Stages:** wet_lab, bioinformatics  
+**Serialized extension:** `.fcs`  
+**Schema:** `schemas/objects/pgo_flow_cytometry_data.schema.json`  
+**Example:** `examples/objects/pgo_flow_cytometry_data.pgobject.json`
 
+## Content boundary
 
-**Properties inside `data`**
+The uploaded JSON root is the domain content shown below. It has no object envelope. The externally selected platform record supplies type, identity, owner, access, revision, creator, and transaction relationships. This content neither requires a service nor another registered object.
 
-| Property | Type | Required within parent | Meaning / constraints |
+Every unlisted property is invalid. Optional `notes` may be absent or an empty string and is only for additional human information.
+
+## Fields
+
+| Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
-| `subject_id` | string | Yes | Synthetic or platform-assigned subject identifier; do not infer identity from a filename. minLength: 1 |
-| `order_ref` | object | No | Related test order when applicable. |
-| `order_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `order_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `source_sample_ref` | object | Yes | Physical sample used in acquisition. |
-| `source_sample_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `source_sample_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `fcs_version` | string | Yes | Version of the native FCS format. minLength: 1 |
-| `panel_id` | string | Yes | Versioned panel identifier. minLength: 1 |
-| `channels` | array | Yes | Measurement channels present in the file. minItems: 1 |
-| `channels[].name` | string | Yes | Native FCS channel name. minLength: 1 |
-| `channels[].marker` | string | Yes | Marker or signal description. minLength: 1 |
-| `channels[].unit` | string | Yes | Measurement unit or scale label. minLength: 1 |
-| `event_count` | integer | Yes | Number of acquired events in the native payload. minimum: 1 |
-| `instrument_id` | string | Yes | Instrument identifier. minLength: 1 |
-| `acquired_at` | string | Yes | Acquisition time. format: date-time; minLength: 1 |
-| `analysis_profile` | string | Yes | Panel and signal interpretation contract accepted by a receiving analysis service. minLength: 1 |
+| `title` | `string` | Yes | Human-facing title. |
+| `download_url` | `string` | Yes | HTTPS URL used to download the native file. |
+| `notes` | `string` | No | Optional additional information the person wants to communicate. It may be empty. |
+
+### Native file boundary
+
+The PGO registers a readable `title` and one direct `download_url`. The downloaded native file retains its own domain content. No generic `files` array, payload descriptor, checksum, format tuple, record count, producer metadata, or duplicate header inventory is valid PGO content.
 
 
-**Sample object record**
+
+## Minimal example
 
 ```json
 {
-  "object_id": "obj_demo_fcs",
-  "object_type": "pgo_flow_cytometry_data",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:20:00Z",
-  "created_by": "platform_demo_import",
-  "input_refs": [],
-  "data": {
-    "subject_id": "subject_demo_001",
-    "order_ref": {
-      "object_id": "obj_demo_order",
-      "revision": 1
-    },
-    "source_sample_ref": {
-      "object_id": "obj_demo_blood",
-      "revision": 1
-    },
-    "fcs_version": "3.1",
-    "panel_id": "panel_demo_three_signal_v1",
-    "channels": [
-      {
-        "name": "FSC-A",
-        "marker": "DEMO_SCATTER_1",
-        "unit": "arbitrary"
-      },
-      {
-        "name": "SSC-A",
-        "marker": "DEMO_SCATTER_2",
-        "unit": "arbitrary"
-      },
-      {
-        "name": "PG-DEMO-A",
-        "marker": "DEMO_SIGNAL_A",
-        "unit": "arbitrary"
-      }
-    ],
-    "event_count": 4,
-    "instrument_id": "instrument_demo_001",
-    "acquired_at": "2026-09-16T12:00:00Z",
-    "analysis_profile": "pg_demo_cytometry_v1"
-  },
-  "files": [
-    {
-      "role": "primary",
-      "path": "payloads/demo.fcs",
-      "media_type": "application/octet-stream",
-      "sha256": "cb95fb4a13bb59bb8adf02aeda7baaa7c46506fef8046428766169723e649d5b",
-      "size_bytes": 692
-    }
-  ]
+  "title": "Flow cytometry data",
+  "download_url": "https://example.com/flow-data"
 }
 ```
 
-**Native content / decoded preview**
+## Validation
 
-The following is a readable preview. The package also contains the actual binary file; this text is not its byte representation.
+- The content is standalone and does not require a Pocket Genes service or another registered object.
+- Only the declared properties are allowed; platform identity, ownership, revision, provenance and storage metadata stay outside the content.
+- Required strings must contain at least one non-whitespace character.
+- notes is optional, may be empty, and must not be populated with discarded technical metadata.
+- Required strings are nonempty after trimming whitespace.
+- Any download URL is absolute HTTPS; query parameters are preserved and a filename suffix is not required.
+- No compatibility alias, legacy envelope, or unknown property is accepted.
 
-```text
-{
-  "format": "FCS 3.1",
-  "purpose": "Decoded preview of the bundled binary file",
-  "event_count": 4,
-  "channel_count": 3,
-  "channels": [
-    "FSC-A",
-    "SSC-A",
-    "PG-DEMO-A"
-  ],
-  "events": [
-    [
-      100.0,
-      40.0,
-      12.0
-    ],
-    [
-      140.0,
-      60.0,
-      25.0
-    ],
-    [
-      180.0,
-      90.0,
-      40.0
-    ],
-    [
-      250.0,
-      100.0,
-      60.0
-    ]
-  ]
-}
-```
+## Platform integration
 
-**Validation and JSON logic**
-
-- The primary payload is native binary FCS; channel descriptions and event_count must agree with its metadata.
-- A matching .fcs extension is insufficient when the receiving service requires a particular panel or acquisition profile.
-- This object represents measurements, not a diagnosis or finalized cell-population interpretation.
-
-**Linked mock services**
-
-- Produced or updated by: No service in the initial 15; retained as an accepted type for additional provider contracts.
-- Consumed by: No service in the initial 15; retained as an accepted type for additional provider contracts.
-
-**Other service opportunities**
-
-- Blood specimen to FCS measurements.
-- FCS data plus service form to analysis PDF.
-- Independent gating or population-analysis service.
+The platform may store this content under an existing record's `data` field, but users create and edit only the domain content. Service input/output roles remain on the transaction. Ownership and authorization remain in their existing collections.

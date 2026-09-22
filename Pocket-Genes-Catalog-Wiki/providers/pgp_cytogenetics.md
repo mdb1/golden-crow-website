@@ -1,22 +1,20 @@
-# Chromosome Image Services
+# Chromosome Image Services — `pgp_cytogenetics`
 
-Fictional provider profile.
+Fictional image-analysis provider accepting a compatible metaphase image bundle and returning a structured karyotype result. The digital analysis can be requested independently of specimen preparation or sequencing.
+
+**Kind:** cytogenetics_analysis_company  
+**Stages:** bioinformatics  
+**Regions:** AR  
+**Catalog status:** fictional example, not a live integration
+
+## Services
+
+- `pgs_karyotype_analysis`
+
+## Contact and integration
 
 ```json
 {
-  "provider_id": "pgp_cytogenetics",
-  "name": "Chromosome Image Services",
-  "kind": "cytogenetics_analysis_company",
-  "description": "Fictional image-analysis provider accepting a compatible metaphase image bundle and returning a structured karyotype result. The digital analysis can be requested independently of specimen preparation or sequencing.",
-  "supported_stages": [
-    "bioinformatics"
-  ],
-  "country_codes": [
-    "AR"
-  ],
-  "service_ids": [
-    "pgs_karyotype_analysis"
-  ],
   "contacts": {
     "website": "https://chromosomeimages.example",
     "operations_email": "operations@chromosomeimages.example",
@@ -36,3 +34,5 @@ Fictional provider profile.
   }
 }
 ```
+
+The provider identity belongs to Discover and the service offer. It is never repeated as required PGO content. Requests use authenticated, role-labelled transaction references; outputs are registered before delivery.

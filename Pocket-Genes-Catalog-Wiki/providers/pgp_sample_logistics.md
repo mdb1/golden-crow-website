@@ -1,23 +1,21 @@
-# Origin Sample Services
+# Origin Sample Services — `pgp_sample_logistics`
 
-Fictional provider profile.
+Fictional provider coordinating real biological sample collection by qualified staff and, when a separate transport service is requested, transporting already collected specimens while preserving identity, custody and condition records.
+
+**Kind:** sample_collection_and_transport_provider  
+**Stages:** wet_lab  
+**Regions:** AR  
+**Catalog status:** fictional example, not a live integration
+
+## Services
+
+- `pgs_collection_request`
+- `pgs_sample_transport`
+
+## Contact and integration
 
 ```json
 {
-  "provider_id": "pgp_sample_logistics",
-  "name": "Origin Sample Services",
-  "kind": "sample_collection_and_transport_provider",
-  "description": "Fictional provider coordinating real biological sample collection by qualified staff and, when a separate transport service is requested, transporting already collected specimens while preserving identity, custody and condition records.",
-  "supported_stages": [
-    "wet_lab"
-  ],
-  "country_codes": [
-    "AR"
-  ],
-  "service_ids": [
-    "pgs_collection_request",
-    "pgs_sample_transport"
-  ],
   "contacts": {
     "website": "https://originsamples.example",
     "operations_email": "operations@originsamples.example",
@@ -37,3 +35,5 @@ Fictional provider profile.
   }
 }
 ```
+
+The provider identity belongs to Discover and the service offer. It is never repeated as required PGO content. Requests use authenticated, role-labelled transaction references; outputs are registered before delivery.

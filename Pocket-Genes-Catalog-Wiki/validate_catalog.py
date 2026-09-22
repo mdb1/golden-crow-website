@@ -1,934 +1,860 @@
+#!/usr/bin/env python3
+"""Validate the strict, first-version Pocket Genes Object contracts.
+
+PGO content is a closed, domain-only JSON root. Platform records may wrap that
+content, but the validator intentionally provides no legacy envelope reader,
+field alias, fallback, or migration path.
+"""
+
+from __future__ import annotations
+
 import copy
-import hashlib
 import json
 import math
 import re
 import sys
-from collections import Counter
+from datetime import date, datetime, time
 from pathlib import Path
-from xml.etree import ElementTree
+from urllib.parse import urlparse
 
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
+
 ROOT = Path(__file__).resolve().parent
-FORMAT = FormatChecker()
-checks = []
+FORMAT_CHECKER = FormatChecker()
+CHECKS: list[dict[str, str]] = []
+
+TYPE_IDS = [
+    "pgo_form",
+    "pgo_bundle_of_symptoms",
+    "pgo_bundle_of_candidate_genes",
+    "pgo_informed_consent",
+    "pgo_test_order",
+    "pgo_collection_request",
+    "pgo_blood_sample",
+    "pgo_tissue_sample",
+    "pgo_embryo_sample",
+    "pgo_dna_sample",
+    "pgo_sequence_reads",
+    "pgo_sequence_data",
+    "pgo_aligned_reads",
+    "pgo_unannotated_vcf",
+    "pgo_annotated_vcf",
+    "pgo_interactive_report",
+    "pgo_pdf_report",
+    "pgo_image_bundle",
+    "pgo_karyotype_result",
+    "pgo_flow_cytometry_data",
+]
+
+CONTRACTS = {
+    "pgo_form": ({"form_shape", "fields"}, {"notes"}),
+    "pgo_bundle_of_symptoms": ({"observations"}, {"notes"}),
+    "pgo_bundle_of_candidate_genes": ({"genes"}, {"notes"}),
+    "pgo_informed_consent": (
+        {"title", "text"},
+        {"status", "accepted_by", "accepted_at", "notes"},
+    ),
+    "pgo_test_order": (
+        {"patient", "test_name", "sample_type"},
+        {"test_type", "objective", "clinical_suspicion", "genes", "notes"},
+    ),
+    "pgo_collection_request": (
+        {"patient", "sample_type"},
+        {
+            "collection_method",
+            "container",
+            "requested_quantity",
+            "collection_site",
+            "scheduled_at",
+            "notes",
+        },
+    ),
+    "pgo_blood_sample": (
+        {"sample_label"},
+        {"material", "container", "volume_ml", "notes"},
+    ),
+    "pgo_tissue_sample": (
+        {"sample_label"},
+        {"anatomical_site", "preparation", "notes"},
+    ),
+    "pgo_embryo_sample": (
+        {"sample_label", "material_kind"},
+        {"embryo_identifier", "notes"},
+    ),
+    "pgo_dna_sample": (
+        {"sample_label"},
+        {"volume_ul", "concentration_ng_ul", "notes"},
+    ),
+    "pgo_sequence_reads": ({"title", "reads"}, {"notes"}),
+    "pgo_sequence_data": ({"title", "download_url"}, {"notes"}),
+    "pgo_aligned_reads": (
+        {"title", "download_url"},
+        {"index_download_url", "notes"},
+    ),
+    "pgo_unannotated_vcf": ({"title", "download_url"}, {"notes"}),
+    "pgo_annotated_vcf": ({"title", "download_url"}, {"notes"}),
+    "pgo_interactive_report": ({"title", "download_url"}, {"notes"}),
+    "pgo_pdf_report": ({"title", "download_url"}, {"notes"}),
+    "pgo_image_bundle": ({"title", "images"}, {"notes"}),
+    "pgo_karyotype_result": (
+        {"result_notation"},
+        {"interpretation", "notes"},
+    ),
+    "pgo_flow_cytometry_data": ({"title", "download_url"}, {"notes"}),
+}
+
+FORM_FIELD_TYPES = {
+    "text",
+    "long_text",
+    "email",
+    "phone",
+    "url",
+    "address",
+    "postal_code",
+    "country_code",
+    "identifier",
+    "number",
+    "integer",
+    "positive_integer",
+    "percentage",
+    "boolean",
+    "date",
+    "datetime",
+    "time",
+    "enum",
+    "multi_enum",
+    "string_list",
+    "integer_list",
+    "number_list",
+}
+
+SAMPLE_TYPES = [
+    "blood",
+    "dried_blood_spot",
+    "saliva",
+    "buccal_swab",
+    "tissue",
+    "skin_biopsy",
+    "bone_marrow_aspirate",
+    "bone_marrow_core",
+    "amniotic_fluid",
+    "chorionic_villi",
+    "cord_blood",
+    "cerebrospinal_fluid",
+    "urine",
+    "stool",
+    "hair_follicles",
+    "nail_clippings",
+    "semen",
+    "embryo_biopsy",
+    "whole_embryo",
+    "polar_body",
+    "other",
+]
+ORDER_ONLY_SAMPLE_TYPES = ["plasma", "serum", "extracted_dna", "extracted_rna"]
+TEST_TYPES = [
+    "single_gene",
+    "gene_panel",
+    "exome_sequencing",
+    "genome_sequencing",
+    "targeted_variant_testing",
+    "repeat_expansion_testing",
+    "methylation_analysis",
+    "chromosomal_microarray",
+    "karyotype",
+    "fish",
+    "other",
+]
+COLLECTION_METHODS = [
+    "venous_blood_draw",
+    "capillary_blood_collection",
+    "buccal_swab",
+    "saliva_collection",
+    "needle_aspiration",
+    "core_biopsy",
+    "surgical_biopsy",
+    "skin_punch_biopsy",
+    "amniocentesis",
+    "chorionic_villus_sampling",
+    "lumbar_puncture",
+    "embryo_biopsy",
+    "polar_body_biopsy",
+    "self_collection",
+    "other",
+]
+CONTAINERS = [
+    "edta_tube",
+    "heparin_tube",
+    "citrate_tube",
+    "serum_tube",
+    "dna_stabilization_tube",
+    "rna_stabilization_tube",
+    "sterile_container",
+    "swab_collection_kit",
+    "saliva_collection_kit",
+    "cryovial",
+    "filter_paper_card",
+    "formalin_container",
+    "other",
+]
+
+PGI_NATIVE_FORMATS = {
+    ".pgi1.json": ("MDMAPIModel", "mdm", "schemas/protocol/pgi1-mdm.schema.json"),
+    ".pgi2.json": ("AGAPIModel", "ag", "schemas/protocol/pgi2-ag.schema.json"),
+    ".pgi3.json": ("TwoPQAPIModel", "2pq", "schemas/protocol/pgi3-2pq.schema.json"),
+}
+
+FORBIDDEN_CONTENT_KEYS = {
+    "object_id",
+    "object_type",
+    "schema_version",
+    "revision",
+    "created_at",
+    "created_by",
+    "input_refs",
+    "files",
+    "subject_id",
+    "template_id",
+    "source_pgi_ref",
+    "source_images_ref",
+    "payload_ref",
+    "native_format",
+    "lineage_refs",
+    "page_count",
+}
 
 
-def read(path):
-    return json.loads((ROOT / path).read_text())
+def read(relative_path: str):
+    return json.loads((ROOT / relative_path).read_text())
 
 
-def check(name, action):
-    try:
-        action()
-        checks.append({'check': name, 'status': 'passed'})
-    except Exception as error:
-        checks.append({'check': name, 'status': 'failed', 'detail': str(error)})
-
-
-def require(condition, message):
+def require(condition: bool, message: str):
     if not condition:
         raise ValueError(message)
 
 
-def reject(action):
+def check(name: str, action):
     try:
         action()
-    except (ValueError, KeyError, ValidationError):
+        CHECKS.append({"check": name, "status": "passed"})
+    except Exception as error:  # report every independent contract failure
+        CHECKS.append({"check": name, "status": "failed", "detail": str(error)})
+
+
+def reject(action, message: str = "Invalid counterexample was accepted"):
+    try:
+        action()
+    except (ValueError, KeyError, TypeError, ValidationError):
         return
-    raise ValueError('Invalid counterexample was accepted')
+    raise ValueError(message)
 
 
-objects = read('catalog/objects.json')['objects']
-services_catalog = read('catalog/services.json')
-services = services_catalog['services']
-providers = read('catalog/providers.json')['providers']
-usage_policy = read('catalog/usage-policy.json')
-PGI_NATIVE_FORMATS = {
-    '.pgi1.json': {
-        'api_model': 'MDMAPIModel',
-        'schema_path': 'schemas/protocol/pgi1-mdm.schema.json',
-        'provider_format': 'mdm',
-        'media_type': 'application/vnd.pocketgenes.pgi1+json'
-    },
-    '.pgi2.json': {
-        'api_model': 'AGAPIModel',
-        'schema_path': 'schemas/protocol/pgi2-ag.schema.json',
-        'provider_format': 'ag',
-        'media_type': 'application/vnd.pocketgenes.pgi2+json'
-    },
-    '.pgi3.json': {
-        'api_model': 'TwoPQAPIModel',
-        'schema_path': 'schemas/protocol/pgi3-2pq.schema.json',
-        'provider_format': '2pq',
-        'media_type': 'application/vnd.pocketgenes.pgi3+json'
-    }
-}
-pgi_schemas = {extension: read(config['schema_path']) for extension, config in PGI_NATIVE_FORMATS.items()}
-types = {item['id']: item for item in objects}
-service_map = {item['serviceId']: item for item in services}
-provider_map = {item['provider_id']: item for item in providers}
-schemas = {key: read('schemas/objects/' + key + '.schema.json') for key in types}
-snapshots = {}
-for path in [*ROOT.glob('examples/objects/*.json'), *ROOT.glob('examples/forms/*.json')]:
-    item = json.loads(path.read_text())
-    key = (item['object_id'], item['revision'])
-    if key in snapshots:
-        require(snapshots[key] == item, 'Conflicting duplicate snapshot: ' + str(key))
-    snapshots[key] = item
-
-
-def resolve(ref):
-    return snapshots[(ref['object_id'], ref['revision'])]
-
-
-def validate_schema(schema, instance):
+def schema_validator(schema):
     Draft202012Validator.check_schema(schema)
-    Draft202012Validator(schema, format_checker=FORMAT).validate(instance)
+    return Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
 
 
-def minimal_instance(schema, root=None):
+OBJECT_CATALOG = read("catalog/objects.json")
+SERVICE_CATALOG = read("catalog/services.json")
+PROVIDER_CATALOG = read("catalog/providers.json")
+FIELD_KEY_CONVENTIONS = read("catalog/field-key-conventions.json")
+OBJECTS = OBJECT_CATALOG["objects"]
+SERVICES = SERVICE_CATALOG["services"]
+PROVIDERS = PROVIDER_CATALOG["providers"]
+OBJECT_BY_ID = {item["id"]: item for item in OBJECTS}
+SCHEMAS = {type_id: read(f"schemas/objects/{type_id}.schema.json") for type_id in TYPE_IDS}
+VALIDATORS = {type_id: schema_validator(schema) for type_id, schema in SCHEMAS.items()}
+
+
+def assert_https_url(value: str):
+    parsed = urlparse(value)
+    require(parsed.scheme == "https" and bool(parsed.netloc), f"Not an absolute HTTPS URL: {value}")
+
+
+def assert_unique_component_keys(content: dict, collection_key: str):
+    keys = [item["key"] for item in content[collection_key]]
+    require(len(keys) == len(set(keys)), f"Duplicate {collection_key} component key")
+    for item in content[collection_key]:
+        assert_https_url(item["download_url"])
+
+
+def parse_iso_date(value: str):
+    date.fromisoformat(value)
+
+
+def parse_iso_time(value: str):
+    require(re.fullmatch(r"\d{2}:\d{2}", value) is not None, "Time must use HH:mm")
+    time.fromisoformat(value)
+
+
+def parse_iso_datetime(value: str):
+    datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def validate_form_value(field: dict, value):
+    kind = field["type"]
+    key = field["key"]
+    options = [item["value"] for item in field.get("options", [])]
+    is_number = isinstance(value, (int, float)) and not isinstance(value, bool)
+
+    if kind in {"text", "long_text", "address"}:
+        require(isinstance(value, str) and bool(value.strip()), f"Invalid {kind} answer: {key}")
+    elif kind == "email":
+        require(
+            isinstance(value, str)
+            and re.fullmatch(r"[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+", value, re.I),
+            f"Invalid email answer: {key}",
+        )
+    elif kind == "phone":
+        require(isinstance(value, str) and re.fullmatch(r"\+[1-9][0-9]{7,14}", value), f"Invalid phone answer: {key}")
+    elif kind == "url":
+        require(isinstance(value, str), f"Invalid URL answer: {key}")
+        assert_https_url(value)
+    elif kind == "postal_code":
+        require(isinstance(value, str) and re.fullmatch(r"[A-Z0-9](?:[A-Z0-9 -]{0,10}[A-Z0-9])?", value, re.I), f"Invalid postal code: {key}")
+    elif kind == "country_code":
+        require(isinstance(value, str) and re.fullmatch(r"[A-Z]{2}", value), f"Invalid country code: {key}")
+    elif kind == "identifier":
+        require(isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", value), f"Invalid identifier: {key}")
+    elif kind == "number":
+        require(is_number and math.isfinite(value), f"Invalid number: {key}")
+    elif kind == "integer":
+        require(is_number and math.isfinite(value) and float(value).is_integer(), f"Invalid integer: {key}")
+    elif kind == "positive_integer":
+        require(is_number and math.isfinite(value) and float(value).is_integer() and value > 0, f"Invalid positive integer: {key}")
+    elif kind == "percentage":
+        require(is_number and math.isfinite(value) and 0 <= value <= 100, f"Invalid percentage: {key}")
+    elif kind == "boolean":
+        require(isinstance(value, bool), f"Invalid boolean: {key}")
+    elif kind == "date":
+        require(isinstance(value, str), f"Invalid date: {key}")
+        parse_iso_date(value)
+    elif kind == "datetime":
+        require(isinstance(value, str), f"Invalid datetime: {key}")
+        parse_iso_datetime(value)
+    elif kind == "time":
+        require(isinstance(value, str), f"Invalid time: {key}")
+        parse_iso_time(value)
+    elif kind == "enum":
+        require(isinstance(value, str) and value in options, f"Invalid enum answer: {key}")
+    elif kind == "multi_enum":
+        require(isinstance(value, list) and all(isinstance(item, str) for item in value), f"Invalid multi-enum: {key}")
+        require(len(value) == len(set(value)), f"Duplicate multi-enum answer: {key}")
+        require(value == [option for option in options if option in set(value)], f"Noncanonical multi-enum order: {key}")
+        require(not field["required"] or bool(value), f"Required multi-enum is empty: {key}")
+    elif kind == "string_list":
+        require(isinstance(value, list) and all(isinstance(item, str) and item.strip() for item in value), f"Invalid string list: {key}")
+        require(not field["required"] or bool(value), f"Required string list is empty: {key}")
+    elif kind == "integer_list":
+        require(isinstance(value, list) and all(isinstance(item, int) and not isinstance(item, bool) for item in value), f"Invalid integer list: {key}")
+        require(not field["required"] or bool(value), f"Required integer list is empty: {key}")
+    elif kind == "number_list":
+        require(isinstance(value, list) and all(isinstance(item, (int, float)) and not isinstance(item, bool) and math.isfinite(item) for item in value), f"Invalid number list: {key}")
+        require(not field["required"] or bool(value), f"Required number list is empty: {key}")
+    else:
+        raise ValueError(f"Unsupported form type: {kind}")
+
+
+def validate_form_content(content: dict):
+    require(set(content["form_shape"]) == {"fields"}, "form_shape contains an unapproved key")
+    definitions = content["form_shape"]["fields"]
+    answers = content["fields"]
+    definition_keys = [item["key"] for item in definitions]
+    answer_keys = [item["key"] for item in answers]
+    require(len(definition_keys) == len(set(definition_keys)), "Duplicate form definition key")
+    require(len(answer_keys) == len(set(answer_keys)), "Duplicate form answer key")
+    by_key = {item["key"]: item for item in definitions}
+
+    for field in definitions:
+        require(field["type"] in FORM_FIELD_TYPES, f"Unknown field type: {field['type']}")
+        expected_keys = {"key", "label", "type", "required"}
+        if field["type"] in {"enum", "multi_enum"}:
+            expected_keys.add("options")
+            options = field.get("options", [])
+            require(bool(options), f"Options required for {field['key']}")
+            values = [item["value"] for item in options]
+            require(len(values) == len(set(values)), f"Duplicate options for {field['key']}")
+        else:
+            require("options" not in field, f"Options forbidden for {field['key']}")
+        if "help_info_text" in field:
+            expected_keys.add("help_info_text")
+        require(set(field) == expected_keys, f"Unexpected form definition key for {field['key']}")
+
+    for answer in answers:
+        require(set(answer) == {"key", "value"}, "Form answer must contain only key and value")
+        require(answer["key"] in by_key, f"Undeclared answer: {answer['key']}")
+        validate_form_value(by_key[answer["key"]], answer["value"])
+    for field in definitions:
+        require(not field["required"] or field["key"] in answer_keys, f"Missing required answer: {field['key']}")
+
+
+def validate_content(type_id: str, content: dict):
+    VALIDATORS[type_id].validate(content)
+    required, optional = CONTRACTS[type_id]
+    require(set(content).issubset(required | optional), f"Unapproved root key in {type_id}")
+    require(required.issubset(content), f"Missing required root key in {type_id}")
+    require(not (set(content) & FORBIDDEN_CONTENT_KEYS), f"Envelope key found inside {type_id}")
+
+    if type_id == "pgo_form":
+        validate_form_content(content)
+    if type_id == "pgo_sequence_reads":
+        assert_unique_component_keys(content, "reads")
+    if type_id == "pgo_image_bundle":
+        assert_unique_component_keys(content, "images")
+    for key in ("download_url", "index_download_url"):
+        if key in content:
+            assert_https_url(content[key])
+
+
+def minimal_instance(schema: dict, root: dict | None = None, property_name: str = ""):
     root = root or schema
-    if '$ref' in schema:
-        ref = schema['$ref']
-        prefix = '#/$defs/'
-        require(ref.startswith(prefix), 'Unsupported schema ref: ' + ref)
-        return minimal_instance(root['$defs'][ref[len(prefix):]], root)
-    if 'const' in schema:
-        return schema['const']
-    if 'enum' in schema:
-        return schema['enum'][0]
-    if 'oneOf' in schema:
-        return minimal_instance(schema['oneOf'][0], root)
-    if 'anyOf' in schema:
-        choices = [choice for choice in schema['anyOf'] if choice.get('type') != 'null']
-        return minimal_instance(choices[0] if choices else schema['anyOf'][0], root)
-    kind = schema.get('type')
+    if "$ref" in schema:
+        prefix = "#/$defs/"
+        require(schema["$ref"].startswith(prefix), f"Unsupported ref: {schema['$ref']}")
+        return minimal_instance(root["$defs"][schema["$ref"][len(prefix):]], root, property_name)
+    if "const" in schema:
+        return schema["const"]
+    if "enum" in schema:
+        return schema["enum"][0]
+    if "oneOf" in schema:
+        return minimal_instance(schema["oneOf"][0], root, property_name)
+    if "anyOf" in schema:
+        choice = next((item for item in schema["anyOf"] if item.get("type") != "null"), schema["anyOf"][0])
+        return minimal_instance(choice, root, property_name)
+    kind = schema.get("type")
     if isinstance(kind, list):
-        kind = next(item for item in kind if item != 'null')
-    if kind == 'object':
-        required = schema.get('required', [])
+        kind = next(item for item in kind if item != "null")
+    if kind == "object":
         return {
-            key: minimal_instance(schema['properties'][key], root)
-            for key in required
-            if key in schema.get('properties', {})
+            key: minimal_instance(schema["properties"][key], root, key)
+            for key in schema.get("required", [])
         }
-    if kind == 'array':
-        count = schema.get('minItems', 0)
-        return [minimal_instance(schema.get('items', {}), root) for _ in range(count)]
-    if kind == 'string':
-        return 'x'
-    if kind == 'integer':
-        return max(1, schema.get('minimum', 1))
-    if kind == 'number':
-        return float(max(1, schema.get('minimum', 1)))
-    if kind == 'boolean':
+    if kind == "array":
+        return [minimal_instance(schema.get("items", {}), root, property_name) for _ in range(schema.get("minItems", 0))]
+    if kind == "string":
+        if schema.get("format") == "date-time":
+            return "2026-09-22T12:00:00Z"
+        if property_name.endswith("download_url"):
+            return "https://example.com/download?token=kept"
+        return "x"
+    if kind == "integer":
+        return max(1, schema.get("minimum", 1))
+    if kind == "number":
+        return float(max(0, schema.get("minimum", 0)))
+    if kind == "boolean":
         return True
-    if kind == 'null':
-        return None
     return {}
 
 
-def require_pgi_native_format(native_format):
-    require(set(native_format) == {'extension', 'api_model', 'schema_path', 'provider_format', 'model_version'}, 'PGI native_format has unexpected keys')
-    extension = native_format['extension']
-    require(extension in PGI_NATIVE_FORMATS, 'Unknown PGI extension')
-    expected = PGI_NATIVE_FORMATS[extension]
-    for key in ['api_model', 'schema_path', 'provider_format']:
-        require(native_format[key] == expected[key], 'PGI native_format mismatch for ' + key)
-    require(isinstance(native_format['model_version'], str) and native_format['model_version'], 'PGI model_version is required')
-
-
-def require_pgi_payload_descriptor(native_format, payload_ref):
-    extension = native_format['extension']
-    expected = PGI_NATIVE_FORMATS[extension]
-    require(payload_ref['path'].endswith(extension), 'PGI payload path extension mismatch')
-    require(payload_ref['media_type'] == expected['media_type'], 'PGI media type mismatch')
-
-
-def refs(value):
-    if isinstance(value, dict):
-        if set(value) == {'object_id', 'revision'}:
-            yield value
-        else:
-            for child in value.values():
-                yield from refs(child)
-    elif isinstance(value, list):
-        for child in value:
-            yield from refs(child)
-
-
-def form_values(data):
-    return {field['key']: field['value'] for field in data['fields']}
-
-
-FORM_FIELD_TYPES = {
-    'text', 'number', 'integer', 'boolean', 'date', 'datetime',
-    'enum', 'multi_enum', 'string_list'
-}
-
-
-def validate_form_shape_definition(shape):
-    require(isinstance(shape['version'], int) and shape['version'] >= 1, 'Form shape version must be an integer')
-    require(shape.get('allowUnknownFields') is False, 'allowUnknownFields must be false')
-    fields = shape['fields']
-    keys = [field['key'] for field in fields]
-    require(len(keys) == len(set(keys)), 'Duplicate form field keys')
-    require({'requested_at', 'requested_by'} <= set(keys), 'Missing base form fields')
-    by_key = {field['key']: field for field in fields}
-    require(by_key['requested_at']['type'] == 'datetime' and by_key['requested_at']['required'] is True, 'requested_at must be a required datetime')
-    require(by_key['requested_by']['type'] == 'text' and by_key['requested_by']['required'] is True, 'requested_by must be required text')
-    for field in fields:
-        require(isinstance(field['key'], str) and field['key'].strip(), 'Form field key is required')
-        require(isinstance(field['label'], str) and field['label'].strip(), 'Form field label is required')
-        require(field['type'] in FORM_FIELD_TYPES, 'Unknown form field type: ' + field['type'])
-        require(isinstance(field['required'], bool), 'Form field required must be boolean')
-        options = field.get('options', [])
-        if field['type'] in ['enum', 'multi_enum']:
-            require(options, 'Enum fields require options: ' + field['key'])
-            values = [option['value'] for option in options]
-            require(len(values) == len(set(values)), 'Duplicate form options: ' + field['key'])
-            require(all(option['value'].strip() and option['label'].strip() for option in options), 'Form option value and label are required')
-        else:
-            require(not options, 'Only enum fields may declare options: ' + field['key'])
-
-
-def immutable_form_shape(shape):
-    return {
-        'id': shape['id'],
-        'version': shape['version'],
-        'allow_unknown_fields': False,
-        'fields': [
-            {
-                'key': field['key'],
-                'label': field['label'],
-                'type': field['type'],
-                'required': field['required'],
-                'options': [
-                    {'value': option['value'], 'label': option['label']}
-                    for option in field.get('options', [])
-                ]
-            }
-            for field in shape['fields']
-        ]
-    }
-
-
-def validate_form(service, form):
-    require('formShape' in service, 'Form input requires a formShape')
-    shape = service['formShape']
-    validate_form_shape_definition(shape)
-    data = form['data']
-    require(data['form_shape_id'] == shape['id'] and data['form_shape_version'] == shape['version'], 'Form shape/version mismatch')
-    require(data.get('form_shape') == immutable_form_shape(shape), 'Embedded form shape must exactly match the published shape')
-    values = form_values(data)
-    require(len(values) == len(data['fields']), 'Duplicate form fields')
-    fields = {field['key']: field for field in shape['fields']}
-    require(not (set(values) - set(fields)), 'Unknown form field')
-    require({'requested_at', 'requested_by'} <= set(values), 'Missing request metadata')
-    for key, field in fields.items():
-        require(not field['required'] or key in values, 'Missing required field: ' + key)
-        if key not in values:
-            continue
-        value = values[key]
-        kind = field['type']
-        valid = {
-            'text': isinstance(value, str),
-            'number': isinstance(value, (float, int)) and not isinstance(value, bool) and math.isfinite(value),
-            'integer': isinstance(value, (float, int)) and not isinstance(value, bool) and math.isfinite(value) and value == int(value),
-            'boolean': isinstance(value, bool),
-            'date': isinstance(value, str),
-            'datetime': isinstance(value, str),
-            'enum': isinstance(value, str),
-            'multi_enum': isinstance(value, list) and all(isinstance(v, str) for v in value),
-            'string_list': isinstance(value, list) and all(isinstance(v, str) for v in value)
-        }.get(kind, False)
-        require(valid, 'Wrong form value type: ' + key)
-        if field['required'] and kind == 'text':
-            require(value.strip(), 'Required text cannot be blank: ' + key)
-        if kind in ['enum', 'multi_enum']:
-            options = {option['value'] for option in field['options']}
-            require(set(value if isinstance(value, list) else [value]) <= options, 'Invalid enum option: ' + key)
-            if kind == 'multi_enum':
-                require(len(value) == len(set(value)), 'Duplicate multi-enum value: ' + key)
-                require(not field['required'] or value, 'Required multi-enum cannot be empty: ' + key)
-        if kind == 'string_list':
-            require(all(item.strip() for item in value), 'String-list values cannot be blank: ' + key)
-            require(not field['required'] or value, 'Required string-list cannot be empty: ' + key)
-        if kind in ['date', 'datetime']:
-            FORMAT.check(value, 'date-time' if kind == 'datetime' else 'date')
-
-
-def validate_request(service, request, form=None):
-    require(request['service_id'] == service['serviceId'] and request['service_version'] == service['serviceVersion'], 'Service/version mismatch')
-    require('form_ref' not in request, 'form_ref is not a transaction field; pgo_form must be an input slot')
-    slots = {slot['role']: slot for slot in service['inputSlots']}
-    counts = Counter(item['role'] for item in request['inputs'])
-    require(set(counts) <= set(slots), 'Unexpected input role')
-    for role, slot in slots.items():
-        require(slot['cardinality']['min'] <= counts[role] <= slot['cardinality']['max'], 'Wrong input cardinality: ' + role)
-    for item in request['inputs']:
-        obj = resolve(item['object_ref'])
-        require(obj['object_type'] == slots[item['role']]['objectType'], 'Wrong object type for role: ' + item['role'])
-        if obj['object_type'] == 'pgo_form':
-            validate_form(service, form or obj)
-
-
-def role_for_object_type(object_type):
-    return 'form' if object_type == 'pgo_form' else object_label(object_type)
-
-
-def object_label(object_type):
-    return object_type[4:] if object_type.startswith('pgo_') else object_type
-
-
-def calculated_short_contract(service):
-    inputs = service['inputSlots']
-    input_text = 'none' if not inputs else ' + '.join(
-        slot['role'] + ':' + object_label(slot['objectType'])
-        for slot in inputs
-    )
-    output_text = ' + '.join(
-        slot['role'] + ':' + object_label(slot['objectType'])
-        for slot in service['outputSlots']
-    )
-    return input_text + ' -> ' + output_text
-
-
-PLANNING_OUTPUTS = {
-    'pgo_bundle_of_symptoms',
-    'pgo_bundle_of_candidate_genes',
-    'pgo_informed_consent',
-    'pgo_test_order'
-}
-LAB_OUTPUTS = {
-    'pgo_collection_request',
-    'pgo_blood_sample',
-    'pgo_tissue_sample',
-    'pgo_embryo_sample',
-    'pgo_dna_sample',
-    'pgo_sequence_reads',
-    'pgo_sequence_data'
-}
-BIOINFORMATICS_OUTPUTS = {
-    'pgo_aligned_reads',
-    'pgo_unannotated_vcf',
-    'pgo_annotated_vcf',
-    'pgo_interactive_report',
-    'pgo_karyotype_result',
-    'pgo_flow_cytometry_data'
-}
-
-
-def stage_for_object_type(object_type):
-    if object_type in PLANNING_OUTPUTS:
-        return 'test_planning'
-    if object_type in LAB_OUTPUTS:
-        return 'wet_lab'
-    if object_type in BIOINFORMATICS_OUTPUTS:
-        return 'bioinformatics'
-    return None
-
-
-def predicted_stages(service):
-    input_stages = {
-        stage_for_object_type(slot['objectType'])
-        for slot in service['inputSlots']
-        if slot['objectType'] != 'pgo_form'
-    }
-    input_stages.discard(None)
-    stages = set()
-    for slot in service['outputSlots']:
-        object_type = slot['objectType']
-        if object_type == 'pgo_pdf_report':
-            if 'bioinformatics' in input_stages:
-                stages.add('bioinformatics')
-            elif 'wet_lab' in input_stages:
-                stages.add('wet_lab')
-            else:
-                stages.add('test_planning')
-            continue
-        stage = stage_for_object_type(object_type)
-        if stage:
-            stages.add(stage)
-    if not stages:
-        stages = input_stages
-    return stages or {'test_planning'}
-
-
-def service_contract_rules(service):
-    require(isinstance(service['serviceVersion'], int) and service['serviceVersion'] >= 1, 'Service version must be an integer')
-    require(service['status'] == 'active', 'Catalog offers must be active')
-    require(type(service['isHiddenFromSearch']) is bool, 'isHiddenFromSearch must be a boolean')
-    require(service['providerKind'] in ['organization', 'individual'], 'Invalid provider kind')
-    require(service['providerId'] in provider_map, 'Unknown provider')
-    require(service['serviceId'] in provider_map[service['providerId']]['service_ids'], 'Provider service list mismatch')
-    require(service['description'] and service['providerWork'], 'description and providerWork are required')
-    require(service['description'] != service['providerWork'], 'description and providerWork must be distinct')
-    require(service['shortContract'] == calculated_short_contract(service), 'shortContract must be calculated from slots')
-    require(service['stages'], 'At least one stage must be selected')
-    require(set(service['stages']) & predicted_stages(service), 'Selected stages do not match the calculated pipeline')
-    require(service['outputSlots'], 'Service must declare at least one output slot')
-
-    form_slots = []
-    object_types = []
-    for slot in service['inputSlots']:
-        accepted = slot['acceptedTypes']
-        require(len(accepted) == 1 and accepted[0] == slot['objectType'], 'acceptedTypes must contain exactly objectType: ' + slot['role'])
-        require(slot['required'] is True, 'Input slots are always required: ' + slot['role'])
-        require(slot['cardinality'] == {'min': 1, 'max': 1}, 'Input cardinality must be 1:1: ' + slot['role'])
-        require(slot['role'] == role_for_object_type(slot['objectType']), 'Input role must be generated from objectType: ' + slot['role'])
-        object_types.append(slot['objectType'])
-        if slot['objectType'] == 'pgo_form':
-            form_slots.append(slot)
-    require(len(object_types) == len(set(object_types)), 'Duplicate input object types are not allowed')
-
-    for slot in service['outputSlots']:
-        require(slot['objectType'] != 'pgo_form', 'pgo_form cannot be an output type')
-        require(slot['role'], 'Output role is required')
-        require(slot['mutationMode'] in ['new_object', 'new_revision'], 'Invalid output mutationMode')
-
-    has_form_shape = 'formShape' in service
-    require(bool(form_slots) == has_form_shape, 'pgo_form input slots and formShape must appear together')
-    if has_form_shape:
-        require(len(form_slots) == 1, 'Only one pgo_form input slot is allowed')
-        shape = service['formShape']
-        require(shape['id'] == 'pgfs_' + service['serviceId'][4:], 'Form shape id must derive from service id')
-        validate_form_shape_definition(shape)
-    else:
-        require(all(slot['objectType'] != 'pgo_form' for slot in service['inputSlots']), 'pgo_form input requires Support form input/formShape')
-
-    terms = service.get('commercialTerms')
-    if terms:
-        model = terms.get('pricingModel')
-        if model:
-            require(model in ['not_specified', 'free', 'fixed', 'calculated_after_submission'], 'Invalid pricing model')
-        if model == 'fixed':
-            price = terms.get('price', {})
-            require('amount' in price and 'currency' in price, 'Fixed price requires amount and currency')
-        if 'turnaround' in terms:
-            require(re.match(r'^[1-9][0-9]*(w|d|h|m)$', terms['turnaround']), 'Turnaround must be compact: ' + terms['turnaround'])
-
-
-def compatible(order, result):
-    wanted = order['data']
-    data = result['data']
-    support = data['analysis_support']
-    require(data['subject_id'] == wanted['patient']['subject_id'], 'Wrong subject')
-    require(data['reference_id'] == wanted['scope']['reference_id'], 'Wrong reference')
-    require(data['profile_id'] == wanted['fulfillment']['required_profile'], 'Wrong analysis profile')
-    require(support['status'] == 'sufficient', 'Insufficient or unknown scope support')
-    require(set(wanted['scope']['genes']) <= set(support['evaluated_genes']), 'Requested gene is unsupported')
-    require(set(wanted['scope']['variant_classes']) <= set(support['supported_variant_classes']), 'Requested variant class is unsupported')
-    require(bool(support['evidence']), 'Missing analysis-support evidence')
-
-
-def physical_available(ref, at):
-    item = resolve(ref)
-    history = [obj for (oid, rev), obj in snapshots.items() if oid == item['object_id'] and obj['created_at'] <= at]
-    current = max(history, key=lambda obj: obj['revision'])
-    require(current['revision'] == ref['revision'], 'Stale physical snapshot')
-    require(current['data']['state'] not in ['consumed', 'unavailable'], 'Physical item is unavailable')
-    require(current['data']['quantity']['value'] > 0, 'No remaining material')
-
-
-def contract_integrity(service):
-    service_contract_rules(service)
-    request = service['sampleRequest']
-    result = service['sampleResult']
-    validate_request(service, request)
-    require(result['request_id'] == request['request_id'], 'Result belongs to another request')
-    require(result['status'] == 'delivered', 'Successful service results must use delivered')
-    form_input = next((item for item in request['inputs'] if resolve(item['object_ref'])['object_type'] == 'pgo_form'), None)
-    if 'formShape' in service:
-        require(form_input is not None, 'Missing pgo_form input')
-        form_object = resolve(form_input['object_ref'])
-        form_data = service['sampleFormData']
-        require(form_data['formShapeId'] == form_object['data']['form_shape_id'], 'Form shape id copy differs')
-        require(form_data['formShapeVersion'] == form_object['data']['form_shape_version'], 'Form shape version copy differs')
-        require(form_data['fields'] == form_object['data']['fields'], 'Form field copies differ')
-        require(form_object == service['sampleFormObject'], 'Resolved form differs')
-        requested_at = form_values(form_object['data'])['requested_at']
-    else:
-        requested_at = request.get('received_at', '9999-12-31T23:59:59Z')
-    inputs = {item['role']: resolve(item['object_ref']) for item in request['inputs']}
-    for slot in request['inputs']:
-        obj = resolve(slot['object_ref'])
-        require(obj['created_at'] <= requested_at, 'Input created after request')
-        if types[obj['object_type']]['nature'] == 'physical':
-            physical_available(slot['object_ref'], requested_at)
-    slots = {slot['role']: slot for slot in service['outputSlots']}
-    require(set(slots) == {item['role'] for item in result['outputs']}, 'Missing or unexpected output role')
-    expected_refs = [item['object_ref'] for item in request['inputs']]
-    for item in result['outputs']:
-        obj = resolve(item['object_ref'])
-        slot = slots[item['role']]
-        expected = slot['objectType']
-        if expected.startswith('same_as:'):
-            source = inputs[expected.split(':')[1]]
-            require(obj['object_id'] == source['object_id'] and obj['revision'] == source['revision'] + 1, 'Incorrect physical revision identity')
-            expected = source['object_type']
-        require(obj['object_type'] == expected, 'Wrong output type')
-        require(obj['created_by'] == service['providerId'], 'Wrong output provider')
-        require(obj['created_at'] >= requested_at, 'Output predates request')
-        require(obj['input_refs'] == expected_refs, 'Missing generated output lineage')
-    if 'test_order' in inputs:
-        order = inputs['test_order']
-        for obj in inputs.values():
-            if 'analysis_support' in obj['data']:
-                compatible(order, obj)
-
-
-def resolved_transaction_output_type(service, slot):
-    object_type = slot['objectType']
-    if not object_type.startswith('same_as:'):
-        return object_type
-    input_role = slot.get('sameIdentityAsInput') or object_type.split(':', 1)[1]
-    input_slot = next(
-        (candidate for candidate in service['inputSlots'] if candidate['role'] == input_role),
-        None
-    )
-    require(input_slot is not None, 'same_as output references an unknown input role')
-    return input_slot['objectType']
-
-
-def validate_root_transaction(transaction, service):
-    validate_schema(read('schemas/protocol/service-transaction.schema.json'), transaction)
-    require(transaction['serviceId'] == service['serviceId'], 'Root transaction service ID mismatch')
-    require(transaction['serviceVersion'] == service['serviceVersion'], 'Root transaction service version mismatch')
-    outputs = transaction['outputObjects']
-    roles = [item['role'] for item in outputs]
-    require(len(roles) == len(set(roles)), 'Root transaction output roles must be unique')
-    report_codes = [item['reportCode'] for item in transaction['outputReports']]
-    require(len(report_codes) == len(set(report_codes)), 'Root transaction report codes must be unique')
-    if transaction['status'] != 'delivered':
-        return
-    expected = {slot['role']: resolved_transaction_output_type(service, slot) for slot in service['outputSlots']}
-    require(set(roles) == set(expected), 'Delivered root transaction must cover every promised output role exactly once')
-    for output in outputs:
-        require(output['objectType'] == expected[output['role']], 'Delivered root transaction output type mismatch')
-
-
-def root_transaction_contract():
-    service = services[0]
-    slots_by_role = {slot['role']: slot for slot in service['inputSlots']}
-    inputs = []
-    for item in service['sampleRequest']['inputs']:
-        slot = slots_by_role[item['role']]
-        transaction_input = {
-            'role': item['role'],
-            'objectRef': {
-                'objectId': item['object_ref']['object_id'],
-                'revision': item['object_ref']['revision']
-            },
-            'objectType': slot['objectType'],
-            'objectSnapshot': {}
+def validate_catalog_contracts():
+    require([item["id"] for item in OBJECTS] == TYPE_IDS, "The catalog must retain exactly the canonical 20 PGO IDs")
+    require(OBJECT_CATALOG["object_count"] == 20, "object_count must equal 20")
+    for type_id in TYPE_IDS:
+        item = OBJECT_BY_ID[type_id]
+        schema = SCHEMAS[type_id]
+        required, optional = CONTRACTS[type_id]
+        require(set(schema["required"]) == required, f"Required keys differ for {type_id}")
+        require(set(schema["properties"]) == required | optional, f"Allowed keys differ for {type_id}")
+        require(schema.get("additionalProperties") is False, f"Root schema is open for {type_id}")
+        executable_schema = {
+            key: value
+            for key, value in schema.items()
+            if key not in {"$schema", "$id", "title"}
         }
-        if slot['objectType'] == 'pgo_form':
-            transaction_input.update({
-                'objectCode': '123456789',
-                'uploadedObjectId': 'uploaded_form_fixture',
-                'fileStorageId': 'stored_form_fixture',
-                'objectOwnerId': 'provider_owner_fixture'
-            })
-        inputs.append(transaction_input)
-
-    timestamp = '2026-09-20T00:00:00Z'
-    transaction = {
-        'requestId': 'pgr_delivered_contract_fixture',
-        'offerId': service['serviceId'],
-        'serviceId': service['serviceId'],
-        'serviceVersion': service['serviceVersion'],
-        'providerId': service['providerId'],
-        'providerKind': service['providerKind'],
-        'requestedByUserId': 'requester_fixture',
-        'requestedAt': timestamp,
-        'requestedAtClient': timestamp,
-        'status': 'delivered',
-        'requestRevision': 1,
-        'idempotencyKey': 'ios-pgr_delivered_contract_fixture',
-        'inputs': inputs,
-        'outputObjects': [
-            {
-                'role': slot['role'],
-                'objectType': resolved_transaction_output_type(service, slot),
-                'objectCode': str(index + 1).zfill(9)
-            }
-            for index, slot in enumerate(service['outputSlots'])
-        ],
-        'outputReports': [],
-        'issues': [],
-        'missingRequiredInputRoles': [],
-        'offerSnapshot': {
-            'offerId': service['serviceId'],
-            'name': service['name'],
-            'serviceId': service['serviceId'],
-            'serviceVersion': service['serviceVersion']
-        },
-        'providerSnapshot': {
-            'id': service['providerId'],
-            'kind': service['providerKind'],
-            'name': service['providerName']
-        },
-        'contractSource': 'pocket_genes_services_wiki_v1',
-        'createdAt': timestamp,
-        'updatedAt': timestamp
-    }
-    validate_root_transaction(transaction, service)
-
-    missing_output = copy.deepcopy(transaction)
-    missing_output['outputObjects'] = missing_output['outputObjects'][:-1]
-    reject(lambda: validate_root_transaction(missing_output, service))
-
-    wrong_type = copy.deepcopy(transaction)
-    wrong_type['outputObjects'][0]['objectType'] = 'pgo_form'
-    reject(lambda: validate_root_transaction(wrong_type, service))
-
-    duplicate_role = copy.deepcopy(transaction)
-    if len(duplicate_role['outputObjects']) == 1:
-        duplicate_role['outputObjects'].append(copy.deepcopy(duplicate_role['outputObjects'][0]))
-        duplicate_role['outputObjects'][1]['objectCode'] = '999999999'
-    else:
-        duplicate_role['outputObjects'][1]['role'] = duplicate_role['outputObjects'][0]['role']
-    reject(lambda: validate_root_transaction(duplicate_role, service))
-
-    legacy_finished = copy.deepcopy(transaction)
-    legacy_finished['status'] = 'completed'
-    reject(lambda: validate_root_transaction(legacy_finished, service))
-
-    bad_object_code = copy.deepcopy(transaction)
-    bad_object_code['outputObjects'][0]['objectCode'] = 'ABC123'
-    reject(lambda: validate_root_transaction(bad_object_code, service))
-
-    optional_report = copy.deepcopy(transaction)
-    optional_report['outputReports'] = [{'reportCode': 'A1B2C3'}]
-    validate_root_transaction(optional_report, service)
-
-    persisted_derived_usage = copy.deepcopy(transaction)
-    persisted_derived_usage['admitted_usage_count'] = 1
-    reject(lambda: validate_root_transaction(persisted_derived_usage, service))
-
-    form_input = next((item for item in transaction['inputs'] if item['objectType'] == 'pgo_form'), None)
-    if form_input is not None:
-        missing_form_registration = copy.deepcopy(transaction)
-        invalid_form = next(item for item in missing_form_registration['inputs'] if item['objectType'] == 'pgo_form')
-        invalid_form.pop('objectCode')
-        reject(lambda: validate_root_transaction(missing_form_registration, service))
+        require(item["data_schema"] == executable_schema, f"Embedded schema differs for {type_id}")
+        catalog_properties = {field["name"]: field["required"] for field in item["properties"]}
+        require(set(catalog_properties) == required | optional, f"Catalog property list differs for {type_id}")
+        require({key for key, is_required in catalog_properties.items() if is_required} == required, f"Catalog required flags differ for {type_id}")
+        require(item["example"] == item["example_data"], f"Catalog examples differ for {type_id}")
+        require(item["example_data"] == read(item["example_path"]), f"Example file differs for {type_id}")
+        validate_content(type_id, item["example_data"])
 
 
-check('root_service_transaction_delivery_contract', root_transaction_contract)
+check("exact_20_type_registry_and_allowlists", validate_catalog_contracts)
 
 
-check('fixed_registry_counts', lambda: require(len(types) == 20 and len(service_map) == 15 and len(provider_map) == 6, 'Registry counts differ'))
+for type_id in TYPE_IDS:
+    check(f"minimum_content:{type_id}", lambda type_id=type_id: validate_content(type_id, minimal_instance(SCHEMAS[type_id])))
+
+    def notes_cases(type_id=type_id):
+        content = minimal_instance(SCHEMAS[type_id])
+        validate_content(type_id, content)
+        content["notes"] = ""
+        validate_content(type_id, content)
+
+    check(f"notes_absent_and_empty:{type_id}", notes_cases)
+
+    def unknown_key_rejected(type_id=type_id):
+        content = minimal_instance(SCHEMAS[type_id])
+        content["legacy_metadata"] = "forbidden"
+        reject(lambda: validate_content(type_id, content))
+
+    check(f"unknown_root_key_rejected:{type_id}", unknown_key_rejected)
 
 
-def token_usage_policy():
-    validate_schema(read('schemas/protocol/token-usage-policy.schema.json'), usage_policy)
-    require(services_catalog['usagePolicyRef']['policyId'] == usage_policy['policy_id'], 'Services catalog usage policy mismatch')
-    require(services_catalog['usagePolicyRef']['path'] == 'catalog/usage-policy.json', 'Services catalog usage policy path mismatch')
-    defaults = usage_policy['policy_configuration_defaults']
-    require(defaults == {
-        'policy_id': 'pg_usage_policy_service_requests_v1',
-        'total_transaction_limit': 20,
-        'daily_transaction_limit': 5,
-        'cooldown_seconds': 300,
-    }, 'Stable usage policy defaults changed')
-    require(usage_policy['calendar_timezone'] == 'UTC', 'Daily usage timezone must be UTC in v1')
-    accounting = usage_policy['functional_accounting']
-    require(accounting['authoritative_collection'] == 'service_transactions', 'Wrong transaction collection')
-    require(accounting['requester_field'] == 'requestedByUserId', 'Wrong requester field')
-    require(accounting['transaction_time_field'] == 'requestedAt', 'Wrong transaction timestamp field')
-    require(accounting['daily_count_timezone'] == 'UTC', 'Daily usage must use UTC')
-    forbidden = set(accounting['forbidden_persisted_fields'])
-    require({
-        'admitted_usage_count',
-        'admitted_usage_day_start',
-        'today_usage_count',
-        'tokens_consumed_today',
-        'tokens_remaining_today',
-        'last_request_at',
-        'next_request_at',
-        'cooldown_started_at',
-        'cooldown_ends_at',
-        'pending_admissions',
-        'token_balance'
-    } == forbidden, 'Derived usage-state prohibition list changed')
-    gate = usage_policy['admission_gate']
-    require(gate['must_run_before_provider_dispatch'], 'Admission gate must run before provider dispatch')
-    require(gate['must_run_before_form_object_persistence'], 'Admission gate must run before form persistence')
-    require(gate['must_reload_root_transactions'], 'Admission must reload root transactions')
-    require(gate['derived_state_persistence_forbidden'], 'Derived usage state must never be persisted')
-    require(gate['post_approval_limit_revalidation_forbidden'], 'Limits cannot be re-evaluated after approval')
-    ordered_steps = gate['ordered_steps']
-    require(
-        ordered_steps.index('calculate total usage, UTC daily usage, latest transaction and cooldown in memory')
-        < ordered_steps.index('create and register the provider-owned form object when required'),
-        'Functional eligibility calculation must precede provider-owned form persistence'
-    )
-    require(
-        ordered_steps.index('create and register the provider-owned form object when required')
-        < ordered_steps.index('create the service transaction and publish the reduced user summary'),
-        'Form persistence must precede the final transaction write'
-    )
-    pipeline = usage_policy['pipeline_policy']
-    require(pipeline['planning_consumes_capacity'] is False, 'Pipeline planning must not consume capacity')
-    require(pipeline['each_created_service_transaction_counts_once'], 'Each transaction must count once')
-    require(pipeline['combined_published_service_counts_as'] == 1, 'Combined published service must count once')
-    require(pipeline['blocked_step_state'] == 'waiting_for_limits', 'Wrong blocked pipeline state')
-    require(
-        pipeline['automatic_retry_must_recalculate_from_transactions'],
-        'Automatic retry must recalculate from root transactions'
-    )
-    require(set(usage_policy['stable_error_codes']) == {
-        'token_balance_exhausted',
-        'token_daily_limit_reached',
-        'token_cooldown_active'
-    }, 'Stable token error codes differ')
-    account_status = usage_policy['end_user_presentation']['account_status']
-    require(account_status['day_bucket_timezone'] == 'UTC', 'Account day buckets must use UTC')
-    require(
-        account_status['reset_timestamp_display_timezone'] == 'device_local',
-        'UTC reset timestamps must be displayed in device-local time'
-    )
-    require(
-        account_status['seven_day_chart_bucket_timezone'] == 'UTC',
-        'Seven-day chart buckets must remain UTC'
-    )
-    require(account_status['countdown_refresh_seconds'] == 1, 'Countdown must refresh every second')
-    require(
-        account_status['overlapping_wait_rule'] == 'later_deadline',
-        'Overlapping cooldown and daily waits must use the later deadline'
-    )
+def validate_pdf_contract():
+    minimum = {"title": "Genetic test report", "download_url": "https://example.com/reports/report.pdf?signature=kept"}
+    validate_content("pgo_pdf_report", minimum)
+    validate_content("pgo_pdf_report", {**minimum, "notes": ""})
+    reject(lambda: validate_content("pgo_pdf_report", {**minimum, "page_count": 8}))
+    require(set(SCHEMAS["pgo_pdf_report"]["properties"]) == {"title", "download_url", "notes"}, "PDF is not the exact two-field-plus-notes contract")
 
 
-check('token_usage_policy', token_usage_policy)
+check("pdf_exact_minimum_and_query_preservation", validate_pdf_contract)
+check("candidate_genes_standalone", lambda: validate_content("pgo_bundle_of_candidate_genes", {"genes": ["BRCA1"]}))
+check("symptoms_standalone_free_text", lambda: validate_content("pgo_bundle_of_symptoms", {"observations": [{"label": "Hearing loss"}]}))
+check("physical_sample_standalone", lambda: validate_content("pgo_blood_sample", {"sample_label": "Tube A"}))
 
 
-def pgi_native_schemas():
-    for extension, schema in pgi_schemas.items():
-        Draft202012Validator.check_schema(schema)
-        title = schema['title']
-        if extension == '.pgi1.json':
-            require('MDMAPIModel' in title, 'PGI1 schema must target MDMAPIModel')
-        elif extension == '.pgi2.json':
-            require('AGAPIModel' in title, 'PGI2 schema must target AGAPIModel')
-        elif extension == '.pgi3.json':
-            require('TwoPQAPIModel' in title, 'PGI3 schema must target TwoPQAPIModel')
-        valid_minimal = minimal_instance(schema)
-        validate_schema(schema, valid_minimal)
-        with_unknown_root = copy.deepcopy(valid_minimal)
-        with_unknown_root['unexpected_root_field'] = True
-        reject(lambda schema=schema, item=with_unknown_root: validate_schema(schema, item))
-        missing_required = copy.deepcopy(valid_minimal)
-        missing_required.pop(next(iter(schema['$defs'][schema['$ref'].split('/')[-1]]['required'])))
-        reject(lambda schema=schema, item=missing_required: validate_schema(schema, item))
+def property_enum(type_id: str, key: str):
+    return SCHEMAS[type_id]["properties"][key]["enum"]
 
 
-check('pgi_native_schemas', pgi_native_schemas)
-for key, item in snapshots.items():
-    check('object_schema:' + str(key), lambda item=item: validate_schema(schemas[item['object_type']], item))
-    check('object_references:' + str(key), lambda item=item: [resolve(ref) for ref in refs(item)])
-    for descriptor in item['files']:
-        def file_check(descriptor=descriptor):
-            path = ROOT / descriptor['path']
-            require(path.is_file(), 'Missing native payload')
-            require(path.stat().st_size == descriptor['size_bytes'], 'Incorrect byte count')
-            require(hashlib.sha256(path.read_bytes()).hexdigest() == descriptor['sha256'], 'Incorrect SHA-256')
-        check('file_integrity:' + descriptor['path'], file_check)
-for service in services:
-    check('service_contract:' + service['serviceId'], lambda service=service: contract_integrity(service))
-    schema_instances = [
-        ('service-definition', service),
-        ('service-request', service['sampleRequest']),
-        ('service-result', service['sampleResult'])
+def validate_exact_enums():
+    require(property_enum("pgo_test_order", "sample_type") == SAMPLE_TYPES[:-1] + ORDER_ONLY_SAMPLE_TYPES + ["other"], "Test-order sample choices differ")
+    require(property_enum("pgo_collection_request", "sample_type") == SAMPLE_TYPES, "Collection sample choices differ")
+    require(property_enum("pgo_test_order", "test_type") == TEST_TYPES, "Test type choices differ")
+    require(property_enum("pgo_collection_request", "collection_method") == COLLECTION_METHODS, "Collection methods differ")
+    require(property_enum("pgo_collection_request", "container") == CONTAINERS, "Collection containers differ")
+    require(property_enum("pgo_blood_sample", "container") == CONTAINERS, "Blood containers differ")
+    require(property_enum("pgo_blood_sample", "material") == ["whole_blood", "plasma", "serum", "buffy_coat", "dried_blood_spot", "other"], "Blood material choices differ")
+    require(property_enum("pgo_tissue_sample", "preparation") == ["fresh", "frozen", "formalin_fixed_unembedded", "ffpe", "alcohol_preserved", "other"], "Tissue choices differ")
+    require(property_enum("pgo_embryo_sample", "material_kind") == ["embryo_biopsy", "whole_embryo", "polar_body", "other"], "Embryo choices differ")
+    require(property_enum("pgo_informed_consent", "status") == ["pending", "accepted", "declined", "withdrawn"], "Consent states differ")
+
+
+check("exact_domain_enums", validate_exact_enums)
+
+
+def validate_other_without_companion():
+    cases = [
+        ("pgo_test_order", "sample_type"),
+        ("pgo_test_order", "test_type"),
+        ("pgo_collection_request", "sample_type"),
+        ("pgo_collection_request", "collection_method"),
+        ("pgo_collection_request", "container"),
+        ("pgo_blood_sample", "material"),
+        ("pgo_blood_sample", "container"),
+        ("pgo_tissue_sample", "preparation"),
+        ("pgo_embryo_sample", "material_kind"),
     ]
-    if 'formShape' in service:
-        schema_instances.insert(1, ('form-shape', service['formShape']))
-    for schema_name, instance in schema_instances:
-        check(schema_name + ':' + service['serviceId'], lambda schema_name=schema_name, instance=instance: validate_schema(read('schemas/protocol/' + schema_name + '.schema.json'), instance))
-for provider in providers:
-    check('provider_schema:' + provider['provider_id'], lambda provider=provider: validate_schema(read('schemas/protocol/provider-definition.schema.json'), provider))
-for obj in objects:
-    check('svg_asset:' + obj['id'], lambda obj=obj: ElementTree.parse(ROOT / 'icons' / (obj['id'] + '.svg')))
+    for type_id, key in cases:
+        content = minimal_instance(SCHEMAS[type_id])
+        content[key] = "other"
+        content.pop("notes", None)
+        validate_content(type_id, content)
+    serialized = json.dumps(SCHEMAS)
+    require(not re.search(r"other_(description|text)|specify_other|sample_type_other", serialized), "A specify-Other field remains")
 
 
-def native_files():
-    import pysam
-    from flowio import FlowData
-    from pypdf import PdfReader
-    with pysam.FastxFile(str(ROOT / 'payloads/demo.fastq')) as stream:
-        reads = list(stream)
-    require(len(reads) == 3 and all(len(row.sequence) == len(row.quality) == 20 for row in reads), 'FASTQ fixture mismatch')
-    with pysam.FastxFile(str(ROOT / 'payloads/demo.fasta')) as stream:
-        fasta = list(stream)
-    require(len(fasta) == 1 and len(fasta[0].sequence) == 1000, 'FASTA fixture mismatch')
-    with pysam.AlignmentFile(str(ROOT / 'payloads/demo.bam'), 'rb') as stream:
-        require(stream.has_index(), 'Missing BAM index')
-        alignments = list(stream.fetch())
-    require(len(alignments) == 3 and [row.query_sequence for row in alignments] == [row.sequence for row in reads], 'BAM and FASTQ disagree')
-    records = {}
-    for name in ['unannotated', 'annotated']:
-        with pysam.VariantFile(str(ROOT / ('payloads/demo-' + name + '.vcf'))) as stream:
-            require(list(stream.header.samples) == ['subject_demo_001'], 'VCF subject mismatch')
-            records[name] = list(stream)
-        require(len(records[name]) == 3, 'VCF fixture count mismatch')
-    require([row.pos for row in records['unannotated']] == [row.pos for row in records['annotated']], 'Annotation changed loci')
-    pgi = resolve({'object_id': 'obj_demo_interactive', 'revision': 1})
-    pgi_data = pgi['data']
-    native_format = pgi_data['native_format']
-    require_pgi_native_format(native_format)
-    payload_ref = pgi_data['payload_ref']
-    require_pgi_payload_descriptor(native_format, payload_ref)
-    payload_path = ROOT / payload_ref['path']
-    payload = json.loads(payload_path.read_text())
-    validate_schema(pgi_schemas[native_format['extension']], payload)
-    require(payload_ref in pgi['files'], 'PGI payload descriptor missing from files')
-    require(hashlib.sha256(payload_path.read_bytes()).hexdigest() == payload_ref['sha256'], 'PGI payload checksum mismatch')
-    require(len(payload['variants']) == len(records['annotated']), 'PGI1 variant count does not match annotated VCF fixture')
-    for row, variant in zip(records['annotated'], payload['variants']):
-        require((row.contig, row.pos, row.ref, row.alts[0]) == (variant['chrom'], variant['position'], variant['reference'], variant['alternate']), 'PGI1 and VCF variants disagree')
-        require(row.info['PGGENE'] in pgi_data['analysis_support']['evaluated_genes'], 'PGI1 support genes do not include annotated VCF gene')
-    flow = FlowData(str(ROOT / 'payloads/demo.fcs'))
-    require(flow.event_count == 4 and flow.channel_count == 3, 'FCS event/channel mismatch')
-    pdf = PdfReader(ROOT / 'payloads/demo-report.pdf')
-    require(len(pdf.pages) == 1, 'PDF page count mismatch')
-    content = '\n'.join(page.extract_text() for page in pdf.pages)
-    order = resolve({'object_id': 'obj_demo_order', 'revision': 1})['data']
-    for required in [order['patient']['full_name'], order['objective'], order['clinical_suspicion'], 'Clarity Report Studio', *order['scope']['genes']]:
-        require(required in content, 'Missing standalone report content: ' + required)
-    require(len(PdfReader(ROOT / 'payloads/demo-form-report.pdf').pages) == 1, 'Form PDF page count mismatch')
+check("other_valid_without_notes_or_companion", validate_other_without_companion)
 
 
-check('native_payload_parsing_and_consistency', native_files)
+def validate_component_contracts():
+    reads = {
+        "title": "Single interleaved lane",
+        "reads": [{"key": "interleaved", "name": "Reads", "download_url": "https://example.com/download?opaque=1"}],
+    }
+    validate_content("pgo_sequence_reads", reads)
+    duplicate_reads = copy.deepcopy(reads)
+    duplicate_reads["reads"].append(copy.deepcopy(duplicate_reads["reads"][0]))
+    reject(lambda: validate_content("pgo_sequence_reads", duplicate_reads))
+    images = {
+        "title": "Images",
+        "images": [{"key": "image_1", "name": "Image 1", "download_url": "https://example.com/image?id=1"}],
+    }
+    validate_content("pgo_image_bundle", images)
+    duplicate_images = copy.deepcopy(images)
+    duplicate_images["images"].append(copy.deepcopy(duplicate_images["images"][0]))
+    reject(lambda: validate_content("pgo_image_bundle", duplicate_images))
+    for type_id, collection_key in [("pgo_sequence_reads", "reads"), ("pgo_image_bundle", "images")]:
+        item_schema = SCHEMAS[type_id]["properties"][collection_key]["items"]
+        require(set(item_schema["properties"]) == {"key", "name", "download_url"}, f"Extra component field in {type_id}")
+        require(item_schema.get("additionalProperties") is False, f"Open component schema in {type_id}")
 
 
-def semantic_fixtures():
-    order = resolve({'object_id': 'obj_demo_order', 'revision': 1})
-    consent = resolve(order['data']['consent_ref'])
-    form = form_values(resolve(consent['data']['source_form_ref'])['data'])
-    require(consent['data']['status'] == 'completed' and form['accepted'] is True, 'Consent is incomplete')
-    require(consent['data']['text_version'] == form['consent_text_version'], 'Consent version mismatch')
-    require(consent['data']['acceptance']['evidence_reference'] == form['signature_evidence_id'], 'Consent evidence mismatch')
-    require(consent['data']['subject_id'] == order['data']['patient']['subject_id'], 'Consent subject mismatch')
-    require(set(order['data']['scope']['genes']) <= set(consent['data']['scope']['genes']), 'Order exceeds consent scope')
-    for object_id in ['obj_demo_fastq', 'obj_demo_bam', 'obj_demo_unannotated_vcf', 'obj_demo_annotated_vcf', 'obj_demo_interactive']:
-        compatible(order, resolve({'object_id': object_id, 'revision': 1}))
-    require(resolve({'object_id': 'obj_demo_blood', 'revision': 3})['data']['state'] == 'consumed', 'Missing blood consumption')
-    require(resolve({'object_id': 'obj_demo_dna', 'revision': 2})['data']['quantity']['value'] == 0, 'Missing DNA consumption')
-    interpretation = service_map['pgs_interactive_interpretation']
-    require(all(slot['objectType'] != 'pgo_bundle_of_symptoms' for slot in interpretation['inputSlots']), 'PGI unexpectedly requires symptoms')
+check("direct_component_urls_and_unique_keys", validate_component_contracts)
 
 
-check('consent_scope_and_physical_consumption', semantic_fixtures)
+def validate_single_file_contracts():
+    common = {
+        "pgo_sequence_data",
+        "pgo_unannotated_vcf",
+        "pgo_annotated_vcf",
+        "pgo_interactive_report",
+        "pgo_pdf_report",
+        "pgo_flow_cytometry_data",
+    }
+    for type_id in common:
+        require(set(SCHEMAS[type_id]["properties"]) == {"title", "download_url", "notes"}, f"Single-file contract differs for {type_id}")
+        reject(lambda type_id=type_id: validate_content(type_id, {"title": "x", "download_url": "https://example.com/x", "files": []}))
+    require(set(SCHEMAS["pgo_aligned_reads"]["properties"]) == {"title", "download_url", "index_download_url", "notes"}, "Aligned reads has extra keys")
 
 
-def counterexamples():
-    service = service_map['pgs_informed_consent']
-    form = copy.deepcopy(service['sampleFormObject'])
-    form['data'].pop('form_shape')
-    reject(lambda: validate_form(service, form))
-    form = copy.deepcopy(service['sampleFormObject'])
-    form['data']['form_shape']['version'] += 1
-    reject(lambda: validate_form(service, form))
-    form = copy.deepcopy(service['sampleFormObject'])
-    form['data']['fields'].append({'key': 'undeclared_value', 'value': 'not allowed'})
-    reject(lambda: validate_form(service, form))
-    form = copy.deepcopy(service['sampleFormObject'])
-    form['data']['fields'].append(copy.deepcopy(form['data']['fields'][0]))
-    reject(lambda: validate_form(service, form))
-    form = copy.deepcopy(service['sampleFormObject'])
-    next(field for field in form['data']['fields'] if field['key'] == 'signer_capacity')['value'] = 'invalid_option'
-    reject(lambda: validate_form(service, form))
-    ordering = service_map['pgs_test_ordering']
-    request = copy.deepcopy(ordering['sampleRequest'])
-    request['inputs'] = [item for item in request['inputs'] if resolve(item['object_ref'])['object_type'] != 'pgo_informed_consent']
-    reject(lambda: validate_request(ordering, request))
-    pgi_service = service_map['pgs_interactive_interpretation']
-    request = copy.deepcopy(pgi_service['sampleRequest'])
-    request['inputs'][0]['object_ref'] = {'object_id': 'obj_demo_unannotated_vcf', 'revision': 1}
-    reject(lambda: validate_request(pgi_service, request))
-    order = resolve({'object_id': 'obj_demo_order', 'revision': 1})
-    result = copy.deepcopy(resolve({'object_id': 'obj_demo_interactive', 'revision': 1}))
-    result['data']['analysis_support']['evaluated_genes'].pop()
-    reject(lambda: compatible(order, result))
-    result = copy.deepcopy(resolve({'object_id': 'obj_demo_interactive', 'revision': 1}))
-    result['data']['subject_id'] = 'subject_other'
-    reject(lambda: compatible(order, result))
-    pgi = copy.deepcopy(resolve({'object_id': 'obj_demo_interactive', 'revision': 1}))
-    pgi['data']['native_format']['api_model'] = 'AGAPIModel'
-    reject(lambda: validate_schema(schemas['pgo_interactive_report'], pgi))
-    pgi = copy.deepcopy(resolve({'object_id': 'obj_demo_interactive', 'revision': 1}))
-    pgi['data']['payload_ref']['media_type'] = 'application/json'
-    reject(lambda: validate_schema(schemas['pgo_interactive_report'], pgi))
-    reject(lambda: physical_available({'object_id': 'obj_demo_blood', 'revision': 2}, '2026-09-18T12:00:00Z'))
-    whole_embryo = resolve({'object_id': 'obj_demo_whole_embryo', 'revision': 1})
-    reject(lambda: require(whole_embryo['data']['material_kind'] == 'embryo_biopsy', 'Extraction rejects whole embryo'))
-    annotation = service_map['pgs_variant_annotation']
-    request = copy.deepcopy(annotation['sampleRequest'])
-    request['inputs'] = [item for item in request['inputs'] if item['role'] != 'test_order']
-    reject(lambda: validate_request(annotation, request))
-    bad_service = copy.deepcopy(service_map['pgs_informed_consent'])
-    bad_service['inputSlots'][0]['role'] = 'request_form'
-    reject(lambda: service_contract_rules(bad_service))
-    bad_service = copy.deepcopy(annotation)
-    duplicate = copy.deepcopy(bad_service['inputSlots'][1])
-    duplicate['role'] = 'unannotated_vcf_copy'
-    bad_service['inputSlots'].append(duplicate)
-    reject(lambda: service_contract_rules(bad_service))
-    bad_service = copy.deepcopy(annotation)
-    bad_service['shortContract'] = 'free text is not allowed'
-    reject(lambda: service_contract_rules(bad_service))
-    bad_service = copy.deepcopy(annotation)
-    bad_service['stages'] = []
-    reject(lambda: service_contract_rules(bad_service))
-    bad_service = copy.deepcopy(annotation)
-    bad_service['status'] = 'draft'
-    reject(lambda: service_contract_rules(bad_service))
-    bad_service = copy.deepcopy(annotation)
-    bad_service['isHiddenFromSearch'] = 'true'
-    reject(lambda: service_contract_rules(bad_service))
-    bad_service = copy.deepcopy(annotation)
-    del bad_service['isHiddenFromSearch']
-    bad_service['is_hidden_from_search'] = False
-    reject(lambda: service_contract_rules(bad_service))
-    bad_service = copy.deepcopy(annotation)
-    bad_service['commercialTerms'] = {'pricingModel': 'fixed', 'turnaround': '1d'}
-    reject(lambda: service_contract_rules(bad_service))
-    bad_service = copy.deepcopy(annotation)
-    bad_service['outputSlots'][0]['objectType'] = 'pgo_form'
-    reject(lambda: service_contract_rules(bad_service))
-    for object_type, source_key in [('pgo_sequence_reads', 'source_sample_ref'), ('pgo_sequence_data', 'source_object_ref'), ('pgo_aligned_reads', 'source_reads_ref'), ('pgo_unannotated_vcf', 'source_object_ref'), ('pgo_annotated_vcf', 'source_vcf_ref'), ('pgo_interactive_report', 'source_variants_ref')]:
-        imported = copy.deepcopy(types[object_type]['example'])
-        imported['input_refs'] = []
-        imported['data'].pop(source_key, None)
-        imported['data'].pop('order_ref', None)
-        imported['data']['provenance'] = {'source_kind': 'imported', 'source_label': 'External synthetic fixture', 'imported_at': '2026-09-18T12:00:00Z'}
-        validate_schema(schemas[object_type], imported)
+check("single_file_objects_have_no_generic_files", validate_single_file_contracts)
 
 
-check('eight_negative_and_seven_independent_entry_examples', counterexamples)
-
-
-def documentation():
-    text = (ROOT / 'Pocket-Genes-Wiki.md').read_text()
-    require(len(re.findall(r'^```', text, re.M)) % 2 == 0, 'Unbalanced code fences')
-    for payload in re.findall(r'^```json\s*\n(.*?)^```', text, re.M | re.S):
-        json.loads(payload)
-    for folder, count in [('objects', 20), ('services', 15), ('providers', 6)]:
-        require(len(list((ROOT / folder).glob('*.md'))) == count, 'Missing wiki pages: ' + folder)
-
-
-check('wiki_json_examples_and_pages', documentation)
-report = {
-    'status': 'passed' if all(item['status'] == 'passed' for item in checks) else 'failed',
-    'object_types': len(types), 'services': len(services), 'providers': len(providers),
-    'object_snapshots': len(snapshots), 'checks_run': len(checks),
-    'scope': 'Structural, reference, contract and native-fixture checks. Synthetic analytical support declarations are not clinical validation.',
-    'checks': checks
+VALID_FORM_VALUES = {
+    "text": "Text",
+    "long_text": "Long text",
+    "email": "person@example.com",
+    "phone": "+5491112345678",
+    "url": "https://example.com/value",
+    "address": "Street 123",
+    "postal_code": "C1000",
+    "country_code": "AR",
+    "identifier": "identifier_1",
+    "number": 1.5,
+    "integer": 2,
+    "positive_integer": 1,
+    "percentage": 50,
+    "boolean": True,
+    "date": "2026-09-22",
+    "datetime": "2026-09-22T12:00:00Z",
+    "time": "12:30",
+    "enum": "first",
+    "multi_enum": ["first", "second"],
+    "string_list": ["one", "two"],
+    "integer_list": [1, 2],
+    "number_list": [1.5, 2],
 }
-(ROOT / 'validation-report.json').write_text(json.dumps(report, indent=2) + '\n')
-print(json.dumps({key: value for key, value in report.items() if key != 'checks'}, indent=2))
-for failure in [item for item in checks if item['status'] == 'failed']:
-    print(json.dumps(failure))
-sys.exit(0 if report['status'] == 'passed' else 1)
+
+
+def form_for_types():
+    fields = []
+    answers = []
+    for index, kind in enumerate(sorted(FORM_FIELD_TYPES)):
+        field = {"key": f"field_{index}", "label": kind, "type": kind, "required": True}
+        if kind in {"enum", "multi_enum"}:
+            field["options"] = [{"value": "first", "label": "First"}, {"value": "second", "label": "Second"}]
+        fields.append(field)
+        answers.append({"key": field["key"], "value": VALID_FORM_VALUES[kind]})
+    return {"form_shape": {"fields": fields}, "fields": answers}
+
+
+def validate_form_semantics():
+    validate_content("pgo_form", form_for_types())
+    validate_content("pgo_form", {"form_shape": {"fields": []}, "fields": []})
+    base = {"form_shape": {"fields": [{"key": "choice", "label": "Choice", "type": "enum", "required": True, "options": [{"value": "a", "label": "A"}]}]}, "fields": [{"key": "choice", "value": "a"}]}
+    duplicate_definition = copy.deepcopy(base)
+    duplicate_definition["form_shape"]["fields"].append(copy.deepcopy(duplicate_definition["form_shape"]["fields"][0]))
+    reject(lambda: validate_content("pgo_form", duplicate_definition))
+    duplicate_answer = copy.deepcopy(base)
+    duplicate_answer["fields"].append(copy.deepcopy(duplicate_answer["fields"][0]))
+    reject(lambda: validate_content("pgo_form", duplicate_answer))
+    undeclared = copy.deepcopy(base)
+    undeclared["fields"][0]["key"] = "missing"
+    reject(lambda: validate_content("pgo_form", undeclared))
+    invalid_enum = copy.deepcopy(base)
+    invalid_enum["fields"][0]["value"] = "b"
+    reject(lambda: validate_content("pgo_form", invalid_enum))
+    wrong_numeric_array = {"form_shape": {"fields": [{"key": "numbers", "label": "Numbers", "type": "integer_list", "required": True}]}, "fields": [{"key": "numbers", "value": ["1"]}]}
+    reject(lambda: validate_content("pgo_form", wrong_numeric_array))
+
+
+check("form_frozen_shape_and_all_21_typed_answers", validate_form_semantics)
+
+
+def embedded_form_shape(shape: dict):
+    result = []
+    for field in shape["fields"]:
+        item = {key: field[key] for key in ("key", "label", "type", "required")}
+        if "options" in field:
+            item["options"] = field["options"]
+        if "helpInfoText" in field:
+            item["help_info_text"] = field["helpInfoText"]
+        result.append(item)
+    return result
+
+
+def validate_service_forms_and_slots():
+    require(len(SERVICES) == SERVICE_CATALOG["serviceCount"] == 15, "Service catalog count differs")
+    forbidden_paths = re.compile(r"data\.(scope|fulfillment|analysis_support|reference_id|profile_id|native_format|payload_ref|source_pgi_ref|source_images_ref|lineage_refs)", re.I)
+    for service in SERVICES:
+        service_id = service["serviceId"]
+        form_slots = [slot for slot in service["inputSlots"] if slot["objectType"] == "pgo_form"]
+        has_shape = "formShape" in service
+        require(has_shape == bool(form_slots), f"Form slot/shape mismatch for {service_id}")
+        require(len(form_slots) <= 1, f"Multiple form slots for {service_id}")
+        input_roles = {slot["role"] for slot in service["inputSlots"]}
+        for slot in service["inputSlots"] + service["outputSlots"]:
+            object_type = slot["objectType"]
+            if object_type.startswith("same_as:"):
+                source_role = object_type.removeprefix("same_as:")
+                require(source_role in input_roles, f"Unknown same-identity source in {service_id}")
+                require(slot.get("sameIdentityAsInput") == source_role, f"same_as binding differs in {service_id}")
+            else:
+                require(object_type in TYPE_IDS, f"Unknown PGO slot in {service_id}")
+        require(all(slot["objectType"] != "pgo_form" for slot in service["outputSlots"]), f"Form output in {service_id}")
+        require(bool(service["outputSlots"]), f"No output slot in {service_id}")
+        for rule in service.get("acceptedConditions", []) + service.get("scopeRules", []):
+            require(not forbidden_paths.search(rule), f"Deleted content path remains in {service_id}: {rule}")
+        if has_shape:
+            shape = service["formShape"]
+            keys = [field["key"] for field in shape["fields"]]
+            require("requested_at" not in keys and "requested_by" not in keys and "subject_id" not in keys, f"Universal technical field remains in {service_id}")
+            require(shape["allowUnknownFields"] is False, f"Unknown form fields enabled for {service_id}")
+            content = service["sampleFormObject"]["data"]
+            require(set(content) <= {"form_shape", "fields", "notes"}, f"Extra form content in {service_id}")
+            require(content["form_shape"] == {"fields": embedded_form_shape(shape)}, f"Frozen shape differs in {service_id}")
+            require(content["fields"] == service["sampleFormData"]["fields"], f"Sample answers differ in {service_id}")
+            validate_content("pgo_form", content)
+            fixture = read(f"examples/forms/{service_id}.pgform.json")
+            require(fixture == service["sampleFormObject"], f"Form fixture differs in {service_id}")
+        require(read(f"services/{service_id}.json") == service, f"Individual service file differs for {service_id}")
+
+
+check("service_forms_slots_and_deleted_paths", validate_service_forms_and_slots)
+
+
+def validate_protocol_examples():
+    protocol_pairs = [
+        ("service-request.schema.json", ROOT / "examples/requests"),
+        ("service-result.schema.json", ROOT / "examples/results"),
+    ]
+    for schema_name, directory in protocol_pairs:
+        validator = schema_validator(read(f"schemas/protocol/{schema_name}"))
+        for path in sorted(directory.glob("*.json")):
+            validator.validate(json.loads(path.read_text()))
+    envelope_validator = schema_validator(read("schemas/protocol/object-envelope.schema.json"))
+    for path in sorted((ROOT / "examples/objects").glob("*.json")) + sorted((ROOT / "examples/forms").glob("*.json")):
+        value = json.loads(path.read_text())
+        if "data" not in value:
+            continue
+        envelope_validator.validate(value)
+        validate_content(value["object_type"], value["data"])
+
+
+check("protocol_and_platform_fixture_examples", validate_protocol_examples)
+
+
+def validate_provider_catalog():
+    require(len(PROVIDERS) == 6, "Provider count differs")
+    provider_validator = schema_validator(read("schemas/protocol/provider-definition.schema.json"))
+    for provider in PROVIDERS:
+        provider_validator.validate(provider)
+        require(read(f"providers/{provider['provider_id']}.json") == provider, f"Provider file differs for {provider['provider_id']}")
+        require(set(provider["service_ids"]).issubset({service["serviceId"] for service in SERVICES}), f"Unknown provider service for {provider['provider_id']}")
+    referenced_form = PROVIDER_CATALOG["variant_analysis_api_example"]["referenced_form_example"]
+    require("data" in referenced_form and referenced_form["object_type"] == "pgo_form", "Provider form fixture is missing")
+    validate_content("pgo_form", referenced_form["data"])
+    shared = PROVIDER_CATALOG["shared_api_contract"]
+    require("requestedAt" in shared["form_metadata_location"] and "requestedByUserId" in shared["form_metadata_location"], "Transaction metadata location is unclear")
+    require("input_refs" in shared["object_provenance"] and "no input_refs" in shared["object_provenance"], "Standalone provenance rule is missing")
+
+
+check("providers_and_shared_api_boundary", validate_provider_catalog)
+
+
+def validate_field_key_matrix():
+    expected = {
+        "service_offers": "lower_camel_case",
+        "service_transactions": "lower_camel_case",
+        "uploaded_objects": "snake_case",
+        "uploaded_reports": "snake_case",
+        "file_storage": "snake_case",
+        "object_owners": "snake_case",
+        "report_owners": "snake_case",
+        "object_codes": "snake_case",
+        "report_codes": "snake_case",
+    }
+    actual = {item["collection"]: item["field_key_convention"] for item in FIELD_KEY_CONVENTIONS["collections"]}
+    require(actual == expected, "Firestore field-key convention matrix differs")
+    require(FIELD_KEY_CONVENTIONS["compatibility_aliases_allowed"] is False, "Compatibility aliases must remain forbidden")
+    serialized = FIELD_KEY_CONVENTIONS["serialized_pgo_content"]
+    require(serialized["field_key_convention"] == "snake_case", "Serialized PGO content must use snake_case")
+
+
+check("field_key_boundary_matrix", validate_field_key_matrix)
+
+
+def validate_native_pgi_contracts():
+    documentation = read_text("docs/pgi-native-formats.md")
+    swift_sources = "\n".join(path.read_text() for path in (ROOT.parent / "mydnamap-ios/mydnamap").rglob("*.swift"))
+    for extension, (model, provider_format, schema_path) in PGI_NATIVE_FORMATS.items():
+        schema_validator(read(schema_path))
+        require(extension in documentation and model in documentation and provider_format in documentation, f"Native PGI docs missing {extension}")
+        require(extension in swift_sources and model in swift_sources, f"Native iOS mapping missing {extension}")
+
+
+def read_text(relative_path: str):
+    return (ROOT / relative_path).read_text()
+
+
+check("native_pgi_mappings_preserved", validate_native_pgi_contracts)
+
+
+def validate_collection_request_language():
+    combined = "\n".join([
+        OBJECT_BY_ID["pgo_collection_request"]["description"],
+        read_text("objects/pgo_collection_request.md"),
+        read_text("docs/service-model.md"),
+    ]).lower()
+    require("biological" in combined, "Collection request must say biological collection")
+    require("courier" in combined and "transport" in combined, "Collection request must explicitly reject courier/transport meaning")
+
+
+check("collection_request_is_biological_not_transport", validate_collection_request_language)
+
+
+def validate_docs_and_breaking_policy():
+    aggregate = read_text("Pocket-Genes-Wiki.md")
+    root_wiki = (ROOT.parent / "Pocket-Genes-Services-Wiki.md").read_text()
+    service_model = read_text("docs/service-model.md")
+    for text_name, text in [("package wiki", aggregate), ("root wiki", root_wiki), ("service model", service_model)]:
+        require("no compatibility" in text.lower() or "no legacy" in text.lower(), f"{text_name} does not state the strict breaking policy")
+        require(
+            any(phrase in text.lower() for phrase in ("domain-only", "domain content", "domain payload")),
+            f"{text_name} does not explain the content boundary",
+        )
+        for type_id in TYPE_IDS:
+            require(type_id in text, f"{text_name} omits {type_id}")
+    require(aggregate == root_wiki, "The two generated aggregate wikis differ")
+    for type_id in TYPE_IDS:
+        page = read_text(f"objects/{type_id}.md")
+        for key in CONTRACTS[type_id][0] | CONTRACTS[type_id][1]:
+            require(f"`{key}`" in page, f"Object page {type_id} omits {key}")
+
+
+check("wiki_service_model_and_20_pages", validate_docs_and_breaking_policy)
+
+
+def validate_all_json_and_mirrors():
+    for path in sorted(ROOT.rglob("*.json")):
+        json.loads(path.read_text())
+    ios_root = ROOT.parent / "mydnamap-ios/mydnamap/Resources"
+    require(json.loads((ios_root / "PocketGenesServicesCatalog.json").read_text()) == SERVICE_CATALOG, "Bundled iOS service catalog differs")
+    require(json.loads((ios_root / "PocketGenesProvidersCatalog.json").read_text()) == PROVIDER_CATALOG, "Bundled iOS provider catalog differs")
+    for type_id in TYPE_IDS:
+        require(json.loads((ios_root / f"FileWizardSchemas/{type_id}.schema.json").read_text()) == SCHEMAS[type_id], f"Bundled wizard schema differs for {type_id}")
+
+
+check("all_json_and_native_resource_mirrors", validate_all_json_and_mirrors)
+
+
+def validate_no_forbidden_content_definitions():
+    for type_id, schema in SCHEMAS.items():
+        serialized = json.dumps(schema)
+        for key in FORBIDDEN_CONTENT_KEYS:
+            require(f'"{key}"' not in serialized, f"Forbidden content key {key} remains in {type_id}")
+
+
+check("no_envelope_or_discarded_keys_in_content_schemas", validate_no_forbidden_content_definitions)
+
+
+passed = sum(item["status"] == "passed" for item in CHECKS)
+failed = len(CHECKS) - passed
+report = {
+    "status": "passed" if failed == 0 else "failed",
+    "summary": {"total": len(CHECKS), "passed": passed, "failed": failed},
+    "checks": CHECKS,
+}
+(ROOT / "validation-report.json").write_text(json.dumps(report, indent=2) + "\n")
+
+print(f"{passed}/{len(CHECKS)} strict PGO package checks passed")
+if failed:
+    for item in CHECKS:
+        if item["status"] == "failed":
+            print(f"FAIL {item['check']}: {item['detail']}")
+    sys.exit(1)

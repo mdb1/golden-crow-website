@@ -66,36 +66,85 @@
         "key": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^[a-z][a-z0-9_]*$"
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "description": "Stable lower snake-case field key.",
+          "maxLength": 64
         },
         "label": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Human-readable label.",
+          "maxLength": 120
         },
         "type": {
           "type": "string",
           "enum": [
             "text",
+            "long_text",
+            "email",
+            "phone",
+            "url",
+            "address",
+            "postal_code",
+            "country_code",
+            "identifier",
             "number",
             "integer",
+            "positive_integer",
+            "percentage",
             "boolean",
             "date",
             "datetime",
+            "time",
             "enum",
             "multi_enum",
-            "string_list"
-          ]
+            "string_list",
+            "integer_list",
+            "number_list"
+          ],
+          "description": "Field value and validation type."
         },
         "required": {
           "type": "boolean"
         },
         "options": {
           "type": "array",
-          "items": {
-            "$ref": "#/$defs/field_option"
-          },
           "minItems": 1,
-          "uniqueItems": true
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "description": "One enum choice.",
+            "properties": {
+             "value": {
+               "type": "string",
+               "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "maxLength": 128,
+               "description": "Stable stored option value."
+             },
+             "label": {
+               "type": "string",
+               "minLength": 1,
+               "pattern": "\\S",
+                "maxLength": 120,
+               "description": "Human-readable option label frozen with the form."
+             }
+            },
+            "required": [
+              "value",
+              "label"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "helpInfoText": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Optional requester-facing guidance.",
+          "maxLength": 500
         }
       },
       "required": [
@@ -137,11 +186,13 @@
     },
     "form_shape": {
       "type": "object",
+      "description": "Published service-offer form configuration.",
       "properties": {
         "id": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^pgfs_[A-Za-z0-9_]+$"
+          "pattern": "^pgfs_[A-Za-z0-9_]+$",
+          "description": "Generated pgfs_ form-shape identifier."
         },
         "version": {
           "type": "integer",
@@ -150,71 +201,152 @@
         "fields": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/field_definition"
-          },
-          "minItems": 2,
-          "allOf": [
-            {
-              "contains": {
-                "properties": {
-                  "key": {
-                    "const": "requested_at"
-                  },
-                  "type": {
-                    "const": "datetime"
-                  },
-                  "required": {
-                    "const": true
-                  }
-                },
-                "required": [
-                  "key",
-                  "type",
-                  "required"
-                ]
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9_]{0,63}$",
+                "description": "Stable lower snake-case field key.",
+                "maxLength": 64
               },
-              "minContains": 1,
-              "maxContains": 1
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S",
+                "description": "Human-readable label.",
+                "maxLength": 120
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "text",
+                  "long_text",
+                  "email",
+                  "phone",
+                  "url",
+                  "address",
+                  "postal_code",
+                  "country_code",
+                  "identifier",
+                  "number",
+                  "integer",
+                  "positive_integer",
+                  "percentage",
+                  "boolean",
+                  "date",
+                  "datetime",
+                  "time",
+                  "enum",
+                  "multi_enum",
+                  "string_list",
+                  "integer_list",
+                  "number_list"
+                ],
+                "description": "Field value and validation type."
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "options": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 100,
+                "uniqueItems": true,
+                "items": {
+                  "type": "object",
+                  "description": "One enum choice.",
+                  "properties": {
+                   "value": {
+                     "type": "string",
+                     "minLength": 1,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                      "maxLength": 128,
+                     "description": "Stable stored option value."
+                   },
+                   "label": {
+                     "type": "string",
+                     "minLength": 1,
+                     "pattern": "\\S",
+                      "maxLength": 120,
+                     "description": "Human-readable option label frozen with the form."
+                   }
+                  },
+                  "required": [
+                    "value",
+                    "label"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "helpInfoText": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S",
+                "description": "Optional requester-facing guidance.",
+                "maxLength": 500
+              }
             },
-            {
-              "contains": {
-                "properties": {
-                  "key": {
-                    "const": "requested_by"
+            "required": [
+              "key",
+              "label",
+              "type",
+              "required"
+            ],
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "enum": [
+                        "enum",
+                        "multi_enum"
+                      ]
+                    }
                   },
-                  "type": {
-                    "const": "text"
-                  },
-                  "required": {
-                    "const": true
-                  }
+                  "required": [
+                    "type"
+                  ]
                 },
-                "required": [
-                  "key",
-                  "type",
-                  "required"
-                ]
-              },
-              "minContains": 1,
-              "maxContains": 1
-            }
-          ]
+                "then": {
+                  "required": [
+                    "options"
+                  ]
+                },
+                "else": {
+                  "not": {
+                    "required": [
+                      "options"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "allowUnknownFields": {
+          "type": "boolean",
+          "const": false
         }
       },
       "required": [
         "id",
         "version",
-        "fields"
+        "fields",
+        "allowUnknownFields"
       ],
       "additionalProperties": false
     },
     "form_field": {
       "type": "object",
+      "description": "One submitted answer.",
       "properties": {
         "key": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^[a-z][a-z0-9_]*$"
+          "pattern": "\\S",
+          "description": "Key of a field declared by form_shape.fields."
         },
         "value": {
           "oneOf": [
@@ -230,11 +362,18 @@
             {
               "type": "array",
               "items": {
-                "type": "string"
-              },
-              "minItems": 0
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              }
             }
-          ]
+          ],
+          "description": "Typed answer validated against the matching frozen field definition."
         }
       },
       "required": [
@@ -244,92 +383,111 @@
       "additionalProperties": false
     },
     "form_data": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://schemas.pocketgenes.example/objects/pgo_form/1.0.0/schema.json",
+      "title": "pgo_form content",
       "type": "object",
-      "description": "Form: data payload in the shared Pocket Genes object envelope.",
+      "description": "Minimal domain content for pgo_form.",
       "properties": {
-        "form_shape_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Identifier of the form_shape published by the requested service."
-        },
-        "form_shape_version": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Exact integer version of the form_shape used to fill and validate this form."
-        },
         "form_shape": {
           "type": "object",
-          "description": "Immutable copy of the exact published form shape used for this submission. It makes the form independently reconstructable after the offer changes.",
+          "description": "Frozen form shape.",
           "properties": {
-            "id": {
-              "type": "string",
-              "minLength": 1
-            },
-            "version": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "allow_unknown_fields": {
-              "const": false
-            },
             "fields": {
               "type": "array",
-              "minItems": 2,
               "items": {
                 "type": "object",
                 "properties": {
                   "key": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9_]{0,63}$",
+                    "description": "Stable field key.",
+                    "maxLength": 64
                   },
                   "label": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "description": "Human-readable field label.",
+                    "maxLength": 120
                   },
                   "type": {
+                    "type": "string",
                     "enum": [
                       "text",
+                      "long_text",
+                      "email",
+                      "phone",
+                      "url",
+                      "address",
+                      "postal_code",
+                      "country_code",
+                      "identifier",
                       "number",
                       "integer",
+                      "positive_integer",
+                      "percentage",
                       "boolean",
                       "date",
                       "datetime",
+                      "time",
                       "enum",
                       "multi_enum",
-                      "string_list"
-                    ]
+                      "string_list",
+                      "integer_list",
+                      "number_list"
+                    ],
+                    "description": "Field value and validation type."
                   },
                   "required": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "Whether an answer must be present."
                   },
                   "options": {
                     "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
                     "items": {
                       "type": "object",
+                      "description": "One enum choice.",
                       "properties": {
-                        "value": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "label": {
-                          "type": "string",
-                          "minLength": 1
-                        }
+                       "value": {
+                         "type": "string",
+                         "minLength": 1,
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                          "maxLength": 128,
+                         "description": "Stable stored option value."
+                       },
+                       "label": {
+                         "type": "string",
+                         "minLength": 1,
+                         "pattern": "\\S",
+                          "maxLength": 120,
+                         "description": "Human-readable option label frozen with the form."
+                       }
                       },
                       "required": [
                         "value",
                         "label"
                       ],
                       "additionalProperties": false
-                    }
+                    },
+                    "description": "Allowed choices. Present only for enum and multi_enum."
+                  },
+                  "help_info_text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "description": "Optional guidance displayed by the native form.",
+                    "maxLength": 500
                   }
                 },
                 "required": [
                   "key",
                   "label",
                   "type",
-                  "required",
-                  "options"
+                  "required"
                 ],
                 "additionalProperties": false,
                 "allOf": [
@@ -348,76 +506,24 @@
                       ]
                     },
                     "then": {
-                      "properties": {
-                        "options": {
-                          "minItems": 1
-                        }
-                      }
+                      "required": [
+                        "options"
+                      ]
                     },
                     "else": {
-                      "properties": {
-                        "options": {
-                          "maxItems": 0
-                        }
+                      "not": {
+                        "required": [
+                          "options"
+                        ]
                       }
                     }
                   }
                 ]
               },
-              "allOf": [
-                {
-                  "contains": {
-                    "type": "object",
-                    "properties": {
-                      "key": {
-                        "const": "requested_at"
-                      },
-                      "type": {
-                        "const": "datetime"
-                      },
-                      "required": {
-                        "const": true
-                      }
-                    },
-                    "required": [
-                      "key",
-                      "type",
-                      "required"
-                    ]
-                  },
-                  "minContains": 1,
-                  "maxContains": 1
-                },
-                {
-                  "contains": {
-                    "type": "object",
-                    "properties": {
-                      "key": {
-                        "const": "requested_by"
-                      },
-                      "type": {
-                        "const": "text"
-                      },
-                      "required": {
-                        "const": true
-                      }
-                    },
-                    "required": [
-                      "key",
-                      "type",
-                      "required"
-                    ]
-                  },
-                  "minContains": 1,
-                  "maxContains": 1
-                }
-              ]
+              "description": "Ordered frozen field definitions used to render and validate this submission."
             }
           },
           "required": [
-            "id",
-            "version",
-            "allow_unknown_fields",
             "fields"
           ],
           "additionalProperties": false
@@ -426,24 +532,40 @@
           "type": "array",
           "items": {
             "type": "object",
-            "description": "One filled field.",
+            "description": "One submitted answer.",
             "properties": {
               "key": {
                 "type": "string",
                 "minLength": 1,
-                "description": "Field key declared in the service form_shape."
+                "pattern": "\\S",
+                "description": "Key of a field declared by form_shape.fields."
               },
               "value": {
-                "type": [
-                  "string",
-                  "number",
-                  "boolean",
-                  "array"
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        }
+                      ]
+                    }
+                  }
                 ],
-                "items": {
-                  "type": "string"
-                },
-                "description": "Filled value. Actual type, requiredness, and enum options are enforced by the referenced form_shape."
+                "description": "Typed answer validated against the matching frozen field definition."
               }
             },
             "required": [
@@ -452,105 +574,33 @@
             ],
             "additionalProperties": false
           },
-          "minItems": 2,
-          "description": "Filled request fields, including requested_at and requested_by."
+          "description": "Submitted answers."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional additional information the person wants to communicate. It may be empty."
         }
       },
       "required": [
-        "form_shape_id",
-        "form_shape_version",
         "form_shape",
         "fields"
-      ],
-      "additionalProperties": false,
-      "allOf": [
-        {
-          "properties": {
-            "fields": {
-              "contains": {
-                "type": "object",
-                "properties": {
-                  "key": {
-                    "const": "requested_at"
-                  }
-                },
-                "required": [
-                  "key"
-                ]
-              },
-              "minContains": 1,
-              "maxContains": 1
-            }
-          }
-        },
-        {
-          "properties": {
-            "fields": {
-              "contains": {
-                "type": "object",
-                "properties": {
-                  "key": {
-                    "const": "requested_by"
-                  }
-                },
-                "required": [
-                  "key"
-                ]
-              },
-              "minContains": 1,
-              "maxContains": 1
-            }
-          }
-        }
-      ]
-    },
-    "file_descriptor": {
-      "type": "object",
-      "properties": {
-        "role": {
-          "type": "string",
-          "minLength": 1
-        },
-        "path": {
-          "type": "string",
-          "minLength": 1
-        },
-        "media_type": {
-          "type": "string",
-          "minLength": 1
-        },
-        "sha256": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^[0-9a-f]{64}$"
-        },
-        "size_bytes": {
-          "type": "integer",
-          "minimum": 0
-        }
-      },
-      "required": [
-        "role",
-        "path",
-        "media_type",
-        "sha256",
-        "size_bytes"
       ],
       "additionalProperties": false
     },
     "form_object": {
       "type": "object",
+      "description": "Platform fixture surrounding strict pgo_form content.",
       "properties": {
         "object_id": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^obj_[A-Za-z0-9_]+$"
+          "pattern": "^obj_[A-Za-z0-9_]+$",
+          "description": "Platform-managed object identity."
         },
         "object_type": {
           "const": "pgo_form"
         },
         "schema_version": {
-          "type": "string",
           "const": "1.0.0"
         },
         "revision": {
@@ -559,29 +609,16 @@
         },
         "created_at": {
           "type": "string",
-          "minLength": 1,
           "format": "date-time"
         },
         "created_by": {
           "type": "string",
-          "minLength": 1
-        },
-        "input_refs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/object_reference"
-          },
-          "minItems": 0
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Platform-managed creator identity."
         },
         "data": {
           "$ref": "#/$defs/form_data"
-        },
-        "files": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/file_descriptor"
-          },
-          "minItems": 0
         }
       },
       "required": [
@@ -591,9 +628,7 @@
         "revision",
         "created_at",
         "created_by",
-        "input_refs",
-        "data",
-        "files"
+        "data"
       ],
       "additionalProperties": false
     },

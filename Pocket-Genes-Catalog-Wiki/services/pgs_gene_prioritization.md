@@ -1,175 +1,85 @@
-# Prioritize candidate genes — `pgs_gene_prioritization`
+# S02. Prioritize candidate genes — `pgs_gene_prioritization`
 
 Use a symptom bundle to return a ranked or selected bundle of candidate genes for subsequent test planning.
 
-**Provider:** `pgp_clinical_planning`. **Service version:** `1`. **Stage:** Test Planning.
+**Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
+**Provider kind:** organization  
+**Service version:** 1  
+**Stages:** test_planning
 
-**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+## Provider work
 
-**Provider work:** Apply the provider method and professional review where included; return genes, evidence and ranking rationale.
+Apply the provider method and professional review where included; return genes, evidence and ranking rationale.
 
-**Input slots**
+## Contract slots
 
-| Role | Accepted object type | Required | Cardinality |
+| Direction | Role | PGO type | Rule |
 | --- | --- | --- | --- |
-| form | pgo_form | True | 1–1 |
-| bundle_of_symptoms | pgo_bundle_of_symptoms | True | 1–1 |
+| Input | `form` | `pgo_form` | Required 1:1 |
+| Input | `bundle_of_symptoms` | `pgo_bundle_of_symptoms` | Required 1:1 |
+| Output | `candidate_genes` | `pgo_bundle_of_candidate_genes` | new_object |
 
-**Outputs**
+The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
 
-| Role | Type / binding | Identity behavior |
-| --- | --- | --- |
-| candidate_genes | pgo_bundle_of_candidate_genes | new_object |
+## Request form
 
-**Form shape**
-
-`pgfs_gene_prioritization` version `1`. This shape is valid because the offer declares a `pgo_form` input slot; unknown fields are rejected.
-
-| Field | Type | Required | Enum options |
+| Key | Type | Required | Label |
 | --- | --- | --- | --- |
-| requested_at | datetime | True | — |
-| requested_by | text | True | — |
-| ranking_mode | enum | True | ranked, selected |
-| maximum_genes | integer | True | — |
+| `ranking_mode` | `enum` | Yes | Result organization |
+| `maximum_genes` | `positive_integer` | Yes | Maximum genes |
 
-**Filled form input object**
+The completed form freezes only the definitions and answers. Requester identity and request time are transaction fields.
 
 ```json
 {
-  "object_id": "obj_demo_form_gene_prioritization",
-  "object_type": "pgo_form",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:06:00Z",
-  "created_by": "user_demo_001",
-  "input_refs": [],
-  "data": {
-    "form_shape_id": "pgfs_gene_prioritization",
-    "form_shape_version": 1,
+  "form_shape": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-16T12:06:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
         "key": "ranking_mode",
-        "value": "ranked"
+        "label": "Result organization",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "ranked",
+            "label": "Ranked list"
+          },
+          {
+            "value": "selected",
+            "label": "Selected set"
+          }
+        ]
       },
       {
         "key": "maximum_genes",
-        "value": 3
+        "label": "Maximum genes",
+        "type": "positive_integer",
+        "required": true
       }
-    ],
-    "form_shape": {
-      "id": "pgfs_gene_prioritization",
-      "version": 1,
-      "allow_unknown_fields": false,
-      "fields": [
-        {
-          "key": "requested_at",
-          "label": "Requested at",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "requested_by",
-          "label": "Requested by",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "ranking_mode",
-          "label": "Ranking mode",
-          "type": "enum",
-          "required": true,
-          "options": [
-            {
-              "value": "ranked",
-              "label": "Ranked list"
-            },
-            {
-              "value": "selected",
-              "label": "Selected set"
-            }
-          ]
-        },
-        {
-          "key": "maximum_genes",
-          "label": "Maximum genes",
-          "type": "integer",
-          "required": true,
-          "options": []
-        }
-      ]
-    }
+    ]
   },
-  "files": []
-}
-```
-
-**Request**
-
-```json
-{
-  "request_id": "pgr_demo_gene_prioritization",
-  "service_id": "pgs_gene_prioritization",
-  "service_version": 1,
-  "inputs": [
+  "fields": [
     {
-      "role": "form",
-      "object_ref": {
-        "object_id": "obj_demo_form_gene_prioritization",
-        "revision": 1
-      }
+      "key": "ranking_mode",
+      "value": "ranked"
     },
     {
-      "role": "bundle_of_symptoms",
-      "object_ref": {
-        "object_id": "obj_demo_symptoms",
-        "revision": 1
-      }
+      "key": "maximum_genes",
+      "value": 3
     }
   ]
 }
 ```
 
-**Completed result**
-
-```json
-{
-  "request_id": "pgr_demo_gene_prioritization",
-  "status": "delivered",
-  "outputs": [
-    {
-      "role": "candidate_genes",
-      "object_ref": {
-        "object_id": "obj_demo_genes",
-        "revision": 1
-      }
-    }
-  ]
-}
-```
-
-**Acceptance and fulfillment rules**
+## Acceptance conditions
 
 - The provider accepts the symptom bundle schema and any declared terminology profile.
 - The symptom bundle represents one identified subject.
+
+## Scope rules
+
 - Candidate status and supporting reasons must be preserved. Ranking does not establish that these genes are affected.
 
-**Illustrative commercial terms**
+## Transaction rule
 
-```json
-{
-  "price": {
-    "summary": "Calculated after submission"
-  },
-  "turnaround": "1d"
-}
-```
+A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.

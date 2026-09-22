@@ -5,50 +5,12 @@
   "revision": 1,
   "created_at": "2026-09-16T12:06:00Z",
   "created_by": "user_demo_001",
-  "input_refs": [],
   "data": {
-    "form_shape_id": "pgfs_gene_prioritization",
-    "form_shape_version": 1,
-    "fields": [
-      {
-        "key": "requested_at",
-        "value": "2026-09-16T12:06:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
-        "key": "ranking_mode",
-        "value": "ranked"
-      },
-      {
-        "key": "maximum_genes",
-        "value": 3
-      }
-    ],
     "form_shape": {
-      "id": "pgfs_gene_prioritization",
-      "version": 1,
-      "allow_unknown_fields": false,
       "fields": [
         {
-          "key": "requested_at",
-          "label": "Requested at",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "requested_by",
-          "label": "Requested by",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
           "key": "ranking_mode",
-          "label": "Ranking mode",
+          "label": "Result organization",
           "type": "enum",
           "required": true,
           "options": [
@@ -65,12 +27,20 @@
         {
           "key": "maximum_genes",
           "label": "Maximum genes",
-          "type": "integer",
-          "required": true,
-          "options": []
+          "type": "positive_integer",
+          "required": true
         }
       ]
-    }
-  },
-  "files": []
+    },
+    "fields": [
+      {
+        "key": "ranking_mode",
+        "value": "ranked"
+      },
+      {
+        "key": "maximum_genes",
+        "value": 3
+      }
+    ]
+  }
 }

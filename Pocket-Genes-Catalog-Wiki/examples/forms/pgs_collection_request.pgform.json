@@ -5,106 +5,104 @@
   "revision": 1,
   "created_at": "2026-09-16T12:25:00Z",
   "created_by": "user_demo_001",
-  "input_refs": [],
   "data": {
-    "form_shape_id": "pgfs_collection_request",
-    "form_shape_version": 1,
-    "fields": [
-      {
-        "key": "requested_at",
-        "value": "2026-09-16T12:25:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
-        "key": "subject_id",
-        "value": "subject_demo_001"
-      },
-      {
-        "key": "collection_site",
-        "value": "Demo clinical collection room, 100 Example Avenue, Demo City, AR"
-      },
-      {
-        "key": "requested_sample_type",
-        "value": "blood"
-      },
-      {
-        "key": "collection_method",
-        "value": "phlebotomy"
-      },
-      {
-        "key": "collection_window_start",
-        "value": "2026-09-16T13:00:00Z"
-      },
-      {
-        "key": "collection_window_end",
-        "value": "2026-09-16T15:00:00Z"
-      },
-      {
-        "key": "preparation_profile",
-        "value": "EDTA tube, subject identity check, consent confirmed before draw"
-      }
-    ],
     "form_shape": {
-      "id": "pgfs_collection_request",
-      "version": 1,
-      "allow_unknown_fields": false,
       "fields": [
         {
-          "key": "requested_at",
-          "label": "Requested at",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "requested_by",
-          "label": "Requested by",
+          "key": "patient",
+          "label": "Patient or source",
           "type": "text",
-          "required": true,
-          "options": []
+          "required": true
         },
         {
-          "key": "subject_id",
-          "label": "Subject identifier",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "collection_site",
-          "label": "Biological sample collection site",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "requested_sample_type",
-          "label": "Sample type to collect",
+          "key": "sample_type",
+          "label": "Biological material to collect",
           "type": "enum",
           "required": true,
           "options": [
             {
               "value": "blood",
-              "label": "Blood draw"
+              "label": "Blood"
+            },
+            {
+              "value": "dried_blood_spot",
+              "label": "Dried blood spot"
+            },
+            {
+              "value": "saliva",
+              "label": "Saliva"
             },
             {
               "value": "buccal_swab",
               "label": "Buccal swab"
             },
             {
-              "value": "saliva",
-              "label": "Saliva sample"
-            },
-            {
               "value": "tissue",
-              "label": "Tissue biopsy"
+              "label": "Tissue"
             },
             {
-              "value": "embryo_material",
-              "label": "Embryo material collection"
+              "value": "skin_biopsy",
+              "label": "Skin biopsy"
+            },
+            {
+              "value": "bone_marrow_aspirate",
+              "label": "Bone marrow aspirate"
+            },
+            {
+              "value": "bone_marrow_core",
+              "label": "Bone marrow core biopsy"
+            },
+            {
+              "value": "amniotic_fluid",
+              "label": "Amniotic fluid"
+            },
+            {
+              "value": "chorionic_villi",
+              "label": "Chorionic villi"
+            },
+            {
+              "value": "cord_blood",
+              "label": "Cord blood"
+            },
+            {
+              "value": "cerebrospinal_fluid",
+              "label": "Cerebrospinal fluid"
+            },
+            {
+              "value": "urine",
+              "label": "Urine"
+            },
+            {
+              "value": "stool",
+              "label": "Stool"
+            },
+            {
+              "value": "hair_follicles",
+              "label": "Hair follicles"
+            },
+            {
+              "value": "nail_clippings",
+              "label": "Nail clippings"
+            },
+            {
+              "value": "semen",
+              "label": "Semen"
+            },
+            {
+              "value": "embryo_biopsy",
+              "label": "Embryo biopsy"
+            },
+            {
+              "value": "whole_embryo",
+              "label": "Whole embryo"
+            },
+            {
+              "value": "polar_body",
+              "label": "Polar body"
+            },
+            {
+              "value": "other",
+              "label": "Other"
             }
           ]
         },
@@ -112,53 +110,175 @@
           "key": "collection_method",
           "label": "Collection method",
           "type": "enum",
-          "required": true,
+          "required": false,
           "options": [
             {
-              "value": "phlebotomy",
-              "label": "Phlebotomy / venous blood draw"
+              "value": "venous_blood_draw",
+              "label": "Venous blood draw"
+            },
+            {
+              "value": "capillary_blood_collection",
+              "label": "Capillary blood collection"
             },
             {
               "value": "buccal_swab",
-              "label": "Buccal swab performed on the subject"
+              "label": "Buccal swab"
             },
             {
-              "value": "saliva_kit",
-              "label": "Saliva kit completed by the subject"
+              "value": "saliva_collection",
+              "label": "Saliva collection"
             },
             {
-              "value": "tissue_biopsy",
-              "label": "Tissue biopsy performed by a qualified provider"
+              "value": "needle_aspiration",
+              "label": "Needle aspiration"
+            },
+            {
+              "value": "core_biopsy",
+              "label": "Core biopsy"
+            },
+            {
+              "value": "surgical_biopsy",
+              "label": "Surgical biopsy"
+            },
+            {
+              "value": "skin_punch_biopsy",
+              "label": "Skin punch biopsy"
+            },
+            {
+              "value": "amniocentesis",
+              "label": "Amniocentesis"
+            },
+            {
+              "value": "chorionic_villus_sampling",
+              "label": "Chorionic villus sampling"
+            },
+            {
+              "value": "lumbar_puncture",
+              "label": "Lumbar puncture"
             },
             {
               "value": "embryo_biopsy",
-              "label": "Embryo biopsy material collection"
+              "label": "Embryo biopsy"
+            },
+            {
+              "value": "polar_body_biopsy",
+              "label": "Polar body biopsy"
+            },
+            {
+              "value": "self_collection",
+              "label": "Self-collection"
+            },
+            {
+              "value": "other",
+              "label": "Other"
             }
           ]
         },
         {
-          "key": "collection_window_start",
-          "label": "Sample collection window start",
-          "type": "datetime",
-          "required": true,
-          "options": []
+          "key": "container",
+          "label": "Container or kit",
+          "type": "enum",
+          "required": false,
+          "options": [
+            {
+              "value": "edta_tube",
+              "label": "EDTA tube"
+            },
+            {
+              "value": "heparin_tube",
+              "label": "Heparin tube"
+            },
+            {
+              "value": "citrate_tube",
+              "label": "Citrate tube"
+            },
+            {
+              "value": "serum_tube",
+              "label": "Serum tube"
+            },
+            {
+              "value": "dna_stabilization_tube",
+              "label": "DNA stabilization tube"
+            },
+            {
+              "value": "rna_stabilization_tube",
+              "label": "RNA stabilization tube"
+            },
+            {
+              "value": "sterile_container",
+              "label": "Sterile container"
+            },
+            {
+              "value": "swab_collection_kit",
+              "label": "Swab collection kit"
+            },
+            {
+              "value": "saliva_collection_kit",
+              "label": "Saliva collection kit"
+            },
+            {
+              "value": "cryovial",
+              "label": "Cryovial"
+            },
+            {
+              "value": "filter_paper_card",
+              "label": "Filter paper card"
+            },
+            {
+              "value": "formalin_container",
+              "label": "Formalin container"
+            },
+            {
+              "value": "other",
+              "label": "Other"
+            }
+          ]
         },
         {
-          "key": "collection_window_end",
-          "label": "Sample collection window end",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "preparation_profile",
-          "label": "Collection preparation profile",
+          "key": "requested_quantity",
+          "label": "Requested quantity",
           "type": "text",
-          "required": true,
-          "options": []
+          "required": false
+        },
+        {
+          "key": "collection_site",
+          "label": "Collection site",
+          "type": "address",
+          "required": false
+        },
+        {
+          "key": "scheduled_at",
+          "label": "Scheduled collection time",
+          "type": "datetime",
+          "required": false
         }
       ]
-    }
-  },
-  "files": []
+    },
+    "fields": [
+      {
+        "key": "patient",
+        "value": "Patient AB-123"
+      },
+      {
+        "key": "sample_type",
+        "value": "blood"
+      },
+      {
+        "key": "collection_method",
+        "value": "venous_blood_draw"
+      },
+      {
+        "key": "container",
+        "value": "edta_tube"
+      },
+      {
+        "key": "requested_quantity",
+        "value": "2 mL"
+      },
+      {
+        "key": "collection_site",
+        "value": "Demo clinical collection room"
+      }
+    ]
+  }
 }

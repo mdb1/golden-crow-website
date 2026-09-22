@@ -16,120 +16,194 @@
     "version": 1,
     "fields": [
       {
-        "key": "requested_at",
-        "label": "Requested at",
-        "type": "datetime",
-        "required": true
-      },
-      {
-        "key": "requested_by",
-        "label": "Requested by",
+        "key": "patient",
+        "label": "Patient or source",
         "type": "text",
         "required": true
       },
       {
-        "key": "subject_id",
-        "label": "Subject identifier",
+        "key": "test_name",
+        "label": "Requested test name",
         "type": "text",
         "required": true
       },
       {
-        "key": "patient_name",
-        "label": "Patient name",
-        "type": "text",
-        "required": true
-      },
-      {
-        "key": "objective",
-        "label": "Intended objective",
-        "type": "text",
-        "required": true
-      },
-      {
-        "key": "clinical_suspicion",
-        "label": "Clinical suspicion",
-        "type": "text",
-        "required": true
-      },
-      {
-        "key": "reference_id",
-        "label": "Reference identifier",
-        "type": "text",
-        "required": true
-      },
-      {
-        "key": "variant_classes",
-        "label": "Requested variant classes",
-        "type": "multi_enum",
-        "required": true,
-        "options": [
-          {
-            "value": "SNV",
-            "label": "Single-nucleotide variants"
-          },
-          {
-            "value": "small_indel",
-            "label": "Small insertions/deletions"
-          }
-        ]
-      },
-      {
-        "key": "required_output_types",
-        "label": "Required deliverables",
-        "type": "multi_enum",
-        "required": true,
-        "options": [
-          {
-            "value": "pgo_interactive_report",
-            "label": "Interactive report"
-          },
-          {
-            "value": "pgo_pdf_report",
-            "label": "PDF report"
-          }
-        ]
-      },
-      {
-        "key": "patient_date_of_birth",
-        "label": "Patient date of birth",
-        "type": "date",
-        "required": true
-      },
-      {
-        "key": "patient_identifier",
-        "label": "Patient identifier",
-        "type": "text",
-        "required": true
-      },
-      {
-        "key": "wet_lab_output_type",
-        "label": "Laboratory handoff format",
+        "key": "sample_type",
+        "label": "Requested specimen",
         "type": "enum",
         "required": true,
         "options": [
           {
-            "value": "pgo_sequence_reads",
-            "label": "FASTQ reads"
+            "value": "blood",
+            "label": "Blood"
           },
           {
-            "value": "pgo_aligned_reads",
-            "label": "Aligned reads (BAM)"
+            "value": "dried_blood_spot",
+            "label": "Dried blood spot"
           },
           {
-            "value": "pgo_unannotated_vcf",
-            "label": "Unannotated variants (VCF)"
+            "value": "saliva",
+            "label": "Saliva"
           },
           {
-            "value": "pgo_annotated_vcf",
-            "label": "Annotated variants (VCF)"
+            "value": "buccal_swab",
+            "label": "Buccal swab"
+          },
+          {
+            "value": "tissue",
+            "label": "Tissue"
+          },
+          {
+            "value": "skin_biopsy",
+            "label": "Skin biopsy"
+          },
+          {
+            "value": "bone_marrow_aspirate",
+            "label": "Bone marrow aspirate"
+          },
+          {
+            "value": "bone_marrow_core",
+            "label": "Bone marrow core biopsy"
+          },
+          {
+            "value": "amniotic_fluid",
+            "label": "Amniotic fluid"
+          },
+          {
+            "value": "chorionic_villi",
+            "label": "Chorionic villi"
+          },
+          {
+            "value": "cord_blood",
+            "label": "Cord blood"
+          },
+          {
+            "value": "cerebrospinal_fluid",
+            "label": "Cerebrospinal fluid"
+          },
+          {
+            "value": "urine",
+            "label": "Urine"
+          },
+          {
+            "value": "stool",
+            "label": "Stool"
+          },
+          {
+            "value": "hair_follicles",
+            "label": "Hair follicles"
+          },
+          {
+            "value": "nail_clippings",
+            "label": "Nail clippings"
+          },
+          {
+            "value": "semen",
+            "label": "Semen"
+          },
+          {
+            "value": "embryo_biopsy",
+            "label": "Embryo biopsy"
+          },
+          {
+            "value": "whole_embryo",
+            "label": "Whole embryo"
+          },
+          {
+            "value": "polar_body",
+            "label": "Polar body"
+          },
+          {
+            "value": "plasma",
+            "label": "Plasma"
+          },
+          {
+            "value": "serum",
+            "label": "Serum"
+          },
+          {
+            "value": "extracted_dna",
+            "label": "Extracted DNA"
+          },
+          {
+            "value": "extracted_rna",
+            "label": "Extracted RNA"
+          },
+          {
+            "value": "other",
+            "label": "Other"
           }
         ]
       },
       {
-        "key": "required_profile",
-        "label": "Required analytical profile",
-        "type": "text",
-        "required": true
+        "key": "test_type",
+        "label": "Broad test type",
+        "type": "enum",
+        "required": false,
+        "options": [
+          {
+            "value": "single_gene",
+            "label": "Single-gene test"
+          },
+          {
+            "value": "gene_panel",
+            "label": "Gene panel"
+          },
+          {
+            "value": "exome_sequencing",
+            "label": "Exome sequencing"
+          },
+          {
+            "value": "genome_sequencing",
+            "label": "Genome sequencing"
+          },
+          {
+            "value": "targeted_variant_testing",
+            "label": "Targeted variant testing"
+          },
+          {
+            "value": "repeat_expansion_testing",
+            "label": "Repeat expansion testing"
+          },
+          {
+            "value": "methylation_analysis",
+            "label": "Methylation analysis"
+          },
+          {
+            "value": "chromosomal_microarray",
+            "label": "Chromosomal microarray"
+          },
+          {
+            "value": "karyotype",
+            "label": "Karyotype"
+          },
+          {
+            "value": "fish",
+            "label": "FISH"
+          },
+          {
+            "value": "other",
+            "label": "Other"
+          }
+        ]
+      },
+      {
+        "key": "objective",
+        "label": "Objective",
+        "type": "long_text",
+        "required": false
+      },
+      {
+        "key": "clinical_suspicion",
+        "label": "Clinical suspicion",
+        "type": "long_text",
+        "required": false
+      },
+      {
+        "key": "genes",
+        "label": "Genes",
+        "type": "string_list",
+        "required": false
       }
     ],
     "allowUnknownFields": false
@@ -137,66 +211,33 @@
   "sampleFormData": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-16T12:11:00Z"
+        "key": "patient",
+        "value": "Patient AB-123"
       },
       {
-        "key": "requested_by",
-        "value": "user_demo_001"
+        "key": "test_name",
+        "value": "Hereditary cancer panel"
       },
       {
-        "key": "subject_id",
-        "value": "subject_demo_001"
+        "key": "sample_type",
+        "value": "blood"
       },
       {
-        "key": "patient_name",
-        "value": "Alex Example"
+        "key": "test_type",
+        "value": "gene_panel"
       },
       {
         "key": "objective",
-        "value": "Evaluate the synthetic three-gene demonstration"
+        "value": "Evaluate an inherited cancer predisposition."
       },
       {
-        "key": "clinical_suspicion",
-        "value": "Demo clinical hypothesis only"
-      },
-      {
-        "key": "reference_id",
-        "value": "PG_DEMO_REF_1"
-      },
-      {
-        "key": "variant_classes",
+        "key": "genes",
         "value": [
-          "SNV",
-          "small_indel"
+          "BRCA1",
+          "BRCA2"
         ]
-      },
-      {
-        "key": "required_output_types",
-        "value": [
-          "pgo_interactive_report",
-          "pgo_pdf_report"
-        ]
-      },
-      {
-        "key": "patient_date_of_birth",
-        "value": "1990-01-01"
-      },
-      {
-        "key": "patient_identifier",
-        "value": "PATIENT-DEMO-001"
-      },
-      {
-        "key": "wet_lab_output_type",
-        "value": "pgo_sequence_reads"
-      },
-      {
-        "key": "required_profile",
-        "value": "pg_demo_small_variant_v1"
       }
-    ],
-    "formShapeId": "pgfs_test_ordering",
-    "formShapeVersion": 1
+    ]
   },
   "sampleFormObject": {
     "object_id": "obj_demo_form_test_ordering",
@@ -205,205 +246,231 @@
     "revision": 1,
     "created_at": "2026-09-16T12:11:00Z",
     "created_by": "user_demo_001",
-    "input_refs": [],
     "data": {
-      "fields": [
-        {
-          "key": "requested_at",
-          "value": "2026-09-16T12:11:00Z"
-        },
-        {
-          "key": "requested_by",
-          "value": "user_demo_001"
-        },
-        {
-          "key": "subject_id",
-          "value": "subject_demo_001"
-        },
-        {
-          "key": "patient_name",
-          "value": "Alex Example"
-        },
-        {
-          "key": "objective",
-          "value": "Evaluate the synthetic three-gene demonstration"
-        },
-        {
-          "key": "clinical_suspicion",
-          "value": "Demo clinical hypothesis only"
-        },
-        {
-          "key": "reference_id",
-          "value": "PG_DEMO_REF_1"
-        },
-        {
-          "key": "variant_classes",
-          "value": [
-            "SNV",
-            "small_indel"
-          ]
-        },
-        {
-          "key": "required_output_types",
-          "value": [
-            "pgo_interactive_report",
-            "pgo_pdf_report"
-          ]
-        },
-        {
-          "key": "patient_date_of_birth",
-          "value": "1990-01-01"
-        },
-        {
-          "key": "patient_identifier",
-          "value": "PATIENT-DEMO-001"
-        },
-        {
-          "key": "wet_lab_output_type",
-          "value": "pgo_sequence_reads"
-        },
-        {
-          "key": "required_profile",
-          "value": "pg_demo_small_variant_v1"
-        }
-      ],
-      "form_shape_id": "pgfs_test_ordering",
-      "form_shape_version": 1,
       "form_shape": {
-        "id": "pgfs_test_ordering",
-        "version": 1,
-        "allow_unknown_fields": false,
         "fields": [
           {
-            "key": "requested_at",
-            "label": "Requested at",
-            "type": "datetime",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "requested_by",
-            "label": "Requested by",
+            "key": "patient",
+            "label": "Patient or source",
             "type": "text",
-            "required": true,
-            "options": []
+            "required": true
           },
           {
-            "key": "subject_id",
-            "label": "Subject identifier",
+            "key": "test_name",
+            "label": "Requested test name",
             "type": "text",
-            "required": true,
-            "options": []
+            "required": true
           },
           {
-            "key": "patient_name",
-            "label": "Patient name",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "objective",
-            "label": "Intended objective",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "clinical_suspicion",
-            "label": "Clinical suspicion",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "reference_id",
-            "label": "Reference identifier",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "variant_classes",
-            "label": "Requested variant classes",
-            "type": "multi_enum",
-            "required": true,
-            "options": [
-              {
-                "value": "SNV",
-                "label": "Single-nucleotide variants"
-              },
-              {
-                "value": "small_indel",
-                "label": "Small insertions/deletions"
-              }
-            ]
-          },
-          {
-            "key": "required_output_types",
-            "label": "Required deliverables",
-            "type": "multi_enum",
-            "required": true,
-            "options": [
-              {
-                "value": "pgo_interactive_report",
-                "label": "Interactive report"
-              },
-              {
-                "value": "pgo_pdf_report",
-                "label": "PDF report"
-              }
-            ]
-          },
-          {
-            "key": "patient_date_of_birth",
-            "label": "Patient date of birth",
-            "type": "date",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "patient_identifier",
-            "label": "Patient identifier",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "wet_lab_output_type",
-            "label": "Laboratory handoff format",
+            "key": "sample_type",
+            "label": "Requested specimen",
             "type": "enum",
             "required": true,
             "options": [
               {
-                "value": "pgo_sequence_reads",
-                "label": "FASTQ reads"
+                "value": "blood",
+                "label": "Blood"
               },
               {
-                "value": "pgo_aligned_reads",
-                "label": "Aligned reads (BAM)"
+                "value": "dried_blood_spot",
+                "label": "Dried blood spot"
               },
               {
-                "value": "pgo_unannotated_vcf",
-                "label": "Unannotated variants (VCF)"
+                "value": "saliva",
+                "label": "Saliva"
               },
               {
-                "value": "pgo_annotated_vcf",
-                "label": "Annotated variants (VCF)"
+                "value": "buccal_swab",
+                "label": "Buccal swab"
+              },
+              {
+                "value": "tissue",
+                "label": "Tissue"
+              },
+              {
+                "value": "skin_biopsy",
+                "label": "Skin biopsy"
+              },
+              {
+                "value": "bone_marrow_aspirate",
+                "label": "Bone marrow aspirate"
+              },
+              {
+                "value": "bone_marrow_core",
+                "label": "Bone marrow core biopsy"
+              },
+              {
+                "value": "amniotic_fluid",
+                "label": "Amniotic fluid"
+              },
+              {
+                "value": "chorionic_villi",
+                "label": "Chorionic villi"
+              },
+              {
+                "value": "cord_blood",
+                "label": "Cord blood"
+              },
+              {
+                "value": "cerebrospinal_fluid",
+                "label": "Cerebrospinal fluid"
+              },
+              {
+                "value": "urine",
+                "label": "Urine"
+              },
+              {
+                "value": "stool",
+                "label": "Stool"
+              },
+              {
+                "value": "hair_follicles",
+                "label": "Hair follicles"
+              },
+              {
+                "value": "nail_clippings",
+                "label": "Nail clippings"
+              },
+              {
+                "value": "semen",
+                "label": "Semen"
+              },
+              {
+                "value": "embryo_biopsy",
+                "label": "Embryo biopsy"
+              },
+              {
+                "value": "whole_embryo",
+                "label": "Whole embryo"
+              },
+              {
+                "value": "polar_body",
+                "label": "Polar body"
+              },
+              {
+                "value": "plasma",
+                "label": "Plasma"
+              },
+              {
+                "value": "serum",
+                "label": "Serum"
+              },
+              {
+                "value": "extracted_dna",
+                "label": "Extracted DNA"
+              },
+              {
+                "value": "extracted_rna",
+                "label": "Extracted RNA"
+              },
+              {
+                "value": "other",
+                "label": "Other"
               }
             ]
           },
           {
-            "key": "required_profile",
-            "label": "Required analytical profile",
-            "type": "text",
-            "required": true,
-            "options": []
+            "key": "test_type",
+            "label": "Broad test type",
+            "type": "enum",
+            "required": false,
+            "options": [
+              {
+                "value": "single_gene",
+                "label": "Single-gene test"
+              },
+              {
+                "value": "gene_panel",
+                "label": "Gene panel"
+              },
+              {
+                "value": "exome_sequencing",
+                "label": "Exome sequencing"
+              },
+              {
+                "value": "genome_sequencing",
+                "label": "Genome sequencing"
+              },
+              {
+                "value": "targeted_variant_testing",
+                "label": "Targeted variant testing"
+              },
+              {
+                "value": "repeat_expansion_testing",
+                "label": "Repeat expansion testing"
+              },
+              {
+                "value": "methylation_analysis",
+                "label": "Methylation analysis"
+              },
+              {
+                "value": "chromosomal_microarray",
+                "label": "Chromosomal microarray"
+              },
+              {
+                "value": "karyotype",
+                "label": "Karyotype"
+              },
+              {
+                "value": "fish",
+                "label": "FISH"
+              },
+              {
+                "value": "other",
+                "label": "Other"
+              }
+            ]
+          },
+          {
+            "key": "objective",
+            "label": "Objective",
+            "type": "long_text",
+            "required": false
+          },
+          {
+            "key": "clinical_suspicion",
+            "label": "Clinical suspicion",
+            "type": "long_text",
+            "required": false
+          },
+          {
+            "key": "genes",
+            "label": "Genes",
+            "type": "string_list",
+            "required": false
           }
         ]
-      }
-    },
-    "files": []
+      },
+      "fields": [
+        {
+          "key": "patient",
+          "value": "Patient AB-123"
+        },
+        {
+          "key": "test_name",
+          "value": "Hereditary cancer panel"
+        },
+        {
+          "key": "sample_type",
+          "value": "blood"
+        },
+        {
+          "key": "test_type",
+          "value": "gene_panel"
+        },
+        {
+          "key": "objective",
+          "value": "Evaluate an inherited cancer predisposition."
+        },
+        {
+          "key": "genes",
+          "value": [
+            "BRCA1",
+            "BRCA2"
+          ]
+        }
+      ]
+    }
   },
   "inputSlots": [
     {
@@ -456,10 +523,8 @@
     "The provider confirms the selected tests and scope within its offered test-ordering process."
   ],
   "scopeRules": [
-    "Create data.scope and data.fulfillment explicitly; retain patient identity, objective, clinical suspicion and consent reference.",
-    "The final report must be generatable from this complete order plus the interactive result and the report service form.",
-    "The candidate-gene bundle feeds test ordering directly; no suggested-tests intermediate object is required.",
-    "The ordering form supplies patient_name, patient_date_of_birth and patient_identifier for the patient record. wet_lab_output_type selects the laboratory handoff; required_output_types maps to fulfillment.final_output_types; required_profile sets the analytical profile."
+    "Create pgo_test_order content from the patient, test name and sample type actually supplied, plus only the optional context the requester provided.",
+    "Consent checks and provider suitability checks remain service responsibilities and are not fabricated inside the order content."
   ],
   "commercialTerms": {
     "price": {

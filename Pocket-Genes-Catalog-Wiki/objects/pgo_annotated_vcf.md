@@ -1,183 +1,52 @@
-# Annotated variants — `pgo_annotated_vcf`
+# 15. Annotated variants — `pgo_annotated_vcf`
 
-A native VCF with declared annotation fields and versioned annotation sources, ready for services accepting that annotation profile.
+A titled reference to a downloadable native annotated VCF.
 
-| Attribute | Value |
-| --- | --- |
-| Nature | virtual |
-| Stages | Bioinformatics |
-| Extension | .vcf |
-| Icon asset | icons/pgo_annotated_vcf.svg |
-| Icon subject | A variant marker with an attached small information tag. |
-| JSON Schema | schemas/objects/pgo_annotated_vcf.schema.json |
-| Example record | examples/objects/pgo_annotated_vcf.pgobject.json |
+**Nature:** virtual  
+**Stages:** bioinformatics  
+**Serialized extension:** `.vcf`  
+**Schema:** `schemas/objects/pgo_annotated_vcf.schema.json`  
+**Example:** `examples/objects/pgo_annotated_vcf.pgobject.json`
 
+## Content boundary
 
-**Properties inside `data`**
+The uploaded JSON root is the domain content shown below. It has no object envelope. The externally selected platform record supplies type, identity, owner, access, revision, creator, and transaction relationships. This content neither requires a service nor another registered object.
 
-| Property | Type | Required within parent | Meaning / constraints |
+Every unlisted property is invalid. Optional `notes` may be absent or an empty string and is only for additional human information.
+
+## Fields
+
+| Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
-| `subject_id` | string | Yes | Synthetic or platform-assigned subject identifier; do not infer identity from a filename. minLength: 1 |
-| `order_ref` | object | No | Linked order when this object belongs to an ordered pipeline; optional for a standalone or imported object. |
-| `order_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `order_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `reference_id` | string | Yes | Reference identifier shared across sequence analysis and variant coordinates. minLength: 1 |
-| `profile_id` | string | Yes | Versioned analytical contract or compatibility profile. minLength: 1 |
-| `analysis_support` | object | Yes | Declared analysis support, separate from the presence or absence of variant records. |
-| `analysis_support.status` | string | Yes | Whether this object is sufficient for its linked analytical scope. Options: sufficient, partial, unassessed; minLength: 1 |
-| `analysis_support.evaluated_genes` | array | Yes | Genes evaluated by the declared process. Empty when unassessed. minItems: 0 |
-| `analysis_support.supported_variant_classes` | array | Yes | Variant classes supported by the declared process. minItems: 0 |
-| `analysis_support.evidence` | array | Yes | Evidence supporting the status. A sufficient status requires evidence. minItems: 0 |
-| `analysis_support.evidence[].kind` | string | Yes | Evidence category, such as provider_attestation or analytical_qc; this fixture uses synthetic_fixture_attestation. minLength: 1 |
-| `analysis_support.evidence[].reference` | string | Yes | An auditable evidence identifier or source reference. minLength: 1 |
-| `analysis_support.evidence[].summary` | string | Yes | What this evidence establishes, including its limitations. minLength: 1 |
-| `analysis_support.limitations` | array | Yes | Known scope or analytical limitations. minItems: 0 |
-| `vcf_version` | string | Yes | Native VCF format version. minLength: 1 |
-| `sample_names` | array | Yes | Native VCF sample-column names. minItems: 1 |
-| `source_vcf_ref` | object | No | Pinned upstream object when recorded in Pocket Genes. Imported standalone objects may omit this reference with explicit source disclosure. |
-| `source_vcf_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `source_vcf_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `annotation_state` | string | Yes | Semantic annotation state. Options: annotated; minLength: 1 |
-| `annotation_profile` | string | Yes | Exact profile describing the required annotation tags and their meaning. minLength: 1 |
-| `annotation_sources` | array | Yes | Sources used for this annotation. minItems: 1 |
-| `annotation_sources[].name` | string | Yes | Annotation source or vocabulary name. minLength: 1 |
-| `annotation_sources[].version` | string | Yes | Version used. minLength: 1 |
-| `annotation_sources[].retrieved_at` | string | Yes | Source retrieval or evaluation time. format: date-time; minLength: 1 |
-| `record_count` | integer | Yes | Count of native variant records. minimum: 0 |
-| `provenance` | object | No | Explicit source disclosure for an imported object or a provider-generated result. This supplements registered lineage; it does not prove analytical sufficiency. |
-| `provenance.source_kind` | string | Yes | Whether this object entered from outside the recorded network or was generated by a provider service. Options: imported, provider_generated |
-| `provenance.source_label` | string | Yes | Human-readable description of where this object came from. minLength: 1 |
-| `provenance.imported_at` | string | No | When the object was registered from an external source; required when source_kind is imported. format: date-time |
-| `provenance.producer_label` | string | No | Known producing provider or source label; omit when genuinely unknown rather than inventing an identity. minLength: 1 |
+| `title` | `string` | Yes | Human-facing title. |
+| `download_url` | `string` | Yes | HTTPS URL used to download the native file. |
+| `notes` | `string` | No | Optional additional information the person wants to communicate. It may be empty. |
+
+### Native file boundary
+
+The PGO registers a readable `title` and one direct `download_url`. The downloaded native file retains its own domain content. No generic `files` array, payload descriptor, checksum, format tuple, record count, producer metadata, or duplicate header inventory is valid PGO content.
 
 
-**Sample object record**
+
+## Minimal example
 
 ```json
 {
-  "object_id": "obj_demo_annotated_vcf",
-  "object_type": "pgo_annotated_vcf",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-17T15:00:00Z",
-  "created_by": "pgp_variant_analysis",
-  "input_refs": [
-    {
-      "object_id": "obj_demo_form_variant_annotation",
-      "revision": 1
-    },
-    {
-      "object_id": "obj_demo_unannotated_vcf",
-      "revision": 1
-    },
-    {
-      "object_id": "obj_demo_order",
-      "revision": 1
-    }
-  ],
-  "data": {
-    "subject_id": "subject_demo_001",
-    "order_ref": {
-      "object_id": "obj_demo_order",
-      "revision": 1
-    },
-    "reference_id": "PG_DEMO_REF_1",
-    "profile_id": "pg_demo_small_variant_v1",
-    "analysis_support": {
-      "status": "sufficient",
-      "evaluated_genes": [
-        "PGGENE_A",
-        "PGGENE_B",
-        "PGGENE_C"
-      ],
-      "supported_variant_classes": [
-        "SNV",
-        "small_indel"
-      ],
-      "evidence": [
-        {
-          "kind": "synthetic_fixture_attestation",
-          "reference": "demo-evidence-001",
-          "summary": "Illustrative provider declaration for the fictional three-gene fixture; not a real measurement or clinical result."
-        }
-      ],
-      "limitations": [
-        "Synthetic fixture only; the native sample bytes do not establish real gene coverage or clinical validity."
-      ]
-    },
-    "vcf_version": "4.3",
-    "sample_names": [
-      "subject_demo_001"
-    ],
-    "source_vcf_ref": {
-      "object_id": "obj_demo_unannotated_vcf",
-      "revision": 1
-    },
-    "annotation_state": "annotated",
-    "annotation_profile": "PG_DEMO_ANN_V1",
-    "annotation_sources": [
-      {
-        "name": "PG_DEMO_KNOWLEDGE_BASE",
-        "version": "1.0.0",
-        "retrieved_at": "2026-09-16T12:00:00Z"
-      }
-    ],
-    "record_count": 3,
-    "provenance": {
-      "source_kind": "provider_generated",
-      "source_label": "Synthetic provider-generated result for the Pocket Genes demonstration pipeline.",
-      "producer_label": "Pocket Genes demo fixture author"
-    }
-  },
-  "files": [
-    {
-      "role": "primary",
-      "path": "payloads/demo-annotated.vcf",
-      "media_type": "text/plain",
-      "sha256": "e16ed45f7af1643fbbb6c7f09a32c451a37b5e17ada7dd83222a51f0e23b58ce",
-      "size_bytes": 811
-    }
-  ]
+  "title": "Annotated variants",
+  "download_url": "https://example.com/annotated-variants"
 }
 ```
 
-**Native content / decoded preview**
+## Validation
 
+- The content is standalone and does not require a Pocket Genes service or another registered object.
+- Only the declared properties are allowed; platform identity, ownership, revision, provenance and storage metadata stay outside the content.
+- Required strings must contain at least one non-whitespace character.
+- notes is optional, may be empty, and must not be populated with discarded technical metadata.
+- Required strings are nonempty after trimming whitespace.
+- Any download URL is absolute HTTPS; query parameters are preserved and a filename suffix is not required.
+- No compatibility alias, legacy envelope, or unknown property is accepted.
 
-```text
-##fileformat=VCFv4.3
-##source=PocketGenesSyntheticCatalog
-##reference=PG_DEMO_REF_1
-##contig=<ID=PG_DEMO_1,length=1000>
-##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
-##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">
-##INFO=<ID=PGGENE,Number=1,Type=String,Description="Synthetic gene identifier">
-##INFO=<ID=PGANN,Number=1,Type=String,Description="Synthetic annotation under PG_DEMO_ANN_V1">
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	subject_demo_001
-PG_DEMO_1	101	.	A	G	60	PASS	PGGENE=PGGENE_A;PGANN=synthetic_example	GT:DP:GQ	1/1:1:40
-PG_DEMO_1	401	.	A	T	60	PASS	PGGENE=PGGENE_B;PGANN=synthetic_example	GT:DP:GQ	1/1:1:40
-PG_DEMO_1	701	.	A	C	60	PASS	PGGENE=PGGENE_C;PGANN=synthetic_example	GT:DP:GQ	1/1:1:40
-```
+## Platform integration
 
-**Validation and JSON logic**
-
-- The declared annotation_profile must be satisfied by the native header and INFO or FORMAT fields as applicable.
-- Version the annotation sources so the result can be reproduced and compared later.
-- Annotation does not expand the regions or variant classes supported by the original analysis.
-- Annotations in this catalog are fictional; do not treat them as clinical evidence.
-- order_ref is optional for a standalone or imported object. A service request that explicitly requires a test order must compare the supplied order with subject, scope, reference, profile and any existing linkage.
-- The demo profile PG_DEMO_ANN_V1 requires both declared PGGENE and PGANN INFO fields. PGGENE identifies the fictional gene; PGANN supplies the fictional annotation value. Validate the header definitions and record values against that profile.
-- Imported standalone objects can omit upstream object references that do not exist in Pocket Genes, but must provide provenance.source_kind=imported, source_label, imported_at, and disclose known limitations in analysis_support.limitations. Do not invent upstream identities or scope evidence.
-- Provider-generated outputs require the actual upstream source_vcf_ref and common input_refs as a semantic provenance rule. A missing source reference cannot be excused by changing or omitting provenance metadata.
-
-**Linked mock services**
-
-- Produced or updated by: `pgs_variant_annotation`
-- Consumed by: `pgs_interactive_interpretation`
-
-**Other service opportunities**
-
-- Unannotated VCF to annotated VCF.
-- Annotated VCF to pgi1.
-- Annotation refresh using a new version of an accepted source.
+The platform may store this content under an existing record's `data` field, but users create and edit only the domain content. Service input/output roles remain on the transaction. Ownership and authorization remain in their existing collections.

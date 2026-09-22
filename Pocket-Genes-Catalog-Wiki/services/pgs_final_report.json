@@ -16,18 +16,6 @@
     "version": 1,
     "fields": [
       {
-        "key": "requested_at",
-        "label": "Requested at",
-        "type": "datetime",
-        "required": true
-      },
-      {
-        "key": "requested_by",
-        "label": "Requested by",
-        "type": "text",
-        "required": true
-      },
-      {
         "key": "language",
         "label": "Report language",
         "type": "enum",
@@ -45,7 +33,7 @@
       },
       {
         "key": "presentation",
-        "label": "Presentation",
+        "label": "Report presentation",
         "type": "enum",
         "required": true,
         "options": [
@@ -56,6 +44,10 @@
           {
             "value": "patient",
             "label": "Patient-facing report"
+          },
+          {
+            "value": "other",
+            "label": "Other"
           }
         ]
       }
@@ -65,14 +57,6 @@
   "sampleFormData": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-17T16:05:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
         "key": "language",
         "value": "en"
       },
@@ -80,9 +64,7 @@
         "key": "presentation",
         "value": "clinical"
       }
-    ],
-    "formShapeId": "pgfs_final_report",
-    "formShapeVersion": 1
+    ]
   },
   "sampleFormObject": {
     "object_id": "obj_demo_form_final_report",
@@ -91,47 +73,9 @@
     "revision": 1,
     "created_at": "2026-09-17T16:05:00Z",
     "created_by": "user_demo_001",
-    "input_refs": [],
     "data": {
-      "fields": [
-        {
-          "key": "requested_at",
-          "value": "2026-09-17T16:05:00Z"
-        },
-        {
-          "key": "requested_by",
-          "value": "user_demo_001"
-        },
-        {
-          "key": "language",
-          "value": "en"
-        },
-        {
-          "key": "presentation",
-          "value": "clinical"
-        }
-      ],
-      "form_shape_id": "pgfs_final_report",
-      "form_shape_version": 1,
       "form_shape": {
-        "id": "pgfs_final_report",
-        "version": 1,
-        "allow_unknown_fields": false,
         "fields": [
-          {
-            "key": "requested_at",
-            "label": "Requested at",
-            "type": "datetime",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "requested_by",
-            "label": "Requested by",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
           {
             "key": "language",
             "label": "Report language",
@@ -150,7 +94,7 @@
           },
           {
             "key": "presentation",
-            "label": "Presentation",
+            "label": "Report presentation",
             "type": "enum",
             "required": true,
             "options": [
@@ -161,13 +105,26 @@
               {
                 "value": "patient",
                 "label": "Patient-facing report"
+              },
+              {
+                "value": "other",
+                "label": "Other"
               }
             ]
           }
         ]
-      }
-    },
-    "files": []
+      },
+      "fields": [
+        {
+          "key": "language",
+          "value": "en"
+        },
+        {
+          "key": "presentation",
+          "value": "clinical"
+        }
+      ]
+    }
   },
   "inputSlots": [
     {
@@ -217,19 +174,15 @@
   "acceptedConditions": [
     "The order and registered PGI object identify the same subject and compatible specimen/source lineage.",
     "The order contains patient identity, clinical objective, suspicion and required reporting context.",
-    "The PGI object contains native_format, payload_ref, support evidence, limitations and producer information required by the reporting profile.",
-    "The raw payload validates against the matching PGI schema: pgi1-mdm, pgi2-ag or pgi3-2pq.",
-    "The selected provider service includes the review/issuance responsibilities required by its report profile. Rendering alone does not supply missing professional conclusions or authorizations."
+    "The selected provider service includes the review/issuance responsibilities required by its report profile. Rendering alone does not supply missing professional conclusions or authorizations.",
+    "Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities."
   ],
   "scopeRules": [
-    "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
-    "Resolve the pgo_interactive_report object, then validate its raw payload using native_format.schema_path before rendering.",
-    "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
     "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
-    "Carry forward data.analysis_support with status, evaluated_genes, supported_variant_classes, evidence and limitations. Do not infer an adequately assessed gene from absence of provider payload rows.",
     "If the input cannot support the requested scope, return awaiting_input or failed with the affected scope; do not report a complete negative result.",
     "The order, registered PGI object and this service form are sufficient under this contract; do not require the original intake form or symptom bundle.",
-    "Both successful requested-scope assessment and explicit limitations must appear in the final self-contained report as appropriate."
+    "Both successful requested-scope assessment and explicit limitations must appear in the final self-contained report as appropriate.",
+    "Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities."
   ],
   "commercialTerms": {
     "price": {

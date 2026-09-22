@@ -1,108 +1,52 @@
-# Karyotype result — `pgo_karyotype_result`
+# 19. Karyotype result — `pgo_karyotype_result`
 
-Structured chromosome-analysis findings produced from an accepted metaphase image bundle, with image provenance and review status.
+A karyotype notation with an optional readable professional interpretation.
 
-| Attribute | Value |
-| --- | --- |
-| Nature | virtual |
-| Stages | Bioinformatics |
-| Extension | .pgkaryotype.json |
-| Icon asset | icons/pgo_karyotype_result.svg |
-| Icon subject | Two stylized chromosome pairs beside a result tick. |
-| JSON Schema | schemas/objects/pgo_karyotype_result.schema.json |
-| Example record | examples/objects/pgo_karyotype_result.pgkaryotype.json |
+**Nature:** virtual  
+**Stages:** bioinformatics  
+**Serialized extension:** `.pgkaryotype.json`  
+**Schema:** `schemas/objects/pgo_karyotype_result.schema.json`  
+**Example:** `examples/objects/pgo_karyotype_result.pgkaryotype.json`
 
+## Content boundary
 
-**Properties inside `data`**
+The uploaded JSON root is the domain content shown below. It has no object envelope. The externally selected platform record supplies type, identity, owner, access, revision, creator, and transaction relationships. This content neither requires a service nor another registered object.
 
-| Property | Type | Required within parent | Meaning / constraints |
+Every unlisted property is invalid. Optional `notes` may be absent or an empty string and is only for additional human information.
+
+## Fields
+
+| Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
-| `subject_id` | string | Yes | Synthetic or platform-assigned subject identifier; do not infer identity from a filename. minLength: 1 |
-| `order_ref` | object | No | Linked test order when one governs this service. |
-| `order_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `order_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `source_images_ref` | object | Yes | Metaphase image bundle analyzed by the provider. |
-| `source_images_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `source_images_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `notation_system` | string | Yes | System used for the result notation; fixtures use PG_DEMO_NOTATION. minLength: 1 |
-| `result_notation` | string | Yes | Result in the declared notation system. minLength: 1 |
-| `findings` | array | Yes | Findings supported by the analyzed images. minItems: 0 |
-| `findings[].finding_id` | string | Yes | Unique finding identifier. minLength: 1 |
-| `findings[].description` | string | Yes | Chromosome finding or observation statement. minLength: 1 |
-| `findings[].supporting_image_ids` | array | Yes | Images from source_images_ref supporting this finding. minItems: 1 |
-| `analyzed_image_count` | integer | Yes | Number of submitted images used in this result. minimum: 1 |
-| `review_status` | string | Yes | Provider-recorded review state. Options: automated_draft, professional_reviewed; minLength: 1 |
-| `reviewer_id` | string | No | Identifier of the reviewer when professionally reviewed. minLength: 1 |
-| `limitations` | array | Yes | Limits of the analysis or submitted images. minItems: 0 |
+| `result_notation` | `string` | Yes | Actual karyotype result notation. |
+| `interpretation` | `string` | No | Optional readable interpretation. |
+| `notes` | `string` | No | Optional additional information the person wants to communicate. It may be empty. |
+
+### Result meaning
+
+`result_notation` is the actual karyotype notation. Professional interpretation is optional; notes may communicate additional readable limitations. Images are separate objects when they exist and are not mandatory dependencies.
 
 
-**Sample object record**
+
+## Minimal example
 
 ```json
 {
-  "object_id": "obj_demo_karyotype",
-  "object_type": "pgo_karyotype_result",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T13:00:00Z",
-  "created_by": "pgp_cytogenetics",
-  "input_refs": [
-    {
-      "object_id": "obj_demo_form_karyotype_analysis",
-      "revision": 1
-    },
-    {
-      "object_id": "obj_demo_images",
-      "revision": 1
-    }
-  ],
-  "data": {
-    "subject_id": "subject_demo_001",
-    "order_ref": {
-      "object_id": "obj_demo_order",
-      "revision": 1
-    },
-    "source_images_ref": {
-      "object_id": "obj_demo_images",
-      "revision": 1
-    },
-    "notation_system": "PG_DEMO_NOTATION",
-    "result_notation": "DEMO_CHROMOSOME_RESULT",
-    "findings": [
-      {
-        "finding_id": "karyotype_finding_demo_001",
-        "description": "Fictional chromosome-pattern finding used to illustrate the service contract.",
-        "supporting_image_ids": [
-          "image_demo_001",
-          "image_demo_002"
-        ]
-      }
-    ],
-    "analyzed_image_count": 2,
-    "review_status": "professional_reviewed",
-    "reviewer_id": "professional_demo_cytogenetics",
-    "limitations": [
-      "Synthetic images and notation; not a clinical karyotype."
-    ]
-  },
-  "files": []
+  "result_notation": "46,XX",
+  "interpretation": "No numerical chromosome abnormality was identified."
 }
 ```
 
-**Validation and JSON logic**
+## Validation
 
-- supporting_image_ids must exist in the referenced image bundle.
-- review_status professional_reviewed requires reviewer_id.
-- Notation and review requirements must match the downstream service contract.
-- This image-analysis route can end in its own PDF; it does not need a VCF or pgi1 conversion.
+- The content is standalone and does not require a Pocket Genes service or another registered object.
+- Only the declared properties are allowed; platform identity, ownership, revision, provenance and storage metadata stay outside the content.
+- Required strings must contain at least one non-whitespace character.
+- notes is optional, may be empty, and must not be populated with discarded technical metadata.
+- Required strings are nonempty after trimming whitespace.
+- Any download URL is absolute HTTPS; query parameters are preserved and a filename suffix is not required.
+- No compatibility alias, legacy envelope, or unknown property is accepted.
 
-**Linked mock services**
+## Platform integration
 
-- Produced or updated by: `pgs_karyotype_analysis`
-- Consumed by: No service in the initial 15; retained as an accepted type for additional provider contracts.
-
-**Other service opportunities**
-
-- Metaphase image bundle to structured karyotype result.
-- Independent professional review of a karyotype draft.
-- Karyotype result to PDF.
+The platform may store this content under an existing record's `data` field, but users create and edit only the domain content. Service input/output roles remain on the transaction. Ownership and authorization remain in their existing collections.

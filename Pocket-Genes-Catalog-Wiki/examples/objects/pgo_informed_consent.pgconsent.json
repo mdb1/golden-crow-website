@@ -1,53 +1,5 @@
 {
-  "object_id": "obj_demo_consent",
-  "object_type": "pgo_informed_consent",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:08:00Z",
-  "created_by": "pgp_clinical_planning",
-  "input_refs": [
-    {
-      "object_id": "obj_demo_form_informed_consent",
-      "revision": 1
-    }
-  ],
-  "data": {
-    "subject_id": "subject_demo_001",
-    "purpose": "Participate in the fictional Pocket Genes demonstration workflow.",
-    "scope": {
-      "activities": [
-        "sample_processing",
-        "variant_analysis",
-        "report_generation"
-      ],
-      "genes": [
-        "PGGENE_A",
-        "PGGENE_B",
-        "PGGENE_C"
-      ],
-      "provider_ids": [
-        "pgp_clinical_planning",
-        "pgp_sample_logistics",
-        "pgp_precision_lab",
-        "pgp_variant_analysis",
-        "pgp_report_studio",
-        "pgp_cytogenetics"
-      ]
-    },
-    "text_version": "1.0.0",
-    "text_snapshot": "DEMONSTRATION ONLY. I agree to use synthetic information and fictional samples in this catalog example. This text is not a clinical consent template.",
-    "status": "completed",
-    "acceptance": {
-      "accepted_at": "2026-09-16T12:08:00Z",
-      "accepted_by": "user_demo_001",
-      "capacity": "self",
-      "method": "electronic_acceptance",
-      "evidence_reference": "signature_demo_001"
-    },
-    "source_form_ref": {
-      "object_id": "obj_demo_form_informed_consent",
-      "revision": 1
-    }
-  },
-  "files": []
+  "title": "Consent for genetic testing",
+  "text": "I confirm that I received and understood the information provided.",
+  "status": "pending"
 }

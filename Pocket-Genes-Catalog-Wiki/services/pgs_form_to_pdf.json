@@ -16,44 +16,26 @@
     "version": 1,
     "fields": [
       {
-        "key": "requested_at",
-        "label": "Requested at",
-        "type": "datetime",
-        "required": true
-      },
-      {
-        "key": "requested_by",
-        "label": "Requested by",
-        "type": "text",
-        "required": true
-      },
-      {
-        "key": "subject_id",
-        "label": "Subject identifier",
-        "type": "text",
-        "required": true
-      },
-      {
         "key": "patient_name",
         "label": "Patient name",
         "type": "text",
-        "required": true
+        "required": false
       },
       {
         "key": "objective",
-        "label": "Consultation objective",
-        "type": "text",
+        "label": "Document objective",
+        "type": "long_text",
         "required": true
       },
       {
         "key": "submitted_information",
-        "label": "Information to review",
+        "label": "Information to include",
         "type": "string_list",
         "required": true
       },
       {
         "key": "language",
-        "label": "Report language",
+        "label": "Document language",
         "type": "enum",
         "required": true,
         "options": [
@@ -73,39 +55,25 @@
   "sampleFormData": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-16T12:00:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
-        "key": "subject_id",
-        "value": "subject_demo_001"
-      },
-      {
         "key": "patient_name",
         "value": "Alex Example"
       },
       {
         "key": "objective",
-        "value": "Summarize the demonstration request"
+        "value": "Summarize the submitted request."
       },
       {
         "key": "submitted_information",
         "value": [
-          "Synthetic consultation note A",
-          "Synthetic consultation note B"
+          "Consultation note A",
+          "Consultation note B"
         ]
       },
       {
         "key": "language",
         "value": "en"
       }
-    ],
-    "formShapeId": "pgfs_form_to_pdf",
-    "formShapeVersion": 1
+    ]
   },
   "sampleFormObject": {
     "object_id": "obj_demo_form_form_to_pdf",
@@ -114,93 +82,30 @@
     "revision": 1,
     "created_at": "2026-09-16T12:00:00Z",
     "created_by": "user_demo_001",
-    "input_refs": [],
     "data": {
-      "fields": [
-        {
-          "key": "requested_at",
-          "value": "2026-09-16T12:00:00Z"
-        },
-        {
-          "key": "requested_by",
-          "value": "user_demo_001"
-        },
-        {
-          "key": "subject_id",
-          "value": "subject_demo_001"
-        },
-        {
-          "key": "patient_name",
-          "value": "Alex Example"
-        },
-        {
-          "key": "objective",
-          "value": "Summarize the demonstration request"
-        },
-        {
-          "key": "submitted_information",
-          "value": [
-            "Synthetic consultation note A",
-            "Synthetic consultation note B"
-          ]
-        },
-        {
-          "key": "language",
-          "value": "en"
-        }
-      ],
-      "form_shape_id": "pgfs_form_to_pdf",
-      "form_shape_version": 1,
       "form_shape": {
-        "id": "pgfs_form_to_pdf",
-        "version": 1,
-        "allow_unknown_fields": false,
         "fields": [
-          {
-            "key": "requested_at",
-            "label": "Requested at",
-            "type": "datetime",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "requested_by",
-            "label": "Requested by",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "subject_id",
-            "label": "Subject identifier",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
           {
             "key": "patient_name",
             "label": "Patient name",
             "type": "text",
-            "required": true,
-            "options": []
+            "required": false
           },
           {
             "key": "objective",
-            "label": "Consultation objective",
-            "type": "text",
-            "required": true,
-            "options": []
+            "label": "Document objective",
+            "type": "long_text",
+            "required": true
           },
           {
             "key": "submitted_information",
-            "label": "Information to review",
+            "label": "Information to include",
             "type": "string_list",
-            "required": true,
-            "options": []
+            "required": true
           },
           {
             "key": "language",
-            "label": "Report language",
+            "label": "Document language",
             "type": "enum",
             "required": true,
             "options": [
@@ -215,9 +120,29 @@
             ]
           }
         ]
-      }
-    },
-    "files": []
+      },
+      "fields": [
+        {
+          "key": "patient_name",
+          "value": "Alex Example"
+        },
+        {
+          "key": "objective",
+          "value": "Summarize the submitted request."
+        },
+        {
+          "key": "submitted_information",
+          "value": [
+            "Consultation note A",
+            "Consultation note B"
+          ]
+        },
+        {
+          "key": "language",
+          "value": "en"
+        }
+      ]
+    }
   },
   "inputSlots": [
     {

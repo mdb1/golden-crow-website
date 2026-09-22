@@ -1,120 +1,63 @@
-# Image bundle — `pgo_image_bundle`
+# 18. Image bundle — `pgo_image_bundle`
 
-A manifest grouping images that form one service input, such as metaphase images, specimen photographs or embryo images.
+A named collection of one or more directly downloadable images.
 
-| Attribute | Value |
-| --- | --- |
-| Nature | virtual |
-| Stages | Test planning, Wet lab, Bioinformatics |
-| Extension | .pgimages.json |
-| Icon asset | icons/pgo_image_bundle.svg |
-| Icon subject | Two overlapping image frames with a microscope dot pattern. |
-| JSON Schema | schemas/objects/pgo_image_bundle.schema.json |
-| Example record | examples/objects/pgo_image_bundle.pgimages.json |
+**Nature:** virtual  
+**Stages:** test_planning, wet_lab, bioinformatics  
+**Serialized extension:** `.pgimages.json`  
+**Schema:** `schemas/objects/pgo_image_bundle.schema.json`  
+**Example:** `examples/objects/pgo_image_bundle.pgimages.json`
 
+## Content boundary
 
-**Properties inside `data`**
+The uploaded JSON root is the domain content shown below. It has no object envelope. The externally selected platform record supplies type, identity, owner, access, revision, creator, and transaction relationships. This content neither requires a service nor another registered object.
 
-| Property | Type | Required within parent | Meaning / constraints |
+Every unlisted property is invalid. Optional `notes` may be absent or an empty string and is only for additional human information.
+
+## Fields
+
+| Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
-| `subject_id` | string | Yes | Synthetic or platform-assigned subject identifier; do not infer identity from a filename. minLength: 1 |
-| `order_ref` | object | No | Related test order when this image service belongs to one. |
-| `order_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `order_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `image_kind` | string | Yes | Semantic class of the image set. Options: metaphase, embryo, microscopy, specimen_photo, other; minLength: 1 |
-| `source_object_ref` | object | Yes | Physical or virtual source that was imaged. |
-| `source_object_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `source_object_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `acquired_at` | string | Yes | Image acquisition time. format: date-time; minLength: 1 |
-| `acquired_by` | string | Yes | Provider or operator responsible for acquisition. minLength: 1 |
-| `images` | array | Yes | Images included as files in this bundle. minItems: 1 |
-| `images[].image_id` | string | Yes | Identifier unique within the bundle. minLength: 1 |
-| `images[].file_role` | string | Yes | Role identifying the file in the common files list. minLength: 1 |
-| `images[].format` | string | Yes | Native image format. Options: png, jpeg, tiff, svs; minLength: 1 |
-| `images[].width_px` | integer | Yes | Image width in pixels. minimum: 1 |
-| `images[].height_px` | integer | Yes | Image height in pixels. minimum: 1 |
-| `images[].caption` | string | Yes | Description of what this particular image represents. minLength: 1 |
-| `acquisition_profile` | string | Yes | Image-acquisition contract accepted by the analysis service. minLength: 1 |
+| `title` | `string` | Yes | Human-facing title. |
+| `images` | `array<object>` | Yes |  |
+| `notes` | `string` | No | Optional additional information the person wants to communicate. It may be empty. |
+
+### Component structure
+
+`images` is nonempty. Each image contains exactly `key`, `name`, and `download_url`; all are nonempty, keys are unique, and the URL resolves the component directly. No size, checksum, MIME type, role, path, source reference, or generic file descriptor is permitted.
 
 
-**Sample object record**
+
+## Minimal example
 
 ```json
 {
-  "object_id": "obj_demo_images",
-  "object_type": "pgo_image_bundle",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:20:00Z",
-  "created_by": "platform_demo_import",
-  "input_refs": [],
-  "data": {
-    "subject_id": "subject_demo_001",
-    "order_ref": {
-      "object_id": "obj_demo_order",
-      "revision": 1
-    },
-    "image_kind": "metaphase",
-    "source_object_ref": {
-      "object_id": "obj_demo_blood",
-      "revision": 1
-    },
-    "acquired_at": "2026-09-16T12:00:00Z",
-    "acquired_by": "pgp_cytogenetics",
-    "images": [
-      {
-        "image_id": "image_demo_001",
-        "file_role": "image_001",
-        "format": "png",
-        "width_px": 640,
-        "height_px": 400,
-        "caption": "Synthetic metaphase-like illustration 1 for catalog demonstration only."
-      },
-      {
-        "image_id": "image_demo_002",
-        "file_role": "image_002",
-        "format": "png",
-        "width_px": 640,
-        "height_px": 400,
-        "caption": "Synthetic metaphase-like illustration 2 for catalog demonstration only."
-      }
-    ],
-    "acquisition_profile": "pg_demo_metaphase_v1"
-  },
-  "files": [
+  "title": "Metaphase images",
+  "images": [
     {
-      "role": "image_001",
-      "path": "payloads/demo-image-1.png",
-      "media_type": "image/png",
-      "sha256": "3912a97626f8724df64d60e94111308be261b38690f28bd2764aab3e80ba88a6",
-      "size_bytes": 6870
+      "key": "metaphase_1",
+      "name": "Metaphase image 1",
+      "download_url": "https://example.com/image-1.png"
     },
     {
-      "role": "image_002",
-      "path": "payloads/demo-image-2.png",
-      "media_type": "image/png",
-      "sha256": "c3b79c5d395bf3f4f6147f0de38dc4fcbbeec6319bd0072e37611d8943f31137",
-      "size_bytes": 6968
+      "key": "metaphase_2",
+      "name": "Metaphase image 2",
+      "download_url": "https://example.com/image-2.png"
     }
   ]
 }
 ```
-The `files` array resolves the manifest entries to two PNG payloads. These are explicitly marked synthetic illustrations, not patient microscopy images.
 
-**Validation and JSON logic**
+## Validation
 
-- Each image file_role must resolve to exactly one file in the common files list.
-- Image identifiers must be unique and stated pixel dimensions must match the payload.
-- An analysis service can require a specific image_kind, image count, quality and acquisition profile.
-- One bundle remains one input object even when it contains many native image files.
+- The content is standalone and does not require a Pocket Genes service or another registered object.
+- Only the declared properties are allowed; platform identity, ownership, revision, provenance and storage metadata stay outside the content.
+- Required strings must contain at least one non-whitespace character.
+- notes is optional, may be empty, and must not be populated with discarded technical metadata.
+- Required strings are nonempty after trimming whitespace.
+- Any download URL is absolute HTTPS; query parameters are preserved and a filename suffix is not required.
+- No compatibility alias, legacy envelope, or unknown property is accepted.
 
-**Linked mock services**
+## Platform integration
 
-- Produced or updated by: No service in the initial 15; retained as an accepted type for additional provider contracts.
-- Consumed by: `pgs_karyotype_analysis`
-
-**Other service opportunities**
-
-- Specimen to microscopy image bundle.
-- Metaphase images to karyotype result.
-- Embryo images to an assessment PDF.
+The platform may store this content under an existing record's `data` field, but users create and edit only the domain content. Service input/output roles remain on the transaction. Ownership and authorization remain in their existing collections.

@@ -1,25 +1,23 @@
-# Variant Analysis Cooperative
+# Variant Analysis Cooperative — `pgp_variant_analysis`
 
-Fictional provider profile.
+Fictional specialist in independently purchasable alignment, variant calling, annotation, and symptom-independent structured genomic interpretation.
+
+**Kind:** bioinformatics_company  
+**Stages:** bioinformatics  
+**Regions:** AR  
+**Catalog status:** fictional example, not a live integration
+
+## Services
+
+- `pgs_read_alignment`
+- `pgs_variant_calling`
+- `pgs_variant_annotation`
+- `pgs_interactive_interpretation`
+
+## Contact and integration
 
 ```json
 {
-  "provider_id": "pgp_variant_analysis",
-  "name": "Variant Analysis Cooperative",
-  "kind": "bioinformatics_company",
-  "description": "Fictional specialist in independently purchasable alignment, variant calling, annotation, and symptom-independent structured genomic interpretation.",
-  "supported_stages": [
-    "bioinformatics"
-  ],
-  "country_codes": [
-    "AR"
-  ],
-  "service_ids": [
-    "pgs_read_alignment",
-    "pgs_variant_calling",
-    "pgs_variant_annotation",
-    "pgs_interactive_interpretation"
-  ],
   "contacts": {
     "website": "https://variantanalysis.example",
     "operations_email": "operations@variantanalysis.example",
@@ -39,3 +37,5 @@ Fictional provider profile.
   }
 }
 ```
+
+The provider identity belongs to Discover and the service offer. It is never repeated as required PGO content. Requests use authenticated, role-labelled transaction references; outputs are registered before delivery.

@@ -157,6 +157,7 @@ export interface SupportServiceOfferRecord
   updatedAt?: string;
   createdByEmail?: string;
   updatedByEmail?: string;
+  complianceWarnings?: string[];
 }
 
 export interface SupportServiceObjectRef {

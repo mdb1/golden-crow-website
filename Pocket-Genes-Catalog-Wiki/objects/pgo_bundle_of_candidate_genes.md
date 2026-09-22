@@ -1,110 +1,53 @@
-# Candidate gene bundle — `pgo_bundle_of_candidate_genes`
+# 03. Candidate gene bundle — `pgo_bundle_of_candidate_genes`
 
-A provider-selected set of candidate genes for the next planning step, optionally ranked and explained.
+A standalone nonempty list of candidate gene symbols.
 
-| Attribute | Value |
-| --- | --- |
-| Nature | virtual |
-| Stages | Test planning |
-| Extension | .pggenes.json |
-| Icon asset | icons/pgo_bundle_of_candidate_genes.svg |
-| Icon subject | A DNA helix next to three candidate markers. |
-| JSON Schema | schemas/objects/pgo_bundle_of_candidate_genes.schema.json |
-| Example record | examples/objects/pgo_bundle_of_candidate_genes.pggenes.json |
+**Nature:** virtual  
+**Stages:** test_planning  
+**Serialized extension:** `.pggenes.json`  
+**Schema:** `schemas/objects/pgo_bundle_of_candidate_genes.schema.json`  
+**Example:** `examples/objects/pgo_bundle_of_candidate_genes.pggenes.json`
 
+## Content boundary
 
-**Properties inside `data`**
+The uploaded JSON root is the domain content shown below. It has no object envelope. The externally selected platform record supplies type, identity, owner, access, revision, creator, and transaction relationships. This content neither requires a service nor another registered object.
 
-| Property | Type | Required within parent | Meaning / constraints |
+Every unlisted property is invalid. Optional `notes` may be absent or an empty string and is only for additional human information.
+
+## Fields
+
+| Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
-| `subject_id` | string | Yes | Synthetic or platform-assigned subject identifier; do not infer identity from a filename. minLength: 1 |
-| `gene_namespace` | string | Yes | Identifier system used by all gene_id entries. minLength: 1 |
-| `genes` | array | Yes | Candidate genes selected by the provider. minItems: 1 |
-| `genes[].gene_id` | string | Yes | Gene identifier in gene_namespace. minLength: 1 |
-| `genes[].rank` | integer | Yes | Provider-assigned candidate rank. minimum: 1 |
-| `genes[].rationale` | string | Yes | Reason for including this candidate. minLength: 1 |
-| `genes[].evidence_refs` | array | Yes | References supporting inclusion; may point to observation or source identifiers. minItems: 1 |
-| `source_symptoms_ref` | object | Yes | Symptom bundle used by the provider. |
-| `source_symptoms_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `source_symptoms_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `method` | string | Yes | Method name or version used for prioritization. minLength: 1 |
+| `genes` | `array<string>` | Yes |  |
+| `notes` | `string` | No | Optional additional information the person wants to communicate. It may be empty. |
+
+### Gene entries
+
+`genes` is a nonempty ordered array of nonempty gene-symbol strings. It contains no ranking, namespace, evidence, symptom reference, or method object.
 
 
-**Sample object record**
+
+## Minimal example
 
 ```json
 {
-  "object_id": "obj_demo_genes",
-  "object_type": "pgo_bundle_of_candidate_genes",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:10:00Z",
-  "created_by": "pgp_clinical_planning",
-  "input_refs": [
-    {
-      "object_id": "obj_demo_form_gene_prioritization",
-      "revision": 1
-    },
-    {
-      "object_id": "obj_demo_symptoms",
-      "revision": 1
-    }
-  ],
-  "data": {
-    "subject_id": "subject_demo_001",
-    "gene_namespace": "PG_DEMO_GENE",
-    "genes": [
-      {
-        "gene_id": "PGGENE_A",
-        "rank": 1,
-        "rationale": "Fictional candidate 1 selected from demo observations.",
-        "evidence_refs": [
-          "observation_demo_001",
-          "observation_demo_002"
-        ]
-      },
-      {
-        "gene_id": "PGGENE_B",
-        "rank": 2,
-        "rationale": "Fictional candidate 2 selected from demo observations.",
-        "evidence_refs": [
-          "observation_demo_001",
-          "observation_demo_002"
-        ]
-      },
-      {
-        "gene_id": "PGGENE_C",
-        "rank": 3,
-        "rationale": "Fictional candidate 3 selected from demo observations.",
-        "evidence_refs": [
-          "observation_demo_001",
-          "observation_demo_002"
-        ]
-      }
-    ],
-    "source_symptoms_ref": {
-      "object_id": "obj_demo_symptoms",
-      "revision": 1
-    },
-    "method": "demo-prioritization-v1"
-  },
-  "files": []
+  "genes": [
+    "BRCA1",
+    "BRCA2"
+  ]
 }
 ```
 
-**Validation and JSON logic**
+## Validation
 
-- gene_id and rank must be unique within this bundle.
-- Candidate status must remain distinct from variant findings and confirmed causality.
-- The test-order service can accept this bundle directly alongside informed_consent and its completed form.
+- The content is standalone and does not require a Pocket Genes service or another registered object.
+- Only the declared properties are allowed; platform identity, ownership, revision, provenance and storage metadata stay outside the content.
+- Required strings must contain at least one non-whitespace character.
+- notes is optional, may be empty, and must not be populated with discarded technical metadata.
+- Required strings are nonempty after trimming whitespace.
+- Any download URL is absolute HTTPS; query parameters are preserved and a filename suffix is not required.
+- No compatibility alias, legacy envelope, or unknown property is accepted.
 
-**Linked mock services**
+## Platform integration
 
-- Produced or updated by: `pgs_gene_prioritization`
-- Consumed by: `pgs_test_ordering`
-
-**Other service opportunities**
-
-- Symptom-driven gene prioritization.
-- Independent professional candidate review.
-- Direct input to test ordering.
+The platform may store this content under an existing record's `data` field, but users create and edit only the domain content. Service input/output roles remain on the transaction. Ownership and authorization remain in their existing collections.

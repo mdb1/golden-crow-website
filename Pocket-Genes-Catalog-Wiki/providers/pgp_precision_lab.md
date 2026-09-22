@@ -1,23 +1,21 @@
-# Atlas Precision Laboratory
+# Atlas Precision Laboratory — `pgp_precision_lab`
 
-Fictional provider profile.
+Fictional laboratory extracting DNA from accepted specimens and producing the agreed sequencing-read deliverable for the scope and fulfillment requirements in a test order.
+
+**Kind:** laboratory  
+**Stages:** wet_lab  
+**Regions:** AR  
+**Catalog status:** fictional example, not a live integration
+
+## Services
+
+- `pgs_dna_extraction`
+- `pgs_sequencing`
+
+## Contact and integration
 
 ```json
 {
-  "provider_id": "pgp_precision_lab",
-  "name": "Atlas Precision Laboratory",
-  "kind": "laboratory",
-  "description": "Fictional laboratory extracting DNA from accepted specimens and producing the agreed sequencing-read deliverable for the scope and fulfillment requirements in a test order.",
-  "supported_stages": [
-    "wet_lab"
-  ],
-  "country_codes": [
-    "AR"
-  ],
-  "service_ids": [
-    "pgs_dna_extraction",
-    "pgs_sequencing"
-  ],
   "contacts": {
     "website": "https://atlasprecision.example",
     "operations_email": "operations@atlasprecision.example",
@@ -42,3 +40,5 @@ Fictional provider profile.
   }
 }
 ```
+
+The provider identity belongs to Discover and the service offer. It is never repeated as required PGO content. Requests use authenticated, role-labelled transaction references; outputs are registered before delivery.

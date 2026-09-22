@@ -1,239 +1,121 @@
-# Record informed consent — `pgs_informed_consent`
+# S03. Record informed consent — `pgs_informed_consent`
 
 Receive the completed consent-specific form and produce an informed-consent record for the stated scope.
 
-**Provider:** `pgp_clinical_planning`. **Service version:** `1`. **Stage:** Test Planning.
+**Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
+**Provider kind:** organization  
+**Service version:** 1  
+**Stages:** test_planning
 
-**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+## Provider work
 
-**Provider work:** Present or verify the consent material and record the completed consent process as specified by the provider service.
+Present or verify the consent material and record the completed consent process as specified by the provider service.
 
-**Input slots**
+## Contract slots
 
-| Role | Accepted object type | Required | Cardinality |
+| Direction | Role | PGO type | Rule |
 | --- | --- | --- | --- |
-| form | pgo_form | True | 1–1 |
+| Input | `form` | `pgo_form` | Required 1:1 |
+| Output | `consent` | `pgo_informed_consent` | new_object |
 
-**Outputs**
+The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
 
-| Role | Type / binding | Identity behavior |
-| --- | --- | --- |
-| consent | pgo_informed_consent | new_object |
+## Request form
 
-**Form shape**
-
-`pgfs_informed_consent` version `1`. This shape is valid because the offer declares a `pgo_form` input slot; unknown fields are rejected.
-
-| Field | Type | Required | Enum options |
+| Key | Type | Required | Label |
 | --- | --- | --- | --- |
-| requested_at | datetime | True | — |
-| requested_by | text | True | — |
-| subject_id | text | True | — |
-| signer_name | text | True | — |
-| signer_capacity | enum | True | self, representative |
-| consent_text_id | text | True | — |
-| consent_text_version | text | True | — |
-| scope_description | text | True | — |
-| accepted | boolean | True | — |
-| signature_evidence_id | text | True | — |
+| `patient` | `text` | Yes | Patient or source |
+| `consent_title` | `text` | Yes | Consent title |
+| `consent_text` | `long_text` | Yes | Consent text |
+| `signer_name` | `text` | No | Expected signer name |
+| `signer_capacity` | `enum` | No | Expected signer capacity |
 
-**Filled form input object**
+The completed form freezes only the definitions and answers. Requester identity and request time are transaction fields.
 
 ```json
 {
-  "object_id": "obj_demo_form_informed_consent",
-  "object_type": "pgo_form",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:00:00Z",
-  "created_by": "user_demo_001",
-  "input_refs": [],
-  "data": {
-    "form_shape_id": "pgfs_informed_consent",
-    "form_shape_version": 1,
+  "form_shape": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-16T12:00:00Z"
+        "key": "patient",
+        "label": "Patient or source",
+        "type": "text",
+        "required": true
       },
       {
-        "key": "requested_by",
-        "value": "user_demo_001"
+        "key": "consent_title",
+        "label": "Consent title",
+        "type": "text",
+        "required": true
       },
       {
-        "key": "subject_id",
-        "value": "subject_demo_001"
+        "key": "consent_text",
+        "label": "Consent text",
+        "type": "long_text",
+        "required": true
       },
       {
         "key": "signer_name",
-        "value": "Alex Example"
+        "label": "Expected signer name",
+        "type": "text",
+        "required": false
       },
       {
         "key": "signer_capacity",
-        "value": "self"
-      },
-      {
-        "key": "consent_text_id",
-        "value": "consent_demo_testing"
-      },
-      {
-        "key": "consent_text_version",
-        "value": "1.0.0"
-      },
-      {
-        "key": "scope_description",
-        "value": "Demo testing and processing for PGGENE_A, PGGENE_B and PGGENE_C"
-      },
-      {
-        "key": "accepted",
-        "value": true
-      },
-      {
-        "key": "signature_evidence_id",
-        "value": "signature_demo_001"
+        "label": "Expected signer capacity",
+        "type": "enum",
+        "required": false,
+        "options": [
+          {
+            "value": "self",
+            "label": "Self"
+          },
+          {
+            "value": "representative",
+            "label": "Representative"
+          },
+          {
+            "value": "other",
+            "label": "Other"
+          }
+        ]
       }
-    ],
-    "form_shape": {
-      "id": "pgfs_informed_consent",
-      "version": 1,
-      "allow_unknown_fields": false,
-      "fields": [
-        {
-          "key": "requested_at",
-          "label": "Requested at",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "requested_by",
-          "label": "Requested by",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "subject_id",
-          "label": "Subject identifier",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "signer_name",
-          "label": "Signer name",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "signer_capacity",
-          "label": "Signer capacity",
-          "type": "enum",
-          "required": true,
-          "options": [
-            {
-              "value": "self",
-              "label": "Self"
-            },
-            {
-              "value": "representative",
-              "label": "Representative"
-            }
-          ]
-        },
-        {
-          "key": "consent_text_id",
-          "label": "Consent text identifier",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "consent_text_version",
-          "label": "Consent text version",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "scope_description",
-          "label": "Scope being consented to",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "accepted",
-          "label": "Accepted",
-          "type": "boolean",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "signature_evidence_id",
-          "label": "Signature evidence identifier",
-          "type": "text",
-          "required": true,
-          "options": []
-        }
-      ]
-    }
+    ]
   },
-  "files": []
-}
-```
-
-**Request**
-
-```json
-{
-  "request_id": "pgr_demo_informed_consent",
-  "service_id": "pgs_informed_consent",
-  "service_version": 1,
-  "inputs": [
+  "fields": [
     {
-      "role": "form",
-      "object_ref": {
-        "object_id": "obj_demo_form_informed_consent",
-        "revision": 1
-      }
+      "key": "patient",
+      "value": "Patient AB-123"
+    },
+    {
+      "key": "consent_title",
+      "value": "Consent for genetic testing"
+    },
+    {
+      "key": "consent_text",
+      "value": "Please review the purpose, implications and limitations of the proposed genetic test."
+    },
+    {
+      "key": "signer_name",
+      "value": "Alex Example"
+    },
+    {
+      "key": "signer_capacity",
+      "value": "self"
     }
   ]
 }
 ```
 
-**Completed result**
-
-```json
-{
-  "request_id": "pgr_demo_informed_consent",
-  "status": "delivered",
-  "outputs": [
-    {
-      "role": "consent",
-      "object_ref": {
-        "object_id": "obj_demo_consent",
-        "revision": 1
-      }
-    }
-  ]
-}
-```
-
-**Acceptance and fulfillment rules**
+## Acceptance conditions
 
 - The consent text, its version, signer identity and signature or acceptance evidence must be recoverable in the resulting object.
 - Only an accepted consent for the appropriate scope can satisfy the test-ordering contract. A submission alone is not proof of valid consent.
+
+## Scope rules
+
 - The record retains what was consented to, when and by whom. Subsequent use must fit that scope.
 
-**Illustrative commercial terms**
+## Transaction rule
 
-```json
-{
-  "price": {
-    "summary": "Calculated after submission"
-  },
-  "turnaround": "1d"
-}
-```
+A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.

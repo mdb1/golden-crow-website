@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "catalog_status": "fictional_design_proposal",
   "disclaimer": "All six providers, names, domains, contacts and API endpoints are invented for this wiki. Country coverage is a mock catalog attribute. No entity is represented as a real partner, licensed provider or clinically authorized service.",
-  "provider_definition": "A provider is an organization or professional entity responsible for one or more published services. The service defines the conversion contract; the provider performs its work. Objects remain independently addressable after fulfillment.",
+  "provider_definition": "A provider publishes a service contract and performs each accepted transaction. PGO content remains standalone; identity, ownership, authorization, revisions and service role bindings live in existing platform records.",
   "provider_field_guide": {
-    "provider_id": "Stable pgp_ identifier used by services, requests and provenance.",
+    "provider_id": "Stable pgp_ provider identifier used by services and transactions. It is not repeated inside PGO content.",
     "name": "Human-readable display name.",
     "kind": "Business or professional provider category.",
     "description": "What the provider contributes to the network.",
@@ -241,10 +241,10 @@
         "meaning": "Role-labelled pieces required by the published offer inputSlots. A form is included here as a pgo_form input when and only when the offer declares a pgo_form slot backed by a matching formShape."
       }
     },
-    "form_metadata_location": "requested_at and requested_by are field entries inside the pgo_form object supplied through the role form. They are not separate service-request payload properties, and there is no root form_ref field. Server processing timestamps may be returned separately as operational facts.",
-    "version_binding": "Validate service_version as an integer. When a pgo_form input is present, validate form_shape_id and integer form_shape_version in that object against the pinned service version before acceptance.",
+    "form_metadata_location": "The service transaction stores requestedAt and requestedByUserId. A pgo_form input contains only its frozen form_shape.fields, submitted fields and optional notes; requested_at and requested_by are not universal form questions.",
+    "version_binding": "Validate the pinned integer service_version against the published offer. A submitted pgo_form preserves its frozen definitions but carries no content-level form-shape ID or version.",
     "object_access": "References resolve through an authenticated Pocket Genes object access mechanism. The provider receives access only to the pinned input revisions and authorized payloads for that request. Result objects must be registered and accessible before completion is emitted.",
-    "file_transfer": "Large or binary payloads stay in object storage. The API exchanges object references, checksums and media metadata; it does not embed BAM, FASTQ or PDF bytes in request JSON.",
+    "file_transfer": "File-bearing PGO content exposes direct absolute HTTPS download_url values, or direct component URLs for reads and images. Preserve signed query parameters. The API does not embed native bytes and does not require generic file descriptors inside PGO content.",
     "idempotency": {
       "header": "Idempotency-Key",
       "required_on": [
@@ -307,13 +307,13 @@
       ]
     },
     "matching_rules": [
-      "declared_object_type",
-      "schema_or_native_format_version",
-      "accepted_profile",
-      "test_order_scope_and_fulfillment_requirements_when_applicable",
-      "specimen_state_when_applicable"
+      "declared_object_type_from_the_platform_record",
+      "pinned_service_version_and_role_binding",
+      "native_content_parseability_when_applicable",
+      "service_specific_suitability",
+      "operational_specimen_state_when_applicable"
     ],
-    "scope_rule": "A suitable extension alone does not demonstrate that the requested genes and analysis can be fulfilled. Providers must use explicit scope and analytical-sufficiency evidence associated with the objects and test order. A VCF record list alone does not prove coverage or a negative result.",
+    "scope_rule": "Global PGO validity and suitability for a particular service are separate checks. Providers validate the actual native input and transaction context needed for their published service without adding universal metadata to every PGO.",
     "callback_contract": {
       "registration": "Pocket Genes callback destination and provider verification public keys are registered during integration configuration. Service requests cannot supply arbitrary callback URLs.",
       "delivery": "Provider POSTs events to its preregistered Pocket Genes endpoint over HTTPS.",
@@ -334,7 +334,7 @@
       "payload": "Include request identity, state, request_revision and role-labelled outputs when completed. Patient details and native file bytes are excluded from callback bodies."
     },
     "role_binding": "Each inputs item must name a published inputSlots role, satisfy that slot's single accepted object type and 1:1 cardinality, and pin a positive integer object revision. Each outputs item must name a published outputSlots role and contain a compatible object_ref. A pgo_form is included as a normal inputs item only when the offer declares exactly one pgo_form slot with role form.",
-    "object_provenance": "Object envelopes retain input_refs for provenance. Service request and result slot bindings use inputs and outputs with explicit roles; these are separate structures."
+    "object_provenance": "Service input and output relationships are recorded by role-labelled references on the transaction. Standalone PGO content contains no input_refs, source-reference placeholder or generic provenance envelope."
   },
   "variant_analysis_api_example": {
     "provider_id": "pgp_variant_analysis",
@@ -529,45 +529,11 @@
       "object_type": "pgo_form",
       "schema_version": "1.0.0",
       "revision": 1,
-      "created_at": "2026-09-16T12:00:00Z",
+      "created_at": "2026-09-17T14:05:00Z",
       "created_by": "user_demo_001",
-      "input_refs": [],
       "data": {
-        "form_shape_id": "pgfs_variant_annotation",
-        "form_shape_version": 1,
-        "fields": [
-          {
-            "key": "requested_at",
-            "value": "2026-09-16T12:00:00Z"
-          },
-          {
-            "key": "requested_by",
-            "value": "user_demo_001"
-          },
-          {
-            "key": "annotation_profile",
-            "value": "PG_DEMO_ANN_V1"
-          }
-        ],
         "form_shape": {
-          "id": "pgfs_variant_annotation",
-          "version": 1,
-          "allow_unknown_fields": false,
           "fields": [
-            {
-              "key": "requested_at",
-              "label": "Requested at",
-              "type": "datetime",
-              "required": true,
-              "options": []
-            },
-            {
-              "key": "requested_by",
-              "label": "Requested by",
-              "type": "text",
-              "required": true,
-              "options": []
-            },
             {
               "key": "annotation_profile",
               "label": "Annotation profile",
@@ -581,11 +547,16 @@
               ]
             }
           ]
-        }
-      },
-      "files": []
+        },
+        "fields": [
+          {
+            "key": "annotation_profile",
+            "value": "PG_DEMO_ANN_V1"
+          }
+        ]
+      }
     },
-    "example_form_note": "This complete form example matches the pgfs_variant_annotation version 1 form_shape, including the required annotation_profile enum. Validate all fields and reject undeclared fields; unknown fields are rejected by default.",
+    "example_form_note": "This platform fixture contains strict pgo_form content. The immutable shape contains only field definitions; request identity and time remain on the service transaction.",
     "http_error_mapping": {
       "400": "Malformed JSON or invalid request field structure.",
       "401": "Missing or invalid authentication.",
@@ -597,13 +568,12 @@
       "500": "Provider internal error; reconcile using idempotency before resubmission."
     },
     "example_walkthrough": [
-      "Pocket Genes creates or resolves the filled pgo_form, the unannotated VCF and the test_order at exact revisions.",
-      "Pocket Genes submits POST /service-requests with inputs bound to the form, unannotated_vcf and test_order roles, the pinned integer service version and the Idempotency-Key header.",
-      "The provider returns a pgr_ request_id, then validates accessible input objects, profile and service compatibility.",
-      "The provider accepts and runs only its annotation service. It can be replaced in a future catalog by another provider publishing a compatible contract.",
-      "The provider registers the resulting pgo_annotated_vcf with its actual file descriptor, checksum, provenance and scope evidence.",
-      "The provider sends the signed completed callback to the preregistered Pocket Genes endpoint.",
-      "Pocket Genes verifies and deduplicates the event, retrieves the annotated_variants output object_ref, and makes that object available for another compatible service request."
+      "Pocket Genes resolves the strict form content, unannotated VCF object and test order at the exact transaction-bound revisions.",
+      "Pocket Genes submits the role-labelled inputs, pinned service version and Idempotency-Key.",
+      "The provider validates access, role compatibility, native VCF content and service-specific suitability.",
+      "The provider performs only the published annotation work and registers a pgo_annotated_vcf whose content is title, download_url and optional notes.",
+      "The provider sends the signed completion callback with the registered output object reference.",
+      "Pocket Genes verifies the event and makes the output object available to the authorized user."
     ]
   },
   "substitution_rule": "A future provider can offer an equivalent transformation by registering its own service with matching input and output contracts, required form shape, scope capabilities and applicable acceptance conditions. Existing services are not silently reassigned. The present catalog contains only the service_ids explicitly assigned to each provider."

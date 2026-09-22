@@ -1,327 +1,280 @@
-# Create the test order — `pgs_test_ordering`
+# S04. Create the test order — `pgs_test_ordering`
 
 Combine the consent record, candidate genes and patient/request context into the formal test order.
 
-**Provider:** `pgp_clinical_planning`. **Service version:** `1`. **Stage:** Test Planning.
+**Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
+**Provider kind:** organization  
+**Service version:** 1  
+**Stages:** test_planning
 
-**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+## Provider work
 
-**Provider work:** Review consent and test selection, consolidate the patient context, and issue the order with explicit fulfillment requirements.
+Review consent and test selection, consolidate the patient context, and issue the order with explicit fulfillment requirements.
 
-**Input slots**
+## Contract slots
 
-| Role | Accepted object type | Required | Cardinality |
+| Direction | Role | PGO type | Rule |
 | --- | --- | --- | --- |
-| form | pgo_form | True | 1–1 |
-| informed_consent | pgo_informed_consent | True | 1–1 |
-| bundle_of_candidate_genes | pgo_bundle_of_candidate_genes | True | 1–1 |
+| Input | `form` | `pgo_form` | Required 1:1 |
+| Input | `informed_consent` | `pgo_informed_consent` | Required 1:1 |
+| Input | `bundle_of_candidate_genes` | `pgo_bundle_of_candidate_genes` | Required 1:1 |
+| Output | `test_order` | `pgo_test_order` | new_object |
 
-**Outputs**
+The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
 
-| Role | Type / binding | Identity behavior |
-| --- | --- | --- |
-| test_order | pgo_test_order | new_object |
+## Request form
 
-**Form shape**
-
-`pgfs_test_ordering` version `1`. This shape is valid because the offer declares a `pgo_form` input slot; unknown fields are rejected.
-
-| Field | Type | Required | Enum options |
+| Key | Type | Required | Label |
 | --- | --- | --- | --- |
-| requested_at | datetime | True | — |
-| requested_by | text | True | — |
-| subject_id | text | True | — |
-| patient_name | text | True | — |
-| objective | text | True | — |
-| clinical_suspicion | text | True | — |
-| reference_id | text | True | — |
-| variant_classes | multi_enum | True | SNV, small_indel |
-| required_output_types | multi_enum | True | pgo_interactive_report, pgo_pdf_report |
-| patient_date_of_birth | date | True | — |
-| patient_identifier | text | True | — |
-| wet_lab_output_type | enum | True | pgo_sequence_reads, pgo_aligned_reads, pgo_unannotated_vcf, pgo_annotated_vcf |
-| required_profile | text | True | — |
+| `patient` | `text` | Yes | Patient or source |
+| `test_name` | `text` | Yes | Requested test name |
+| `sample_type` | `enum` | Yes | Requested specimen |
+| `test_type` | `enum` | No | Broad test type |
+| `objective` | `long_text` | No | Objective |
+| `clinical_suspicion` | `long_text` | No | Clinical suspicion |
+| `genes` | `string_list` | No | Genes |
 
-**Filled form input object**
+The completed form freezes only the definitions and answers. Requester identity and request time are transaction fields.
 
 ```json
 {
-  "object_id": "obj_demo_form_test_ordering",
-  "object_type": "pgo_form",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:11:00Z",
-  "created_by": "user_demo_001",
-  "input_refs": [],
-  "data": {
-    "form_shape_id": "pgfs_test_ordering",
-    "form_shape_version": 1,
+  "form_shape": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-16T12:11:00Z"
+        "key": "patient",
+        "label": "Patient or source",
+        "type": "text",
+        "required": true
       },
       {
-        "key": "requested_by",
-        "value": "user_demo_001"
+        "key": "test_name",
+        "label": "Requested test name",
+        "type": "text",
+        "required": true
       },
       {
-        "key": "subject_id",
-        "value": "subject_demo_001"
+        "key": "sample_type",
+        "label": "Requested specimen",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "blood",
+            "label": "Blood"
+          },
+          {
+            "value": "dried_blood_spot",
+            "label": "Dried blood spot"
+          },
+          {
+            "value": "saliva",
+            "label": "Saliva"
+          },
+          {
+            "value": "buccal_swab",
+            "label": "Buccal swab"
+          },
+          {
+            "value": "tissue",
+            "label": "Tissue"
+          },
+          {
+            "value": "skin_biopsy",
+            "label": "Skin biopsy"
+          },
+          {
+            "value": "bone_marrow_aspirate",
+            "label": "Bone marrow aspirate"
+          },
+          {
+            "value": "bone_marrow_core",
+            "label": "Bone marrow core biopsy"
+          },
+          {
+            "value": "amniotic_fluid",
+            "label": "Amniotic fluid"
+          },
+          {
+            "value": "chorionic_villi",
+            "label": "Chorionic villi"
+          },
+          {
+            "value": "cord_blood",
+            "label": "Cord blood"
+          },
+          {
+            "value": "cerebrospinal_fluid",
+            "label": "Cerebrospinal fluid"
+          },
+          {
+            "value": "urine",
+            "label": "Urine"
+          },
+          {
+            "value": "stool",
+            "label": "Stool"
+          },
+          {
+            "value": "hair_follicles",
+            "label": "Hair follicles"
+          },
+          {
+            "value": "nail_clippings",
+            "label": "Nail clippings"
+          },
+          {
+            "value": "semen",
+            "label": "Semen"
+          },
+          {
+            "value": "embryo_biopsy",
+            "label": "Embryo biopsy"
+          },
+          {
+            "value": "whole_embryo",
+            "label": "Whole embryo"
+          },
+          {
+            "value": "polar_body",
+            "label": "Polar body"
+          },
+          {
+            "value": "plasma",
+            "label": "Plasma"
+          },
+          {
+            "value": "serum",
+            "label": "Serum"
+          },
+          {
+            "value": "extracted_dna",
+            "label": "Extracted DNA"
+          },
+          {
+            "value": "extracted_rna",
+            "label": "Extracted RNA"
+          },
+          {
+            "value": "other",
+            "label": "Other"
+          }
+        ]
       },
       {
-        "key": "patient_name",
-        "value": "Alex Example"
+        "key": "test_type",
+        "label": "Broad test type",
+        "type": "enum",
+        "required": false,
+        "options": [
+          {
+            "value": "single_gene",
+            "label": "Single-gene test"
+          },
+          {
+            "value": "gene_panel",
+            "label": "Gene panel"
+          },
+          {
+            "value": "exome_sequencing",
+            "label": "Exome sequencing"
+          },
+          {
+            "value": "genome_sequencing",
+            "label": "Genome sequencing"
+          },
+          {
+            "value": "targeted_variant_testing",
+            "label": "Targeted variant testing"
+          },
+          {
+            "value": "repeat_expansion_testing",
+            "label": "Repeat expansion testing"
+          },
+          {
+            "value": "methylation_analysis",
+            "label": "Methylation analysis"
+          },
+          {
+            "value": "chromosomal_microarray",
+            "label": "Chromosomal microarray"
+          },
+          {
+            "value": "karyotype",
+            "label": "Karyotype"
+          },
+          {
+            "value": "fish",
+            "label": "FISH"
+          },
+          {
+            "value": "other",
+            "label": "Other"
+          }
+        ]
       },
       {
         "key": "objective",
-        "value": "Evaluate the synthetic three-gene demonstration"
+        "label": "Objective",
+        "type": "long_text",
+        "required": false
       },
       {
         "key": "clinical_suspicion",
-        "value": "Demo clinical hypothesis only"
+        "label": "Clinical suspicion",
+        "type": "long_text",
+        "required": false
       },
       {
-        "key": "reference_id",
-        "value": "PG_DEMO_REF_1"
-      },
-      {
-        "key": "variant_classes",
-        "value": [
-          "SNV",
-          "small_indel"
-        ]
-      },
-      {
-        "key": "required_output_types",
-        "value": [
-          "pgo_interactive_report",
-          "pgo_pdf_report"
-        ]
-      },
-      {
-        "key": "patient_date_of_birth",
-        "value": "1990-01-01"
-      },
-      {
-        "key": "patient_identifier",
-        "value": "PATIENT-DEMO-001"
-      },
-      {
-        "key": "wet_lab_output_type",
-        "value": "pgo_sequence_reads"
-      },
-      {
-        "key": "required_profile",
-        "value": "pg_demo_small_variant_v1"
+        "key": "genes",
+        "label": "Genes",
+        "type": "string_list",
+        "required": false
       }
-    ],
-    "form_shape": {
-      "id": "pgfs_test_ordering",
-      "version": 1,
-      "allow_unknown_fields": false,
-      "fields": [
-        {
-          "key": "requested_at",
-          "label": "Requested at",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "requested_by",
-          "label": "Requested by",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "subject_id",
-          "label": "Subject identifier",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "patient_name",
-          "label": "Patient name",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "objective",
-          "label": "Intended objective",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "clinical_suspicion",
-          "label": "Clinical suspicion",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "reference_id",
-          "label": "Reference identifier",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "variant_classes",
-          "label": "Requested variant classes",
-          "type": "multi_enum",
-          "required": true,
-          "options": [
-            {
-              "value": "SNV",
-              "label": "Single-nucleotide variants"
-            },
-            {
-              "value": "small_indel",
-              "label": "Small insertions/deletions"
-            }
-          ]
-        },
-        {
-          "key": "required_output_types",
-          "label": "Required deliverables",
-          "type": "multi_enum",
-          "required": true,
-          "options": [
-            {
-              "value": "pgo_interactive_report",
-              "label": "Interactive report"
-            },
-            {
-              "value": "pgo_pdf_report",
-              "label": "PDF report"
-            }
-          ]
-        },
-        {
-          "key": "patient_date_of_birth",
-          "label": "Patient date of birth",
-          "type": "date",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "patient_identifier",
-          "label": "Patient identifier",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "wet_lab_output_type",
-          "label": "Laboratory handoff format",
-          "type": "enum",
-          "required": true,
-          "options": [
-            {
-              "value": "pgo_sequence_reads",
-              "label": "FASTQ reads"
-            },
-            {
-              "value": "pgo_aligned_reads",
-              "label": "Aligned reads (BAM)"
-            },
-            {
-              "value": "pgo_unannotated_vcf",
-              "label": "Unannotated variants (VCF)"
-            },
-            {
-              "value": "pgo_annotated_vcf",
-              "label": "Annotated variants (VCF)"
-            }
-          ]
-        },
-        {
-          "key": "required_profile",
-          "label": "Required analytical profile",
-          "type": "text",
-          "required": true,
-          "options": []
-        }
+    ]
+  },
+  "fields": [
+    {
+      "key": "patient",
+      "value": "Patient AB-123"
+    },
+    {
+      "key": "test_name",
+      "value": "Hereditary cancer panel"
+    },
+    {
+      "key": "sample_type",
+      "value": "blood"
+    },
+    {
+      "key": "test_type",
+      "value": "gene_panel"
+    },
+    {
+      "key": "objective",
+      "value": "Evaluate an inherited cancer predisposition."
+    },
+    {
+      "key": "genes",
+      "value": [
+        "BRCA1",
+        "BRCA2"
       ]
     }
-  },
-  "files": []
-}
-```
-
-**Request**
-
-```json
-{
-  "request_id": "pgr_demo_test_ordering",
-  "service_id": "pgs_test_ordering",
-  "service_version": 1,
-  "inputs": [
-    {
-      "role": "form",
-      "object_ref": {
-        "object_id": "obj_demo_form_test_ordering",
-        "revision": 1
-      }
-    },
-    {
-      "role": "informed_consent",
-      "object_ref": {
-        "object_id": "obj_demo_consent",
-        "revision": 1
-      }
-    },
-    {
-      "role": "bundle_of_candidate_genes",
-      "object_ref": {
-        "object_id": "obj_demo_genes",
-        "revision": 1
-      }
-    }
   ]
 }
 ```
 
-**Completed result**
-
-```json
-{
-  "request_id": "pgr_demo_test_ordering",
-  "status": "delivered",
-  "outputs": [
-    {
-      "role": "test_order",
-      "object_ref": {
-        "object_id": "obj_demo_order",
-        "revision": 1
-      }
-    }
-  ]
-}
-```
-
-**Acceptance and fulfillment rules**
+## Acceptance conditions
 
 - Patient and subject references agree across the form and input objects.
 - The consent is accepted and its scope covers the proposed order.
 - The provider confirms the selected tests and scope within its offered test-ordering process.
-- Create data.scope and data.fulfillment explicitly; retain patient identity, objective, clinical suspicion and consent reference.
-- The final report must be generatable from this complete order plus the interactive result and the report service form.
-- The candidate-gene bundle feeds test ordering directly; no suggested-tests intermediate object is required.
-- The ordering form supplies patient_name, patient_date_of_birth and patient_identifier for the patient record. wet_lab_output_type selects the laboratory handoff; required_output_types maps to fulfillment.final_output_types; required_profile sets the analytical profile.
 
-**Illustrative commercial terms**
+## Scope rules
 
-```json
-{
-  "price": {
-    "summary": "Calculated after submission"
-  },
-  "turnaround": "1d"
-}
-```
+- Create pgo_test_order content from the patient, test name and sample type actually supplied, plus only the optional context the requester provided.
+- Consent checks and provider suitability checks remain service responsibilities and are not fabricated inside the order content.
+
+## Transaction rule
+
+A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.

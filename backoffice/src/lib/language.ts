@@ -4813,6 +4813,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "No records found.": "No se encontraron registros.",
   "Could not load records.": "No se pudieron cargar los registros.",
   "compliance warnings": "advertencias de cumplimiento",
+  "Offer requires remediation": "La oferta requiere corrección",
+  "This service offer remains visible in god mode but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.":
+    "Esta oferta de servicio sigue visible en god mode, pero no cumple completamente el contrato. Revisá las advertencias, corregí los datos editables y guardala para normalizar la entidad.",
   "Transaction requires remediation": "La transacción requiere corrección",
   "This root transaction is visible in god mode but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.":
     "Esta transacción raíz es visible en god mode, pero no cumple completamente el contrato. Revisá las advertencias, corregí los datos editables y guardala para normalizar la entidad.",
@@ -4854,8 +4857,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Usá una URL de descarga HTTPS válida.",
   "Provide a public download URL. The SDK validates the downloaded content against the exact PGO type before creating a ready object.":
     "Proporcioná una URL pública de descarga. El SDK valida el contenido descargado contra el tipo PGO exacto antes de crear un objeto listo.",
-  "Only finalized PGO wrappers supplied by HTTPS download URL are supported. File Storage references and in-progress objects are not accepted.":
-    "Solo se admiten wrappers PGO finalizados proporcionados mediante una URL de descarga HTTPS. No se aceptan referencias de File Storage ni objetos en proceso.",
+  "Only finalized PGO content JSON supplied by HTTPS download URL is supported. File Storage references and in-progress objects are not accepted.":
+    "Solo se admite contenido JSON PGO finalizado proporcionado mediante una URL de descarga HTTPS. No se aceptan referencias de File Storage ni objetos en proceso.",
   "Save the transaction before uploading output objects.":
     "Guardá la transacción antes de cargar objetos de salida.",
   "Save other transaction changes before uploading output objects.":

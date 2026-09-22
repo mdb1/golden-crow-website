@@ -1,22 +1,20 @@
-# Clarity Report Studio
+# Clarity Report Studio — `pgp_report_studio`
 
-Fictional provider profile.
+Fictional report provider combining a self-contained test order with a symptom-independent .pgi1.json result and the service form to produce a final PDF. Request-specific presentation options belong to the form.
+
+**Kind:** report_production_company  
+**Stages:** bioinformatics  
+**Regions:** AR  
+**Catalog status:** fictional example, not a live integration
+
+## Services
+
+- `pgs_final_report`
+
+## Contact and integration
 
 ```json
 {
-  "provider_id": "pgp_report_studio",
-  "name": "Clarity Report Studio",
-  "kind": "report_production_company",
-  "description": "Fictional report provider combining a self-contained test order with a symptom-independent .pgi1.json result and the service form to produce a final PDF. Request-specific presentation options belong to the form.",
-  "supported_stages": [
-    "bioinformatics"
-  ],
-  "country_codes": [
-    "AR"
-  ],
-  "service_ids": [
-    "pgs_final_report"
-  ],
   "contacts": {
     "website": "https://clarityreports.example",
     "operations_email": "operations@clarityreports.example",
@@ -35,3 +33,5 @@ Fictional provider profile.
   }
 }
 ```
+
+The provider identity belongs to Discover and the service offer. It is never repeated as required PGO content. Requests use authenticated, role-labelled transaction references; outputs are registered before delivery.

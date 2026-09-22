@@ -15,6 +15,7 @@ import {
   fetchWithValidatedRedirects,
   readLimitedResponse,
 } from "../lib/favicon.js";
+import { identifyPgiNativeModel } from "../lib/pgi-native-schema.js";
 import { serializedPgoObjectSchemaError } from "../lib/pgo-object-schema.js";
 import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
@@ -39,6 +40,7 @@ const MAX_FILTERED_SCAN = MAX_PAGE_SIZE * 3;
 const OUTPUT_OBJECT_DOWNLOAD_MAX_BYTES = 5 * 1024 * 1024;
 const OUTPUT_OBJECT_DOWNLOAD_TIMEOUT_MS = 10_000;
 const OUTPUT_OBJECT_CODE_CANDIDATE_COUNT = 12;
+const MAX_OBJECT_REVISION_HISTORY_RECORDS = 100;
 
 export const SUPPORT_SERVICE_STAGES = [
   "test_planning",
@@ -168,6 +170,7 @@ export interface SupportServiceOfferRecord {
   updatedAt?: string;
   createdByEmail?: string;
   updatedByEmail?: string;
+  complianceWarnings: string[];
 }
 
 export interface SupportServiceTransactionsInputRef {
@@ -507,11 +510,12 @@ function normalizeLimit(value: unknown) {
 
 function timestampToIso(value: unknown): string | undefined {
   if (value instanceof Timestamp) {
-    return value.toDate().toISOString();
+    const date = value.toDate();
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
   }
 
   if (value instanceof Date) {
-    return value.toISOString();
+    return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
   }
 
   if (typeof value === "string") {
@@ -546,7 +550,6 @@ function dateFromUnknown(
 }
 
 type ServiceListCursor = {
-  updatedAt: Timestamp;
   id: string;
 };
 
@@ -559,11 +562,10 @@ function parseListCursor(cursor?: string): ServiceListCursor | undefined {
       JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")),
     );
     const id = cleanString(value.id);
-    const updatedAt = dateFromUnknown(value.updatedAt, "cursor updatedAt", true);
-    if (!id || id.includes("/") || !updatedAt) {
+    if (!id || id.includes("/")) {
       throw new Error("invalid cursor");
     }
-    return { updatedAt: Timestamp.fromDate(updatedAt), id };
+    return { id };
   } catch (error) {
     if (error instanceof AdminRepositoryError) {
       throw error;
@@ -573,17 +575,9 @@ function parseListCursor(cursor?: string): ServiceListCursor | undefined {
 }
 
 function serviceListCursor(doc: QueryDocumentSnapshot) {
-  const updatedAt = timestampToIso(doc.data().updatedAt);
-  if (!updatedAt) {
-    throw new AdminRepositoryError(
-      `Service record ${doc.id} has no valid updatedAt cursor value.`,
-      500,
-    );
-  }
-  return Buffer.from(
-    JSON.stringify({ updatedAt, id: doc.id }),
-    "utf8",
-  ).toString("base64url");
+  return Buffer.from(JSON.stringify({ id: doc.id }), "utf8").toString(
+    "base64url",
+  );
 }
 
 function withoutUndefined<T extends Record<string, unknown>>(input: T) {
@@ -757,7 +751,7 @@ function comparableOutputObjects(value: readonly unknown[]) {
     );
 }
 
-function normalizeFormShape(value: unknown, serializedPgoShape = false) {
+function normalizeFormShape(value: unknown) {
   const formShape = optionalRecord(value);
   const id = cleanString(formShape.id);
 
@@ -767,17 +761,18 @@ function normalizeFormShape(value: unknown, serializedPgoShape = false) {
 
   rejectForbiddenKeys(
     formShape,
-    serializedPgoShape ? ["allowUnknownFields"] : ["allow_unknown_fields"],
-    serializedPgoShape ? "Serialized PGO form shape" : "Service form shape",
+    ["allow_unknown_fields"],
+    "Service form shape",
   );
   if (!Array.isArray(formShape.fields)) {
     throw new AdminRepositoryError("Form shape fields must be an array.", 400);
   }
-  const fields = optionalRecordArray(formShape.fields).map((field) => {
+  const fields = (formShape.fields as unknown[]).map((value, index) => {
+    const field = requireRecord(value, `Form shape field ${index + 1}`);
     rejectForbiddenKeys(
       field,
-      serializedPgoShape ? ["helpInfoText"] : ["help_info_text"],
-      serializedPgoShape ? "Serialized PGO form field" : "Service form field",
+      ["help_info_text"],
+      "Service form field",
     );
     if (typeof field.required !== "boolean") {
       throw new AdminRepositoryError(
@@ -792,12 +787,9 @@ function normalizeFormShape(value: unknown, serializedPgoShape = false) {
         400,
       );
     }
-    const helpInfoTextKey = serializedPgoShape
-      ? "help_info_text"
-      : "helpInfoText";
-    const helpInfoText = cleanString(field[helpInfoTextKey]);
+    const helpInfoText = cleanString(field.helpInfoText);
     if (
-      field[helpInfoTextKey] != null &&
+      field.helpInfoText != null &&
       (!helpInfoText || helpInfoText.length > 500)
     ) {
       throw new AdminRepositoryError(
@@ -805,32 +797,52 @@ function normalizeFormShape(value: unknown, serializedPgoShape = false) {
         400,
       );
     }
+    const typeUsesOptions = type === "enum" || type === "multi_enum";
+    const hasOptions = Object.prototype.hasOwnProperty.call(field, "options");
+    if (hasOptions && !Array.isArray(field.options)) {
+      throw new AdminRepositoryError(
+        `Form field ${cleanString(field.key) || "(unknown)"} options must be an array.`,
+        400,
+      );
+    }
+    const options = hasOptions
+      ? (field.options as unknown[]).map((value, optionIndex) => {
+          const option = requireRecord(
+            value,
+            `Form field ${cleanString(field.key) || "(unknown)"} option ${optionIndex + 1}`,
+          );
+          return {
+            value: cleanString(option.value),
+            label: cleanString(option.label),
+          };
+        })
+      : undefined;
     return withoutUndefined({
       key: cleanString(field.key),
       label: cleanString(field.label),
       type,
       required: field.required,
-      options: optionalRecordArray(field.options).map((option) => ({
-        value: cleanString(option.value),
-        label: cleanString(option.label) || cleanString(option.value),
-      })),
+      ...(typeUsesOptions || hasOptions ? { options } : {}),
       helpInfoText: helpInfoText || undefined,
     });
   });
-  const allowUnknownFieldsKey = serializedPgoShape
-    ? "allow_unknown_fields"
-    : "allowUnknownFields";
-  if (typeof formShape[allowUnknownFieldsKey] !== "boolean") {
+  if (typeof formShape.allowUnknownFields !== "boolean") {
     throw new AdminRepositoryError(
-      `${allowUnknownFieldsKey} must be a boolean.`,
+      "allowUnknownFields must be a boolean.",
+      400,
+    );
+  }
+  if (!Number.isInteger(formShape.version) || Number(formShape.version) < 1) {
+    throw new AdminRepositoryError(
+      "Form shape version must be a positive integer.",
       400,
     );
   }
 
   return {
     id,
-    version: versionNumber(formShape.version),
-    allowUnknownFields: formShape[allowUnknownFieldsKey] as boolean,
+    version: Number(formShape.version),
+    allowUnknownFields: formShape.allowUnknownFields as boolean,
     fields,
   };
 }
@@ -1658,23 +1670,13 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         400,
       );
     }
-    if (document.formShape.fields.length < 2) {
-      throw new AdminRepositoryError(
-        "Form shape must declare requested_at and requested_by fields.",
-        400,
-      );
-    }
-
     const fieldKeys = new Set<string>();
-    const fieldsByKey = new Map<
-      string,
-      (typeof document.formShape.fields)[number]
-    >();
     for (const field of document.formShape.fields) {
       const key = cleanString(field.key);
       const label = cleanString(field.label);
       const type = cleanString(field.type);
-      const options = optionalRecordArray(field.options);
+      const hasOptions = Object.prototype.hasOwnProperty.call(field, "options");
+      const options = hasOptions ? optionalRecordArray(field.options) : [];
       if (!/^[a-z][a-z0-9_]{0,63}$/.test(key)) {
         throw new AdminRepositoryError(
           "Form field keys must be lowercase identifier keys.",
@@ -1688,7 +1690,6 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         );
       }
       fieldKeys.add(key);
-      fieldsByKey.set(key, field);
       if (!label) {
         throw new AdminRepositoryError(
           `Form field ${key} needs a label.`,
@@ -1717,7 +1718,7 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
           400,
         );
       }
-      if (!["enum", "multi_enum"].includes(type) && options.length > 0) {
+      if (!["enum", "multi_enum"].includes(type) && hasOptions) {
         throw new AdminRepositoryError(
           `Form field ${key} cannot declare options for type ${type}.`,
           400,
@@ -1733,15 +1734,27 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
       for (const option of options) {
         const value = cleanString(option.value);
         const optionLabel = cleanString(option.label);
-        if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) {
+        if (!value) {
           throw new AdminRepositoryError(
-            `Form field ${key} has an invalid option value.`,
+            `Form field ${key} option values must be nonblank.`,
             400,
           );
         }
-        if (!optionLabel || optionLabel.length > 120) {
+        if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) {
           throw new AdminRepositoryError(
-            `Form field ${key} option labels must contain 1 to 120 characters.`,
+            `Form field ${key} option values must use the canonical 1-to-128 character identifier format.`,
+            400,
+          );
+        }
+        if (!optionLabel) {
+          throw new AdminRepositoryError(
+            `Form field ${key} option labels must be nonblank.`,
+            400,
+          );
+        }
+        if (optionLabel.length > 120) {
+          throw new AdminRepositoryError(
+            `Form field ${key} option labels cannot exceed 120 characters.`,
             400,
           );
         }
@@ -1752,35 +1765,6 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
           400,
         );
       }
-    }
-
-    for (const requiredKey of ["requested_at", "requested_by"]) {
-      if (!fieldKeys.has(requiredKey)) {
-        throw new AdminRepositoryError(
-          `Form shape must include ${requiredKey}.`,
-          400,
-        );
-      }
-    }
-    const requestedAtField = fieldsByKey.get("requested_at");
-    if (
-      cleanString(requestedAtField?.type) !== "datetime" ||
-      requestedAtField?.required !== true
-    ) {
-      throw new AdminRepositoryError(
-        "Base field requested_at must be a required datetime.",
-        400,
-      );
-    }
-    const requestedByField = fieldsByKey.get("requested_by");
-    if (
-      cleanString(requestedByField?.type) !== "text" ||
-      requestedByField?.required !== true
-    ) {
-      throw new AdminRepositoryError(
-        "Base field requested_by must be required text.",
-        400,
-      );
     }
   } else if (formInputSlotCount > 0) {
     throw new AdminRepositoryError(
@@ -2201,19 +2185,22 @@ function validateTransactionDocument(
 function resolvedOutputObjectType(
   slot: Record<string, unknown>,
   offer?: SupportServiceOfferRecord,
-) {
+): SupportServiceObjectType {
   const objectType = cleanString(slot.objectType);
-  if (!objectType.startsWith("same_as:")) {
-    return objectType;
-  }
-
   const inputRole = cleanString(slot.sameIdentityAsInput) || objectType.slice(8);
-  return (
-    cleanString(
+  const resolved = objectType.startsWith("same_as:")
+    ? cleanString(
       offer?.inputSlots.find((input) => cleanString(input.role) === inputRole)
         ?.objectType,
-    ) || ""
-  );
+    )
+    : objectType;
+  if (!OBJECT_TYPE_SET.has(resolved)) {
+    throw new AdminRepositoryError(
+      `Output slot ${cleanString(slot.role) || "(unknown)"} cannot resolve a registered object type.`,
+      400,
+    );
+  }
+  return resolved as SupportServiceObjectType;
 }
 
 function isValidDateOnly(value: unknown) {
@@ -2223,7 +2210,9 @@ function isValidDateOnly(value: unknown) {
   const year = Number(value.slice(0, 4));
   const month = Number(value.slice(5, 7));
   const day = Number(value.slice(8, 10));
-  const parsed = new Date(Date.UTC(year, month - 1, day));
+  const parsed = new Date(0);
+  parsed.setUTCHours(0, 0, 0, 0);
+  parsed.setUTCFullYear(year, month - 1, day);
   return (
     parsed.getUTCFullYear() === year &&
     parsed.getUTCMonth() === month - 1 &&
@@ -2232,17 +2221,26 @@ function isValidDateOnly(value: unknown) {
 }
 
 function isValidDateTime(value: unknown) {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const match = value.match(
+    /^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/,
+  );
   return (
-    typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
-      value,
-    ) &&
+    Boolean(match) &&
+    isValidDateOnly(match?.[1]) &&
     !Number.isNaN(Date.parse(value))
   );
 }
 
 function isValidHttpsUrl(value: unknown) {
-  if (typeof value !== "string" || value.trim() !== value) {
+  if (
+    typeof value !== "string" ||
+    value.trim() !== value ||
+    value.includes("\\") ||
+    !/^https:\/\/[^/?#\\\s]+(?:[/?#]|$)/i.test(value)
+  ) {
     return false;
   }
   try {
@@ -2266,7 +2264,8 @@ type NormalizedFormField = NonNullable<
 >["fields"][number];
 
 function formAnswerMatchesField(value: unknown, field: NormalizedFormField) {
-  const optionValues = new Set(field.options.map((option) => option.value));
+  const options = field.options ?? [];
+  const optionValues = new Set(options.map((option) => option.value));
   switch (field.type) {
     case "text":
     case "long_text":
@@ -2275,7 +2274,7 @@ function formAnswerMatchesField(value: unknown, field: NormalizedFormField) {
     case "email":
       return (
         typeof value === "string" &&
-        /^[^\s@]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/.test(
+        /^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i.test(
           value,
         )
       );
@@ -2321,7 +2320,7 @@ function formAnswerMatchesField(value: unknown, field: NormalizedFormField) {
     case "multi_enum":
       return (
         Array.isArray(value) &&
-        value.length > 0 &&
+        (!field.required || value.length > 0) &&
         value.every(
           (item): item is string =>
             typeof item === "string" && optionValues.has(item),
@@ -2330,15 +2329,15 @@ function formAnswerMatchesField(value: unknown, field: NormalizedFormField) {
         value.every(
           (item, index) =>
             index === 0 ||
-            field.options.findIndex(
+            options.findIndex(
               (option) => option.value === value[index - 1],
-            ) < field.options.findIndex((option) => option.value === item),
+            ) < options.findIndex((option) => option.value === item),
         )
       );
     case "string_list":
       return (
         Array.isArray(value) &&
-        value.length > 0 &&
+        (!field.required || value.length > 0) &&
         value.every(
           (item): item is string =>
             typeof item === "string" && cleanString(item).length > 0,
@@ -2347,7 +2346,7 @@ function formAnswerMatchesField(value: unknown, field: NormalizedFormField) {
     case "integer_list":
       return (
         Array.isArray(value) &&
-        value.length > 0 &&
+        (!field.required || value.length > 0) &&
         value.every(
           (item) => typeof item === "number" && Number.isInteger(item),
         )
@@ -2355,7 +2354,7 @@ function formAnswerMatchesField(value: unknown, field: NormalizedFormField) {
     case "number_list":
       return (
         Array.isArray(value) &&
-        value.length > 0 &&
+        (!field.required || value.length > 0) &&
         value.every(
           (item) => typeof item === "number" && Number.isFinite(item),
         )
@@ -2365,232 +2364,35 @@ function formAnswerMatchesField(value: unknown, field: NormalizedFormField) {
   }
 }
 
-function normalizedPgoInputRefs(
-  value: unknown,
-  serialized: boolean,
-  label: string,
-) {
-  if (!Array.isArray(value)) {
-    throw new AdminRepositoryError(`${label} input refs must be an array.`, 400);
+function assertCamelCaseSnapshotValue(value: unknown, label: string): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) =>
+      assertCamelCaseSnapshotValue(item, `${label}[${index}]`),
+    );
+    return;
   }
-  return value.map((item, index) => {
-    const reference = requireRecord(item, `${label} input ref ${index + 1}`);
-    rejectForbiddenKeys(
-      reference,
-      serialized
-        ? ["objectId", "objectType", "role"]
-        : ["object_id", "object_type"],
-      `${label} input ref ${index + 1}`,
-    );
-    rejectUnknownKeys(
-      reference,
-      serialized
-        ? ["object_id", "revision"]
-        : ["objectId", "objectType", "revision", "role"],
-      `${label} input ref ${index + 1}`,
-    );
-    const objectId = cleanString(
-      serialized ? reference.object_id : reference.objectId,
-    );
-    const revision = Number(reference.revision);
-    const objectType = cleanString(
-      serialized ? reference.object_type : reference.objectType,
-    );
-    const role = cleanString(reference.role);
-    if (!objectId || !Number.isInteger(revision) || revision < 1) {
+  if (!value || typeof value !== "object" || value instanceof Date) {
+    return;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    return;
+  }
+  for (const [key, nestedValue] of Object.entries(
+    value as Record<string, unknown>,
+  )) {
+    if (!/^[a-z][A-Za-z0-9]*$/.test(key)) {
       throw new AdminRepositoryError(
-        `${label} input ref ${index + 1} is invalid.`,
+        `${label} must use camelCase keys; found ${key}.`,
         400,
       );
     }
-    return withoutUndefined({
-      objectId,
-      revision,
-      objectType: objectType || undefined,
-      role: role || undefined,
-    });
-  });
-}
-
-function normalizedPgoFileRefs(
-  value: unknown,
-  serialized: boolean,
-  label: string,
-) {
-  if (!Array.isArray(value)) {
-    throw new AdminRepositoryError(`${label} files must be an array.`, 400);
+    assertCamelCaseSnapshotValue(nestedValue, `${label}.${key}`);
   }
-  return value.map((item, index) => {
-    const file = requireRecord(item, `${label} file ${index + 1}`);
-    rejectForbiddenKeys(
-      file,
-      serialized
-        ? ["fileStorageId", "mediaType", "sizeBytes"]
-        : ["file_storage_id", "media_type", "size_bytes"],
-      `${label} file ${index + 1}`,
-    );
-    rejectUnknownKeys(
-      file,
-      serialized
-        ? ["role", "path", "media_type", "size_bytes", "sha256"]
-        : [
-            "role",
-            "path",
-            "url",
-            "fileStorageId",
-            "mediaType",
-            "sizeBytes",
-            "sha256",
-          ],
-      `${label} file ${index + 1}`,
-    );
-    if (serialized) {
-      const role = cleanString(file.role);
-      const path = cleanString(file.path);
-      const mediaType = cleanString(file.media_type);
-      const sha256 = cleanString(file.sha256);
-      const sizeBytes = file.size_bytes;
-      if (
-        !role ||
-        !path ||
-        !mediaType ||
-        !/^[a-f0-9]{64}$/.test(sha256) ||
-        !Number.isInteger(sizeBytes) ||
-        Number(sizeBytes) < 0
-      ) {
-        throw new AdminRepositoryError(
-          `${label} file ${index + 1} must contain role, path, media_type, lowercase sha256, and nonnegative size_bytes.`,
-          400,
-        );
-      }
-    }
-    return withoutUndefined({
-      role: cleanString(file.role) || undefined,
-      path: cleanString(file.path) || undefined,
-      url: cleanString(file.url) || undefined,
-      fileStorageId:
-        cleanString(serialized ? file.file_storage_id : file.fileStorageId) ||
-        undefined,
-      mediaType:
-        cleanString(serialized ? file.media_type : file.mediaType) || undefined,
-      sizeBytes:
-        typeof (serialized ? file.size_bytes : file.sizeBytes) === "number"
-          ? Number(serialized ? file.size_bytes : file.sizeBytes)
-          : undefined,
-      sha256: cleanString(file.sha256) || undefined,
-    });
-  });
 }
 
-function normalizedPgoEnvelope(
-  value: unknown,
-  serialized: boolean,
-  label: string,
-) {
-  const envelope = requireRecord(value, label);
-  rejectForbiddenKeys(
-    envelope,
-    serialized
-      ? [
-          "objectId",
-          "objectType",
-          "schemaVersion",
-          "createdAt",
-          "createdBy",
-          "inputRefs",
-        ]
-      : [
-          "object_id",
-          "object_type",
-          "schema_version",
-          "created_at",
-          "created_by",
-          "input_refs",
-        ],
-    label,
-  );
-  rejectUnknownKeys(
-    envelope,
-    serialized
-      ? [
-          "object_id",
-          "object_type",
-          "schema_version",
-          "revision",
-          "created_at",
-          "created_by",
-          "input_refs",
-          "data",
-          "files",
-        ]
-      : [
-          "objectId",
-          "objectType",
-          "schemaVersion",
-          "revision",
-          "createdAt",
-          "createdBy",
-          "inputRefs",
-          "data",
-          "files",
-        ],
-    label,
-  );
-  const objectId = cleanString(
-    serialized ? envelope.object_id : envelope.objectId,
-  );
-  const objectType = cleanString(
-    serialized ? envelope.object_type : envelope.objectType,
-  );
-  const schemaVersion = cleanString(
-    serialized ? envelope.schema_version : envelope.schemaVersion,
-  );
-  const revision = Number(envelope.revision);
-  const createdAt = dateFromUnknown(
-    serialized ? envelope.created_at : envelope.createdAt,
-    `${label} createdAt`,
-    true,
-  );
-  const createdBy = cleanString(
-    serialized ? envelope.created_by : envelope.createdBy,
-  );
-  if (
-    !objectId ||
-    !OBJECT_TYPE_SET.has(objectType) ||
-    schemaVersion !== "1.0.0" ||
-    !Number.isInteger(revision) ||
-    revision < 1 ||
-    !createdAt ||
-    !createdBy
-  ) {
-    throw new AdminRepositoryError(`${label} has an invalid PGO envelope.`, 400);
-  }
-  return {
-    objectId,
-    objectType,
-    schemaVersion,
-    revision,
-    createdAt: createdAt.toISOString(),
-    createdBy,
-    inputRefs: normalizedPgoInputRefs(
-      serialized ? envelope.input_refs : envelope.inputRefs,
-      serialized,
-      label,
-    ),
-    data: requireRecord(envelope.data, `${label} data`),
-    files: normalizedPgoFileRefs(envelope.files, serialized, label),
-  };
-}
-
-function validateTransactionInputSnapshot(
-  slot: SupportServiceTransactionInputSlot,
-  offer: SupportServiceOfferRecord | undefined,
-  transaction: Pick<
-    SupportServiceTransactionDocument,
-    "requestedByUserId" | "requestedByUserEmail" | "requestedAtClient"
-  >,
-) {
-  const snapshot = slot.objectSnapshot;
+function normalizedPgoSnapshot(value: unknown, label: string) {
+  const snapshot = requireRecord(value, label);
   rejectForbiddenKeys(
     snapshot,
     [
@@ -2601,98 +2403,246 @@ function validateTransactionInputSnapshot(
       "created_by",
       "input_refs",
     ],
-    `Input slot ${slot.role} objectSnapshot`,
+    label,
   );
+  assertCamelCaseSnapshotValue(snapshot, label);
+  const objectId = cleanString(snapshot.objectId);
+  const objectType = cleanString(snapshot.objectType);
+  const schemaVersion = cleanString(snapshot.schemaVersion);
+  const revision = Number(snapshot.revision);
+  const createdAt = dateFromUnknown(
+    snapshot.createdAt,
+    `${label} createdAt`,
+    true,
+  );
+  const createdBy = cleanString(snapshot.createdBy);
+  const data = requireRecord(snapshot.data, `${label} data`);
+  assertCamelCaseSnapshotValue(data, `${label}.data`);
   if (
-    cleanString(snapshot.objectId) !== slot.objectRef.objectId ||
-    cleanString(snapshot.objectType) !== slot.objectType ||
-    cleanString(snapshot.schemaVersion) !== "1.0.0" ||
-    Number(snapshot.revision) !== slot.objectRef.revision ||
-    !dateFromUnknown(snapshot.createdAt, `${slot.role} objectSnapshot.createdAt`) ||
-    !cleanString(snapshot.createdBy) ||
-    !Array.isArray(snapshot.inputRefs) ||
-    !snapshot.data ||
-    typeof snapshot.data !== "object" ||
-    Array.isArray(snapshot.data) ||
-    !Array.isArray(snapshot.files)
+    !objectId ||
+    !OBJECT_TYPE_SET.has(objectType) ||
+    schemaVersion !== "1.0.0" ||
+    !Number.isInteger(revision) ||
+    revision < 1 ||
+    !createdAt ||
+    !createdBy
   ) {
+    throw new AdminRepositoryError(`${label} has invalid platform metadata.`, 400);
+  }
+  return {
+    objectId,
+    objectType,
+    schemaVersion,
+    revision,
+    createdAt: createdAt.toISOString(),
+    createdBy,
+    data,
+  };
+}
+
+function normalizedPgoFormSnapshotData(value: unknown, label: string) {
+  const data = requireRecord(value, label);
+  rejectForbiddenKeys(data, ["form_shape"], label);
+  rejectUnknownKeys(data, ["formShape", "fields", "notes"], label);
+  const formShape = requireRecord(data.formShape, `${label}.formShape`);
+  rejectForbiddenKeys(formShape, ["allow_unknown_fields"], `${label}.formShape`);
+  rejectUnknownKeys(formShape, ["fields"], `${label}.formShape`);
+  if (!Array.isArray(formShape.fields) || !Array.isArray(data.fields)) {
     throw new AdminRepositoryError(
-      `Input slot ${slot.role} objectSnapshot must contain the complete native object envelope.`,
+      `${label} must contain formShape.fields and fields arrays.`,
       400,
     );
   }
-  for (const [index, value] of (snapshot.inputRefs as unknown[]).entries()) {
-    const inputRef = optionalRecord(value);
+  const fields = (formShape.fields as unknown[]).map((value, index) => {
+    const field = requireRecord(
+      value,
+      `${label}.formShape.fields[${index}]`,
+    );
     rejectForbiddenKeys(
-      inputRef,
-      ["object_id", "object_type"],
-      `Input slot ${slot.role} objectSnapshot inputRef ${index + 1}`,
+      field,
+      ["help_info_text"],
+      `${label}.formShape.fields[${index}]`,
+    );
+    rejectUnknownKeys(
+      field,
+      ["key", "label", "type", "required", "options", "helpInfoText"],
+      `${label}.formShape.fields[${index}]`,
     );
     if (
-      !/^obj_[a-z0-9_]+$/.test(cleanString(inputRef.objectId)) ||
-      !Number.isInteger(inputRef.revision) ||
-      Number(inputRef.revision) < 1 ||
-      (inputRef.objectType !== undefined &&
-        !OBJECT_TYPE_SET.has(cleanString(inputRef.objectType))) ||
-      (inputRef.role !== undefined &&
-        !/^[a-z][a-z0-9_]*$/.test(cleanString(inputRef.role)))
+      typeof field.key !== "string" ||
+      field.key !== cleanString(field.key) ||
+      typeof field.type !== "string" ||
+      field.type !== cleanString(field.type)
     ) {
       throw new AdminRepositoryError(
-        `Input slot ${slot.role} objectSnapshot inputRef ${index + 1} is invalid.`,
+        `${label}.formShape.fields[${index}] must preserve exact canonical key and type values.`,
         400,
       );
     }
+    if (Object.prototype.hasOwnProperty.call(field, "options")) {
+      if (!Array.isArray(field.options)) {
+        throw new AdminRepositoryError(
+          `${label}.formShape.fields[${index}].options must be an array.`,
+          400,
+        );
+      }
+      (field.options as unknown[]).forEach((value, optionIndex) => {
+        const option = requireRecord(
+          value,
+          `${label}.formShape.fields[${index}].options[${optionIndex}]`,
+        );
+        rejectUnknownKeys(
+          option,
+          ["value", "label"],
+          `${label}.formShape.fields[${index}].options[${optionIndex}]`,
+        );
+        if (
+          typeof option.value !== "string" ||
+          option.value !== cleanString(option.value)
+        ) {
+          throw new AdminRepositoryError(
+            `${label}.formShape.fields[${index}].options[${optionIndex}] must preserve its exact canonical value.`,
+            400,
+          );
+        }
+      });
+    }
+    return field;
+  });
+  const normalizedShape = normalizeFormShape({
+    id: "pgfs_snapshot_projection",
+    version: 1,
+    allowUnknownFields: false,
+    fields,
+  });
+  if (!normalizedShape) {
+    throw new AdminRepositoryError(`${label} has an invalid form shape.`, 400);
+  }
+  const frozenFields = fields.map((field) =>
+    withoutUndefined({
+      key: field.key,
+      label: field.label,
+      type: field.type,
+      required: field.required,
+      options: Object.prototype.hasOwnProperty.call(field, "options")
+        ? field.options
+        : undefined,
+      helpInfoText:
+        typeof field.helpInfoText === "string"
+          ? field.helpInfoText
+          : undefined,
+    }),
+  );
+  const answers = (data.fields as unknown[]).map((value, index) => {
+    const answer = requireRecord(value, `${label}.fields[${index}]`);
+    rejectUnknownKeys(answer, ["key", "value"], `${label}.fields[${index}]`);
+    if (!Object.prototype.hasOwnProperty.call(answer, "value")) {
+      throw new AdminRepositoryError(
+        `${label}.fields[${index}] must contain value.`,
+        400,
+      );
+    }
+    if (
+      typeof answer.key !== "string" ||
+      answer.key !== cleanString(answer.key)
+    ) {
+      throw new AdminRepositoryError(
+        `${label}.fields[${index}] must preserve its exact canonical key.`,
+        400,
+      );
+    }
+    return { key: answer.key, value: answer.value };
+  });
+  if (data.notes !== undefined && typeof data.notes !== "string") {
+    throw new AdminRepositoryError(`${label}.notes must be a string.`, 400);
+  }
+  return withoutUndefined({
+    formShape: { fields: frozenFields },
+    fields: answers,
+    notes: typeof data.notes === "string" ? data.notes : undefined,
+  });
+}
+
+function serializedPgoFormContentProjection(value: unknown, label: string) {
+  const schemaError = serializedPgoObjectSchemaError(FORM_OBJECT_TYPE, value);
+  if (schemaError) {
+    throw new AdminRepositoryError(`${label}: ${schemaError}.`, 400);
+  }
+  const serialized = requireRecord(value, label);
+  const serializedShape = requireRecord(
+    serialized.form_shape,
+    `${label}.form_shape`,
+  );
+  const fields = optionalRecordArray(serializedShape.fields).map((field) =>
+    withoutUndefined({
+      key: field.key,
+      label: field.label,
+      type: field.type,
+      required: field.required,
+      options: Object.prototype.hasOwnProperty.call(field, "options")
+        ? field.options
+        : undefined,
+      helpInfoText:
+        typeof field.help_info_text === "string"
+          ? field.help_info_text
+          : undefined,
+    }),
+  );
+  return normalizedPgoFormSnapshotData(
+    withoutUndefined({
+      formShape: { fields },
+      fields: serialized.fields,
+      notes:
+        typeof serialized.notes === "string" ? serialized.notes : undefined,
+    }),
+    `${label} projection`,
+  );
+}
+
+function validateTransactionInputSnapshot(
+  slot: SupportServiceTransactionInputSlot,
+  offer: SupportServiceOfferRecord | undefined,
+  transaction: Pick<
+    SupportServiceTransactionDocument,
+    "requestedByUserId" | "requestedByUserEmail" | "requestedAtClient"
+  >,
+) {
+  const snapshot = normalizedPgoSnapshot(
+    slot.objectSnapshot,
+    `Input slot ${slot.role} objectSnapshot`,
+  );
+  if (
+    snapshot.objectId !== slot.objectRef.objectId ||
+    snapshot.objectType !== slot.objectType ||
+    snapshot.revision !== slot.objectRef.revision
+  ) {
+    throw new AdminRepositoryError(
+      `Input slot ${slot.role} objectSnapshot metadata must match objectRef and objectType.`,
+      400,
+    );
   }
 
   if (slot.objectType !== FORM_OBJECT_TYPE) {
     return;
   }
-  if (
-    (snapshot.files as unknown[]).length !== 0 ||
-    cleanString(snapshot.createdBy) !== transaction.requestedByUserId
-  ) {
+  if (snapshot.createdBy !== transaction.requestedByUserId) {
     throw new AdminRepositoryError(
-      "The request form snapshot must be created by the requester and contain no payload files.",
+      "The request form snapshot must be created by the requester.",
       400,
     );
   }
-  const data = snapshot.data as Record<string, unknown>;
-  const formShapeId = cleanString(data.form_shape_id);
-  const formShapeVersion = Number(data.form_shape_version);
-  const formShape = optionalRecord(data.form_shape);
-  const fields = data.fields;
-  if (
-    !formShapeId ||
-    !Number.isInteger(formShapeVersion) ||
-    formShapeVersion < 1 ||
-    Object.keys(formShape).length === 0 ||
-    formShape.allow_unknown_fields !== false ||
-    !Array.isArray(formShape.fields) ||
-    formShape.fields.length < 2 ||
-    !Array.isArray(fields) ||
-    fields.length === 0
-  ) {
-    throw new AdminRepositoryError(
-      "The form input objectSnapshot must embed the strict PGO form shape and filled fields.",
-      400,
-    );
-  }
-  if (
-    cleanString(formShape.id) !== formShapeId ||
-    Number(formShape.version) !== formShapeVersion
-  ) {
-    throw new AdminRepositoryError(
-      "The form input objectSnapshot shape identity is inconsistent.",
-      400,
-    );
-  }
+  const data = normalizedPgoFormSnapshotData(
+    snapshot.data,
+    `Input slot ${slot.role} objectSnapshot.data`,
+  );
   const expectedShape = offer?.formShape;
-  const normalizedEmbeddedShape = normalizeFormShape(formShape, true);
+  const normalizedExpectedShape = expectedShape
+    ? normalizeFormShape(expectedShape)
+    : undefined;
   if (
-    !normalizedEmbeddedShape ||
-    (expectedShape &&
-      stableString(normalizedEmbeddedShape) !==
-        stableString(normalizeFormShape(expectedShape)))
+    !normalizedExpectedShape ||
+    stableString(data.formShape.fields) !==
+      stableString(normalizedExpectedShape.fields)
   ) {
     throw new AdminRepositoryError(
       "The form input objectSnapshot must embed the exact frozen offer form shape.",
@@ -2700,11 +2650,10 @@ function validateTransactionInputSnapshot(
     );
   }
   const declaredFields = new Map(
-    normalizedEmbeddedShape.fields.map((field) => [field.key, field]),
+    normalizedExpectedShape.fields.map((field) => [field.key, field]),
   );
   const submittedFields = new Map<string, unknown>();
-  for (const [index, value] of (fields as unknown[]).entries()) {
-    const field = optionalRecord(value);
+  for (const [index, field] of data.fields.entries()) {
     const key = cleanString(field.key);
     const declaredField = declaredFields.get(key);
     if (
@@ -2721,47 +2670,13 @@ function validateTransactionInputSnapshot(
     }
     submittedFields.set(key, field.value);
   }
-  for (const field of normalizedEmbeddedShape.fields) {
+  for (const field of normalizedExpectedShape.fields) {
     if (field.required && !submittedFields.has(field.key)) {
       throw new AdminRepositoryError(
         `Submitted form is missing required field ${field.key}.`,
         400,
       );
     }
-  }
-  const requestedAt = dateFromUnknown(
-    submittedFields.get("requested_at"),
-    "submitted requested_at",
-    true,
-  );
-  const snapshotCreatedAt = dateFromUnknown(
-    snapshot.createdAt,
-    "form objectSnapshot.createdAt",
-    true,
-  );
-  if (
-    !requestedAt ||
-    !snapshotCreatedAt ||
-    requestedAt.getTime() !== snapshotCreatedAt.getTime() ||
-    requestedAt.getTime() > transaction.requestedAtClient!.getTime()
-  ) {
-    throw new AdminRepositoryError(
-      "Submitted requested_at must match the form creation timestamp and cannot be later than the transaction client timestamp.",
-      400,
-    );
-  }
-  const requestedBy = cleanString(submittedFields.get("requested_by"));
-  if (
-    !requestedBy ||
-    (transaction.requestedByUserEmail &&
-      !requestedBy
-        .toLowerCase()
-        .includes(transaction.requestedByUserEmail.toLowerCase()))
-  ) {
-    throw new AdminRepositoryError(
-      "Submitted requested_by must identify the transaction requester.",
-      400,
-    );
   }
 }
 
@@ -2875,29 +2790,32 @@ async function assertProvisionedFormInputsAvailable(
       }
 
       const fileData = fileSnapshot.data() ?? {};
-      let storedFormSnapshot: ReturnType<typeof normalizedPgoEnvelope> | null;
+      let storedFormContent: ReturnType<
+        typeof serializedPgoFormContentProjection
+      > | null;
       try {
-        storedFormSnapshot = normalizedPgoEnvelope(
+        storedFormContent = serializedPgoFormContentProjection(
           JSON.parse(cleanString(fileData.file_content)),
-          true,
           `Request form stored file ${fileStorageId}`,
         );
       } catch {
-        storedFormSnapshot = null;
+        storedFormContent = null;
       }
-      const transactionFormSnapshot = normalizedPgoEnvelope(
+      const transactionFormSnapshot = normalizedPgoSnapshot(
         input.objectSnapshot,
-        false,
         `Request form transaction snapshot ${input.role}`,
+      );
+      const transactionFormContent = normalizedPgoFormSnapshotData(
+        transactionFormSnapshot.data,
+        `Request form transaction snapshot ${input.role}.data`,
       );
       if (
         cleanString(fileData.linked_object_code) !== objectCode ||
         cleanString(fileData.file_type) !== FORM_OBJECT_TYPE ||
         cleanString(fileData.owner_community_user_id) !== objectOwnerId ||
         cleanString(fileData.provider_id) !== document.providerId ||
-        !storedFormSnapshot ||
-        stableString(storedFormSnapshot) !==
-          stableString(transactionFormSnapshot)
+        !storedFormContent ||
+        stableString(storedFormContent) !== stableString(transactionFormContent)
       ) {
         throw new AdminRepositoryError(
           `Request form stored file ${fileStorageId} does not match its object linkage.`,
@@ -2918,48 +2836,91 @@ async function assertProvisionedFormInputsAvailable(
   );
 }
 
-function inputFileStorageId(input: SupportServiceTransactionInputSlot) {
-  const snapshotData = optionalRecord(input.objectSnapshot.data);
-  const snapshotFiles = Array.isArray(input.objectSnapshot.files)
-    ? (input.objectSnapshot.files as unknown[])
-    : [];
-  return (
-    cleanString(input.fileStorageId) ||
-    cleanString(snapshotData.fileStorageId) ||
-    snapshotFiles
-      .map((file) => cleanString(optionalRecord(file).fileStorageId))
-      .find(Boolean) ||
-    ""
-  );
-}
-
-function serializedEnvelopeFromFile(
+function serializedContentFromFile(
   fileData: Record<string, unknown>,
+  objectType: SupportServiceObjectType,
   label: string,
 ) {
   try {
-    return normalizedPgoEnvelope(
-      JSON.parse(cleanString(fileData.file_content)),
-      true,
-      label,
-    );
+    const content = JSON.parse(cleanString(fileData.file_content));
+    const schemaError = serializedPgoObjectSchemaError(objectType, content);
+    if (schemaError) {
+      throw new Error(schemaError);
+    }
+    return requireRecord(content, label);
   } catch {
     throw new AdminRepositoryError(
-      `${label} must contain a valid serialized PGO wrapper.`,
+      `${label} must contain valid ${objectType} content JSON.`,
       400,
     );
   }
 }
 
 type DownloadedPgoObject = {
-  envelope: ReturnType<typeof normalizedPgoEnvelope>;
+  objectType: SupportServiceObjectType;
+  content: Record<string, unknown>;
   downloadUrl: string;
   contentSha256: string;
   contentSizeBytes: number;
 };
 
+async function assertInteractiveReportNativeContent(downloadUrl: string) {
+  let requestedUrl: URL;
+  try {
+    requestedUrl = new URL(downloadUrl);
+  } catch {
+    throw new AdminRepositoryError(
+      "Interactive report content must contain a valid HTTPS download_url.",
+      400,
+    );
+  }
+  try {
+    const result = await fetchWithValidatedRedirects(requestedUrl, {
+      accept: "application/json,application/octet-stream;q=0.9",
+      timeoutMs: OUTPUT_OBJECT_DOWNLOAD_TIMEOUT_MS,
+      allowedProtocols: ["https:"],
+    });
+    if (!result.response.ok) {
+      throw new AdminRepositoryError(
+        `Interactive report download_url returned HTTP ${result.response.status}.`,
+        400,
+      );
+    }
+    const bytes = await readLimitedResponse(
+      result.response,
+      OUTPUT_OBJECT_DOWNLOAD_MAX_BYTES,
+      "Downloaded native PGI report is too large.",
+    );
+    let nativeContent: unknown;
+    try {
+      nativeContent = JSON.parse(bytes.toString("utf8"));
+    } catch {
+      throw new AdminRepositoryError(
+        "Interactive report download_url must return valid PGI JSON.",
+        400,
+      );
+    }
+    const identified = identifyPgiNativeModel(nativeContent);
+    if (!identified.ok) {
+      throw new AdminRepositoryError(identified.message, 400);
+    }
+  } catch (error) {
+    if (error instanceof AdminRepositoryError) {
+      throw error;
+    }
+    if (error instanceof FaviconExtractionError) {
+      throw new AdminRepositoryError(error.message, error.statusCode);
+    }
+    throw new AdminRepositoryError(
+      "Interactive report download_url could not be fetched.",
+      400,
+    );
+  }
+}
+
 async function downloadAndValidatePgoObject(
   downloadUrl: string,
+  objectType: SupportServiceObjectType,
 ): Promise<DownloadedPgoObject> {
   let requestedUrl: URL;
   try {
@@ -2997,27 +2958,29 @@ async function downloadAndValidatePgoObject(
       serialized = JSON.parse(content.toString("utf8"));
     } catch {
       throw new AdminRepositoryError(
-        "downloadUrl must return a valid serialized PGO JSON wrapper.",
+        "downloadUrl must return valid PGO content JSON.",
         400,
       );
     }
-    const envelope = normalizedPgoEnvelope(
-      serialized,
-      true,
-      "Downloaded output object",
-    );
-    const schemaError = serializedPgoObjectSchemaError(
-      envelope.objectType,
-      serialized,
-    );
+    const schemaError = serializedPgoObjectSchemaError(objectType, serialized);
     if (schemaError) {
       throw new AdminRepositoryError(
-        `downloadUrl content does not match the ${envelope.objectType} schema: ${schemaError}.`,
+        `downloadUrl content does not match the ${objectType} schema: ${schemaError}.`,
         400,
+      );
+    }
+    const parsedContent = requireRecord(
+      serialized,
+      "Downloaded output object content",
+    );
+    if (objectType === "pgo_interactive_report") {
+      await assertInteractiveReportNativeContent(
+        cleanString(parsedContent.download_url),
       );
     }
     return {
-      envelope,
+      objectType,
+      content: parsedContent,
       downloadUrl: requestedUrl.href,
       contentSha256: createHash("sha256").update(content).digest("hex"),
       contentSizeBytes: content.length,
@@ -3041,10 +3004,9 @@ function assertDownloadedOutputMatchesFrozenSlot(
 ) {
   const role = cleanString(slot.role);
   const expectedType = resolvedOutputObjectType(slot, offer);
-  const { envelope } = downloaded;
-  if (envelope.objectType !== expectedType) {
+  if (downloaded.objectType !== expectedType) {
     throw new AdminRepositoryError(
-      `Output slot ${role} requires ${expectedType}, but downloadUrl contains ${envelope.objectType}.`,
+      `Output slot ${role} requires ${expectedType}.`,
       400,
     );
   }
@@ -3059,29 +3021,12 @@ function assertDownloadedOutputMatchesFrozenSlot(
         400,
       );
     }
-    const sourceEnvelope = normalizedPgoEnvelope(
-      sourceInput.objectSnapshot,
-      false,
-      `Source input ${sourceRole} transaction snapshot`,
-    );
-    if (
-      envelope.objectId !== sourceEnvelope.objectId ||
-      envelope.objectType !== sourceEnvelope.objectType ||
-      envelope.revision !== sourceEnvelope.revision + 1
-    ) {
+    if (sourceInput.objectType !== expectedType) {
       throw new AdminRepositoryError(
-        `Output slot ${role} must be the sequential next PGO revision of ${sourceRole} with the same object identity.`,
+        `Output slot ${role} must preserve the object type of ${sourceRole}.`,
         400,
       );
     }
-    return;
-  }
-
-  if (envelope.revision !== 1) {
-    throw new AdminRepositoryError(
-      `New output object ${role} must start at revision 1.`,
-      400,
-    );
   }
 }
 
@@ -3091,6 +3036,13 @@ function randomObjectCodeCandidates() {
     candidates.add(String(randomInt(0, 1_000_000_000)).padStart(9, "0"));
   }
   return [...candidates];
+}
+
+function revisionUploadedObjectId(objectId: string, revision: number) {
+  const claim = createHash("sha256")
+    .update(`${objectId}\u0000${revision}`)
+    .digest("hex");
+  return `pgo_revision_${claim}`;
 }
 
 async function downloadAttachedOutputObjects(
@@ -3124,61 +3076,32 @@ async function downloadAttachedOutputObjects(
     if (downloadUrl) {
       downloaded.set(
         output.objectCode,
-        await downloadAndValidatePgoObject(downloadUrl),
+        await downloadAndValidatePgoObject(downloadUrl, output.objectType),
       );
     }
   }
   return downloaded;
 }
 
-async function assertNewRevisionDelivery(
+function assertNewRevisionDelivery(
   document: SupportServiceTransactionDocument,
   output: SupportServiceTransactionOutputObjectSnapshot,
   promisedOutput: Record<string, unknown>,
-  outputFileSnapshot: DocumentSnapshot | null,
-  readDocument: DocumentReader,
+  outputObjectData: Record<string, unknown>,
 ) {
   const sourceRole = cleanString(promisedOutput.sameIdentityAsInput);
   const sourceInput = document.inputs.find((input) => input.role === sourceRole);
-  const sourceFileStorageId = sourceInput
-    ? inputFileStorageId(sourceInput)
-    : "";
-  const sourceFileSnapshot = sourceFileStorageId
-    ? await readDocument(
-        adminDb.collection(FILE_STORAGE_COLLECTION).doc(sourceFileStorageId),
-      )
-    : null;
-  if (!sourceInput || !sourceFileSnapshot?.exists || !outputFileSnapshot?.exists) {
+  if (!sourceInput) {
     throw new AdminRepositoryError(
       `Output object ${output.role} cannot prove the frozen source revision for ${sourceRole}.`,
       400,
     );
   }
-
-  const sourceFileData = sourceFileSnapshot.data() ?? {};
-  const outputFileData = outputFileSnapshot.data() ?? {};
-  const sourceEnvelope = serializedEnvelopeFromFile(
-    sourceFileData,
-    `Source input ${sourceRole} stored file`,
-  );
-  const outputEnvelope = serializedEnvelopeFromFile(
-    outputFileData,
-    `Output object ${output.role} stored file`,
-  );
-  const transactionSourceEnvelope = normalizedPgoEnvelope(
-    sourceInput.objectSnapshot,
-    false,
-    `Source input ${sourceRole} transaction snapshot`,
-  );
   if (
-    stableString(sourceEnvelope) !== stableString(transactionSourceEnvelope) ||
-    sourceEnvelope.objectId !== sourceInput.objectRef.objectId ||
-    sourceEnvelope.objectType !== sourceInput.objectType ||
-    sourceEnvelope.revision !== sourceInput.objectRef.revision ||
-    output.objectType !== sourceEnvelope.objectType ||
-    outputEnvelope.objectType !== sourceEnvelope.objectType ||
-    outputEnvelope.objectId !== sourceEnvelope.objectId ||
-    outputEnvelope.revision !== sourceEnvelope.revision + 1
+    output.objectType !== sourceInput.objectType ||
+    cleanString(outputObjectData.object_id) !== sourceInput.objectRef.objectId ||
+    Number(outputObjectData.object_revision) !==
+      sourceInput.objectRef.revision + 1
   ) {
     throw new AdminRepositoryError(
       `Output object ${output.role} must be the sequential next PGO revision of ${sourceRole} with the same object identity.`,
@@ -3265,6 +3188,35 @@ async function assertDeliveredOutputObjectsAvailable(
       ) {
         throw new AdminRepositoryError(
           `Uploaded object ${output.objectCode} does not match ${output.objectType}.`,
+          400,
+        );
+      }
+      if (!promisedOutput) {
+        throw new AdminRepositoryError(
+          `Output object ${output.role} is not declared by the frozen offer.`,
+          400,
+        );
+      }
+      const sourceRole = cleanString(promisedOutput.sameIdentityAsInput);
+      const sourceInput = sourceRole
+        ? document.inputs.find((input) => input.role === sourceRole)
+        : undefined;
+      const expectedObjectId =
+        promisedOutput.mutationMode === "new_revision"
+          ? cleanString(sourceInput?.objectRef.objectId)
+          : `obj_output_${output.objectCode}`;
+      const expectedRevision =
+        promisedOutput.mutationMode === "new_revision"
+          ? Number(sourceInput?.objectRef.revision) + 1
+          : 1;
+      if (
+        !expectedObjectId ||
+        !Number.isInteger(expectedRevision) ||
+        cleanString(objectData.object_id) !== expectedObjectId ||
+        Number(objectData.object_revision) !== expectedRevision
+      ) {
+        throw new AdminRepositoryError(
+          `Output object ${output.objectCode} has invalid platform identity or revision metadata.`,
           400,
         );
       }
@@ -3373,16 +3325,11 @@ async function assertDeliveredOutputObjectsAvailable(
           );
         }
         if (cleanString(fileData.file_content)) {
-          const outputEnvelope = serializedEnvelopeFromFile(
+          serializedContentFromFile(
             fileData,
+            output.objectType,
             `Output object ${output.role} stored file`,
           );
-          if (outputEnvelope.objectType !== output.objectType) {
-            throw new AdminRepositoryError(
-              `Output object ${output.role} stored PGO wrapper must be ${output.objectType}.`,
-              400,
-            );
-          }
         }
       }
       const downloadUrl = cleanString(objectData.download_url);
@@ -3396,9 +3343,7 @@ async function assertDeliveredOutputObjectsAvailable(
         }
         if (
           downloaded.downloadUrl !== downloadUrl ||
-          cleanString(objectData.object_id) !== downloaded.envelope.objectId ||
-          Number(objectData.object_revision) !== downloaded.envelope.revision ||
-          cleanString(objectData.object_type) !== downloaded.envelope.objectType ||
+          downloaded.objectType !== output.objectType ||
           cleanString(objectData.content_sha256) !== downloaded.contentSha256 ||
           Number(objectData.content_size_bytes) !== downloaded.contentSizeBytes
         ) {
@@ -3407,25 +3352,19 @@ async function assertDeliveredOutputObjectsAvailable(
             409,
           );
         }
-        if (!promisedOutput) {
-          throw new AdminRepositoryError(
-            `Output object ${output.role} is not declared by the frozen offer.`,
-            400,
-          );
-        }
         assertDownloadedOutputMatchesFrozenSlot(
           downloaded,
           promisedOutput,
           offer,
           document,
         );
-      } else if (promisedOutput?.mutationMode === "new_revision") {
-        await assertNewRevisionDelivery(
+      }
+      if (promisedOutput.mutationMode === "new_revision") {
+        assertNewRevisionDelivery(
           document,
           output,
           promisedOutput,
-          linkedFileSnapshot,
-          readDocument,
+          objectData,
         );
       }
     }),
@@ -3491,8 +3430,305 @@ function toOfferRecord(id: string, data: Record<string, unknown>) {
     updatedAt: timestampToIso(data.updatedAt),
     createdByEmail: cleanString(data.createdByEmail),
     updatedByEmail: cleanString(data.updatedByEmail),
+    complianceWarnings: [],
   } satisfies SupportServiceOfferRecord;
   validateOfferDocument(offerDocument(record));
+  return record;
+}
+
+function pushComplianceWarning(warnings: string[], warning: string) {
+  if (!warnings.includes(warning)) {
+    warnings.push(warning);
+  }
+}
+
+function offerAdminSlots<T>(
+  label: string,
+  value: unknown,
+  normalize: (value: unknown) => T[],
+  warnings: string[],
+) {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    pushComplianceWarning(
+      warnings,
+      `${label} must be an array; it is shown as empty.`,
+    );
+    return [];
+  }
+
+  const slots: T[] = [];
+  value.forEach((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      pushComplianceWarning(
+        warnings,
+        `${label} entry ${index + 1} must be an object and was omitted.`,
+      );
+      return;
+    }
+    try {
+      const normalized = normalize([item]);
+      if (
+        normalized.length !== 1 ||
+        stableString(item) !== stableString(normalized[0])
+      ) {
+        pushComplianceWarning(
+          warnings,
+          `${label} entry ${index + 1} is not canonical; normalized values are shown for review and must be saved to remediate the stored contract.`,
+        );
+      }
+      slots.push(...normalized);
+    } catch (error) {
+      pushComplianceWarning(
+        warnings,
+        error instanceof Error
+          ? `${label} entry ${index + 1}: ${error.message}`
+          : `${label} entry ${index + 1} is malformed and was omitted.`,
+      );
+    }
+  });
+  return slots;
+}
+
+function offerAdminStringArray(
+  label: string,
+  value: unknown,
+  warnings: string[],
+) {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    pushComplianceWarning(
+      warnings,
+      `${label} must be an array; it is shown as empty.`,
+    );
+    return [];
+  }
+  if (
+    value.some(
+      (item) => typeof item !== "string" || item.trim().length === 0,
+    )
+  ) {
+    pushComplianceWarning(
+      warnings,
+      `${label} contains non-string or empty entries; invalid entries were omitted.`,
+    );
+  }
+  return cleanStringArray(value);
+}
+
+function toOfferAdminRecord(
+  id: string,
+  data: Record<string, unknown>,
+) {
+  const complianceWarnings: string[] = [];
+  const forbiddenKeys = FORBIDDEN_OFFER_ROOT_KEYS.filter((key) =>
+    Object.prototype.hasOwnProperty.call(data, key),
+  );
+  if (forbiddenKeys.length > 0) {
+    pushComplianceWarning(
+      complianceWarnings,
+      `Stored service offer uses forbidden snake-case fields: ${forbiddenKeys.join(", ")}. Save the corrected offer with canonical camel-case fields.`,
+    );
+  }
+
+  for (const [key, label] of [
+    ["serviceId", "serviceId"],
+    ["name", "name"],
+    ["providerId", "providerId"],
+    ["providerName", "providerName"],
+    ["description", "description"],
+    ["providerWork", "providerWork"],
+  ] as const) {
+    if (!cleanString(data[key])) {
+      pushComplianceWarning(complianceWarnings, `${label} is missing.`);
+    }
+  }
+
+  const serviceVersionIsValid =
+    typeof data.serviceVersion === "number" &&
+    Number.isInteger(data.serviceVersion) &&
+    data.serviceVersion > 0;
+  if (!serviceVersionIsValid) {
+    pushComplianceWarning(
+      complianceWarnings,
+      "serviceVersion is missing or invalid; it is shown as version 1.",
+    );
+  }
+  if (!PROVIDER_KIND_SET.has(normalizeKey(cleanString(data.providerKind)))) {
+    pushComplianceWarning(
+      complianceWarnings,
+      `providerKind ${cleanString(data.providerKind) || "is missing"}; it is shown as organization.`,
+    );
+  }
+  if (!OFFER_STATUS_SET.has(normalizeKey(cleanString(data.status)))) {
+    pushComplianceWarning(
+      complianceWarnings,
+      `status ${cleanString(data.status) || "is missing"}; it is shown as draft.`,
+    );
+  }
+  if (typeof data.isHiddenFromSearch !== "boolean") {
+    pushComplianceWarning(
+      complianceWarnings,
+      "isHiddenFromSearch is missing or invalid; it is shown as false.",
+    );
+  }
+
+  const canonicalStages = Array.isArray(data.stages)
+    ? data.stages.map(normalizeStage).filter(Boolean)
+    : [];
+  if (
+    !Array.isArray(data.stages) ||
+    data.stages.length === 0 ||
+    canonicalStages.length !== data.stages.length
+  ) {
+    pushComplianceWarning(
+      complianceWarnings,
+      "stages is missing or contains unsupported values; only canonical stages are shown.",
+    );
+  }
+
+  let formShape: ReturnType<typeof normalizeFormShape>;
+  if (data.formShape !== undefined) {
+    try {
+      formShape = normalizeFormShape(data.formShape);
+    } catch (error) {
+      pushComplianceWarning(
+        complianceWarnings,
+        error instanceof Error
+          ? `formShape: ${error.message}`
+          : "formShape is malformed and was omitted.",
+      );
+      formShape = undefined;
+    }
+  }
+
+  const inputSlots = offerAdminSlots(
+    "inputSlots",
+    data.inputSlots,
+    normalizeOfferInputSlots,
+    complianceWarnings,
+  );
+  const outputSlots = offerAdminSlots(
+    "outputSlots",
+    data.outputSlots,
+    normalizeOfferOutputSlots,
+    complianceWarnings,
+  );
+  if (!Array.isArray(data.outputSlots)) {
+    pushComplianceWarning(
+      complianceWarnings,
+      "outputSlots is missing or malformed.",
+    );
+  }
+
+  let commercialTerms: ReturnType<typeof normalizeCommercialTerms>;
+  if (data.commercialTerms !== undefined) {
+    if (
+      !data.commercialTerms ||
+      typeof data.commercialTerms !== "object" ||
+      Array.isArray(data.commercialTerms)
+    ) {
+      pushComplianceWarning(
+        complianceWarnings,
+        "commercialTerms must be an object and was omitted.",
+      );
+    } else {
+      try {
+        commercialTerms = normalizeCommercialTerms(data.commercialTerms);
+      } catch (error) {
+        pushComplianceWarning(
+          complianceWarnings,
+          error instanceof Error
+            ? `commercialTerms: ${error.message}`
+            : "commercialTerms is malformed and was omitted.",
+        );
+      }
+    }
+  }
+
+  const serviceId = cleanString(data.serviceId);
+  const providerId = cleanString(data.providerId);
+  const providerName = cleanString(data.providerName);
+  const name = cleanString(data.name);
+  const serviceCategory = cleanString(data.serviceCategory);
+  const createdAt = timestampToIso(data.createdAt);
+  const updatedAt = timestampToIso(data.updatedAt);
+  if (!createdAt) {
+    pushComplianceWarning(
+      complianceWarnings,
+      "createdAt is missing or invalid; save the offer to normalize it.",
+    );
+  }
+  if (!updatedAt) {
+    pushComplianceWarning(
+      complianceWarnings,
+      "updatedAt is missing or invalid; this record is listed by document ID.",
+    );
+  }
+
+  const record = withoutUndefined({
+    id,
+    schemaVersion:
+      typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
+    serviceId,
+    serviceVersion: serviceVersionIsValid
+      ? Number(data.serviceVersion)
+      : 1,
+    name,
+    serviceCategory,
+    providerKind: normalizeProviderKind(data.providerKind),
+    providerId,
+    providerName,
+    stages: normalizeStages(canonicalStages),
+    status: normalizeOfferStatus(data.status),
+    isHiddenFromSearch:
+      typeof data.isHiddenFromSearch === "boolean"
+        ? data.isHiddenFromSearch
+        : false,
+    description: cleanString(data.description),
+    shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
+    providerWork: cleanString(data.providerWork),
+    formShape,
+    inputSlots,
+    outputSlots,
+    acceptedConditions: offerAdminStringArray(
+      "acceptedConditions",
+      data.acceptedConditions,
+      complianceWarnings,
+    ),
+    scopeRules: offerAdminStringArray(
+      "scopeRules",
+      data.scopeRules,
+      complianceWarnings,
+    ),
+    commercialTerms,
+    normalizedName:
+      cleanString(data.normalizedName) ||
+      normalizeName(
+        `${id} ${name} ${serviceId} ${serviceCategory} ${providerId} ${providerName}`,
+      ),
+    createdAt,
+    updatedAt,
+    createdByEmail: cleanString(data.createdByEmail),
+    updatedByEmail: cleanString(data.updatedByEmail),
+    complianceWarnings,
+  }) satisfies SupportServiceOfferRecord;
+
+  try {
+    validateOfferDocument(offerDocument(record));
+  } catch (error) {
+    pushComplianceWarning(
+      complianceWarnings,
+      error instanceof Error
+        ? `Contract validation: ${error.message}`
+        : "Contract validation failed.",
+    );
+  }
+
   return record;
 }
 
@@ -3624,6 +3860,12 @@ function toTransactionAdminRecord(
       "Obsolete output_reports was ignored; save the transaction to normalize it.",
     );
   }
+  const updatedAt = timestampToIso(data.updatedAt);
+  if (!updatedAt) {
+    complianceWarnings.push(
+      "updatedAt is missing or invalid; this record is listed by document ID.",
+    );
+  }
 
   // God mode lists the root collection itself. A malformed or historical
   // detail snapshot must not hide that root transaction from administrators.
@@ -3679,7 +3921,7 @@ function toTransactionAdminRecord(
         `${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
       ),
     createdAt: timestampToIso(data.createdAt),
-    updatedAt: timestampToIso(data.updatedAt),
+    updatedAt,
     createdByEmail: cleanString(data.createdByEmail),
     updatedByEmail: cleanString(data.updatedByEmail),
     complianceWarnings,
@@ -3745,12 +3987,11 @@ async function listWithFilters<TRecord>({
   const parsedCursor = parseListCursor(cursor);
   const baseQuery = adminDb
     .collection(collectionName)
-    .orderBy("updatedAt", "desc")
     .orderBy(FieldPath.documentId(), "desc");
   let query: Query = baseQuery;
 
   if (parsedCursor) {
-    query = query.startAfter(parsedCursor.updatedAt, parsedCursor.id);
+    query = query.startAfter(parsedCursor.id);
   }
 
   if (!hasFilters) {
@@ -3781,10 +4022,7 @@ async function listWithFilters<TRecord>({
     let batchQuery: Query = baseQuery;
 
     if (pageCursor) {
-      batchQuery = batchQuery.startAfter(
-        pageCursor.updatedAt,
-        pageCursor.id,
-      );
+      batchQuery = batchQuery.startAfter(pageCursor.id);
     }
 
     const snapshot = await batchQuery.limit(batchLimit).get();
@@ -3830,16 +4068,7 @@ async function listWithFilters<TRecord>({
       break;
     }
 
-    pageCursor = {
-      updatedAt: Timestamp.fromDate(
-        dateFromUnknown(
-          lastConsumedDoc.data().updatedAt,
-          "service record updatedAt",
-          true,
-        )!,
-      ),
-      id: lastConsumedDoc.id,
-    };
+    pageCursor = { id: lastConsumedDoc.id };
   }
 
   return { records, nextCursor };
@@ -4325,7 +4554,7 @@ export async function listSupportServiceOffers(
     cursor: options.cursor,
     limit,
     hasFilters,
-    toRecord: toOfferRecord,
+    toRecord: toOfferAdminRecord,
     matches: (record) => matchesOfferFilters(record, options),
   });
 
@@ -4342,7 +4571,7 @@ export async function getSupportServiceOffer(
     throw new AdminRepositoryError("Service offer not found.", 404);
   }
 
-  return toOfferRecord(offerId, snapshot.data() ?? {});
+  return toOfferAdminRecord(offerId, snapshot.data() ?? {});
 }
 
 export async function createSupportServiceOffer(
@@ -4383,7 +4612,7 @@ export async function updateSupportServiceOffer(
   }
 
   const previousDocument = offerDocument(
-    toOfferRecord(offerId, snapshot.data() ?? {}),
+    toOfferAdminRecord(offerId, snapshot.data() ?? {}),
   );
   const draft = offerDocument(input);
   const providerData = await assertOfferProviderExists(draft);
@@ -4395,8 +4624,9 @@ export async function updateSupportServiceOffer(
   await snapshot.ref.set(
     withoutUndefined({
       ...document,
-      createdAt: snapshot.data()?.createdAt,
-      createdByEmail: snapshot.data()?.createdByEmail,
+      createdAt: snapshot.data()?.createdAt ?? FieldValue.serverTimestamp(),
+      createdByEmail:
+        cleanString(snapshot.data()?.createdByEmail) || context.email,
       updatedAt: FieldValue.serverTimestamp(),
       updatedByEmail: context.email,
     }),
@@ -4906,13 +5136,11 @@ export async function attachSupportServiceTransactionOutputObject(
     );
   }
 
-  const downloaded = await downloadAndValidatePgoObject(downloadUrl);
-  if (downloaded.envelope.files.some((file) => file.fileStorageId)) {
-    throw new AdminRepositoryError(
-      "Downloaded output objects cannot reference file storage records.",
-      400,
-    );
-  }
+  const promisedObjectType = resolvedOutputObjectType(promisedSlot, offer);
+  const downloaded = await downloadAndValidatePgoObject(
+    downloadUrl,
+    promisedObjectType,
+  );
   const providerRef = adminDb
     .collection(
       previous.providerKind === "individual"
@@ -4981,6 +5209,105 @@ export async function attachSupportServiceTransactionOutputObject(
       latest,
     );
 
+    const expectedObjectType = resolvedOutputObjectType(latestSlot, latestOffer);
+    const isNewRevision = latestSlot.mutationMode === "new_revision";
+    const sourceRole = cleanString(latestSlot.sameIdentityAsInput);
+    const sourceInput = sourceRole
+      ? latest.inputs.find((candidate) => candidate.role === sourceRole)
+      : undefined;
+    const revisionObjectId = isNewRevision
+      ? cleanString(sourceInput?.objectRef.objectId)
+      : "";
+    const sourceRevision = isNewRevision
+      ? Number(sourceInput?.objectRef.revision)
+      : 0;
+    const nextRevision = sourceRevision + 1;
+    let revisionObjectRef: DocumentReference | undefined;
+    if (
+      isNewRevision &&
+      (!sourceInput ||
+        !revisionObjectId ||
+        !Number.isInteger(sourceRevision) ||
+        sourceRevision < 1)
+    ) {
+      throw new AdminRepositoryError(
+        `Output role ${role} cannot derive platform object identity and revision from its frozen contract.`,
+        400,
+      );
+    }
+    if (isNewRevision) {
+      revisionObjectRef = adminDb
+        .collection(UPLOADED_OBJECTS_COLLECTION)
+        .doc(revisionUploadedObjectId(revisionObjectId, nextRevision));
+      const revisionHistoryQuery = adminDb
+        .collection(UPLOADED_OBJECTS_COLLECTION)
+        .where("object_id", "==", revisionObjectId)
+        .limit(MAX_OBJECT_REVISION_HISTORY_RECORDS + 1);
+      const [revisionHistorySnapshot, revisionClaimSnapshot] =
+        await Promise.all([
+          firestoreTransaction.get(revisionHistoryQuery),
+          firestoreTransaction.get(revisionObjectRef),
+        ]);
+      if (
+        revisionHistorySnapshot.docs.length >
+        MAX_OBJECT_REVISION_HISTORY_RECORDS
+      ) {
+        throw new AdminRepositoryError(
+          `Object identity ${revisionObjectId} has too many platform revisions to prove the current source safely.`,
+          409,
+        );
+      }
+      const revisionRecords = revisionHistorySnapshot.docs.map((candidate) => {
+        const data = candidate.data() ?? {};
+        rejectForbiddenKeys(
+          data,
+          ["objectId", "objectRevision", "objectType"],
+          `Uploaded object revision ${candidate.id}`,
+          "camel-case",
+        );
+        const revision = data.object_revision;
+        if (
+          cleanString(data.object_id) !== revisionObjectId ||
+          cleanString(data.object_type) !== expectedObjectType ||
+          !Number.isInteger(revision) ||
+          Number(revision) < 1
+        ) {
+          throw new AdminRepositoryError(
+            `Object identity ${revisionObjectId} has invalid uploaded revision records and cannot be revised safely.`,
+            409,
+          );
+        }
+        return { id: candidate.id, revision: Number(revision) };
+      });
+      const sourceRecords = revisionRecords.filter(
+        (record) => record.revision === sourceRevision,
+      );
+      const sourceUploadedObjectId = cleanString(sourceInput?.uploadedObjectId);
+      if (
+        sourceRecords.length !== 1 ||
+        (sourceUploadedObjectId &&
+          sourceRecords[0]?.id !== sourceUploadedObjectId)
+      ) {
+        throw new AdminRepositoryError(
+          `Output role ${role} cannot prove that ${sourceRole} revision ${sourceRevision} is the authoritative platform source.`,
+          409,
+        );
+      }
+      const highestRevision = revisionRecords.reduce(
+        (highest, record) => Math.max(highest, record.revision),
+        0,
+      );
+      if (
+        highestRevision !== sourceRevision ||
+        revisionClaimSnapshot.exists
+      ) {
+        throw new AdminRepositoryError(
+          `Output role ${role} cannot create revision ${nextRevision} because ${sourceRole} revision ${sourceRevision} is stale or already has a successor.`,
+          409,
+        );
+      }
+    }
+
     const ownerRef = adminDb
       .collection(OBJECT_OWNERS_COLLECTION)
       .doc(providerOwnerId);
@@ -5026,8 +5353,22 @@ export async function attachSupportServiceTransactionOutputObject(
       );
     }
 
-    const uploadedObjectId = `pgo_output_${objectCode}`;
-    const expectedObjectType = resolvedOutputObjectType(latestSlot, latestOffer);
+    const uploadedObjectId =
+      revisionObjectRef?.id ?? `pgo_output_${objectCode}`;
+    const objectId = isNewRevision
+      ? revisionObjectId
+      : `obj_output_${objectCode}`;
+    const objectRevision = isNewRevision ? nextRevision : 1;
+    if (
+      !objectId ||
+      !Number.isInteger(objectRevision) ||
+      objectRevision < 1
+    ) {
+      throw new AdminRepositoryError(
+        `Output role ${role} cannot derive platform object identity and revision from its frozen contract.`,
+        400,
+      );
+    }
     const output: SupportServiceTransactionOutputObjectSnapshot = {
       role,
       objectType: expectedObjectType as SupportServiceObjectType,
@@ -5063,9 +5404,9 @@ export async function attachSupportServiceTransactionOutputObject(
     const objectCodeRef = adminDb
       .collection(OBJECT_CODES_COLLECTION)
       .doc(objectCode);
-    const uploadedObjectRef = adminDb
-      .collection(UPLOADED_OBJECTS_COLLECTION)
-      .doc(uploadedObjectId);
+    const uploadedObjectRef =
+      revisionObjectRef ??
+      adminDb.collection(UPLOADED_OBJECTS_COLLECTION).doc(uploadedObjectId);
     const ownedObjects = stringValueArray(ownerCommunityData.owned_objects);
     firestoreTransaction.set(objectCodeRef, {
       uploaded_object_id: uploadedObjectId,
@@ -5075,8 +5416,8 @@ export async function attachSupportServiceTransactionOutputObject(
       schema_version: 1,
       object_code: objectCode,
       object_type: expectedObjectType,
-      object_id: downloaded.envelope.objectId,
-      object_revision: downloaded.envelope.revision,
+      object_id: objectId,
+      object_revision: objectRevision,
       file_name: fileName,
       download_url: downloaded.downloadUrl,
       linked_file_id: null,

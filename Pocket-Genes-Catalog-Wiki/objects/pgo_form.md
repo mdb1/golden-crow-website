@@ -1,131 +1,119 @@
-# Form — `pgo_form`
+# 01. Form — `pgo_form`
 
-A completed, service-specific request form. The published shape belongs to service configuration, while every submitted object carries an immutable copy of that exact shape so the app can reconstruct the complete form without loading the current offer.
+A completed form with its frozen field definitions and typed answers.
 
-| Attribute | Value |
-| --- | --- |
-| Nature | virtual |
-| Stages | Test planning, Wet lab, Bioinformatics |
-| Extension | .pgform.json |
-| Icon asset | icons/pgo_form.svg |
-| Icon subject | A compact form sheet with three input lines and one checked field. |
-| JSON Schema | schemas/objects/pgo_form.schema.json |
-| Example record | examples/objects/pgo_form.pgform.json |
+**Nature:** virtual  
+**Stages:** test_planning, wet_lab, bioinformatics  
+**Serialized extension:** `.pgform.json`  
+**Schema:** `schemas/objects/pgo_form.schema.json`  
+**Example:** `examples/objects/pgo_form.pgform.json`
 
+## Content boundary
 
-**Properties inside `data`**
+The uploaded JSON root is the domain content shown below. It has no object envelope. The externally selected platform record supplies type, identity, owner, access, revision, creator, and transaction relationships. This content neither requires a service nor another registered object.
 
-| Property | Type | Required within parent | Meaning / constraints |
+Every unlisted property is invalid. Optional `notes` may be absent or an empty string and is only for additional human information.
+
+## Fields
+
+| Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
-| `form_shape_id` | string | Yes | Identifier of the form_shape published by the requested service. minLength: 1 |
-| `form_shape_version` | integer | Yes | Exact integer version of the form_shape used to fill and validate this form. minimum: 1 |
-| `form_shape` | object | Yes | Immutable snapshot of the exact published shape used for this submission. Its `id` and `version` must equal the two fields above. |
-| `form_shape.id` | string | Yes | Exact published shape identifier. |
-| `form_shape.version` | integer | Yes | Positive lifecycle counter pinned when the request was submitted. |
-| `form_shape.allow_unknown_fields` | boolean | Yes | Must be `false`; it is never configurable. |
-| `form_shape.fields` | array | Yes | Ordered field definitions used to reconstruct labels, controls, requiredness and choices. Keys must be unique. |
-| `form_shape.fields[].key` | string | Yes | Stable field key. |
-| `form_shape.fields[].label` | string | Yes | User-facing label frozen at submission time. |
-| `form_shape.fields[].type` | enum | Yes | One of `text`, `number`, `integer`, `boolean`, `date`, `datetime`, `enum`, `multi_enum`, `string_list`. |
-| `form_shape.fields[].required` | boolean | Yes | Whether the completed object must contain an answer for this key. |
-| `form_shape.fields[].options` | array | Yes | Non-empty only for `enum` and `multi_enum`; every option has unique non-empty `value` and `label`. Empty for every other type. |
-| `fields` | array | Yes | Filled request fields, including requested_at and requested_by. minItems: 2 |
-| `fields[].key` | string | Yes | Field key declared in the service form_shape. minLength: 1 |
-| `fields[].value` | string/number/boolean/array | Yes | Filled value. Actual type, requiredness, and enum options are enforced by the referenced form_shape. |
+| `form_shape` | `object` | Yes | Frozen form shape. |
+| `fields` | `array<object>` | Yes | Submitted answers. |
+| `notes` | `string` | No | Optional additional information the person wants to communicate. It may be empty. |
 
+### Frozen form structure
 
-**Sample object record**
+`form_shape` contains exactly `fields`. Definitions stay ordered. Every definition requires `key`, `label`, `type`, and `required`; only `options` and `help_info_text` are optional. `options` is required and nonempty only for `enum` and `multi_enum`, and must be omitted for every other type.
+
+Answers contain exactly `key` and `value`. Keys must be unique and declared by the frozen shape. Values are validated against the matching definition, including enum membership and numeric array element types. Optional unanswered fields may be absent. An empty answer array is valid when no required field is unanswered.
+
+Supported definition types:
+
+`text`, `long_text`, `email`, `phone`, `url`, `address`, `postal_code`, `country_code`, `identifier`, `number`, `integer`, `positive_integer`, `percentage`, `boolean`, `date`, `datetime`, `time`, `enum`, `multi_enum`, `string_list`, `integer_list`, `number_list`.
+
+There are no universal `requested_at`, `requested_by`, or `subject_id` questions. Request identity and time belong to the service transaction. Shape IDs and versions belong to the service-offer configuration, not this content.
+
+## Enum choices
+
+#### `form_shape.fields[].type` choices
+
+| Stored value | Display label |
+| --- | --- |
+| `text` | text |
+| `long_text` | long_text |
+| `email` | email |
+| `phone` | phone |
+| `url` | url |
+| `address` | address |
+| `postal_code` | postal_code |
+| `country_code` | country_code |
+| `identifier` | identifier |
+| `number` | number |
+| `integer` | integer |
+| `positive_integer` | positive_integer |
+| `percentage` | percentage |
+| `boolean` | boolean |
+| `date` | date |
+| `datetime` | datetime |
+| `time` | time |
+| `enum` | enum |
+| `multi_enum` | multi_enum |
+| `string_list` | string_list |
+| `integer_list` | integer_list |
+| `number_list` | number_list |
+
+## Minimal example
 
 ```json
 {
-  "object_id": "obj_demo_form_symptom_intake",
-  "object_type": "pgo_form",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:00:00Z",
-  "created_by": "user_demo_001",
-  "input_refs": [],
-  "data": {
-    "form_shape_id": "pgfs_symptom_intake",
-    "form_shape_version": 1,
-    "form_shape": {
-      "id": "pgfs_symptom_intake",
-      "version": 1,
-      "allow_unknown_fields": false,
-      "fields": [
-        {
-          "key": "requested_at",
-          "label": "Requested at",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "requested_by",
-          "label": "Requested by",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "subject_id",
-          "label": "Subject identifier",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "observations",
-          "label": "Reported observations",
-          "type": "string_list",
-          "required": true,
-          "options": []
-        }
-      ]
-    },
+  "form_shape": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-16T12:00:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
-        "key": "subject_id",
-        "value": "subject_demo_001"
-      },
-      {
-        "key": "observations",
-        "value": [
-          "Synthetic observation A",
-          "Synthetic observation B"
+        "key": "presentation",
+        "label": "Report presentation",
+        "type": "enum",
+        "required": false,
+        "options": [
+          {
+            "value": "clinical",
+            "label": "Clinical"
+          },
+          {
+            "value": "patient",
+            "label": "For the patient"
+          },
+          {
+            "value": "other",
+            "label": "Other"
+          }
         ]
       }
     ]
   },
-  "files": []
+  "fields": [
+    {
+      "key": "presentation",
+      "value": "clinical"
+    }
+  ]
 }
 ```
 
-**Validation and JSON logic**
+## Validation
 
-- `form_shape` is required and immutable. Its ID and integer version must match `form_shape_id` and `form_shape_version`; a consumer must never substitute the current offer shape.
-- Shape keys and answer keys must each be unique. Unknown answers and `allow_unknown_fields: true` are invalid.
-- Validate every answer against the embedded type, enum options and requiredness. Optional unanswered fields remain in `form_shape.fields` and are omitted from `data.fields`, which lets the explorer show the whole original form as submitted.
-- requested_at and requested_by must appear exactly once. requested_at must be a date-time and requested_by must identify the actual requester.
-- `date` uses `YYYY-MM-DD`; `datetime` uses ISO 8601; `integer` is a JSON number with no fractional part; `multi_enum` and `string_list` are arrays of strings.
-- The service can require only this form, or this form plus additional objects.
-- Common request fields are platform-populated or verified; they are not editable evidence of someone else making a request.
+- The content is standalone and does not require a Pocket Genes service or another registered object.
+- Only the declared properties are allowed; platform identity, ownership, revision, provenance and storage metadata stay outside the content.
+- Required strings must contain at least one non-whitespace character.
+- notes is optional, may be empty, and must not be populated with discarded technical metadata.
+- Definition and answer keys must each be unique.
+- Every answer key must be declared by the frozen form shape and match its declared type.
+- enum and multi_enum require nonempty options; all other field types must omit options.
+- Optional unanswered fields may be omitted and fields may be empty when no required answer exists.
+- Required strings are nonempty after trimming whitespace.
+- Any download URL is absolute HTTPS; query parameters are preserved and a filename suffix is not required.
+- No compatibility alias, legacy envelope, or unknown property is accepted.
 
-**Linked mock services**
+## Platform integration
 
-- Produced or updated by: No service in the initial 15; retained as an accepted type for additional provider contracts.
-- Consumed by: `pgs_symptom_intake`, `pgs_gene_prioritization`, `pgs_informed_consent`, `pgs_test_ordering`, `pgs_collection_request`, `pgs_sample_transport`, `pgs_dna_extraction`, `pgs_sequencing`, `pgs_read_alignment`, `pgs_variant_calling`, `pgs_variant_annotation`, `pgs_interactive_interpretation`, `pgs_final_report`, `pgs_karyotype_analysis`, `pgs_form_to_pdf`
-
-**Other service opportunities**
-
-- Symptom intake without existing pieces.
-- Informed consent request without existing pieces.
-- Language and layout selection accompanying final report inputs.
+The platform may store this content under an existing record's `data` field, but users create and edit only the domain content. Service input/output roles remain on the transaction. Ownership and authorization remain in their existing collections.

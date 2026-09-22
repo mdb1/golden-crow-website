@@ -1,236 +1,31 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pocketgenes.example/objects/pgo_pdf_report/1.0.0/schema.json",
+  "title": "pgo_pdf_report content",
   "type": "object",
+  "description": "Minimal domain content for pgo_pdf_report.",
   "properties": {
-    "object_id": {
+    "title": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Human-facing title."
     },
-    "object_type": {
-      "const": "pgo_pdf_report"
-    },
-    "schema_version": {
-      "const": "1.0.0"
-    },
-    "revision": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "created_at": {
+    "download_url": {
       "type": "string",
-      "format": "date-time"
+      "minLength": 1,
+      "format": "uri",
+      "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
+      "description": "HTTPS URL used to download the native file."
     },
-    "created_by": {
+    "notes": {
       "type": "string",
-      "minLength": 1
-    },
-    "input_refs": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "object_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "object_id",
-          "revision"
-        ],
-        "additionalProperties": false
-      }
-    },
-    "data": {
-      "type": "object",
-      "description": "PDF report: data payload in the shared Pocket Genes object envelope.",
-      "properties": {
-        "title": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Document title."
-        },
-        "report_kind": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The declared purpose of this report.",
-          "enum": [
-            "final_genomic",
-            "assessment",
-            "laboratory",
-            "administrative"
-          ]
-        },
-        "language": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Language tag used in the document."
-        },
-        "subject_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Synthetic or platform-assigned subject identifier; do not infer identity from a filename."
-        },
-        "order_ref": {
-          "type": "object",
-          "description": "Order associated with this report when the service requires one.",
-          "properties": {
-            "object_id": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Stable object identifier.",
-              "pattern": "^obj_[A-Za-z0-9_]+$"
-            },
-            "revision": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Pinned object revision."
-            }
-          },
-          "required": [
-            "object_id",
-            "revision"
-          ],
-          "additionalProperties": false
-        },
-        "source_pgi_ref": {
-          "type": "object",
-          "description": "Registered PGI payload used for a final genomic report.",
-          "properties": {
-            "object_id": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Stable object identifier.",
-              "pattern": "^obj_[A-Za-z0-9_]+$"
-            },
-            "revision": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Pinned object revision."
-            }
-          },
-          "required": [
-            "object_id",
-            "revision"
-          ],
-          "additionalProperties": false
-        },
-        "created_by_provider_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Provider responsible for the PDF."
-        },
-        "generated_at": {
-          "type": "string",
-          "minLength": 1,
-          "description": "PDF generation time.",
-          "format": "date-time"
-        },
-        "page_count": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Number of pages in the native PDF."
-        },
-        "status": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Report state.",
-          "enum": [
-            "draft",
-            "final",
-            "superseded"
-          ]
-        },
-        "template_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Report template identifier and version."
-        }
-      },
-      "required": [
-        "title",
-        "report_kind",
-        "language",
-        "subject_id",
-        "created_by_provider_id",
-        "generated_at",
-        "page_count",
-        "status",
-        "template_id"
-      ],
-      "additionalProperties": false,
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "report_kind": {
-                "const": "final_genomic"
-              }
-            },
-            "required": [
-              "report_kind"
-            ]
-          },
-          "then": {
-            "required": [
-              "order_ref",
-              "source_pgi_ref"
-            ]
-          }
-        }
-      ]
-    },
-    "files": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "role": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "media_type": {
-            "type": "string"
-          },
-          "sha256": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$"
-          },
-          "size_bytes": {
-            "type": "integer",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "role",
-          "path",
-          "media_type",
-          "sha256",
-          "size_bytes"
-        ],
-        "additionalProperties": false
-      },
-      "minItems": 1
+      "description": "Optional additional information the person wants to communicate. It may be empty."
     }
   },
   "required": [
-    "object_id",
-    "object_type",
-    "schema_version",
-    "revision",
-    "created_at",
-    "created_by",
-    "input_refs",
-    "data",
-    "files"
+    "title",
+    "download_url"
   ],
-  "additionalProperties": false,
-  "$id": "https://schemas.pocketgenes.example/objects/pgo_pdf_report/1.0.0/schema.json",
-  "title": "PDF report object"
+  "additionalProperties": false
 }

@@ -1,96 +1,71 @@
-# Symptom bundle — `pgo_bundle_of_symptoms`
+# 02. Symptom bundle — `pgo_bundle_of_symptoms`
 
-A structured collection of reported symptoms and observations that a provider can use to prioritize candidate genes.
+A standalone set of readable symptom observations with optional terminology coding.
 
-| Attribute | Value |
-| --- | --- |
-| Nature | virtual |
-| Stages | Test planning |
-| Extension | .pgsymptoms.json |
-| Icon asset | icons/pgo_bundle_of_symptoms.svg |
-| Icon subject | Three observation dots connected to a short assessment list. |
-| JSON Schema | schemas/objects/pgo_bundle_of_symptoms.schema.json |
-| Example record | examples/objects/pgo_bundle_of_symptoms.pgsymptoms.json |
+**Nature:** virtual  
+**Stages:** test_planning  
+**Serialized extension:** `.pgsymptoms.json`  
+**Schema:** `schemas/objects/pgo_bundle_of_symptoms.schema.json`  
+**Example:** `examples/objects/pgo_bundle_of_symptoms.pgsymptoms.json`
 
+## Content boundary
 
-**Properties inside `data`**
+The uploaded JSON root is the domain content shown below. It has no object envelope. The externally selected platform record supplies type, identity, owner, access, revision, creator, and transaction relationships. This content neither requires a service nor another registered object.
 
-| Property | Type | Required within parent | Meaning / constraints |
+Every unlisted property is invalid. Optional `notes` may be absent or an empty string and is only for additional human information.
+
+## Fields
+
+| Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
-| `subject_id` | string | Yes | Synthetic or platform-assigned subject identifier; do not infer identity from a filename. minLength: 1 |
-| `observations` | array | Yes | Structured observations for this subject. minItems: 1 |
-| `observations[].observation_id` | string | Yes | Local identifier for this observation. minLength: 1 |
-| `observations[].label` | string | Yes | Reported symptom or clinical observation text. minLength: 1 |
-| `observations[].code_system` | string | Yes | Identifier namespace; demo fixtures use PG_DEMO_OBSERVATION. minLength: 1 |
-| `observations[].code` | string | Yes | Code in the selected namespace. minLength: 1 |
-| `observations[].presence` | string | Yes | Whether the observation was reported present, absent, or uncertain. Options: present, absent, uncertain; minLength: 1 |
-| `observations[].source` | string | Yes | How the observation was obtained. Options: self_report, professional_observation, submitted_form; minLength: 1 |
-| `observations[].recorded_at` | string | Yes | Time the observation was recorded. format: date-time; minLength: 1 |
-| `source_form_ref` | object | Yes | Completed form from which this bundle was created. |
-| `source_form_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `source_form_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
+| `observations` | `array<object>` | Yes |  |
+| `notes` | `string` | No | Optional additional information the person wants to communicate. It may be empty. |
 
+### Observation structure
 
-**Sample object record**
+Each nonempty `observations` item requires only `label`. It may add `presence` (`present`, `absent`, or `uncertain`) and a closed `code` object containing exactly `system` and `value`. Code systems are `hpo`, `snomed_ct`, and `other`. Free text without a code is valid.
+
+## Enum choices
+
+#### `observations[].presence` choices
+
+| Stored value | Display label |
+| --- | --- |
+| `present` | present |
+| `absent` | absent |
+| `uncertain` | uncertain |
+
+#### `observations[].code.system` choices
+
+| Stored value | Display label |
+| --- | --- |
+| `hpo` | hpo |
+| `snomed_ct` | snomed_ct |
+| `other` | other |
+
+## Minimal example
 
 ```json
 {
-  "object_id": "obj_demo_symptoms",
-  "object_type": "pgo_bundle_of_symptoms",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:05:00Z",
-  "created_by": "pgp_clinical_planning",
-  "input_refs": [
+  "observations": [
     {
-      "object_id": "obj_demo_form_symptom_intake",
-      "revision": 1
+      "label": "Hearing loss",
+      "presence": "present"
     }
-  ],
-  "data": {
-    "subject_id": "subject_demo_001",
-    "observations": [
-      {
-        "observation_id": "observation_demo_001",
-        "label": "Fictional observation A",
-        "code_system": "PG_DEMO_OBSERVATION",
-        "code": "DEMO_OBSERVATION_01",
-        "presence": "present",
-        "source": "submitted_form",
-        "recorded_at": "2026-09-16T12:00:00Z"
-      },
-      {
-        "observation_id": "observation_demo_002",
-        "label": "Fictional observation B",
-        "code_system": "PG_DEMO_OBSERVATION",
-        "code": "DEMO_OBSERVATION_02",
-        "presence": "uncertain",
-        "source": "submitted_form",
-        "recorded_at": "2026-09-16T12:00:00Z"
-      }
-    ],
-    "source_form_ref": {
-      "object_id": "obj_demo_form_symptom_intake",
-      "revision": 1
-    }
-  },
-  "files": []
+  ]
 }
 ```
 
-**Validation and JSON logic**
+## Validation
 
-- Keep observation_id unique within the bundle.
-- A symptom bundle represents observations; it does not itself assert a diagnosis or a confirmed affected gene.
-- Preserve presence and provenance so absent or uncertain observations cannot silently become positive findings.
+- The content is standalone and does not require a Pocket Genes service or another registered object.
+- Only the declared properties are allowed; platform identity, ownership, revision, provenance and storage metadata stay outside the content.
+- Required strings must contain at least one non-whitespace character.
+- notes is optional, may be empty, and must not be populated with discarded technical metadata.
+- Required strings are nonempty after trimming whitespace.
+- Any download URL is absolute HTTPS; query parameters are preserved and a filename suffix is not required.
+- No compatibility alias, legacy envelope, or unknown property is accepted.
 
-**Linked mock services**
+## Platform integration
 
-- Produced or updated by: `pgs_symptom_intake`
-- Consumed by: `pgs_gene_prioritization`
-
-**Other service opportunities**
-
-- Form to structured symptom bundle.
-- Symptom bundle to ranked candidate genes.
-- Professional review of submitted observations.
+The platform may store this content under an existing record's `data` field, but users create and edit only the domain content. Service input/output roles remain on the transaction. Ownership and authorization remain in their existing collections.

@@ -25,6 +25,18 @@ const OBJECT_TYPES = [
   "pgo_flow_cytometry_data",
 ];
 
+const FORBIDDEN_CONTENT_KEYS = new Set([
+  "object_id",
+  "object_type",
+  "schema_version",
+  "revision",
+  "created_at",
+  "created_by",
+  "input_refs",
+  "files",
+  "data",
+]);
+
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const sourceDirectory = path.resolve(
   scriptDirectory,
@@ -39,8 +51,31 @@ const schemas = {};
 for (const objectType of OBJECT_TYPES) {
   const sourcePath = path.join(sourceDirectory, `${objectType}.schema.json`);
   const schema = JSON.parse(await readFile(sourcePath, "utf8"));
-  if (schema?.properties?.object_type?.const !== objectType) {
-    throw new Error(`${sourcePath} does not declare object_type ${objectType}.`);
+  if (
+    schema?.type !== "object" ||
+    !schema.properties ||
+    typeof schema.properties !== "object" ||
+    schema.additionalProperties !== false
+  ) {
+    throw new Error(
+      `${sourcePath} must declare a closed root object content schema for ${objectType}.`,
+    );
+  }
+  const forbiddenKey = Object.keys(schema.properties).find((key) =>
+    FORBIDDEN_CONTENT_KEYS.has(key),
+  );
+  if (forbiddenKey) {
+    throw new Error(
+      `${sourcePath} declares legacy envelope key ${forbiddenKey} inside PGO content.`,
+    );
+  }
+  if (
+    schema.properties.notes?.type !== "string" ||
+    schema.required?.includes("notes")
+  ) {
+    throw new Error(
+      `${sourcePath} must declare notes as an optional root string.`,
+    );
   }
   delete schema.$id;
   delete schema.$schema;

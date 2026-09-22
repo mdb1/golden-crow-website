@@ -8,7 +8,10 @@ import {
   SupportServiceOfferWorkbench,
   SupportServiceTransactionWorkbench,
 } from "@/components/god-mode/support-services-workbench";
-import { POCKET_GENES_SERVICE_OPTIONS } from "@/lib/pocket-genes-service-catalog";
+import {
+  POCKET_GENES_SERVICE_OPTIONS,
+  normalizePocketGenesCatalogFormShape,
+} from "@/lib/pocket-genes-service-catalog";
 import { sdkFetch } from "@/lib/sdk-client";
 import type {
   SupportServiceOfferRecord,
@@ -81,18 +84,6 @@ const frozenOfferSnapshot = {
     version: 2,
     allowUnknownFields: false,
     fields: [
-      {
-        key: "requested_at",
-        label: "Requested at",
-        type: "datetime" as const,
-        required: true,
-      },
-      {
-        key: "requested_by",
-        label: "Requested by",
-        type: "text" as const,
-        required: true,
-      },
       {
         key: "contact_email",
         label: "Contact email",
@@ -313,6 +304,51 @@ describe("support services workbenches", () => {
     expect(screen.queryByText("No records found.")).toBeNull();
   });
 
+  it("marks noncompliant offers in the god-mode list", async () => {
+    sdkFetchMock.mockResolvedValue({
+      offers: [
+        {
+          ...hiddenOffer,
+          complianceWarnings: ["updatedAt is missing or invalid."],
+        },
+      ],
+      nextCursor: undefined,
+    });
+
+    renderWithQueryClient(<SupportServicesBrowser kind="offers" />);
+
+    expect(await screen.findByText("1 compliance warnings")).toBeTruthy();
+    expect(screen.getByText(hiddenOffer.name)).toBeTruthy();
+    expect(screen.queryByText("No records found.")).toBeNull();
+  });
+
+  it("shows offer remediation warnings without blocking the edit form", async () => {
+    const offerWithWarnings: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      complianceWarnings: [
+        "updatedAt is missing or invalid; this record is listed by document ID.",
+      ],
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (String(path).includes("?limit=")) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: offerWithWarnings };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={offerWithWarnings.id} />,
+    );
+
+    expect(await screen.findByText("Offer requires remediation")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "updatedAt is missing or invalid; this record is listed by document ID.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Offer identity")).toBeTruthy();
+  });
+
   it("reports secondary cleanup warnings after the root transaction is deleted", async () => {
     jest.spyOn(window, "confirm").mockReturnValue(true);
     sdkFetchMock.mockImplementation(async (_path, init) => {
@@ -350,6 +386,224 @@ describe("support services workbenches", () => {
         "Calculated after submission",
       );
     }
+  });
+
+  it("normalizes a catalog service without a form shape as an absent optional form", () => {
+    expect(normalizePocketGenesCatalogFormShape(undefined)).toBeUndefined();
+  });
+
+  it("saves an enabled form shape with zero fields and no universal requester answers", async () => {
+    const emptyFormOffer: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      formShape: {
+        id: "pgfs_frozen_lab_1",
+        version: 1,
+        allowUnknownFields: false,
+        fields: [],
+      },
+      inputSlots: [
+        {
+          role: "form",
+          objectType: "pgo_form",
+          acceptedTypes: ["pgo_form"],
+          required: true,
+          cardinality: { min: 1, max: 1 },
+        },
+      ],
+    };
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        return { offer: { ...emptyFormOffer, ...payload } };
+      }
+      if (
+        String(path).includes("provider-siblings") ||
+        String(path).includes("?limit=")
+      ) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: emptyFormOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={emptyFormOffer.id} />,
+    );
+
+    expect(await screen.findByText("0 fields")).toBeTruthy();
+    const hiddenCheckbox = document.getElementById(
+      "service-offer-hidden-from-search",
+    );
+    fireEvent.click(hiddenCheckbox!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+
+    await waitFor(() => {
+      const putCall = sdkFetchMock.mock.calls.find(
+        ([, init]) => init?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const payload = JSON.parse(String(putCall?.[1]?.body));
+      expect(payload.formShape.fields).toEqual([]);
+      expect(JSON.stringify(payload)).not.toContain("requested_at");
+      expect(JSON.stringify(payload)).not.toContain("requested_by");
+    });
+  });
+
+  it.each([
+    {
+      name: "an invalid field key",
+      fields: [
+        {
+          key: "Invalid-key",
+          label: "Invalid key",
+          type: "text" as const,
+          required: false,
+        },
+      ],
+      message: "Form field keys must start with a lowercase letter",
+    },
+    {
+      name: "duplicate field keys",
+      fields: [
+        {
+          key: "presentation",
+          label: "Presentation",
+          type: "text" as const,
+          required: false,
+        },
+        {
+          key: "presentation",
+          label: "Presentation again",
+          type: "text" as const,
+          required: false,
+        },
+      ],
+      message: "Duplicate form field key: presentation.",
+    },
+    {
+      name: "duplicate enum values",
+      fields: [
+        {
+          key: "presentation",
+          label: "Presentation",
+          type: "enum" as const,
+          required: false,
+          options: [
+            { value: "clinical", label: "Clinical" },
+            { value: "clinical", label: "Clinical duplicate" },
+          ],
+        },
+      ],
+      message: "Form field presentation has duplicate option value clinical.",
+    },
+    {
+      name: "more than one hundred enum options",
+      fields: [
+        {
+          key: "presentation",
+          label: "Presentation",
+          type: "enum" as const,
+          required: false,
+          options: Array.from({ length: 101 }, (_, index) => ({
+            value: `option_${index}`,
+            label: `Option ${index}`,
+          })),
+        },
+      ],
+      message: "Form field presentation cannot declare more than 100 options.",
+    },
+    {
+      name: "an enum value outside the native identifier contract",
+      fields: [
+        {
+          key: "presentation",
+          label: "Presentation",
+          type: "enum" as const,
+          required: false,
+          options: [{ value: "not allowed", label: "Not allowed" }],
+        },
+      ],
+      message:
+        "Form field presentation option values may use only letters, numbers, dots, underscores, colons, or hyphens and contain at most 128 characters.",
+    },
+    {
+      name: "an enum label longer than the native limit",
+      fields: [
+        {
+          key: "presentation",
+          label: "Presentation",
+          type: "enum" as const,
+          required: false,
+          options: [{ value: "clinical", label: "x".repeat(121) }],
+        },
+      ],
+      message:
+        "Form field presentation option labels cannot exceed 120 characters.",
+    },
+    {
+      name: "oversized help info",
+      fields: [
+        {
+          key: "presentation",
+          label: "Presentation",
+          type: "text" as const,
+          required: false,
+          helpInfoText: "x".repeat(501),
+        },
+      ],
+      message: "Form field presentation help info cannot exceed 500 characters.",
+    },
+  ])("blocks $name before sending the offer", async ({ fields, message }) => {
+    const invalidFormOffer: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      formShape: {
+        id: "pgfs_frozen_lab_1",
+        version: 1,
+        allowUnknownFields: false,
+        fields,
+      },
+      inputSlots: [
+        {
+          role: "form",
+          objectType: "pgo_form",
+          acceptedTypes: ["pgo_form"],
+          required: true,
+          cardinality: { min: 1, max: 1 },
+        },
+      ],
+    };
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        throw new Error("Invalid offer reached the SDK.");
+      }
+      if (
+        String(path).includes("provider-siblings") ||
+        String(path).includes("?limit=")
+      ) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: invalidFormOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="edit"
+        offerId={invalidFormOffer.id}
+      />,
+    );
+
+    await screen.findByText("Request form");
+    const hiddenCheckbox = document.getElementById(
+      "service-offer-hidden-from-search",
+    );
+    fireEvent.click(hiddenCheckbox!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+
+    expect(await screen.findByText(new RegExp(message))).toBeTruthy();
+    expect(
+      sdkFetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
   });
 
   it("round-trips the hidden-from-search offer flag with the camelCase DTO key", async () => {
@@ -762,6 +1016,11 @@ describe("support services workbenches", () => {
     expect(deliverButton.disabled).toBe(true);
 
     fireEvent.click(uploadSlot);
+    expect(
+      screen.getByText(
+        "Only finalized PGO content JSON supplied by HTTPS download URL is supported. File Storage references and in-progress objects are not accepted.",
+      ),
+    ).toBeTruthy();
     fireEvent.change(screen.getByLabelText("File name"), {
       target: { value: "result.pgobject.json" },
     });

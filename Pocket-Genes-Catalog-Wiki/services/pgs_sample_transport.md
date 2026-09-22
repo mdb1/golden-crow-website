@@ -1,179 +1,79 @@
-# Transport an already collected specimen — `pgs_sample_transport`
+# S06. Transport an already collected specimen — `pgs_sample_transport`
 
-Move an already biologically collected physical specimen from origin to destination and record custody and receipt.
+Move an already biologically collected physical specimen from origin to destination and record custody and receipt. This is the transport service; it does not create or replace the biological sample collection request.
 
-This is the transport service. It does not create a `collection_request`, replace a `collection_request`, or describe the act of collecting the biological sample from the subject. The `collection_request` input documents the prior or intended biological sample collection event; this service only moves a sample that already exists.
+**Provider:** Origin Sample Services (`pgp_sample_logistics`)  
+**Provider kind:** organization  
+**Service version:** 1  
+**Stages:** wet_lab
 
-**Provider:** `pgp_sample_logistics`. **Service version:** `1`. **Stage:** Wet Lab.
+## Provider work
 
-**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+Perform the physical handoff and transport of the existing specimen, record custody, and obtain destination receipt.
 
-**Provider work:** Perform the physical handoff and transport of the existing specimen, record custody, and obtain destination receipt.
+## Contract slots
 
-**Input slots**
-
-| Role | Accepted object type | Required | Cardinality |
+| Direction | Role | PGO type | Rule |
 | --- | --- | --- | --- |
-| form | pgo_form | True | 1–1 |
-| collection_request | pgo_collection_request | True | 1–1 |
-| blood_sample | pgo_blood_sample | True | 1–1 |
+| Input | `form` | `pgo_form` | Required 1:1 |
+| Input | `collection_request` | `pgo_collection_request` | Required 1:1 |
+| Input | `blood_sample` | `pgo_blood_sample` | Required 1:1 |
+| Output | `delivered_specimen` | `same_as:blood_sample` | new_revision |
 
-**Outputs**
+The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
 
-| Role | Type / binding | Identity behavior |
-| --- | --- | --- |
-| delivered_specimen | same_as:blood_sample | new_revision |
+## Request form
 
-**Form shape**
-
-`pgfs_sample_transport` version `1`. This shape is valid because the offer declares a `pgo_form` input slot; unknown fields are rejected.
-
-| Field | Type | Required | Enum options |
+| Key | Type | Required | Label |
 | --- | --- | --- | --- |
-| requested_at | datetime | True | — |
-| requested_by | text | True | — |
-| contact_name | text | True | — |
-| contact_phone | text | True | — |
+| `contact_name` | `text` | Yes | Contact name |
+| `contact_phone` | `phone` | Yes | Contact phone |
 
-**Filled form input object**
+The completed form freezes only the definitions and answers. Requester identity and request time are transaction fields.
 
 ```json
 {
-  "object_id": "obj_demo_form_sample_transport",
-  "object_type": "pgo_form",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:35:00Z",
-  "created_by": "user_demo_001",
-  "input_refs": [],
-  "data": {
-    "form_shape_id": "pgfs_sample_transport",
-    "form_shape_version": 1,
+  "form_shape": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-16T12:35:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
         "key": "contact_name",
-        "value": "Example Contact"
+        "label": "Contact name",
+        "type": "text",
+        "required": true
       },
       {
         "key": "contact_phone",
-        "value": "+54-DEMO-ONLY"
+        "label": "Contact phone",
+        "type": "phone",
+        "required": true
       }
-    ],
-    "form_shape": {
-      "id": "pgfs_sample_transport",
-      "version": 1,
-      "allow_unknown_fields": false,
-      "fields": [
-        {
-          "key": "requested_at",
-          "label": "Requested at",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "requested_by",
-          "label": "Requested by",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "contact_name",
-          "label": "Origin contact name",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "contact_phone",
-          "label": "Origin contact phone",
-          "type": "text",
-          "required": true,
-          "options": []
-        }
-      ]
-    }
+    ]
   },
-  "files": []
-}
-```
-
-**Request**
-
-```json
-{
-  "request_id": "pgr_demo_sample_transport",
-  "service_id": "pgs_sample_transport",
-  "service_version": 1,
-  "inputs": [
+  "fields": [
     {
-      "role": "form",
-      "object_ref": {
-        "object_id": "obj_demo_form_sample_transport",
-        "revision": 1
-      }
+      "key": "contact_name",
+      "value": "Example Contact"
     },
     {
-      "role": "collection_request",
-      "object_ref": {
-        "object_id": "obj_demo_collection",
-        "revision": 1
-      }
-    },
-    {
-      "role": "blood_sample",
-      "object_ref": {
-        "object_id": "obj_demo_blood",
-        "revision": 1
-      }
+      "key": "contact_phone",
+      "value": "+541155551234"
     }
   ]
 }
 ```
 
-**Completed result**
-
-```json
-{
-  "request_id": "pgr_demo_sample_transport",
-  "status": "delivered",
-  "outputs": [
-    {
-      "role": "delivered_specimen",
-      "object_ref": {
-        "object_id": "obj_demo_blood",
-        "revision": 2
-      }
-    }
-  ]
-}
-```
-
-**Acceptance and fulfillment rules**
+## Acceptance conditions
 
 - The specimen reference identifies a real sample that has already been biologically collected.
-- Pickup and delivery locations, availability and handling requirements must be accepted before dispatch.
-- The `collection_request` input documents the prior or intended biological sample collection; it is not the transport order itself.
-- The specimen type and material_kind remain unchanged.
+- The transport provider accepts pickup and delivery locations, availability and handling requirements before dispatch.
+- The collection_request input documents the prior or intended biological sample collection; it is not the transport order itself.
+
+## Scope rules
+
+- Reject references where object_type or revision differ from the submitted collection_request and physical specimen.
 - Preserve object_id; return a new revision with destination, custody events and receipt status.
-- If collection or receipt fails, record the real state. Do not fabricate a delivered specimen or create another pickup automatically.
+- If transport or receipt fails, record the real state. Do not fabricate a delivered specimen or create another pickup automatically.
 
-**Illustrative commercial terms**
+## Transaction rule
 
-```json
-{
-  "price": {
-    "summary": "Calculated after submission"
-  },
-  "turnaround": "1d"
-}
-```
+A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.

@@ -1,139 +1,104 @@
-# Test order — `pgo_test_order`
+# 05. Test order — `pgo_test_order`
 
-The formal test request carrying patient identity, purpose, clinical suspicion, requested analytical scope, consent linkage, and required deliverables.
+A standalone request for a named test on a stated patient or source and specimen type.
 
-| Attribute | Value |
-| --- | --- |
-| Nature | virtual |
-| Stages | Test planning, Wet lab, Bioinformatics |
-| Extension | .pgorder.json |
-| Icon asset | icons/pgo_test_order.svg |
-| Icon subject | A clipboard with a checked gene list and a small order seal. |
-| JSON Schema | schemas/objects/pgo_test_order.schema.json |
-| Example record | examples/objects/pgo_test_order.pgorder.json |
+**Nature:** virtual  
+**Stages:** test_planning, wet_lab, bioinformatics  
+**Serialized extension:** `.pgorder.json`  
+**Schema:** `schemas/objects/pgo_test_order.schema.json`  
+**Example:** `examples/objects/pgo_test_order.pgorder.json`
 
+## Content boundary
 
-**Properties inside `data`**
+The uploaded JSON root is the domain content shown below. It has no object envelope. The externally selected platform record supplies type, identity, owner, access, revision, creator, and transaction relationships. This content neither requires a service nor another registered object.
 
-| Property | Type | Required within parent | Meaning / constraints |
+Every unlisted property is invalid. Optional `notes` may be absent or an empty string and is only for additional human information.
+
+## Fields
+
+| Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
-| `order_number` | string | Yes | Human-readable order number. minLength: 1 |
-| `patient` | object | Yes | Self-contained patient identity required by the ordered deliverable. |
-| `patient.subject_id` | string | Yes | Synthetic or platform-assigned subject identifier; do not infer identity from a filename. minLength: 1 |
-| `patient.full_name` | string | Yes | Patient name to appear in the final report. minLength: 1 |
-| `patient.date_of_birth` | string | Yes | Date of birth supplied for the order. format: date; minLength: 1 |
-| `patient.identifier` | string | Yes | Patient identifier for the ordering organization; the fixture is synthetic. minLength: 1 |
-| `objective` | string | Yes | Question or intended objective of this test. minLength: 1 |
-| `clinical_suspicion` | string | Yes | Suspicion or clinical reason being evaluated; may explicitly state that none was specified. minLength: 1 |
-| `scope` | object | Yes | The analytical scope required by the order. |
-| `scope.genes` | array | Yes | Requested genes, using the specified gene namespace. minItems: 1 |
-| `scope.reference_id` | string | Yes | Reference assembly identifier agreed by the providers. minLength: 1 |
-| `scope.variant_classes` | array | Yes | Variant classes required by this order. minItems: 1 |
-| `fulfillment` | object | Yes | The outcome and intermediate laboratory handoff required by this order. |
-| `fulfillment.wet_lab_output_type` | string | Yes | Object type the selected lab is expected to deliver. minLength: 1 |
-| `fulfillment.final_output_types` | array | Yes | Requested final output object types. minItems: 1 |
-| `fulfillment.required_profile` | string | Yes | Versioned analytical profile providers must satisfy. minLength: 1 |
-| `fulfillment.scope_policy` | string | Yes | Requested analytical and reporting boundary. Options: requested_only; minLength: 1 |
-| `fulfillment.analysis_support_required` | boolean | Yes | Require explicit support for requested analytical scope rather than relying on filename or variant presence. Value: True |
-| `consent_ref` | object | Yes | Completed consent record relied upon for this order. |
-| `consent_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `consent_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `candidate_genes_ref` | object | Yes | Candidate gene bundle used to create the order. |
-| `candidate_genes_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `candidate_genes_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `requested_by` | string | Yes | Professional, organization or user recorded as placing the order. minLength: 1 |
-| `issued_at` | string | Yes | Time the order was issued. format: date-time; minLength: 1 |
-| `status` | string | Yes | Order state. Options: issued, in_progress, completed, cancelled; minLength: 1 |
+| `patient` | `string` | Yes | Patient/source name or meaningful identifier supplied for this order. |
+| `test_name` | `string` | Yes | Actual requested test name. |
+| `sample_type` | `enum<string>` | Yes | Specimen or material expected by the testing provider. |
+| `test_type` | `enum<string>` | No | Optional broad test category. |
+| `objective` | `string` | No | Optional objective for the test. |
+| `clinical_suspicion` | `string` | No | Optional clinical suspicion. |
+| `genes` | `array<string>` | No |  |
+| `notes` | `string` | No | Optional additional information the person wants to communicate. It may be empty. |
 
+### Order meaning
 
-**Sample object record**
+`patient` is readable user-supplied identity, not a mandatory Pocket Genes subject record. `test_name` is the actual requested study. `test_type` is only an optional broad category. Consent and provider suitability remain service checks.
+
+## Enum choices
+
+#### `sample_type` choices
+
+| Stored value | Display label |
+| --- | --- |
+| `blood` | Blood |
+| `dried_blood_spot` | Dried blood spot |
+| `saliva` | Saliva |
+| `buccal_swab` | Buccal swab |
+| `tissue` | Tissue |
+| `skin_biopsy` | Skin biopsy |
+| `bone_marrow_aspirate` | Bone marrow aspirate |
+| `bone_marrow_core` | Bone marrow core biopsy |
+| `amniotic_fluid` | Amniotic fluid |
+| `chorionic_villi` | Chorionic villi |
+| `cord_blood` | Cord blood |
+| `cerebrospinal_fluid` | Cerebrospinal fluid |
+| `urine` | Urine |
+| `stool` | Stool |
+| `hair_follicles` | Hair follicles |
+| `nail_clippings` | Nail clippings |
+| `semen` | Semen |
+| `embryo_biopsy` | Embryo biopsy |
+| `whole_embryo` | Whole embryo |
+| `polar_body` | Polar body |
+| `plasma` | Plasma |
+| `serum` | Serum |
+| `extracted_dna` | Extracted DNA |
+| `extracted_rna` | Extracted RNA |
+| `other` | Other |
+
+#### `test_type` choices
+
+| Stored value | Display label |
+| --- | --- |
+| `single_gene` | Single-gene test |
+| `gene_panel` | Gene panel |
+| `exome_sequencing` | Exome sequencing |
+| `genome_sequencing` | Genome sequencing |
+| `targeted_variant_testing` | Targeted variant testing |
+| `repeat_expansion_testing` | Repeat expansion testing |
+| `methylation_analysis` | Methylation analysis |
+| `chromosomal_microarray` | Chromosomal microarray |
+| `karyotype` | Karyotype |
+| `fish` | FISH |
+| `other` | Other |
+
+## Minimal example
 
 ```json
 {
-  "object_id": "obj_demo_order",
-  "object_type": "pgo_test_order",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:15:00Z",
-  "created_by": "pgp_clinical_planning",
-  "input_refs": [
-    {
-      "object_id": "obj_demo_form_test_ordering",
-      "revision": 1
-    },
-    {
-      "object_id": "obj_demo_consent",
-      "revision": 1
-    },
-    {
-      "object_id": "obj_demo_genes",
-      "revision": 1
-    }
-  ],
-  "data": {
-    "order_number": "PG-DEMO-ORDER-001",
-    "patient": {
-      "subject_id": "subject_demo_001",
-      "full_name": "Alex Example",
-      "date_of_birth": "1990-01-01",
-      "identifier": "PATIENT-DEMO-001"
-    },
-    "objective": "Evaluate the synthetic three-gene demonstration",
-    "clinical_suspicion": "Demo clinical hypothesis only",
-    "scope": {
-      "genes": [
-        "PGGENE_A",
-        "PGGENE_B",
-        "PGGENE_C"
-      ],
-      "reference_id": "PG_DEMO_REF_1",
-      "variant_classes": [
-        "SNV",
-        "small_indel"
-      ]
-    },
-    "fulfillment": {
-      "wet_lab_output_type": "pgo_sequence_reads",
-      "final_output_types": [
-        "pgo_interactive_report",
-        "pgo_pdf_report"
-      ],
-      "required_profile": "pg_demo_small_variant_v1",
-      "scope_policy": "requested_only",
-      "analysis_support_required": true
-    },
-    "consent_ref": {
-      "object_id": "obj_demo_consent",
-      "revision": 1
-    },
-    "candidate_genes_ref": {
-      "object_id": "obj_demo_genes",
-      "revision": 1
-    },
-    "requested_by": "user_demo_001",
-    "issued_at": "2026-09-16T12:15:00Z",
-    "status": "issued"
-  },
-  "files": []
+  "patient": "Patient AB-123",
+  "test_name": "Hereditary cancer panel",
+  "sample_type": "blood"
 }
 ```
 
-**Validation and JSON logic**
+## Validation
 
-- Creation requires its own completed form plus informed_consent plus bundle_of_candidate_genes.
-- Patient identity, objective and clinical suspicion must be available directly in this object for the final reporting provider.
-- Order scope must remain within the recorded consent scope and explicitly define which genes and variant classes are requested.
-- A matching native file extension alone cannot fulfill the order; the deliverable must satisfy the scope and required profile.
-- The final reporting request can use this order and a matching registered PGI object without fetching original symptom bundles or intake forms.
-- requested_only limits requested analysis and reporting. It does not claim that an instrument cannot physically acquire additional raw signal.
+- The content is standalone and does not require a Pocket Genes service or another registered object.
+- Only the declared properties are allowed; platform identity, ownership, revision, provenance and storage metadata stay outside the content.
+- Required strings must contain at least one non-whitespace character.
+- notes is optional, may be empty, and must not be populated with discarded technical metadata.
+- Required strings are nonempty after trimming whitespace.
+- Any download URL is absolute HTTPS; query parameters are preserved and a filename suffix is not required.
+- No compatibility alias, legacy envelope, or unknown property is accepted.
 
-**Linked mock services**
+## Platform integration
 
-- Produced or updated by: `pgs_test_ordering`
-- Consumed by: `pgs_collection_request`, `pgs_dna_extraction`, `pgs_sequencing`, `pgs_read_alignment`, `pgs_variant_calling`, `pgs_variant_annotation`, `pgs_final_report`
-
-**Other service opportunities**
-
-- Formal output of test planning.
-- Define wet-lab processing and its digital handoff.
-- Combine with a registered PGI payload to produce a final self-contained PDF.
+The platform may store this content under an existing record's `data` field, but users create and edit only the domain content. Service input/output roles remain on the transaction. Ownership and authorization remain in their existing collections.

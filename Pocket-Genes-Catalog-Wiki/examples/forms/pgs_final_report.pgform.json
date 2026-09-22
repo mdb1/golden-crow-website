@@ -5,47 +5,9 @@
   "revision": 1,
   "created_at": "2026-09-17T16:05:00Z",
   "created_by": "user_demo_001",
-  "input_refs": [],
   "data": {
-    "form_shape_id": "pgfs_final_report",
-    "form_shape_version": 1,
-    "fields": [
-      {
-        "key": "requested_at",
-        "value": "2026-09-17T16:05:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
-        "key": "language",
-        "value": "en"
-      },
-      {
-        "key": "presentation",
-        "value": "clinical"
-      }
-    ],
     "form_shape": {
-      "id": "pgfs_final_report",
-      "version": 1,
-      "allow_unknown_fields": false,
       "fields": [
-        {
-          "key": "requested_at",
-          "label": "Requested at",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "requested_by",
-          "label": "Requested by",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
         {
           "key": "language",
           "label": "Report language",
@@ -64,7 +26,7 @@
         },
         {
           "key": "presentation",
-          "label": "Presentation",
+          "label": "Report presentation",
           "type": "enum",
           "required": true,
           "options": [
@@ -75,11 +37,24 @@
             {
               "value": "patient",
               "label": "Patient-facing report"
+            },
+            {
+              "value": "other",
+              "label": "Other"
             }
           ]
         }
       ]
-    }
-  },
-  "files": []
+    },
+    "fields": [
+      {
+        "key": "language",
+        "value": "en"
+      },
+      {
+        "key": "presentation",
+        "value": "clinical"
+      }
+    ]
+  }
 }

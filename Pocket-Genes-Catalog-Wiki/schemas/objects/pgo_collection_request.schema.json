@@ -1,309 +1,165 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pocketgenes.example/objects/pgo_collection_request/1.0.0/schema.json",
+  "title": "pgo_collection_request content",
   "type": "object",
+  "description": "Minimal domain content for pgo_collection_request.",
   "properties": {
-    "object_id": {
+    "patient": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Patient/source name or meaningful identifier for collection."
     },
-    "object_type": {
-      "const": "pgo_collection_request"
-    },
-    "schema_version": {
-      "const": "1.0.0"
-    },
-    "revision": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "created_at": {
+    "sample_type": {
       "type": "string",
+      "enum": [
+        "blood",
+        "dried_blood_spot",
+        "saliva",
+        "buccal_swab",
+        "tissue",
+        "skin_biopsy",
+        "bone_marrow_aspirate",
+        "bone_marrow_core",
+        "amniotic_fluid",
+        "chorionic_villi",
+        "cord_blood",
+        "cerebrospinal_fluid",
+        "urine",
+        "stool",
+        "hair_follicles",
+        "nail_clippings",
+        "semen",
+        "embryo_biopsy",
+        "whole_embryo",
+        "polar_body",
+        "other"
+      ],
+      "description": "Biological material to obtain.",
+      "x-enum-labels": [
+        "Blood",
+        "Dried blood spot",
+        "Saliva",
+        "Buccal swab",
+        "Tissue",
+        "Skin biopsy",
+        "Bone marrow aspirate",
+        "Bone marrow core biopsy",
+        "Amniotic fluid",
+        "Chorionic villi",
+        "Cord blood",
+        "Cerebrospinal fluid",
+        "Urine",
+        "Stool",
+        "Hair follicles",
+        "Nail clippings",
+        "Semen",
+        "Embryo biopsy",
+        "Whole embryo",
+        "Polar body",
+        "Other"
+      ]
+    },
+    "collection_method": {
+      "type": "string",
+      "enum": [
+        "venous_blood_draw",
+        "capillary_blood_collection",
+        "buccal_swab",
+        "saliva_collection",
+        "needle_aspiration",
+        "core_biopsy",
+        "surgical_biopsy",
+        "skin_punch_biopsy",
+        "amniocentesis",
+        "chorionic_villus_sampling",
+        "lumbar_puncture",
+        "embryo_biopsy",
+        "polar_body_biopsy",
+        "self_collection",
+        "other"
+      ],
+      "description": "Method used to obtain the biological material.",
+      "x-enum-labels": [
+        "Venous blood draw",
+        "Capillary blood collection",
+        "Buccal swab",
+        "Saliva collection",
+        "Needle aspiration",
+        "Core biopsy",
+        "Surgical biopsy",
+        "Skin punch biopsy",
+        "Amniocentesis",
+        "Chorionic villus sampling",
+        "Lumbar puncture",
+        "Embryo biopsy",
+        "Polar body biopsy",
+        "Self-collection",
+        "Other"
+      ]
+    },
+    "container": {
+      "type": "string",
+      "enum": [
+        "edta_tube",
+        "heparin_tube",
+        "citrate_tube",
+        "serum_tube",
+        "dna_stabilization_tube",
+        "rna_stabilization_tube",
+        "sterile_container",
+        "swab_collection_kit",
+        "saliva_collection_kit",
+        "cryovial",
+        "filter_paper_card",
+        "formalin_container",
+        "other"
+      ],
+      "description": "Collection container or kit.",
+      "x-enum-labels": [
+        "EDTA tube",
+        "Heparin tube",
+        "Citrate tube",
+        "Serum tube",
+        "DNA stabilization tube",
+        "RNA stabilization tube",
+        "Sterile container",
+        "Swab collection kit",
+        "Saliva collection kit",
+        "Cryovial",
+        "Filter paper card",
+        "Formalin container",
+        "Other"
+      ]
+    },
+    "requested_quantity": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Readable quantity including its unit, for example 2 mL."
+    },
+    "collection_site": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Readable collection location."
+    },
+    "scheduled_at": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Scheduled collection time.",
       "format": "date-time"
     },
-    "created_by": {
+    "notes": {
       "type": "string",
-      "minLength": 1
-    },
-    "input_refs": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "object_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "object_id",
-          "revision"
-        ],
-        "additionalProperties": false
-      }
-    },
-    "data": {
-      "type": "object",
-      "description": "Sample collection request: data payload for requesting an actual biological sample collection event. This is not sample transport or courier pickup.",
-      "properties": {
-        "order_ref": {
-          "type": "object",
-          "properties": {
-            "object_id": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Stable object identifier.",
-              "pattern": "^obj_[A-Za-z0-9_]+$"
-            },
-            "revision": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Pinned object revision."
-            }
-          },
-          "required": [
-            "object_id",
-            "revision"
-          ],
-          "additionalProperties": false,
-          "description": "Parent test order that requires a biological sample to be obtained."
-        },
-        "subject_ref": {
-          "type": "object",
-          "description": "Subject or biological source from whom/which the sample will actually be collected.",
-          "properties": {
-            "subject_id": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Subject/source identifier."
-            }
-          },
-          "required": [
-            "subject_id"
-          ],
-          "additionalProperties": false
-        },
-        "requested_sample": {
-          "type": "object",
-          "description": "The biological material to obtain and the procedure used to obtain it. This describes sample collection, not package pickup.",
-          "properties": {
-            "sample_type": {
-              "type": "string",
-              "enum": [
-                "blood",
-                "buccal_swab",
-                "saliva",
-                "tissue",
-                "embryo_material"
-              ],
-              "description": "Type of biological material to collect."
-            },
-            "collection_method": {
-              "type": "string",
-              "enum": [
-                "phlebotomy",
-                "buccal_swab",
-                "saliva_kit",
-                "tissue_biopsy",
-                "embryo_biopsy"
-              ],
-              "description": "Procedure for obtaining the biological sample."
-            },
-            "container": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Tube, kit or container required at collection."
-            },
-            "minimum_quantity": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Minimum amount to obtain when applicable."
-            }
-          },
-          "required": [
-            "sample_type",
-            "collection_method",
-            "container",
-            "minimum_quantity"
-          ],
-          "additionalProperties": false
-        },
-        "assigned_collector_provider_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Provider assigned to perform or coordinate the biological sample collection."
-        },
-        "collection_site": {
-          "type": "object",
-          "description": "Site where the biological sample will be obtained from the subject or source. This is not a courier pickup location.",
-          "properties": {
-            "site_id": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Registered sample collection site identifier."
-            },
-            "name": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Collection site display name."
-            },
-            "address_line": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Address where the biological collection procedure happens."
-            },
-            "city": {
-              "type": "string",
-              "minLength": 1,
-              "description": "City."
-            },
-            "country_code": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Country code.",
-              "pattern": "^[A-Z]{2}$"
-            },
-            "contact_name": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Collection-site contact, such as the nurse, lab desk, or coordinator."
-            },
-            "contact_phone": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Contact phone used to coordinate the biological collection appointment; synthetic in the fixture."
-            }
-          },
-          "required": [
-            "site_id",
-            "name",
-            "address_line",
-            "city",
-            "country_code",
-            "contact_name",
-            "contact_phone"
-          ],
-          "additionalProperties": false
-        },
-        "collection_window_start": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Start of the requested biological sample collection appointment window.",
-          "format": "date-time"
-        },
-        "collection_window_end": {
-          "type": "string",
-          "minLength": 1,
-          "description": "End of the requested biological sample collection appointment window.",
-          "format": "date-time"
-        },
-        "preparation_profile": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Patient/source preparation, tube/kit and immediate post-collection handling requirements."
-        },
-        "post_collection_plan": {
-          "type": "object",
-          "description": "What should happen after the sample has been obtained. Transport, if needed, must be a separate service.",
-          "properties": {
-            "next_step": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Expected next action after collection."
-            },
-            "receiving_lab_id": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Laboratory expected to receive the sample after collection, if known."
-            },
-            "transport_required": {
-              "type": "boolean",
-              "description": "Whether a separate transport service is expected after collection."
-            }
-          },
-          "required": [
-            "next_step",
-            "receiving_lab_id",
-            "transport_required"
-          ],
-          "additionalProperties": false
-        },
-        "status": {
-          "type": "string",
-          "enum": [
-            "requested",
-            "scheduled",
-            "collected",
-            "cancelled",
-            "failed"
-          ],
-          "minLength": 1,
-          "description": "Sample collection lifecycle status."
-        }
-      },
-      "required": [
-        "order_ref",
-        "subject_ref",
-        "requested_sample",
-        "assigned_collector_provider_id",
-        "collection_site",
-        "collection_window_start",
-        "collection_window_end",
-        "preparation_profile",
-        "post_collection_plan",
-        "status"
-      ],
-      "additionalProperties": false
-    },
-    "files": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "role": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "media_type": {
-            "type": "string"
-          },
-          "sha256": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$"
-          },
-          "size_bytes": {
-            "type": "integer",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "role",
-          "path",
-          "media_type",
-          "sha256",
-          "size_bytes"
-        ],
-        "additionalProperties": false
-      }
+      "description": "Optional additional information the person wants to communicate. It may be empty."
     }
   },
   "required": [
-    "object_id",
-    "object_type",
-    "schema_version",
-    "revision",
-    "created_at",
-    "created_by",
-    "input_refs",
-    "data",
-    "files"
+    "patient",
+    "sample_type"
   ],
-  "additionalProperties": false,
-  "$id": "https://schemas.pocketgenes.example/objects/pgo_collection_request/1.0.0/schema.json",
-  "title": "Sample collection request object"
+  "additionalProperties": false
 }

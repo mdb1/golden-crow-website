@@ -3,6 +3,7 @@ import providersCatalog from "../../../Pocket-Genes-Catalog-Wiki/catalog/provide
 import servicesCatalog from "../../../Pocket-Genes-Catalog-Wiki/catalog/services.json";
 import type {
   SupportServiceFormFieldType,
+  SupportServiceFormShape,
   SupportServiceInputSlot,
   SupportServiceOfferInput,
   SupportServiceOutputSlot,
@@ -36,13 +37,6 @@ function requiredBoolean(value: unknown, fieldName: string) {
     throw new Error(`${fieldName} must be a boolean.`);
   }
   return value;
-}
-
-function legacyDefaultFalseBoolean(value: unknown, fieldName: string) {
-  if (value === undefined || value === null) {
-    return false;
-  }
-  return requiredBoolean(value, fieldName);
 }
 
 function recordArray(value: unknown) {
@@ -98,6 +92,50 @@ function normalizeOutputSlot(slot: Record<string, unknown>): SupportServiceOutpu
   };
 }
 
+export function normalizePocketGenesCatalogFormShape(
+  value: unknown,
+): SupportServiceFormShape | undefined {
+  const formShape = record(value);
+  if (Object.keys(formShape).length === 0) {
+    return undefined;
+  }
+  if (
+    !Number.isInteger(formShape.version) ||
+    Number(formShape.version) < 1
+  ) {
+    throw new Error("formShape.version must be a positive integer.");
+  }
+
+  return {
+    id: cleanString(formShape.id),
+    version: Number(formShape.version),
+    allowUnknownFields: requiredBoolean(
+      formShape.allowUnknownFields,
+      "formShape.allowUnknownFields",
+    ),
+    fields: recordArray(formShape.fields).map((field) => {
+      const type =
+        (cleanString(field.type) as SupportServiceFormFieldType) || "text";
+      const usesOptions = type === "enum" || type === "multi_enum";
+      return {
+        key: cleanString(field.key),
+        label: cleanString(field.label),
+        type,
+        required: Boolean(field.required),
+        helpInfoText: cleanString(field.helpInfoText) || undefined,
+        ...(usesOptions
+          ? {
+              options: recordArray(field.options).map((option) => ({
+                value: cleanString(option.value),
+                label: cleanString(option.label),
+              })),
+            }
+          : {}),
+      };
+    }),
+  };
+}
+
 const rawServices = recordArray((servicesCatalog as RawCatalog).services);
 const rawProviders = recordArray((providersCatalog as RawCatalog).providers);
 const rawObjects = recordArray((objectsCatalog as RawCatalog).objects);
@@ -117,7 +155,6 @@ export const POCKET_GENES_PROVIDER_OPTIONS = rawProviders.map((provider) => ({
 }));
 
 export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
-  const formShape = record(service.formShape);
   const commercialTerms = record(service.commercialTerms);
   const commercialPrice = record(commercialTerms.price);
   const pricingModel = cleanString(commercialTerms.pricingModel);
@@ -133,33 +170,14 @@ export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
     name: cleanString(service.name),
     providerId: cleanString(service.providerId),
     stages: stringArray(service.stages).map(normalizeStage),
-    isHiddenFromSearch: legacyDefaultFalseBoolean(
+    isHiddenFromSearch: requiredBoolean(
       service.isHiddenFromSearch,
       "isHiddenFromSearch",
     ),
     description: cleanString(service.description),
     shortContract: cleanString(service.shortContract),
     providerWork: cleanString(service.providerWork),
-    formShape: {
-      id: cleanString(formShape.id),
-      version: versionNumber(formShape.version),
-      allowUnknownFields: requiredBoolean(
-        formShape.allowUnknownFields,
-        "formShape.allowUnknownFields",
-      ),
-      fields: recordArray(formShape.fields).map((field) => ({
-        key: cleanString(field.key),
-        label: cleanString(field.label),
-        type:
-          (cleanString(field.type) as SupportServiceFormFieldType) || "text",
-        required: Boolean(field.required),
-        helpInfoText: cleanString(field.helpInfoText) || undefined,
-        options: recordArray(field.options).map((option) => ({
-          value: cleanString(option.value),
-          label: cleanString(option.label),
-        })),
-      })),
-    },
+    formShape: normalizePocketGenesCatalogFormShape(service.formShape),
     inputSlots: recordArray(service.inputSlots).map(normalizeInputSlot),
     outputSlots: recordArray(service.outputSlots).map(normalizeOutputSlot),
     acceptedConditions: stringArray(service.acceptedConditions),

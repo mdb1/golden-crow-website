@@ -1,58 +1,15 @@
 {
-  "object_id": "obj_demo_images",
-  "object_type": "pgo_image_bundle",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:20:00Z",
-  "created_by": "platform_demo_import",
-  "input_refs": [],
-  "data": {
-    "subject_id": "subject_demo_001",
-    "order_ref": {
-      "object_id": "obj_demo_order",
-      "revision": 1
-    },
-    "image_kind": "metaphase",
-    "source_object_ref": {
-      "object_id": "obj_demo_blood",
-      "revision": 1
-    },
-    "acquired_at": "2026-09-16T12:00:00Z",
-    "acquired_by": "pgp_cytogenetics",
-    "images": [
-      {
-        "image_id": "image_demo_001",
-        "file_role": "image_001",
-        "format": "png",
-        "width_px": 640,
-        "height_px": 400,
-        "caption": "Synthetic metaphase-like illustration 1 for catalog demonstration only."
-      },
-      {
-        "image_id": "image_demo_002",
-        "file_role": "image_002",
-        "format": "png",
-        "width_px": 640,
-        "height_px": 400,
-        "caption": "Synthetic metaphase-like illustration 2 for catalog demonstration only."
-      }
-    ],
-    "acquisition_profile": "pg_demo_metaphase_v1"
-  },
-  "files": [
+  "title": "Metaphase images",
+  "images": [
     {
-      "role": "image_001",
-      "path": "payloads/demo-image-1.png",
-      "media_type": "image/png",
-      "sha256": "3912a97626f8724df64d60e94111308be261b38690f28bd2764aab3e80ba88a6",
-      "size_bytes": 6870
+      "key": "metaphase_1",
+      "name": "Metaphase image 1",
+      "download_url": "https://example.com/image-1.png"
     },
     {
-      "role": "image_002",
-      "path": "payloads/demo-image-2.png",
-      "media_type": "image/png",
-      "sha256": "c3b79c5d395bf3f4f6147f0de38dc4fcbbeec6319bd0072e37611d8943f31137",
-      "size_bytes": 6968
+      "key": "metaphase_2",
+      "name": "Metaphase image 2",
+      "download_url": "https://example.com/image-2.png"
     }
   ]
 }

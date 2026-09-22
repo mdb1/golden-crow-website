@@ -10,26 +10,14 @@
   "serviceVersion": 1,
   "providerId": "pgp_variant_analysis",
   "shortContract": "form:form + aligned_reads:aligned_reads + test_order:test_order -> variants:unannotated_vcf",
-  "providerWork": "Call the agreed classes, assess support across the requested scope and produce a native VCF with registered provenance.",
+  "providerWork": "Call the agreed classes, assess support across the requested scope and produce a native VCF with transaction-bound input and output records.",
   "formShape": {
     "id": "pgfs_variant_calling",
     "version": 1,
     "fields": [
       {
-        "key": "requested_at",
-        "label": "Requested at",
-        "type": "datetime",
-        "required": true
-      },
-      {
-        "key": "requested_by",
-        "label": "Requested by",
-        "type": "text",
-        "required": true
-      },
-      {
         "key": "calling_profile",
-        "label": "Calling profile",
+        "label": "Variant-calling profile",
         "type": "enum",
         "required": true,
         "options": [
@@ -45,20 +33,10 @@
   "sampleFormData": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-17T13:05:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
         "key": "calling_profile",
         "value": "pg_demo_calling_v1"
       }
-    ],
-    "formShapeId": "pgfs_variant_calling",
-    "formShapeVersion": 1
+    ]
   },
   "sampleFormObject": {
     "object_id": "obj_demo_form_variant_calling",
@@ -67,46 +45,12 @@
     "revision": 1,
     "created_at": "2026-09-17T13:05:00Z",
     "created_by": "user_demo_001",
-    "input_refs": [],
     "data": {
-      "fields": [
-        {
-          "key": "requested_at",
-          "value": "2026-09-17T13:05:00Z"
-        },
-        {
-          "key": "requested_by",
-          "value": "user_demo_001"
-        },
-        {
-          "key": "calling_profile",
-          "value": "pg_demo_calling_v1"
-        }
-      ],
-      "form_shape_id": "pgfs_variant_calling",
-      "form_shape_version": 1,
       "form_shape": {
-        "id": "pgfs_variant_calling",
-        "version": 1,
-        "allow_unknown_fields": false,
         "fields": [
           {
-            "key": "requested_at",
-            "label": "Requested at",
-            "type": "datetime",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "requested_by",
-            "label": "Requested by",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
-          {
             "key": "calling_profile",
-            "label": "Calling profile",
+            "label": "Variant-calling profile",
             "type": "enum",
             "required": true,
             "options": [
@@ -117,9 +61,14 @@
             ]
           }
         ]
-      }
-    },
-    "files": []
+      },
+      "fields": [
+        {
+          "key": "calling_profile",
+          "value": "pg_demo_calling_v1"
+        }
+      ]
+    }
   },
   "inputSlots": [
     {
@@ -168,15 +117,12 @@
   ],
   "acceptedConditions": [
     "The alignment reference matches the order and the calling profile.",
-    "Input data and support evidence meet the accepted calling requirements."
+    "Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities."
   ],
   "scopeRules": [
-    "Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.",
-    "Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.",
     "Fulfillment is measured against the order; file extension alone never proves sufficiency.",
-    "Carry forward data.analysis_support with status, evaluated_genes, supported_variant_classes, evidence and limitations. Do not infer an adequately assessed gene from absence of VCF rows.",
     "If the input cannot support the requested scope, return awaiting_input or failed with the affected scope; do not report a complete negative result.",
-    "Retain analytical-support evidence separately from the variant list inside the registered object; an empty variant list does not establish a complete negative result."
+    "Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities."
   ],
   "commercialTerms": {
     "price": {

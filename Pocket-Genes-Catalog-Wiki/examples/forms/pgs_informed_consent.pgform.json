@@ -5,90 +5,38 @@
   "revision": 1,
   "created_at": "2026-09-16T12:00:00Z",
   "created_by": "user_demo_001",
-  "input_refs": [],
   "data": {
-    "form_shape_id": "pgfs_informed_consent",
-    "form_shape_version": 1,
-    "fields": [
-      {
-        "key": "requested_at",
-        "value": "2026-09-16T12:00:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
-        "key": "subject_id",
-        "value": "subject_demo_001"
-      },
-      {
-        "key": "signer_name",
-        "value": "Alex Example"
-      },
-      {
-        "key": "signer_capacity",
-        "value": "self"
-      },
-      {
-        "key": "consent_text_id",
-        "value": "consent_demo_testing"
-      },
-      {
-        "key": "consent_text_version",
-        "value": "1.0.0"
-      },
-      {
-        "key": "scope_description",
-        "value": "Demo testing and processing for PGGENE_A, PGGENE_B and PGGENE_C"
-      },
-      {
-        "key": "accepted",
-        "value": true
-      },
-      {
-        "key": "signature_evidence_id",
-        "value": "signature_demo_001"
-      }
-    ],
     "form_shape": {
-      "id": "pgfs_informed_consent",
-      "version": 1,
-      "allow_unknown_fields": false,
       "fields": [
         {
-          "key": "requested_at",
-          "label": "Requested at",
-          "type": "datetime",
-          "required": true,
-          "options": []
+          "key": "patient",
+          "label": "Patient or source",
+          "type": "text",
+          "required": true
         },
         {
-          "key": "requested_by",
-          "label": "Requested by",
+          "key": "consent_title",
+          "label": "Consent title",
           "type": "text",
-          "required": true,
-          "options": []
+          "required": true
         },
         {
-          "key": "subject_id",
-          "label": "Subject identifier",
-          "type": "text",
-          "required": true,
-          "options": []
+          "key": "consent_text",
+          "label": "Consent text",
+          "type": "long_text",
+          "required": true
         },
         {
           "key": "signer_name",
-          "label": "Signer name",
+          "label": "Expected signer name",
           "type": "text",
-          "required": true,
-          "options": []
+          "required": false
         },
         {
           "key": "signer_capacity",
-          "label": "Signer capacity",
+          "label": "Expected signer capacity",
           "type": "enum",
-          "required": true,
+          "required": false,
           "options": [
             {
               "value": "self",
@@ -97,46 +45,36 @@
             {
               "value": "representative",
               "label": "Representative"
+            },
+            {
+              "value": "other",
+              "label": "Other"
             }
           ]
-        },
-        {
-          "key": "consent_text_id",
-          "label": "Consent text identifier",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "consent_text_version",
-          "label": "Consent text version",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "scope_description",
-          "label": "Scope being consented to",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "accepted",
-          "label": "Accepted",
-          "type": "boolean",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "signature_evidence_id",
-          "label": "Signature evidence identifier",
-          "type": "text",
-          "required": true,
-          "options": []
         }
       ]
-    }
-  },
-  "files": []
+    },
+    "fields": [
+      {
+        "key": "patient",
+        "value": "Patient AB-123"
+      },
+      {
+        "key": "consent_title",
+        "value": "Consent for genetic testing"
+      },
+      {
+        "key": "consent_text",
+        "value": "Please review the purpose, implications and limitations of the proposed genetic test."
+      },
+      {
+        "key": "signer_name",
+        "value": "Alex Example"
+      },
+      {
+        "key": "signer_capacity",
+        "value": "self"
+      }
+    ]
+  }
 }

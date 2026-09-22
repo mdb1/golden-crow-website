@@ -1,126 +1,123 @@
-# Sample collection request — `pgo_collection_request`
+# 06. Sample collection request — `pgo_collection_request`
 
-A formal request to obtain an actual biological sample from a subject or biological source as part of a test order.
+A request to obtain biological material; it is not courier pickup or specimen transport.
 
-This object means sample collection in the clinical/laboratory sense: blood draw, buccal swab, saliva collection, tissue biopsy, embryo-material collection, or another explicitly supported specimen-acquisition procedure. It does not mean courier pickup, package pickup, truck pickup, route planning, or sample transport. Transport after collection must be represented by `pgs_sample_transport` or another explicit transport service.
+**Nature:** virtual  
+**Stages:** wet_lab  
+**Serialized extension:** `.pgcollection.json`  
+**Schema:** `schemas/objects/pgo_collection_request.schema.json`  
+**Example:** `examples/objects/pgo_collection_request.pgcollection.json`
 
-| Attribute | Value |
-| --- | --- |
-| Nature | virtual |
-| Stages | Wet lab |
-| Extension | .pgcollection.json |
-| Icon asset | icons/pgo_collection_request.svg |
-| Icon subject | A test tube with a plus mark representing biological sample collection. |
-| JSON Schema | schemas/objects/pgo_collection_request.schema.json |
-| Example record | examples/objects/pgo_collection_request.pgcollection.json |
+## Content boundary
 
+The uploaded JSON root is the domain content shown below. It has no object envelope. The externally selected platform record supplies type, identity, owner, access, revision, creator, and transaction relationships. This content neither requires a service nor another registered object.
 
-**Properties inside `data`**
+Every unlisted property is invalid. Optional `notes` may be absent or an empty string and is only for additional human information.
 
-| Property | Type | Required within parent | Meaning / constraints |
+## Fields
+
+| Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
-| `order_ref` | object | Yes | Parent test order. |
-| `order_ref.object_id` | string | Yes | Stable object identifier. minLength: 1; pattern: ^obj_[A-Za-z0-9_]+$ |
-| `order_ref.revision` | integer | Yes | Pinned object revision. minimum: 1 |
-| `subject_ref` | object | Yes | Subject or biological source from whom/which the sample will actually be collected. |
-| `subject_ref.subject_id` | string | Yes | Subject/source identifier. minLength: 1 |
-| `requested_sample` | object | Yes | Biological material to obtain and the procedure used to obtain it. This is not package pickup. |
-| `requested_sample.sample_type` | string | Yes | Biological material type. Options: blood, buccal_swab, saliva, tissue, embryo_material |
-| `requested_sample.collection_method` | string | Yes | Procedure for obtaining the biological sample. Options: phlebotomy, buccal_swab, saliva_kit, tissue_biopsy, embryo_biopsy |
-| `requested_sample.container` | string | Yes | Tube, kit or container required at collection. minLength: 1 |
-| `requested_sample.minimum_quantity` | string | Yes | Minimum amount to obtain when applicable. minLength: 1 |
-| `assigned_collector_provider_id` | string | Yes | Provider assigned to perform or coordinate the biological sample collection. minLength: 1 |
-| `collection_site` | object | Yes | Site where the biological sample will be obtained from the subject/source. This is not a courier pickup location. |
-| `collection_site.site_id` | string | Yes | Registered sample collection site identifier. minLength: 1 |
-| `collection_site.name` | string | Yes | Collection site display name. minLength: 1 |
-| `collection_site.address_line` | string | Yes | Address where the biological collection procedure happens. minLength: 1 |
-| `collection_site.city` | string | Yes | City. minLength: 1 |
-| `collection_site.country_code` | string | Yes | Country code. minLength: 1; pattern: ^[A-Z]{2}$ |
-| `collection_site.contact_name` | string | Yes | Collection-site contact, such as the nurse, lab desk, or coordinator. minLength: 1 |
-| `collection_site.contact_phone` | string | Yes | Phone used to coordinate the biological collection appointment; synthetic in the fixture. minLength: 1 |
-| `collection_window_start` | string | Yes | Start of the requested biological sample collection appointment window. format: date-time; minLength: 1 |
-| `collection_window_end` | string | Yes | End of the requested biological sample collection appointment window. format: date-time; minLength: 1 |
-| `preparation_profile` | string | Yes | Patient/source preparation, tube/kit and immediate post-collection handling requirements. minLength: 1 |
-| `post_collection_plan` | object | Yes | Expected next step after the sample has been obtained. Transport, if needed, must be a separate service. |
-| `post_collection_plan.next_step` | string | Yes | Expected next action after collection. minLength: 1 |
-| `post_collection_plan.receiving_lab_id` | string | Yes | Laboratory expected to receive the sample after collection, if known. minLength: 1 |
-| `post_collection_plan.transport_required` | boolean | Yes | Whether a separate transport service is expected after collection. |
-| `status` | string | Yes | Sample collection lifecycle status. Options: requested, scheduled, collected, cancelled, failed |
+| `patient` | `string` | Yes | Patient/source name or meaningful identifier for collection. |
+| `sample_type` | `enum<string>` | Yes | Biological material to obtain. |
+| `collection_method` | `enum<string>` | No | Method used to obtain the biological material. |
+| `container` | `enum<string>` | No | Collection container or kit. |
+| `requested_quantity` | `string` | No | Readable quantity including its unit, for example 2 mL. |
+| `collection_site` | `string` | No | Readable collection location. |
+| `scheduled_at` | `string` | No | Scheduled collection time. |
+| `notes` | `string` | No | Optional additional information the person wants to communicate. It may be empty. |
 
+### Biological collection only
 
-**Sample object record**
+This object asks for the act of obtaining biological material from a person or source. It never means courier pickup, shipping, or transport. Only `patient` and `sample_type` are required; scheduling and collection arrangements remain optional.
+
+## Enum choices
+
+#### `sample_type` choices
+
+| Stored value | Display label |
+| --- | --- |
+| `blood` | Blood |
+| `dried_blood_spot` | Dried blood spot |
+| `saliva` | Saliva |
+| `buccal_swab` | Buccal swab |
+| `tissue` | Tissue |
+| `skin_biopsy` | Skin biopsy |
+| `bone_marrow_aspirate` | Bone marrow aspirate |
+| `bone_marrow_core` | Bone marrow core biopsy |
+| `amniotic_fluid` | Amniotic fluid |
+| `chorionic_villi` | Chorionic villi |
+| `cord_blood` | Cord blood |
+| `cerebrospinal_fluid` | Cerebrospinal fluid |
+| `urine` | Urine |
+| `stool` | Stool |
+| `hair_follicles` | Hair follicles |
+| `nail_clippings` | Nail clippings |
+| `semen` | Semen |
+| `embryo_biopsy` | Embryo biopsy |
+| `whole_embryo` | Whole embryo |
+| `polar_body` | Polar body |
+| `other` | Other |
+
+#### `collection_method` choices
+
+| Stored value | Display label |
+| --- | --- |
+| `venous_blood_draw` | Venous blood draw |
+| `capillary_blood_collection` | Capillary blood collection |
+| `buccal_swab` | Buccal swab |
+| `saliva_collection` | Saliva collection |
+| `needle_aspiration` | Needle aspiration |
+| `core_biopsy` | Core biopsy |
+| `surgical_biopsy` | Surgical biopsy |
+| `skin_punch_biopsy` | Skin punch biopsy |
+| `amniocentesis` | Amniocentesis |
+| `chorionic_villus_sampling` | Chorionic villus sampling |
+| `lumbar_puncture` | Lumbar puncture |
+| `embryo_biopsy` | Embryo biopsy |
+| `polar_body_biopsy` | Polar body biopsy |
+| `self_collection` | Self-collection |
+| `other` | Other |
+
+#### `container` choices
+
+| Stored value | Display label |
+| --- | --- |
+| `edta_tube` | EDTA tube |
+| `heparin_tube` | Heparin tube |
+| `citrate_tube` | Citrate tube |
+| `serum_tube` | Serum tube |
+| `dna_stabilization_tube` | DNA stabilization tube |
+| `rna_stabilization_tube` | RNA stabilization tube |
+| `sterile_container` | Sterile container |
+| `swab_collection_kit` | Swab collection kit |
+| `saliva_collection_kit` | Saliva collection kit |
+| `cryovial` | Cryovial |
+| `filter_paper_card` | Filter paper card |
+| `formalin_container` | Formalin container |
+| `other` | Other |
+
+## Minimal example
 
 ```json
 {
-  "object_id": "obj_demo_collection",
-  "object_type": "pgo_collection_request",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:30:00Z",
-  "created_by": "pgp_sample_logistics",
-  "input_refs": [
-    {
-      "object_id": "obj_demo_form_collection_request",
-      "revision": 1
-    },
-    {
-      "object_id": "obj_demo_order",
-      "revision": 1
-    }
-  ],
-  "data": {
-    "order_ref": {
-      "object_id": "obj_demo_order",
-      "revision": 1
-    },
-    "subject_ref": {
-      "subject_id": "subject_demo_001"
-    },
-    "requested_sample": {
-      "sample_type": "blood",
-      "collection_method": "phlebotomy",
-      "container": "EDTA tube",
-      "minimum_quantity": "2 mL"
-    },
-    "assigned_collector_provider_id": "pgp_sample_logistics",
-    "collection_site": {
-      "site_id": "site_demo_collection_room",
-      "name": "Demo clinical collection room",
-      "address_line": "100 Example Avenue",
-      "city": "Demo City",
-      "country_code": "AR",
-      "contact_name": "Demo collection nurse",
-      "contact_phone": "+54-DEMO-0001"
-    },
-    "collection_window_start": "2026-09-16T13:00:00Z",
-    "collection_window_end": "2026-09-16T15:00:00Z",
-    "preparation_profile": "EDTA tube, subject identity check, consent confirmed before draw",
-    "post_collection_plan": {
-      "next_step": "register_physical_sample",
-      "receiving_lab_id": "pgp_precision_lab",
-      "transport_required": true
-    },
-    "status": "requested"
-  },
-  "files": []
+  "patient": "Patient AB-123",
+  "sample_type": "blood",
+  "collection_method": "venous_blood_draw",
+  "container": "edta_tube"
 }
 ```
 
-**Validation and JSON logic**
+## Validation
 
-- This object means actual biological sample collection from a subject/source. It never means courier pickup, package pickup, truck pickup or sample transport.
-- `collection_window_end` must be later than `collection_window_start`.
-- `requested_sample.collection_method` must match the requested biological material and the provider capability.
-- The collection request is a virtual planning/coordination object. A physical sample object is created or linked only after the sample is actually obtained.
-- Any movement after collection belongs to `pgs_sample_transport` or another explicit transport service.
+- The content is standalone and does not require a Pocket Genes service or another registered object.
+- Only the declared properties are allowed; platform identity, ownership, revision, provenance and storage metadata stay outside the content.
+- Required strings must contain at least one non-whitespace character.
+- notes is optional, may be empty, and must not be populated with discarded technical metadata.
+- Required strings are nonempty after trimming whitespace.
+- Any download URL is absolute HTTPS; query parameters are preserved and a filename suffix is not required.
+- No compatibility alias, legacy envelope, or unknown property is accepted.
 
-**Linked mock services**
+## Platform integration
 
-- Produced or updated by: `pgs_collection_request`
-- Consumed by: `pgs_sample_transport`
-
-**Other service opportunities**
-
-- Test order plus form to biological sample collection request.
-- Collection request plus actual collected sample to transported sample, only through a separate transport service.
-- Recording the handoff to the selected laboratory after the sample exists.
+The platform may store this content under an existing record's `data` field, but users create and edit only the domain content. Service input/output roles remain on the transaction. Ownership and authorization remain in their existing collections.

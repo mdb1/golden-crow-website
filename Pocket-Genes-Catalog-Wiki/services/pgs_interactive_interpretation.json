@@ -16,20 +16,8 @@
     "version": 1,
     "fields": [
       {
-        "key": "requested_at",
-        "label": "Requested at",
-        "type": "datetime",
-        "required": true
-      },
-      {
-        "key": "requested_by",
-        "label": "Requested by",
-        "type": "text",
-        "required": true
-      },
-      {
         "key": "interpretation_profile",
-        "label": "Interpretation profile",
+        "label": "Interactive report profile",
         "type": "enum",
         "required": true,
         "options": [
@@ -45,20 +33,10 @@
   "sampleFormData": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-17T15:05:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
         "key": "interpretation_profile",
         "value": "pg_demo_mdm_pgi1_v1"
       }
-    ],
-    "formShapeId": "pgfs_interactive_interpretation",
-    "formShapeVersion": 1
+    ]
   },
   "sampleFormObject": {
     "object_id": "obj_demo_form_interactive_interpretation",
@@ -67,46 +45,12 @@
     "revision": 1,
     "created_at": "2026-09-17T15:05:00Z",
     "created_by": "user_demo_001",
-    "input_refs": [],
     "data": {
-      "fields": [
-        {
-          "key": "requested_at",
-          "value": "2026-09-17T15:05:00Z"
-        },
-        {
-          "key": "requested_by",
-          "value": "user_demo_001"
-        },
-        {
-          "key": "interpretation_profile",
-          "value": "pg_demo_mdm_pgi1_v1"
-        }
-      ],
-      "form_shape_id": "pgfs_interactive_interpretation",
-      "form_shape_version": 1,
       "form_shape": {
-        "id": "pgfs_interactive_interpretation",
-        "version": 1,
-        "allow_unknown_fields": false,
         "fields": [
           {
-            "key": "requested_at",
-            "label": "Requested at",
-            "type": "datetime",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "requested_by",
-            "label": "Requested by",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
-          {
             "key": "interpretation_profile",
-            "label": "Interpretation profile",
+            "label": "Interactive report profile",
             "type": "enum",
             "required": true,
             "options": [
@@ -117,9 +61,14 @@
             ]
           }
         ]
-      }
-    },
-    "files": []
+      },
+      "fields": [
+        {
+          "key": "interpretation_profile",
+          "value": "pg_demo_mdm_pgi1_v1"
+        }
+      ]
+    }
   },
   "inputSlots": [
     {
@@ -155,9 +104,8 @@
     }
   ],
   "acceptedConditions": [
-    "The annotated VCF object declares an accepted annotation profile, source scope and analytical-support evidence.",
     "The requested demo result is .pgi1.json version 1.0.0 and must validate against schemas/protocol/pgi1-mdm.schema.json.",
-    "The returned pgo_interactive_report stores native_format and payload_ref metadata that match the raw PGI file."
+    "Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities."
   ],
   "scopeRules": [
     "The demo genomic content is derived from the VCF and registered as a native MDMAPIModel payload; a symptom bundle is not an input.",

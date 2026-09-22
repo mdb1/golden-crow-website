@@ -1,26 +1,24 @@
-# Meridian Clinical Planning
+# Meridian Clinical Planning — `pgp_clinical_planning`
 
-Fictional provider profile.
+Fictional multidisciplinary provider that structures request information, prioritizes candidate genes, records informed consent, prepares test orders, and produces form-based documents.
+
+**Kind:** professional_services_organization  
+**Stages:** test_planning  
+**Regions:** AR  
+**Catalog status:** fictional example, not a live integration
+
+## Services
+
+- `pgs_symptom_intake`
+- `pgs_gene_prioritization`
+- `pgs_informed_consent`
+- `pgs_test_ordering`
+- `pgs_form_to_pdf`
+
+## Contact and integration
 
 ```json
 {
-  "provider_id": "pgp_clinical_planning",
-  "name": "Meridian Clinical Planning",
-  "kind": "professional_services_organization",
-  "description": "Fictional multidisciplinary provider that structures request information, prioritizes candidate genes, records informed consent, prepares test orders, and produces form-based documents.",
-  "supported_stages": [
-    "test_planning"
-  ],
-  "country_codes": [
-    "AR"
-  ],
-  "service_ids": [
-    "pgs_symptom_intake",
-    "pgs_gene_prioritization",
-    "pgs_informed_consent",
-    "pgs_test_ordering",
-    "pgs_form_to_pdf"
-  ],
   "contacts": {
     "website": "https://meridianplanning.example",
     "operations_email": "operations@meridianplanning.example",
@@ -39,3 +37,5 @@ Fictional provider profile.
   }
 }
 ```
+
+The provider identity belongs to Discover and the service offer. It is never repeated as required PGO content. Requests use authenticated, role-labelled transaction references; outputs are registered before delivery.

@@ -16,28 +16,10 @@
     "version": 1,
     "fields": [
       {
-        "key": "requested_at",
-        "label": "Requested at",
-        "type": "datetime",
-        "required": true
-      },
-      {
-        "key": "requested_by",
-        "label": "Requested by",
-        "type": "text",
-        "required": true
-      },
-      {
-        "key": "subject_id",
-        "label": "Subject identifier",
-        "type": "text",
-        "required": true
-      },
-      {
         "key": "objective",
         "label": "Analysis objective",
-        "type": "text",
-        "required": true
+        "type": "long_text",
+        "required": false
       },
       {
         "key": "analysis_profile",
@@ -57,28 +39,14 @@
   "sampleFormData": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-16T12:35:00Z"
-      },
-      {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
-        "key": "subject_id",
-        "value": "subject_demo_001"
-      },
-      {
         "key": "objective",
-        "value": "Demonstrate image-based cytogenetic review"
+        "value": "Review the supplied metaphase images."
       },
       {
         "key": "analysis_profile",
         "value": "pg_demo_metaphase_review_v1"
       }
-    ],
-    "formShapeId": "pgfs_karyotype_analysis",
-    "formShapeVersion": 1
+    ]
   },
   "sampleFormObject": {
     "object_id": "obj_demo_form_karyotype_analysis",
@@ -87,64 +55,14 @@
     "revision": 1,
     "created_at": "2026-09-16T12:35:00Z",
     "created_by": "user_demo_001",
-    "input_refs": [],
     "data": {
-      "fields": [
-        {
-          "key": "requested_at",
-          "value": "2026-09-16T12:35:00Z"
-        },
-        {
-          "key": "requested_by",
-          "value": "user_demo_001"
-        },
-        {
-          "key": "subject_id",
-          "value": "subject_demo_001"
-        },
-        {
-          "key": "objective",
-          "value": "Demonstrate image-based cytogenetic review"
-        },
-        {
-          "key": "analysis_profile",
-          "value": "pg_demo_metaphase_review_v1"
-        }
-      ],
-      "form_shape_id": "pgfs_karyotype_analysis",
-      "form_shape_version": 1,
       "form_shape": {
-        "id": "pgfs_karyotype_analysis",
-        "version": 1,
-        "allow_unknown_fields": false,
         "fields": [
-          {
-            "key": "requested_at",
-            "label": "Requested at",
-            "type": "datetime",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "requested_by",
-            "label": "Requested by",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
-          {
-            "key": "subject_id",
-            "label": "Subject identifier",
-            "type": "text",
-            "required": true,
-            "options": []
-          },
           {
             "key": "objective",
             "label": "Analysis objective",
-            "type": "text",
-            "required": true,
-            "options": []
+            "type": "long_text",
+            "required": false
           },
           {
             "key": "analysis_profile",
@@ -159,9 +77,18 @@
             ]
           }
         ]
-      }
-    },
-    "files": []
+      },
+      "fields": [
+        {
+          "key": "objective",
+          "value": "Review the supplied metaphase images."
+        },
+        {
+          "key": "analysis_profile",
+          "value": "pg_demo_metaphase_review_v1"
+        }
+      ]
+    }
   },
   "inputSlots": [
     {

@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.2.0",
+  "policy": "Field-key casing is selected by the containing Firestore collection. Collection-local coherence takes priority over a global casing preference.",
+  "applies_to_nested_maps": true,
+  "compatibility_aliases_allowed": false,
+  "collections": [
+    {
+      "collection": "service_offers",
+      "field_key_convention": "lower_camel_case",
+      "examples": [
+        "serviceId",
+        "isHiddenFromSearch",
+        "inputSlots",
+        "outputSlots",
+        "objectType"
+      ]
+    },
+    {
+      "collection": "service_transactions",
+      "field_key_convention": "lower_camel_case",
+      "examples": [
+        "outputObjects",
+        "outputReports",
+        "objectType",
+        "objectCode",
+        "reportCode"
+      ]
+    },
+    {
+      "collection": "uploaded_objects",
+      "field_key_convention": "snake_case",
+      "examples": [
+        "object_type",
+        "object_code",
+        "object_owner_id",
+        "upload_version_count"
+      ]
+    },
+    {
+      "collection": "uploaded_reports",
+      "field_key_convention": "snake_case",
+      "examples": [
+        "report_code",
+        "report_owner_id",
+        "upload_version_count"
+      ]
+    },
+    {
+      "collection": "file_storage",
+      "field_key_convention": "snake_case",
+      "examples": [
+        "file_name",
+        "linked_object_code",
+        "linked_report_code"
+      ]
+    },
+    {
+      "collection": "object_owners",
+      "field_key_convention": "snake_case",
+      "examples": [
+        "owner_name",
+        "owner_contact_email"
+      ]
+    },
+    {
+      "collection": "report_owners",
+      "field_key_convention": "snake_case",
+      "examples": [
+        "owner_name",
+        "owner_contact_email"
+      ]
+    },
+    {
+      "collection": "object_codes",
+      "field_key_convention": "snake_case",
+      "examples": [
+        "uploaded_object_id",
+        "owner_id"
+      ]
+    },
+    {
+      "collection": "report_codes",
+      "field_key_convention": "snake_case",
+      "examples": [
+        "uploaded_report_id",
+        "owner_id"
+      ]
+    }
+  ],
+  "cross_boundary_examples": [
+    {
+      "concept": "object type",
+      "service_transactions": "objectType",
+      "uploaded_objects": "object_type"
+    },
+    {
+      "concept": "object code",
+      "service_transactions": "objectCode",
+      "uploaded_objects": "object_code"
+    },
+    {
+      "concept": "report code",
+      "service_transactions": "reportCode",
+      "uploaded_reports": "report_code"
+    }
+  ],
+  "serialized_pgo_content": {
+    "boundary": "standalone_file_content",
+    "field_key_convention": "snake_case",
+    "examples": [
+      "form_shape",
+      "sample_type",
+      "download_url",
+      "accepted_at"
+    ],
+    "rule": "The file contains only the strict domain allowlist for its externally selected PGO type. No casing aliases or envelope fields are accepted."
+  },
+  "boundary_adapter_rule": "Map strict snake_case PGO content explicitly at persistence boundaries. service_offers and service_transactions keep camelCase; uploaded_objects and other listed storage collections keep snake_case."
+}

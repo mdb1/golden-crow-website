@@ -411,6 +411,87 @@ function parseOptionsText(value: string) {
   });
 }
 
+const FORM_FIELD_KEY_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
+
+function normalizedFormField(
+  field: FormFieldDraft,
+  existingKeys: ReadonlySet<string> = new Set<string>(),
+): SupportServiceFormField {
+  const key = field.key.trim();
+  const label = field.label.trim();
+  if (!FORM_FIELD_KEY_PATTERN.test(key)) {
+    throw new Error(
+      "Form field keys must start with a lowercase letter, use only lowercase letters, numbers, or underscores, and contain at most 64 characters.",
+    );
+  }
+  if (existingKeys.has(key)) {
+    throw new Error(`Duplicate form field key: ${key}.`);
+  }
+  if (!label) {
+    throw new Error(`Form field ${key} needs a label.`);
+  }
+  if (label.length > 120) {
+    throw new Error(`Form field ${key} label cannot exceed 120 characters.`);
+  }
+  if (
+    !SUPPORT_SERVICE_FORM_FIELD_TYPES.some(
+      (option) => option.value === field.type,
+    )
+  ) {
+    throw new Error(`Form field ${key} has an unsupported type.`);
+  }
+
+  const helpInfoText = field.helpInfoText?.trim();
+  if (helpInfoText && helpInfoText.length > 500) {
+    throw new Error(
+      `Form field ${key} help info cannot exceed 500 characters.`,
+    );
+  }
+
+  const isEnum = field.type === "enum" || field.type === "multi_enum";
+  const options = isEnum ? parseOptionsText(field.optionsText) : undefined;
+  if (isEnum && options?.length === 0) {
+    throw new Error(`Field ${key} needs enum options.`);
+  }
+  if (options && options.length > 100) {
+    throw new Error(`Form field ${key} cannot declare more than 100 options.`);
+  }
+
+  const optionValues = new Set<string>();
+  for (const option of options ?? []) {
+    if (!option.value || !option.label) {
+      throw new Error(
+        `Form field ${key} options need a nonempty value and label.`,
+      );
+    }
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(option.value)) {
+      throw new Error(
+        `Form field ${key} option values may use only letters, numbers, dots, underscores, colons, or hyphens and contain at most 128 characters.`,
+      );
+    }
+    if (option.label.length > 120) {
+      throw new Error(
+        `Form field ${key} option labels cannot exceed 120 characters.`,
+      );
+    }
+    if (optionValues.has(option.value)) {
+      throw new Error(
+        `Form field ${key} has duplicate option value ${option.value}.`,
+      );
+    }
+    optionValues.add(option.value);
+  }
+
+  return {
+    key,
+    label,
+    type: field.type,
+    required: field.required,
+    helpInfoText: helpInfoText || undefined,
+    options,
+  };
+}
+
 function compactTurnaround(value: string | undefined) {
   const normalized = value?.trim().toLowerCase();
   if (!normalized) {
@@ -545,20 +626,7 @@ function defaultFormShape() {
     id: "pgfs_",
     version: 1,
     allowUnknownFields: false,
-    fields: formFieldsFromRecord([
-      {
-        key: "requested_at",
-        label: "Requested at",
-        type: "datetime",
-        required: true,
-      },
-      {
-        key: "requested_by",
-        label: "Requested by",
-        type: "text",
-        required: true,
-      },
-    ]),
+    fields: formFieldsFromRecord(),
   };
 }
 
@@ -659,7 +727,7 @@ function offerFormFromCatalog(
     providerName: "",
   },
 ): OfferFormState {
-  const hasFormShape = Boolean(catalogOffer.formShape.id);
+  const hasFormShape = Boolean(catalogOffer.formShape?.id);
   const catalogInputSlots = catalogOffer.inputSlots.map((slot) =>
     singleInputSlot({ ...slot }),
   );
@@ -681,12 +749,12 @@ function offerFormFromCatalog(
     supportsFormShape: hasFormShape,
     formShape: hasFormShape
       ? {
-          id: catalogOffer.formShape.id,
-          version: catalogOffer.formShape.version,
+          id: catalogOffer.formShape!.id,
+          version: catalogOffer.formShape!.version,
           allowUnknownFields: Boolean(
-            catalogOffer.formShape.allowUnknownFields,
+            catalogOffer.formShape!.allowUnknownFields,
           ),
-          fields: formFieldsFromRecord(catalogOffer.formShape.fields),
+          fields: formFieldsFromRecord(catalogOffer.formShape!.fields),
         }
       : defaultFormShape(),
     inputSlots: hasFormShape
@@ -1377,39 +1445,14 @@ function offerPayloadFromForm(
     throw new Error("A pgo_form input slot requires a form shape.");
   }
 
+  const fieldKeys = new Set<string>();
   const fields = form.supportsFormShape
     ? form.formShape.fields.map((field) => {
-        if (!field.key.trim() || !field.label.trim()) {
-          throw new Error("Every form field needs a key and label.");
-        }
-        if (
-          (field.type === "enum" || field.type === "multi_enum") &&
-          splitLines(field.optionsText).length === 0
-        ) {
-          throw new Error(`Field ${field.key} needs enum options.`);
-        }
-
-        return {
-          key: field.key.trim(),
-          label: field.label.trim(),
-          type: field.type,
-          required: field.required,
-          helpInfoText: field.helpInfoText?.trim() || undefined,
-          options:
-            field.type === "enum" || field.type === "multi_enum"
-              ? parseOptionsText(field.optionsText)
-              : undefined,
-        };
+        const normalized = normalizedFormField(field, fieldKeys);
+        fieldKeys.add(normalized.key);
+        return normalized;
       })
     : [];
-  if (form.supportsFormShape) {
-    const fieldKeys = fields.map((field) => field.key);
-    for (const requiredKey of ["requested_at", "requested_by"]) {
-      if (!fieldKeys.includes(requiredKey)) {
-        throw new Error(`Form shape must include ${requiredKey}.`);
-      }
-    }
-  }
 
   const seenInputTypes = new Set<string>();
   for (const slot of form.inputSlots) {
@@ -2094,11 +2137,21 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                         href={`${route}/${encodeURIComponent(offer.id)}`}
                         className="font-medium text-foreground hover:underline"
                       >
-                        {offer.name}
+                        {offer.name || offer.id}
                       </Link>
                       <div className="mt-1 font-mono text-xs text-muted-foreground">
                         {offer.serviceId} · v{offer.serviceVersion}
                       </div>
+                      {(offer.complianceWarnings?.length ?? 0) > 0 ? (
+                        <Badge
+                          variant="outline"
+                          className="mt-2 gap-1 border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200"
+                          title={offer.complianceWarnings?.join("\n")}
+                        >
+                          <CircleAlert className="h-3 w-3" />
+                          {offer.complianceWarnings?.length} {t("compliance warnings")}
+                        </Badge>
+                      ) : null}
                     </TableCell>
                     <TableCell className="min-w-[13rem]">
                       <div className="text-sm font-medium">
@@ -2596,6 +2649,29 @@ export function SupportServiceOfferWorkbench({
           }}
           saveLabel={hasPersistedOffer ? "Save changes" : "Save draft"}
         />
+        {(offerQuery.data?.offer.complianceWarnings?.length ?? 0) > 0 ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-amber-950 shadow-sm dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100"
+          >
+            <div className="flex items-start gap-3">
+              <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="grid gap-2">
+                <div>
+                  <p className="font-semibold">{t("Offer requires remediation")}</p>
+                  <p className="text-sm opacity-80">
+                    {t("This service offer remains visible in god mode but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.")}
+                  </p>
+                </div>
+                <ul className="list-disc space-y-1 pl-5 text-sm">
+                  {offerQuery.data?.offer.complianceWarnings?.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        ) : null}
         <Section title="Offer identity">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="grid gap-1">
@@ -3861,6 +3937,7 @@ function FormShapeEditor({
   }
 
   function updateFieldDraft(patch: Partial<FormFieldDraft>) {
+    setFieldError("");
     setFieldDialog((current) =>
       current ? { ...current, draft: { ...current.draft, ...patch } } : current,
     );
@@ -3872,29 +3949,28 @@ function FormShapeEditor({
     }
 
     const draft = fieldDialog.draft;
-    if (!draft.key.trim() || !draft.label.trim()) {
-      setFieldError(t("Field key and label are required."));
-      return;
-    }
-    if (
-      (draft.type === "enum" || draft.type === "multi_enum") &&
-      splitLines(draft.optionsText).length === 0
-    ) {
-      setFieldError(t("Enum fields need at least one option."));
+    let normalized: SupportServiceFormField;
+    try {
+      normalized = normalizedFormField(
+        draft,
+        new Set(
+          form.formShape.fields
+            .filter((_, index) => index !== fieldDialog.index)
+            .map((field) => field.key.trim()),
+        ),
+      );
+    } catch (error) {
+      setFieldError(
+        t(error instanceof Error ? error.message : "Invalid form field."),
+      );
       return;
     }
 
     const nextField: FormFieldDraft = {
-      ...draft,
-      key: draft.key.trim(),
-      label: draft.label.trim(),
-      helpInfoText: draft.helpInfoText?.trim() || undefined,
-      options:
-        draft.type === "enum" || draft.type === "multi_enum"
-          ? parseOptionsText(draft.optionsText)
-          : [],
+      ...normalized,
+      options: normalized.options ?? [],
       optionsText:
-        draft.type === "enum" || draft.type === "multi_enum"
+        normalized.type === "enum" || normalized.type === "multi_enum"
           ? draft.optionsText
           : "",
     };
@@ -4020,10 +4096,6 @@ function FormShapeEditor({
                           variant="ghost"
                           size="icon-sm"
                           onClick={() => removeField(index)}
-                          disabled={
-                            field.key === "requested_at" ||
-                            field.key === "requested_by"
-                          }
                         >
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">{t("Delete")}</span>
@@ -4064,10 +4136,6 @@ function FormShapeEditor({
                         value={fieldDialog.draft.key}
                         onChange={(event) =>
                           updateFieldDraft({ key: event.target.value })
-                        }
-                        disabled={
-                          fieldDialog.draft.key === "requested_at" ||
-                          fieldDialog.draft.key === "requested_by"
                         }
                         placeholder="lowercase_key"
                       />
@@ -6025,7 +6093,7 @@ function OutputObjectUploadDialog({
 
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
               {t(
-                "Only finalized PGO wrappers supplied by HTTPS download URL are supported. File Storage references and in-progress objects are not accepted.",
+                "Only finalized PGO content JSON supplied by HTTPS download URL is supported. File Storage references and in-progress objects are not accepted.",
               )}
             </div>
             {error ? (

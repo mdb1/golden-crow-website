@@ -1,13 +1,40 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pocket Genes platform object record fixture",
+  "description": "Platform identity and lifecycle data surrounding strict standalone PGO domain content. This is not the JSON a person uploads.",
   "type": "object",
   "properties": {
     "object_id": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Platform-managed object identity."
     },
     "object_type": {
-      "type": "string"
+      "type": "string",
+      "enum": [
+        "pgo_form",
+        "pgo_bundle_of_symptoms",
+        "pgo_bundle_of_candidate_genes",
+        "pgo_informed_consent",
+        "pgo_test_order",
+        "pgo_collection_request",
+        "pgo_blood_sample",
+        "pgo_tissue_sample",
+        "pgo_embryo_sample",
+        "pgo_dna_sample",
+        "pgo_sequence_reads",
+        "pgo_sequence_data",
+        "pgo_aligned_reads",
+        "pgo_unannotated_vcf",
+        "pgo_annotated_vcf",
+        "pgo_interactive_report",
+        "pgo_pdf_report",
+        "pgo_image_bundle",
+        "pgo_karyotype_result",
+        "pgo_flow_cytometry_data"
+      ],
+      "description": "Registered PGO type selected outside the content."
     },
     "schema_version": {
       "const": "1.0.0"
@@ -22,64 +49,13 @@
     },
     "created_by": {
       "type": "string",
-      "minLength": 1
-    },
-    "input_refs": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "object_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "object_id",
-          "revision"
-        ],
-        "additionalProperties": false
-      }
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Platform-managed creator identity."
     },
     "data": {
-      "type": "object"
-    },
-    "files": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "role": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "media_type": {
-            "type": "string"
-          },
-          "sha256": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$"
-          },
-          "size_bytes": {
-            "type": "integer",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "role",
-          "path",
-          "media_type",
-          "sha256",
-          "size_bytes"
-        ],
-        "additionalProperties": false
-      }
+      "type": "object",
+      "description": "Strict PGO content validated against object_type."
     }
   },
   "required": [
@@ -89,9 +65,7 @@
     "revision",
     "created_at",
     "created_by",
-    "input_refs",
-    "data",
-    "files"
+    "data"
   ],
   "additionalProperties": false
 }

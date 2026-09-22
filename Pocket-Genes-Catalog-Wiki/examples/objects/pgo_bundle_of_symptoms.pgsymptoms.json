@@ -1,42 +1,8 @@
 {
-  "object_id": "obj_demo_symptoms",
-  "object_type": "pgo_bundle_of_symptoms",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:05:00Z",
-  "created_by": "pgp_clinical_planning",
-  "input_refs": [
+  "observations": [
     {
-      "object_id": "obj_demo_form_symptom_intake",
-      "revision": 1
+      "label": "Hearing loss",
+      "presence": "present"
     }
-  ],
-  "data": {
-    "subject_id": "subject_demo_001",
-    "observations": [
-      {
-        "observation_id": "observation_demo_001",
-        "label": "Fictional observation A",
-        "code_system": "PG_DEMO_OBSERVATION",
-        "code": "DEMO_OBSERVATION_01",
-        "presence": "present",
-        "source": "submitted_form",
-        "recorded_at": "2026-09-16T12:00:00Z"
-      },
-      {
-        "observation_id": "observation_demo_002",
-        "label": "Fictional observation B",
-        "code_system": "PG_DEMO_OBSERVATION",
-        "code": "DEMO_OBSERVATION_02",
-        "presence": "uncertain",
-        "source": "submitted_form",
-        "recorded_at": "2026-09-16T12:00:00Z"
-      }
-    ],
-    "source_form_ref": {
-      "object_id": "obj_demo_form_symptom_intake",
-      "revision": 1
-    }
-  },
-  "files": []
+  ]
 }

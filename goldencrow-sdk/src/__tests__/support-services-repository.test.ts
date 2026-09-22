@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { AdminContext } from "../types/sdk.types.js";
 
 type MockData = Record<string, unknown>;
@@ -37,6 +38,12 @@ function collectionStore(name: string) {
 
 function seedDoc(collectionName: string, id: string, data: MockData) {
   collectionStore(collectionName).set(id, clone(data));
+}
+
+function revisionUploadedObjectId(objectId: string, revision: number) {
+  return `pgo_revision_${createHash("sha256")
+    .update(`${objectId}\u0000${revision}`)
+    .digest("hex")}`;
 }
 
 function snapshotFor(collectionName: string, id: string, data?: MockData) {
@@ -133,6 +140,16 @@ function queryRef(
       }),
     );
     if (orderings.length) {
+      // Firestore orderBy excludes documents that do not contain every
+      // ordered field. Keeping that behavior in this fake prevents admin
+      // pagination tests from accidentally hiding legacy documents.
+      entries = entries.filter(([, data]) =>
+        orderings.every(
+          (ordering) =>
+            ordering.field === "__name__" ||
+            Object.prototype.hasOwnProperty.call(data, ordering.field),
+        ),
+      );
       entries = entries.sort(([leftId, left], [rightId, right]) => {
         for (const ordering of orderings) {
           const leftValue = comparable(
@@ -274,48 +291,34 @@ const context: AdminContext = {
   projectAccess: ["mydnamap"],
 };
 
-function serializedPgoWrapper(snapshot: Record<string, unknown>) {
-  const inputRefs = Array.isArray(snapshot.inputRefs)
-    ? snapshot.inputRefs.map((value) => {
-        const reference = value as Record<string, unknown>;
+function serializedPgoContent(snapshot: Record<string, unknown>) {
+  const data = clone((snapshot.data ?? {}) as Record<string, unknown>);
+  if (snapshot.objectType !== "pgo_form") {
+    const { downloadUrl, ...serializedData } = data;
+    return {
+      ...serializedData,
+      ...(typeof downloadUrl === "string"
+        ? { download_url: downloadUrl }
+        : {}),
+    };
+  }
+  const formShape = (data.formShape ?? {}) as Record<string, unknown>;
+  const fields = Array.isArray(formShape.fields)
+    ? formShape.fields.map((value) => {
+        const field = value as Record<string, unknown>;
+        const { helpInfoText, ...serializedField } = field;
         return {
-          object_id: reference.objectId,
-          revision: reference.revision,
-          ...(reference.objectType
-            ? { object_type: reference.objectType }
+          ...serializedField,
+          ...(typeof helpInfoText === "string"
+            ? { help_info_text: helpInfoText }
             : {}),
-          ...(reference.role ? { role: reference.role } : {}),
-        };
-      })
-    : [];
-  const files = Array.isArray(snapshot.files)
-    ? snapshot.files.map((value) => {
-        const file = value as Record<string, unknown>;
-        return {
-          ...(file.role ? { role: file.role } : {}),
-          ...(file.path ? { path: file.path } : {}),
-          ...(file.url ? { url: file.url } : {}),
-          ...(file.fileStorageId
-            ? { file_storage_id: file.fileStorageId }
-            : {}),
-          ...(file.mediaType ? { media_type: file.mediaType } : {}),
-          ...(file.sizeBytes !== undefined
-            ? { size_bytes: file.sizeBytes }
-            : {}),
-          ...(file.sha256 ? { sha256: file.sha256 } : {}),
         };
       })
     : [];
   return {
-    object_id: snapshot.objectId,
-    object_type: snapshot.objectType,
-    schema_version: snapshot.schemaVersion,
-    revision: snapshot.revision,
-    created_at: snapshot.createdAt,
-    created_by: snapshot.createdBy,
-    input_refs: inputRefs,
-    data: snapshot.data,
-    files,
+    form_shape: { fields },
+    fields: Array.isArray(data.fields) ? data.fields : [],
+    ...(typeof data.notes === "string" ? { notes: data.notes } : {}),
   };
 }
 
@@ -340,17 +343,17 @@ const baseOffer = {
     allowUnknownFields: false,
     fields: [
       {
-        key: "requested_at",
-        label: "Requested at",
-        type: "datetime",
+        key: "report_title",
+        label: "Report title",
+        type: "text",
         required: true,
       },
       {
-        key: "requested_by",
-        label: "Requested by",
-        type: "text",
-        required: true,
-        helpInfoText: "This value comes from the authenticated requester.",
+        key: "recipient_email",
+        label: "Recipient email",
+        type: "email",
+        required: false,
+        helpInfoText: "Optional address for delivery notifications.",
       },
     ],
   },
@@ -418,18 +421,6 @@ describe("support service repository versions", () => {
         version: 1,
         allowUnknownFields: false,
         fields: [
-          {
-            key: "requested_at",
-            label: "Requested at",
-            type: "datetime",
-            required: true,
-          },
-          {
-            key: "requested_by",
-            label: "Requested by",
-            type: "text",
-            required: true,
-          },
           {
             key: "recipient_email",
             label: "Email del paciente",
@@ -620,6 +611,91 @@ describe("support service repository versions", () => {
     );
   });
 
+  it("keeps a malformed legacy offer visible and allows a strict corrective save", async () => {
+    seedDoc("service_offers", "offer-1", {
+      service_id: baseOffer.serviceId,
+      name: "Legacy offer",
+      providerId: baseOffer.providerId,
+      providerName: baseOffer.providerName,
+      providerKind: "company",
+      status: "paused",
+      stages: "bioinformatics",
+      isHiddenFromSearch: "no",
+      description: baseOffer.description,
+      providerWork: baseOffer.providerWork,
+      inputSlots: [],
+      outputSlots: ["malformed-slot"],
+    });
+    const {
+      getSupportServiceOffer,
+      updateSupportServiceOffer,
+    } = await import("../repositories/support-services.repository.js");
+
+    const legacy = await getSupportServiceOffer(context, "offer-1");
+    expect(legacy.id).toBe("offer-1");
+    expect(legacy.status).toBe("draft");
+    expect(legacy.outputSlots).toEqual([]);
+    expect(legacy.complianceWarnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("forbidden snake-case fields: service_id"),
+        expect.stringContaining("status paused"),
+        expect.stringContaining("updatedAt is missing or invalid"),
+      ]),
+    );
+
+    const repaired = await updateSupportServiceOffer(context, "offer-1", {
+      ...baseOffer,
+      status: "inactive",
+    });
+    expect(repaired.complianceWarnings).toEqual([]);
+    expect(repaired.status).toBe("inactive");
+    expect(collectionStore("service_offers").get("offer-1")).not.toHaveProperty(
+      "service_id",
+    );
+  });
+
+  it("warns when persisted offer slots require semantic normalization", async () => {
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      inputSlots: [
+        {
+          ...baseOffer.inputSlots[0],
+          acceptedTypes: ["pgo_form", "pgo_pdf_report"],
+          required: false,
+          cardinality: { min: 0, max: 2 },
+        },
+      ],
+      outputSlots: [
+        {
+          ...baseOffer.outputSlots[0],
+          mutationMode: "typo",
+        },
+      ],
+    });
+    const { getSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const offer = await getSupportServiceOffer(context, "offer-1");
+
+    expect(offer.inputSlots[0]).toEqual(
+      expect.objectContaining({
+        acceptedTypes: ["pgo_form"],
+        required: true,
+        cardinality: { min: 1, max: 1 },
+      }),
+    );
+    expect(offer.outputSlots[0]).toEqual(
+      expect.objectContaining({ mutationMode: "new_object" }),
+    );
+    expect(offer.complianceWarnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("inputSlots entry 1 is not canonical"),
+        expect.stringContaining("outputSlots entry 1 is not canonical"),
+      ]),
+    );
+  });
+
   it("rejects missing and snake-case service visibility keys", async () => {
     const { updateSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
@@ -656,7 +732,7 @@ describe("support service repository versions", () => {
     });
   });
 
-  it("enforces exact base form fields and unique output roles", async () => {
+  it("accepts domain-only form fields and enforces unique output roles", async () => {
     const { updateSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
     );
@@ -666,13 +742,14 @@ describe("support service repository versions", () => {
         ...baseOffer,
         formShape: {
           ...baseOffer.formShape,
-          fields: [
-            { ...baseOffer.formShape.fields[0], type: "text" },
-            baseOffer.formShape.fields[1],
-          ],
+          fields: [],
         },
       }),
-    ).rejects.toThrow("requested_at must be a required datetime");
+    ).resolves.toEqual(
+      expect.objectContaining({
+        formShape: expect.objectContaining({ fields: [] }),
+      }),
+    );
 
     await expect(
       updateSupportServiceOffer(context, "offer-1", {
@@ -688,6 +765,36 @@ describe("support service repository versions", () => {
       }),
     ).rejects.toThrow("Duplicate output slot role: report");
   });
+
+  it.each([
+    ["not allowed", "Readable label", "option values must use the canonical"],
+    ["valid_value", "x".repeat(121), "option labels cannot exceed 120"],
+  ])(
+    "rejects offer options that the native form contract cannot render",
+    async (value, label, expectedMessage) => {
+      const { updateSupportServiceOffer } = await import(
+        "../repositories/support-services.repository.js"
+      );
+
+      await expect(
+        updateSupportServiceOffer(context, "offer-1", {
+          ...baseOffer,
+          formShape: {
+            ...baseOffer.formShape,
+            fields: [
+              {
+                key: "presentation",
+                label: "Presentation",
+                type: "enum",
+                required: true,
+                options: [{ value, label }],
+              },
+            ],
+          },
+        }),
+      ).rejects.toThrow(expectedMessage);
+    },
+  );
 });
 
 describe("support service pagination", () => {
@@ -724,6 +831,63 @@ describe("support service pagination", () => {
     expect(second.offers).toHaveLength(1);
     expect(second.nextCursor).toBeUndefined();
     expect(new Set(ids).size).toBe(21);
+  });
+
+  it("paginates offers and transactions that lack updatedAt instead of excluding them", async () => {
+    seedDoc("service_offers", "zz-offer-without-updated-at", {
+      ...baseOffer,
+      updatedAt: undefined,
+    });
+    seedDoc("service_transactions", "zz-transaction-without-updated-at", {
+      schemaVersion: 1,
+      requestId: "zz-transaction-without-updated-at",
+      offerId: "offer-1",
+      serviceId: baseOffer.serviceId,
+      serviceVersion: 1,
+      providerId: baseOffer.providerId,
+      providerKind: "organization",
+      status: "received",
+      requestedByUserId: "user-1",
+      requestRevision: 1,
+      idempotencyKey: "missing-updated-at",
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      issues: [],
+      missingRequiredInputRoles: [],
+      offerSnapshot: {},
+      providerSnapshot: {},
+      contractSource: "pocket_genes_services_wiki_v1",
+    });
+    const {
+      listSupportServiceOffers,
+      listSupportServiceTransactions,
+    } = await import("../repositories/support-services.repository.js");
+
+    const firstOffersPage = await listSupportServiceOffers(context);
+    expect(firstOffersPage.offers).toHaveLength(20);
+    const secondOffersPage = await listSupportServiceOffers(context, {
+      limit: 20,
+      cursor: firstOffersPage.nextCursor,
+    });
+    const offer = [...firstOffersPage.offers, ...secondOffersPage.offers].find(
+      (candidate) => candidate.id === "zz-offer-without-updated-at",
+    );
+    expect(offer?.complianceWarnings).toContain(
+      "updatedAt is missing or invalid; this record is listed by document ID.",
+    );
+
+    const transactions = await listSupportServiceTransactions(context, {
+      limit: 20,
+    });
+    expect(transactions.transactions[0]).toEqual(
+      expect.objectContaining({
+        id: "zz-transaction-without-updated-at",
+        complianceWarnings: expect.arrayContaining([
+          "updatedAt is missing or invalid; this record is listed by document ID.",
+        ]),
+      }),
+    );
   });
 
   it("lists historical transactions with snake-case output arrays as having no canonical outputs", async () => {
@@ -866,42 +1030,28 @@ describe("support service delivered transactions", () => {
           revision: 1,
           createdAt: "2026-09-16T12:00:00.000Z",
           createdBy: "user-1",
-          inputRefs: [],
           data: {
-            form_shape_id: "pgfs_pocket_genes_1",
-            form_shape_version: 2,
-            form_shape: {
-              id: "pgfs_pocket_genes_1",
-              version: 2,
-              allow_unknown_fields: false,
+            formShape: {
               fields: [
                 {
-                  key: "requested_at",
-                  label: "Requested at",
-                  type: "datetime",
-                  required: true,
-                  options: [],
-                },
-                {
-                  key: "requested_by",
-                  label: "Requested by",
+                  key: "report_title",
+                  label: "Report title",
                   type: "text",
                   required: true,
-                  options: [],
-                  help_info_text:
-                    "This value comes from the authenticated requester.",
+                },
+                {
+                  key: "recipient_email",
+                  label: "Recipient email",
+                  type: "email",
+                  required: false,
+                  helpInfoText: "Optional address for delivery notifications.",
                 },
               ],
             },
             fields: [
-              { key: "requested_at", value: "2026-09-16T12:00:00.000Z" },
-              {
-                key: "requested_by",
-                value: "Patient (patient@example.com)",
-              },
+              { key: "report_title", value: "Final report" },
             ],
           },
-          files: [],
         },
       },
     ],
@@ -943,27 +1093,10 @@ describe("support service delivered transactions", () => {
     revision: 1,
     createdAt: "2026-09-16T12:00:00.000Z",
     createdBy: "pgp_report_studio",
-    inputRefs: [],
     data: {
       title: "Final report",
-      report_kind: "administrative",
-      language: "en",
-      subject_id: "subject_test_1",
-      created_by_provider_id: "pgp_report_studio",
-      generated_at: "2026-09-16T12:00:00.000Z",
-      page_count: 1,
-      status: "final",
-      template_id: "report_template_v1",
+      download_url: "https://objects.example/final-report.pdf",
     },
-    files: [
-      {
-        role: "primary",
-        path: "payloads/final-report.pdf",
-        mediaType: "application/pdf",
-        sha256: "a".repeat(64),
-        sizeBytes: 1024,
-      },
-    ],
   };
 
   const imageOutputEnvelope = {
@@ -973,40 +1106,22 @@ describe("support service delivered transactions", () => {
     revision: 1,
     createdAt: "2026-09-16T12:00:00.000Z",
     createdBy: "pgp_image_studio",
-    inputRefs: [],
     data: {
-      subject_id: "subject_test_1",
-      image_kind: "other",
-      source_object_ref: { object_id: "obj_source_1", revision: 1 },
-      acquired_at: "2026-09-16T12:00:00.000Z",
-      acquired_by: "pgp_image_studio",
+      title: "Validated output images",
       images: [
         {
-          image_id: "image_1",
-          file_role: "image_1",
-          format: "png",
-          width_px: 640,
-          height_px: 480,
-          caption: "Validated output image",
+          key: "image_1",
+          name: "Validated output image",
+          download_url: "https://objects.example/image-1.png",
         },
       ],
-      acquisition_profile: "image_profile_v1",
     },
-    files: [
-      {
-        role: "image_1",
-        path: "payloads/image-1.png",
-        mediaType: "image/png",
-        sha256: "b".repeat(64),
-        sizeBytes: 2048,
-      },
-    ],
   };
 
   function mockPgoDownload(
     envelope: Record<string, unknown> = directOutputEnvelope,
   ) {
-    const body = JSON.stringify(serializedPgoWrapper(envelope));
+    const body = JSON.stringify(serializedPgoContent(envelope));
     jest.mocked(fetch).mockImplementation(async () =>
       new Response(body, {
         status: 200,
@@ -1016,6 +1131,74 @@ describe("support service delivered transactions", () => {
         },
       }),
     );
+  }
+
+  function seedRevisionAttachmentScenario() {
+    const sourceSnapshot = {
+      objectId: "obj_sequence_data_1",
+      objectType: "pgo_sequence_data",
+      schemaVersion: "1.0.0",
+      revision: 2,
+      createdAt: "2026-09-16T10:00:00.000Z",
+      createdBy: "user-1",
+      data: {
+        title: "Sequence data",
+        downloadUrl: "https://objects.example/sequence.fasta",
+      },
+    };
+    const revisionOffer = {
+      ...baseOffer,
+      inputSlots: [
+        ...baseOffer.inputSlots,
+        {
+          role: "sequence_data",
+          objectType: "pgo_sequence_data",
+          acceptedTypes: ["pgo_sequence_data"],
+          required: true,
+          cardinality: { min: 1, max: 1 },
+        },
+      ],
+      outputSlots: [
+        {
+          role: "revised_sequence",
+          objectType: "same_as:sequence_data",
+          mutationMode: "new_revision",
+          sameIdentityAsInput: "sequence_data",
+        },
+      ],
+      shortContract:
+        "form:form + sequence_data:sequence_data -> revised_sequence:same_as:sequence_data",
+    };
+    seedDoc("uploaded_objects", "source-sequence-upload", {
+      object_code: "111111111",
+      object_type: "pgo_sequence_data",
+      object_id: sourceSnapshot.objectId,
+      object_revision: sourceSnapshot.revision,
+    });
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      inputs: [
+        ...transaction.inputs,
+        {
+          role: "sequence_data",
+          objectRef: {
+            objectId: sourceSnapshot.objectId,
+            revision: sourceSnapshot.revision,
+          },
+          objectType: "pgo_sequence_data",
+          uploadedObjectId: "source-sequence-upload",
+          objectSnapshot: sourceSnapshot,
+        },
+      ],
+      offerSnapshot: { ...revisionOffer, offerId: "offer-1" },
+    });
+    mockPgoDownload({
+      ...sourceSnapshot,
+      revision: sourceSnapshot.revision + 1,
+      createdAt: "2026-09-16T12:00:00.000Z",
+      createdBy: "pgp_sequence_provider",
+    });
+    return sourceSnapshot;
   }
 
   beforeEach(() => {
@@ -1056,7 +1239,7 @@ describe("support service delivered transactions", () => {
       owner_community_user_id: "feed-org-1",
       provider_id: "feed-org-1",
       file_content: JSON.stringify(
-        serializedPgoWrapper(transaction.inputs[0]!.objectSnapshot),
+        serializedPgoContent(transaction.inputs[0]!.objectSnapshot),
       ),
     });
     seedDoc("service_transactions", "transaction-1", {
@@ -1077,7 +1260,7 @@ describe("support service delivered transactions", () => {
     });
   });
 
-  it("attaches a validated URL-only output atomically and delivers after revalidation", async () => {
+  it("attaches an exact two-field PDF content object and delivers after revalidation", async () => {
     seedDoc("service_transactions", "transaction-1", transaction);
     seedDoc("community_users", "feed-org-1", {
       owned_objects: ["uploaded-form-1"],
@@ -1132,7 +1315,7 @@ describe("support service delivered transactions", () => {
       expect.objectContaining({
         object_code: attached.object.objectCode,
         object_type: "pgo_pdf_report",
-        object_id: directOutputEnvelope.objectId,
+        object_id: `obj_output_${attached.object.objectCode}`,
         object_revision: 1,
         file_name: "report.pgo.json",
         download_url: "https://objects.example/report.pgo.json",
@@ -1253,23 +1436,23 @@ describe("support service delivered transactions", () => {
     {
       name: "malformed JSON",
       response: () => new Response("not-json", { status: 200 }),
-      expected: "valid serialized PGO JSON wrapper",
+      expected: "valid PGO content JSON",
     },
     {
-      name: "wrong object type",
+      name: "content for another PGO type",
       response: () =>
         new Response(
-          JSON.stringify(serializedPgoWrapper(imageOutputEnvelope)),
+          JSON.stringify(serializedPgoContent(imageOutputEnvelope)),
           { status: 200 },
         ),
-      expected: "requires pgo_pdf_report",
+      expected: "does not match the pgo_pdf_report schema",
     },
     {
       name: "correct object type with invalid typed data",
       response: () =>
         new Response(
           JSON.stringify(
-            serializedPgoWrapper({
+            serializedPgoContent({
               ...directOutputEnvelope,
               data: { title: "Incomplete report" },
             }),
@@ -1279,11 +1462,19 @@ describe("support service delivered transactions", () => {
       expected: "does not match the pgo_pdf_report schema",
     },
     {
-      name: "correct object type with invalid typed files",
+      name: "obsolete metadata wrapper",
       response: () =>
         new Response(
           JSON.stringify(
-            serializedPgoWrapper({ ...directOutputEnvelope, files: [] }),
+            {
+              object_id: directOutputEnvelope.objectId,
+              object_type: directOutputEnvelope.objectType,
+              schema_version: directOutputEnvelope.schemaVersion,
+              revision: directOutputEnvelope.revision,
+              created_at: directOutputEnvelope.createdAt,
+              created_by: directOutputEnvelope.createdBy,
+              data: directOutputEnvelope.data,
+            },
           ),
           { status: 200 },
         ),
@@ -1407,27 +1598,15 @@ describe("support service delivered transactions", () => {
       createdBy: "user-1",
       inputRefs: [],
       data: {
-        subject_id: "subject_test_1",
-        reference_id: "GRCh38",
-        profile_id: "sequence_profile_v1",
-        analysis_support: {
-          status: "unassessed",
-          evaluated_genes: [],
-          supported_variant_classes: [],
-          evidence: [],
-          limitations: [],
-        },
-        sequence_role: "reference",
-        sequence_count: 1,
-        alphabet: "DNA",
+        title: "Sequence data",
+        downloadUrl: "https://objects.example/sequence.fasta",
       },
       files: [
         {
           role: "primary",
-          path: "payloads/sequence.fasta",
-          mediaType: "text/plain",
-          sha256: "c".repeat(64),
-          sizeBytes: 4096,
+          fileStorageId: "source-sequence-file",
+          fileName: "sequence.fasta",
+          fileType: "pgo_sequence_data",
         },
       ],
     };
@@ -1454,6 +1633,12 @@ describe("support service delivered transactions", () => {
       shortContract:
         "form:form + sequence_data:sequence_data -> revised_sequence:same_as:sequence_data",
     };
+    seedDoc("uploaded_objects", "source-sequence-upload", {
+      object_code: "111111111",
+      object_type: "pgo_sequence_data",
+      object_id: sourceSnapshot.objectId,
+      object_revision: 2,
+    });
     seedDoc("service_transactions", "transaction-1", {
       ...transaction,
       inputs: [
@@ -1462,6 +1647,7 @@ describe("support service delivered transactions", () => {
           role: "sequence_data",
           objectRef: { objectId: sourceSnapshot.objectId, revision: 2 },
           objectType: "pgo_sequence_data",
+          uploadedObjectId: "source-sequence-upload",
           objectSnapshot: sourceSnapshot,
         },
       ],
@@ -1488,9 +1674,86 @@ describe("support service delivered transactions", () => {
       },
     );
     expect(attached.object.objectType).toBe("pgo_sequence_data");
+    expect(attached.object.id).toBe(
+      revisionUploadedObjectId(sourceSnapshot.objectId, 3),
+    );
+    expect(
+      collectionStore("object_codes").get(attached.object.objectCode),
+    ).toEqual({
+      uploaded_object_id: attached.object.id,
+      owner_id: "feed-org-1",
+    });
     await expect(
       deliverSupportServiceTransaction(context, "transaction-1"),
     ).resolves.toEqual(expect.objectContaining({ status: "delivered" }));
+  });
+
+  it("rejects a stale new_revision source when a legacy next revision already exists", async () => {
+    const sourceSnapshot = seedRevisionAttachmentScenario();
+    seedDoc("uploaded_objects", "legacy-sequence-revision-3", {
+      object_code: "222222222",
+      object_type: "pgo_sequence_data",
+      object_id: sourceSnapshot.objectId,
+      object_revision: 3,
+    });
+    const { attachSupportServiceTransactionOutputObject } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      attachSupportServiceTransactionOutputObject(context, "transaction-1", {
+        role: "revised_sequence",
+        fileName: "sequence-data.pgo.json",
+        downloadUrl: "https://objects.example/sequence-data.pgo.json",
+      }),
+    ).rejects.toThrow(
+      "sequence_data revision 2 is stale or already has a successor",
+    );
+    expect(
+      collectionStore("service_transactions").get("transaction-1"),
+    ).toEqual(expect.objectContaining({ outputObjects: [] }));
+  });
+
+  it("rechecks and rejects a competing new_revision claim inside the atomic transaction", async () => {
+    const sourceSnapshot = seedRevisionAttachmentScenario();
+    const competingClaimId = revisionUploadedObjectId(
+      sourceSnapshot.objectId,
+      3,
+    );
+    beforeNextTransaction = () => {
+      seedDoc("uploaded_objects", competingClaimId, {
+        object_code: "222222222",
+        object_type: "pgo_sequence_data",
+        object_id: sourceSnapshot.objectId,
+        object_revision: 3,
+      });
+    };
+    const { attachSupportServiceTransactionOutputObject } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      attachSupportServiceTransactionOutputObject(context, "transaction-1", {
+        role: "revised_sequence",
+        fileName: "sequence-data.pgo.json",
+        downloadUrl: "https://objects.example/sequence-data.pgo.json",
+      }),
+    ).rejects.toThrow(
+      "sequence_data revision 2 is stale or already has a successor",
+    );
+    expect(
+      [...collectionStore("uploaded_objects").values()].filter(
+        (record) =>
+          record.object_id === sourceSnapshot.objectId &&
+          record.object_revision === 3,
+      ),
+    ).toHaveLength(1);
+    expect(collectionStore("uploaded_objects").has(competingClaimId)).toBe(
+      true,
+    );
+    expect(
+      collectionStore("service_transactions").get("transaction-1"),
+    ).toEqual(expect.objectContaining({ outputObjects: [] }));
   });
 
   it("marks a transaction delivered only when every promised object is ready", async () => {
@@ -1501,6 +1764,8 @@ describe("support service delivered transactions", () => {
     seedDoc("uploaded_objects", "uploaded-object-1", {
       object_code: "123456789",
       object_type: "pgo_pdf_report",
+      object_id: "obj_output_123456789",
+      object_revision: 1,
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-file-1",
@@ -1515,16 +1780,17 @@ describe("support service delivered transactions", () => {
       file_type: "pgo_pdf_report",
       owner_community_user_id: "feed-org-1",
       file_content: JSON.stringify(
-        serializedPgoWrapper({
+        serializedPgoContent({
           objectId: "obj_output_report",
           objectType: "pgo_pdf_report",
           schemaVersion: "1.0.0",
           revision: 1,
           createdAt: "2026-09-16T12:00:00.000Z",
           createdBy: "pgp_report_studio",
-          inputRefs: [],
-          data: {},
-          files: [],
+          data: {
+            title: "Final report",
+            download_url: "https://objects.example/final-report.pdf",
+          },
         }),
       ),
     });
@@ -1547,6 +1813,8 @@ describe("support service delivered transactions", () => {
     seedDoc("uploaded_objects", "uploaded-object-1", {
       object_code: "123456789",
       object_type: "pgo_pdf_report",
+      object_id: "obj_output_123456789",
+      object_revision: 1,
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-file-1",
@@ -1606,6 +1874,8 @@ describe("support service delivered transactions", () => {
     seedDoc("uploaded_objects", "uploaded-object-1", {
       object_code: "123456789",
       object_type: "pgo_pdf_report",
+      object_id: "obj_output_123456789",
+      object_revision: 1,
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "missing-output-file",
@@ -1629,25 +1899,13 @@ describe("support service delivered transactions", () => {
       name: "malformed",
       fileContent: "not-json",
       expected:
-        "Output object report stored file must contain a valid serialized PGO wrapper.",
+        "Output object report stored file must contain valid pgo_pdf_report content JSON.",
     },
     {
-      name: "wrong-type",
-      fileContent: JSON.stringify(
-        serializedPgoWrapper({
-          objectId: "obj_output_1",
-          objectType: "pgo_image_bundle",
-          schemaVersion: "1.0.0",
-          revision: 1,
-          createdAt: "2026-09-16T12:00:00.000Z",
-          createdBy: "feed-org-1",
-          inputRefs: [],
-          data: {},
-          files: [],
-        }),
-      ),
+      name: "content for another PGO type",
+      fileContent: JSON.stringify(serializedPgoContent(imageOutputEnvelope)),
       expected:
-        "Output object report stored PGO wrapper must be pgo_pdf_report.",
+        "Output object report stored file must contain valid pgo_pdf_report content JSON.",
     },
   ])("rejects a $name linked new_object PGO payload", async ({
     fileContent,
@@ -1660,6 +1918,8 @@ describe("support service delivered transactions", () => {
     seedDoc("uploaded_objects", "uploaded-object-1", {
       object_code: "123456789",
       object_type: "pgo_pdf_report",
+      object_id: "obj_output_123456789",
+      object_revision: 1,
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-file-1",
@@ -1692,6 +1952,8 @@ describe("support service delivered transactions", () => {
     seedDoc("uploaded_objects", "uploaded-object-1", {
       object_code: "123456789",
       object_type: "pgo_pdf_report",
+      object_id: "obj_output_123456789",
+      object_revision: 1,
       upload_version_count: 0,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-file-1",
@@ -1873,6 +2135,8 @@ describe("support service delivered transactions", () => {
     seedDoc("uploaded_objects", "uploaded-object-1", {
       object_code: "123456789",
       object_type: "pgo_pdf_report",
+      object_id: "obj_output_123456789",
+      object_revision: 1,
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-file-1",
@@ -1887,16 +2151,17 @@ describe("support service delivered transactions", () => {
       file_type: "pgo_pdf_report",
       owner_community_user_id: "provider-owner-1",
       file_content: JSON.stringify(
-        serializedPgoWrapper({
+        serializedPgoContent({
           objectId: "obj_output_report",
           objectType: "pgo_pdf_report",
           schemaVersion: "1.0.0",
           revision: 1,
           createdAt: "2026-09-16T12:00:00.000Z",
           createdBy: "pgp_report_studio",
-          inputRefs: [],
-          data: {},
-          files: [],
+          data: {
+            title: "Final report",
+            download_url: "https://objects.example/final-report.pdf",
+          },
         }),
       ),
     });
@@ -1911,12 +2176,12 @@ describe("support service delivered transactions", () => {
 
   it.each([
     {
-      name: "accepts a report-linked new_revision source with independent storage metadata",
+      name: "accepts a new_revision with sequential platform metadata",
       outputObjectId: "obj_sequence_data_1",
       rejects: false,
     },
     {
-      name: "rejects a new_revision output whose stored PGO identity changed",
+      name: "rejects a new_revision whose platform identity changed",
       outputObjectId: "obj_different_identity",
       rejects: true,
     },
@@ -1928,9 +2193,10 @@ describe("support service delivered transactions", () => {
       revision: 2,
       createdAt: "2026-09-16T10:00:00.000Z",
       createdBy: "user-1",
-      inputRefs: [],
-      data: { source: "sequencer" },
-      files: [],
+      data: {
+        title: "Sequence data",
+        downloadUrl: "https://objects.example/sequence.fasta",
+      },
     };
     const revisionOffer = {
       ...baseOffer,
@@ -1983,7 +2249,7 @@ describe("support service delivered transactions", () => {
       linked_report_code: "REPORT-ABC123",
       file_type: "pgo_sequence_data",
       owner_community_user_id: "feed-org-1",
-      file_content: JSON.stringify(serializedPgoWrapper(sourceSnapshot)),
+      file_content: JSON.stringify(serializedPgoContent(sourceSnapshot)),
     });
     seedDoc("object_codes", "222222222", {
       uploaded_object_id: "uploaded-object-1",
@@ -1992,6 +2258,8 @@ describe("support service delivered transactions", () => {
     seedDoc("uploaded_objects", "uploaded-object-1", {
       object_code: "222222222",
       object_type: "pgo_sequence_data",
+      object_id: outputObjectId,
+      object_revision: 3,
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       linked_file_id: "output-sequence-file",
@@ -2006,9 +2274,8 @@ describe("support service delivered transactions", () => {
       file_type: "pgo_sequence_data",
       owner_community_user_id: "feed-org-1",
       file_content: JSON.stringify(
-        serializedPgoWrapper({
+        serializedPgoContent({
           ...sourceSnapshot,
-          objectId: outputObjectId,
           revision: 3,
           createdAt: "2026-09-16T12:00:00.000Z",
         }),
@@ -2022,7 +2289,7 @@ describe("support service delivered transactions", () => {
 
     if (rejects) {
       await expect(update).rejects.toThrow(
-        "must be the sequential next PGO revision of sequence_data with the same object identity",
+        "Output object 222222222 has invalid platform identity or revision metadata.",
       );
     } else {
       await expect(update).resolves.toEqual(
@@ -2213,45 +2480,31 @@ describe("support service canonical transaction creation", () => {
             revision: 1,
             createdAt: "2026-09-16T12:00:00.000Z",
             createdBy: "new-user",
-            inputRefs: [],
             data: {
-              form_shape_id: "pgfs_pocket_genes_1",
-              form_shape_version: 2,
-              form_shape: {
-                id: "pgfs_pocket_genes_1",
-                version: 2,
-                allow_unknown_fields: false,
+              formShape: {
                 fields: [
                   {
-                    key: "requested_at",
-                    label: "Requested at",
-                    type: "datetime",
-                    required: true,
-                    options: [],
-                  },
-                  {
-                    key: "requested_by",
-                    label: "Requested by",
+                    key: "report_title",
+                    label: "Report title",
                     type: "text",
                     required: true,
-                    options: [],
-                    help_info_text:
-                      "This value comes from the authenticated requester.",
+                  },
+                  {
+                    key: "recipient_email",
+                    label: "Recipient email",
+                    type: "email",
+                    required: false,
+                    helpInfoText: "Optional address for delivery notifications.",
                   },
                 ],
               },
               fields: [
                 {
-                  key: "requested_at",
-                  value: "2026-09-16T12:00:00.000Z",
-                },
-                {
-                  key: "requested_by",
-                  value: "New User (new-user@example.com)",
+                  key: "report_title",
+                  value: "Final report",
                 },
               ],
             },
-            files: [],
           },
         },
       ],
@@ -2300,7 +2553,7 @@ describe("support service canonical transaction creation", () => {
       owner_community_user_id: "feed-org-1",
       provider_id: "feed-org-1",
       file_content: JSON.stringify(
-        serializedPgoWrapper(creationInput().inputs[0]!.objectSnapshot),
+        serializedPgoContent(creationInput().inputs[0]!.objectSnapshot),
       ),
     });
     seedDoc("service_offers", "offer-1", baseOffer);
@@ -2371,20 +2624,79 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
-  it("accepts a native form created before the later transaction approval time", async () => {
+  it("accepts a form contract with no fields and no submitted answers", async () => {
     const input = creationInput();
-    const formSnapshot = input.inputs[0]!.objectSnapshot;
-    formSnapshot.createdAt = "2026-09-16T11:59:00.000Z";
-    const formData = formSnapshot.data as {
-      fields: Array<{ key: string; value: unknown }>;
+    const emptyFormShape = { ...baseOffer.formShape, fields: [] };
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      formShape: emptyFormShape,
+    });
+    input.inputs[0]!.objectSnapshot.data = {
+      formShape: { fields: [] },
+      fields: [],
     };
-    formData.fields[0]!.value = "2026-09-16T11:59:00.000Z";
     seedDoc("file_storage", "stored-form-new", {
       linked_object_code: "987654321",
       file_type: "pgo_form",
       owner_community_user_id: "feed-org-1",
       provider_id: "feed-org-1",
-      file_content: JSON.stringify(serializedPgoWrapper(formSnapshot)),
+      file_content: JSON.stringify(
+        serializedPgoContent(input.inputs[0]!.objectSnapshot),
+      ),
+    });
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createSupportServiceTransaction(context, input),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        inputs: [
+          expect.objectContaining({
+            objectSnapshot: expect.objectContaining({
+              data: { formShape: { fields: [] }, fields: [] },
+            }),
+          }),
+        ],
+      }),
+    );
+  });
+
+  it.each(["definition", "answer"] as const)(
+    "rejects a scalar form %s entry instead of filtering it from an empty form",
+    async (entryKind) => {
+      const input = creationInput();
+      seedDoc("service_offers", "offer-1", {
+        ...baseOffer,
+        formShape: { ...baseOffer.formShape, fields: [] },
+      });
+      input.inputs[0]!.objectSnapshot.data = {
+        formShape: {
+          fields: entryKind === "definition" ? [42 as never] : [],
+        },
+        fields: entryKind === "answer" ? [42 as never] : [],
+      };
+      const { createSupportServiceTransaction } = await import(
+        "../repositories/support-services.repository.js"
+      );
+
+      await expect(
+        createSupportServiceTransaction(context, input),
+      ).rejects.toThrow("must be an object");
+    },
+  );
+
+  it("accepts a native form created before the later transaction approval time", async () => {
+    const input = creationInput();
+    const formSnapshot = input.inputs[0]!.objectSnapshot;
+    formSnapshot.createdAt = "2026-09-16T11:59:00.000Z";
+    seedDoc("file_storage", "stored-form-new", {
+      linked_object_code: "987654321",
+      file_type: "pgo_form",
+      owner_community_user_id: "feed-org-1",
+      provider_id: "feed-org-1",
+      file_content: JSON.stringify(serializedPgoContent(formSnapshot)),
     });
     const { createSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
@@ -2403,7 +2715,10 @@ describe("support service canonical transaction creation", () => {
       { key: "contact", label: "Contact", type: "email", value: "user@example.com" },
       { key: "phone", label: "Phone", type: "phone", value: "+5491112345678" },
       { key: "portal", label: "Portal", type: "url", value: "https://example.com/form" },
+      { key: "portal_upper", label: "Uppercase portal", type: "url", value: "HTTPS://example.com/form" },
       { key: "country", label: "Country", type: "country_code", value: "AR" },
+      { key: "early_date", label: "Early date", type: "date", value: "0099-01-01" },
+      { key: "early_datetime", label: "Early datetime", type: "datetime", value: "0099-01-01T00:00:00Z" },
       { key: "percentage", label: "Percentage", type: "percentage", value: 42.5 },
       { key: "time", label: "Time", type: "time", value: "09:30" },
       { key: "counts", label: "Counts", type: "integer_list", value: [1, 2] },
@@ -2426,16 +2741,15 @@ describe("support service canonical transaction creation", () => {
     });
     const snapshot = input.inputs[0]!.objectSnapshot;
     const data = snapshot.data as {
-      form_shape: { fields: Record<string, unknown>[] };
+      formShape: { fields: Record<string, unknown>[] };
       fields: Array<{ key: string; value: unknown }>;
     };
-    data.form_shape.fields = [
-      ...data.form_shape.fields,
+    data.formShape.fields = [
+      ...data.formShape.fields,
       ...fields.map(({ value: _, ...field }) => ({
         ...field,
         required: true,
-        options: [],
-        help_info_text: `How to complete ${field.label}`,
+        helpInfoText: `How to complete ${field.label}`,
       })),
     ];
     data.fields.push(...fields.map(({ key, value }) => ({ key, value })));
@@ -2444,7 +2758,7 @@ describe("support service canonical transaction creation", () => {
       file_type: "pgo_form",
       owner_community_user_id: "feed-org-1",
       provider_id: "feed-org-1",
-      file_content: JSON.stringify(serializedPgoWrapper(snapshot)),
+      file_content: JSON.stringify(serializedPgoContent(snapshot)),
     });
     const { createSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
@@ -2484,16 +2798,15 @@ describe("support service canonical transaction creation", () => {
     });
     const snapshot = input.inputs[0]!.objectSnapshot;
     const data = snapshot.data as {
-      form_shape: { fields: Record<string, unknown>[] };
+      formShape: { fields: Record<string, unknown>[] };
       fields: Array<{ key: string; value: unknown }>;
     };
-    data.form_shape.fields.push({
+    data.formShape.fields.push({
       key: newField.key,
       label: newField.label,
       type: newField.type,
       required: newField.required,
-      options: [],
-      help_info_text: newField.helpInfoText,
+      helpInfoText: newField.helpInfoText,
     });
     data.fields.push({ key: "percentage", value: 101 });
     seedDoc("file_storage", "stored-form-new", {
@@ -2501,7 +2814,7 @@ describe("support service canonical transaction creation", () => {
       file_type: "pgo_form",
       owner_community_user_id: "feed-org-1",
       provider_id: "feed-org-1",
-      file_content: JSON.stringify(serializedPgoWrapper(snapshot)),
+      file_content: JSON.stringify(serializedPgoContent(snapshot)),
     });
     const { createSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
@@ -2512,7 +2825,105 @@ describe("support service canonical transaction creation", () => {
     ).rejects.toThrow("must be unique, declared, and match its frozen field type");
   });
 
-  it("rejects a camel-case PGO envelope at the serialized file boundary", async () => {
+  it.each([
+    ["answer key", (input: ReturnType<typeof creationInput>) => {
+      const data = input.inputs[0]!.objectSnapshot.data as {
+        fields: Array<Record<string, unknown>>;
+      };
+      data.fields[0]!.key = " report_title ";
+    }],
+    ["frozen shape key", (input: ReturnType<typeof creationInput>) => {
+      const data = input.inputs[0]!.objectSnapshot.data as {
+        formShape: { fields: Array<Record<string, unknown>> };
+      };
+      data.formShape.fields[0]!.key = " report_title ";
+    }],
+    ["frozen enum option value", (input: ReturnType<typeof creationInput>) => {
+      const choiceField = {
+        key: "delivery_mode",
+        label: "Delivery mode",
+        type: "enum",
+        required: false,
+        options: [{ value: "email", label: "Email" }],
+      };
+      seedDoc("service_offers", "offer-1", {
+        ...baseOffer,
+        formShape: {
+          ...baseOffer.formShape,
+          fields: [...baseOffer.formShape.fields, choiceField],
+        },
+      });
+      const data = input.inputs[0]!.objectSnapshot.data as {
+        formShape: { fields: Array<Record<string, unknown>> };
+      };
+      data.formShape.fields.push({
+        ...choiceField,
+        options: [{ value: " email ", label: "Email" }],
+      });
+    }],
+  ] as const)("rejects a noncanonical %s instead of trimming snapshot evidence", async (_label, mutate) => {
+    const input = creationInput();
+    mutate(input);
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createSupportServiceTransaction(context, input),
+    ).rejects.toThrow(/exact canonical|exact frozen offer form shape/);
+  });
+
+  it.each([
+    ["email", "a()@example.com"],
+    ["url", "https:example.com"],
+    ["url", "https:///path"],
+    ["url", "https://example.com\\evil"],
+    ["datetime", "2023-02-29T12:00:00Z"],
+    ["datetime", "2026-09-22T24:00:00Z"],
+  ])(
+    "rejects a %s answer that the strict native contract cannot decode",
+    async (type, value) => {
+      const input = creationInput();
+      const newField = {
+        key: "strict_value",
+        label: "Strict value",
+        type,
+        required: true,
+      };
+      seedDoc("service_offers", "offer-1", {
+        ...baseOffer,
+        formShape: {
+          ...baseOffer.formShape,
+          fields: [...baseOffer.formShape.fields, newField],
+        },
+      });
+      const snapshot = input.inputs[0]!.objectSnapshot;
+      const data = snapshot.data as {
+        formShape: { fields: Record<string, unknown>[] };
+        fields: Array<{ key: string; value: unknown }>;
+      };
+      data.formShape.fields.push(newField);
+      data.fields.push({ key: newField.key, value });
+      seedDoc("file_storage", "stored-form-new", {
+        linked_object_code: "987654321",
+        file_type: "pgo_form",
+        owner_community_user_id: "feed-org-1",
+        provider_id: "feed-org-1",
+        file_content: JSON.stringify(serializedPgoContent(snapshot)),
+      });
+      const { createSupportServiceTransaction } = await import(
+        "../repositories/support-services.repository.js"
+      );
+
+      await expect(
+        createSupportServiceTransaction(context, input),
+      ).rejects.toThrow(
+        "must be unique, declared, and match its frozen field type",
+      );
+    },
+  );
+
+  it("rejects a platform snapshot at the serialized content boundary", async () => {
     seedDoc("file_storage", "stored-form-new", {
       linked_object_code: "987654321",
       file_type: "pgo_form",
@@ -2636,7 +3047,7 @@ describe("support service canonical transaction creation", () => {
     const data = objectSnapshot.data as {
       fields: Array<{ key: string; value: unknown }>;
     };
-    data.fields[0] = { key: "requested_at", value: "not-a-datetime" };
+    data.fields[0] = { key: "report_title", value: 42 };
 
     await expect(
       createSupportServiceTransaction(context, input),
@@ -2890,9 +3301,10 @@ describe("support service canonical transaction creation", () => {
         revision: 1,
         createdAt: "2026-09-16T11:58:00.000Z",
         createdBy: "new-user",
-        inputRefs: [],
-        data: { source: "requester_upload" },
-        files: [],
+        data: {
+          title: "Sequence data",
+          downloadUrl: "https://objects.example/sequence.fasta",
+        },
       },
     };
     const attached = await updateSupportServiceTransaction(

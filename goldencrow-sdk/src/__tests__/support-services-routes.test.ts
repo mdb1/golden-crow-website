@@ -460,6 +460,39 @@ describe("support service admin routes", () => {
     expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["not allowed", "Readable label"],
+    ["valid_value", "x".repeat(121)],
+  ])(
+    "rejects form options outside the native value and label contract",
+    async (value, label) => {
+      const fastify = await buildTestServer();
+
+      const response = await fastify.inject({
+        method: "POST",
+        url: "/admin/support-services/offers",
+        payload: {
+          ...validOfferPayload,
+          formShape: {
+            ...validOfferPayload.formShape,
+            fields: [
+              {
+                key: "presentation",
+                label: "Presentation",
+                type: "enum",
+                required: true,
+                options: [{ value, label }],
+              },
+            ],
+          },
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
+    },
+  );
+
   it("rejects free-text service offer turnaround values", async () => {
     const fastify = await buildTestServer();
 

@@ -1,273 +1,332 @@
-# Create an actual biological sample collection request — `pgs_collection_request`
+# S05. Create an actual biological sample collection request — `pgs_collection_request`
 
 Create a request for a qualified collector or laboratory to obtain a real biological sample from the subject. This means phlebotomy, swab, saliva, biopsy, or embryo-material collection; it is not courier pickup, package pickup, truck pickup, or sample transport.
 
-**Provider:** `pgp_sample_logistics`. **Service version:** `1`. **Stage:** Wet Lab.
+**Provider:** Origin Sample Services (`pgp_sample_logistics`)  
+**Provider kind:** organization  
+**Service version:** 1  
+**Stages:** wet_lab
 
-**Search visibility:** discoverable (`isHiddenFromSearch: false`).
+## Provider work
 
-**Provider work:** Verify the subject, consent, requested material, collection method, collection site, collection window, and preparation profile; schedule or perform the biological sample collection.
+Verify the subject, consent, requested material, collection method, collection site, collection window, and preparation profile; schedule or perform the biological sample collection.
 
-**Input slots**
+## Contract slots
 
-| Role | Accepted object type | Required | Cardinality |
+| Direction | Role | PGO type | Rule |
 | --- | --- | --- | --- |
-| form | pgo_form | True | 1–1 |
-| test_order | pgo_test_order | True | 1–1 |
+| Input | `form` | `pgo_form` | Required 1:1 |
+| Input | `test_order` | `pgo_test_order` | Required 1:1 |
+| Output | `collection_request` | `pgo_collection_request` | new_object |
 
-**Outputs**
+The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
 
-| Role | Type / binding | Identity behavior |
-| --- | --- | --- |
-| collection_request | pgo_collection_request | new_object |
+## Request form
 
-**Form shape**
-
-`pgfs_collection_request` version `1`. This shape is valid because the offer declares a `pgo_form` input slot; unknown fields are rejected.
-
-| Field | Type | Required | Enum options |
+| Key | Type | Required | Label |
 | --- | --- | --- | --- |
-| requested_at | datetime | True | — |
-| requested_by | text | True | — |
-| subject_id | text | True | — |
-| collection_site | text | True | — |
-| requested_sample_type | enum | True | blood, buccal_swab, saliva, tissue, embryo_material |
-| collection_method | enum | True | phlebotomy, buccal_swab, saliva_kit, tissue_biopsy, embryo_biopsy |
-| collection_window_start | datetime | True | — |
-| collection_window_end | datetime | True | — |
-| preparation_profile | text | True | — |
+| `patient` | `text` | Yes | Patient or source |
+| `sample_type` | `enum` | Yes | Biological material to collect |
+| `collection_method` | `enum` | No | Collection method |
+| `container` | `enum` | No | Container or kit |
+| `requested_quantity` | `text` | No | Requested quantity |
+| `collection_site` | `address` | No | Collection site |
+| `scheduled_at` | `datetime` | No | Scheduled collection time |
 
-**Filled form input object**
+The completed form freezes only the definitions and answers. Requester identity and request time are transaction fields.
 
 ```json
 {
-  "object_id": "obj_demo_form_collection_request",
-  "object_type": "pgo_form",
-  "schema_version": "1.0.0",
-  "revision": 1,
-  "created_at": "2026-09-16T12:25:00Z",
-  "created_by": "user_demo_001",
-  "input_refs": [],
-  "data": {
-    "form_shape_id": "pgfs_collection_request",
-    "form_shape_version": 1,
+  "form_shape": {
     "fields": [
       {
-        "key": "requested_at",
-        "value": "2026-09-16T12:25:00Z"
+        "key": "patient",
+        "label": "Patient or source",
+        "type": "text",
+        "required": true
       },
       {
-        "key": "requested_by",
-        "value": "user_demo_001"
-      },
-      {
-        "key": "subject_id",
-        "value": "subject_demo_001"
-      },
-      {
-        "key": "collection_site",
-        "value": "Demo clinical collection room, 100 Example Avenue, Demo City, AR"
-      },
-      {
-        "key": "requested_sample_type",
-        "value": "blood"
+        "key": "sample_type",
+        "label": "Biological material to collect",
+        "type": "enum",
+        "required": true,
+        "options": [
+          {
+            "value": "blood",
+            "label": "Blood"
+          },
+          {
+            "value": "dried_blood_spot",
+            "label": "Dried blood spot"
+          },
+          {
+            "value": "saliva",
+            "label": "Saliva"
+          },
+          {
+            "value": "buccal_swab",
+            "label": "Buccal swab"
+          },
+          {
+            "value": "tissue",
+            "label": "Tissue"
+          },
+          {
+            "value": "skin_biopsy",
+            "label": "Skin biopsy"
+          },
+          {
+            "value": "bone_marrow_aspirate",
+            "label": "Bone marrow aspirate"
+          },
+          {
+            "value": "bone_marrow_core",
+            "label": "Bone marrow core biopsy"
+          },
+          {
+            "value": "amniotic_fluid",
+            "label": "Amniotic fluid"
+          },
+          {
+            "value": "chorionic_villi",
+            "label": "Chorionic villi"
+          },
+          {
+            "value": "cord_blood",
+            "label": "Cord blood"
+          },
+          {
+            "value": "cerebrospinal_fluid",
+            "label": "Cerebrospinal fluid"
+          },
+          {
+            "value": "urine",
+            "label": "Urine"
+          },
+          {
+            "value": "stool",
+            "label": "Stool"
+          },
+          {
+            "value": "hair_follicles",
+            "label": "Hair follicles"
+          },
+          {
+            "value": "nail_clippings",
+            "label": "Nail clippings"
+          },
+          {
+            "value": "semen",
+            "label": "Semen"
+          },
+          {
+            "value": "embryo_biopsy",
+            "label": "Embryo biopsy"
+          },
+          {
+            "value": "whole_embryo",
+            "label": "Whole embryo"
+          },
+          {
+            "value": "polar_body",
+            "label": "Polar body"
+          },
+          {
+            "value": "other",
+            "label": "Other"
+          }
+        ]
       },
       {
         "key": "collection_method",
-        "value": "phlebotomy"
+        "label": "Collection method",
+        "type": "enum",
+        "required": false,
+        "options": [
+          {
+            "value": "venous_blood_draw",
+            "label": "Venous blood draw"
+          },
+          {
+            "value": "capillary_blood_collection",
+            "label": "Capillary blood collection"
+          },
+          {
+            "value": "buccal_swab",
+            "label": "Buccal swab"
+          },
+          {
+            "value": "saliva_collection",
+            "label": "Saliva collection"
+          },
+          {
+            "value": "needle_aspiration",
+            "label": "Needle aspiration"
+          },
+          {
+            "value": "core_biopsy",
+            "label": "Core biopsy"
+          },
+          {
+            "value": "surgical_biopsy",
+            "label": "Surgical biopsy"
+          },
+          {
+            "value": "skin_punch_biopsy",
+            "label": "Skin punch biopsy"
+          },
+          {
+            "value": "amniocentesis",
+            "label": "Amniocentesis"
+          },
+          {
+            "value": "chorionic_villus_sampling",
+            "label": "Chorionic villus sampling"
+          },
+          {
+            "value": "lumbar_puncture",
+            "label": "Lumbar puncture"
+          },
+          {
+            "value": "embryo_biopsy",
+            "label": "Embryo biopsy"
+          },
+          {
+            "value": "polar_body_biopsy",
+            "label": "Polar body biopsy"
+          },
+          {
+            "value": "self_collection",
+            "label": "Self-collection"
+          },
+          {
+            "value": "other",
+            "label": "Other"
+          }
+        ]
       },
       {
-        "key": "collection_window_start",
-        "value": "2026-09-16T13:00:00Z"
+        "key": "container",
+        "label": "Container or kit",
+        "type": "enum",
+        "required": false,
+        "options": [
+          {
+            "value": "edta_tube",
+            "label": "EDTA tube"
+          },
+          {
+            "value": "heparin_tube",
+            "label": "Heparin tube"
+          },
+          {
+            "value": "citrate_tube",
+            "label": "Citrate tube"
+          },
+          {
+            "value": "serum_tube",
+            "label": "Serum tube"
+          },
+          {
+            "value": "dna_stabilization_tube",
+            "label": "DNA stabilization tube"
+          },
+          {
+            "value": "rna_stabilization_tube",
+            "label": "RNA stabilization tube"
+          },
+          {
+            "value": "sterile_container",
+            "label": "Sterile container"
+          },
+          {
+            "value": "swab_collection_kit",
+            "label": "Swab collection kit"
+          },
+          {
+            "value": "saliva_collection_kit",
+            "label": "Saliva collection kit"
+          },
+          {
+            "value": "cryovial",
+            "label": "Cryovial"
+          },
+          {
+            "value": "filter_paper_card",
+            "label": "Filter paper card"
+          },
+          {
+            "value": "formalin_container",
+            "label": "Formalin container"
+          },
+          {
+            "value": "other",
+            "label": "Other"
+          }
+        ]
       },
       {
-        "key": "collection_window_end",
-        "value": "2026-09-16T15:00:00Z"
+        "key": "requested_quantity",
+        "label": "Requested quantity",
+        "type": "text",
+        "required": false
       },
       {
-        "key": "preparation_profile",
-        "value": "EDTA tube, subject identity check, consent confirmed before draw"
+        "key": "collection_site",
+        "label": "Collection site",
+        "type": "address",
+        "required": false
+      },
+      {
+        "key": "scheduled_at",
+        "label": "Scheduled collection time",
+        "type": "datetime",
+        "required": false
       }
-    ],
-    "form_shape": {
-      "id": "pgfs_collection_request",
-      "version": 1,
-      "allow_unknown_fields": false,
-      "fields": [
-        {
-          "key": "requested_at",
-          "label": "Requested at",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "requested_by",
-          "label": "Requested by",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "subject_id",
-          "label": "Subject identifier",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "collection_site",
-          "label": "Biological sample collection site",
-          "type": "text",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "requested_sample_type",
-          "label": "Sample type to collect",
-          "type": "enum",
-          "required": true,
-          "options": [
-            {
-              "value": "blood",
-              "label": "Blood draw"
-            },
-            {
-              "value": "buccal_swab",
-              "label": "Buccal swab"
-            },
-            {
-              "value": "saliva",
-              "label": "Saliva sample"
-            },
-            {
-              "value": "tissue",
-              "label": "Tissue biopsy"
-            },
-            {
-              "value": "embryo_material",
-              "label": "Embryo material collection"
-            }
-          ]
-        },
-        {
-          "key": "collection_method",
-          "label": "Collection method",
-          "type": "enum",
-          "required": true,
-          "options": [
-            {
-              "value": "phlebotomy",
-              "label": "Phlebotomy / venous blood draw"
-            },
-            {
-              "value": "buccal_swab",
-              "label": "Buccal swab performed on the subject"
-            },
-            {
-              "value": "saliva_kit",
-              "label": "Saliva kit completed by the subject"
-            },
-            {
-              "value": "tissue_biopsy",
-              "label": "Tissue biopsy performed by a qualified provider"
-            },
-            {
-              "value": "embryo_biopsy",
-              "label": "Embryo biopsy material collection"
-            }
-          ]
-        },
-        {
-          "key": "collection_window_start",
-          "label": "Sample collection window start",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "collection_window_end",
-          "label": "Sample collection window end",
-          "type": "datetime",
-          "required": true,
-          "options": []
-        },
-        {
-          "key": "preparation_profile",
-          "label": "Collection preparation profile",
-          "type": "text",
-          "required": true,
-          "options": []
-        }
-      ]
-    }
+    ]
   },
-  "files": []
-}
-```
-
-**Request**
-
-```json
-{
-  "request_id": "pgr_demo_collection_request",
-  "service_id": "pgs_collection_request",
-  "service_version": 1,
-  "inputs": [
+  "fields": [
     {
-      "role": "form",
-      "object_ref": {
-        "object_id": "obj_demo_form_collection_request",
-        "revision": 1
-      }
+      "key": "patient",
+      "value": "Patient AB-123"
     },
     {
-      "role": "test_order",
-      "object_ref": {
-        "object_id": "obj_demo_order",
-        "revision": 1
-      }
-    }
-  ]
-}
-```
-
-**Completed result**
-
-```json
-{
-  "request_id": "pgr_demo_collection_request",
-  "status": "delivered",
-  "outputs": [
+      "key": "sample_type",
+      "value": "blood"
+    },
     {
-      "role": "collection_request",
-      "object_ref": {
-        "object_id": "obj_demo_collection",
-        "revision": 1
-      }
+      "key": "collection_method",
+      "value": "venous_blood_draw"
+    },
+    {
+      "key": "container",
+      "value": "edta_tube"
+    },
+    {
+      "key": "requested_quantity",
+      "value": "2 mL"
+    },
+    {
+      "key": "collection_site",
+      "value": "Demo clinical collection room"
     }
   ]
 }
 ```
 
-**Acceptance and fulfillment rules**
+## Acceptance conditions
 
 - The request identifies the subject or source, the linked test order, the biological material to obtain, and the qualified collection method.
 - The assigned provider accepts the sample collection site, time window, consent state, and preparation profile before the collection is scheduled or performed.
 - This is an actual biological sample collection request. It is explicitly not a courier pickup, package pickup, truck pickup, or transport order.
-- Resolve the explicitly supplied test_order at its pinned revision. Its data.scope.genes, reference_id and variant_classes define the requested analysis.
-- Respect data.fulfillment.scope_policy=requested_only. Additional supported capability does not expand the order.
+
+## Scope rules
+
 - Fulfillment is measured against the order; file extension alone never proves sufficiency.
 - The collection_request describes the intended biological collection event. A physical sample object is created or linked only when the sample is actually obtained.
 - Transportation after collection belongs to pgs_sample_transport or another explicit transport service, never to pgs_collection_request.
+- Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.
 
-**Illustrative commercial terms**
+## Transaction rule
 
-```json
-{
-  "price": {
-    "summary": "Calculated after submission"
-  },
-  "turnaround": "2h"
-}
-```
+A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.

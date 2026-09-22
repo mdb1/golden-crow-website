@@ -5,56 +5,9 @@
   "revision": 2,
   "created_at": "2026-09-17T12:00:00Z",
   "created_by": "pgp_precision_lab",
-  "input_refs": [
-    {
-      "object_id": "obj_demo_form_sequencing",
-      "revision": 1
-    },
-    {
-      "object_id": "obj_demo_dna",
-      "revision": 1
-    },
-    {
-      "object_id": "obj_demo_order",
-      "revision": 1
-    }
-  ],
   "data": {
-    "subject_id": "subject_demo_001",
-    "order_ref": {
-      "object_id": "obj_demo_order",
-      "revision": 1
-    },
     "sample_label": "DEMO-DNA-001",
-    "state": "consumed",
-    "collected_at": "2026-09-16T16:00:00Z",
-    "collected_by": "pgp_precision_lab",
-    "current_location": {
-      "location_id": "location_demo_lab",
-      "name": "Demo laboratory",
-      "country_code": "AR"
-    },
-    "custodian_id": "pgp_precision_lab",
-    "quantity": {
-      "value": 0,
-      "unit": "uL"
-    },
-    "handling_profile": "handling_demo_dna_v1",
-    "lineage_refs": [
-      {
-        "object_id": "obj_demo_blood",
-        "revision": 2
-      }
-    ],
-    "concentration": {
-      "value": 5,
-      "unit": "ng/uL"
-    },
-    "extraction_method": "extraction_demo_v1",
-    "source_sample_ref": {
-      "object_id": "obj_demo_blood",
-      "revision": 2
-    }
-  },
-  "files": []
+    "volume_ul": 40,
+    "concentration_ng_ul": 25
+  }
 }

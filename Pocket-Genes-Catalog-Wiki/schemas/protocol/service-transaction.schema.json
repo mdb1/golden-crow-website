@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.pocketgenes.example/protocol/service-transaction/1.1.0/schema.json",
-  "title": "Pocket Genes root service transaction v1.1.0",
+  "$id": "https://schemas.pocketgenes.example/protocol/service-transaction/1.2.0/schema.json",
+  "title": "Pocket Genes root service transaction v1.2.0",
   "description": "Strict root service_transactions record. Exact promised-output coverage and uploaded-object readiness require semantic backend validation against the frozen service offer.",
   "type": "object",
   "properties": {
@@ -215,7 +215,7 @@
           "minLength": 1
         },
         "objectSnapshot": {
-          "type": "object"
+          "$ref": "#/$defs/camel_case_map"
         }
       },
       "required": [
@@ -250,6 +250,40 @@
               "objectOwnerId"
             ]
           }
+        }
+      ]
+    },
+    "camel_case_map": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][A-Za-z0-9]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/camel_case_value"
+      }
+    },
+    "camel_case_value": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/camel_case_value"
+          }
+        },
+        {
+          "$ref": "#/$defs/camel_case_map"
         }
       ]
     },
