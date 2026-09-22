@@ -2032,6 +2032,32 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                     </TableCell>
                   </TableRow>
                 ))
+              ) : listQuery.isError && rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center">
+                    <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-destructive">
+                      <CircleAlert className="h-8 w-8" />
+                      <p className="text-sm font-medium">
+                        {t("Could not load records.")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {listQuery.error instanceof Error
+                          ? listQuery.error.message
+                          : t("Action failed.")}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => listQuery.refetch()}
+                        className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        <span>{t("Try again")}</span>
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-10 text-center">

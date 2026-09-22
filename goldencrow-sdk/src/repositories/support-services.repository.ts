@@ -382,6 +382,12 @@ const FORBIDDEN_TRANSACTION_ROOT_KEYS = [
   "contract_source",
   "attachments_pending",
 ] as const;
+// Historical iOS requests wrote empty snake-case output arrays. They are not
+// aliases: stored reads ignore them and default missing canonical arrays to [].
+const FORBIDDEN_STORED_TRANSACTION_ROOT_KEYS =
+  FORBIDDEN_TRANSACTION_ROOT_KEYS.filter(
+    (key) => key !== "output_objects" && key !== "output_reports",
+  );
 const FORBIDDEN_OFFER_ROOT_KEYS = [
   "service_id",
   "service_version",
@@ -3338,7 +3344,7 @@ function toOfferRecord(id: string, data: Record<string, unknown>) {
 function toTransactionRecord(id: string, data: Record<string, unknown>) {
   rejectForbiddenKeys(
     data,
-    FORBIDDEN_TRANSACTION_ROOT_KEYS,
+    FORBIDDEN_STORED_TRANSACTION_ROOT_KEYS,
     "Stored service transaction",
   );
   const requestId = cleanString(data.requestId);

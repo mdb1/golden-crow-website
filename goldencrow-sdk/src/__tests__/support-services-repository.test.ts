@@ -673,6 +673,54 @@ describe("support service pagination", () => {
     expect(second.nextCursor).toBeUndefined();
     expect(new Set(ids).size).toBe(21);
   });
+
+  it("lists historical transactions with snake-case output arrays as having no canonical outputs", async () => {
+    seedDoc("service_transactions", "pgr_ios_historical", {
+      schemaVersion: 1,
+      requestId: "pgr_ios_historical",
+      offerId: "offer-1",
+      serviceId: "pgs_pocket_genes_1",
+      serviceVersion: 1,
+      providerId: "feed-org-1",
+      providerKind: "organization",
+      status: "received",
+      requestedByUserId: "user-1",
+      requestedAt: "2026-09-21T22:59:23.000Z",
+      requestedAtClient: "2026-09-21T22:59:22.000Z",
+      requestRevision: 1,
+      idempotencyKey: "ios-pgr_ios_historical",
+      inputs: [],
+      output_objects: [
+        {
+          role: "legacy_result",
+          object_type: "pgo_pdf_report",
+          object_code: "123456789",
+        },
+      ],
+      output_reports: [{ report_code: "ABC123" }],
+      issues: [],
+      missingRequiredInputRoles: [],
+      offerSnapshot: {},
+      providerSnapshot: {},
+      contractSource: "pocket_genes_services_wiki_v1",
+      createdAt: "2026-09-21T22:59:23.000Z",
+      updatedAt: "2026-09-21T22:59:23.000Z",
+    });
+    const { listSupportServiceTransactions } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const result = await listSupportServiceTransactions(context, { limit: 20 });
+
+    expect(result.transactions).toHaveLength(1);
+    expect(result.transactions[0]).toEqual(
+      expect.objectContaining({
+        requestId: "pgr_ios_historical",
+        outputObjects: [],
+        outputReports: [],
+      }),
+    );
+  });
 });
 
 describe("support service delivered transactions", () => {

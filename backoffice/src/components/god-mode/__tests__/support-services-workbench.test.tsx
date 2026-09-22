@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import {
+  SupportServicesBrowser,
   SupportServiceOfferWorkbench,
   SupportServiceTransactionWorkbench,
 } from "@/components/god-mode/support-services-workbench";
@@ -209,6 +210,16 @@ describe("support services workbenches", () => {
     routerRefresh.mockClear();
     sdkFetchMock.mockReset();
     window.localStorage.clear();
+  });
+
+  it("shows transaction list load failures instead of a false empty state", async () => {
+    sdkFetchMock.mockRejectedValue(new Error("Stored transaction is invalid."));
+
+    renderWithQueryClient(<SupportServicesBrowser kind="transactions" />);
+
+    expect(await screen.findByText("Could not load records.")).toBeTruthy();
+    expect(screen.getByText("Stored transaction is invalid.")).toBeTruthy();
+    expect(screen.queryByText("No records found.")).toBeNull();
   });
 
   it("keeps the catalog pricing model and summary instead of coercing it to fixed", () => {

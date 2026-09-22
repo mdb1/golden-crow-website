@@ -4798,6 +4798,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No providers found in the loaded page.":
     "No se encontraron proveedores en la página cargada.",
   "No records found.": "No se encontraron registros.",
+  "Could not load records.": "No se pudieron cargar los registros.",
   "No service offers are available for transactions.":
     "No hay ofertas de servicio disponibles para transacciones.",
   "Not requested": "No solicitado",
@@ -4952,6 +4953,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "La oferta permanece activa y disponible para flujos autorizados del backoffice, pero se excluye del descubrimiento nativo.",
   "Uploaded object ID": "ID del objeto cargado",
   "Action failed.": "La acción falló.",
+  "Try again": "Reintentar",
   "Offer name is required.": "El nombre de la oferta es obligatorio.",
   "Choose an organization or professional provider.":
     "Elegí una organización o un profesional proveedor.",
