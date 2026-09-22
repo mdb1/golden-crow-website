@@ -4816,8 +4816,49 @@ const SPANISH_TEXT: Record<string, string> = {
   Options: "Opciones",
   "Output object bindings": "Vínculos de objetos de salida",
   "Delivered output objects": "Objetos de salida entregados",
+  "Transaction status": "Estado de la transacción",
+  "Transaction status options": "Opciones de estado de la transacción",
   "Promised object type": "Tipo de objeto prometido",
   "Object code": "Código de objeto",
+  "Output slots ready": "Slots de salida listos",
+  "Upload output object": "Cargar objeto de salida",
+  "Add ready object": "Agregar objeto listo",
+  "Ready object linked": "Objeto listo vinculado",
+  "File name": "Nombre del archivo",
+  "Download URL": "URL de descarga",
+  "Create and link object": "Crear y vincular objeto",
+  "Creating object...": "Creando objeto...",
+  "Output object created and linked.": "Objeto de salida creado y vinculado.",
+  "The created object does not match the selected output slot.":
+    "El objeto creado no coincide con el slot de salida seleccionado.",
+  "File name is required.": "El nombre del archivo es obligatorio.",
+  "Use a valid HTTPS download URL.":
+    "Usá una URL de descarga HTTPS válida.",
+  "Provide a public download URL. The SDK validates the downloaded content against the exact PGO type before creating a ready object.":
+    "Proporcioná una URL pública de descarga. El SDK valida el contenido descargado contra el tipo PGO exacto antes de crear un objeto listo.",
+  "Only finalized PGO wrappers supplied by HTTPS download URL are supported. File Storage references and in-progress objects are not accepted.":
+    "Solo se admiten wrappers PGO finalizados proporcionados mediante una URL de descarga HTTPS. No se aceptan referencias de File Storage ni objetos en proceso.",
+  "Save the transaction before uploading output objects.":
+    "Guardá la transacción antes de cargar objetos de salida.",
+  "Save other transaction changes before uploading output objects.":
+    "Guardá los demás cambios de la transacción antes de cargar objetos de salida.",
+  "Save the transaction before marking it as delivered.":
+    "Guardá la transacción antes de marcarla como entregada.",
+  "Save other transaction changes before marking it as delivered.":
+    "Guardá los demás cambios de la transacción antes de marcarla como entregada.",
+  "The transaction must be running before it can be marked as delivered.":
+    "La transacción debe estar en progreso antes de poder marcarla como entregada.",
+  "Upload a valid object for every promised output before marking the transaction as delivered.":
+    "Cargá un objeto válido para cada salida prometida antes de marcar la transacción como entregada.",
+  "Delivered is available only through Mark as delivered after every output is ready.":
+    "El estado Entregado solo está disponible mediante Marcar como entregado cuando todas las salidas estén listas.",
+  "New transactions start with Received status.":
+    "Las transacciones nuevas comienzan con estado Recibido.",
+  "Marking as delivered...": "Marcando como entregada...",
+  "Service transaction marked as delivered.":
+    "Transacción de servicio marcada como entregada.",
+  "Terminal service transactions cannot be edited.":
+    "Las transacciones de servicio finalizadas no se pueden editar.",
   "Optional report codes": "Códigos de informe opcionales",
   "One 6-character report code per line": "Un código de informe de 6 caracteres por línea",
   "Reports may accompany a delivery, but they are not validated as service contract outputs.":

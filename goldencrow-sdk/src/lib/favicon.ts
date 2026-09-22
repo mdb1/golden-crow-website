@@ -27,7 +27,7 @@ const EXTENSION_BY_TYPE: Record<string, string> = {
   "image/vnd.microsoft.icon": "ico",
 };
 
-type FetchResult = {
+export type FetchResult = {
   response: Response;
   finalUrl: URL;
 };
@@ -89,9 +89,24 @@ function sizeScore(value?: string): number {
   );
 }
 
-function ipv4FromMappedIpv6(address: string): string | null {
-  const match = address.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i);
-  return match?.[1] ?? null;
+function ipv4FromEmbeddedIpv6(address: string): string | null {
+  const dottedMatch = address.match(
+    /^::(?:ffff(?::0)?:)?(\d{1,3}(?:\.\d{1,3}){3})$/i,
+  );
+  if (dottedMatch?.[1]) {
+    return dottedMatch[1];
+  }
+
+  const hexadecimalMatch = address.match(
+    /^::(?:ffff(?::0)?:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i,
+  );
+  if (!hexadecimalMatch?.[1] || !hexadecimalMatch[2]) {
+    return null;
+  }
+
+  const high = Number.parseInt(hexadecimalMatch[1], 16);
+  const low = Number.parseInt(hexadecimalMatch[2], 16);
+  return [high >> 8, high & 0xff, low >> 8, low & 0xff].join(".");
 }
 
 function isBlockedIpv4(address: string): boolean {
@@ -119,9 +134,9 @@ function isBlockedIpv4(address: string): boolean {
 }
 
 function isBlockedIpv6(address: string): boolean {
-  const mappedIpv4 = ipv4FromMappedIpv6(address);
-  if (mappedIpv4) {
-    return isBlockedIpv4(mappedIpv4);
+  const embeddedIpv4 = ipv4FromEmbeddedIpv6(address);
+  if (embeddedIpv4) {
+    return isBlockedIpv4(embeddedIpv4);
   }
 
   const normalized = address.toLowerCase();
@@ -143,12 +158,18 @@ function isBlockedIp(address: string): boolean {
   return true;
 }
 
-async function assertSafeFetchUrl(url: URL) {
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
+export async function assertSafeFetchUrl(
+  url: URL,
+  allowedProtocols: readonly string[] = ["https:", "http:"],
+) {
+  if (!allowedProtocols.includes(url.protocol)) {
     throw new FaviconExtractionError("URL must use HTTP or HTTPS.", 400);
   }
 
   if (url.port && url.port !== "80" && url.port !== "443") {
+    throw new FaviconExtractionError("URL destination is not allowed.", 400);
+  }
+  if (url.username || url.password) {
     throw new FaviconExtractionError("URL destination is not allowed.", 400);
   }
 
@@ -183,20 +204,22 @@ async function assertSafeFetchUrl(url: URL) {
   }
 }
 
-async function fetchWithValidatedRedirects(
+export async function fetchWithValidatedRedirects(
   initialUrl: URL,
   {
     accept,
     timeoutMs,
+    allowedProtocols = ["https:", "http:"],
   }: {
     accept: string;
     timeoutMs: number;
+    allowedProtocols?: readonly string[];
   },
 ): Promise<FetchResult> {
   let currentUrl = initialUrl;
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
-    await assertSafeFetchUrl(currentUrl);
+    await assertSafeFetchUrl(currentUrl, allowedProtocols);
 
     let response: Response;
     try {
@@ -227,19 +250,20 @@ async function fetchWithValidatedRedirects(
   throw new FaviconExtractionError("Too many redirects.", 400);
 }
 
-async function readLimitedResponse(
+export async function readLimitedResponse(
   response: Response,
   maxBytes: number,
+  tooLargeMessage = "Downloaded image is too large.",
 ): Promise<Buffer> {
   const contentLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-    throw new FaviconExtractionError("Downloaded image is too large.", 413);
+    throw new FaviconExtractionError(tooLargeMessage, 413);
   }
 
   if (!response.body) {
     const data = Buffer.from(await response.arrayBuffer());
     if (data.length > maxBytes) {
-      throw new FaviconExtractionError("Downloaded image is too large.", 413);
+      throw new FaviconExtractionError(tooLargeMessage, 413);
     }
     return data;
   }
@@ -255,7 +279,7 @@ async function readLimitedResponse(
 
     total += value.byteLength;
     if (total > maxBytes) {
-      throw new FaviconExtractionError("Downloaded image is too large.", 413);
+      throw new FaviconExtractionError(tooLargeMessage, 413);
     }
     chunks.push(Buffer.from(value));
   }

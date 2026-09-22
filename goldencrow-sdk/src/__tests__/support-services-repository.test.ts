@@ -2,6 +2,18 @@ import type { AdminContext } from "../types/sdk.types.js";
 
 type MockData = Record<string, unknown>;
 
+const mockLookup = jest.fn();
+const mockRandomInt = jest.fn();
+
+jest.mock("node:dns/promises", () => ({
+  lookup: (...args: unknown[]) => mockLookup(...args),
+}));
+
+jest.mock("node:crypto", () => ({
+  ...jest.requireActual("node:crypto"),
+  randomInt: (...args: unknown[]) => mockRandomInt(...args),
+}));
+
 const collections = new Map<string, Map<string, MockData>>();
 let beforeNextTransaction: (() => void) | undefined;
 
@@ -241,6 +253,7 @@ jest.mock("../config/firebase.js", () => ({
 
 afterEach(() => {
   beforeNextTransaction = undefined;
+  jest.restoreAllMocks();
 });
 
 const context: AdminContext = {
@@ -365,8 +378,8 @@ describe("support service repository versions", () => {
       status: "active",
     });
     seedDoc("object_owners", "feed-org-1", {
-      name: "Pocket Genes",
-      email: "services@pocketgenes.example",
+      owner_name: "Pocket Genes",
+      owner_contact_email: "services@pocketgenes.example",
     });
     seedDoc("service_offers", "offer-1", baseOffer);
   });
@@ -653,16 +666,104 @@ describe("support service delivered transactions", () => {
     outputReports: [{ reportCode: "ABC123" }],
   };
 
+  const directOutputEnvelope = {
+    objectId: "obj_output_report_1",
+    objectType: "pgo_pdf_report",
+    schemaVersion: "1.0.0",
+    revision: 1,
+    createdAt: "2026-09-16T12:00:00.000Z",
+    createdBy: "pgp_report_studio",
+    inputRefs: [],
+    data: {
+      title: "Final report",
+      report_kind: "administrative",
+      language: "en",
+      subject_id: "subject_test_1",
+      created_by_provider_id: "pgp_report_studio",
+      generated_at: "2026-09-16T12:00:00.000Z",
+      page_count: 1,
+      status: "final",
+      template_id: "report_template_v1",
+    },
+    files: [
+      {
+        role: "primary",
+        path: "payloads/final-report.pdf",
+        mediaType: "application/pdf",
+        sha256: "a".repeat(64),
+        sizeBytes: 1024,
+      },
+    ],
+  };
+
+  const imageOutputEnvelope = {
+    objectId: "obj_output_images_1",
+    objectType: "pgo_image_bundle",
+    schemaVersion: "1.0.0",
+    revision: 1,
+    createdAt: "2026-09-16T12:00:00.000Z",
+    createdBy: "pgp_image_studio",
+    inputRefs: [],
+    data: {
+      subject_id: "subject_test_1",
+      image_kind: "other",
+      source_object_ref: { object_id: "obj_source_1", revision: 1 },
+      acquired_at: "2026-09-16T12:00:00.000Z",
+      acquired_by: "pgp_image_studio",
+      images: [
+        {
+          image_id: "image_1",
+          file_role: "image_1",
+          format: "png",
+          width_px: 640,
+          height_px: 480,
+          caption: "Validated output image",
+        },
+      ],
+      acquisition_profile: "image_profile_v1",
+    },
+    files: [
+      {
+        role: "image_1",
+        path: "payloads/image-1.png",
+        mediaType: "image/png",
+        sha256: "b".repeat(64),
+        sizeBytes: 2048,
+      },
+    ],
+  };
+
+  function mockPgoDownload(
+    envelope: Record<string, unknown> = directOutputEnvelope,
+  ) {
+    const body = JSON.stringify(serializedPgoWrapper(envelope));
+    jest.mocked(fetch).mockImplementation(async () =>
+      new Response(body, {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "content-length": String(Buffer.byteLength(body)),
+        },
+      }),
+    );
+  }
+
   beforeEach(() => {
     jest.resetModules();
     collections.clear();
+    mockLookup.mockReset();
+    mockLookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    mockRandomInt.mockReset();
+    let nextObjectCode = 200_000_000;
+    mockRandomInt.mockImplementation(() => nextObjectCode++);
+    global.fetch = jest.fn();
     seedDoc("feed_organizations", "feed-org-1", {
       name: "Pocket Genes",
       status: "active",
     });
     seedDoc("object_owners", "feed-org-1", {
-      name: "Pocket Genes",
-      email: "services@pocketgenes.example",
+      owner_name: "Pocket Genes",
+      owner_contact_email: "services@pocketgenes.example",
     });
     seedDoc("service_offers", "offer-1", baseOffer);
     seedDoc("object_codes", "987654321", {
@@ -688,7 +789,11 @@ describe("support service delivered transactions", () => {
         serializedPgoWrapper(transaction.inputs[0]!.objectSnapshot),
       ),
     });
-    seedDoc("service_transactions", "transaction-1", transaction);
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      outputObjects: deliveredInput.outputObjects,
+      outputReports: deliveredInput.outputReports,
+    });
     seedDoc("community_users", "user-1", {
       requestedServiceTransactions: [
         {
@@ -702,6 +807,422 @@ describe("support service delivered transactions", () => {
     });
   });
 
+  it("attaches a validated URL-only output atomically and delivers after revalidation", async () => {
+    seedDoc("service_transactions", "transaction-1", transaction);
+    seedDoc("community_users", "feed-org-1", {
+      owned_objects: ["uploaded-form-1"],
+    });
+    mockPgoDownload();
+    const {
+      attachSupportServiceTransactionOutputObject,
+      deliverSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+
+    const attached = await attachSupportServiceTransactionOutputObject(
+      context,
+      "transaction-1",
+      {
+        role: "report",
+        fileName: "report.pgo.json",
+        downloadUrl: "https://objects.example/report.pgo.json",
+      },
+    );
+
+    expect(attached.object).toEqual(
+      expect.objectContaining({
+        id: expect.stringMatching(/^pgo_output_\d{9}$/),
+        role: "report",
+        objectCode: expect.stringMatching(/^\d{9}$/),
+        objectType: "pgo_pdf_report",
+        status: "ready",
+      }),
+    );
+    expect(attached.transaction).toEqual(
+      expect.objectContaining({
+        requestRevision: 2,
+        status: "running",
+        outputObjects: [
+          expect.objectContaining({
+            role: "report",
+            objectCode: attached.object.objectCode,
+          }),
+        ],
+      }),
+    );
+    expect(collectionStore("object_codes").get(attached.object.objectCode)).toEqual(
+      {
+        uploaded_object_id: attached.object.id,
+        owner_id: "feed-org-1",
+      },
+    );
+    const storedObject = collectionStore("uploaded_objects").get(
+      attached.object.id,
+    );
+    expect(storedObject).toEqual(
+      expect.objectContaining({
+        objectCode: attached.object.objectCode,
+        objectType: "pgo_pdf_report",
+        objectId: directOutputEnvelope.objectId,
+        objectRevision: 1,
+        file_name: "report.pgo.json",
+        download_url: "https://objects.example/report.pgo.json",
+        linked_file_id: null,
+        upload_version_count: 1,
+        tracking_progress_status: "document_ready",
+        object_owner_id: "feed-org-1",
+        owner_community_user_id: "feed-org-1",
+        owner_public_profile_id: "feed-org-1",
+        owner_name: "Pocket Genes",
+        owner_email: "services@pocketgenes.example",
+      }),
+    );
+    expect(storedObject).not.toHaveProperty("objectSnapshot");
+    expect(Object.keys(storedObject ?? {})).not.toEqual(
+      expect.arrayContaining([
+        "object_type",
+        "object_code",
+        "downloadUrl",
+        "fileName",
+      ]),
+    );
+    expect(collectionStore("community_users").get("feed-org-1")).toEqual(
+      expect.objectContaining({ owned_objects: ["uploaded-form-1", attached.object.id] }),
+    );
+    await expect(
+      attachSupportServiceTransactionOutputObject(context, "transaction-1", {
+        role: "report",
+        fileName: "replacement.pgo.json",
+        downloadUrl: "https://objects.example/replacement.pgo.json",
+      }),
+    ).rejects.toThrow("already has an attached object");
+    expect(collectionStore("object_codes").size).toBe(2);
+    expect(collectionStore("uploaded_objects").size).toBe(2);
+
+    const delivered = await deliverSupportServiceTransaction(
+      context,
+      "transaction-1",
+    );
+
+    expect(delivered.status).toBe("delivered");
+    expect(delivered.requestRevision).toBe(3);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(collectionStore("community_users").get("user-1")).toEqual(
+      expect.objectContaining({
+        requestedServiceTransactions: [
+          expect.objectContaining({ status: "delivered" }),
+        ],
+      }),
+    );
+    expect(collectionStore("feed_organizations").get("feed-org-1")).toEqual(
+      expect.objectContaining({
+        requestedServiceTransactions: [
+          expect.objectContaining({ status: "delivered" }),
+        ],
+      }),
+    );
+  });
+
+  it("skips a colliding 9-digit object code without overwriting or orphaning records", async () => {
+    const candidates = [
+      987_654_321,
+      123_456_789,
+      123_456_790,
+      123_456_791,
+      123_456_792,
+      123_456_793,
+      123_456_794,
+      123_456_795,
+      123_456_796,
+      123_456_797,
+      123_456_798,
+      123_456_799,
+    ];
+    mockRandomInt.mockImplementation(() => candidates.shift());
+    seedDoc("service_transactions", "transaction-1", transaction);
+    seedDoc("community_users", "feed-org-1", {
+      owned_objects: ["uploaded-form-1"],
+    });
+    mockPgoDownload();
+    const { attachSupportServiceTransactionOutputObject } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const attached = await attachSupportServiceTransactionOutputObject(
+      context,
+      "transaction-1",
+      {
+        role: "report",
+        fileName: "report.pgo.json",
+        downloadUrl: "https://objects.example/report.pgo.json",
+      },
+    );
+
+    expect(mockRandomInt).toHaveBeenCalledTimes(12);
+    expect(attached.object.objectCode).toBe("123456789");
+    expect(collectionStore("object_codes").get("987654321")).toEqual({
+      uploaded_object_id: "uploaded-form-1",
+      owner_id: "feed-org-1",
+    });
+    expect(collectionStore("uploaded_objects").has("pgo_output_987654321")).toBe(
+      false,
+    );
+    expect(collectionStore("object_codes").get("123456789")).toEqual({
+      uploaded_object_id: "pgo_output_123456789",
+      owner_id: "feed-org-1",
+    });
+    expect(collectionStore("object_codes").size).toBe(2);
+    expect(collectionStore("uploaded_objects").size).toBe(2);
+    expect(collectionStore("community_users").get("feed-org-1")).toEqual(
+      expect.objectContaining({
+        owned_objects: ["uploaded-form-1", "pgo_output_123456789"],
+      }),
+    );
+  });
+
+  it.each([
+    {
+      name: "malformed JSON",
+      response: () => new Response("not-json", { status: 200 }),
+      expected: "valid serialized PGO JSON wrapper",
+    },
+    {
+      name: "wrong object type",
+      response: () =>
+        new Response(
+          JSON.stringify(serializedPgoWrapper(imageOutputEnvelope)),
+          { status: 200 },
+        ),
+      expected: "requires pgo_pdf_report",
+    },
+    {
+      name: "correct object type with invalid typed data",
+      response: () =>
+        new Response(
+          JSON.stringify(
+            serializedPgoWrapper({
+              ...directOutputEnvelope,
+              data: { title: "Incomplete report" },
+            }),
+          ),
+          { status: 200 },
+        ),
+      expected: "does not match the pgo_pdf_report schema",
+    },
+    {
+      name: "correct object type with invalid typed files",
+      response: () =>
+        new Response(
+          JSON.stringify(
+            serializedPgoWrapper({ ...directOutputEnvelope, files: [] }),
+          ),
+          { status: 200 },
+        ),
+      expected: "does not match the pgo_pdf_report schema",
+    },
+    {
+      name: "oversized content",
+      response: () =>
+        new Response("{}", {
+          status: 200,
+          headers: { "content-length": String(6 * 1024 * 1024) },
+        }),
+      expected: "too large",
+    },
+    {
+      name: "private redirect",
+      response: () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://127.0.0.1/output.json" },
+        }),
+      expected: "URL destination is not allowed",
+    },
+  ])("rejects a $name output without creating records", async ({ response, expected }) => {
+    seedDoc("service_transactions", "transaction-1", transaction);
+    jest.mocked(fetch).mockResolvedValueOnce(response());
+    const { attachSupportServiceTransactionOutputObject } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      attachSupportServiceTransactionOutputObject(context, "transaction-1", {
+        role: "report",
+        fileName: "report.pgo.json",
+        downloadUrl: "https://objects.example/report.pgo.json",
+      }),
+    ).rejects.toThrow(expected);
+    expect(collectionStore("object_codes").size).toBe(1);
+    expect(collectionStore("uploaded_objects").size).toBe(1);
+    expect(
+      (collectionStore("service_transactions").get("transaction-1")?.outputObjects as unknown[]),
+    ).toHaveLength(0);
+  });
+
+  it("enforces the output and delivery command boundaries", async () => {
+    seedDoc("service_transactions", "transaction-1", transaction);
+    const {
+      deliverSupportServiceTransaction,
+      updateSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+
+    await expect(
+      updateSupportServiceTransaction(context, "transaction-1", {
+        status: "delivered",
+      }),
+    ).rejects.toThrow("dedicated deliver command");
+    await expect(
+      updateSupportServiceTransaction(context, "transaction-1", {
+        outputObjects: deliveredInput.outputObjects,
+      }),
+    ).rejects.toThrow("dedicated output-object command");
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      status: "validating",
+    });
+    await expect(
+      deliverSupportServiceTransaction(context, "transaction-1"),
+    ).rejects.toThrow("Only running service transactions");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("accepts unchanged output objects in frozen-slot order without reordering storage", async () => {
+    const reportOutput = {
+      role: "report",
+      objectType: "pgo_pdf_report" as const,
+      objectCode: "123456789",
+    };
+    const imagesOutput = {
+      role: "images",
+      objectType: "pgo_image_bundle" as const,
+      objectCode: "234567890",
+    };
+    const twoOutputOffer = {
+      ...baseOffer,
+      outputSlots: [
+        baseOffer.outputSlots[0],
+        {
+          role: "images",
+          objectType: "pgo_image_bundle",
+          mutationMode: "new_object",
+        },
+      ],
+      shortContract: "form:form -> report:pdf_report + images:image_bundle",
+    };
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      outputObjects: [imagesOutput, reportOutput],
+      offerSnapshot: { ...twoOutputOffer, offerId: "offer-1" },
+    });
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const updated = await updateSupportServiceTransaction(
+      context,
+      "transaction-1",
+      { outputObjects: [reportOutput, imagesOutput] },
+    );
+
+    expect(updated.outputObjects).toEqual([imagesOutput, reportOutput]);
+    expect(updated.requestRevision).toBe(2);
+  });
+
+  it("attaches and delivers a URL-only sequential new_revision output", async () => {
+    const sourceSnapshot = {
+      objectId: "obj_sequence_data_1",
+      objectType: "pgo_sequence_data",
+      schemaVersion: "1.0.0",
+      revision: 2,
+      createdAt: "2026-09-16T10:00:00.000Z",
+      createdBy: "user-1",
+      inputRefs: [],
+      data: {
+        subject_id: "subject_test_1",
+        reference_id: "GRCh38",
+        profile_id: "sequence_profile_v1",
+        analysis_support: {
+          status: "unassessed",
+          evaluated_genes: [],
+          supported_variant_classes: [],
+          evidence: [],
+          limitations: [],
+        },
+        sequence_role: "reference",
+        sequence_count: 1,
+        alphabet: "DNA",
+      },
+      files: [
+        {
+          role: "primary",
+          path: "payloads/sequence.fasta",
+          mediaType: "text/plain",
+          sha256: "c".repeat(64),
+          sizeBytes: 4096,
+        },
+      ],
+    };
+    const revisionOffer = {
+      ...baseOffer,
+      inputSlots: [
+        ...baseOffer.inputSlots,
+        {
+          role: "sequence_data",
+          objectType: "pgo_sequence_data",
+          acceptedTypes: ["pgo_sequence_data"],
+          required: true,
+          cardinality: { min: 1, max: 1 },
+        },
+      ],
+      outputSlots: [
+        {
+          role: "revised_sequence",
+          objectType: "same_as:sequence_data",
+          mutationMode: "new_revision",
+          sameIdentityAsInput: "sequence_data",
+        },
+      ],
+      shortContract:
+        "form:form + sequence_data:sequence_data -> revised_sequence:same_as:sequence_data",
+    };
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      inputs: [
+        ...transaction.inputs,
+        {
+          role: "sequence_data",
+          objectRef: { objectId: sourceSnapshot.objectId, revision: 2 },
+          objectType: "pgo_sequence_data",
+          objectSnapshot: sourceSnapshot,
+        },
+      ],
+      offerSnapshot: { ...revisionOffer, offerId: "offer-1" },
+    });
+    mockPgoDownload({
+      ...sourceSnapshot,
+      revision: 3,
+      createdAt: "2026-09-16T12:00:00.000Z",
+      createdBy: "pgp_sequence_provider",
+    });
+    const {
+      attachSupportServiceTransactionOutputObject,
+      deliverSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+
+    const attached = await attachSupportServiceTransactionOutputObject(
+      context,
+      "transaction-1",
+      {
+        role: "revised_sequence",
+        fileName: "sequence-data.pgo.json",
+        downloadUrl: "https://objects.example/sequence-data.pgo.json",
+      },
+    );
+    expect(attached.object.objectType).toBe("pgo_sequence_data");
+    await expect(
+      deliverSupportServiceTransaction(context, "transaction-1"),
+    ).resolves.toEqual(expect.objectContaining({ status: "delivered" }));
+  });
+
   it("marks a transaction delivered only when every promised object is ready", async () => {
     seedDoc("object_codes", "123456789", {
       uploaded_object_id: "uploaded-object-1",
@@ -712,22 +1233,36 @@ describe("support service delivered transactions", () => {
       objectType: "pgo_pdf_report",
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
-      download_url: "https://example.com/result.json",
+      linked_file_id: "output-file-1",
       object_owner_id: "feed-org-1",
       owner_community_user_id: "feed-org-1",
       owner_public_profile_id: "feed-org-1",
       owner_name: "Pocket Genes",
       owner_email: "services@pocketgenes.example",
     });
-    const { updateSupportServiceTransaction } = await import(
+    seedDoc("file_storage", "output-file-1", {
+      linked_object_code: "123456789",
+      file_type: "pgo_pdf_report",
+      owner_community_user_id: "feed-org-1",
+      file_content: JSON.stringify(
+        serializedPgoWrapper({
+          objectId: "obj_output_report",
+          objectType: "pgo_pdf_report",
+          schemaVersion: "1.0.0",
+          revision: 1,
+          createdAt: "2026-09-16T12:00:00.000Z",
+          createdBy: "pgp_report_studio",
+          inputRefs: [],
+          data: {},
+          files: [],
+        }),
+      ),
+    });
+    const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
 
-    const result = await updateSupportServiceTransaction(
-      context,
-      "transaction-1",
-      deliveredInput,
-    );
+    const result = await deliverSupportServiceTransaction(context, "transaction-1");
 
     expect(result.status).toBe("delivered");
     expect(result.outputObjects).toEqual(deliveredInput.outputObjects);
@@ -744,18 +1279,18 @@ describe("support service delivered transactions", () => {
       objectType: "pgo_pdf_report",
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
-      download_url: "https://example.com/result.json",
+      linked_file_id: "output-file-1",
     });
-    const { updateSupportServiceTransaction } = await import(
+    const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
 
     await expect(
-      updateSupportServiceTransaction(context, "transaction-1", deliveredInput),
+      deliverSupportServiceTransaction(context, "transaction-1"),
     ).rejects.toThrow("invalid owner relationship or provenance snapshot");
   });
 
-  it("rejects snake-case uploaded-object metadata", async () => {
+  it("rejects obsolete snake-case uploaded-object identity fields", async () => {
     seedDoc("object_codes", "123456789", {
       uploaded_object_id: "uploaded-object-1",
       owner_id: "feed-org-1",
@@ -765,32 +1300,32 @@ describe("support service delivered transactions", () => {
       object_type: "pgo_pdf_report",
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
-      download_url: "https://example.com/result.json",
+      linked_file_id: "output-file-1",
       object_owner_id: "feed-org-1",
       owner_community_user_id: "feed-org-1",
       owner_public_profile_id: "feed-org-1",
       owner_name: "Pocket Genes",
       owner_email: "services@pocketgenes.example",
     });
-    const { updateSupportServiceTransaction } = await import(
+    const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
 
     await expect(
-      updateSupportServiceTransaction(context, "transaction-1", deliveredInput),
+      deliverSupportServiceTransaction(context, "transaction-1"),
     ).rejects.toThrow(
       "Uploaded object 123456789 uses forbidden snake-case fields: object_type, object_code.",
     );
   });
 
   it("rejects delivered when an output code is not available", async () => {
-    const { updateSupportServiceTransaction } = await import(
+    const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
 
     await expect(
-      updateSupportServiceTransaction(context, "transaction-1", deliveredInput),
-    ).rejects.toThrow("Output object code 123456789 does not exist.");
+      deliverSupportServiceTransaction(context, "transaction-1"),
+    ).rejects.toThrow("Output object code 123456789 has no uploaded object.");
   });
 
   it("rejects delivered when a linked output file does not exist", async () => {
@@ -810,12 +1345,12 @@ describe("support service delivered transactions", () => {
       owner_name: "Pocket Genes",
       owner_email: "services@pocketgenes.example",
     });
-    const { updateSupportServiceTransaction } = await import(
+    const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
 
     await expect(
-      updateSupportServiceTransaction(context, "transaction-1", deliveredInput),
+      deliverSupportServiceTransaction(context, "transaction-1"),
     ).rejects.toThrow("Output object 123456789 has an invalid linked file.");
   });
 
@@ -870,12 +1405,12 @@ describe("support service delivered transactions", () => {
       owner_community_user_id: "feed-org-1",
       file_content: fileContent,
     });
-    const { updateSupportServiceTransaction } = await import(
+    const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
 
     await expect(
-      updateSupportServiceTransaction(context, "transaction-1", deliveredInput),
+      deliverSupportServiceTransaction(context, "transaction-1"),
     ).rejects.toThrow(expected);
   });
 
@@ -889,40 +1424,41 @@ describe("support service delivered transactions", () => {
       objectType: "pgo_pdf_report",
       upload_version_count: 0,
       tracking_progress_status: "document_ready",
-      download_url: "https://example.com/result.json",
+      linked_file_id: "output-file-1",
       object_owner_id: "feed-org-1",
       owner_community_user_id: "feed-org-1",
       owner_public_profile_id: "feed-org-1",
       owner_name: "Pocket Genes",
       owner_email: "services@pocketgenes.example",
     });
-    const { updateSupportServiceTransaction } = await import(
+    const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
 
     await expect(
-      updateSupportServiceTransaction(context, "transaction-1", deliveredInput),
+      deliverSupportServiceTransaction(context, "transaction-1"),
     ).rejects.toThrow(
       "Output object 123456789 requires a positive upload_version_count.",
     );
   });
 
   it("rejects delivered when an output type does not match the offer", async () => {
-    const { updateSupportServiceTransaction } = await import(
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      outputObjects: [
+        {
+          role: "report",
+          objectType: "pgo_annotated_vcf",
+          objectCode: "123456789",
+        },
+      ],
+    });
+    const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
 
     await expect(
-      updateSupportServiceTransaction(context, "transaction-1", {
-        ...deliveredInput,
-        outputObjects: [
-          {
-            role: "report",
-            objectType: "pgo_annotated_vcf",
-            objectCode: "123456789",
-          } as never,
-        ],
-      }),
+      deliverSupportServiceTransaction(context, "transaction-1"),
     ).rejects.toThrow(
       "Output object report must be pgo_pdf_report, not pgo_annotated_vcf.",
     );
@@ -962,11 +1498,10 @@ describe("support service delivered transactions", () => {
 
     await expect(
       updateSupportServiceTransaction(context, "transaction-1", {
-        ...deliveredInput,
         outputObjects: [{ role: "report" } as never],
       }),
     ).rejects.toThrow(
-      "Output object snapshot 1 requires role, object type, and object code.",
+      "Output objects can only be attached through the dedicated output-object command.",
     );
   });
 
@@ -977,7 +1512,6 @@ describe("support service delivered transactions", () => {
 
     await expect(
       updateSupportServiceTransaction(context, "transaction-1", {
-        ...deliveredInput,
         outputObjects: [
           {
             role: "report",
@@ -987,7 +1521,7 @@ describe("support service delivered transactions", () => {
         ],
       } as never),
     ).rejects.toThrow(
-      "Output object snapshot 1 uses forbidden snake-case fields: object_type, object_code.",
+      "Output objects can only be attached through the dedicated output-object command.",
     );
   });
 
@@ -998,7 +1532,6 @@ describe("support service delivered transactions", () => {
 
     await expect(
       updateSupportServiceTransaction(context, "transaction-1", {
-        ...deliveredInput,
         outputReports: [{ report_code: "ABC123" }],
       } as never),
     ).rejects.toThrow(
@@ -1020,8 +1553,8 @@ describe("support service delivered transactions", () => {
       ownerCommunityUserId: "provider-owner-1",
     });
     seedDoc("object_owners", "provider-owner-1", {
-      name: "Pocket Genes",
-      email: "services@pocketgenes.example",
+      owner_name: "Pocket Genes",
+      owner_contact_email: "services@pocketgenes.example",
     });
     seedDoc("community_users", "provider-owner-1", {
       owned_objects: ["uploaded-object-1"],
@@ -1029,6 +1562,8 @@ describe("support service delivered transactions", () => {
     seedDoc("service_transactions", "transaction-1", {
       ...transaction,
       inputs: [],
+      outputObjects: deliveredInput.outputObjects,
+      outputReports: deliveredInput.outputReports,
       offerSnapshot: { ...formLessOffer, offerId: "offer-1" },
     });
     seedDoc("object_codes", "123456789", {
@@ -1040,26 +1575,36 @@ describe("support service delivered transactions", () => {
       objectType: "pgo_pdf_report",
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
-      download_url: "https://example.com/result.pdf",
+      linked_file_id: "output-file-1",
       object_owner_id: "provider-owner-1",
       owner_community_user_id: "provider-owner-1",
       owner_public_profile_id: "provider-owner-1",
       owner_name: "Pocket Genes",
       owner_email: "services@pocketgenes.example",
     });
-    const { updateSupportServiceTransaction } = await import(
+    seedDoc("file_storage", "output-file-1", {
+      linked_object_code: "123456789",
+      file_type: "pgo_pdf_report",
+      owner_community_user_id: "provider-owner-1",
+      file_content: JSON.stringify(
+        serializedPgoWrapper({
+          objectId: "obj_output_report",
+          objectType: "pgo_pdf_report",
+          schemaVersion: "1.0.0",
+          revision: 1,
+          createdAt: "2026-09-16T12:00:00.000Z",
+          createdBy: "pgp_report_studio",
+          inputRefs: [],
+          data: {},
+          files: [],
+        }),
+      ),
+    });
+    const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
 
-    const result = await updateSupportServiceTransaction(
-      context,
-      "transaction-1",
-      {
-        status: "delivered",
-        outputObjects: deliveredInput.outputObjects,
-        outputReports: deliveredInput.outputReports,
-      },
-    );
+    const result = await deliverSupportServiceTransaction(context, "transaction-1");
 
     expect(result.status).toBe("delivered");
   });
@@ -1125,6 +1670,13 @@ describe("support service delivered transactions", () => {
           objectSnapshot: sourceSnapshot,
         },
       ],
+      outputObjects: [
+        {
+          role: "revised_sequence",
+          objectType: "pgo_sequence_data",
+          objectCode: "222222222",
+        },
+      ],
       offerSnapshot: { ...revisionOffer, offerId: "offer-1" },
     });
     seedDoc("file_storage", "source-sequence-file", {
@@ -1162,21 +1714,11 @@ describe("support service delivered transactions", () => {
         }),
       ),
     });
-    const { updateSupportServiceTransaction } = await import(
+    const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
 
-    const update = updateSupportServiceTransaction(context, "transaction-1", {
-      status: "delivered",
-      outputObjects: [
-        {
-          role: "revised_sequence",
-          objectType: "pgo_sequence_data",
-          objectCode: "222222222",
-        },
-      ],
-      outputReports: [],
-    });
+    const update = deliverSupportServiceTransaction(context, "transaction-1");
 
     if (rejects) {
       await expect(update).rejects.toThrow(
@@ -1370,8 +1912,8 @@ describe("support service canonical transaction creation", () => {
       ownerPublicProfileId: "profile-feed-org-1",
     });
     seedDoc("object_owners", "feed-org-1", {
-      name: "Pocket Genes",
-      email: "services@pocketgenes.example",
+      owner_name: "Pocket Genes",
+      owner_contact_email: "services@pocketgenes.example",
     });
     seedDoc("object_codes", "987654321", {
       uploaded_object_id: "uploaded-form-new",
@@ -1955,22 +2497,15 @@ describe("support service canonical transaction creation", () => {
     );
     expect(cancelled.status).toBe("cancelled");
 
-    const savedAgain = await updateSupportServiceTransaction(
-      context,
-      "pgr_new_report_1",
-      { status: "cancelled" },
-    );
-    expect(savedAgain.status).toBe("cancelled");
     await expect(
       updateSupportServiceTransaction(context, "pgr_new_report_1", {
         status: "cancelled",
-        issues: [],
       }),
-    ).rejects.toThrow("requires at least one nonempty issue or reason");
+    ).rejects.toThrow("Terminal service transactions cannot be edited");
     await expect(
       updateSupportServiceTransaction(context, "pgr_new_report_1", {
         status: "running",
       }),
-    ).rejects.toThrow("cannot transition to running");
+    ).rejects.toThrow("Terminal service transactions cannot be edited");
   });
 });

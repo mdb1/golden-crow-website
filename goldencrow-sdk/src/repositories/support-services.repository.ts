@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import {
   FieldPath,
   FieldValue,
@@ -10,6 +10,12 @@ import {
   type Transaction,
 } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
+import {
+  FaviconExtractionError,
+  fetchWithValidatedRedirects,
+  readLimitedResponse,
+} from "../lib/favicon.js";
+import { serializedPgoObjectSchemaError } from "../lib/pgo-object-schema.js";
 import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 
@@ -30,6 +36,9 @@ const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = 20;
 const FILTERED_BATCH_LIMIT = MAX_PAGE_SIZE;
 const MAX_FILTERED_SCAN = MAX_PAGE_SIZE * 3;
+const OUTPUT_OBJECT_DOWNLOAD_MAX_BYTES = 5 * 1024 * 1024;
+const OUTPUT_OBJECT_DOWNLOAD_TIMEOUT_MS = 10_000;
+const OUTPUT_OBJECT_CODE_CANDIDATE_COUNT = 12;
 
 export const SUPPORT_SERVICE_STAGES = [
   "test_planning",
@@ -185,6 +194,22 @@ export interface SupportServiceTransactionOutputObjectSnapshot {
 
 export interface SupportServiceTransactionOutputReportSnapshot {
   reportCode: string;
+}
+
+export interface SupportServiceOutputObjectUploadInput {
+  role: string;
+  fileName: string;
+  downloadUrl: string;
+}
+
+export interface SupportServiceOutputObjectUploadRecord {
+  id: string;
+  role: string;
+  objectCode: string;
+  objectType: SupportServiceObjectType;
+  fileName: string;
+  downloadUrl: string;
+  status: "ready";
 }
 
 export interface SupportServiceTransactionInput {
@@ -688,6 +713,24 @@ function stableString(value: unknown) {
   return JSON.stringify(stableValue(value));
 }
 
+function comparableOutputObjects(value: readonly unknown[]) {
+  return value
+    .map((item) => {
+      const record = optionalRecord(item);
+      return {
+        role: cleanString(record.role),
+        objectType: cleanString(record.objectType),
+        objectCode: cleanString(record.objectCode),
+      };
+    })
+    .sort(
+      (left, right) =>
+        left.role.localeCompare(right.role) ||
+        left.objectType.localeCompare(right.objectType) ||
+        left.objectCode.localeCompare(right.objectCode),
+    );
+}
+
 function normalizeFormShape(value: unknown, serializedPgoShape = false) {
   const formShape = optionalRecord(value);
   const id = cleanString(formShape.id);
@@ -965,7 +1008,7 @@ function objectRefFromUnknown(
         : NaN;
 
   if (
-    !objectId ||
+    !/^obj_[a-z0-9_]+$/.test(objectId) ||
     !Number.isInteger(parsedRevision) ||
     parsedRevision < 1
   ) {
@@ -2172,13 +2215,15 @@ function normalizedPgoInputRefs(
     const reference = requireRecord(item, `${label} input ref ${index + 1}`);
     rejectForbiddenKeys(
       reference,
-      serialized ? ["objectId", "objectType"] : ["object_id", "object_type"],
+      serialized
+        ? ["objectId", "objectType", "role"]
+        : ["object_id", "object_type"],
       `${label} input ref ${index + 1}`,
     );
     rejectUnknownKeys(
       reference,
       serialized
-        ? ["object_id", "object_type", "revision", "role"]
+        ? ["object_id", "revision"]
         : ["objectId", "objectType", "revision", "role"],
       `${label} input ref ${index + 1}`,
     );
@@ -2225,15 +2270,7 @@ function normalizedPgoFileRefs(
     rejectUnknownKeys(
       file,
       serialized
-        ? [
-            "role",
-            "path",
-            "url",
-            "file_storage_id",
-            "media_type",
-            "size_bytes",
-            "sha256",
-          ]
+        ? ["role", "path", "media_type", "size_bytes", "sha256"]
         : [
             "role",
             "path",
@@ -2245,6 +2282,26 @@ function normalizedPgoFileRefs(
           ],
       `${label} file ${index + 1}`,
     );
+    if (serialized) {
+      const role = cleanString(file.role);
+      const path = cleanString(file.path);
+      const mediaType = cleanString(file.media_type);
+      const sha256 = cleanString(file.sha256);
+      const sizeBytes = file.size_bytes;
+      if (
+        !role ||
+        !path ||
+        !mediaType ||
+        !/^[a-f0-9]{64}$/.test(sha256) ||
+        !Number.isInteger(sizeBytes) ||
+        Number(sizeBytes) < 0
+      ) {
+        throw new AdminRepositoryError(
+          `${label} file ${index + 1} must contain role, path, media_type, lowercase sha256, and nonnegative size_bytes.`,
+          400,
+        );
+      }
+    }
     return withoutUndefined({
       role: cleanString(file.role) || undefined,
       path: cleanString(file.path) || undefined,
@@ -2731,6 +2788,186 @@ function serializedEnvelopeFromFile(
   }
 }
 
+type DownloadedPgoObject = {
+  envelope: ReturnType<typeof normalizedPgoEnvelope>;
+  downloadUrl: string;
+  contentSha256: string;
+  contentSizeBytes: number;
+};
+
+async function downloadAndValidatePgoObject(
+  downloadUrl: string,
+): Promise<DownloadedPgoObject> {
+  let requestedUrl: URL;
+  try {
+    requestedUrl = new URL(downloadUrl);
+  } catch {
+    throw new AdminRepositoryError("downloadUrl must be a valid HTTPS URL.", 400);
+  }
+  if (requestedUrl.protocol !== "https:") {
+    throw new AdminRepositoryError("downloadUrl must use HTTPS.", 400);
+  }
+
+  try {
+    const result = await fetchWithValidatedRedirects(requestedUrl, {
+      accept: "application/json,application/octet-stream;q=0.9",
+      timeoutMs: OUTPUT_OBJECT_DOWNLOAD_TIMEOUT_MS,
+      allowedProtocols: ["https:"],
+    });
+    if (!result.response.ok) {
+      throw new AdminRepositoryError(
+        `downloadUrl returned HTTP ${result.response.status}.`,
+        400,
+      );
+    }
+    const content = await readLimitedResponse(
+      result.response,
+      OUTPUT_OBJECT_DOWNLOAD_MAX_BYTES,
+      "Downloaded PGO object is too large.",
+    );
+    if (content.length === 0) {
+      throw new AdminRepositoryError("downloadUrl returned an empty file.", 400);
+    }
+
+    let serialized: unknown;
+    try {
+      serialized = JSON.parse(content.toString("utf8"));
+    } catch {
+      throw new AdminRepositoryError(
+        "downloadUrl must return a valid serialized PGO JSON wrapper.",
+        400,
+      );
+    }
+    const envelope = normalizedPgoEnvelope(
+      serialized,
+      true,
+      "Downloaded output object",
+    );
+    const schemaError = serializedPgoObjectSchemaError(
+      envelope.objectType,
+      serialized,
+    );
+    if (schemaError) {
+      throw new AdminRepositoryError(
+        `downloadUrl content does not match the ${envelope.objectType} schema: ${schemaError}.`,
+        400,
+      );
+    }
+    return {
+      envelope,
+      downloadUrl: requestedUrl.href,
+      contentSha256: createHash("sha256").update(content).digest("hex"),
+      contentSizeBytes: content.length,
+    };
+  } catch (error) {
+    if (error instanceof AdminRepositoryError) {
+      throw error;
+    }
+    if (error instanceof FaviconExtractionError) {
+      throw new AdminRepositoryError(error.message, error.statusCode);
+    }
+    throw new AdminRepositoryError("downloadUrl could not be fetched.", 400);
+  }
+}
+
+function assertDownloadedOutputMatchesFrozenSlot(
+  downloaded: DownloadedPgoObject,
+  slot: Record<string, unknown>,
+  offer: SupportServiceOfferRecord,
+  transaction: Pick<SupportServiceTransactionRecord, "inputs">,
+) {
+  const role = cleanString(slot.role);
+  const expectedType = resolvedOutputObjectType(slot, offer);
+  const { envelope } = downloaded;
+  if (envelope.objectType !== expectedType) {
+    throw new AdminRepositoryError(
+      `Output slot ${role} requires ${expectedType}, but downloadUrl contains ${envelope.objectType}.`,
+      400,
+    );
+  }
+  if (slot.mutationMode === "new_revision") {
+    const sourceRole = cleanString(slot.sameIdentityAsInput);
+    const sourceInput = transaction.inputs.find(
+      (input) => input.role === sourceRole,
+    );
+    if (!sourceInput) {
+      throw new AdminRepositoryError(
+        `Output slot ${role} cannot resolve frozen source input ${sourceRole}.`,
+        400,
+      );
+    }
+    const sourceEnvelope = normalizedPgoEnvelope(
+      sourceInput.objectSnapshot,
+      false,
+      `Source input ${sourceRole} transaction snapshot`,
+    );
+    if (
+      envelope.objectId !== sourceEnvelope.objectId ||
+      envelope.objectType !== sourceEnvelope.objectType ||
+      envelope.revision !== sourceEnvelope.revision + 1
+    ) {
+      throw new AdminRepositoryError(
+        `Output slot ${role} must be the sequential next PGO revision of ${sourceRole} with the same object identity.`,
+        400,
+      );
+    }
+    return;
+  }
+
+  if (envelope.revision !== 1) {
+    throw new AdminRepositoryError(
+      `New output object ${role} must start at revision 1.`,
+      400,
+    );
+  }
+}
+
+function randomObjectCodeCandidates() {
+  const candidates = new Set<string>();
+  while (candidates.size < OUTPUT_OBJECT_CODE_CANDIDATE_COUNT) {
+    candidates.add(String(randomInt(0, 1_000_000_000)).padStart(9, "0"));
+  }
+  return [...candidates];
+}
+
+async function downloadAttachedOutputObjects(
+  document: Pick<SupportServiceTransactionRecord, "outputObjects">,
+) {
+  const downloaded = new Map<string, DownloadedPgoObject>();
+  for (const output of document.outputObjects) {
+    const codeSnapshot = await adminDb
+      .collection(OBJECT_CODES_COLLECTION)
+      .doc(output.objectCode)
+      .get();
+    const codeData = codeSnapshot.data() ?? {};
+    const uploadedObjectId = cleanString(codeData.uploaded_object_id);
+    if (!codeSnapshot.exists || !uploadedObjectId) {
+      throw new AdminRepositoryError(
+        `Output object code ${output.objectCode} has no uploaded object.`,
+        400,
+      );
+    }
+    const uploadedSnapshot = await adminDb
+      .collection(UPLOADED_OBJECTS_COLLECTION)
+      .doc(uploadedObjectId)
+      .get();
+    if (!uploadedSnapshot.exists) {
+      throw new AdminRepositoryError(
+        `Uploaded object for code ${output.objectCode} does not exist.`,
+        400,
+      );
+    }
+    const downloadUrl = cleanString(uploadedSnapshot.data()?.download_url);
+    if (downloadUrl) {
+      downloaded.set(
+        output.objectCode,
+        await downloadAndValidatePgoObject(downloadUrl),
+      );
+    }
+  }
+  return downloaded;
+}
+
 async function assertNewRevisionDelivery(
   document: SupportServiceTransactionDocument,
   output: SupportServiceTransactionOutputObjectSnapshot,
@@ -2792,6 +3029,7 @@ async function assertDeliveredOutputObjectsAvailable(
   offer: SupportServiceOfferRecord,
   readDocument: DocumentReader,
   providerOwnerId: string,
+  downloadedObjects: ReadonlyMap<string, DownloadedPgoObject> = new Map(),
 ) {
   if (document.status !== "delivered") {
     return;
@@ -2825,9 +3063,7 @@ async function assertDeliveredOutputObjectsAvailable(
       }
 
       const codeData = codeSnapshot.data() ?? {};
-      const uploadedObjectId = cleanString(
-        codeData.uploaded_object_id ?? codeData.uploadedObjectId,
-      );
+      const uploadedObjectId = cleanString(codeData.uploaded_object_id);
       if (!uploadedObjectId) {
         throw new AdminRepositoryError(
           `Output object code ${output.objectCode} has no uploaded object.`,
@@ -2885,7 +3121,7 @@ async function assertDeliveredOutputObjectsAvailable(
       }
       if (
         !cleanString(objectData.download_url) &&
-        !cleanString(objectData.linked_file_id ?? objectData.linkedFileId)
+        !cleanString(objectData.linked_file_id)
       ) {
         throw new AdminRepositoryError(
           `Output object ${output.objectCode} has no downloadable payload.`,
@@ -2893,22 +3129,15 @@ async function assertDeliveredOutputObjectsAvailable(
         );
       }
 
-      const objectOwnerId = cleanString(
-        objectData.object_owner_id ?? objectData.objectOwnerId,
-      );
+      const objectOwnerId = cleanString(objectData.object_owner_id);
       const ownerCommunityUserId = cleanString(
-        objectData.owner_community_user_id ??
-          objectData.ownerCommunityUserId,
+        objectData.owner_community_user_id,
       );
       const ownerPublicProfileId = cleanString(
-        objectData.owner_public_profile_id ?? objectData.ownerPublicProfileId,
+        objectData.owner_public_profile_id,
       );
-      const ownerName = cleanString(
-        objectData.owner_name ?? objectData.ownerName,
-      );
-      const ownerEmail = cleanString(
-        objectData.owner_email ?? objectData.ownerEmail,
-      );
+      const ownerName = cleanString(objectData.owner_name);
+      const ownerEmail = cleanString(objectData.owner_email);
       if (
         !objectOwnerId ||
         objectOwnerId !== ownerCommunityUserId ||
@@ -2921,7 +3150,7 @@ async function assertDeliveredOutputObjectsAvailable(
           400,
         );
       }
-      const codeOwnerId = cleanString(codeData.owner_id ?? codeData.ownerId);
+      const codeOwnerId = cleanString(codeData.owner_id);
       if (
         !codeOwnerId ||
         codeOwnerId !== objectOwnerId ||
@@ -2939,9 +3168,7 @@ async function assertDeliveredOutputObjectsAvailable(
       const ownerCommunityRef = adminDb
         .collection(COMMUNITY_USERS_COLLECTION)
         .doc(objectOwnerId);
-      const linkedFileId = cleanString(
-        objectData.linked_file_id ?? objectData.linkedFileId,
-      );
+      const linkedFileId = cleanString(objectData.linked_file_id);
       const linkedFileRef = linkedFileId
         ? adminDb.collection(FILE_STORAGE_COLLECTION).doc(linkedFileId)
         : null;
@@ -2994,7 +3221,41 @@ async function assertDeliveredOutputObjectsAvailable(
           }
         }
       }
-      if (promisedOutput?.mutationMode === "new_revision") {
+      const downloadUrl = cleanString(objectData.download_url);
+      if (downloadUrl) {
+        const downloaded = downloadedObjects.get(output.objectCode);
+        if (!downloaded) {
+          throw new AdminRepositoryError(
+            `Output object ${output.objectCode} was not revalidated from its downloadUrl.`,
+            400,
+          );
+        }
+        if (
+          downloaded.downloadUrl !== downloadUrl ||
+          cleanString(objectData.objectId) !== downloaded.envelope.objectId ||
+          Number(objectData.objectRevision) !== downloaded.envelope.revision ||
+          cleanString(objectData.objectType) !== downloaded.envelope.objectType ||
+          cleanString(objectData.contentSha256) !== downloaded.contentSha256 ||
+          Number(objectData.contentSizeBytes) !== downloaded.contentSizeBytes
+        ) {
+          throw new AdminRepositoryError(
+            `Output object ${output.objectCode} download content changed after it was attached.`,
+            409,
+          );
+        }
+        if (!promisedOutput) {
+          throw new AdminRepositoryError(
+            `Output object ${output.role} is not declared by the frozen offer.`,
+            400,
+          );
+        }
+        assertDownloadedOutputMatchesFrozenSlot(
+          downloaded,
+          promisedOutput,
+          offer,
+          document,
+        );
+      } else if (promisedOutput?.mutationMode === "new_revision") {
         await assertNewRevisionDelivery(
           document,
           output,
@@ -4292,10 +4553,297 @@ export async function createSupportServiceTransaction(
   return getSupportServiceTransaction(context, document.requestId);
 }
 
-export async function updateSupportServiceTransaction(
+export async function attachSupportServiceTransactionOutputObject(
+  context: AdminContext,
+  transactionId: string,
+  input: SupportServiceOutputObjectUploadInput,
+): Promise<{
+  transaction: SupportServiceTransactionRecord;
+  object: SupportServiceOutputObjectUploadRecord;
+}> {
+  requireGodMode(context);
+  const role = cleanString(input.role);
+  const fileName = cleanString(input.fileName);
+  const downloadUrl = cleanString(input.downloadUrl);
+  if (!/^[a-z][a-z0-9_]*$/.test(role)) {
+    throw new AdminRepositoryError(
+      "Output role must be a lowercase identifier key.",
+      400,
+    );
+  }
+  if (!fileName || fileName.length > 255) {
+    throw new AdminRepositoryError(
+      "fileName must contain between 1 and 255 characters.",
+      400,
+    );
+  }
+
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+  const previous = toTransactionRecord(snapshot.id, snapshot.data() ?? {});
+  if (TERMINAL_TRANSACTION_STATUSES.has(previous.status)) {
+    throw new AdminRepositoryError(
+      "Terminal service transactions cannot accept output objects.",
+      409,
+    );
+  }
+  const offer = offerFromFrozenTransaction(previous);
+  const promisedSlot = offer.outputSlots.find(
+    (slot) => cleanString(slot.role) === role,
+  );
+  if (!promisedSlot) {
+    throw new AdminRepositoryError(
+      `Output role ${role} is not declared by the frozen service offer.`,
+      400,
+    );
+  }
+  if (previous.outputObjects.some((output) => output.role === role)) {
+    throw new AdminRepositoryError(
+      `Output role ${role} already has an attached object.`,
+      409,
+    );
+  }
+
+  const downloaded = await downloadAndValidatePgoObject(downloadUrl);
+  if (downloaded.envelope.files.some((file) => file.fileStorageId)) {
+    throw new AdminRepositoryError(
+      "Downloaded output objects cannot reference file storage records.",
+      400,
+    );
+  }
+  const providerRef = adminDb
+    .collection(
+      previous.providerKind === "individual"
+        ? FEED_INDIVIDUALS_COLLECTION
+        : FEED_ORGANIZATIONS_COLLECTION,
+    )
+    .doc(previous.providerId);
+  const codeCandidates = randomObjectCodeCandidates();
+  let uploadedObject: SupportServiceOutputObjectUploadRecord | undefined;
+
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const [latestSnapshot, providerSnapshot] = await Promise.all([
+      firestoreTransaction.get(snapshot.ref),
+      firestoreTransaction.get(providerRef),
+    ]);
+    if (!latestSnapshot.exists) {
+      throw new AdminRepositoryError("Service transaction not found.", 404);
+    }
+    if (!providerSnapshot.exists) {
+      throw new AdminRepositoryError("Service provider no longer exists.", 400);
+    }
+    const latest = toTransactionRecord(
+      latestSnapshot.id,
+      latestSnapshot.data() ?? {},
+    );
+    if (latest.requestRevision !== previous.requestRevision) {
+      throw new AdminRepositoryError(
+        "Service transaction changed while the output object was being attached.",
+        409,
+      );
+    }
+    if (TERMINAL_TRANSACTION_STATUSES.has(latest.status)) {
+      throw new AdminRepositoryError(
+        "Terminal service transactions cannot accept output objects.",
+        409,
+      );
+    }
+    if (latest.outputObjects.some((output) => output.role === role)) {
+      throw new AdminRepositoryError(
+        `Output role ${role} already has an attached object.`,
+        409,
+      );
+    }
+    const latestOffer = offerFromFrozenTransaction(latest);
+    const latestSlot = latestOffer.outputSlots.find(
+      (slot) => cleanString(slot.role) === role,
+    );
+    if (!latestSlot) {
+      throw new AdminRepositoryError(
+        `Output role ${role} is not declared by the frozen service offer.`,
+        400,
+      );
+    }
+
+    const providerData = providerSnapshot.data() ?? {};
+    const providerOwnerId = await resolveAuthoritativeProviderOwner(
+      latestOffer,
+      providerData,
+      (reference) => firestoreTransaction.get(reference),
+      false,
+    );
+    assertDownloadedOutputMatchesFrozenSlot(
+      downloaded,
+      latestSlot,
+      latestOffer,
+      latest,
+    );
+
+    const ownerRef = adminDb
+      .collection(OBJECT_OWNERS_COLLECTION)
+      .doc(providerOwnerId);
+    const ownerCommunityRef = adminDb
+      .collection(COMMUNITY_USERS_COLLECTION)
+      .doc(providerOwnerId);
+    const [ownerSnapshot, ownerCommunitySnapshot, ...candidateSnapshots] =
+      await Promise.all([
+        firestoreTransaction.get(ownerRef),
+        firestoreTransaction.get(ownerCommunityRef),
+        ...codeCandidates.flatMap((objectCode) => [
+          firestoreTransaction.get(
+            adminDb.collection(OBJECT_CODES_COLLECTION).doc(objectCode),
+          ),
+          firestoreTransaction.get(
+            adminDb
+              .collection(UPLOADED_OBJECTS_COLLECTION)
+              .doc(`pgo_output_${objectCode}`),
+          ),
+        ]),
+      ]);
+    if (!ownerSnapshot.exists || !ownerCommunitySnapshot.exists) {
+      throw new AdminRepositoryError(
+        "The service provider no longer has an authoritative object owner account.",
+        400,
+      );
+    }
+
+    let objectCode = "";
+    for (let index = 0; index < codeCandidates.length; index += 1) {
+      if (
+        !candidateSnapshots[index * 2]?.exists &&
+        !candidateSnapshots[index * 2 + 1]?.exists
+      ) {
+        objectCode = codeCandidates[index]!;
+        break;
+      }
+    }
+    if (!objectCode) {
+      throw new AdminRepositoryError(
+        "Could not allocate a unique 9-digit object code.",
+        503,
+      );
+    }
+
+    const uploadedObjectId = `pgo_output_${objectCode}`;
+    const expectedObjectType = resolvedOutputObjectType(latestSlot, latestOffer);
+    const output: SupportServiceTransactionOutputObjectSnapshot = {
+      role,
+      objectType: expectedObjectType as SupportServiceObjectType,
+      objectCode,
+    };
+    const document = applyFrozenTransactionOfferContract(
+      transactionDocument({
+        ...latest,
+        requestRevision: latest.requestRevision + 1,
+        outputObjects: [...latest.outputObjects, output],
+      }),
+      latestOffer,
+    );
+    validateTransactionDocument(document, latestOffer);
+
+    const ownerData = ownerSnapshot.data() ?? {};
+    const ownerCommunityData = ownerCommunitySnapshot.data() ?? {};
+    const ownerName =
+      cleanString(ownerData.owner_name) ||
+      cleanString(ownerCommunityData.fullName) ||
+      cleanString(ownerCommunityData.name) ||
+      cleanString(latest.providerSnapshot.name);
+    const ownerEmail =
+      cleanString(ownerData.owner_contact_email) ||
+      cleanString(ownerCommunityData.email);
+    if (!ownerName || !ownerEmail) {
+      throw new AdminRepositoryError(
+        "The authoritative provider owner requires a name and email before outputs can be attached.",
+        400,
+      );
+    }
+
+    const objectCodeRef = adminDb
+      .collection(OBJECT_CODES_COLLECTION)
+      .doc(objectCode);
+    const uploadedObjectRef = adminDb
+      .collection(UPLOADED_OBJECTS_COLLECTION)
+      .doc(uploadedObjectId);
+    const ownedObjects = stringValueArray(ownerCommunityData.owned_objects);
+    firestoreTransaction.set(objectCodeRef, {
+      uploaded_object_id: uploadedObjectId,
+      owner_id: providerOwnerId,
+    });
+    firestoreTransaction.set(uploadedObjectRef, {
+      schemaVersion: 1,
+      objectCode,
+      objectType: expectedObjectType,
+      objectId: downloaded.envelope.objectId,
+      objectRevision: downloaded.envelope.revision,
+      file_name: fileName,
+      download_url: downloaded.downloadUrl,
+      linked_file_id: null,
+      contentSha256: downloaded.contentSha256,
+      contentSizeBytes: downloaded.contentSizeBytes,
+      upload_version_count: 1,
+      tracking_progress_status: "document_ready",
+      object_owner_id: providerOwnerId,
+      owner_community_user_id: providerOwnerId,
+      owner_public_profile_id: providerOwnerId,
+      owner_name: ownerName,
+      owner_email: ownerEmail,
+      providerId: latest.providerId,
+      providerKind: latest.providerKind,
+      provider_name: cleanString(latest.providerSnapshot.name),
+      serviceTransactionId: latest.requestId,
+      offerId: latest.offerId,
+      outputRole: role,
+      date_created: FieldValue.serverTimestamp(),
+      date_modified: FieldValue.serverTimestamp(),
+      createdByEmail: context.email,
+      updatedByEmail: context.email,
+    });
+    firestoreTransaction.set(
+      ownerCommunityRef,
+      {
+        owned_objects: [...new Set([...ownedObjects, uploadedObjectId])],
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    firestoreTransaction.set(
+      snapshot.ref,
+      withoutUndefined({
+        ...document,
+        createdAt: latestSnapshot.data()?.createdAt,
+        createdByEmail: latestSnapshot.data()?.createdByEmail,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByEmail: context.email,
+      }),
+    );
+
+    uploadedObject = {
+      id: uploadedObjectId,
+      role,
+      objectCode,
+      objectType: expectedObjectType as SupportServiceObjectType,
+      fileName,
+      downloadUrl: downloaded.downloadUrl,
+      status: "ready",
+    };
+  });
+
+  if (!uploadedObject) {
+    throw new AdminRepositoryError("Output object was not created.", 500);
+  }
+  return {
+    transaction: await getSupportServiceTransaction(context, snapshot.id),
+    object: uploadedObject,
+  };
+}
+
+async function persistSupportServiceTransactionUpdate(
   context: AdminContext,
   transactionId: string,
   input: SupportServiceTransactionInput,
+  options: { allowDelivery: boolean },
 ) {
   requireGodMode(context);
   const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
@@ -4304,6 +4852,34 @@ export async function updateSupportServiceTransaction(
   }
 
   const previous = toTransactionRecord(snapshot.id, snapshot.data() ?? {});
+  if (options.allowDelivery && previous.status !== "running") {
+    throw new AdminRepositoryError(
+      "Only running service transactions can be marked delivered.",
+      409,
+    );
+  }
+  if (!options.allowDelivery && input.status === "delivered") {
+    throw new AdminRepositoryError(
+      "Use the dedicated deliver command to mark a service transaction delivered.",
+      409,
+    );
+  }
+  if (!options.allowDelivery && TERMINAL_TRANSACTION_STATUSES.has(previous.status)) {
+    throw new AdminRepositoryError(
+      "Terminal service transactions cannot be edited.",
+      409,
+    );
+  }
+  if (
+    input.outputObjects !== undefined &&
+    stableString(comparableOutputObjects(input.outputObjects)) !==
+      stableString(comparableOutputObjects(previous.outputObjects))
+  ) {
+    throw new AdminRepositoryError(
+      "Output objects can only be attached through the dedicated output-object command.",
+      409,
+    );
+  }
   rejectImmutableTransactionChanges(input, previous);
   const offer = offerFromFrozenTransaction(previous);
   const document = applyFrozenTransactionOfferContract(
@@ -4323,7 +4899,7 @@ export async function updateSupportServiceTransaction(
       requestRevision: previous.requestRevision + 1,
       idempotencyKey: previous.idempotencyKey,
       inputs: input.inputs ?? previous.inputs,
-      outputObjects: input.outputObjects ?? previous.outputObjects,
+      outputObjects: previous.outputObjects,
       outputReports: input.outputReports ?? previous.outputReports,
       issues: input.issues ?? previous.issues,
       offerSnapshot: previous.offerSnapshot,
@@ -4335,6 +4911,10 @@ export async function updateSupportServiceTransaction(
   );
   validateTransactionDocument(document, offer);
   assertTransactionStatusTransition(previous.status, document);
+  const downloadedObjects =
+    document.status === "delivered"
+      ? await downloadAttachedOutputObjects(document)
+      : new Map<string, DownloadedPgoObject>();
 
   const userRef = adminDb
     .collection(COMMUNITY_USERS_COLLECTION)
@@ -4366,6 +4946,12 @@ export async function updateSupportServiceTransaction(
         409,
       );
     }
+    if (options.allowDelivery && latest.status !== "running") {
+      throw new AdminRepositoryError(
+        "Only running service transactions can be marked delivered.",
+        409,
+      );
+    }
     assertTransactionStatusTransition(latest.status, document);
     if (!userSnapshot.exists) {
       throw new AdminRepositoryError(
@@ -4393,6 +4979,7 @@ export async function updateSupportServiceTransaction(
       offer,
       (reference) => firestoreTransaction.get(reference),
       providerOwnerId,
+      downloadedObjects,
     );
     const userData = userSnapshot.data() ?? {};
     const summaries = Array.isArray(userData[REQUESTED_TRANSACTIONS_FIELD])
@@ -4466,6 +5053,28 @@ export async function updateSupportServiceTransaction(
   });
 
   return getSupportServiceTransaction(context, snapshot.id);
+}
+
+export async function updateSupportServiceTransaction(
+  context: AdminContext,
+  transactionId: string,
+  input: SupportServiceTransactionInput,
+) {
+  return persistSupportServiceTransactionUpdate(context, transactionId, input, {
+    allowDelivery: false,
+  });
+}
+
+export async function deliverSupportServiceTransaction(
+  context: AdminContext,
+  transactionId: string,
+) {
+  return persistSupportServiceTransactionUpdate(
+    context,
+    transactionId,
+    { status: "delivered" },
+    { allowDelivery: true },
+  );
 }
 
 function requestedTransactionSummariesAfterRemoval(

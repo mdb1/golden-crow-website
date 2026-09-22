@@ -72,4 +72,16 @@ describe("favicon extraction", () => {
     );
     expect(fetch).not.toHaveBeenCalled();
   });
+
+  it("blocks private IPv4 destinations encoded as IPv6 literals", async () => {
+    const { assertSafeFetchUrl } = await import("../lib/favicon.js");
+
+    await expect(
+      assertSafeFetchUrl(new URL("https://[::ffff:127.0.0.1]/")),
+    ).rejects.toThrow("URL destination is not allowed.");
+    await expect(
+      assertSafeFetchUrl(new URL("https://[::ffff:a9fe:a9fe]/")),
+    ).rejects.toThrow("URL destination is not allowed.");
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });

@@ -9,6 +9,8 @@ const mockCreateSupportServiceOffer = jest.fn();
 const mockDeleteSupportServiceOffer = jest.fn();
 const mockListSupportServiceTransactions = jest.fn();
 const mockCreateSupportServiceTransaction = jest.fn();
+const mockAttachSupportServiceTransactionOutputObject = jest.fn();
+const mockDeliverSupportServiceTransaction = jest.fn();
 
 jest.mock("../repositories/support-services.repository.js", () => ({
   SUPPORT_SERVICE_STAGES: ["test_planning", "wet_lab", "bioinformatics"],
@@ -47,10 +49,13 @@ jest.mock("../repositories/support-services.repository.js", () => ({
     "failed",
     "cancelled",
   ],
+  attachSupportServiceTransactionOutputObject:
+    mockAttachSupportServiceTransactionOutputObject,
   createSupportServiceOffer: mockCreateSupportServiceOffer,
   createSupportServiceTransaction: mockCreateSupportServiceTransaction,
   deleteSupportServiceOffer: mockDeleteSupportServiceOffer,
   deleteSupportServiceTransaction: jest.fn(),
+  deliverSupportServiceTransaction: mockDeliverSupportServiceTransaction,
   getSupportServiceOffer: jest.fn(),
   getSupportServiceTransaction: jest.fn(),
   listSupportServiceOffers: jest.fn(),
@@ -176,6 +181,33 @@ describe("support service admin routes", () => {
       id: "txn-1",
       requestId: "pgr_demo_final_report",
       serviceId: "pgs_pocket_genes_report_studio_1",
+    });
+    mockAttachSupportServiceTransactionOutputObject.mockResolvedValue({
+      transaction: {
+        id: "txn-1",
+        requestId: "pgr_demo_final_report",
+        outputObjects: [
+          {
+            role: "report",
+            objectType: "pgo_pdf_report",
+            objectCode: "123456789",
+          },
+        ],
+      },
+      object: {
+        id: "pgo_output_123456789",
+        role: "report",
+        objectCode: "123456789",
+        objectType: "pgo_pdf_report",
+        fileName: "report.pgo.json",
+        downloadUrl: "https://objects.example/report.pgo.json",
+        status: "ready",
+      },
+    });
+    mockDeliverSupportServiceTransaction.mockResolvedValue({
+      id: "txn-1",
+      requestId: "pgr_demo_final_report",
+      status: "delivered",
     });
   });
 
@@ -559,6 +591,87 @@ describe("support service admin routes", () => {
     const [, transactionBody] =
       mockCreateSupportServiceTransaction.mock.calls.at(-1) ?? [];
     expect(transactionBody).not.toHaveProperty("formRef");
+  });
+
+  it("attaches an output object from a strict download URL command", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
+      payload: {
+        role: "report",
+        fileName: "report.pgo.json",
+        downloadUrl: "https://objects.example/report.pgo.json",
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        object: expect.objectContaining({
+          role: "report",
+          objectCode: "123456789",
+          status: "ready",
+        }),
+      }),
+    );
+    expect(mockAttachSupportServiceTransactionOutputObject).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      {
+        role: "report",
+        fileName: "report.pgo.json",
+        downloadUrl: "https://objects.example/report.pgo.json",
+      },
+    );
+  });
+
+  it("rejects client-supplied output types and insecure URLs", async () => {
+    const fastify = await buildTestServer();
+
+    const withType = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
+      payload: {
+        role: "report",
+        objectType: "pgo_pdf_report",
+        fileName: "report.pgo.json",
+        downloadUrl: "https://objects.example/report.pgo.json",
+      },
+    });
+    const insecure = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
+      payload: {
+        role: "report",
+        fileName: "report.pgo.json",
+        downloadUrl: "http://objects.example/report.pgo.json",
+      },
+    });
+
+    expect(withType.statusCode).toBe(400);
+    expect(insecure.statusCode).toBe(400);
+    expect(mockAttachSupportServiceTransactionOutputObject).not.toHaveBeenCalled();
+  });
+
+  it("marks a transaction delivered only through the dedicated command", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/deliver",
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      transaction: expect.objectContaining({ status: "delivered" }),
+    });
+    expect(mockDeliverSupportServiceTransaction).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+    );
   });
 
   it("returns a JSON success payload after deleting a service offer", async () => {

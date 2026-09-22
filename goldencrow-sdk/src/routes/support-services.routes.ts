@@ -7,10 +7,12 @@ import {
   SUPPORT_SERVICE_OBJECT_TYPES,
   SUPPORT_SERVICE_STAGES,
   SUPPORT_SERVICE_TRANSACTION_STATUSES,
+  attachSupportServiceTransactionOutputObject,
   createSupportServiceOffer,
   createSupportServiceTransaction,
   deleteSupportServiceOffer,
   deleteSupportServiceTransaction,
+  deliverSupportServiceTransaction,
   getSupportServiceOffer,
   getSupportServiceTransaction,
   listSupportServiceOffers,
@@ -299,6 +301,27 @@ const OfferParamsSchema = z.object({
 const TransactionParamsSchema = z.object({
   transactionId: z.string().trim().min(1),
 });
+const OutputObjectBodySchema = z
+  .object({
+    role: RoleSchema,
+    fileName: z.string().trim().min(1).max(255),
+    downloadUrl: z
+      .string()
+      .trim()
+      .url()
+      .refine(
+        (value) => {
+          try {
+            return new URL(value).protocol === "https:";
+          } catch {
+            return false;
+          }
+        },
+        { message: "downloadUrl must use HTTPS." },
+      ),
+  })
+  .strict();
+const EmptyCommandBodySchema = z.object({}).strict();
 
 function sendRepositoryError(reply: FastifyReply, error: unknown) {
   if (isAdminRepositoryError(error)) {
@@ -367,6 +390,49 @@ export async function supportServicesRoutes(
           request.params.offerId,
         );
         return reply.send({ offer });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/admin/support-services/transactions/:transactionId/output-objects",
+    {
+      schema: {
+        params: TransactionParamsSchema,
+        body: OutputObjectBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await attachSupportServiceTransactionOutputObject(
+          request.adminContext!,
+          request.params.transactionId,
+          request.body,
+        );
+        return reply.status(201).send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/admin/support-services/transactions/:transactionId/deliver",
+    {
+      schema: {
+        params: TransactionParamsSchema,
+        body: EmptyCommandBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const transaction = await deliverSupportServiceTransaction(
+          request.adminContext!,
+          request.params.transactionId,
+        );
+        return reply.send({ transaction });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

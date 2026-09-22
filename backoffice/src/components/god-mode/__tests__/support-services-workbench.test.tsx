@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import {
   SupportServiceOfferWorkbench,
@@ -148,6 +148,18 @@ const deliveredTransaction: SupportServiceTransactionRecord = {
   normalizedName: "pgr frozen 1",
   createdAt: "2026-09-20T12:00:00.000Z",
   updatedAt: "2026-09-21T12:00:00.000Z",
+};
+
+const runningTransaction: SupportServiceTransactionRecord = {
+  ...deliveredTransaction,
+  id: "pgr_running_1",
+  requestId: "pgr_running_1",
+  status: "running",
+  requestRevision: 2,
+  outputObjects: [],
+  outputReports: [],
+  issues: [],
+  normalizedName: "pgr running 1",
 };
 
 const currentLiveOffer: SupportServiceOfferRecord = {
@@ -392,6 +404,13 @@ describe("support services workbenches", () => {
       screen.getByText("Terminal transactions cannot be reopened."),
     ).toBeTruthy();
     expect(screen.queryByRole("combobox")).toBeNull();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Ready object linked · result",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
 
     expect(
       (screen.getByLabelText("Object ID · form") as HTMLInputElement).value,
@@ -412,7 +431,63 @@ describe("support services workbenches", () => {
         .value,
     ).toBe("owner-form-1");
 
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(
+      (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen
+          .getByLabelText("Object ID · form")
+          .closest("fieldset") as HTMLFieldSetElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      sdkFetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
+
+    expect(sdkFetchMock).toHaveBeenCalledWith(
+      `/admin/support-services/offers/${deliveredTransaction.offerId}`,
+    );
+  });
+
+  it("round-trips the frozen transaction contract without legacy keys", async () => {
+    const editableTransaction: SupportServiceTransactionRecord = {
+      ...deliveredTransaction,
+      id: "pgr_editable_1",
+      requestId: "pgr_editable_1",
+      status: "running",
+      requestRevision: 2,
+      normalizedName: "pgr editable 1",
+    };
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        return { transaction: editableTransaction };
+      }
+      if (String(path).endsWith(`/transactions/${editableTransaction.requestId}`)) {
+        return { transaction: editableTransaction };
+      }
+      if (String(path).endsWith(`/offers/${editableTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${String(path)}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={editableTransaction.requestId}
+      />,
+    );
+
+    await screen.findByText("Accepted frozen service");
+    await screen.findAllByText("Running");
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => {
+      expect((saveButton as HTMLButtonElement).disabled).toBe(false);
+    });
+    fireEvent.click(saveButton);
 
     await waitFor(() => {
       const putCall = sdkFetchMock.mock.calls.find(
@@ -422,26 +497,188 @@ describe("support services workbenches", () => {
       expect(putCall).toBeTruthy();
       const payload = JSON.parse(String(putCall?.[1]?.body));
 
-      expect(payload.status).toBe("delivered");
+      expect(payload.status).toBe("running");
       expect(payload.requestedAtClient).toBe(
-        deliveredTransaction.requestedAtClient,
+        editableTransaction.requestedAtClient,
       );
-      expect(payload.inputs).toEqual(deliveredTransaction.inputs);
-      expect(payload.outputObjects).toEqual(deliveredTransaction.outputObjects);
-      expect(payload.outputReports).toEqual(deliveredTransaction.outputReports);
-      expect(payload.issues).toEqual(deliveredTransaction.issues);
+      expect(payload.inputs).toEqual(editableTransaction.inputs);
+      expect(payload.outputObjects).toEqual(editableTransaction.outputObjects);
+      expect(payload.outputReports).toEqual(editableTransaction.outputReports);
+      expect(payload.issues).toEqual(editableTransaction.issues);
       expect(payload.offerSnapshot).toEqual(frozenOfferSnapshot);
       expect(payload.providerSnapshot).toEqual(
-        deliveredTransaction.providerSnapshot,
+        editableTransaction.providerSnapshot,
       );
       expect(payload).not.toHaveProperty("outputs");
       expect(payload).not.toHaveProperty("requesterEmail");
       expect(payload).not.toHaveProperty("subjectId");
       expect(payload).not.toHaveProperty("notes");
     });
+  });
 
-    expect(sdkFetchMock).toHaveBeenCalledWith(
-      `/admin/support-services/offers/${deliveredTransaction.offerId}`,
+  it("creates each frozen output object through the upload flow and delivers only through the dedicated action", async () => {
+    const uploadedTransaction: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      requestRevision: 3,
+      outputObjects: [
+        {
+          role: "result",
+          objectType: "pgo_pdf_report",
+          objectCode: "246813579",
+        },
+      ],
+    };
+    const finalTransaction: SupportServiceTransactionRecord = {
+      ...uploadedTransaction,
+      requestRevision: 4,
+      status: "delivered",
+    };
+    let storedTransaction = runningTransaction;
+    let resolveUpload: (() => void) | undefined;
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(`/transactions/${runningTransaction.requestId}`) &&
+        !init?.method
+      ) {
+        return { transaction: storedTransaction };
+      }
+      if (value.endsWith(`/offers/${runningTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      if (value.endsWith("/output-objects") && init?.method === "POST") {
+        const payload = JSON.parse(String(init.body));
+        expect(payload).toEqual({
+          role: "result",
+          fileName: "result.pgobject.json",
+          downloadUrl: "https://example.org/result.pgobject.json",
+        });
+        expect(payload).not.toHaveProperty("objectType");
+        await new Promise<void>((resolve) => {
+          resolveUpload = resolve;
+        });
+        storedTransaction = uploadedTransaction;
+        return {
+          transaction: uploadedTransaction,
+          object: {
+            id: "uploaded-result-1",
+            role: "result",
+            objectCode: "246813579",
+            objectType: "pgo_pdf_report",
+            fileName: "result.pgobject.json",
+            downloadUrl: "https://example.org/result.pgobject.json",
+            status: "ready",
+          },
+        };
+      }
+      if (value.endsWith("/deliver") && init?.method === "POST") {
+        expect(JSON.parse(String(init.body))).toEqual({});
+        storedTransaction = finalTransaction;
+        return { transaction: finalTransaction };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={runningTransaction.requestId}
+      />,
     );
+
+    const uploadSlot = await screen.findByRole("button", {
+      name: "Upload output object · result",
+    });
+    expect(screen.queryByText("live_result")).toBeNull();
+    const issuesInput = screen.getByPlaceholderText("Issues JSON array");
+    fireEvent.change(issuesInput, {
+      target: { value: '[{"code":"unsaved"}]' },
+    });
+    expect((uploadSlot as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      screen.getByText(
+        "Save other transaction changes before uploading output objects.",
+      ),
+    ).toBeTruthy();
+    fireEvent.change(issuesInput, { target: { value: "[]" } });
+    await waitFor(() => {
+      expect((uploadSlot as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    const statusPicker = screen.getByRole("combobox", {
+      name: "Transaction status options",
+    });
+    fireEvent.click(statusPicker);
+    expect(screen.queryByRole("option", { name: "Delivered" })).toBeNull();
+    fireEvent.keyDown(statusPicker, { key: "Escape" });
+
+    const deliverButton = screen.getByRole("button", {
+      name: "Mark as delivered",
+    }) as HTMLButtonElement;
+    expect(deliverButton.disabled).toBe(true);
+
+    fireEvent.click(uploadSlot);
+    fireEvent.change(screen.getByLabelText("File name"), {
+      target: { value: "result.pgobject.json" },
+    });
+    fireEvent.change(screen.getByLabelText("Download URL"), {
+      target: { value: "https://example.org/result.pgobject.json" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create and link object" }),
+    );
+
+    const creatingButton = await screen.findByRole("button", {
+      name: "Creating object...",
+    });
+    expect((creatingButton as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+
+    await act(async () => {
+      resolveUpload?.();
+    });
+
+    expect(await screen.findByText("246813579")).toBeTruthy();
+    expect(screen.getByText("Request revision").parentElement?.textContent).toContain(
+      "3",
+    );
+    await waitFor(() => {
+      expect(deliverButton.disabled).toBe(false);
+    });
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Ready object linked · result",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+
+    fireEvent.click(deliverButton);
+
+    await waitFor(() => {
+      expect(
+        sdkFetchMock.mock.calls.some(
+          ([path, init]) =>
+            String(path).endsWith("/deliver") && init?.method === "POST",
+        ),
+      ).toBe(true);
+    });
+    expect(
+      await screen.findByText("Service transaction marked as delivered."),
+    ).toBeTruthy();
+
+    const issuesHeading = screen.getByRole("heading", { name: "Issues" });
+    const statusHeading = screen.getByRole("heading", {
+      name: "Transaction status",
+    });
+    expect(
+      issuesHeading.compareDocumentPosition(statusHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

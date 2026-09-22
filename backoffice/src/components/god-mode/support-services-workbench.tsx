@@ -187,6 +187,26 @@ type OutputObjectDraft = {
   role: string;
   objectType: string;
   objectCode: string;
+  fileName?: string;
+  downloadUrl?: string;
+};
+
+type OutputObjectUploadDraft = {
+  index: number;
+  role: string;
+  objectType: string;
+  fileName: string;
+  downloadUrl: string;
+};
+
+type CreatedOutputObject = {
+  id: string;
+  role: string;
+  objectCode: string;
+  objectType: string;
+  fileName: string;
+  downloadUrl: string;
+  status: "ready";
 };
 
 type TransactionFormState = {
@@ -1201,9 +1221,6 @@ function transactionFormFromRecord(
   const contractInputRoles = new Set(
     contractInputSlots.map((slot) => slot.role),
   );
-  const contractOutputRoles = new Set(
-    contractOutputSlots.map((slot) => slot.role),
-  );
   const inputs = [
     ...contractInputSlots.map((slot) => {
       const existing = inputByRole.get(slot.role);
@@ -1215,21 +1232,16 @@ function transactionFormFromRecord(
       .filter((slot) => !contractInputRoles.has(slot.role))
       .map((slot) => transactionInputDraft(slot)),
   ];
-  const outputObjects = [
-    ...contractOutputSlots.map((slot) => {
-      const existing = outputByRole.get(slot.role);
-      return existing
-        ? {
-            role: existing.role,
-            objectType: existing.objectType,
-            objectCode: existing.objectCode,
-          }
-        : outputObjectDraft(slot, contractInputSlots);
-    }),
-    ...recordOutputObjects
-      .filter((output) => !contractOutputRoles.has(output.role))
-      .map((output) => ({ ...output })),
-  ];
+  const outputObjects = contractOutputSlots.map((slot) => {
+    const existing = outputByRole.get(slot.role);
+    return existing
+      ? {
+          role: existing.role,
+          objectType: existing.objectType,
+          objectCode: existing.objectCode,
+        }
+      : outputObjectDraft(slot, contractInputSlots);
+  });
 
   const providerSnapshot = record.providerSnapshot ?? {
     id: record.providerId,
@@ -1266,6 +1278,17 @@ function transactionFormFromRecord(
     contractSource: record.contractSource ?? "service_offer",
     attachmentsPending: Boolean(record.attachmentsPending),
   };
+}
+
+function transactionEditableFingerprint(form: TransactionFormState) {
+  return JSON.stringify({
+    status: form.status,
+    inputs: form.inputs,
+    outputReportCodesText: form.outputReportCodesText,
+    issuesText: form.issuesText,
+    missingRequiredInputRoles: form.missingRequiredInputRoles,
+    attachmentsPending: form.attachmentsPending,
+  });
 }
 
 function assertIdentifier(value: string, prefix: string, label: string) {
@@ -1847,7 +1870,6 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
     },
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
-
   function handleDelete(
     record: SupportServiceOfferRecord | SupportServiceTransactionRecord,
   ) {
@@ -4868,6 +4890,9 @@ export function SupportServiceTransactionWorkbench({
   );
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [outputUploadDraft, setOutputUploadDraft] =
+    useState<OutputObjectUploadDraft | null>(null);
+  const [outputUploadError, setOutputUploadError] = useState("");
   const isEditing = mode === "edit";
 
   function nextToastId() {
@@ -4886,6 +4911,16 @@ export function SupportServiceTransactionWorkbench({
     enabled: isEditing && Boolean(transactionId),
   });
   const transactionRecord = transactionQuery.data?.transaction ?? null;
+  const persistedTransactionForm = useMemo(
+    () =>
+      transactionRecord ? transactionFormFromRecord(transactionRecord) : null,
+    [transactionRecord],
+  );
+  const hasUnsavedTransactionChanges = Boolean(
+    persistedTransactionForm &&
+      transactionEditableFingerprint(form) !==
+        transactionEditableFingerprint(persistedTransactionForm),
+  );
 
   const offersQuery = useInfiniteQuery({
     queryKey: [LIVE_OFFERS_QUERY_KEY],
@@ -4974,7 +5009,9 @@ export function SupportServiceTransactionWorkbench({
       !transactionRecord ||
       TERMINAL_TRANSACTION_STATUSES.has(transactionRecord.status)
     ) {
-      return SUPPORT_SERVICE_TRANSACTION_STATUSES;
+      return SUPPORT_SERVICE_TRANSACTION_STATUSES.filter(
+        (option) => option.value !== "delivered",
+      );
     }
     const allowed =
       ALLOWED_TRANSACTION_STATUS_TRANSITIONS[
@@ -4982,9 +5019,12 @@ export function SupportServiceTransactionWorkbench({
       ];
     return SUPPORT_SERVICE_TRANSACTION_STATUSES.filter(
       (option) =>
-        option.value === transactionRecord.status || allowed.has(option.value),
+        option.value !== "delivered" &&
+        (option.value === form.status ||
+          option.value === transactionRecord.status ||
+          allowed.has(option.value)),
     );
-  }, [transactionRecord]);
+  }, [form.status, transactionRecord]);
   const frozenOfferName =
     typeof form.offerSnapshot.name === "string"
       ? form.offerSnapshot.name
@@ -4993,6 +5033,36 @@ export function SupportServiceTransactionWorkbench({
     typeof form.offerSnapshot.shortContract === "string"
       ? form.offerSnapshot.shortContract
       : "";
+  const frozenInputSlots = Array.isArray(form.offerSnapshot.inputSlots)
+    ? form.offerSnapshot.inputSlots
+    : [];
+  const frozenOutputSlots = Array.isArray(form.offerSnapshot.outputSlots)
+    ? form.offerSnapshot.outputSlots
+    : [];
+  const expectedOutputObjects = frozenOutputSlots.map((slot) =>
+    outputObjectDraft(slot, frozenInputSlots),
+  );
+  const allOutputSlotsReady =
+    expectedOutputObjects.length > 0 &&
+    form.outputObjects.length === expectedOutputObjects.length &&
+    expectedOutputObjects.every((expected) => {
+      const boundOutput = form.outputObjects.find(
+        (output) => output.role === expected.role,
+      );
+      return Boolean(
+        boundOutput &&
+          boundOutput.objectType === expected.objectType &&
+          /^\d{9}$/.test(boundOutput.objectCode),
+      );
+    });
+  const canMarkDelivered = Boolean(
+    isEditing &&
+      transactionRecord?.status === "running" &&
+      form.status === "running" &&
+      !hasUnsavedTransactionChanges &&
+      !terminalStatusLocked &&
+      allOutputSlotsReady,
+  );
 
   const saveMutation = useMutation({
     mutationFn: async (payload: SupportServiceTransactionInput) => {
@@ -5026,6 +5096,100 @@ export function SupportServiceTransactionWorkbench({
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
+  const uploadOutputMutation = useMutation({
+    mutationFn: async (draft: OutputObjectUploadDraft) =>
+      sdkFetch<{
+        transaction: SupportServiceTransactionRecord;
+        object: CreatedOutputObject;
+      }>(
+        `/admin/support-services/transactions/${encodeURIComponent(
+          transactionId ?? "",
+        )}/output-objects`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            role: draft.role,
+            fileName: draft.fileName.trim(),
+            downloadUrl: draft.downloadUrl.trim(),
+          }),
+        },
+      ),
+    onSuccess: async (result, draft) => {
+      if (
+        result.object.role !== draft.role ||
+        result.object.objectType !== draft.objectType ||
+        !/^\d{9}$/.test(result.object.objectCode)
+      ) {
+        setOutputUploadError(
+          t("The created object does not match the selected output slot."),
+        );
+        return;
+      }
+
+      const authoritativeForm = transactionFormFromRecord(result.transaction);
+      authoritativeForm.outputObjects = authoritativeForm.outputObjects.map(
+        (output) =>
+          output.role === draft.role
+            ? {
+                ...output,
+                fileName: result.object.fileName,
+                downloadUrl: result.object.downloadUrl,
+              }
+            : output,
+      );
+      setForm(authoritativeForm);
+      queryClient.setQueryData(
+        [TRANSACTIONS_QUERY_KEY, transactionId],
+        { transaction: result.transaction },
+      );
+      setOutputUploadDraft(null);
+      setOutputUploadError("");
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTIONS_QUERY_KEY],
+      });
+      setToast({
+        id: nextToastId(),
+        tone: "success",
+        message: t("Output object created and linked."),
+      });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Action failed.";
+      setOutputUploadError(t(message));
+      setToast(mutationErrorToast(error, nextToastId(), t));
+    },
+  });
+
+  const deliverMutation = useMutation({
+    mutationFn: async () =>
+      sdkFetch<{ transaction: SupportServiceTransactionRecord }>(
+        `/admin/support-services/transactions/${encodeURIComponent(
+          transactionId ?? "",
+        )}/deliver`,
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      ),
+    onSuccess: async (result) => {
+      setForm(transactionFormFromRecord(result.transaction));
+      queryClient.setQueryData(
+        [TRANSACTIONS_QUERY_KEY, transactionId],
+        { transaction: result.transaction },
+      );
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTIONS_QUERY_KEY],
+      });
+      setToast({
+        id: nextToastId(),
+        tone: "success",
+        message: t("Service transaction marked as delivered."),
+      });
+      router.refresh();
+    },
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () =>
       sdkFetch(
@@ -5043,6 +5207,11 @@ export function SupportServiceTransactionWorkbench({
     },
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
+  const transactionCommandPending =
+    saveMutation.isPending ||
+    uploadOutputMutation.isPending ||
+    deliverMutation.isPending ||
+    deleteMutation.isPending;
 
   function handleServiceChange(offerId: string) {
     setForm(transactionFormForOfferId(offerId, liveOffers));
@@ -5065,21 +5234,93 @@ export function SupportServiceTransactionWorkbench({
     });
   }
 
-  function updateOutputObject(
-    index: number,
-    patch: Partial<OutputObjectDraft>,
-  ) {
-    setForm((current) => ({
-      ...current,
-      outputObjects: current.outputObjects.map((output, outputIndex) =>
-        outputIndex === index ? { ...output, ...patch } : output,
-      ),
-    }));
+  function openOutputUpload(index: number) {
+    const output = form.outputObjects[index];
+    if (
+      !output ||
+      !isEditing ||
+      terminalStatusLocked ||
+      hasUnsavedTransactionChanges
+    ) {
+      return;
+    }
+    setOutputUploadError("");
+    setOutputUploadDraft({
+      index,
+      role: output.role,
+      objectType: output.objectType,
+      fileName: "",
+      downloadUrl: "",
+    });
+  }
+
+  function handleOutputUpload(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!outputUploadDraft || !transactionId) {
+      return;
+    }
+
+    const fileName = outputUploadDraft.fileName.trim();
+    const downloadUrl = outputUploadDraft.downloadUrl.trim();
+    if (!fileName) {
+      setOutputUploadError(t("File name is required."));
+      return;
+    }
+
+    try {
+      const parsedUrl = new URL(downloadUrl);
+      if (parsedUrl.protocol !== "https:") {
+        throw new Error("invalid protocol");
+      }
+    } catch {
+      setOutputUploadError(t("Use a valid HTTPS download URL."));
+      return;
+    }
+
+    setOutputUploadError("");
+    uploadOutputMutation.mutate({
+      ...outputUploadDraft,
+      fileName,
+      downloadUrl,
+    });
+  }
+
+  function handleMarkDelivered() {
+    try {
+      if (!isEditing || !transactionId || !transactionRecord) {
+        throw new Error("Save the transaction before marking it as delivered.");
+      }
+      if (transactionRecord.status !== "running") {
+        throw new Error(
+          "The transaction must be running before it can be marked as delivered.",
+        );
+      }
+      if (hasUnsavedTransactionChanges) {
+        throw new Error(
+          "Save other transaction changes before marking it as delivered.",
+        );
+      }
+      if (!allOutputSlotsReady) {
+        throw new Error(
+          "Upload a valid object for every promised output before marking the transaction as delivered.",
+        );
+      }
+
+      deliverMutation.mutate();
+    } catch (error) {
+      setToast(mutationErrorToast(error, nextToastId(), t));
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
+      if (terminalStatusLocked) {
+        throw new Error("Terminal service transactions cannot be edited.");
+      }
+      if (transactionCommandPending) {
+        return;
+      }
       if (!isEditing && !selectedOffer) {
         throw new Error("Choose an existing service offer.");
       }
@@ -5109,6 +5350,8 @@ export function SupportServiceTransactionWorkbench({
           backHref="/god-mode/service-transactions"
           backLabel="Back to Service Transactions"
           isSaving={saveMutation.isPending}
+          saveDisabled={terminalStatusLocked || transactionCommandPending}
+          deleteDisabled={transactionCommandPending}
           canDelete={isEditing}
           onDelete={() => {
             if (window.confirm(t("Delete this service transaction?"))) {
@@ -5116,6 +5359,10 @@ export function SupportServiceTransactionWorkbench({
             }
           }}
         />
+        <fieldset
+          className="contents"
+          disabled={terminalStatusLocked || transactionCommandPending}
+        >
         <Section title="Request identity">
           <div className="grid gap-4 lg:grid-cols-2">
             <Field label="Service">
@@ -5200,41 +5447,6 @@ export function SupportServiceTransactionWorkbench({
                     </Button>
                   ) : null}
                 </div>
-              )}
-            </Field>
-            <Field label="Status">
-              {!isEditing || terminalStatusLocked ? (
-                <div className="grid gap-2">
-                  <GeneratedValue
-                    value={t(transactionStatusLabel(form.status))}
-                  />
-                  {terminalStatusLocked ? (
-                    <p className="text-xs text-muted-foreground">
-                      {t("Terminal transactions cannot be reopened.")}
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <Select
-                  value={form.status}
-                  onValueChange={(status) =>
-                    setForm((current) => ({
-                      ...current,
-                      status: status as TransactionFormState["status"],
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {selectableTransactionStatuses.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {t(option.label)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               )}
             </Field>
             <Field label="Request ID">
@@ -5353,11 +5565,24 @@ export function SupportServiceTransactionWorkbench({
           ) : null}
         </Section>
         <Section title="Delivered output objects">
-          <OutputObjectTable
+          <OutputObjectGrid
             outputs={form.outputObjects}
-            status={form.status}
-            onChange={updateOutputObject}
+            canUpload={
+              isEditing &&
+              !terminalStatusLocked &&
+              !hasUnsavedTransactionChanges
+            }
+            onSelect={openOutputUpload}
           />
+          {!isEditing ? (
+            <p className="text-sm text-muted-foreground">
+              {t("Save the transaction before uploading output objects.")}
+            </p>
+          ) : hasUnsavedTransactionChanges ? (
+            <p className="text-sm text-amber-700 dark:text-amber-200">
+              {t("Save other transaction changes before uploading output objects.")}
+            </p>
+          ) : null}
           <div className="mt-4">
             <Field label="Optional report codes">
               <Textarea
@@ -5393,19 +5618,153 @@ export function SupportServiceTransactionWorkbench({
             placeholder={t("Issues JSON array")}
           />
         </Section>
+        <Section title="Transaction status">
+          <div className="overflow-hidden rounded-2xl border border-violet-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(245,243,255,0.90)_58%,rgba(240,249,255,0.72))] p-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/18 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.82))]">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-start">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                    {t("Current status")}
+                  </span>
+                  <Badge
+                    variant={form.status === "delivered" ? "default" : "secondary"}
+                    className="px-3 py-1 text-sm"
+                  >
+                    {t(transactionStatusLabel(form.status))}
+                  </Badge>
+                </div>
+                {terminalStatusLocked ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {t("Terminal transactions cannot be reopened.")}
+                  </p>
+                ) : isEditing ? (
+                  <div className="mt-4 max-w-md">
+                    <Field label="Change status">
+                      <Select
+                        value={form.status}
+                        onValueChange={(status) => {
+                          if (!status) {
+                            return;
+                          }
+                          setForm((current) => ({
+                            ...current,
+                            status: status as TransactionFormState["status"],
+                          }));
+                        }}
+                      >
+                        <SelectTrigger aria-label={t("Transaction status options")}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectableTransactionStatuses.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {t(option.label)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {t(
+                        "Delivered is available only through Mark as delivered after every output is ready.",
+                      )}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {t("New transactions start with Received status.")}
+                  </p>
+                )}
+              </div>
+
+              {isEditing ? (
+                <div className="grid gap-3 rounded-2xl border border-violet-100 bg-white/78 p-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-muted-foreground">
+                      {t("Output slots ready")}
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {
+                        form.outputObjects.filter((output) =>
+                          /^\d{9}$/.test(output.objectCode),
+                        ).length
+                      }
+                      /{form.outputObjects.length}
+                    </span>
+                  </div>
+                  {hasUnsavedTransactionChanges ? (
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "Save other transaction changes before marking it as delivered.",
+                      )}
+                    </p>
+                  ) : transactionRecord?.status !== "running" &&
+                  transactionRecord?.status !== "delivered" ? (
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "The transaction must be running before it can be marked as delivered.",
+                      )}
+                    </p>
+                  ) : !allOutputSlotsReady && form.status !== "delivered" ? (
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "Upload a valid object for every promised output before marking the transaction as delivered.",
+                      )}
+                    </p>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="lg"
+                    onClick={handleMarkDelivered}
+                    disabled={
+                      !canMarkDelivered ||
+                      deliverMutation.isPending ||
+                      uploadOutputMutation.isPending ||
+                      saveMutation.isPending
+                    }
+                    className="h-14 w-full justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                  >
+                    {deliverMutation.isPending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-5 w-5" />
+                    )}
+                    {deliverMutation.isPending
+                      ? t("Marking as delivered...")
+                      : t("Mark as delivered")}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </Section>
+        </fieldset>
       </form>
+      <OutputObjectUploadDialog
+        draft={outputUploadDraft}
+        error={outputUploadError}
+        pending={uploadOutputMutation.isPending}
+        onDraftChange={setOutputUploadDraft}
+        onClose={() => {
+          if (!uploadOutputMutation.isPending) {
+            setOutputUploadDraft(null);
+            setOutputUploadError("");
+          }
+        }}
+        onSubmit={handleOutputUpload}
+      />
     </>
   );
 }
 
-function OutputObjectTable({
+function OutputObjectGrid({
   outputs,
-  status,
-  onChange,
+  canUpload,
+  onSelect,
 }: {
   outputs: OutputObjectDraft[];
-  status: TransactionFormState["status"];
-  onChange: (index: number, patch: Partial<OutputObjectDraft>) => void;
+  canUpload: boolean;
+  onSelect: (index: number) => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -5420,52 +5779,206 @@ function OutputObjectTable({
   }
 
   return (
-    <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("Role")}</TableHead>
-            <TableHead>{t("Promised object type")}</TableHead>
-            <TableHead>{t("Object code")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {outputs.map((output, index) => (
-            <TableRow key={`${output.role}-${index}`}>
-              <TableCell className="font-mono text-sm">{output.role}</TableCell>
-              <TableCell className="min-w-[14rem]">
-                <Badge variant="secondary">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {outputs.map((output, index) => {
+        const ready = /^\d{9}$/.test(output.objectCode);
+        const actionLabel = ready
+          ? `${t("Ready object linked")} · ${output.role}`
+          : `${t("Upload output object")} · ${output.role}`;
+
+        return (
+          <button
+            key={`${output.role}-${index}`}
+            type="button"
+            aria-label={actionLabel}
+            onClick={() => onSelect(index)}
+            disabled={!canUpload || ready}
+            className={cn(
+              "group grid min-h-48 gap-4 rounded-2xl border-2 border-dashed p-5 text-left transition",
+              ready
+                ? "border-emerald-300 bg-emerald-50/55 shadow-[0_18px_48px_-38px_rgba(5,150,105,0.55)] dark:border-emerald-400/34 dark:bg-emerald-500/10"
+                : "border-violet-200 bg-white/74 hover:border-violet-400 hover:bg-violet-50/70 hover:shadow-[0_18px_48px_-38px_rgba(109,40,217,0.6)] dark:border-violet-400/22 dark:bg-slate-950/38 dark:hover:border-violet-300/44 dark:hover:bg-violet-500/10",
+              (!canUpload || ready) && "cursor-default opacity-80",
+            )}
+          >
+            <span className="flex items-start justify-between gap-3">
+              <span className="min-w-0">
+                <span className="block truncate font-mono text-xs font-semibold text-muted-foreground">
+                  {output.role}
+                </span>
+                <span className="mt-1 block font-heading text-base font-semibold text-foreground">
                   {bindingTypeLabel(output.objectType)}
-                </Badge>
-              </TableCell>
-              <TableCell className="min-w-[16rem]">
-                <Input
-                  value={output.objectCode}
-                  onChange={(event) =>
-                    onChange(index, {
-                      objectCode: event.target.value
-                        .replace(/\D/g, "")
-                        .slice(0, 9),
-                    })
-                  }
-                  inputMode="numeric"
-                  required={status === "delivered"}
-                  placeholder="000000000"
-                  maxLength={9}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      {status === "delivered" ? (
-        <div className="border-t border-violet-100/80 px-4 py-3 text-sm text-muted-foreground dark:border-violet-400/14">
-          {t(
-            "Delivered is accepted only after every code resolves to a ready uploaded object of the promised type.",
-          )}
-        </div>
-      ) : null}
+                </span>
+                <span className="mt-1 block truncate font-mono text-xs text-muted-foreground">
+                  {output.objectType}
+                </span>
+              </span>
+              <span
+                className={cn(
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-sm transition",
+                  ready
+                    ? "border-emerald-200 bg-white text-emerald-700 dark:border-emerald-400/28 dark:bg-emerald-500/12 dark:text-emerald-100"
+                    : "border-violet-200 bg-white text-violet-700 group-hover:scale-105 dark:border-violet-400/24 dark:bg-violet-500/12 dark:text-violet-100",
+                )}
+              >
+                {ready ? (
+                  <Check className="h-5 w-5" />
+                ) : (
+                  <Plus className="h-5 w-5" />
+                )}
+              </span>
+            </span>
+
+            <span className="mt-auto block">
+              {ready ? (
+                <>
+                  {output.fileName ? (
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {output.fileName}
+                    </span>
+                  ) : null}
+                  <span className="mt-1 block font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-200">
+                    {output.objectCode}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {t("Ready object linked")}
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm font-medium text-violet-700 dark:text-violet-100">
+                  {t("Add ready object")}
+                </span>
+              )}
+            </span>
+          </button>
+        );
+      })}
     </div>
+  );
+}
+
+function OutputObjectUploadDialog({
+  draft,
+  error,
+  pending,
+  onDraftChange,
+  onClose,
+  onSubmit,
+}: {
+  draft: OutputObjectUploadDraft | null;
+  error: string;
+  pending: boolean;
+  onDraftChange: (draft: OutputObjectUploadDraft | null) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <Dialog
+      open={Boolean(draft)}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent
+        showCloseButton={!pending}
+        className="max-w-xl overflow-hidden rounded-[2rem] border border-violet-100 p-0 shadow-[0_34px_120px_rgba(109,40,217,0.22)] dark:border-violet-300/22"
+      >
+        <form onSubmit={onSubmit}>
+          <DialogHeader className="border-b border-violet-100 px-6 py-5 text-left dark:border-violet-300/16">
+            <DialogTitle className="font-heading text-2xl font-semibold">
+              {t("Upload output object")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                "Provide a public download URL. The SDK validates the downloaded content against the exact PGO type before creating a ready object.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-5 px-6 py-6">
+            <div className="grid gap-2 rounded-2xl border border-violet-100 bg-violet-50/55 p-4 dark:border-violet-400/18 dark:bg-violet-500/10">
+              <span className="font-mono text-xs font-semibold text-muted-foreground">
+                {draft?.role ?? "-"}
+              </span>
+              <span className="font-semibold text-foreground">
+                {draft ? bindingTypeLabel(draft.objectType) : "-"}
+              </span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {draft?.objectType ?? "-"}
+              </span>
+            </div>
+
+            <Field label="File name">
+              <Input
+                value={draft?.fileName ?? ""}
+                onChange={(event) =>
+                  draft &&
+                  onDraftChange({ ...draft, fileName: event.target.value })
+                }
+                placeholder="result.pgobject.json"
+                disabled={pending}
+                autoFocus
+                required
+              />
+            </Field>
+            <Field label="Download URL">
+              <Input
+                value={draft?.downloadUrl ?? ""}
+                onChange={(event) =>
+                  draft &&
+                  onDraftChange({ ...draft, downloadUrl: event.target.value })
+                }
+                placeholder="https://example.org/result.pgobject.json"
+                inputMode="url"
+                type="url"
+                disabled={pending}
+                required
+              />
+            </Field>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
+              {t(
+                "Only finalized PGO wrappers supplied by HTTPS download URL are supported. File Storage references and in-progress objects are not accepted.",
+              )}
+            </div>
+            {error ? (
+              <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter className="gap-3 border-violet-100 bg-violet-50/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={pending}
+            >
+              {t("Cancel")}
+            </Button>
+            <Button
+              type="submit"
+              disabled={pending || !draft}
+              className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+            >
+              {pending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UploadCloud className="h-4 w-4" />
+              )}
+              {pending ? t("Creating object...") : t("Create and link object")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -5649,6 +6162,8 @@ function WorkbenchTopbar({
   backHref,
   backLabel,
   isSaving,
+  saveDisabled = false,
+  deleteDisabled = false,
   canDelete,
   onDelete,
   saveLabel = "Save",
@@ -5657,6 +6172,8 @@ function WorkbenchTopbar({
   backHref: string;
   backLabel: string;
   isSaving: boolean;
+  saveDisabled?: boolean;
+  deleteDisabled?: boolean;
   canDelete: boolean;
   onDelete: () => void;
   saveLabel?: string;
@@ -5704,6 +6221,7 @@ function WorkbenchTopbar({
             variant="outline"
             size="sm"
             onClick={onDelete}
+            disabled={deleteDisabled}
             className="h-9 rounded-xl border-destructive/30 bg-white/78 px-3 text-destructive shadow-sm hover:bg-destructive/5 hover:text-destructive dark:bg-slate-950/50"
           >
             <Trash2 className="h-4 w-4" />
@@ -5713,7 +6231,7 @@ function WorkbenchTopbar({
         <Button
           type="submit"
           size="sm"
-          disabled={isSaving}
+          disabled={isSaving || saveDisabled}
           className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
         >
           <CheckCircle2 className="h-4 w-4" />
