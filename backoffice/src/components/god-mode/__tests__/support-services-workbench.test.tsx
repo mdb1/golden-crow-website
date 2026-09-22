@@ -222,6 +222,65 @@ describe("support services workbenches", () => {
     expect(screen.queryByText("No records found.")).toBeNull();
   });
 
+  it("shows remediation warnings without blocking the transaction detail", async () => {
+    const transactionWithWarnings: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      complianceWarnings: [
+        "outputObjects: Output object snapshot 1 must be an object.",
+      ],
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (
+        String(path).endsWith(
+          `/transactions/${transactionWithWarnings.requestId}`,
+        )
+      ) {
+        return { transaction: transactionWithWarnings };
+      }
+      if (
+        String(path).endsWith(
+          `/offers/${transactionWithWarnings.offerId}`,
+        )
+      ) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${String(path)}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={transactionWithWarnings.requestId}
+      />,
+    );
+
+    expect(await screen.findByText("Transaction requires remediation")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "outputObjects: Output object snapshot 1 must be an object.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Accepted frozen service")).toBeTruthy();
+  });
+
+  it("marks noncompliant transactions in the god-mode list", async () => {
+    sdkFetchMock.mockResolvedValue({
+      transactions: [
+        {
+          ...runningTransaction,
+          complianceWarnings: ["offerSnapshot is missing or malformed."],
+        },
+      ],
+      nextCursor: undefined,
+    });
+
+    renderWithQueryClient(<SupportServicesBrowser kind="transactions" />);
+
+    expect(await screen.findByText("1 compliance warnings")).toBeTruthy();
+    expect(screen.getByText(runningTransaction.requestId)).toBeTruthy();
+    expect(screen.queryByText("No records found.")).toBeNull();
+  });
+
   it("keeps the catalog pricing model and summary instead of coercing it to fixed", () => {
     expect(POCKET_GENES_SERVICE_OPTIONS.length).toBeGreaterThan(0);
     for (const offer of POCKET_GENES_SERVICE_OPTIONS) {

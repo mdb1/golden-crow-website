@@ -2148,6 +2148,16 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                           transaction.requestedByUserId ||
                           "-"}
                       </div>
+                      {(transaction.complianceWarnings?.length ?? 0) > 0 ? (
+                        <Badge
+                          variant="outline"
+                          className="mt-2 gap-1 border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200"
+                          title={transaction.complianceWarnings?.join("\n")}
+                        >
+                          <CircleAlert className="h-3 w-3" />
+                          {transaction.complianceWarnings?.length} {t("compliance warnings")}
+                        </Badge>
+                      ) : null}
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {transaction.serviceId} · v{transaction.serviceVersion}
@@ -5385,6 +5395,29 @@ export function SupportServiceTransactionWorkbench({
             }
           }}
         />
+        {(transactionRecord?.complianceWarnings?.length ?? 0) > 0 ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-amber-950 shadow-sm dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100"
+          >
+            <div className="flex items-start gap-3">
+              <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="grid gap-2">
+                <div>
+                  <p className="font-semibold">{t("Transaction requires remediation")}</p>
+                  <p className="text-sm opacity-80">
+                    {t("This root transaction is visible in god mode but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.")}
+                  </p>
+                </div>
+                <ul className="list-disc space-y-1 pl-5 text-sm">
+                  {transactionRecord?.complianceWarnings?.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        ) : null}
         <fieldset
           className="contents"
           disabled={terminalStatusLocked || transactionCommandPending}

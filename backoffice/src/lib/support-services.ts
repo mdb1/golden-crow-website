@@ -248,6 +248,7 @@ export interface SupportServiceTransactionRecord
   updatedAt?: string;
   createdByEmail?: string;
   updatedByEmail?: string;
+  complianceWarnings?: string[];
 }
 
 export interface SupportServiceOffersPage {

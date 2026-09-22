@@ -267,6 +267,7 @@ export interface SupportServiceTransactionRecord {
   updatedAt?: string;
   createdByEmail?: string;
   updatedByEmail?: string;
+  complianceWarnings: string[];
 }
 
 export interface SupportServiceOffersPage {
@@ -3392,27 +3393,83 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
     updatedAt: timestampToIso(data.updatedAt),
     createdByEmail: cleanString(data.createdByEmail),
     updatedByEmail: cleanString(data.updatedByEmail),
+    complianceWarnings: [],
   }) satisfies SupportServiceTransactionRecord;
 }
 
-function transactionListArray<T>(parser: (value: unknown) => T[], value: unknown) {
+function transactionAdminArray<T>(
+  label: string,
+  parser: (value: unknown) => T[],
+  value: unknown,
+  warnings: string[],
+) {
+  if (value !== undefined && !Array.isArray(value)) {
+    warnings.push(`${label} must be an array; it is shown as empty.`);
+    return [];
+  }
   try {
     return parser(value);
-  } catch {
+  } catch (error) {
+    warnings.push(
+      error instanceof Error
+        ? `${label}: ${error.message}`
+        : `${label} is malformed; it is shown as empty.`,
+    );
     return [];
   }
 }
 
-function toTransactionListRecord(
+function toTransactionAdminRecord(
   id: string,
   data: Record<string, unknown>,
 ): SupportServiceTransactionRecord {
+  const complianceWarnings: string[] = [];
   const requestId = cleanString(data.requestId) || id;
   const serviceId = cleanString(data.serviceId);
   const requestedByUserId = cleanString(data.requestedByUserId);
   const requestedByUserEmail = cleanString(
     data.requestedByUserEmail,
   ).toLowerCase();
+
+  for (const [key, label] of [
+    ["requestId", "requestId"],
+    ["offerId", "offerId"],
+    ["serviceId", "serviceId"],
+    ["providerId", "providerId"],
+    ["requestedByUserId", "requestedByUserId"],
+    ["idempotencyKey", "idempotencyKey"],
+    ["contractSource", "contractSource"],
+  ] as const) {
+    if (!cleanString(data[key])) {
+      complianceWarnings.push(`${label} is missing.`);
+    }
+  }
+  if (!PROVIDER_KIND_SET.has(normalizeKey(cleanString(data.providerKind)))) {
+    complianceWarnings.push(
+      `providerKind ${cleanString(data.providerKind) || "is missing"}; it is shown as organization.`,
+    );
+  }
+  if (!TRANSACTION_STATUS_SET.has(normalizeKey(cleanString(data.status)))) {
+    complianceWarnings.push(
+      `status ${cleanString(data.status) || "is missing"}; it is shown as received.`,
+    );
+  }
+  if (!Object.keys(optionalRecord(data.offerSnapshot)).length) {
+    complianceWarnings.push("offerSnapshot is missing or malformed.");
+  }
+  if (!Object.keys(optionalRecord(data.providerSnapshot)).length) {
+    complianceWarnings.push("providerSnapshot is missing or malformed.");
+  }
+  if (Object.prototype.hasOwnProperty.call(data, "output_objects")) {
+    complianceWarnings.push(
+      "Obsolete output_objects was ignored; save the transaction to normalize it.",
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(data, "output_reports")) {
+    complianceWarnings.push(
+      "Obsolete output_reports was ignored; save the transaction to normalize it.",
+    );
+  }
 
   // God mode lists the root collection itself. A malformed or historical
   // detail snapshot must not hide that root transaction from administrators.
@@ -3435,14 +3492,23 @@ function toTransactionListRecord(
     requestedAtClient: timestampToIso(data.requestedAtClient),
     requestRevision: versionNumber(data.requestRevision),
     idempotencyKey: cleanString(data.idempotencyKey),
-    inputs: transactionListArray(inputSlotsFromUnknown, data.inputs),
-    outputObjects: transactionListArray(
+    inputs: transactionAdminArray(
+      "inputs",
+      inputSlotsFromUnknown,
+      data.inputs,
+      complianceWarnings,
+    ),
+    outputObjects: transactionAdminArray(
+      "outputObjects",
       outputObjectsFromUnknown,
       data.outputObjects,
+      complianceWarnings,
     ),
-    outputReports: transactionListArray(
+    outputReports: transactionAdminArray(
+      "outputReports",
       outputReportsFromUnknown,
       data.outputReports,
+      complianceWarnings,
     ),
     missingRequiredInputRoles: cleanStringArray(data.missingRequiredInputRoles),
     issues: unknownArray(data.issues),
@@ -3462,6 +3528,7 @@ function toTransactionListRecord(
     updatedAt: timestampToIso(data.updatedAt),
     createdByEmail: cleanString(data.createdByEmail),
     updatedByEmail: cleanString(data.updatedByEmail),
+    complianceWarnings,
   }) satisfies SupportServiceTransactionRecord;
 }
 
@@ -4214,7 +4281,7 @@ export async function listSupportServiceTransactions(
     cursor: options.cursor,
     limit,
     hasFilters,
-    toRecord: toTransactionListRecord,
+    toRecord: toTransactionAdminRecord,
     matches: (record) => matchesTransactionFilters(record, options),
   });
 
@@ -4231,7 +4298,7 @@ export async function getSupportServiceTransaction(
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
 
-  return toTransactionRecord(snapshot.id, snapshot.data() ?? {});
+  return toTransactionAdminRecord(snapshot.id, snapshot.data() ?? {});
 }
 
 export async function createSupportServiceTransaction(
@@ -4930,7 +4997,9 @@ async function persistSupportServiceTransactionUpdate(
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
 
-  const previous = toTransactionRecord(snapshot.id, snapshot.data() ?? {});
+  const previous = options.allowDelivery
+    ? toTransactionRecord(snapshot.id, snapshot.data() ?? {})
+    : toTransactionAdminRecord(snapshot.id, snapshot.data() ?? {});
   if (options.allowDelivery && previous.status !== "running") {
     throw new AdminRepositoryError(
       "Only running service transactions can be marked delivered.",
@@ -5015,10 +5084,12 @@ async function persistSupportServiceTransactionUpdate(
     if (!latestSnapshot.exists) {
       throw new AdminRepositoryError("Service transaction not found.", 404);
     }
-    const latest = toTransactionRecord(
-      latestSnapshot.id,
-      latestSnapshot.data() ?? {},
-    );
+    const latest = options.allowDelivery
+      ? toTransactionRecord(latestSnapshot.id, latestSnapshot.data() ?? {})
+      : toTransactionAdminRecord(
+          latestSnapshot.id,
+          latestSnapshot.data() ?? {},
+        );
     if (latest.requestRevision !== previous.requestRevision) {
       throw new AdminRepositoryError(
         "Service transaction changed while it was being updated.",

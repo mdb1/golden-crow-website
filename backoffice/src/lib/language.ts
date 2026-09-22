@@ -4799,6 +4799,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se encontraron proveedores en la página cargada.",
   "No records found.": "No se encontraron registros.",
   "Could not load records.": "No se pudieron cargar los registros.",
+  "compliance warnings": "advertencias de cumplimiento",
+  "Transaction requires remediation": "La transacción requiere corrección",
+  "This root transaction is visible in god mode but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.":
+    "Esta transacción raíz es visible en god mode, pero no cumple completamente el contrato. Revisá las advertencias, corregí los datos editables y guardala para normalizar la entidad.",
   "No service offers are available for transactions.":
     "No hay ofertas de servicio disponibles para transacciones.",
   "Not requested": "No solicitado",

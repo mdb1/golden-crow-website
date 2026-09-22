@@ -763,9 +763,22 @@ describe("support service pagination", () => {
         outputReports: [],
       }),
     );
-    await expect(
-      getSupportServiceTransaction(context, "pgr_ios_visible_in_god_mode"),
-    ).rejects.toThrow("Output object snapshot 1 must be an object.");
+    const detail = await getSupportServiceTransaction(
+      context,
+      "pgr_ios_visible_in_god_mode",
+    );
+    expect(detail.outputObjects).toEqual([]);
+    expect(detail.outputReports).toEqual([]);
+    expect(detail.complianceWarnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          "Output object snapshot 1 must be an object.",
+        ),
+        expect.stringContaining(
+          "Output report snapshot 1 must be an object.",
+        ),
+      ]),
+    );
   });
 });
 
@@ -1680,7 +1693,7 @@ describe("support service delivered transactions", () => {
     ).rejects.toThrow("Unsupported service transaction status: completed.");
   });
 
-  it("rejects a persisted legacy completed transaction instead of rewriting it", async () => {
+  it("loads a persisted legacy completed transaction with a remediation warning", async () => {
     seedDoc("service_transactions", "legacy-transaction", {
       ...transaction,
       status: "completed",
@@ -1689,9 +1702,39 @@ describe("support service delivered transactions", () => {
       "../repositories/support-services.repository.js"
     );
 
-    await expect(
-      getSupportServiceTransaction(context, "legacy-transaction"),
-    ).rejects.toThrow("Unsupported service transaction status: completed.");
+    const legacy = await getSupportServiceTransaction(
+      context,
+      "legacy-transaction",
+    );
+    expect(legacy.status).toBe("received");
+    expect(legacy.complianceWarnings).toContain(
+      "status completed; it is shown as received.",
+    );
+  });
+
+  it("allows god mode to normalize malformed optional outputs by saving", async () => {
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      outputObjects: ["invalid-detail-snapshot"],
+      outputReports: [null],
+    });
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const repaired = await updateSupportServiceTransaction(
+      context,
+      "transaction-1",
+      { status: "running" },
+    );
+
+    expect(repaired.outputObjects).toEqual([]);
+    expect(repaired.outputReports).toEqual([]);
+    expect(repaired.complianceWarnings).toEqual([]);
+    expect(collectionStore("service_transactions").get("transaction-1")).toMatchObject({
+      outputObjects: [],
+      outputReports: [],
+    });
   });
 
   it("rejects malformed output snapshots instead of silently dropping them", async () => {
