@@ -4849,18 +4849,30 @@ const SPANISH_TEXT: Record<string, string> = {
   "Ready object linked": "Objeto listo vinculado",
   "File name": "Nombre del archivo",
   "Download URL": "URL de descarga",
+  "File ID": "ID del archivo",
+  Back: "Volver",
+  "Continue with download URL": "Continuar con url de descarga",
+  "Continue with file ID": "Continuar con file id",
   "Create and link object": "Crear y vincular objeto",
   "Creating object...": "Creando objeto...",
   "Output object created and linked.": "Objeto de salida creado y vinculado.",
   "The created object does not match the selected output slot.":
     "El objeto creado no coincide con el slot de salida seleccionado.",
-  "File name is required.": "El nombre del archivo es obligatorio.",
+  "Choose an output object source.":
+    "Elegí un origen para el objeto de salida.",
+  "File ID is required.": "El ID del archivo es obligatorio.",
   "Use a valid HTTPS download URL.":
     "Usá una URL de descarga HTTPS válida.",
+  "Choose where the finalized PGO content should be loaded from.":
+    "Elegí desde dónde cargar el contenido PGO finalizado.",
   "Provide a public download URL. The SDK validates the downloaded content against the exact PGO type before creating a ready object.":
     "Proporcioná una URL pública de descarga. El SDK valida el contenido descargado contra el tipo PGO exacto antes de crear un objeto listo.",
-  "Only finalized PGO content JSON supplied by HTTPS download URL is supported. File Storage references and in-progress objects are not accepted.":
-    "Solo se admite contenido JSON PGO finalizado proporcionado mediante una URL de descarga HTTPS. No se aceptan referencias de File Storage ni objetos en proceso.",
+  "Provide a File Storage file ID. The SDK loads and validates its content against the exact PGO type before creating a ready object.":
+    "Proporcioná un file ID de File Storage. El SDK carga y valida su contenido contra el tipo PGO exacto antes de crear un objeto listo.",
+  "Only finalized PGO content JSON supplied by an HTTPS download URL is supported. In-progress objects are not accepted.":
+    "Solo se admite contenido JSON PGO finalizado proporcionado mediante una URL de descarga HTTPS. No se aceptan objetos en proceso.",
+  "Only finalized PGO content JSON from File Storage is supported. In-progress objects are not accepted.":
+    "Solo se admite contenido JSON PGO finalizado desde File Storage. No se aceptan objetos en proceso.",
   "Save the transaction before uploading output objects.":
     "Guardá la transacción antes de cargar objetos de salida.",
   "Save other transaction changes before uploading output objects.":

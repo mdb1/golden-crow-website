@@ -195,8 +195,9 @@ type OutputObjectUploadDraft = {
   index: number;
   role: string;
   objectType: string;
-  fileName: string;
+  source: "downloadUrl" | "fileStorageId" | null;
   downloadUrl: string;
+  fileStorageId: string;
 };
 
 type CreatedOutputObject = {
@@ -205,7 +206,8 @@ type CreatedOutputObject = {
   objectCode: string;
   objectType: string;
   fileName: string;
-  downloadUrl: string;
+  downloadUrl?: string;
+  fileStorageId?: string;
   status: "ready";
 };
 
@@ -5222,8 +5224,16 @@ export function SupportServiceTransactionWorkbench({
   });
 
   const uploadOutputMutation = useMutation({
-    mutationFn: async (draft: OutputObjectUploadDraft) =>
-      sdkFetch<{
+    mutationFn: async (draft: OutputObjectUploadDraft) => {
+      if (!draft.source) {
+        throw new Error("Choose an output object source.");
+      }
+      const source =
+        draft.source === "downloadUrl"
+          ? { downloadUrl: draft.downloadUrl.trim() }
+          : { fileStorageId: draft.fileStorageId.trim() };
+
+      return sdkFetch<{
         transaction: SupportServiceTransactionRecord;
         object: CreatedOutputObject;
       }>(
@@ -5234,11 +5244,11 @@ export function SupportServiceTransactionWorkbench({
           method: "POST",
           body: JSON.stringify({
             role: draft.role,
-            fileName: draft.fileName.trim(),
-            downloadUrl: draft.downloadUrl.trim(),
+            ...source,
           }),
         },
-      ),
+      );
+    },
     onSuccess: async (result, draft) => {
       if (
         result.object.role !== draft.role ||
@@ -5379,9 +5389,35 @@ export function SupportServiceTransactionWorkbench({
       index,
       role: output.role,
       objectType: output.objectType,
-      fileName: "",
+      source: null,
       downloadUrl: "",
+      fileStorageId: "",
     });
+  }
+
+  function selectOutputUploadSource(
+    source: "downloadUrl" | "fileStorageId",
+  ) {
+    setOutputUploadError("");
+    setOutputUploadDraft((current) =>
+      current
+        ? { ...current, source, downloadUrl: "", fileStorageId: "" }
+        : null,
+    );
+  }
+
+  function resetOutputUploadSource() {
+    setOutputUploadError("");
+    setOutputUploadDraft((current) =>
+      current
+        ? {
+            ...current,
+            source: null,
+            downloadUrl: "",
+            fileStorageId: "",
+          }
+        : null,
+    );
   }
 
   function handleOutputUpload(event: FormEvent<HTMLFormElement>) {
@@ -5390,28 +5426,32 @@ export function SupportServiceTransactionWorkbench({
       return;
     }
 
-    const fileName = outputUploadDraft.fileName.trim();
-    const downloadUrl = outputUploadDraft.downloadUrl.trim();
-    if (!fileName) {
-      setOutputUploadError(t("File name is required."));
+    if (!outputUploadDraft.source) {
+      setOutputUploadError(t("Choose an output object source."));
       return;
     }
 
-    try {
-      const parsedUrl = new URL(downloadUrl);
-      if (parsedUrl.protocol !== "https:") {
-        throw new Error("invalid protocol");
+    if (outputUploadDraft.source === "downloadUrl") {
+      const downloadUrl = outputUploadDraft.downloadUrl.trim();
+      try {
+        const parsedUrl = new URL(downloadUrl);
+        if (parsedUrl.protocol !== "https:") {
+          throw new Error("invalid protocol");
+        }
+      } catch {
+        setOutputUploadError(t("Use a valid HTTPS download URL."));
+        return;
       }
-    } catch {
-      setOutputUploadError(t("Use a valid HTTPS download URL."));
+    } else if (!outputUploadDraft.fileStorageId.trim()) {
+      setOutputUploadError(t("File ID is required."));
       return;
     }
 
     setOutputUploadError("");
     uploadOutputMutation.mutate({
       ...outputUploadDraft,
-      fileName,
-      downloadUrl,
+      downloadUrl: outputUploadDraft.downloadUrl.trim(),
+      fileStorageId: outputUploadDraft.fileStorageId.trim(),
     });
   }
 
@@ -5892,6 +5932,8 @@ export function SupportServiceTransactionWorkbench({
         error={outputUploadError}
         pending={uploadOutputMutation.isPending}
         onDraftChange={setOutputUploadDraft}
+        onSourceSelect={selectOutputUploadSource}
+        onBack={resetOutputUploadSource}
         onClose={() => {
           if (!uploadOutputMutation.isPending) {
             setOutputUploadDraft(null);
@@ -6008,6 +6050,8 @@ function OutputObjectUploadDialog({
   error,
   pending,
   onDraftChange,
+  onSourceSelect,
+  onBack,
   onClose,
   onSubmit,
 }: {
@@ -6015,11 +6059,14 @@ function OutputObjectUploadDialog({
   error: string;
   pending: boolean;
   onDraftChange: (draft: OutputObjectUploadDraft | null) => void;
+  onSourceSelect: (source: "downloadUrl" | "fileStorageId") => void;
+  onBack: () => void;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const source = draft?.source ?? null;
 
   return (
     <Dialog
@@ -6040,9 +6087,17 @@ function OutputObjectUploadDialog({
               {t("Upload output object")}
             </DialogTitle>
             <DialogDescription>
-              {t(
-                "Provide a public download URL. The SDK validates the downloaded content against the exact PGO type before creating a ready object.",
-              )}
+              {source === "downloadUrl"
+                ? t(
+                    "Provide a public download URL. The SDK validates the downloaded content against the exact PGO type before creating a ready object.",
+                  )
+                : source === "fileStorageId"
+                  ? t(
+                      "Provide a File Storage file ID. The SDK loads and validates its content against the exact PGO type before creating a ready object.",
+                    )
+                  : t(
+                      "Choose where the finalized PGO content should be loaded from.",
+                    )}
             </DialogDescription>
           </DialogHeader>
 
@@ -6059,39 +6114,83 @@ function OutputObjectUploadDialog({
               </span>
             </div>
 
-            <Field label="File name">
-              <Input
-                value={draft?.fileName ?? ""}
-                onChange={(event) =>
-                  draft &&
-                  onDraftChange({ ...draft, fileName: event.target.value })
-                }
-                placeholder="result.pgobject.json"
-                disabled={pending}
-                autoFocus
-                required
-              />
-            </Field>
-            <Field label="Download URL">
-              <Input
-                value={draft?.downloadUrl ?? ""}
-                onChange={(event) =>
-                  draft &&
-                  onDraftChange({ ...draft, downloadUrl: event.target.value })
-                }
-                placeholder="https://example.org/result.pgobject.json"
-                inputMode="url"
-                type="url"
-                disabled={pending}
-                required
-              />
-            </Field>
-
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
-              {t(
-                "Only finalized PGO content JSON supplied by HTTPS download URL is supported. File Storage references and in-progress objects are not accepted.",
-              )}
-            </div>
+            {!source ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto min-h-24 justify-start gap-3 rounded-2xl border-violet-200 px-5 py-4 text-left text-violet-800 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/26 dark:text-violet-100 dark:hover:bg-violet-500/10"
+                  onClick={() => onSourceSelect("downloadUrl")}
+                  autoFocus
+                >
+                  <UploadCloud className="h-5 w-5 shrink-0" />
+                  <span className="whitespace-normal leading-5">
+                    {t("Continue with download URL")}
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto min-h-24 justify-start gap-3 rounded-2xl border-violet-200 px-5 py-4 text-left text-violet-800 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/26 dark:text-violet-100 dark:hover:bg-violet-500/10"
+                  onClick={() => onSourceSelect("fileStorageId")}
+                >
+                  <FileText className="h-5 w-5 shrink-0" />
+                  <span className="whitespace-normal leading-5">
+                    {t("Continue with file ID")}
+                  </span>
+                </Button>
+              </div>
+            ) : source === "downloadUrl" ? (
+              <>
+                <Field label="Download URL">
+                  <Input
+                    value={draft?.downloadUrl ?? ""}
+                    onChange={(event) =>
+                      draft &&
+                      onDraftChange({
+                        ...draft,
+                        downloadUrl: event.target.value,
+                      })
+                    }
+                    placeholder="https://example.org/result.pgobject.json"
+                    inputMode="url"
+                    type="url"
+                    disabled={pending}
+                    autoFocus
+                    required
+                  />
+                </Field>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
+                  {t(
+                    "Only finalized PGO content JSON supplied by an HTTPS download URL is supported. In-progress objects are not accepted.",
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <Field label="File ID">
+                  <Input
+                    value={draft?.fileStorageId ?? ""}
+                    onChange={(event) =>
+                      draft &&
+                      onDraftChange({
+                        ...draft,
+                        fileStorageId: event.target.value,
+                      })
+                    }
+                    placeholder="file_storage_document_id"
+                    disabled={pending}
+                    autoFocus
+                    required
+                  />
+                </Field>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
+                  {t(
+                    "Only finalized PGO content JSON from File Storage is supported. In-progress objects are not accepted.",
+                  )}
+                </div>
+              </>
+            )}
             {error ? (
               <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                 <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -6101,6 +6200,17 @@ function OutputObjectUploadDialog({
           </div>
 
           <DialogFooter className="gap-3 border-violet-100 bg-violet-50/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
+            {source ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onBack}
+                disabled={pending}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {t("Back")}
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"
@@ -6109,18 +6219,22 @@ function OutputObjectUploadDialog({
             >
               {t("Cancel")}
             </Button>
-            <Button
-              type="submit"
-              disabled={pending || !draft}
-              className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
-            >
-              {pending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <UploadCloud className="h-4 w-4" />
-              )}
-              {pending ? t("Creating object...") : t("Create and link object")}
-            </Button>
+            {source ? (
+              <Button
+                type="submit"
+                disabled={pending || !draft}
+                className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+              >
+                {pending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <UploadCloud className="h-4 w-4" />
+                )}
+                {pending
+                  ? t("Creating object...")
+                  : t("Create and link object")}
+              </Button>
+            ) : null}
           </DialogFooter>
         </form>
       </DialogContent>

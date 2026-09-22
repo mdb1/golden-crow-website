@@ -9,6 +9,7 @@ export interface StoredFileRecord {
   creatorEmail: string;
   linkedReportCode: string;
   legacyLinkedReportId: string;
+  linkedObjectCode: string;
   fileType: string;
   fileContent: string;
   creationDate?: string;
@@ -69,6 +70,7 @@ export function parseStoredFileRecord(
     creatorEmail: getString(data.creator_email) ?? "",
     linkedReportCode: getString(data.linked_report_code) ?? "",
     legacyLinkedReportId: getString(data.linked_report_id) ?? "",
+    linkedObjectCode: getString(data.linked_object_code) ?? "",
     fileType: getString(data.file_type) ?? "",
     fileContent: getString(data.file_content) ?? "",
     creationDate: getString(data.creation_date),
@@ -81,8 +83,12 @@ export function getStoredFileLinkedReportKey(file: StoredFileRecord) {
   return file.linkedReportCode || file.legacyLinkedReportId;
 }
 
+export function getStoredFileLinkedObjectCode(file: StoredFileRecord) {
+  return file.linkedObjectCode;
+}
+
 export function isStoredFileOrphan(file: StoredFileRecord) {
-  return !getStoredFileLinkedReportKey(file);
+  return !getStoredFileLinkedReportKey(file) && !getStoredFileLinkedObjectCode(file);
 }
 
 export function validateStoredFileJson(value: string) {

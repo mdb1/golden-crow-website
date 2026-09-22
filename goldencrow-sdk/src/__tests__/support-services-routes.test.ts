@@ -678,7 +678,6 @@ describe("support service admin routes", () => {
       url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
       payload: {
         role: "report",
-        fileName: "report.pgo.json",
         downloadUrl: "https://objects.example/report.pgo.json",
       },
     });
@@ -698,13 +697,35 @@ describe("support service admin routes", () => {
       "pgr_demo_final_report",
       {
         role: "report",
-        fileName: "report.pgo.json",
         downloadUrl: "https://objects.example/report.pgo.json",
       },
     );
   });
 
-  it("rejects client-supplied output types and insecure URLs", async () => {
+  it("attaches an output object from a strict File Storage command", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
+      payload: {
+        role: "report",
+        fileStorageId: "stored-output-1",
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockAttachSupportServiceTransactionOutputObject).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      {
+        role: "report",
+        fileStorageId: "stored-output-1",
+      },
+    );
+  });
+
+  it("rejects client-supplied output metadata, ambiguous sources, and insecure URLs", async () => {
     const fastify = await buildTestServer();
 
     const withType = await fastify.inject({
@@ -713,7 +734,6 @@ describe("support service admin routes", () => {
       payload: {
         role: "report",
         objectType: "pgo_pdf_report",
-        fileName: "report.pgo.json",
         downloadUrl: "https://objects.example/report.pgo.json",
       },
     });
@@ -722,13 +742,41 @@ describe("support service admin routes", () => {
       url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
       payload: {
         role: "report",
-        fileName: "report.pgo.json",
         downloadUrl: "http://objects.example/report.pgo.json",
+      },
+    });
+    const ambiguous = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
+      payload: {
+        role: "report",
+        downloadUrl: "https://objects.example/report.pgo.json",
+        fileStorageId: "stored-output-1",
+      },
+    });
+    const obsoleteFileName = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
+      payload: {
+        role: "report",
+        fileName: "report.pgo.json",
+        downloadUrl: "https://objects.example/report.pgo.json",
+      },
+    });
+    const pathLikeFileId = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
+      payload: {
+        role: "report",
+        fileStorageId: "folder/stored-output-1",
       },
     });
 
     expect(withType.statusCode).toBe(400);
     expect(insecure.statusCode).toBe(400);
+    expect(ambiguous.statusCode).toBe(400);
+    expect(obsoleteFileName.statusCode).toBe(400);
+    expect(pathLikeFileId.statusCode).toBe(400);
     expect(mockAttachSupportServiceTransactionOutputObject).not.toHaveBeenCalled();
   });
 

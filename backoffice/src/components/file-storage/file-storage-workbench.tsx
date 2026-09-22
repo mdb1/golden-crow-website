@@ -38,6 +38,7 @@ import { formatDateTime } from "@/lib/moderation-utils";
 import {
   compactStoredFileJson,
   formatStoredFileType,
+  getStoredFileLinkedObjectCode,
   getStoredFileLinkedReportKey,
   isJsonBackedStoredFileType,
   isStoredFileOrphan,
@@ -102,7 +103,9 @@ export function FileStorageWorkbench({
   const file = useMemo(() => parseStoredFileRecord(sourceDocument), [sourceDocument]);
   const sourceState = useMemo(() => toEditableState(sourceDocument), [sourceDocument]);
   const linkedReportKey = getStoredFileLinkedReportKey(file);
-  const isLinked = Boolean(linkedReportKey);
+  const linkedObjectCode = getStoredFileLinkedObjectCode(file);
+  const isObjectLinked = Boolean(linkedObjectCode);
+  const isLinked = Boolean(linkedReportKey || linkedObjectCode);
   const isJsonValid = useMemo(
     () => validateStoredFileJson(state.fileContent),
     [state.fileContent]
@@ -187,6 +190,15 @@ export function FileStorageWorkbench({
   }, [isJsonValid, isLinked, state]);
 
   async function handleSave() {
+    if (isObjectLinked) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: "Object-linked stored files are read-only.",
+      });
+      return;
+    }
+
     if (validationMessage) {
       setFieldErrors({
         fileName: !state.fileName.trim() ? "Enter a file name." : undefined,
@@ -252,6 +264,10 @@ export function FileStorageWorkbench({
   }
 
   async function handleDelete() {
+    if (!canDeleteFile) {
+      return;
+    }
+
     setDeletePending(true);
 
     try {
@@ -316,7 +332,7 @@ export function FileStorageWorkbench({
                 setState(sourceState);
                 setFieldErrors({});
               }}
-              disabled={changedFields.length === 0}
+              disabled={isObjectLinked || changedFields.length === 0}
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Reset
@@ -324,7 +340,7 @@ export function FileStorageWorkbench({
             <Button
               size="sm"
               onClick={() => void handleSave()}
-              disabled={pending || changedFields.length === 0}
+              disabled={isObjectLinked || pending || changedFields.length === 0}
             >
               <Save className="h-3.5 w-3.5" />
               {pending ? "Saving..." : "Save file"}
@@ -343,8 +359,9 @@ export function FileStorageWorkbench({
 
         {!canDeleteFile ? (
           <div className="rounded-2xl border border-red-300/60 bg-red-50/90 px-4 py-3 text-sm text-red-950 dark:border-red-400/24 dark:bg-red-950/22 dark:text-red-50">
-            This stored file is currently linked to a report and cannot be deleted here. Remove the
-            report link first, then delete the orphaned file.
+            {isObjectLinked
+              ? `This stored file is linked to output object ${linkedObjectCode}. Its name, type, content, and metadata are read-only, and the file cannot be deleted while that object depends on it.`
+              : "This stored file is currently linked to a report and cannot be deleted here. Remove the report link first, then delete the orphaned file."}
           </div>
         ) : null}
 
@@ -371,6 +388,7 @@ export function FileStorageWorkbench({
                 <Input
                   id="stored-file-name"
                   value={state.fileName}
+                  disabled={isObjectLinked}
                   aria-invalid={Boolean(fieldErrors.fileName)}
                   onChange={(event) =>
                     setState((current) => ({ ...current, fileName: event.target.value }))
@@ -387,6 +405,7 @@ export function FileStorageWorkbench({
                   id="stored-file-creator-email"
                   type="email"
                   value={state.creatorEmail}
+                  disabled={isObjectLinked}
                   aria-invalid={Boolean(fieldErrors.creatorEmail)}
                   onChange={(event) =>
                     setState((current) => ({
@@ -414,7 +433,7 @@ export function FileStorageWorkbench({
                       disabled
                     />
                     <p className="text-xs text-muted-foreground">
-                      File type is frozen while the stored file is linked to a report.
+                      File type is frozen while the stored file is linked.
                     </p>
                   </>
                 ) : (
@@ -456,14 +475,18 @@ export function FileStorageWorkbench({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="stored-file-link">Linked report</Label>
+                <Label htmlFor="stored-file-link">
+                  {isObjectLinked ? "Linked object" : "Linked report"}
+                </Label>
                 <Input
                   id="stored-file-link"
-                  value={linkedReportKey || "Orphan"}
+                  value={linkedObjectCode || linkedReportKey || "Orphan"}
                   disabled
                 />
                 <p className="text-xs text-muted-foreground">
-                  Link fields stay read-only here. Use the raw editor only for recovery-level schema work.
+                  {isObjectLinked
+                    ? "This object link is immutable while the ready uploaded object depends on this file."
+                    : "Link fields stay read-only here. Use the raw editor only for recovery-level schema work."}
                 </p>
               </div>
             </div>
@@ -473,6 +496,7 @@ export function FileStorageWorkbench({
               <Textarea
                 id="stored-file-content"
                 value={state.fileContent}
+                disabled={isObjectLinked}
                 aria-invalid={Boolean(fieldErrors.fileContent)}
                 onChange={(event) =>
                   setState((current) => ({ ...current, fileContent: event.target.value }))
@@ -549,9 +573,18 @@ export function FileStorageWorkbench({
 
             <div className="rounded-2xl border border-border/80 bg-muted/30 p-4">
               <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Linked report
+                {isObjectLinked ? "Linked object" : "Linked report"}
               </p>
-              {!linkedReportKey ? (
+              {isObjectLinked ? (
+                <div className="mt-3 rounded-xl border border-border/70 bg-card/50 px-3 py-3">
+                  <p className="font-mono text-sm font-medium text-foreground">
+                    {linkedObjectCode}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    This file backs a ready uploaded object and stays immutable while the object references it.
+                  </p>
+                </div>
+              ) : !linkedReportKey ? (
                 <p className="mt-3 text-sm text-muted-foreground">
                   This stored file is currently orphaned and not attached to any report code.
                 </p>
@@ -603,27 +636,29 @@ export function FileStorageWorkbench({
         </div>
       </section>
 
-      <DeveloperRawEditor
-        collectionKey="file_storage"
-        document={sourceDocument}
-        relatedLinks={
-          linkedReportKey
-            ? [
-                {
-                  label: "Linked report",
-                  href: `/reports/${linkedReportKey}`,
-                  description: "Open the typed report detail screen attached to this stored file.",
-                },
-              ]
-            : []
-        }
-        backHref="/collections/file_storage"
-        backLabel="Back to file storage"
-        deleteHref={`/moderation/file_storage/${file.id}`}
-        updateHref={`/moderation/file_storage/${file.id}`}
-        title="Developer raw stored-file editor"
-        description="Use this only for schema recovery, legacy link cleanup, or fields not represented in the typed stored-file manager."
-      />
+      {!isObjectLinked ? (
+        <DeveloperRawEditor
+          collectionKey="file_storage"
+          document={sourceDocument}
+          relatedLinks={
+            linkedReportKey
+              ? [
+                  {
+                    label: "Linked report",
+                    href: `/reports/${linkedReportKey}`,
+                    description: "Open the typed report detail screen attached to this stored file.",
+                  },
+                ]
+              : []
+          }
+          backHref="/collections/file_storage"
+          backLabel="Back to file storage"
+          deleteHref={`/moderation/file_storage/${file.id}`}
+          updateHref={`/moderation/file_storage/${file.id}`}
+          title="Developer raw stored-file editor"
+          description="Use this only for schema recovery, legacy link cleanup, or fields not represented in the typed stored-file manager."
+        />
+      ) : null}
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

@@ -19,6 +19,7 @@ import {
   POCKET_GENES_SERVICE_OPTIONS,
   normalizePocketGenesCatalogFormShape,
 } from "@/lib/pocket-genes-service-catalog";
+import { appText } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
 import type {
   SupportServiceOfferRecord,
@@ -240,6 +241,15 @@ describe("support services workbenches", () => {
     routerRefresh.mockClear();
     sdkFetchMock.mockReset();
     window.localStorage.clear();
+  });
+
+  it("translates both output object source choices with their product labels", () => {
+    expect(appText("es", "Continue with download URL")).toBe(
+      "Continuar con url de descarga",
+    );
+    expect(appText("es", "Continue with file ID")).toBe(
+      "Continuar con file id",
+    );
   });
 
   it("shows transaction list load failures instead of a false empty state", async () => {
@@ -999,7 +1009,6 @@ describe("support services workbenches", () => {
         const payload = JSON.parse(String(init.body));
         expect(payload).toEqual({
           role: "result",
-          fileName: "result.pgobject.json",
           downloadUrl: "https://example.org/result.pgobject.json",
         });
         expect(payload).not.toHaveProperty("objectType");
@@ -1075,13 +1084,31 @@ describe("support services workbenches", () => {
 
     fireEvent.click(uploadSlot);
     expect(
-      screen.getByText(
-        "Only finalized PGO content JSON supplied by HTTPS download URL is supported. File Storage references and in-progress objects are not accepted.",
-      ),
+      screen.getByRole("button", { name: "Continue with download URL" }),
     ).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("File name"), {
-      target: { value: "result.pgobject.json" },
+    expect(
+      screen.getByRole("button", { name: "Continue with file ID" }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText("Download URL")).toBeNull();
+    expect(screen.queryByLabelText("File ID")).toBeNull();
+    expect(screen.queryByLabelText("File name")).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Continue with download URL" }),
+    );
+    expect(screen.getByLabelText("Download URL")).toBeTruthy();
+    expect(screen.queryByLabelText("File ID")).toBeNull();
+    expect(screen.queryByLabelText("File name")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Download URL"), {
+      target: { value: "https://example.org/discarded.pgobject.json" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Continue with download URL" }),
+    );
+    expect(
+      (screen.getByLabelText("Download URL") as HTMLInputElement).value,
+    ).toBe("");
     fireEvent.change(screen.getByLabelText("Download URL"), {
       target: { value: "https://example.org/result.pgobject.json" },
     });
@@ -1140,6 +1167,85 @@ describe("support services workbenches", () => {
       issuesHeading.compareDocumentPosition(statusHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("creates and links an output object from only a File Storage file ID", async () => {
+    const uploadedTransaction: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      requestRevision: 3,
+      outputObjects: [
+        {
+          role: "result",
+          objectType: "pgo_pdf_report",
+          objectCode: "135792468",
+        },
+      ],
+    };
+    let storedTransaction = runningTransaction;
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(`/transactions/${runningTransaction.requestId}`) &&
+        !init?.method
+      ) {
+        return { transaction: storedTransaction };
+      }
+      if (value.endsWith(`/offers/${runningTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      if (value.endsWith("/output-objects") && init?.method === "POST") {
+        const payload = JSON.parse(String(init.body));
+        expect(payload).toEqual({
+          role: "result",
+          fileStorageId: "stored-file-123",
+        });
+        expect(payload).not.toHaveProperty("fileName");
+        expect(payload).not.toHaveProperty("downloadUrl");
+        storedTransaction = uploadedTransaction;
+        return {
+          transaction: uploadedTransaction,
+          object: {
+            id: "uploaded-result-from-file-1",
+            role: "result",
+            objectCode: "135792468",
+            objectType: "pgo_pdf_report",
+            fileName: "stored-result.pgobject.json",
+            fileStorageId: "stored-file-123",
+            status: "ready",
+          },
+        };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={runningTransaction.requestId}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Upload output object · result",
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Continue with file ID" }),
+    );
+
+    expect(screen.getByLabelText("File ID")).toBeTruthy();
+    expect(screen.queryByLabelText("Download URL")).toBeNull();
+    expect(screen.queryByLabelText("File name")).toBeNull();
+    fireEvent.change(screen.getByLabelText("File ID"), {
+      target: { value: "stored-file-123" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create and link object" }),
+    );
+
+    expect(await screen.findByText("135792468")).toBeTruthy();
   });
 
   it("shows true empty file sections and permits delivery when the frozen contract has no slots", async () => {

@@ -29,6 +29,7 @@ const SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION =
   "service_transaction_idempotency";
 const OBJECT_CODES_COLLECTION = "object_codes";
 const UPLOADED_OBJECTS_COLLECTION = "uploaded_objects";
+const UPLOADED_REPORTS_COLLECTION = "uploaded_reports";
 const OBJECT_OWNERS_COLLECTION = "object_owners";
 const FILE_STORAGE_COLLECTION = "file_storage";
 const COMMUNITY_USERS_COLLECTION = "community_users";
@@ -199,21 +200,33 @@ export interface SupportServiceTransactionOutputReportSnapshot {
   reportCode: string;
 }
 
-export interface SupportServiceOutputObjectUploadInput {
-  role: string;
-  fileName: string;
-  downloadUrl: string;
-}
+export type SupportServiceOutputObjectUploadInput =
+  | {
+      role: string;
+      downloadUrl: string;
+      fileStorageId?: never;
+    }
+  | {
+      role: string;
+      fileStorageId: string;
+      downloadUrl?: never;
+    };
 
-export interface SupportServiceOutputObjectUploadRecord {
+type SupportServiceOutputObjectUploadRecordBase = {
   id: string;
   role: string;
   objectCode: string;
   objectType: SupportServiceObjectType;
   fileName: string;
-  downloadUrl: string;
   status: "ready";
-}
+};
+
+export type SupportServiceOutputObjectUploadRecord =
+  SupportServiceOutputObjectUploadRecordBase &
+    (
+      | { downloadUrl: string; fileStorageId?: never }
+      | { fileStorageId: string; downloadUrl?: never }
+    );
 
 export interface SupportServiceTransactionInput {
   requestId?: string;
@@ -2851,9 +2864,135 @@ type DownloadedPgoObject = {
   objectType: SupportServiceObjectType;
   content: Record<string, unknown>;
   downloadUrl: string;
+  fileName: string;
   contentSha256: string;
   contentSizeBytes: number;
 };
+
+type StoredPgoObject = {
+  objectType: SupportServiceObjectType;
+  content: Record<string, unknown>;
+  fileStorageId: string;
+  fileName: string;
+  contentSha256: string;
+  contentSizeBytes: number;
+};
+
+type ValidatedPgoObject = DownloadedPgoObject | StoredPgoObject;
+
+function normalizedOutputFileName(value: string) {
+  const leaf = value
+    .split(/[\\/]/)
+    .at(-1)
+    ?.replace(/[\u0000-\u001f\u007f]/g, "")
+    .trim();
+  if (!leaf) {
+    return "";
+  }
+  return leaf.slice(0, 255);
+}
+
+function decodedFileName(value: string) {
+  try {
+    return normalizedOutputFileName(decodeURIComponent(value));
+  } catch {
+    return normalizedOutputFileName(value);
+  }
+}
+
+function outputFileNameFromResponse(
+  response: Response,
+  requestedUrl: URL,
+  objectType: SupportServiceObjectType,
+) {
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (encodedName) {
+    const name = decodedFileName(encodedName.replace(/^"|"$/g, ""));
+    if (name) {
+      return name;
+    }
+  }
+  const quotedName = disposition.match(/filename="([^"]+)"/i)?.[1];
+  const plainName = disposition.match(/filename=([^;]+)/i)?.[1];
+  const dispositionName = decodedFileName(quotedName ?? plainName ?? "");
+  if (dispositionName) {
+    return dispositionName;
+  }
+  return (
+    decodedFileName(requestedUrl.pathname) || `${objectType}.pgo.json`
+  );
+}
+
+function validateStoredPgoObject(
+  fileStorageId: string,
+  fileData: Record<string, unknown>,
+  objectType: SupportServiceObjectType,
+  contentLabel = `Output object stored file ${fileStorageId}`,
+): StoredPgoObject {
+  rejectForbiddenKeys(
+    fileData,
+    [
+      "fileName",
+      "fileType",
+      "fileContent",
+      "linkedObjectCode",
+      "ownerCommunityUserId",
+    ],
+    `Stored file ${fileStorageId}`,
+    "camel-case",
+  );
+  if (cleanString(fileData.file_type) !== objectType) {
+    throw new AdminRepositoryError(
+      `Stored file ${fileStorageId} must have file_type ${objectType}.`,
+      400,
+    );
+  }
+  const progressStatus = cleanString(fileData.tracking_progress_status);
+  if (progressStatus && progressStatus !== "document_ready") {
+    throw new AdminRepositoryError(
+      `Stored file ${fileStorageId} is not finalized and ready.`,
+      409,
+    );
+  }
+  const serializedContent = cleanString(fileData.file_content);
+  if (!serializedContent) {
+    throw new AdminRepositoryError(
+      `Stored file ${fileStorageId} must contain finalized PGO content.`,
+      400,
+    );
+  }
+  const contentBytes = Buffer.from(serializedContent, "utf8");
+  if (contentBytes.length > OUTPUT_OBJECT_DOWNLOAD_MAX_BYTES) {
+    throw new AdminRepositoryError(
+      `Stored file ${fileStorageId} PGO content is too large.`,
+      400,
+    );
+  }
+  const content = serializedContentFromFile(
+    fileData,
+    objectType,
+    contentLabel,
+  );
+  return {
+    objectType,
+    content,
+    fileStorageId,
+    fileName:
+      normalizedOutputFileName(cleanString(fileData.file_name)) ||
+      `${objectType}.pgo.json`,
+    contentSha256: createHash("sha256").update(contentBytes).digest("hex"),
+    contentSizeBytes: contentBytes.length,
+  };
+}
+
+async function assertStoredPgoNativeContent(object: StoredPgoObject) {
+  if (object.objectType === "pgo_interactive_report") {
+    await assertInteractiveReportNativeContent(
+      cleanString(object.content.download_url),
+    );
+  }
+}
 
 async function assertInteractiveReportNativeContent(downloadUrl: string) {
   let requestedUrl: URL;
@@ -2973,6 +3112,11 @@ async function downloadAndValidatePgoObject(
       objectType,
       content: parsedContent,
       downloadUrl: requestedUrl.href,
+      fileName: outputFileNameFromResponse(
+        result.response,
+        requestedUrl,
+        objectType,
+      ),
       contentSha256: createHash("sha256").update(content).digest("hex"),
       contentSizeBytes: content.length,
     };
@@ -2988,7 +3132,7 @@ async function downloadAndValidatePgoObject(
 }
 
 function assertDownloadedOutputMatchesFrozenSlot(
-  downloaded: DownloadedPgoObject,
+  downloaded: Pick<ValidatedPgoObject, "objectType">,
   slot: Record<string, unknown>,
   offer: SupportServiceOfferRecord,
   transaction: Pick<SupportServiceTransactionRecord, "inputs">,
@@ -3306,22 +3450,37 @@ async function assertDeliveredOutputObjectsAvailable(
           !linkedFileSnapshot?.exists ||
           cleanString(fileData.linked_object_code) !== output.objectCode ||
           cleanString(fileData.file_type) !== output.objectType ||
-          cleanString(fileData.owner_community_user_id) !== objectOwnerId ||
-          (!cleanString(fileData.file_content) &&
-            !cleanString(fileData.download_url))
+          cleanString(fileData.owner_community_user_id) !== objectOwnerId
         ) {
           throw new AdminRepositoryError(
             `Output object ${output.objectCode} has an invalid linked file.`,
             400,
           );
         }
-        if (cleanString(fileData.file_content)) {
-          serializedContentFromFile(
-            fileData,
-            output.objectType,
-            `Output object ${output.role} stored file`,
+        if (!cleanString(fileData.file_content)) {
+          throw new AdminRepositoryError(
+            `Output object ${output.objectCode} linked file must contain finalized PGO content.`,
+            409,
           );
         }
+        const storedObject = validateStoredPgoObject(
+          linkedFileId,
+          fileData,
+          output.objectType,
+          `Output object ${output.role} stored file`,
+        );
+        if (
+          cleanString(objectData.content_sha256) !==
+            storedObject.contentSha256 ||
+          Number(objectData.content_size_bytes) !==
+            storedObject.contentSizeBytes
+        ) {
+          throw new AdminRepositoryError(
+            `Output object ${output.objectCode} linked file content changed after it was attached.`,
+            409,
+          );
+        }
+        await assertStoredPgoNativeContent(storedObject);
       }
       const downloadUrl = cleanString(objectData.download_url);
       if (downloadUrl) {
@@ -5084,17 +5243,28 @@ export async function attachSupportServiceTransactionOutputObject(
 }> {
   requireGodMode(context);
   const role = cleanString(input.role);
-  const fileName = cleanString(input.fileName);
-  const downloadUrl = cleanString(input.downloadUrl);
+  const downloadUrl =
+    "downloadUrl" in input ? cleanString(input.downloadUrl) : "";
+  const fileStorageId =
+    "fileStorageId" in input ? cleanString(input.fileStorageId) : "";
   if (!/^[a-z][a-z0-9_]*$/.test(role)) {
     throw new AdminRepositoryError(
       "Output role must be a lowercase identifier key.",
       400,
     );
   }
-  if (!fileName || fileName.length > 255) {
+  if (Boolean(downloadUrl) === Boolean(fileStorageId)) {
     throw new AdminRepositoryError(
-      "fileName must contain between 1 and 255 characters.",
+      "Provide exactly one output source: downloadUrl or fileStorageId.",
+      400,
+    );
+  }
+  if (
+    fileStorageId &&
+    (fileStorageId.length > 240 || fileStorageId.includes("/"))
+  ) {
+    throw new AdminRepositoryError(
+      "fileStorageId must be a Firestore document ID.",
       400,
     );
   }
@@ -5128,10 +5298,46 @@ export async function attachSupportServiceTransactionOutputObject(
   }
 
   const promisedObjectType = resolvedOutputObjectType(promisedSlot, offer);
-  const downloaded = await downloadAndValidatePgoObject(
-    downloadUrl,
-    promisedObjectType,
-  );
+  let validatedObject: ValidatedPgoObject;
+  if (downloadUrl) {
+    validatedObject = await downloadAndValidatePgoObject(
+      downloadUrl,
+      promisedObjectType,
+    );
+  } else {
+    const fileSnapshot = await adminDb
+      .collection(FILE_STORAGE_COLLECTION)
+      .doc(fileStorageId)
+      .get();
+    if (!fileSnapshot.exists) {
+      throw new AdminRepositoryError(
+        `Stored file ${fileStorageId} does not exist.`,
+        404,
+      );
+    }
+    const fileData = fileSnapshot.data() ?? {};
+    if (cleanString(fileData.linked_object_code)) {
+      throw new AdminRepositoryError(
+        `Stored file ${fileStorageId} is already linked to an uploaded object.`,
+        409,
+      );
+    }
+    if (
+      cleanString(fileData.linked_report_code) ||
+      cleanString(fileData.linked_report_id)
+    ) {
+      throw new AdminRepositoryError(
+        `Stored file ${fileStorageId} is already linked to an uploaded report.`,
+        409,
+      );
+    }
+    validatedObject = validateStoredPgoObject(
+      fileStorageId,
+      fileData,
+      promisedObjectType,
+    );
+    await assertStoredPgoNativeContent(validatedObject);
+  }
   const providerRef = adminDb
     .collection(
       previous.providerKind === "individual"
@@ -5139,13 +5345,43 @@ export async function attachSupportServiceTransactionOutputObject(
         : FEED_ORGANIZATIONS_COLLECTION,
     )
     .doc(previous.providerId);
+  const sourceFileRef = fileStorageId
+    ? adminDb.collection(FILE_STORAGE_COLLECTION).doc(fileStorageId)
+    : undefined;
+  const sourceFileObjectBackrefQuery = sourceFileRef
+    ? adminDb
+        .collection(UPLOADED_OBJECTS_COLLECTION)
+        .where("linked_file_id", "==", fileStorageId)
+        .limit(1)
+    : undefined;
+  const sourceFileReportBackrefQuery = sourceFileRef
+    ? adminDb
+        .collection(UPLOADED_REPORTS_COLLECTION)
+        .where("linked_file_id", "==", fileStorageId)
+        .limit(1)
+    : undefined;
   const codeCandidates = randomObjectCodeCandidates();
   let uploadedObject: SupportServiceOutputObjectUploadRecord | undefined;
 
   await adminDb.runTransaction(async (firestoreTransaction) => {
-    const [latestSnapshot, providerSnapshot] = await Promise.all([
+    const [
+      latestSnapshot,
+      providerSnapshot,
+      sourceFileSnapshot,
+      sourceFileObjectBackrefSnapshot,
+      sourceFileReportBackrefSnapshot,
+    ] = await Promise.all([
       firestoreTransaction.get(snapshot.ref),
       firestoreTransaction.get(providerRef),
+      sourceFileRef
+        ? firestoreTransaction.get(sourceFileRef)
+        : Promise.resolve(null),
+      sourceFileObjectBackrefQuery
+        ? firestoreTransaction.get(sourceFileObjectBackrefQuery)
+        : Promise.resolve(null),
+      sourceFileReportBackrefQuery
+        ? firestoreTransaction.get(sourceFileReportBackrefQuery)
+        : Promise.resolve(null),
     ]);
     if (!latestSnapshot.exists) {
       throw new AdminRepositoryError("Service transaction not found.", 404);
@@ -5193,8 +5429,74 @@ export async function attachSupportServiceTransactionOutputObject(
       (reference) => firestoreTransaction.get(reference),
       false,
     );
+    if (sourceFileRef) {
+      if (!sourceFileSnapshot?.exists) {
+        throw new AdminRepositoryError(
+          `Stored file ${fileStorageId} does not exist.`,
+          404,
+        );
+      }
+      const fileData = sourceFileSnapshot.data() ?? {};
+      if (cleanString(fileData.linked_object_code)) {
+        throw new AdminRepositoryError(
+          `Stored file ${fileStorageId} is already linked to an uploaded object.`,
+          409,
+        );
+      }
+      if (
+        cleanString(fileData.linked_report_code) ||
+        cleanString(fileData.linked_report_id)
+      ) {
+        throw new AdminRepositoryError(
+          `Stored file ${fileStorageId} is already linked to an uploaded report.`,
+          409,
+        );
+      }
+      if (sourceFileObjectBackrefSnapshot?.docs.length) {
+        throw new AdminRepositoryError(
+          `Stored file ${fileStorageId} is already referenced by an uploaded object.`,
+          409,
+        );
+      }
+      if (sourceFileReportBackrefSnapshot?.docs.length) {
+        throw new AdminRepositoryError(
+          `Stored file ${fileStorageId} is already referenced by an uploaded report.`,
+          409,
+        );
+      }
+      const fileOwnerId = cleanString(fileData.owner_community_user_id);
+      if (fileOwnerId && fileOwnerId !== providerOwnerId) {
+        throw new AdminRepositoryError(
+          `Stored file ${fileStorageId} belongs to another object owner.`,
+          409,
+        );
+      }
+      const fileProviderId = cleanString(fileData.provider_id);
+      if (fileProviderId && fileProviderId !== latest.providerId) {
+        throw new AdminRepositoryError(
+          `Stored file ${fileStorageId} belongs to another service provider.`,
+          409,
+        );
+      }
+      const currentStoredObject = validateStoredPgoObject(
+        fileStorageId,
+        fileData,
+        resolvedOutputObjectType(latestSlot, latestOffer),
+      );
+      if (
+        !("fileStorageId" in validatedObject) ||
+        currentStoredObject.contentSha256 !== validatedObject.contentSha256 ||
+        currentStoredObject.contentSizeBytes !== validatedObject.contentSizeBytes
+      ) {
+        throw new AdminRepositoryError(
+          `Stored file ${fileStorageId} changed while the output object was being attached.`,
+          409,
+        );
+      }
+      validatedObject = currentStoredObject;
+    }
     assertDownloadedOutputMatchesFrozenSlot(
-      downloaded,
+      validatedObject,
       latestSlot,
       latestOffer,
       latest,
@@ -5409,11 +5711,15 @@ export async function attachSupportServiceTransactionOutputObject(
       object_type: expectedObjectType,
       object_id: objectId,
       object_revision: objectRevision,
-      file_name: fileName,
-      download_url: downloaded.downloadUrl,
-      linked_file_id: null,
-      content_sha256: downloaded.contentSha256,
-      content_size_bytes: downloaded.contentSizeBytes,
+      file_name: validatedObject.fileName,
+      download_url:
+        "downloadUrl" in validatedObject ? validatedObject.downloadUrl : null,
+      linked_file_id:
+        "fileStorageId" in validatedObject
+          ? validatedObject.fileStorageId
+          : null,
+      content_sha256: validatedObject.contentSha256,
+      content_size_bytes: validatedObject.contentSizeBytes,
       upload_version_count: 1,
       tracking_progress_status: "document_ready",
       object_owner_id: providerOwnerId,
@@ -5432,6 +5738,20 @@ export async function attachSupportServiceTransactionOutputObject(
       created_by_email: context.email,
       updated_by_email: context.email,
     });
+    if (sourceFileRef) {
+      firestoreTransaction.set(
+        sourceFileRef,
+        {
+          linked_object_code: objectCode,
+          file_type: expectedObjectType,
+          owner_community_user_id: providerOwnerId,
+          provider_id: latest.providerId,
+          last_modified_date: FieldValue.serverTimestamp(),
+          updated_by_email: context.email,
+        },
+        { merge: true },
+      );
+    }
     firestoreTransaction.set(
       ownerCommunityRef,
       {
@@ -5456,8 +5776,10 @@ export async function attachSupportServiceTransactionOutputObject(
       role,
       objectCode,
       objectType: expectedObjectType as SupportServiceObjectType,
-      fileName,
-      downloadUrl: downloaded.downloadUrl,
+      fileName: validatedObject.fileName,
+      ...("downloadUrl" in validatedObject
+        ? { downloadUrl: validatedObject.downloadUrl }
+        : { fileStorageId: validatedObject.fileStorageId }),
       status: "ready",
     };
   });

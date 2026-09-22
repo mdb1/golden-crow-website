@@ -322,6 +322,13 @@ function serializedPgoContent(snapshot: Record<string, unknown>) {
   };
 }
 
+function storedContentIntegrity(fileContent: string) {
+  return {
+    content_sha256: createHash("sha256").update(fileContent).digest("hex"),
+    content_size_bytes: Buffer.byteLength(fileContent),
+  };
+}
+
 const baseOffer = {
   schemaVersion: 1,
   serviceId: "pgs_pocket_genes_1",
@@ -1309,6 +1316,36 @@ describe("support service delivered transactions", () => {
     });
   });
 
+  async function attachStoredReportOutputForDelivery() {
+    const fileStorageId = "stored-output-file-alpha";
+    const fileContent = JSON.stringify(
+      serializedPgoContent(directOutputEnvelope),
+    );
+    seedDoc("service_transactions", "transaction-1", transaction);
+    seedDoc("community_users", "feed-org-1", {
+      owned_objects: ["uploaded-form-1"],
+    });
+    seedDoc("file_storage", fileStorageId, {
+      file_name: "final-report.pgo.json",
+      file_type: "pgo_pdf_report",
+      file_content: fileContent,
+      tracking_progress_status: "document_ready",
+    });
+    const repository = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const attached =
+      await repository.attachSupportServiceTransactionOutputObject(
+        context,
+        "transaction-1",
+        {
+          role: "report",
+          fileStorageId,
+        },
+      );
+    return { ...repository, attached, fileContent, fileStorageId };
+  }
+
   it("attaches an exact two-field PDF content object and delivers after revalidation", async () => {
     seedDoc("service_transactions", "transaction-1", transaction);
     seedDoc("community_users", "feed-org-1", {
@@ -1325,7 +1362,6 @@ describe("support service delivered transactions", () => {
       "transaction-1",
       {
         role: "report",
-        fileName: "report.pgo.json",
         downloadUrl: "https://objects.example/report.pgo.json",
       },
     );
@@ -1393,7 +1429,6 @@ describe("support service delivered transactions", () => {
     await expect(
       attachSupportServiceTransactionOutputObject(context, "transaction-1", {
         role: "report",
-        fileName: "replacement.pgo.json",
         downloadUrl: "https://objects.example/replacement.pgo.json",
       }),
     ).rejects.toThrow("already has an attached object");
@@ -1423,6 +1458,260 @@ describe("support service delivered transactions", () => {
       }),
     );
   });
+
+  it("creates and links a ready output object from finalized File Storage content", async () => {
+    seedDoc("service_transactions", "transaction-1", transaction);
+    seedDoc("community_users", "feed-org-1", {
+      owned_objects: ["uploaded-form-1"],
+    });
+    seedDoc("file_storage", "stored-output-file-alpha", {
+      file_name: "final-report.pgo.json",
+      file_type: "pgo_pdf_report",
+      file_content: JSON.stringify(serializedPgoContent(directOutputEnvelope)),
+      tracking_progress_status: "document_ready",
+    });
+    const {
+      attachSupportServiceTransactionOutputObject,
+      deliverSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+
+    const attached = await attachSupportServiceTransactionOutputObject(
+      context,
+      "transaction-1",
+      {
+        role: "report",
+        fileStorageId: "stored-output-file-alpha",
+      },
+    );
+
+    expect(attached.object).toEqual(
+      expect.objectContaining({
+        id: expect.stringMatching(/^pgo_output_\d{9}$/),
+        role: "report",
+        objectType: "pgo_pdf_report",
+        fileName: "final-report.pgo.json",
+        fileStorageId: "stored-output-file-alpha",
+        status: "ready",
+      }),
+    );
+    expect(attached.object).not.toHaveProperty("downloadUrl");
+    expect(
+      collectionStore("uploaded_objects").get(attached.object.id),
+    ).toEqual(
+      expect.objectContaining({
+        object_code: attached.object.objectCode,
+        object_type: "pgo_pdf_report",
+        file_name: "final-report.pgo.json",
+        download_url: null,
+        linked_file_id: "stored-output-file-alpha",
+        tracking_progress_status: "document_ready",
+      }),
+    );
+    expect(
+      collectionStore("file_storage").get("stored-output-file-alpha"),
+    ).toEqual(
+      expect.objectContaining({
+        linked_object_code: attached.object.objectCode,
+        file_type: "pgo_pdf_report",
+        owner_community_user_id: "feed-org-1",
+        provider_id: "feed-org-1",
+      }),
+    );
+    expect(fetch).not.toHaveBeenCalled();
+
+    await expect(
+      deliverSupportServiceTransaction(context, "transaction-1"),
+    ).resolves.toEqual(expect.objectContaining({ status: "delivered" }));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects delivery when linked File Storage content changes without changing its size", async () => {
+    const {
+      deliverSupportServiceTransaction,
+      fileContent,
+      fileStorageId,
+    } = await attachStoredReportOutputForDelivery();
+    const tamperedContent = JSON.stringify(
+      serializedPgoContent({
+        ...directOutputEnvelope,
+        data: {
+          ...directOutputEnvelope.data,
+          title: "Other report",
+        },
+      }),
+    );
+    expect(Buffer.byteLength(tamperedContent)).toBe(
+      Buffer.byteLength(fileContent),
+    );
+    const storedFile = collectionStore("file_storage").get(fileStorageId) ?? {};
+    seedDoc("file_storage", fileStorageId, {
+      ...storedFile,
+      file_content: tamperedContent,
+    });
+
+    await expect(
+      deliverSupportServiceTransaction(context, "transaction-1"),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: expect.stringContaining(
+        "linked file content changed after it was attached",
+      ),
+    });
+    expect(
+      collectionStore("service_transactions").get("transaction-1"),
+    ).toEqual(expect.objectContaining({ status: "running" }));
+  });
+
+  it("rejects replacing linked File Storage content with a download URL", async () => {
+    const { deliverSupportServiceTransaction, fileStorageId } =
+      await attachStoredReportOutputForDelivery();
+    const storedFile = collectionStore("file_storage").get(fileStorageId) ?? {};
+    const withoutContent = { ...storedFile };
+    delete withoutContent.file_content;
+    seedDoc("file_storage", fileStorageId, {
+      ...withoutContent,
+      download_url: "https://objects.example/replacement.pgo.json",
+    });
+
+    await expect(
+      deliverSupportServiceTransaction(context, "transaction-1"),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: expect.stringContaining(
+        "linked file must contain finalized PGO content",
+      ),
+    });
+    expect(
+      collectionStore("service_transactions").get("transaction-1"),
+    ).toEqual(expect.objectContaining({ status: "running" }));
+  });
+
+  it.each([
+    {
+      name: "non-finalized file",
+      patch: { tracking_progress_status: "processing" },
+      expected: "is not finalized and ready",
+    },
+    {
+      name: "wrong PGO type",
+      patch: { file_type: "pgo_image_bundle" },
+      expected: "must have file_type pgo_pdf_report",
+    },
+    {
+      name: "invalid PGO content",
+      patch: { file_content: "{}" },
+      expected: "must contain valid pgo_pdf_report content JSON",
+    },
+    {
+      name: "existing object link",
+      patch: { linked_object_code: "111111111" },
+      expected: "is already linked to an uploaded object",
+    },
+    {
+      name: "existing report link",
+      patch: { linked_report_code: "ABC123" },
+      expected: "is already linked to an uploaded report",
+    },
+    {
+      name: "different object owner",
+      patch: { owner_community_user_id: "another-owner" },
+      expected: "belongs to another object owner",
+    },
+  ])("rejects a $name File Storage output without partial writes", async ({
+    patch,
+    expected,
+  }) => {
+    seedDoc("service_transactions", "transaction-1", transaction);
+    seedDoc("file_storage", "stored-output-file-alpha", {
+      file_name: "final-report.pgo.json",
+      file_type: "pgo_pdf_report",
+      file_content: JSON.stringify(serializedPgoContent(directOutputEnvelope)),
+      ...patch,
+    });
+    const { attachSupportServiceTransactionOutputObject } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      attachSupportServiceTransactionOutputObject(context, "transaction-1", {
+        role: "report",
+        fileStorageId: "stored-output-file-alpha",
+      }),
+    ).rejects.toThrow(expected);
+    expect(collectionStore("object_codes").size).toBe(1);
+    expect(collectionStore("uploaded_objects").size).toBe(1);
+    expect(
+      collectionStore("service_transactions").get("transaction-1"),
+    ).toEqual(expect.objectContaining({ outputObjects: [] }));
+  });
+
+  it("rejects a missing File Storage output", async () => {
+    seedDoc("service_transactions", "transaction-1", transaction);
+    const { attachSupportServiceTransactionOutputObject } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      attachSupportServiceTransactionOutputObject(context, "transaction-1", {
+        role: "report",
+        fileStorageId: "missing-output",
+      }),
+    ).rejects.toThrow("Stored file missing-output does not exist");
+  });
+
+  it.each([
+    ["uploaded_objects", "object"],
+    ["uploaded_reports", "report"],
+  ])(
+    "rejects a File Storage output with an existing %s back-reference",
+    async (collectionName, entityName) => {
+      seedDoc("service_transactions", "transaction-1", transaction);
+      seedDoc("file_storage", "stored-output-file-alpha", {
+        file_name: "final-report.pgo.json",
+        file_type: "pgo_pdf_report",
+        file_content: JSON.stringify(
+          serializedPgoContent(directOutputEnvelope),
+        ),
+      });
+      seedDoc(collectionName, "existing-reference", {
+        linked_file_id: "stored-output-file-alpha",
+      });
+      const { attachSupportServiceTransactionOutputObject } = await import(
+        "../repositories/support-services.repository.js"
+      );
+
+      await expect(
+        attachSupportServiceTransactionOutputObject(
+          context,
+          "transaction-1",
+          {
+            role: "report",
+            fileStorageId: "stored-output-file-alpha",
+          },
+        ),
+      ).rejects.toThrow(`already referenced by an uploaded ${entityName}`);
+      expect(
+        collectionStore("service_transactions").get("transaction-1"),
+      ).toEqual(expect.objectContaining({ outputObjects: [] }));
+    },
+  );
+
+  it.each(["folder/stored-output-1", "x".repeat(241)])(
+    "rejects an invalid File Storage document ID before reading it",
+    async (fileStorageId) => {
+      seedDoc("service_transactions", "transaction-1", transaction);
+      const { attachSupportServiceTransactionOutputObject } = await import(
+        "../repositories/support-services.repository.js"
+      );
+
+      await expect(
+        attachSupportServiceTransactionOutputObject(context, "transaction-1", {
+          role: "report",
+          fileStorageId,
+        }),
+      ).rejects.toThrow("fileStorageId must be a Firestore document ID");
+    },
+  );
 
   it("skips a colliding 9-digit object code without overwriting or orphaning records", async () => {
     const candidates = [
@@ -1454,7 +1743,6 @@ describe("support service delivered transactions", () => {
       "transaction-1",
       {
         role: "report",
-        fileName: "report.pgo.json",
         downloadUrl: "https://objects.example/report.pgo.json",
       },
     );
@@ -1557,7 +1845,6 @@ describe("support service delivered transactions", () => {
     await expect(
       attachSupportServiceTransactionOutputObject(context, "transaction-1", {
         role: "report",
-        fileName: "report.pgo.json",
         downloadUrl: "https://objects.example/report.pgo.json",
       }),
     ).rejects.toThrow(expected);
@@ -1753,7 +2040,6 @@ describe("support service delivered transactions", () => {
       "transaction-1",
       {
         role: "revised_sequence",
-        fileName: "sequence-data.pgo.json",
         downloadUrl: "https://objects.example/sequence-data.pgo.json",
       },
     );
@@ -1787,7 +2073,6 @@ describe("support service delivered transactions", () => {
     await expect(
       attachSupportServiceTransactionOutputObject(context, "transaction-1", {
         role: "revised_sequence",
-        fileName: "sequence-data.pgo.json",
         downloadUrl: "https://objects.example/sequence-data.pgo.json",
       }),
     ).rejects.toThrow(
@@ -1819,7 +2104,6 @@ describe("support service delivered transactions", () => {
     await expect(
       attachSupportServiceTransactionOutputObject(context, "transaction-1", {
         role: "revised_sequence",
-        fileName: "sequence-data.pgo.json",
         downloadUrl: "https://objects.example/sequence-data.pgo.json",
       }),
     ).rejects.toThrow(
@@ -1841,6 +2125,20 @@ describe("support service delivered transactions", () => {
   });
 
   it("marks a transaction delivered only when every promised object is ready", async () => {
+    const outputFileContent = JSON.stringify(
+      serializedPgoContent({
+        objectId: "obj_output_report",
+        objectType: "pgo_pdf_report",
+        schemaVersion: "1.0.0",
+        revision: 1,
+        createdAt: "2026-09-16T12:00:00.000Z",
+        createdBy: "pgp_report_studio",
+        data: {
+          title: "Final report",
+          download_url: "https://objects.example/final-report.pdf",
+        },
+      }),
+    );
     seedDoc("object_codes", "123456789", {
       uploaded_object_id: "uploaded-object-1",
       owner_id: "feed-org-1",
@@ -1858,25 +2156,13 @@ describe("support service delivered transactions", () => {
       owner_public_profile_id: "feed-org-1",
       owner_name: "Pocket Genes",
       owner_email: "services@pocketgenes.example",
+      ...storedContentIntegrity(outputFileContent),
     });
     seedDoc("file_storage", "output-file-1", {
       linked_object_code: "123456789",
       file_type: "pgo_pdf_report",
       owner_community_user_id: "feed-org-1",
-      file_content: JSON.stringify(
-        serializedPgoContent({
-          objectId: "obj_output_report",
-          objectType: "pgo_pdf_report",
-          schemaVersion: "1.0.0",
-          revision: 1,
-          createdAt: "2026-09-16T12:00:00.000Z",
-          createdBy: "pgp_report_studio",
-          data: {
-            title: "Final report",
-            download_url: "https://objects.example/final-report.pdf",
-          },
-        }),
-      ),
+      file_content: outputFileContent,
     });
     const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
@@ -2192,6 +2478,20 @@ describe("support service delivered transactions", () => {
       inputSlots: [],
       shortContract: "none -> report:pdf_report",
     };
+    const outputFileContent = JSON.stringify(
+      serializedPgoContent({
+        objectId: "obj_output_report",
+        objectType: "pgo_pdf_report",
+        schemaVersion: "1.0.0",
+        revision: 1,
+        createdAt: "2026-09-16T12:00:00.000Z",
+        createdBy: "pgp_report_studio",
+        data: {
+          title: "Final report",
+          download_url: "https://objects.example/final-report.pdf",
+        },
+      }),
+    );
     seedDoc("service_offers", "offer-1", formLessOffer);
     seedDoc("feed_organizations", "feed-org-1", {
       name: "Pocket Genes",
@@ -2229,25 +2529,13 @@ describe("support service delivered transactions", () => {
       owner_public_profile_id: "provider-owner-1",
       owner_name: "Pocket Genes",
       owner_email: "services@pocketgenes.example",
+      ...storedContentIntegrity(outputFileContent),
     });
     seedDoc("file_storage", "output-file-1", {
       linked_object_code: "123456789",
       file_type: "pgo_pdf_report",
       owner_community_user_id: "provider-owner-1",
-      file_content: JSON.stringify(
-        serializedPgoContent({
-          objectId: "obj_output_report",
-          objectType: "pgo_pdf_report",
-          schemaVersion: "1.0.0",
-          revision: 1,
-          createdAt: "2026-09-16T12:00:00.000Z",
-          createdBy: "pgp_report_studio",
-          data: {
-            title: "Final report",
-            download_url: "https://objects.example/final-report.pdf",
-          },
-        }),
-      ),
+      file_content: outputFileContent,
     });
     const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
@@ -2335,6 +2623,13 @@ describe("support service delivered transactions", () => {
       owner_community_user_id: "feed-org-1",
       file_content: JSON.stringify(serializedPgoContent(sourceSnapshot)),
     });
+    const outputFileContent = JSON.stringify(
+      serializedPgoContent({
+        ...sourceSnapshot,
+        revision: 3,
+        createdAt: "2026-09-16T12:00:00.000Z",
+      }),
+    );
     seedDoc("object_codes", "222222222", {
       uploaded_object_id: "uploaded-object-1",
       owner_id: "feed-org-1",
@@ -2352,18 +2647,13 @@ describe("support service delivered transactions", () => {
       owner_public_profile_id: "feed-org-1",
       owner_name: "Pocket Genes",
       owner_email: "services@pocketgenes.example",
+      ...storedContentIntegrity(outputFileContent),
     });
     seedDoc("file_storage", "output-sequence-file", {
       linked_object_code: "222222222",
       file_type: "pgo_sequence_data",
       owner_community_user_id: "feed-org-1",
-      file_content: JSON.stringify(
-        serializedPgoContent({
-          ...sourceSnapshot,
-          revision: 3,
-          createdAt: "2026-09-16T12:00:00.000Z",
-        }),
-      ),
+      file_content: outputFileContent,
     });
     const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"

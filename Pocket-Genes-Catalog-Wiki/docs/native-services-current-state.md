@@ -27,7 +27,7 @@ Status progression is controlled by provider/backoffice work. Native users canno
 
 The creator/administrator of an object is its seeder and may manage its stored source. `is_clinician` grants access to both report and object administration; it does not itself confer ownership. Pocket Genes transports and presents authorized files but does not warrant their clinical content.
 
-Service offers are the primary way a regular user requests new objects. Backoffice/provider tooling performs fulfillment, registers output objects, and marks delivery. The requester keeps the transaction while work is pending, then downloads, opens, and updates delivered objects through the normal nine-digit object-code circuit.
+Service offers are the primary way a regular user requests new objects. Backoffice/provider tooling performs fulfillment, registers output objects, and marks delivery. Each promised output is attached from exactly one source: an absolute HTTPS URL whose response is strict PGO content JSON, or an existing `file_storage` document ID whose snake-case `file_type` and `file_content` match the promised PGO type. The backend derives the file name, atomically claims a stored-file link when applicable, creates the ready `uploaded_objects` record and nine-digit code, and appends only `role`, `objectType`, and `objectCode` to the camel-case transaction snapshot. The requester keeps the transaction while work is pending, then downloads, opens, and updates delivered objects through the normal nine-digit object-code circuit.
 
 Physical specimen identity, custody and consumption safeguards remain operational controls outside PGO content. A transport transaction moves an existing specimen; it does not create duplicate biological material.
 

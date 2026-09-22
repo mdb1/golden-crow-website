@@ -351,26 +351,39 @@ const OfferParamsSchema = z.object({
 const TransactionParamsSchema = z.object({
   transactionId: z.string().trim().min(1),
 });
-const OutputObjectBodySchema = z
-  .object({
-    role: RoleSchema,
-    fileName: z.string().trim().min(1).max(255),
-    downloadUrl: z
-      .string()
-      .trim()
-      .url()
-      .refine(
-        (value) => {
-          try {
-            return new URL(value).protocol === "https:";
-          } catch {
-            return false;
-          }
-        },
-        { message: "downloadUrl must use HTTPS." },
-      ),
-  })
-  .strict();
+const HttpsDownloadUrlSchema = z
+  .string()
+  .trim()
+  .url()
+  .refine(
+    (value) => {
+      try {
+        return new URL(value).protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "downloadUrl must use HTTPS." },
+  );
+const OutputObjectBodySchema = z.union([
+  z
+    .object({
+      role: RoleSchema,
+      downloadUrl: HttpsDownloadUrlSchema,
+    })
+    .strict(),
+  z
+    .object({
+      role: RoleSchema,
+      fileStorageId: z
+        .string()
+        .trim()
+        .min(1)
+        .max(240)
+        .regex(/^[^/]+$/, "fileStorageId must be a Firestore document ID."),
+    })
+    .strict(),
+]);
 const EmptyCommandBodySchema = z.object({}).strict();
 
 function sendRepositoryError(reply: FastifyReply, error: unknown) {

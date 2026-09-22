@@ -25,6 +25,7 @@ interface StoredFileDoc extends Record<string, unknown> {
 
 export class StoredFileValidationError extends Error {}
 export class StoredFileDeleteBlockedError extends Error {}
+export class StoredFileUpdateBlockedError extends Error {}
 
 function normalizeString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -247,98 +248,135 @@ export async function updateStoredFileDocument(
   data: Record<string, unknown>
 ): Promise<{ document: ModerationDocumentRecord | null; linkedReportVersionBumped: boolean }> {
   const storedFileRef = adminDb.collection("file_storage").doc(fileId);
-  const snapshot = await storedFileRef.get();
+  const result = await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(storedFileRef);
+    if (!snapshot.exists) {
+      return { found: false, linkedReportVersionBumped: false };
+    }
+    const existingData = (snapshot.data() ?? {}) as StoredFileDoc;
+    const linkedObjectCode = normalizeString(existingData.linked_object_code);
+    if (linkedObjectCode) {
+      throw new StoredFileUpdateBlockedError(
+        `Stored file ${fileId} is linked to object code ${linkedObjectCode} and cannot be edited. Remove that object link first.`
+      );
+    }
+    const uploadedObjectQuery = adminDb
+      .collection("uploaded_objects")
+      .where("linked_file_id", "==", fileId)
+      .limit(1);
+    const uploadedObjectSnapshot = await transaction.get(uploadedObjectQuery);
+    if (!uploadedObjectSnapshot.empty) {
+      throw new StoredFileUpdateBlockedError(
+        `Stored file ${fileId} is still referenced by an uploaded object and cannot be edited. Remove that object link first.`
+      );
+    }
 
-  if (!snapshot.exists) {
+    const nextData = { ...existingData, ...data } as StoredFileDoc;
+    const payload = buildStoredFilePayload(nextData, {
+      existingData,
+    });
+    const nextTimestamp =
+      normalizeDateValue(payload.last_modified_date) ?? new Date().toISOString();
+
+    const linkedReportCode = resolveLinkedReportCode(payload);
+    let uploadedReportRef: DocumentReference | undefined;
+    let uploadedReportData: Record<string, unknown> | undefined;
+    if (linkedReportCode) {
+      const reportCodeRef = adminDb.collection("report_codes").doc(linkedReportCode);
+      const reportCodeSnapshot = await transaction.get(reportCodeRef);
+      const uploadedReportId = normalizeString(
+        reportCodeSnapshot.data()?.uploaded_report_id
+      );
+      if (reportCodeSnapshot.exists && uploadedReportId) {
+        uploadedReportRef = adminDb
+          .collection("uploaded_reports")
+          .doc(uploadedReportId);
+        const uploadedReportSnapshot = await transaction.get(uploadedReportRef);
+        if (uploadedReportSnapshot.exists) {
+          uploadedReportData = uploadedReportSnapshot.data() ?? {};
+        }
+      }
+    }
+
+    transaction.set(storedFileRef, payload as DocumentData, { merge: false });
+    if (uploadedReportRef && uploadedReportData) {
+      transaction.set(
+        uploadedReportRef,
+        {
+          ...uploadedReportData,
+          upload_version_count:
+            normalizeUploadVersionCount(uploadedReportData.upload_version_count) + 1,
+          date_modified: nextTimestamp,
+        },
+        { merge: false }
+      );
+    }
+    return {
+      found: true,
+      linkedReportVersionBumped: Boolean(uploadedReportRef && uploadedReportData),
+    };
+  });
+
+  if (!result.found) {
     return { document: null, linkedReportVersionBumped: false };
   }
 
-  const existingData = (snapshot.data() ?? {}) as StoredFileDoc;
-  const nextData = { ...existingData, ...data } as StoredFileDoc;
-  const payload = buildStoredFilePayload(nextData, {
-    existingData,
-  });
-  const nextTimestamp =
-    normalizeDateValue(payload.last_modified_date) ?? new Date().toISOString();
-
-  let linkedReportVersionBumped = false;
-
-  await adminDb.runTransaction(async (transaction) => {
-    transaction.set(storedFileRef, payload as DocumentData, { merge: false });
-
-    const linkedReportCode = resolveLinkedReportCode(payload);
-    if (!linkedReportCode) {
-      return;
-    }
-
-    const reportCodeRef = adminDb.collection("report_codes").doc(linkedReportCode);
-    const reportCodeSnapshot = await transaction.get(reportCodeRef);
-    if (!reportCodeSnapshot.exists) {
-      return;
-    }
-
-    const uploadedReportId = normalizeString(reportCodeSnapshot.data()?.uploaded_report_id);
-    if (!uploadedReportId) {
-      return;
-    }
-
-    const uploadedReportRef = adminDb.collection("uploaded_reports").doc(uploadedReportId);
-    const uploadedReportSnapshot = await transaction.get(uploadedReportRef);
-    if (!uploadedReportSnapshot.exists) {
-      return;
-    }
-
-    transaction.set(
-      uploadedReportRef,
-      {
-        ...(uploadedReportSnapshot.data() ?? {}),
-        upload_version_count:
-          normalizeUploadVersionCount(uploadedReportSnapshot.data()?.upload_version_count) + 1,
-        date_modified: nextTimestamp,
-      },
-      { merge: false }
-    );
-    linkedReportVersionBumped = true;
-  });
-
   return {
     document: await getStoredFileDocument(fileId),
-    linkedReportVersionBumped,
+    linkedReportVersionBumped: result.linkedReportVersionBumped,
   };
 }
 
 export async function deleteStoredFileDocument(fileId: string): Promise<boolean> {
   const storedFileRef = adminDb.collection("file_storage").doc(fileId);
-  const snapshot = await storedFileRef.get();
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(storedFileRef);
+    if (!snapshot.exists) {
+      return false;
+    }
 
-  if (!snapshot.exists) {
-    return false;
-  }
+    const existingData = (snapshot.data() ?? {}) as StoredFileDoc;
+    const linkedObjectCode = normalizeString(existingData.linked_object_code);
+    if (linkedObjectCode) {
+      throw new StoredFileDeleteBlockedError(
+        `Stored file ${fileId} is linked to object code ${linkedObjectCode}. Remove that object link before deleting this file.`
+      );
+    }
+    const linkedReportCode = resolveLinkedReportCode(existingData);
+    if (linkedReportCode) {
+      throw new StoredFileDeleteBlockedError(
+        `Stored file ${fileId} is linked to report code ${linkedReportCode}. Remove that report link before deleting this file.`
+      );
+    }
 
-  const existingData = (snapshot.data() ?? {}) as StoredFileDoc;
-  const linkedReportCode = resolveLinkedReportCode(existingData);
-  if (linkedReportCode) {
-    throw new StoredFileDeleteBlockedError(
-      `Stored file ${fileId} is linked to report code ${linkedReportCode}. Remove that report link before deleting this file.`
-    );
-  }
+    const uploadedObjectQuery = adminDb
+      .collection("uploaded_objects")
+      .where("linked_file_id", "==", fileId)
+      .limit(1);
+    const uploadedReportQuery = adminDb
+      .collection("uploaded_reports")
+      .where("linked_file_id", "==", fileId)
+      .limit(1);
+    const [uploadedObjectSnapshot, uploadedReportSnapshot] = await Promise.all([
+      transaction.get(uploadedObjectQuery),
+      transaction.get(uploadedReportQuery),
+    ]);
+    if (!uploadedObjectSnapshot.empty) {
+      throw new StoredFileDeleteBlockedError(
+        `Stored file ${fileId} is still referenced by an uploaded object. Remove that object link before deleting this file.`
+      );
+    }
+    if (!uploadedReportSnapshot.empty) {
+      const uploadedReportData = uploadedReportSnapshot.docs[0]?.data() ?? {};
+      const reportCode = normalizeString(uploadedReportData.report_code);
+      throw new StoredFileDeleteBlockedError(
+        reportCode
+          ? `Stored file ${fileId} is still referenced by uploaded report ${reportCode}. Remove that link before deleting this file.`
+          : `Stored file ${fileId} is still referenced by an uploaded report. Remove that link before deleting this file.`
+      );
+    }
 
-  const uploadedReportSnapshot = await adminDb
-    .collection("uploaded_reports")
-    .where("linked_file_id", "==", fileId)
-    .limit(1)
-    .get();
-
-  if (!uploadedReportSnapshot.empty) {
-    const uploadedReportData = uploadedReportSnapshot.docs[0]?.data() ?? {};
-    const reportCode = normalizeString(uploadedReportData.report_code);
-    throw new StoredFileDeleteBlockedError(
-      reportCode
-        ? `Stored file ${fileId} is still referenced by uploaded report ${reportCode}. Remove that link before deleting this file.`
-        : `Stored file ${fileId} is still referenced by an uploaded report. Remove that link before deleting this file.`
-    );
-  }
-
-  await storedFileRef.delete();
-  return true;
+    transaction.delete(storedFileRef);
+    return true;
+  });
 }

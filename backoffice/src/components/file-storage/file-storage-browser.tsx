@@ -24,6 +24,7 @@ import {
 } from "@/lib/moderation-utils";
 import {
   formatStoredFileType,
+  getStoredFileLinkedObjectCode,
   getStoredFileLinkedReportKey,
   isStoredFileOrphan,
   parseStoredFileRecord,
@@ -109,6 +110,7 @@ export function FileStorageBrowser() {
         file.creatorEmail,
         file.fileType,
         getStoredFileLinkedReportKey(file),
+        getStoredFileLinkedObjectCode(file),
       ]
         .filter(Boolean)
         .join(" ")
@@ -173,7 +175,7 @@ export function FileStorageBrowser() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search stored files by name, id, creator email, type, or linked report..."
+              placeholder="Search stored files by name, id, creator email, type, or linked record..."
               className="pl-9"
             />
           </label>
@@ -219,6 +221,7 @@ export function FileStorageBrowser() {
           displayedDocuments.map((document) => {
             const file = parseStoredFileRecord(document);
             const linkedReportKey = getStoredFileLinkedReportKey(file);
+            const linkedObjectCode = getStoredFileLinkedObjectCode(file);
             const isJsonValid = validateStoredFileJson(file.fileContent);
 
             return (
@@ -234,7 +237,11 @@ export function FileStorageBrowser() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {compactList([
                       file.creatorEmail || undefined,
-                      linkedReportKey ? `Report ${linkedReportKey}` : "Orphan",
+                      linkedReportKey
+                        ? `Report ${linkedReportKey}`
+                        : linkedObjectCode
+                          ? `Object ${linkedObjectCode}`
+                          : "Orphan",
                     ]) || "Stored file record"}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -258,6 +265,10 @@ export function FileStorageBrowser() {
                     >
                       Open report
                     </Link>
+                  ) : linkedObjectCode ? (
+                    <span className="text-sm text-muted-foreground">
+                      Object {linkedObjectCode}
+                    </span>
                   ) : null}
                   {file.creatorEmail ? (
                     <span className="text-sm text-muted-foreground">{file.creatorEmail}</span>

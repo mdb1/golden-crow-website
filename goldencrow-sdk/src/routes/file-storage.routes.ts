@@ -8,6 +8,7 @@ import {
   getStoredFileDocument,
   listStoredFileDocuments,
   StoredFileDeleteBlockedError,
+  StoredFileUpdateBlockedError,
   StoredFileValidationError,
   updateStoredFileDocument,
 } from "../repositories/file-storage.repository.js";
@@ -87,6 +88,9 @@ export async function fileStorageRoutes(fastify: FastifyInstance): Promise<void>
       } catch (error) {
         if (error instanceof StoredFileValidationError) {
           return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof StoredFileUpdateBlockedError) {
+          return reply.status(409).send({ error: error.message });
         }
 
         throw error;
