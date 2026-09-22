@@ -295,7 +295,7 @@ const serviceArchitecture = `## Service architecture
 
 ### Offers
 
-A service offer is an untimed, provider-owned published template. It selects a real Discover organization or professional individual, declares one object type per required input slot, at least one non-form output, integer contract versions, work description, optional commercial terms, and at least one stage. Offers start as draft and become selectable only through publish/active state. \`isHiddenFromSearch\` removes an offer from discovery without hiding transactions already created from it.
+A service offer is an untimed, provider-owned published template. It selects a real Discover organization or professional individual, may declare zero or more input slots and zero or more output slots independently, and declares integer contract versions, work description, optional commercial terms, and at least one stage. An offer may therefore have no inputs, no outputs, or neither. Offers start as draft and become selectable only through publish/active state. \`isHiddenFromSearch\` removes an offer from discovery without hiding transactions already created from it.
 
 If and only if an offer enables form input, it declares exactly one required \`pgo_form\` slot with role \`form\` and a matching external \`formShape\`. Manual slots cannot use \`pgo_form\`. The external shape retains generated ID and integer version; the submitted PGO freezes only its field definitions and answers.
 
@@ -312,7 +312,7 @@ The native requester sequence is:
 5. Create the service transaction and reduced user snapshot.
 6. Present confirmation over the service hub, then allow process tracking.
 
-Status progression is controlled by provider/backoffice work. Native users cannot force progress. \`delivered\` is the successful final state and requires every contractually promised output PGO snapshot in \`outputObjects\`. Optional \`outputReports\` do not satisfy a PGO output slot.
+Status progression is controlled by provider/backoffice work. Native users cannot force progress. \`delivered\` is the successful final state and requires every contractually promised output PGO snapshot in \`outputObjects\`. A contract with zero output slots may be marked delivered with an empty \`outputObjects\` array after the provider finishes its work. Optional \`outputReports\` do not satisfy a PGO output slot.
 
 ### Ownership and delivery
 

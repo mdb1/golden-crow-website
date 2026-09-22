@@ -266,6 +266,50 @@ describe("support service admin routes", () => {
     expect(offerBody).not.toHaveProperty("commercialTerms");
   });
 
+  it.each([
+    {
+      name: "no input slots",
+      formShape: undefined,
+      inputSlots: [],
+      outputSlots: validOfferPayload.outputSlots,
+    },
+    {
+      name: "no output slots",
+      formShape: validOfferPayload.formShape,
+      inputSlots: validOfferPayload.inputSlots,
+      outputSlots: [],
+    },
+    {
+      name: "no input or output slots",
+      formShape: undefined,
+      inputSlots: [],
+      outputSlots: [],
+    },
+  ])("accepts a service offer with $name", async ({
+    formShape,
+    inputSlots,
+    outputSlots,
+  }) => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        formShape,
+        inputSlots,
+        outputSlots,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateSupportServiceOffer).toHaveBeenLastCalledWith(
+      bootstrapContext,
+      expect.objectContaining({ inputSlots, outputSlots }),
+    );
+  });
+
   it("creates a service offer without acceptance and scope rules", async () => {
     const fastify = await buildTestServer();
     const payload: Record<string, unknown> = { ...validOfferPayload };

@@ -4781,7 +4781,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Form shape version": "Versión de forma de formulario",
   Hours: "Horas",
   "In progress": "En progreso",
-  "Input object bindings": "Vínculos de objetos de entrada",
+  "Input object bindings": "Archivos de entrada",
   "Input key": "Clave de entrada",
   "Input slots": "Slots de entrada",
   Inputs: "Entradas",
@@ -4802,9 +4802,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "No input slots defined.": "No hay slots de entrada definidos.",
   "No inputs": "Sin entradas",
   "No outputs": "Sin salidas",
-  "No object bindings are defined for this service.":
-    "No hay vínculos de objetos definidos para este servicio.",
+  "No input files are required for this service.":
+    "Este servicio no requiere archivos de entrada.",
   "No output slots defined.": "No hay slots de salida definidos.",
+  "No output files are required for this service.":
+    "Este servicio no requiere archivos de salida.",
   "One accepted condition per line": "Una condición aceptada por línea",
   "One scope rule per line": "Una regla de alcance por línea",
   "No provider selected": "Sin proveedor seleccionado",
@@ -4836,7 +4838,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Optional general category": "Categoría general opcional",
   Options: "Opciones",
   "Output object bindings": "Vínculos de objetos de salida",
-  "Delivered output objects": "Objetos de salida entregados",
+  "Delivered output objects": "Archivos de salida",
   "Transaction status": "Estado de la transacción",
   "Transaction status options": "Opciones de estado de la transacción",
   "Promised object type": "Tipo de objeto prometido",
@@ -4873,6 +4875,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Cargá un objeto válido para cada salida prometida antes de marcar la transacción como entregada.",
   "Delivered is available only through Mark as delivered after every output is ready.":
     "El estado Entregado solo está disponible mediante Marcar como entregado cuando todas las salidas estén listas.",
+  "This service does not require output files. Mark it as delivered when the work is complete.":
+    "Este servicio no requiere archivos de salida. Marcalo como entregado cuando el trabajo esté completo.",
   "New transactions start with Received status.":
     "Las transacciones nuevas comienzan con estado Recibido.",
   "Marking as delivered...": "Marcando como entregada...",
@@ -4884,8 +4888,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "One 6-character report code per line": "Un código de informe de 6 caracteres por línea",
   "Reports may accompany a delivery, but they are not validated as service contract outputs.":
     "Los informes pueden acompañar una entrega, pero no se validan como salidas obligatorias del contrato del servicio.",
-  "The linked service contract has no output slots.":
-    "El contrato de servicio vinculado no tiene slots de salida.",
   "Delivered is accepted only after every code resolves to a ready uploaded object of the promised type.":
     "El estado Entregada solo se acepta cuando cada código resuelve a un objeto cargado, listo y del tipo prometido.",
   Outputs: "Salidas",
@@ -4991,8 +4993,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "Operational description of what the provider does after the request is submitted. It appears in the service detail context to clarify the provider-side work, not as the short marketing summary.":
     "Descripción operativa de lo que hace el proveedor después de que se envía la solicitud. Aparece en el contexto de detalle del servicio para aclarar el trabajo del proveedor, no como resumen comercial corto.",
   "At least one stage is required.": "Se requiere al menos una etapa.",
-  "At least one output slot is required.":
-    "Se requiere al menos un slot de salida.",
   "Active service offers are published and can be selected by new service transactions.":
     "Las ofertas de servicio activas están publicadas y se pueden seleccionar en nuevas transacciones de servicio.",
   "Inactive service offers stay saved, but should not receive new transaction requests until they are published again.":

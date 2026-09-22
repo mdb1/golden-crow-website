@@ -310,7 +310,7 @@ const OfferBodySchema = z.object({
   providerWork: z.string().trim().min(1).max(4000),
   formShape: FormShapeSchema.optional(),
   inputSlots: z.array(InputSlotSchema).max(50).optional(),
-  outputSlots: z.array(OutputSlotSchema).min(1).max(50),
+  outputSlots: z.array(OutputSlotSchema).max(50),
   acceptedConditions: z
     .array(z.string().trim().min(1).max(1000))
     .max(30)

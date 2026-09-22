@@ -687,7 +687,6 @@ def validate_service_forms_and_slots():
             else:
                 require(object_type in TYPE_IDS, f"Unknown PGO slot in {service_id}")
         require(all(slot["objectType"] != "pgo_form" for slot in service["outputSlots"]), f"Form output in {service_id}")
-        require(bool(service["outputSlots"]), f"No output slot in {service_id}")
         for rule in service.get("acceptedConditions", []) + service.get("scopeRules", []):
             require(not forbidden_paths.search(rule), f"Deleted content path remains in {service_id}: {rule}")
         if has_shape:
@@ -706,6 +705,61 @@ def validate_service_forms_and_slots():
 
 
 check("service_forms_slots_and_deleted_paths", validate_service_forms_and_slots)
+
+
+def validate_optional_service_slots():
+    validator = schema_validator(read("schemas/protocol/service-definition.schema.json"))
+    base = SERVICES[0]
+    variants = (
+        ("no_inputs", False, True),
+        ("no_outputs", True, False),
+        ("no_inputs_or_outputs", False, False),
+    )
+    for name, keep_inputs, keep_outputs in variants:
+        service = copy.deepcopy(base)
+        service["serviceId"] = f"pgs_contract_{name}"
+        if not keep_inputs:
+            service["inputSlots"] = []
+            service.pop("formShape", None)
+            service.pop("sampleFormData", None)
+            service.pop("sampleFormObject", None)
+            service["sampleRequest"]["inputs"] = []
+        if not keep_outputs:
+            service["outputSlots"] = []
+            service["sampleResult"]["outputs"] = []
+        left = "form:form" if keep_inputs else "none"
+        right = "symptoms:bundle_of_symptoms" if keep_outputs else "none"
+        service["shortContract"] = f"{left} -> {right}"
+        validator.validate(service)
+
+    transaction_validator = schema_validator(read("schemas/protocol/service-transaction.schema.json"))
+    transaction_validator.validate({
+        "requestId": "pgr_empty_contract",
+        "offerId": "offer_empty_contract",
+        "serviceId": "pgs_contract_no_inputs_or_outputs",
+        "serviceVersion": 1,
+        "providerId": "provider_empty_contract",
+        "providerKind": "organization",
+        "requestedByUserId": "user_requester",
+        "requestedAt": "2026-09-22T12:00:00Z",
+        "requestedAtClient": "2026-09-22T12:00:00Z",
+        "status": "delivered",
+        "requestRevision": 1,
+        "idempotencyKey": "empty-contract-delivery",
+        "inputs": [],
+        "outputObjects": [],
+        "outputReports": [],
+        "issues": [],
+        "missingRequiredInputRoles": [],
+        "offerSnapshot": {},
+        "providerSnapshot": {},
+        "contractSource": "pocket_genes_services_wiki_v1",
+        "createdAt": "2026-09-22T12:00:00Z",
+        "updatedAt": "2026-09-22T12:00:00Z",
+    })
+
+
+check("optional_service_input_and_output_slots", validate_optional_service_slots)
 
 
 def validate_protocol_examples():

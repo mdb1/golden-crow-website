@@ -485,6 +485,55 @@ describe("support service repository versions", () => {
     expect(offer.outputSlots[0]).not.toHaveProperty("sameIdentityAsInput");
   });
 
+  it.each([
+    {
+      name: "no input slots",
+      formShape: undefined,
+      inputSlots: [],
+      outputSlots: baseOffer.outputSlots,
+      shortContract: "none -> report:pdf_report",
+    },
+    {
+      name: "no output slots",
+      formShape: baseOffer.formShape,
+      inputSlots: baseOffer.inputSlots,
+      outputSlots: [],
+      shortContract: "form:form -> none",
+    },
+    {
+      name: "no input or output slots",
+      formShape: undefined,
+      inputSlots: [],
+      outputSlots: [],
+      shortContract: "none -> none",
+    },
+  ])("persists an offer with $name", async ({
+    formShape,
+    inputSlots,
+    outputSlots,
+    shortContract,
+  }) => {
+    const { createSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const offer = await createSupportServiceOffer(context, {
+      ...baseOffer,
+      formShape,
+      inputSlots,
+      outputSlots,
+    });
+
+    expect(offer).toEqual(
+      expect.objectContaining({ inputSlots, outputSlots, shortContract }),
+    );
+    expect(
+      collectionStore("service_offers").get("service_offers-generated"),
+    ).toEqual(
+      expect.objectContaining({ inputSlots, outputSlots, shortContract }),
+    );
+  });
+
   it("increments service version when a published offer definition changes", async () => {
     const { updateSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
@@ -1543,6 +1592,41 @@ describe("support service delivered transactions", () => {
     await expect(
       deliverSupportServiceTransaction(context, "transaction-1"),
     ).rejects.toThrow("Only running service transactions");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("delivers a transaction whose frozen contract has no inputs or outputs", async () => {
+    const emptyOffer = {
+      ...baseOffer,
+      formShape: undefined,
+      inputSlots: [],
+      outputSlots: [],
+      shortContract: "none -> none",
+    };
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      offerSnapshot: { ...emptyOffer, offerId: "offer-1" },
+    });
+    const { deliverSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const delivered = await deliverSupportServiceTransaction(
+      context,
+      "transaction-1",
+    );
+
+    expect(delivered).toEqual(
+      expect.objectContaining({
+        status: "delivered",
+        inputs: [],
+        outputObjects: [],
+        outputReports: [],
+      }),
+    );
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -2622,6 +2706,48 @@ describe("support service canonical transaction creation", () => {
         }),
       ],
     });
+  });
+
+  it("creates a transaction with empty input and output collections from an empty contract", async () => {
+    const emptyOffer = {
+      ...baseOffer,
+      formShape: undefined,
+      inputSlots: [],
+      outputSlots: [],
+      shortContract: "none -> none",
+    };
+    seedDoc("service_offers", "offer-1", emptyOffer);
+    const input = creationInput("pgr_empty_contract_1");
+    input.inputs = [];
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const created = await createSupportServiceTransaction(context, input);
+
+    expect(created).toEqual(
+      expect.objectContaining({
+        inputs: [],
+        outputObjects: [],
+        outputReports: [],
+        missingRequiredInputRoles: [],
+        attachmentsPending: false,
+        offerSnapshot: expect.objectContaining({
+          inputSlots: [],
+          outputSlots: [],
+          shortContract: "none -> none",
+        }),
+      }),
+    );
+    expect(
+      collectionStore("service_transactions").get("pgr_empty_contract_1"),
+    ).toEqual(
+      expect.objectContaining({
+        inputs: [],
+        outputObjects: [],
+        outputReports: [],
+      }),
+    );
   });
 
   it("accepts a form contract with no fields and no submitted answers", async () => {

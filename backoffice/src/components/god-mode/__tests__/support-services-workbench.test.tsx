@@ -1,7 +1,14 @@
 /** @jest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import {
   SupportServicesBrowser,
@@ -390,6 +397,57 @@ describe("support services workbenches", () => {
 
   it("normalizes a catalog service without a form shape as an absent optional form", () => {
     expect(normalizePocketGenesCatalogFormShape(undefined)).toBeUndefined();
+  });
+
+  it("starts a new offer with no input or output slots", () => {
+    renderWithQueryClient(<SupportServiceOfferWorkbench mode="create" />);
+
+    expect(screen.getByText("No input slots defined.")).toBeTruthy();
+    expect(screen.getByText("No output slots defined.")).toBeTruthy();
+    expect(screen.getByText("Not requested")).toBeTruthy();
+  });
+
+  it("saves an offer with no form, input slots, or output slots", async () => {
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        return { offer: { ...hiddenOffer, ...payload } };
+      }
+      if (
+        String(path).includes("provider-siblings") ||
+        String(path).includes("?limit=")
+      ) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: hiddenOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
+    );
+
+    const outputRole = (await screen.findAllByText("report")).find(
+      (element) => element.tagName === "TD",
+    );
+    expect(outputRole).toBeTruthy();
+    const outputRow = outputRole!.closest("tr");
+    expect(outputRow).toBeTruthy();
+    fireEvent.click(within(outputRow!).getByRole("button", { name: "Delete" }));
+    expect(screen.getByText("No output slots defined.")).toBeTruthy();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+
+    await waitFor(() => {
+      const putCall = sdkFetchMock.mock.calls.find(
+        ([, init]) => init?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const payload = JSON.parse(String(putCall?.[1]?.body));
+      expect(payload.inputSlots).toEqual([]);
+      expect(payload.outputSlots).toEqual([]);
+      expect(payload).not.toHaveProperty("formShape");
+      expect(payload.shortContract).toBe("none -> none");
+    });
   });
 
   it("saves an enabled form shape with zero fields and no universal requester answers", async () => {
@@ -1082,5 +1140,87 @@ describe("support services workbenches", () => {
       issuesHeading.compareDocumentPosition(statusHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("shows true empty file sections and permits delivery when the frozen contract has no slots", async () => {
+    const emptyOffer: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      shortContract: "none -> none",
+      inputSlots: [],
+      outputSlots: [],
+    };
+    const emptyTransaction: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      inputs: [],
+      outputObjects: [],
+      missingRequiredInputRoles: [],
+      attachmentsPending: false,
+      offerSnapshot: {
+        ...frozenOfferSnapshot,
+        shortContract: "none -> none",
+        formShape: undefined,
+        inputSlots: [],
+        outputSlots: [],
+      },
+    };
+    const deliveredEmptyTransaction: SupportServiceTransactionRecord = {
+      ...emptyTransaction,
+      status: "delivered",
+      requestRevision: emptyTransaction.requestRevision + 1,
+    };
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(`/transactions/${emptyTransaction.requestId}`) &&
+        !init?.method
+      ) {
+        return { transaction: emptyTransaction };
+      }
+      if (value.endsWith(`/offers/${emptyTransaction.offerId}`)) {
+        return { offer: emptyOffer };
+      }
+      if (value.endsWith("/deliver") && init?.method === "POST") {
+        return { transaction: deliveredEmptyTransaction };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={emptyTransaction.requestId}
+      />,
+    );
+
+    expect(
+      await screen.findByText("No input files are required for this service."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("No output files are required for this service."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "This service does not require output files. Mark it as delivered when the work is complete.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: /Upload output object/ }),
+    ).toBeNull();
+
+    const deliverButton = screen.getByRole("button", {
+      name: "Mark as delivered",
+    }) as HTMLButtonElement;
+    expect(deliverButton.disabled).toBe(false);
+    fireEvent.click(deliverButton);
+
+    await waitFor(() => {
+      expect(
+        sdkFetchMock.mock.calls.some(
+          ([path, init]) =>
+            String(path).endsWith("/deliver") && init?.method === "POST",
+        ),
+      ).toBe(true);
+    });
   });
 });

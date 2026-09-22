@@ -667,10 +667,9 @@ function defaultOutputSlot(): SupportServiceOutputSlot {
 }
 
 function serviceOutputSlots(slots: SupportServiceOutputSlot[]) {
-  const outputSlots = slots.filter(
+  return slots.filter(
     (slot) => slot.objectType && slot.objectType !== FORM_OBJECT_TYPE,
   );
-  return outputSlots.length ? outputSlots : [defaultOutputSlot()];
 }
 
 function defaultOfferForm(): OfferFormState {
@@ -690,7 +689,7 @@ function defaultOfferForm(): OfferFormState {
     supportsFormShape: false,
     formShape: defaultFormShape(),
     inputSlots: [],
-    outputSlots: [defaultOutputSlot()],
+    outputSlots: [],
     acceptedConditionsText: "",
     scopeRulesText: "",
     commercialTerms: {
@@ -778,7 +777,7 @@ function offerFormFromRecord(
   record: SupportServiceOfferRecord,
 ): OfferFormState {
   const hasFormShape = Boolean(record.formShape?.id);
-  const recordInputSlots = record.inputSlots.map((slot) =>
+  const recordInputSlots = (record.inputSlots ?? []).map((slot) =>
     singleInputSlot({ ...slot }),
   );
   return {
@@ -807,7 +806,7 @@ function offerFormFromRecord(
       ? withFormInputSlot(recordInputSlots)
       : withoutFormInputSlots(recordInputSlots),
     outputSlots: serviceOutputSlots(
-      record.outputSlots.map((slot) => ({ ...slot })),
+      (record.outputSlots ?? []).map((slot) => ({ ...slot })),
     ),
     acceptedConditionsText: record.acceptedConditions.join("\n"),
     scopeRulesText: record.scopeRules.join("\n"),
@@ -1005,7 +1004,7 @@ function calculatedShortContract(
     return `${slot.role || "output"}:${contractObjectLabel(objectType)}`;
   });
   const left = inputs.length ? inputs.join(" + ") : "none";
-  const right = outputs.length ? outputs.join(" + ") : "provider output";
+  const right = outputs.length ? outputs.join(" + ") : "none";
 
   return `${left} -> ${right}`;
 }
@@ -1128,8 +1127,8 @@ function offerSnapshotFromOffer(
           })),
         }
       : undefined,
-    inputSlots: offer.inputSlots.map((slot) => ({ ...slot })),
-    outputSlots: offer.outputSlots.map((slot) => ({ ...slot })),
+    inputSlots: (offer.inputSlots ?? []).map((slot) => ({ ...slot })),
+    outputSlots: (offer.outputSlots ?? []).map((slot) => ({ ...slot })),
     acceptedConditions: [...offer.acceptedConditions],
     scopeRules: [...offer.scopeRules],
     commercialTerms: offer.commercialTerms,
@@ -1431,10 +1430,6 @@ function offerPayloadFromForm(
   if (!form.stages.length) {
     throw new Error("At least one stage is required.");
   }
-  if (form.outputSlots.length === 0) {
-    throw new Error("At least one output slot is required.");
-  }
-
   const formSlots = form.inputSlots.filter(isFormInputSlot);
   if (form.supportsFormShape) {
     assertIdentifier(generatedIds.formShapeId, "pgfs", "Form shape ID");
@@ -4644,7 +4639,6 @@ function OutputSlotEditor({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        disabled={form.outputSlots.length <= 1}
                         onClick={() =>
                           setForm((current) => ({
                             ...current,
@@ -5175,7 +5169,6 @@ export function SupportServiceTransactionWorkbench({
     outputObjectDraft(slot, frozenInputSlots),
   );
   const allOutputSlotsReady =
-    expectedOutputObjects.length > 0 &&
     form.outputObjects.length === expectedOutputObjects.length &&
     expectedOutputObjects.every((expected) => {
       const boundOutput = form.outputObjects.find(
@@ -5826,9 +5819,13 @@ export function SupportServiceTransactionWorkbench({
                       </Select>
                     </Field>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {t(
-                        "Delivered is available only through Mark as delivered after every output is ready.",
-                      )}
+                      {expectedOutputObjects.length === 0
+                        ? t(
+                            "This service does not require output files. Mark it as delivered when the work is complete.",
+                          )
+                        : t(
+                            "Delivered is available only through Mark as delivered after every output is ready.",
+                          )}
                     </p>
                   </div>
                 ) : (
@@ -5921,9 +5918,8 @@ function OutputObjectGrid({
 
   if (outputs.length === 0) {
     return (
-      <div className="flex items-center gap-2 text-sm text-destructive">
-        <CircleAlert className="h-4 w-4" />
-        <span>{t("The linked service contract has no output slots.")}</span>
+      <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+        {t("No output files are required for this service.")}
       </div>
     );
   }
@@ -6148,9 +6144,8 @@ function ObjectRefTable({
 
   if (slots.length === 0) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <CircleAlert className="h-4 w-4" />
-        <span>{t("No object bindings are defined for this service.")}</span>
+      <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+        {t("No input files are required for this service.")}
       </div>
     );
   }

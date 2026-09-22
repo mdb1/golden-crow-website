@@ -927,9 +927,7 @@ function supportServiceShortContract({
     return `${slot.role}:${contractObjectTypeLabel(objectType)}`;
   });
   const left = inputs.length ? inputs.join(" + ") : "none";
-  const right = outputs.length
-    ? outputs.join(" + ")
-    : "provider_output";
+  const right = outputs.length ? outputs.join(" + ") : "none";
 
   return `${left} -> ${right}`;
 }
@@ -1586,8 +1584,7 @@ function offerFromFrozenTransaction(
     !cleanString(snapshot.shortContract) ||
     !Array.isArray(snapshot.stages) ||
     snapshot.stages.length === 0 ||
-    !Array.isArray(snapshot.outputSlots) ||
-    snapshot.outputSlots.length === 0
+    !Array.isArray(snapshot.outputSlots)
   ) {
     throw new AdminRepositoryError(
       "Stored offerSnapshot is not a complete frozen service contract.",
@@ -1830,12 +1827,6 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
     inputSlotByRole.set(slot.role, slot);
   }
 
-  if (document.outputSlots.length === 0) {
-    throw new AdminRepositoryError(
-      "At least one output slot is required.",
-      400,
-    );
-  }
   const outputRoles = new Set<string>();
   for (const slot of document.outputSlots) {
     if (!/^[a-z][a-z0-9_]*$/.test(slot.role)) {
