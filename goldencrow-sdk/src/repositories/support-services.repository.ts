@@ -1923,6 +1923,9 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
 function validateTransactionDocument(
   document: ReturnType<typeof transactionDocument>,
   offer?: SupportServiceOfferRecord,
+  options: {
+    preservedInputs?: readonly SupportServiceTransactionInputSlot[];
+  } = {},
 ) {
   if (!/^pgr_[a-z0-9_]+$/.test(document.requestId)) {
     throw new AdminRepositoryError(
@@ -1997,6 +2000,9 @@ function validateTransactionDocument(
   const formRole = cleanString(
     offer?.inputSlots.find((slot) => slot.objectType === FORM_OBJECT_TYPE)?.role,
   );
+  const preservedInputsByRole = new Map(
+    (options.preservedInputs ?? []).map((slot) => [slot.role, slot]),
+  );
   const suppliedInputRoles = new Set<string>();
   for (const slot of document.inputs) {
     if (!/^[a-z][a-z0-9_]*$/.test(slot.role)) {
@@ -2041,7 +2047,18 @@ function validateTransactionDocument(
         400,
       );
     }
-    validateTransactionInputSnapshot(slot, offer, document);
+    const preservedInput = preservedInputsByRole.get(slot.role);
+    // A bound input is frozen evidence. Historical native transactions may
+    // contain a serialized PGO payload inside that snapshot, including
+    // snake-case file keys. Permit only the structurally identical snapshot
+    // already stored on the transaction; every new or changed input
+    // still goes through the current camel-case transaction contract below.
+    if (
+      !preservedInput ||
+      stableString(slot) !== stableString(preservedInput)
+    ) {
+      validateTransactionInputSnapshot(slot, offer, document);
+    }
     if (slot.objectType === FORM_OBJECT_TYPE) {
       if (
         slot.role !== "form" ||
@@ -4016,6 +4033,25 @@ function toTransactionAdminRecord(
       "updatedAt is missing or invalid; this record is listed by document ID.",
     );
   }
+  const inputs = transactionAdminArray(
+    "inputs",
+    inputSlotsFromUnknown,
+    data.inputs,
+    complianceWarnings,
+  );
+  for (const input of inputs) {
+    try {
+      assertCamelCaseSnapshotValue(
+        input.objectSnapshot,
+        `Input ${input.role} objectSnapshot`,
+      );
+    } catch (error) {
+      pushComplianceWarning(
+        complianceWarnings,
+        `Input ${input.role} has a noncanonical frozen objectSnapshot (${error instanceof Error ? error.message : "invalid field keys"}). It is preserved as read-only evidence; saving other fields will not rewrite it.`,
+      );
+    }
+  }
 
   // God mode lists the root collection itself. A malformed or historical
   // detail snapshot must not hide that root transaction from administrators.
@@ -4038,12 +4074,7 @@ function toTransactionAdminRecord(
     requestedAtClient: timestampToIso(data.requestedAtClient),
     requestRevision: versionNumber(data.requestRevision),
     idempotencyKey: cleanString(data.idempotencyKey),
-    inputs: transactionAdminArray(
-      "inputs",
-      inputSlotsFromUnknown,
-      data.inputs,
-      complianceWarnings,
-    ),
+    inputs,
     outputObjects: transactionAdminArray(
       "outputObjects",
       outputObjectsFromUnknown,
@@ -5675,7 +5706,9 @@ export async function attachSupportServiceTransactionOutputObject(
       }),
       latestOffer,
     );
-    validateTransactionDocument(document, latestOffer);
+    validateTransactionDocument(document, latestOffer, {
+      preservedInputs: latest.inputs,
+    });
 
     const ownerData = ownerSnapshot.data() ?? {};
     const ownerCommunityData = ownerCommunitySnapshot.data() ?? {};
@@ -5865,7 +5898,9 @@ async function persistSupportServiceTransactionUpdate(
     }),
     offer,
   );
-  validateTransactionDocument(document, offer);
+  validateTransactionDocument(document, offer, {
+    preservedInputs: previous.inputs,
+  });
   assertTransactionStatusTransition(previous.status, document);
   const downloadedObjects =
     document.status === "delivered"

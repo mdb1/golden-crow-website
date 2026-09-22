@@ -300,6 +300,11 @@ describe("support services workbenches", () => {
     expect(await screen.findByText("Transaction requires remediation")).toBeTruthy();
     expect(
       screen.getByText(
+        "This root transaction remains visible in god mode even when historical data is not fully compliant. Correct editable data where possible. Frozen snapshots stay read-only and do not block unrelated saves.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
         "outputObjects: Output object snapshot 1 must be an object.",
       ),
     ).toBeTruthy();
@@ -992,7 +997,7 @@ describe("support services workbenches", () => {
     expect(within(sampleBinding).getAllByText("—")).toHaveLength(4);
   });
 
-  it("round-trips the frozen transaction contract without legacy keys", async () => {
+  it("saves editable transaction fields without resubmitting frozen input evidence", async () => {
     const editableTransaction: SupportServiceTransactionRecord = {
       ...deliveredTransaction,
       id: "pgr_editable_1",
@@ -1000,6 +1005,16 @@ describe("support services workbenches", () => {
       status: "running",
       requestRevision: 2,
       normalizedName: "pgr editable 1",
+      inputs: deliveredTransaction.inputs.map((input) => ({
+        ...input,
+        objectSnapshot: {
+          ...input.objectSnapshot,
+          data: {
+            form_shape: { fields: [] },
+            fields: [],
+          },
+        },
+      })),
     };
 
     sdkFetchMock.mockImplementation(async (path, init) => {
@@ -1042,7 +1057,7 @@ describe("support services workbenches", () => {
       expect(payload.requestedAtClient).toBe(
         editableTransaction.requestedAtClient,
       );
-      expect(payload.inputs).toEqual(editableTransaction.inputs);
+      expect(payload).not.toHaveProperty("inputs");
       expect(payload.outputObjects).toEqual(editableTransaction.outputObjects);
       expect(payload.outputReports).toEqual(editableTransaction.outputReports);
       expect(payload.issues).toEqual(editableTransaction.issues);

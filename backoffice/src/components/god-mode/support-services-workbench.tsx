@@ -1613,6 +1613,7 @@ function commercialTermsPayload(
 
 function transactionPayloadFromForm(
   form: TransactionFormState,
+  options: { includeInputs?: boolean } = {},
 ): SupportServiceTransactionInput {
   assertIdentifier(form.requestId, "pgr", "Request ID");
   assertIdentifier(form.serviceId, "pgs", "Service ID");
@@ -1638,93 +1639,106 @@ function transactionPayloadFromForm(
   const missingRequiredInputRoles = requiredInputs
     .filter((slot) => !slot.objectId.trim())
     .map((slot) => slot.role);
-  for (const slot of requiredInputs) {
-    if (
-      !slot.objectId.trim() &&
-      slot.acceptedTypes.includes(FORM_OBJECT_TYPE)
-    ) {
-      throw new Error(
-        `Input ${slot.role} is required before creating the transaction.`,
-      );
+  const includeInputs = options.includeInputs !== false;
+  if (includeInputs) {
+    for (const slot of requiredInputs) {
+      if (
+        !slot.objectId.trim() &&
+        slot.acceptedTypes.includes(FORM_OBJECT_TYPE)
+      ) {
+        throw new Error(
+          `Input ${slot.role} is required before creating the transaction.`,
+        );
+      }
     }
   }
 
-  const inputs = form.inputs
-    .filter((slot) => slot.objectId.trim())
-    .map((slot) => {
-      assertIdentifier(slot.objectId, "obj", `Input ${slot.role} object ID`);
-      if (!/^pgo_[a-z0-9_]+$/.test(slot.objectType)) {
-        throw new Error(`Input ${slot.role} needs a concrete PGO object type.`);
-      }
-      const objectId = slot.objectId.trim();
-      const revision = assertPositiveInteger(
-        slot.revision,
-        `Input ${slot.role} revision`,
-      );
-      const objectSnapshot = parseJsonObject(
-        slot.objectSnapshotText,
-        `Input ${slot.role} object snapshot`,
-      );
-      if (objectSnapshot.objectId !== objectId) {
-        throw new Error(
-          `Input ${slot.role} object snapshot must match its object ID.`,
-        );
-      }
-      if (objectSnapshot.objectType !== slot.objectType) {
-        throw new Error(
-          `Input ${slot.role} object snapshot must match its object type.`,
-        );
-      }
-      if (objectSnapshot.revision !== revision) {
-        throw new Error(
-          `Input ${slot.role} object snapshot must match its revision.`,
-        );
-      }
-      const input: SupportServiceTransactionSlot = {
-        role: slot.role,
-        objectRef: {
-          objectId,
-          revision,
-        },
-        objectType: slot.objectType,
-        objectSnapshot,
-      };
-
-      if (slot.objectType === FORM_OBJECT_TYPE) {
-        const objectCode = slot.objectCode.trim();
-        if (!/^\d{9}$/.test(objectCode)) {
-          throw new Error(`Input ${slot.role} needs a 9-digit object code.`);
-        }
-        if (
-          !slot.uploadedObjectId.trim() ||
-          !slot.fileStorageId.trim() ||
-          !slot.objectOwnerId.trim()
-        ) {
-          throw new Error(
-            `Input ${slot.role} needs uploaded object, file storage, and object owner IDs.`,
+  const inputs = includeInputs
+    ? form.inputs
+        .filter((slot) => slot.objectId.trim())
+        .map((slot) => {
+          assertIdentifier(
+            slot.objectId,
+            "obj",
+            `Input ${slot.role} object ID`,
           );
-        }
-        input.objectCode = objectCode;
-        input.uploadedObjectId = slot.uploadedObjectId.trim();
-        input.fileStorageId = slot.fileStorageId.trim();
-        input.objectOwnerId = slot.objectOwnerId.trim();
-      } else {
-        if (slot.objectCode.trim()) {
-          input.objectCode = slot.objectCode.trim();
-        }
-        if (slot.uploadedObjectId.trim()) {
-          input.uploadedObjectId = slot.uploadedObjectId.trim();
-        }
-        if (slot.fileStorageId.trim()) {
-          input.fileStorageId = slot.fileStorageId.trim();
-        }
-        if (slot.objectOwnerId.trim()) {
-          input.objectOwnerId = slot.objectOwnerId.trim();
-        }
-      }
+          if (!/^pgo_[a-z0-9_]+$/.test(slot.objectType)) {
+            throw new Error(
+              `Input ${slot.role} needs a concrete PGO object type.`,
+            );
+          }
+          const objectId = slot.objectId.trim();
+          const revision = assertPositiveInteger(
+            slot.revision,
+            `Input ${slot.role} revision`,
+          );
+          const objectSnapshot = parseJsonObject(
+            slot.objectSnapshotText,
+            `Input ${slot.role} object snapshot`,
+          );
+          if (objectSnapshot.objectId !== objectId) {
+            throw new Error(
+              `Input ${slot.role} object snapshot must match its object ID.`,
+            );
+          }
+          if (objectSnapshot.objectType !== slot.objectType) {
+            throw new Error(
+              `Input ${slot.role} object snapshot must match its object type.`,
+            );
+          }
+          if (objectSnapshot.revision !== revision) {
+            throw new Error(
+              `Input ${slot.role} object snapshot must match its revision.`,
+            );
+          }
+          const input: SupportServiceTransactionSlot = {
+            role: slot.role,
+            objectRef: {
+              objectId,
+              revision,
+            },
+            objectType: slot.objectType,
+            objectSnapshot,
+          };
 
-      return input;
-    });
+          if (slot.objectType === FORM_OBJECT_TYPE) {
+            const objectCode = slot.objectCode.trim();
+            if (!/^\d{9}$/.test(objectCode)) {
+              throw new Error(
+                `Input ${slot.role} needs a 9-digit object code.`,
+              );
+            }
+            if (
+              !slot.uploadedObjectId.trim() ||
+              !slot.fileStorageId.trim() ||
+              !slot.objectOwnerId.trim()
+            ) {
+              throw new Error(
+                `Input ${slot.role} needs uploaded object, file storage, and object owner IDs.`,
+              );
+            }
+            input.objectCode = objectCode;
+            input.uploadedObjectId = slot.uploadedObjectId.trim();
+            input.fileStorageId = slot.fileStorageId.trim();
+            input.objectOwnerId = slot.objectOwnerId.trim();
+          } else {
+            if (slot.objectCode.trim()) {
+              input.objectCode = slot.objectCode.trim();
+            }
+            if (slot.uploadedObjectId.trim()) {
+              input.uploadedObjectId = slot.uploadedObjectId.trim();
+            }
+            if (slot.fileStorageId.trim()) {
+              input.fileStorageId = slot.fileStorageId.trim();
+            }
+            if (slot.objectOwnerId.trim()) {
+              input.objectOwnerId = slot.objectOwnerId.trim();
+            }
+          }
+
+          return input;
+        })
+    : undefined;
   const outputObjects = form.outputObjects
     .filter((output) => output.objectCode.trim())
     .map((output) => {
@@ -5581,7 +5595,9 @@ export function SupportServiceTransactionWorkbench({
       if (!isEditing && !selectedOffer) {
         throw new Error("Choose an existing service offer.");
       }
-      saveMutation.mutate(transactionPayloadFromForm(form));
+      saveMutation.mutate(
+        transactionPayloadFromForm(form, { includeInputs: !isEditing }),
+      );
     } catch (error) {
       setToast(mutationErrorToast(error, nextToastId(), t));
     }
@@ -5628,7 +5644,7 @@ export function SupportServiceTransactionWorkbench({
                 <div>
                   <p className="font-semibold">{t("Transaction requires remediation")}</p>
                   <p className="text-sm opacity-80">
-                    {t("This root transaction is visible in god mode but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.")}
+                    {t("This root transaction remains visible in god mode even when historical data is not fully compliant. Correct editable data where possible. Frozen snapshots stay read-only and do not block unrelated saves.")}
                   </p>
                 </div>
                 <ul className="list-disc space-y-1 pl-5 text-sm">

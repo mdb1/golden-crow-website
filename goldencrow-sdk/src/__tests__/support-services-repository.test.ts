@@ -1882,6 +1882,119 @@ describe("support service delivered transactions", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("preserves an immutable legacy input snapshot while saving unrelated changes", async () => {
+    const legacySnapshot = {
+      ...transaction.inputs[0]!.objectSnapshot,
+      data: serializedPgoContent(transaction.inputs[0]!.objectSnapshot),
+    };
+    const legacyInput = {
+      ...transaction.inputs[0]!,
+      objectSnapshot: legacySnapshot,
+    };
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      inputs: [legacyInput],
+      outputObjects: [],
+      outputReports: [],
+    });
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const updated = await updateSupportServiceTransaction(
+      context,
+      "transaction-1",
+      {
+        status: "running",
+        inputs: [legacyInput],
+        issues: [{ reason: "Provider review pending" }],
+      },
+    );
+
+    expect(updated.requestRevision).toBe(2);
+    expect(updated.issues).toEqual([{ reason: "Provider review pending" }]);
+    expect(updated.inputs[0]!.objectSnapshot).toEqual(legacySnapshot);
+    expect(updated.complianceWarnings.join(" ")).toContain(
+      "Input form has a noncanonical frozen objectSnapshot",
+    );
+    expect(updated.complianceWarnings.join(" ")).toContain(
+      "It is preserved as read-only evidence; saving other fields will not rewrite it.",
+    );
+    expect(
+      (
+        collectionStore("service_transactions").get("transaction-1")!
+          .inputs as typeof transaction.inputs
+      )[0]!.objectSnapshot,
+    ).toEqual(legacySnapshot);
+
+    await expect(
+      updateSupportServiceTransaction(context, "transaction-1", {
+        inputs: [
+          {
+            ...legacyInput,
+            objectSnapshot: {
+              ...legacySnapshot,
+              data: {
+                ...(legacySnapshot.data as Record<string, unknown>),
+                attempted_mutation: true,
+              },
+            },
+          },
+        ],
+      }),
+    ).rejects.toThrow(
+      "Bound transaction input form is immutable after transaction creation.",
+    );
+  });
+
+  it("attaches and delivers outputs without rewriting a legacy frozen input snapshot", async () => {
+    const legacySnapshot = {
+      ...transaction.inputs[0]!.objectSnapshot,
+      data: serializedPgoContent(transaction.inputs[0]!.objectSnapshot),
+    };
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      inputs: [
+        {
+          ...transaction.inputs[0]!,
+          objectSnapshot: legacySnapshot,
+        },
+      ],
+      outputObjects: [],
+      outputReports: [],
+    });
+    mockPgoDownload();
+    const {
+      attachSupportServiceTransactionOutputObject,
+      deliverSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+
+    const attached = await attachSupportServiceTransactionOutputObject(
+      context,
+      "transaction-1",
+      {
+        role: "report",
+        downloadUrl: "https://objects.example/report.pgo.json",
+      },
+    );
+    const delivered = await deliverSupportServiceTransaction(
+      context,
+      "transaction-1",
+    );
+
+    expect(attached.transaction.inputs[0]!.objectSnapshot).toEqual(
+      legacySnapshot,
+    );
+    expect(delivered.status).toBe("delivered");
+    expect(delivered.inputs[0]!.objectSnapshot).toEqual(legacySnapshot);
+    expect(
+      (
+        collectionStore("service_transactions").get("transaction-1")!
+          .inputs as typeof transaction.inputs
+      )[0]!.objectSnapshot,
+    ).toEqual(legacySnapshot);
+  });
+
   it("delivers a transaction whose frozen contract has no inputs or outputs", async () => {
     const emptyOffer = {
       ...baseOffer,
@@ -3079,6 +3192,24 @@ describe("support service canonical transaction creation", () => {
     );
   });
 
+  it("rejects serialized snake-case PGO keys in a newly bound transaction snapshot", async () => {
+    const input = creationInput();
+    const snapshot = input.inputs[0]!.objectSnapshot as Record<
+      string,
+      unknown
+    >;
+    snapshot.data = serializedPgoContent(snapshot);
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createSupportServiceTransaction(context, input),
+    ).rejects.toThrow(
+      "Input slot form objectSnapshot.data must use camelCase keys; found form_shape.",
+    );
+  });
+
   it.each(["definition", "answer"] as const)(
     "rejects a scalar form %s entry instead of filtering it from an empty form",
     async (entryKind) => {
@@ -3723,6 +3854,26 @@ describe("support service canonical transaction creation", () => {
         },
       },
     };
+    await expect(
+      updateSupportServiceTransaction(context, created.id, {
+        inputs: [
+          ...created.inputs,
+          {
+            ...sequenceInput,
+            objectSnapshot: {
+              ...sequenceInput.objectSnapshot,
+              data: {
+                title: "Sequence data",
+                download_url: "https://objects.example/sequence.fasta",
+              },
+            },
+          },
+        ],
+      }),
+    ).rejects.toThrow(
+      "Input slot sequence_data objectSnapshot.data must use camelCase keys; found download_url.",
+    );
+
     const attached = await updateSupportServiceTransaction(
       context,
       created.id,

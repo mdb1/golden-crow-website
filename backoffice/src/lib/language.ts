@@ -4819,8 +4819,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "This service offer remains visible in god mode but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.":
     "Esta oferta de servicio sigue visible en god mode, pero no cumple completamente el contrato. Revisá las advertencias, corregí los datos editables y guardala para normalizar la entidad.",
   "Transaction requires remediation": "La transacción requiere corrección",
-  "This root transaction is visible in god mode but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.":
-    "Esta transacción raíz es visible en god mode, pero no cumple completamente el contrato. Revisá las advertencias, corregí los datos editables y guardala para normalizar la entidad.",
+  "This root transaction remains visible in god mode even when historical data is not fully compliant. Correct editable data where possible. Frozen snapshots stay read-only and do not block unrelated saves.":
+    "Esta transacción raíz sigue visible en god mode aunque tenga datos históricos que no cumplan completamente el contrato. Corregí los datos editables cuando sea posible. Los snapshots congelados permanecen de solo lectura y no bloquean guardados no relacionados.",
   "No service offers are available for transactions.":
     "No hay ofertas de servicio disponibles para transacciones.",
   "Not requested": "No solicitado",
