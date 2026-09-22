@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -5420,23 +5419,6 @@ export function SupportServiceTransactionWorkbench({
     setForm(transactionFormForOfferId(offerId, liveOffers));
   }
 
-  function updateInputRef(index: number, patch: Partial<ObjectRefDraft>) {
-    setForm((current) => {
-      const inputs = current.inputs.map((slot, slotIndex) =>
-        slotIndex === index ? { ...slot, ...patch } : slot,
-      );
-      const missingRequiredInputRoles = inputs
-        .filter((slot) => slot.required && !slot.objectId.trim())
-        .map((slot) => slot.role);
-      return {
-        ...current,
-        inputs,
-        missingRequiredInputRoles,
-        attachmentsPending: missingRequiredInputRoles.length > 0,
-      };
-    });
-  }
-
   function openOutputUpload(index: number) {
     const output = form.outputObjects[index];
     if (
@@ -5850,7 +5832,7 @@ export function SupportServiceTransactionWorkbench({
           ) : null}
         </Section>
         <Section title="Input object bindings">
-          <ObjectRefTable slots={form.inputs} onChange={updateInputRef} />
+          <ObjectRefTable slots={form.inputs} />
           {form.missingRequiredInputRoles.length ? (
             <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-800 shadow-sm dark:border-amber-400/25 dark:bg-amber-500/12 dark:text-amber-100">
               <CircleAlert className="h-4 w-4" />
@@ -6431,10 +6413,8 @@ function OutputObjectUploadDialog({
 
 function ObjectRefTable({
   slots,
-  onChange,
 }: {
   slots: ObjectRefDraft[];
-  onChange: (index: number, patch: Partial<ObjectRefDraft>) => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -6453,215 +6433,133 @@ function ObjectRefTable({
 
   return (
     <>
-    <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("Role")}</TableHead>
-            <TableHead>{t("Object type")}</TableHead>
-            <TableHead>{t("Object ID")}</TableHead>
-            <TableHead>{t("Revision")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {slots.map((slot, index) => {
-            const mustAttachNow =
-              slot.required && slot.acceptedTypes.includes(FORM_OBJECT_TYPE);
+      <div className="grid gap-4">
+        {slots.map((slot, index) => {
+          const identityCells = [
+            { label: t("Object ID"), value: slot.objectId },
+            { label: t("Revision"), value: slot.revision },
+            { label: t("Object code"), value: slot.objectCode },
+            {
+              label: t("Uploaded object ID"),
+              value: slot.uploadedObjectId,
+            },
+            { label: t("File storage ID"), value: slot.fileStorageId },
+            { label: t("Object owner ID"), value: slot.objectOwnerId },
+          ];
 
-            return (
-              <Fragment key={`${slot.role}-${index}`}>
-                <TableRow>
-                  <TableCell className="font-mono text-sm">
+          return (
+            <article
+              key={`${slot.role}-${index}`}
+              aria-label={`${t("Input object bindings")} · ${slot.role}`}
+              className="overflow-hidden rounded-2xl border border-violet-100/80 bg-white/80 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42"
+            >
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-100/80 bg-violet-50/35 px-4 py-3 dark:border-violet-400/14 dark:bg-violet-500/[0.04]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-sm font-semibold text-foreground">
                     {slot.role}
-                    {slot.required ? (
-                      <Badge variant="outline" className="ml-2">
-                        {t("Required")}
-                      </Badge>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="min-w-[14rem]">
-                    <Badge variant="secondary">
-                      {bindingTypeLabel(slot.objectType)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="min-w-[16rem]">
-                    <Input
-                      aria-label={`${t("Object ID")} · ${slot.role}`}
-                      value={slot.objectId}
-                      onChange={(event) =>
-                        onChange(index, { objectId: event.target.value })
-                      }
-                      required={mustAttachNow}
-                      placeholder="obj_..."
-                    />
-                  </TableCell>
-                  <TableCell className="w-32">
-                    <Input
-                      aria-label={`${t("Revision")} · ${slot.role}`}
-                      value={slot.revision}
-                      onChange={(event) =>
-                        onChange(index, { revision: event.target.value })
-                      }
-                      inputMode="numeric"
-                      required={mustAttachNow || Boolean(slot.objectId)}
-                    />
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="bg-violet-50/30 dark:bg-violet-500/[0.03]"
+                  </span>
+                  {slot.required ? (
+                    <Badge variant="outline">{t("Required")}</Badge>
+                  ) : null}
+                </div>
+                <Badge variant="secondary">
+                  {bindingTypeLabel(slot.objectType)}
+                </Badge>
+              </header>
+
+              <dl className="grid gap-px bg-violet-100/80 sm:grid-cols-2 xl:grid-cols-3 dark:bg-violet-400/14">
+                {identityCells.map((cell) => (
+                  <div
+                    key={cell.label}
+                    className="min-w-0 bg-white/90 px-4 py-3 dark:bg-slate-950/72"
                   >
-                    <div className="grid gap-4 py-2">
-                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white/70 px-4 py-3 dark:border-violet-400/16 dark:bg-slate-950/35">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            {t("Object snapshot")}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {t("Frozen snapshots are read-only evidence and cannot be edited here.")}
-                          </p>
-                        </div>
-                        <Button
-                          asChild
-                          variant="outline"
-                          size="sm"
-                        >
-                          <span
-                            role="button"
-                            tabIndex={slot.objectSnapshotText.trim() ? 0 : -1}
-                            aria-disabled={!slot.objectSnapshotText.trim()}
-                            onClick={() => {
-                              if (slot.objectSnapshotText.trim()) {
-                                setSnapshotPreview({
-                                  role: slot.role,
-                                  content: slot.objectSnapshotText,
-                                });
-                              }
-                            }}
-                            onKeyDown={(event) => {
-                              if (
-                                slot.objectSnapshotText.trim() &&
-                                (event.key === "Enter" || event.key === " ")
-                              ) {
-                                event.preventDefault();
-                                setSnapshotPreview({
-                                  role: slot.role,
-                                  content: slot.objectSnapshotText,
-                                });
-                              }
-                            }}
-                          >
-                            <FileText className="h-4 w-4" />
-                            {slot.objectSnapshotText.trim()
-                              ? t("View object snapshot")
-                              : t("No snapshot available")}
-                          </span>
-                        </Button>
-                      </div>
-                      {slot.objectType === FORM_OBJECT_TYPE ? (
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                          <label className="grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            <span>{t("Object code")}</span>
-                            <Input
-                              aria-label={`${t("Object code")} · ${slot.role}`}
-                              value={slot.objectCode}
-                              onChange={(event) =>
-                                onChange(index, {
-                                  objectCode: event.target.value
-                                    .replace(/\D/g, "")
-                                    .slice(0, 9),
-                                })
-                              }
-                              required
-                              inputMode="numeric"
-                              maxLength={9}
-                              placeholder="000000000"
-                              className="font-normal normal-case tracking-normal"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            <span>{t("Uploaded object ID")}</span>
-                            <Input
-                              aria-label={`${t("Uploaded object ID")} · ${slot.role}`}
-                              value={slot.uploadedObjectId}
-                              onChange={(event) =>
-                                onChange(index, {
-                                  uploadedObjectId: event.target.value,
-                                })
-                              }
-                              required
-                              className="font-normal normal-case tracking-normal"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            <span>{t("File storage ID")}</span>
-                            <Input
-                              aria-label={`${t("File storage ID")} · ${slot.role}`}
-                              value={slot.fileStorageId}
-                              onChange={(event) =>
-                                onChange(index, {
-                                  fileStorageId: event.target.value,
-                                })
-                              }
-                              required
-                              className="font-normal normal-case tracking-normal"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            <span>{t("Object owner ID")}</span>
-                            <Input
-                              aria-label={`${t("Object owner ID")} · ${slot.role}`}
-                              value={slot.objectOwnerId}
-                              onChange={(event) =>
-                                onChange(index, {
-                                  objectOwnerId: event.target.value,
-                                })
-                              }
-                              required
-                              className="font-normal normal-case tracking-normal"
-                            />
-                          </label>
-                        </div>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              </Fragment>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-    <Dialog
-      open={Boolean(snapshotPreview)}
-      onOpenChange={(open) => {
-        if (!open) {
-          setSnapshotPreview(null);
-        }
-      }}
-    >
-      <DialogContent className="max-w-3xl overflow-hidden p-0">
-        <DialogHeader className="border-b border-border/70 px-6 py-5">
-          <DialogTitle>{t("Object snapshot preview")}</DialogTitle>
-          <DialogDescription>
-            {snapshotPreview?.role ?? "-"} · {t("Read only")}
-          </DialogDescription>
-        </DialogHeader>
-        <pre className="max-h-[65vh] overflow-auto whitespace-pre-wrap break-words bg-muted/25 p-6 font-mono text-xs leading-5 text-foreground">
-          {snapshotPreview?.content ?? ""}
-        </pre>
-        <DialogFooter className="border-t border-border/70 px-6 py-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setSnapshotPreview(null)}
-          >
-            {t("Close")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {cell.label}
+                    </dt>
+                    <dd className="mt-1 break-all font-mono text-sm text-foreground">
+                      {cell.value || "—"}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-violet-100/80 px-4 py-3 dark:border-violet-400/14">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t("Object snapshot")}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t(
+                      "Frozen snapshots are read-only evidence and cannot be edited here.",
+                    )}
+                  </p>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <span
+                    role="button"
+                    tabIndex={slot.objectSnapshotText.trim() ? 0 : -1}
+                    aria-disabled={!slot.objectSnapshotText.trim()}
+                    onClick={() => {
+                      if (slot.objectSnapshotText.trim()) {
+                        setSnapshotPreview({
+                          role: slot.role,
+                          content: slot.objectSnapshotText,
+                        });
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (
+                        slot.objectSnapshotText.trim() &&
+                        (event.key === "Enter" || event.key === " ")
+                      ) {
+                        event.preventDefault();
+                        setSnapshotPreview({
+                          role: slot.role,
+                          content: slot.objectSnapshotText,
+                        });
+                      }
+                    }}
+                  >
+                    <FileText className="h-4 w-4" />
+                    {slot.objectSnapshotText.trim()
+                      ? t("View object snapshot")
+                      : t("No snapshot available")}
+                  </span>
+                </Button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <Dialog
+        open={Boolean(snapshotPreview)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSnapshotPreview(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl overflow-hidden p-0">
+          <DialogHeader className="border-b border-border/70 px-6 py-5">
+            <DialogTitle>{t("Object snapshot preview")}</DialogTitle>
+            <DialogDescription>
+              {snapshotPreview?.role ?? "-"} · {t("Read only")}
+            </DialogDescription>
+          </DialogHeader>
+          <pre className="max-h-[65vh] overflow-auto whitespace-pre-wrap break-words bg-muted/25 p-6 font-mono text-xs leading-5 text-foreground">
+            {snapshotPreview?.content ?? ""}
+          </pre>
+          <DialogFooter className="border-t border-border/70 px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSnapshotPreview(null)}
+            >
+              {t("Close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

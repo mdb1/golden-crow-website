@@ -866,24 +866,27 @@ describe("support services workbenches", () => {
       ).disabled,
     ).toBe(true);
 
-    expect(
-      (screen.getByLabelText("Object ID · form") as HTMLInputElement).value,
-    ).toBe("obj_form_1");
-    expect(
-      (screen.getByLabelText("Object code · form") as HTMLInputElement).value,
-    ).toBe("123456789");
-    expect(
-      (screen.getByLabelText("Uploaded object ID · form") as HTMLInputElement)
-        .value,
-    ).toBe("uploaded-form-1");
-    expect(
-      (screen.getByLabelText("File storage ID · form") as HTMLInputElement)
-        .value,
-    ).toBe("file-form-1");
-    expect(
-      (screen.getByLabelText("Object owner ID · form") as HTMLInputElement)
-        .value,
-    ).toBe("owner-form-1");
+    const inputBinding = screen.getByRole("article", {
+      name: "Input object bindings · form",
+    });
+    expect(inputBinding.querySelector("input, textarea, select")).toBeNull();
+    [
+      ["Object ID", "obj_form_1"],
+      ["Revision", "2"],
+      ["Object code", "123456789"],
+      ["Uploaded object ID", "uploaded-form-1"],
+      ["File storage ID", "file-form-1"],
+      ["Object owner ID", "owner-form-1"],
+    ].forEach(([label, value]) => {
+      expect(within(inputBinding).getByText(label)).toBeTruthy();
+      expect(within(inputBinding).getByText(value)).toBeTruthy();
+    });
+    expect(screen.queryByLabelText("Object ID · form")).toBeNull();
+    expect(screen.queryByLabelText("Revision · form")).toBeNull();
+    expect(screen.queryByLabelText("Object code · form")).toBeNull();
+    expect(screen.queryByLabelText("Uploaded object ID · form")).toBeNull();
+    expect(screen.queryByLabelText("File storage ID · form")).toBeNull();
+    expect(screen.queryByLabelText("Object owner ID · form")).toBeNull();
     expect(screen.queryByLabelText("Object snapshot · form")).toBeNull();
     fireEvent.click(
       screen.getByRole("button", { name: "View object snapshot" }),
@@ -897,19 +900,96 @@ describe("support services workbenches", () => {
         .disabled,
     ).toBe(true);
     expect(
-      (
-        screen
-          .getByLabelText("Object ID · form")
-          .closest("fieldset") as HTMLFieldSetElement
-      ).disabled,
-    ).toBe(true);
-    expect(
       sdkFetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
     ).toBe(false);
 
     expect(sdkFetchMock).toHaveBeenCalledWith(
       `/admin/support-services/offers/${deliveredTransaction.offerId}`,
     );
+  });
+
+  it("renders every running transaction input as one read-only information card", async () => {
+    const transactionWithMultipleInputs: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      id: "pgr_running_read_only_inputs",
+      requestId: "pgr_running_read_only_inputs",
+      inputs: [
+        ...deliveredTransaction.inputs,
+        {
+          role: "sample",
+          objectRef: { objectId: "obj_sample_1", revision: 4 },
+          objectType: "pgo_dna_sample",
+          objectSnapshot: {
+            objectId: "obj_sample_1",
+            objectType: "pgo_dna_sample",
+            revision: 4,
+          },
+        },
+      ],
+      offerSnapshot: {
+        ...frozenOfferSnapshot,
+        inputSlots: [
+          ...frozenOfferSnapshot.inputSlots,
+          {
+            role: "sample",
+            objectType: "pgo_dna_sample",
+            acceptedTypes: ["pgo_dna_sample"],
+            required: false,
+            cardinality: { min: 0, max: 1 },
+          },
+        ],
+      },
+    };
+
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (
+        String(path).endsWith(
+          `/transactions/${transactionWithMultipleInputs.requestId}`,
+        )
+      ) {
+        return { transaction: transactionWithMultipleInputs };
+      }
+      if (
+        String(path).endsWith(
+          `/offers/${transactionWithMultipleInputs.offerId}`,
+        )
+      ) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${String(path)}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={transactionWithMultipleInputs.requestId}
+      />,
+    );
+
+    const formBinding = await screen.findByRole("article", {
+      name: "Input object bindings · form",
+    });
+    const sampleBinding = screen.getByRole("article", {
+      name: "Input object bindings · sample",
+    });
+
+    for (const binding of [formBinding, sampleBinding]) {
+      expect(binding.querySelector("input, textarea, select")).toBeNull();
+      [
+        "Object ID",
+        "Revision",
+        "Object code",
+        "Uploaded object ID",
+        "File storage ID",
+        "Object owner ID",
+      ].forEach((label) => {
+        expect(within(binding).getByText(label)).toBeTruthy();
+      });
+    }
+
+    expect(within(sampleBinding).getByText("obj_sample_1")).toBeTruthy();
+    expect(within(sampleBinding).getByText("4")).toBeTruthy();
+    expect(within(sampleBinding).getAllByText("—")).toHaveLength(4);
   });
 
   it("round-trips the frozen transaction contract without legacy keys", async () => {
