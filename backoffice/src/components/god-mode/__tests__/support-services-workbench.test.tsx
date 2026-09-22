@@ -720,6 +720,13 @@ describe("support services workbenches", () => {
     const deliverButton = screen.getByRole("button", {
       name: "Mark as delivered",
     }) as HTMLButtonElement;
+    const transactionFooter = deliverButton.closest(".sticky");
+    expect(transactionFooter).toBeTruthy();
+    expect(
+      transactionFooter?.contains(
+        screen.getByRole("button", { name: "Save" }),
+      ),
+    ).toBe(true);
     expect(deliverButton.disabled).toBe(true);
 
     fireEvent.click(uploadSlot);

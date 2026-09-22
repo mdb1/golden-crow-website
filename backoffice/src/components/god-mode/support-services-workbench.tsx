@@ -5400,6 +5400,7 @@ export function SupportServiceTransactionWorkbench({
           backLabel="Back to Service Transactions"
           isSaving={saveMutation.isPending}
           saveDisabled={terminalStatusLocked || transactionCommandPending}
+          showSaveAction={false}
           deleteDisabled={transactionCommandPending}
           canDelete={isEditing}
           onDelete={() => {
@@ -5784,33 +5785,22 @@ export function SupportServiceTransactionWorkbench({
                       )}
                     </p>
                   ) : null}
-                  <Button
-                    type="button"
-                    size="lg"
-                    onClick={handleMarkDelivered}
-                    disabled={
-                      !canMarkDelivered ||
-                      deliverMutation.isPending ||
-                      uploadOutputMutation.isPending ||
-                      saveMutation.isPending
-                    }
-                    className="h-14 w-full justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
-                  >
-                    {deliverMutation.isPending ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="h-5 w-5" />
-                    )}
-                    {deliverMutation.isPending
-                      ? t("Marking as delivered...")
-                      : t("Mark as delivered")}
-                  </Button>
                 </div>
               ) : null}
             </div>
           </div>
         </Section>
         </fieldset>
+        <ServiceTransactionActionFooter
+          isEditing={isEditing}
+          changed={!isEditing || hasUnsavedTransactionChanges}
+          terminalStatusLocked={terminalStatusLocked}
+          transactionCommandPending={transactionCommandPending}
+          savePending={saveMutation.isPending}
+          deliverPending={deliverMutation.isPending}
+          canMarkDelivered={canMarkDelivered}
+          onMarkDelivered={handleMarkDelivered}
+        />
       </form>
       <OutputObjectUploadDialog
         draft={outputUploadDraft}
@@ -6292,12 +6282,89 @@ function ObjectRefTable({
   );
 }
 
+function ServiceTransactionActionFooter({
+  isEditing,
+  changed,
+  terminalStatusLocked,
+  transactionCommandPending,
+  savePending,
+  deliverPending,
+  canMarkDelivered,
+  onMarkDelivered,
+}: {
+  isEditing: boolean;
+  changed: boolean;
+  terminalStatusLocked: boolean;
+  transactionCommandPending: boolean;
+  savePending: boolean;
+  deliverPending: boolean;
+  canMarkDelivered: boolean;
+  onMarkDelivered: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <div className="sticky bottom-0 z-20 border-t border-violet-100/80 bg-white/92 px-5 py-4 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur dark:border-violet-400/14 dark:bg-slate-950/88">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 text-sm text-muted-foreground">
+          {terminalStatusLocked
+            ? t("Terminal service transactions cannot be edited.")
+            : changed
+              ? t("Unsaved changes")
+              : t("No unsaved changes")}
+        </div>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+          <Button
+            type="submit"
+            size="lg"
+            disabled={terminalStatusLocked || transactionCommandPending}
+            variant={isEditing ? "outline" : "default"}
+            className={cn(
+              "h-14 min-w-[min(100%,14rem)] justify-center rounded-xl text-base font-semibold",
+              isEditing
+                ? "border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-950 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+                : "bg-violet-600 text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700",
+            )}
+          >
+            {savePending ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Save className="h-5 w-5" />
+            )}
+            {savePending ? t("Saving...") : t("Save")}
+          </Button>
+          {isEditing ? (
+            <Button
+              type="button"
+              size="lg"
+              onClick={onMarkDelivered}
+              disabled={!canMarkDelivered || transactionCommandPending}
+              className="h-14 min-w-[min(100%,18rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+            >
+              {deliverPending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5" />
+              )}
+              {deliverPending
+                ? t("Marking as delivered...")
+                : t("Mark as delivered")}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WorkbenchTopbar({
   title,
   backHref,
   backLabel,
   isSaving,
   saveDisabled = false,
+  showSaveAction = true,
   deleteDisabled = false,
   canDelete,
   onDelete,
@@ -6308,6 +6375,7 @@ function WorkbenchTopbar({
   backLabel: string;
   isSaving: boolean;
   saveDisabled?: boolean;
+  showSaveAction?: boolean;
   deleteDisabled?: boolean;
   canDelete: boolean;
   onDelete: () => void;
@@ -6363,15 +6431,17 @@ function WorkbenchTopbar({
             <span>{t("Delete")}</span>
           </Button>
         ) : null}
-        <Button
-          type="submit"
-          size="sm"
-          disabled={isSaving || saveDisabled}
-          className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
-        >
-          <CheckCircle2 className="h-4 w-4" />
-          <span>{isSaving ? t("Saving...") : t(saveLabel)}</span>
-        </Button>
+        {showSaveAction ? (
+          <Button
+            type="submit"
+            size="sm"
+            disabled={isSaving || saveDisabled}
+            className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            <span>{isSaving ? t("Saving...") : t(saveLabel)}</span>
+          </Button>
+        ) : null}
       </div>
     </div>
   );
