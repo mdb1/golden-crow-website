@@ -4168,7 +4168,7 @@ async function listWithFilters<TRecord>({
   const parsedCursor = parseListCursor(cursor);
   const baseQuery = adminDb
     .collection(collectionName)
-    .orderBy(FieldPath.documentId(), "desc");
+    .orderBy(FieldPath.documentId(), "asc");
   let query: Query = baseQuery;
 
   if (parsedCursor) {

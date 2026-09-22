@@ -21,6 +21,11 @@ const writes: Array<{
   id: string;
   data: MockData;
 }> = [];
+const orderByCalls: Array<{
+  collectionName: string;
+  field: string;
+  direction: "asc" | "desc";
+}> = [];
 let beforeNextTransaction: (() => void) | undefined;
 
 function clone<T>(value: T): T {
@@ -194,15 +199,16 @@ function queryRef(
           afterValues,
         ),
     ),
-    orderBy: jest.fn((field: string, direction: "asc" | "desc" = "asc") =>
-      queryRef(
+    orderBy: jest.fn((field: string, direction: "asc" | "desc" = "asc") => {
+      orderByCalls.push({ collectionName: name, field, direction });
+      return queryRef(
         name,
         filters,
         [...orderings, { field, direction }],
         maximum,
         afterValues,
-      ),
-    ),
+      );
+    }),
     startAfter: jest.fn((...values: unknown[]) =>
       queryRef(name, filters, orderings, maximum, values),
     ),
@@ -857,6 +863,7 @@ describe("support service pagination", () => {
   beforeEach(() => {
     jest.resetModules();
     collections.clear();
+    orderByCalls.length = 0;
     for (let index = 0; index < 21; index += 1) {
       seedDoc("service_offers", `offer-page-${String(index).padStart(2, "0")}`, {
         ...baseOffer,
@@ -880,6 +887,23 @@ describe("support service pagination", () => {
       transactions: [],
       nextCursor: undefined,
     });
+    expect(orderByCalls).toEqual(
+      expect.arrayContaining([
+        {
+          collectionName: "service_offers",
+          field: "__name__",
+          direction: "asc",
+        },
+        {
+          collectionName: "service_transactions",
+          field: "__name__",
+          direction: "asc",
+        },
+      ]),
+    );
+    expect(orderByCalls).not.toContainEqual(
+      expect.objectContaining({ field: "__name__", direction: "desc" }),
+    );
   });
 
   it("uses the document ID as a cursor tie-breaker for equal timestamps", async () => {
