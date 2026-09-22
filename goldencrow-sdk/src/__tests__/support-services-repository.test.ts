@@ -721,6 +721,52 @@ describe("support service pagination", () => {
       }),
     );
   });
+
+  it("keeps malformed detail snapshots from hiding root transactions in god mode", async () => {
+    seedDoc("service_transactions", "pgr_ios_visible_in_god_mode", {
+      schemaVersion: 1,
+      requestId: "pgr_ios_visible_in_god_mode",
+      offerId: "offer-1",
+      serviceId: "pgs_pocket_genes_1",
+      serviceVersion: 1,
+      providerId: "feed-org-1",
+      providerKind: "organization",
+      status: "received",
+      requestedByUserId: "user-1",
+      requestedAt: "2026-09-21T22:59:23.000Z",
+      requestedAtClient: "2026-09-21T22:59:22.000Z",
+      requestRevision: 1,
+      idempotencyKey: "ios-pgr_ios_visible_in_god_mode",
+      inputs: [],
+      outputObjects: ["invalid-detail-snapshot"],
+      outputReports: [null],
+      issues: [],
+      missingRequiredInputRoles: [],
+      offerSnapshot: {},
+      providerSnapshot: {},
+      contractSource: "pocket_genes_services_wiki_v1",
+      createdAt: "2026-09-21T22:59:23.000Z",
+      updatedAt: "2026-09-21T22:59:23.000Z",
+    });
+    const {
+      getSupportServiceTransaction,
+      listSupportServiceTransactions,
+    } = await import("../repositories/support-services.repository.js");
+
+    const result = await listSupportServiceTransactions(context, { limit: 20 });
+
+    expect(result.transactions).toHaveLength(1);
+    expect(result.transactions[0]).toEqual(
+      expect.objectContaining({
+        requestId: "pgr_ios_visible_in_god_mode",
+        outputObjects: [],
+        outputReports: [],
+      }),
+    );
+    await expect(
+      getSupportServiceTransaction(context, "pgr_ios_visible_in_god_mode"),
+    ).rejects.toThrow("Output object snapshot 1 must be an object.");
+  });
 });
 
 describe("support service delivered transactions", () => {

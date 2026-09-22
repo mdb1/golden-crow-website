@@ -3395,6 +3395,76 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
   }) satisfies SupportServiceTransactionRecord;
 }
 
+function transactionListArray<T>(parser: (value: unknown) => T[], value: unknown) {
+  try {
+    return parser(value);
+  } catch {
+    return [];
+  }
+}
+
+function toTransactionListRecord(
+  id: string,
+  data: Record<string, unknown>,
+): SupportServiceTransactionRecord {
+  const requestId = cleanString(data.requestId) || id;
+  const serviceId = cleanString(data.serviceId);
+  const requestedByUserId = cleanString(data.requestedByUserId);
+  const requestedByUserEmail = cleanString(
+    data.requestedByUserEmail,
+  ).toLowerCase();
+
+  // God mode lists the root collection itself. A malformed or historical
+  // detail snapshot must not hide that root transaction from administrators.
+  // These are not compatibility aliases: only canonical camel-case fields are
+  // read, and malformed optional arrays are represented as empty arrays.
+  return withoutUndefined({
+    id,
+    schemaVersion:
+      typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
+    requestId,
+    offerId: cleanString(data.offerId),
+    serviceId,
+    serviceVersion: versionNumber(data.serviceVersion),
+    providerId: cleanString(data.providerId),
+    providerKind: normalizeProviderKind(data.providerKind),
+    status: normalizeTransactionStatus(data.status),
+    requestedByUserId,
+    requestedByUserEmail: requestedByUserEmail || undefined,
+    requestedAt: timestampToIso(data.requestedAt),
+    requestedAtClient: timestampToIso(data.requestedAtClient),
+    requestRevision: versionNumber(data.requestRevision),
+    idempotencyKey: cleanString(data.idempotencyKey),
+    inputs: transactionListArray(inputSlotsFromUnknown, data.inputs),
+    outputObjects: transactionListArray(
+      outputObjectsFromUnknown,
+      data.outputObjects,
+    ),
+    outputReports: transactionListArray(
+      outputReportsFromUnknown,
+      data.outputReports,
+    ),
+    missingRequiredInputRoles: cleanStringArray(data.missingRequiredInputRoles),
+    issues: unknownArray(data.issues),
+    offerSnapshot: optionalRecord(data.offerSnapshot),
+    providerSnapshot: optionalRecord(data.providerSnapshot),
+    contractSource: cleanString(data.contractSource),
+    attachmentsPending:
+      typeof data.attachmentsPending === "boolean"
+        ? data.attachmentsPending
+        : false,
+    normalizedName:
+      cleanString(data.normalizedName) ||
+      normalizeName(
+        `${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
+      ),
+    createdAt: timestampToIso(data.createdAt),
+    updatedAt: timestampToIso(data.updatedAt),
+    createdByEmail: cleanString(data.createdByEmail),
+    updatedByEmail: cleanString(data.updatedByEmail),
+  }) satisfies SupportServiceTransactionRecord;
+}
+
 function matchesTextSearch(record: { normalizedName: string }, query?: string) {
   const normalizedQuery = normalizeName(cleanString(query));
   if (!normalizedQuery) {
@@ -4144,7 +4214,7 @@ export async function listSupportServiceTransactions(
     cursor: options.cursor,
     limit,
     hasFilters,
-    toRecord: toTransactionRecord,
+    toRecord: toTransactionListRecord,
     matches: (record) => matchesTransactionFilters(record, options),
   });
 
