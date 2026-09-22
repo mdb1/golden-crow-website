@@ -6063,6 +6063,10 @@ function ObjectRefTable({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const [snapshotPreview, setSnapshotPreview] = useState<{
+    role: string;
+    content: string;
+  } | null>(null);
 
   if (slots.length === 0) {
     return (
@@ -6074,6 +6078,7 @@ function ObjectRefTable({
   }
 
   return (
+    <>
     <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
       <Table>
         <TableHeader>
@@ -6134,24 +6139,52 @@ function ObjectRefTable({
                     className="bg-violet-50/30 dark:bg-violet-500/[0.03]"
                   >
                     <div className="grid gap-4 py-2">
-                      <label className="grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        <span>{t("Object snapshot")}</span>
-                        <Textarea
-                          aria-label={`${t("Object snapshot")} · ${slot.role}`}
-                          value={slot.objectSnapshotText}
-                          onChange={(event) =>
-                            onChange(index, {
-                              objectSnapshotText: event.target.value,
-                            })
-                          }
-                          required={mustAttachNow || Boolean(slot.objectId)}
-                          rows={5}
-                          className="font-mono text-xs font-normal normal-case tracking-normal"
-                          placeholder={
-                            '{"objectId":"obj_...","objectType":"pgo_...","revision":1}'
-                          }
-                        />
-                      </label>
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white/70 px-4 py-3 dark:border-violet-400/16 dark:bg-slate-950/35">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {t("Object snapshot")}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {t("Frozen snapshots are read-only evidence and cannot be edited here.")}
+                          </p>
+                        </div>
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                        >
+                          <span
+                            role="button"
+                            tabIndex={slot.objectSnapshotText.trim() ? 0 : -1}
+                            aria-disabled={!slot.objectSnapshotText.trim()}
+                            onClick={() => {
+                              if (slot.objectSnapshotText.trim()) {
+                                setSnapshotPreview({
+                                  role: slot.role,
+                                  content: slot.objectSnapshotText,
+                                });
+                              }
+                            }}
+                            onKeyDown={(event) => {
+                              if (
+                                slot.objectSnapshotText.trim() &&
+                                (event.key === "Enter" || event.key === " ")
+                              ) {
+                                event.preventDefault();
+                                setSnapshotPreview({
+                                  role: slot.role,
+                                  content: slot.objectSnapshotText,
+                                });
+                              }
+                            }}
+                          >
+                            <FileText className="h-4 w-4" />
+                            {slot.objectSnapshotText.trim()
+                              ? t("View object snapshot")
+                              : t("No snapshot available")}
+                          </span>
+                        </Button>
+                      </div>
                       {slot.objectType === FORM_OBJECT_TYPE ? (
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                           <label className="grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -6226,6 +6259,36 @@ function ObjectRefTable({
         </TableBody>
       </Table>
     </div>
+    <Dialog
+      open={Boolean(snapshotPreview)}
+      onOpenChange={(open) => {
+        if (!open) {
+          setSnapshotPreview(null);
+        }
+      }}
+    >
+      <DialogContent className="max-w-3xl overflow-hidden p-0">
+        <DialogHeader className="border-b border-border/70 px-6 py-5">
+          <DialogTitle>{t("Object snapshot preview")}</DialogTitle>
+          <DialogDescription>
+            {snapshotPreview?.role ?? "-"} · {t("Read only")}
+          </DialogDescription>
+        </DialogHeader>
+        <pre className="max-h-[65vh] overflow-auto whitespace-pre-wrap break-words bg-muted/25 p-6 font-mono text-xs leading-5 text-foreground">
+          {snapshotPreview?.content ?? ""}
+        </pre>
+        <DialogFooter className="border-t border-border/70 px-6 py-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setSnapshotPreview(null)}
+          >
+            {t("Close")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

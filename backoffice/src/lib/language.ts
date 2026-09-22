@@ -4953,6 +4953,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Issues JSON array": "Array JSON de incidencias",
   "Native discovery": "Descubrimiento nativo",
   "Object snapshot": "Snapshot del objeto",
+  "View object snapshot": "Ver snapshot del objeto",
+  "Object snapshot preview": "Vista previa del snapshot del objeto",
+  "No snapshot available": "No hay snapshot disponible",
+  "Frozen snapshots are read-only evidence and cannot be edited here.":
+    "Los snapshots congelados son evidencia de solo lectura y no pueden editarse aquí.",
   "Terminal transactions cannot be reopened.":
     "Las transacciones terminales no se pueden reabrir.",
   "The offer remains active and available to authorized backoffice workflows, but it is excluded from native discovery.":

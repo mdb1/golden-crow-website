@@ -527,6 +527,13 @@ describe("support services workbenches", () => {
       (screen.getByLabelText("Object owner ID · form") as HTMLInputElement)
         .value,
     ).toBe("owner-form-1");
+    expect(screen.queryByLabelText("Object snapshot · form")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "View object snapshot" }),
+    );
+    expect(await screen.findByText("Object snapshot preview")).toBeTruthy();
+    expect(screen.getByText(/preserve me/)).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
 
     expect(
       (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)
