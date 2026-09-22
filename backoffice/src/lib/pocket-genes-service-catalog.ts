@@ -31,6 +31,20 @@ function stringArray(value: unknown) {
     : [];
 }
 
+function requiredBoolean(value: unknown, fieldName: string) {
+  if (typeof value !== "boolean") {
+    throw new Error(`${fieldName} must be a boolean.`);
+  }
+  return value;
+}
+
+function legacyDefaultFalseBoolean(value: unknown, fieldName: string) {
+  if (value === undefined || value === null) {
+    return false;
+  }
+  return requiredBoolean(value, fieldName);
+}
+
 function recordArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter(
@@ -56,8 +70,8 @@ function normalizeInputSlot(slot: Record<string, unknown>): SupportServiceInputS
   const cardinality = record(slot.cardinality);
   const min = Number(cardinality.min ?? (slot.required ? 1 : 0));
   const max = Number(cardinality.max ?? 1);
-  const acceptedTypes = stringArray(slot.accepted_types ?? slot.acceptedTypes);
-  const objectType = cleanString(slot.object_type ?? slot.objectType) || acceptedTypes[0] || "";
+  const acceptedTypes = stringArray(slot.acceptedTypes);
+  const objectType = cleanString(slot.objectType) || acceptedTypes[0] || "";
 
   return {
     role: cleanString(slot.role),
@@ -74,15 +88,13 @@ function normalizeInputSlot(slot: Record<string, unknown>): SupportServiceInputS
 function normalizeOutputSlot(slot: Record<string, unknown>): SupportServiceOutputSlot {
   return {
     role: cleanString(slot.role),
-    objectType: cleanString(slot.object_type ?? slot.objectType),
+    objectType: cleanString(slot.objectType),
     mutationMode:
-      cleanString(slot.mutation_mode ?? slot.mutationMode) ===
-      "new_revision"
+      cleanString(slot.mutationMode) === "new_revision"
         ? "new_revision"
         : "new_object",
     sameIdentityAsInput:
-      cleanString(slot.same_identity_as_input ?? slot.sameIdentityAsInput) ||
-      undefined,
+      cleanString(slot.sameIdentityAsInput) || undefined,
   };
 }
 
@@ -105,35 +117,35 @@ export const POCKET_GENES_PROVIDER_OPTIONS = rawProviders.map((provider) => ({
 }));
 
 export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
-  const formShape = record(service.form_shape ?? service.formShape);
-  const commercialTerms = record(
-    service.mock_commercial_terms ??
-      service.mockCommercialTerms ??
-      service.commercialTerms,
-  );
+  const formShape = record(service.formShape);
+  const commercialTerms = record(service.commercialTerms);
   const commercialPrice = record(commercialTerms.price);
-  const pricingModel = cleanString(
-    commercialTerms.pricing_model ?? commercialTerms.pricingModel,
-  );
+  const pricingModel = cleanString(commercialTerms.pricingModel);
   const priceAmount = Number(commercialPrice.amount);
   const priceCurrency = cleanString(commercialPrice.currency);
+  const priceSummary = cleanString(commercialPrice.summary);
 
   return {
-    value: cleanString(service.service_id ?? service.serviceId),
+    value: cleanString(service.serviceId),
     label: cleanString(service.name),
-    serviceId: cleanString(service.service_id ?? service.serviceId),
-    serviceVersion: versionNumber(service.service_version ?? service.serviceVersion),
+    serviceId: cleanString(service.serviceId),
+    serviceVersion: versionNumber(service.serviceVersion),
     name: cleanString(service.name),
-    providerId: cleanString(service.provider_id ?? service.providerId),
+    providerId: cleanString(service.providerId),
     stages: stringArray(service.stages).map(normalizeStage),
+    isHiddenFromSearch: legacyDefaultFalseBoolean(
+      service.isHiddenFromSearch,
+      "isHiddenFromSearch",
+    ),
     description: cleanString(service.description),
-    shortContract: cleanString(service.short_contract ?? service.shortContract),
-    providerWork: cleanString(service.provider_work ?? service.providerWork),
+    shortContract: cleanString(service.shortContract),
+    providerWork: cleanString(service.providerWork),
     formShape: {
       id: cleanString(formShape.id),
       version: versionNumber(formShape.version),
-      allowUnknownFields: Boolean(
-        formShape.allow_unknown_fields ?? formShape.allowUnknownFields,
+      allowUnknownFields: requiredBoolean(
+        formShape.allowUnknownFields,
+        "formShape.allowUnknownFields",
       ),
       fields: recordArray(formShape.fields).map((field) => ({
         key: cleanString(field.key),
@@ -147,21 +159,16 @@ export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
         })),
       })),
     },
-    inputSlots: recordArray(service.input_slots ?? service.inputSlots).map(
-      normalizeInputSlot,
-    ),
-    outputSlots: recordArray(service.output_slots ?? service.outputSlots).map(
-      normalizeOutputSlot,
-    ),
-    acceptedConditions: stringArray(
-      service.accepted_conditions ?? service.acceptedConditions,
-    ),
-    scopeRules: stringArray(service.scope_rules ?? service.scopeRules),
+    inputSlots: recordArray(service.inputSlots).map(normalizeInputSlot),
+    outputSlots: recordArray(service.outputSlots).map(normalizeOutputSlot),
+    acceptedConditions: stringArray(service.acceptedConditions),
+    scopeRules: stringArray(service.scopeRules),
     commercialTerms: {
       pricingModel: (pricingModel as SupportServicePricingModel) || undefined,
       price:
-        Number.isFinite(priceAmount) || priceCurrency
+        Number.isFinite(priceAmount) || priceCurrency || priceSummary
           ? {
+              summary: priceSummary || undefined,
               amount: Number.isFinite(priceAmount) ? priceAmount : undefined,
               currency: priceCurrency || undefined,
             }

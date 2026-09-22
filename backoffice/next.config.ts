@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import path from "node:path";
 
 // next-intl plugin loads `src/i18n/request.ts` at build time so getRequestConfig
 // is wired into RSC + middleware. Plan 13-03 — scoped to the gc-fitness route
@@ -28,8 +29,16 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const GC_FITNESS_AUTH_HANDLER_HOST =
   process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_AUTH_DOMAIN ??
   "gcfitness-3476b.firebaseapp.com";
+const MONOREPO_ROOT = path.resolve(process.cwd(), "..");
 
 const nextConfig: NextConfig = {
+  // The service catalogs are shared with the native client and live beside
+  // this package. Keep Turbopack and the deployment tracer rooted at the
+  // monorepo so production builds can bundle those canonical JSON files.
+  turbopack: {
+    root: MONOREPO_ROOT,
+  },
+  outputFileTracingRoot: MONOREPO_ROOT,
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "lh3.googleusercontent.com" }, // Google profile photos

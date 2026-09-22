@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
@@ -101,14 +113,18 @@ import {
   type SupportServiceMutationMode,
   type SupportServiceOfferInput,
   type SupportServiceOfferRecord,
+  type SupportServiceOfferSnapshot,
   type SupportServiceOfferStatus,
   type SupportServiceOffersPage,
   type SupportServiceOutputSlot,
   type SupportServicePricingModel,
   type SupportServiceProviderKind,
+  type SupportServiceProviderSnapshot,
   type SupportServiceStage,
   type SupportServiceTransactionInput,
   type SupportServiceTransactionRecord,
+  type SupportServiceTransactionSlot,
+  type SupportServiceTransactionStatus,
   type SupportServiceTransactionsPage,
 } from "@/lib/support-services";
 import { cn } from "@/lib/utils";
@@ -136,6 +152,7 @@ type OfferFormState = {
   providerName: string;
   stages: SupportServiceStage[];
   status: NonNullable<SupportServiceOfferInput["status"]>;
+  isHiddenFromSearch: boolean;
   description: string;
   providerWork: string;
   supportsFormShape: boolean;
@@ -156,6 +173,12 @@ type ObjectRefDraft = {
   role: string;
   objectId: string;
   revision: string;
+  objectType: string;
+  objectSnapshotText: string;
+  objectCode: string;
+  uploadedObjectId: string;
+  fileStorageId: string;
+  objectOwnerId: string;
   required: boolean;
   acceptedTypes: string[];
 };
@@ -168,16 +191,27 @@ type OutputObjectDraft = {
 
 type TransactionFormState = {
   requestId: string;
+  offerId: string;
   serviceId: string;
   serviceVersion: number;
+  providerId: string;
+  providerKind: SupportServiceProviderKind;
   status: NonNullable<SupportServiceTransactionInput["status"]>;
-  requesterEmail: string;
-  subjectId: string;
+  requestedByUserId: string;
+  requestedByUserEmail: string;
+  requestedAt: string;
+  requestedAtClient: string;
+  requestRevision: number;
+  idempotencyKey: string;
   inputs: ObjectRefDraft[];
   outputObjects: OutputObjectDraft[];
   outputReportCodesText: string;
+  issuesText: string;
   missingRequiredInputRoles: string[];
-  notes: string;
+  offerSnapshot: SupportServiceOfferSnapshot;
+  providerSnapshot: SupportServiceProviderSnapshot;
+  contractSource: string;
+  attachmentsPending: boolean;
 };
 
 type ServiceOfferPublishDialogState = {
@@ -187,13 +221,55 @@ type ServiceOfferPublishDialogState = {
 };
 
 const SERVICE_PAGE_SIZE = 20;
-const PROVIDER_OFFER_LOOKUP_LIMIT = 100;
+const PROVIDER_OFFER_LOOKUP_LIMIT = 50;
 const OFFERS_QUERY_KEY = "god-mode-support-service-offers";
 const TRANSACTIONS_QUERY_KEY = "god-mode-support-service-transactions";
 const LIVE_OFFERS_QUERY_KEY = "god-mode-support-service-offers-live-picker";
 const EMPTY_SUPPORT_SERVICE_OFFERS: SupportServiceOfferRecord[] = [];
 const FORM_OBJECT_TYPE = "pgo_form";
 const DEFAULT_OUTPUT_OBJECT_TYPE = "pgo_pdf_report";
+const TERMINAL_TRANSACTION_STATUSES: ReadonlySet<SupportServiceTransactionStatus> =
+  new Set(["delivered", "rejected", "failed", "cancelled"]);
+const ALLOWED_TRANSACTION_STATUS_TRANSITIONS: Record<
+  Exclude<
+    SupportServiceTransactionStatus,
+    "delivered" | "rejected" | "failed" | "cancelled"
+  >,
+  ReadonlySet<SupportServiceTransactionStatus>
+> = {
+  received: new Set([
+    "validating",
+    "awaiting_input",
+    "accepted",
+    "rejected",
+    "failed",
+    "cancelled",
+  ]),
+  validating: new Set([
+    "awaiting_input",
+    "accepted",
+    "rejected",
+    "failed",
+    "cancelled",
+  ]),
+  awaiting_input: new Set([
+    "validating",
+    "accepted",
+    "rejected",
+    "failed",
+    "cancelled",
+  ]),
+  accepted: new Set([
+    "awaiting_input",
+    "queued",
+    "running",
+    "rejected",
+    "failed",
+    "cancelled",
+  ]),
+  queued: new Set(["awaiting_input", "running", "failed", "cancelled"]),
+  running: new Set(["awaiting_input", "delivered", "failed", "cancelled"]),
+};
 const INPUT_OBJECT_OPTIONS = POCKET_GENES_OBJECT_OPTIONS.filter(
   (object) => object.value !== FORM_OBJECT_TYPE,
 );
@@ -485,7 +561,9 @@ function inputRoleForObjectType(objectType: string) {
 }
 
 function withFormInputSlot(slots: SupportServiceInputSlot[]) {
-  return slots.some(isFormInputSlot) ? slots : [defaultFormInputSlot(), ...slots];
+  return slots.some(isFormInputSlot)
+    ? slots
+    : [defaultFormInputSlot(), ...slots];
 }
 
 function withoutFormInputSlots(slots: SupportServiceInputSlot[]) {
@@ -518,6 +596,7 @@ function defaultOfferForm(): OfferFormState {
     providerName: "",
     stages: ["test_planning"],
     status: "draft",
+    isHiddenFromSearch: false,
     description: "",
     providerWork: "",
     supportsFormShape: false,
@@ -533,7 +612,9 @@ function defaultOfferForm(): OfferFormState {
   };
 }
 
-function singleInputSlot(slot: SupportServiceInputSlot): SupportServiceInputSlot {
+function singleInputSlot(
+  slot: SupportServiceInputSlot,
+): SupportServiceInputSlot {
   const objectType = slot.objectType || slot.acceptedTypes[0] || "";
   const isFormSlot = objectType === FORM_OBJECT_TYPE;
 
@@ -574,6 +655,7 @@ function offerFormFromCatalog(
       ? catalogOffer.stages
       : ["test_planning"],
     status: "draft",
+    isHiddenFromSearch: catalogOffer.isHiddenFromSearch,
     description: catalogOffer.description,
     providerWork: catalogOffer.providerWork,
     supportsFormShape: hasFormShape,
@@ -581,7 +663,9 @@ function offerFormFromCatalog(
       ? {
           id: catalogOffer.formShape.id,
           version: catalogOffer.formShape.version,
-          allowUnknownFields: Boolean(catalogOffer.formShape.allowUnknownFields),
+          allowUnknownFields: Boolean(
+            catalogOffer.formShape.allowUnknownFields,
+          ),
           fields: formFieldsFromRecord(catalogOffer.formShape.fields),
         }
       : defaultFormShape(),
@@ -595,16 +679,16 @@ function offerFormFromCatalog(
     scopeRulesText: catalogOffer.scopeRules.join("\n"),
     commercialTerms: {
       pricingModel:
-        catalogOffer.commercialTerms.price?.amount === 0
-          ? "free"
-          : "fixed",
+        catalogOffer.commercialTerms.pricingModel ?? "not_specified",
       price: { ...catalogOffer.commercialTerms.price },
       turnaround: catalogOffer.commercialTerms.turnaround,
     },
   };
 }
 
-function offerFormFromRecord(record: SupportServiceOfferRecord): OfferFormState {
+function offerFormFromRecord(
+  record: SupportServiceOfferRecord,
+): OfferFormState {
   const hasFormShape = Boolean(record.formShape?.id);
   const recordInputSlots = record.inputSlots.map((slot) =>
     singleInputSlot({ ...slot }),
@@ -619,6 +703,7 @@ function offerFormFromRecord(record: SupportServiceOfferRecord): OfferFormState 
     providerName: record.providerName ?? "",
     stages: record.stages.length ? record.stages : ["test_planning"],
     status: record.status,
+    isHiddenFromSearch: record.isHiddenFromSearch,
     description: record.description,
     providerWork: record.providerWork,
     supportsFormShape: hasFormShape,
@@ -667,10 +752,7 @@ function sortedStages(stages: SupportServiceStage[]) {
   return STAGE_ORDER.filter((stage) => stages.includes(stage));
 }
 
-function sameStages(
-  left: SupportServiceStage[],
-  right: SupportServiceStage[],
-) {
+function sameStages(left: SupportServiceStage[], right: SupportServiceStage[]) {
   const sortedLeft = sortedStages(left);
   const sortedRight = sortedStages(right);
 
@@ -682,8 +764,9 @@ function sameStages(
 
 function catalogStagesForObject(objectType: string) {
   return (
-    POCKET_GENES_OBJECT_OPTIONS.find((object) => object.value === objectType)
-      ?.stages.filter(isSupportServiceStage) ?? []
+    POCKET_GENES_OBJECT_OPTIONS.find(
+      (object) => object.value === objectType,
+    )?.stages.filter(isSupportServiceStage) ?? []
   );
 }
 
@@ -802,7 +885,8 @@ function sameIdentityObjectType(role: string) {
 
 function outputObjectLabel(slot: SupportServiceOutputSlot) {
   if (slot.objectType.startsWith("same_as:")) {
-    const sourceRole = slot.sameIdentityAsInput ?? slot.objectType.replace(/^same_as:/, "");
+    const sourceRole =
+      slot.sameIdentityAsInput ?? slot.objectType.replace(/^same_as:/, "");
     return `same_as:${sourceRole}`;
   }
 
@@ -843,18 +927,26 @@ function serviceOfferStatusDescription(
   t: (text: string) => string,
 ) {
   if (status === "active") {
-    return t("Active service offers are published and can be selected by new service transactions.");
+    return t(
+      "Active service offers are published and can be selected by new service transactions.",
+    );
   }
 
-  if (status === "paused") {
-    return t("Paused service offers stay saved, but should not receive new transaction requests until they are published again.");
+  if (status === "inactive") {
+    return t(
+      "Inactive service offers stay saved, but should not receive new transaction requests until they are published again.",
+    );
   }
 
   if (status === "archived") {
-    return t("Archived service offers stay available for audit and historical transactions, but are removed from normal operation.");
+    return t(
+      "Archived service offers stay available for audit and historical transactions, but are removed from normal operation.",
+    );
   }
 
-  return t("Draft service offers stay private while the contract is still being shaped. Publish when the service is ready to receive transactions.");
+  return t(
+    "Draft service offers stay private while the contract is still being shaped. Publish when the service is ready to receive transactions.",
+  );
 }
 
 function serviceOfferStatusBadgeClass(status: SupportServiceOfferStatus) {
@@ -862,7 +954,7 @@ function serviceOfferStatusBadgeClass(status: SupportServiceOfferStatus) {
     return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/24 dark:bg-emerald-500/12 dark:text-emerald-200";
   }
 
-  if (status === "paused") {
+  if (status === "inactive") {
     return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/26 dark:bg-amber-500/12 dark:text-amber-200";
   }
 
@@ -886,41 +978,154 @@ function PublishedIndicator({ t }: { t: (text: string) => string }) {
 }
 
 function emptyObjectRefDraft(slot: SupportServiceInputSlot): ObjectRefDraft {
+  const objectType = slotObjectType(slot);
   return {
     role: slot.role,
     objectId: "",
     revision: "1",
+    objectType,
+    objectSnapshotText: "",
+    objectCode: "",
+    uploadedObjectId: "",
+    fileStorageId: "",
+    objectOwnerId: "",
     required: slot.required,
-    acceptedTypes: [slotObjectType(slot)].filter(Boolean),
+    acceptedTypes: [objectType].filter(Boolean),
   };
 }
 
 function outputObjectDraft(
   slot: SupportServiceOutputSlot,
-  offer: SupportServiceOfferRecord,
+  inputSlots: SupportServiceInputSlot[],
 ): OutputObjectDraft {
-  const inputRole = slot.sameIdentityAsInput || slot.objectType.replace(/^same_as:/, "");
-  const inputType = offer.inputSlots.find((input) => input.role === inputRole)?.objectType;
+  const inputRole =
+    slot.sameIdentityAsInput || slot.objectType.replace(/^same_as:/, "");
+  const inputType = inputSlots.find(
+    (input) => input.role === inputRole,
+  )?.objectType;
   return {
     role: slot.role,
-    objectType: slot.objectType.startsWith("same_as:") ? inputType || "" : slot.objectType,
+    objectType: slot.objectType.startsWith("same_as:")
+      ? inputType || ""
+      : slot.objectType,
     objectCode: "",
+  };
+}
+
+function offerSnapshotFromOffer(
+  offer: SupportServiceOfferRecord,
+): SupportServiceOfferSnapshot {
+  return {
+    offerId: offer.id,
+    schemaVersion: offer.schemaVersion,
+    serviceId: offer.serviceId,
+    serviceVersion: offer.serviceVersion,
+    name: offer.name,
+    status: offer.status,
+    isHiddenFromSearch: offer.isHiddenFromSearch,
+    serviceCategory: offer.serviceCategory,
+    providerId: offer.providerId,
+    providerKind: offer.providerKind,
+    providerName: offer.providerName,
+    description: offer.description,
+    providerWork: offer.providerWork,
+    shortContract: offer.shortContract,
+    stages: [...offer.stages],
+    formShape: offer.formShape
+      ? {
+          ...offer.formShape,
+          fields: offer.formShape.fields.map((field) => ({
+            ...field,
+            options: field.options?.map((option) => ({ ...option })),
+          })),
+        }
+      : undefined,
+    inputSlots: offer.inputSlots.map((slot) => ({ ...slot })),
+    outputSlots: offer.outputSlots.map((slot) => ({ ...slot })),
+    acceptedConditions: [...offer.acceptedConditions],
+    scopeRules: [...offer.scopeRules],
+    commercialTerms: offer.commercialTerms,
+  };
+}
+
+function providerSnapshotFromOffer(
+  offer: SupportServiceOfferRecord,
+): SupportServiceProviderSnapshot {
+  return {
+    id: offer.providerId,
+    kind: offer.providerKind,
+    name: offer.providerName,
+  };
+}
+
+function transactionIdempotencyKey(requestId: string) {
+  return `${requestId}:backoffice`;
+}
+
+function transactionInputDraft(
+  input: SupportServiceTransactionSlot,
+  contractSlot?: SupportServiceInputSlot,
+): ObjectRefDraft {
+  const objectSnapshot =
+    input.objectSnapshot &&
+    typeof input.objectSnapshot === "object" &&
+    !Array.isArray(input.objectSnapshot)
+      ? input.objectSnapshot
+      : {};
+  const objectType =
+    input.objectType ||
+    slotObjectType(
+      contractSlot ?? {
+        role: input.role,
+        acceptedTypes: [],
+        required: true,
+        cardinality: { min: 1, max: 1 },
+      },
+    );
+
+  return {
+    role: input.role,
+    objectId: input.objectRef.objectId,
+    revision: String(input.objectRef.revision),
+    objectType,
+    objectSnapshotText: JSON.stringify(objectSnapshot, null, 2),
+    objectCode: input.objectCode ?? "",
+    uploadedObjectId: input.uploadedObjectId ?? "",
+    fileStorageId: input.fileStorageId ?? "",
+    objectOwnerId: input.objectOwnerId ?? "",
+    required: contractSlot?.required ?? true,
+    acceptedTypes: contractSlot?.acceptedTypes?.length
+      ? [...contractSlot.acceptedTypes]
+      : objectType
+        ? [objectType]
+        : [],
   };
 }
 
 function emptyTransactionForm(): TransactionFormState {
   return {
     requestId: "pgr_",
+    offerId: "",
     serviceId: "",
     serviceVersion: 1,
+    providerId: "",
+    providerKind: "organization",
     status: "received",
-    requesterEmail: "",
-    subjectId: "",
+    requestedByUserId: "",
+    requestedByUserEmail: "",
+    requestedAt: "",
+    requestedAtClient: "",
+    requestRevision: 1,
+    idempotencyKey: "",
     inputs: [],
     outputObjects: [],
     outputReportCodesText: "",
+    issuesText: "[]",
     missingRequiredInputRoles: [],
-    notes: "",
+    offerSnapshot: {},
+    providerSnapshot: { id: "", kind: "organization", name: "" },
+    contractSource: "service_offer",
+    attachmentsPending: false,
   };
 }
 
@@ -929,103 +1134,137 @@ function transactionFormForOffer(
 ): TransactionFormState {
   const inputSlots = offer.inputSlots ?? [];
   const outputSlots = offer.outputSlots ?? [];
+  const requestId = makeRequestId(offer.serviceId);
 
   return {
-    requestId: makeRequestId(offer.serviceId),
+    requestId,
+    offerId: offer.id,
     serviceId: offer.serviceId,
     serviceVersion: offer.serviceVersion,
+    providerId: offer.providerId,
+    providerKind: offer.providerKind,
     status: "received",
-    requesterEmail: "",
-    subjectId: "",
+    requestedByUserId: "",
+    requestedByUserEmail: "",
+    requestedAt: "",
+    requestedAtClient: new Date().toISOString(),
+    requestRevision: 1,
+    idempotencyKey: transactionIdempotencyKey(requestId),
     inputs: inputSlots.map(emptyObjectRefDraft),
-    outputObjects: outputSlots.map((slot) => outputObjectDraft(slot, offer)),
+    outputObjects: outputSlots.map((slot) =>
+      outputObjectDraft(slot, inputSlots),
+    ),
     outputReportCodesText: "",
-    missingRequiredInputRoles: [],
-    notes: "",
+    issuesText: "[]",
+    missingRequiredInputRoles: inputSlots
+      .filter((slot) => slot.required)
+      .map((slot) => slot.role),
+    offerSnapshot: offerSnapshotFromOffer(offer),
+    providerSnapshot: providerSnapshotFromOffer(offer),
+    contractSource: "service_offer",
+    attachmentsPending: inputSlots.some((slot) => slot.required),
   };
 }
 
-function transactionFormForService(
-  serviceId: string,
+function transactionFormForOfferId(
+  offerId: string,
   offers: SupportServiceOfferRecord[],
 ): TransactionFormState {
-  const offer = offers.find((candidate) => candidate.serviceId === serviceId);
+  const offer = offers.find((candidate) => candidate.id === offerId);
   return offer
     ? transactionFormForOffer(offer)
     : {
         ...emptyTransactionForm(),
-        requestId: serviceId ? makeRequestId(serviceId) : "pgr_",
-        serviceId,
+        offerId,
       };
 }
 
 function transactionFormFromRecord(
   record: SupportServiceTransactionRecord,
-  offers: SupportServiceOfferRecord[],
 ): TransactionFormState {
-  const offer = offers.find(
-    (candidate) => candidate.serviceId === record.serviceId,
+  const snapshotInputSlots = Array.isArray(record.offerSnapshot?.inputSlots)
+    ? record.offerSnapshot.inputSlots
+    : [];
+  const snapshotOutputSlots = Array.isArray(record.offerSnapshot?.outputSlots)
+    ? record.offerSnapshot.outputSlots
+    : [];
+  const contractInputSlots = snapshotInputSlots;
+  const contractOutputSlots = snapshotOutputSlots;
+  const recordInputs = Array.isArray(record.inputs) ? record.inputs : [];
+  const recordOutputObjects = Array.isArray(record.outputObjects)
+    ? record.outputObjects
+    : [];
+  const inputByRole = new Map(recordInputs.map((slot) => [slot.role, slot]));
+  const outputByRole = new Map(
+    recordOutputObjects.map((output) => [output.role, output]),
   );
-  const base = offer
-    ? transactionFormForOffer(offer)
-    : {
-        ...emptyTransactionForm(),
-        requestId: record.requestId,
-        serviceId: record.serviceId,
-        serviceVersion: record.serviceVersion,
-        status: record.status,
-        inputs: record.inputs.map((slot) => ({
-          role: slot.role,
-          objectId: slot.objectRef.objectId,
-          revision: String(slot.objectRef.revision),
-          required: true,
-          acceptedTypes: [],
-        })),
-        outputObjects: record.outputObjects.map((output) => ({
-          role: output.role,
-          objectType: output.objectType,
-          objectCode: output.objectCode,
-        })),
-        outputReportCodesText: record.outputReports
-          .map((report) => report.reportCode)
-          .join("\n"),
-        missingRequiredInputRoles: record.missingRequiredInputRoles,
-      };
-  const inputByRole = new Map(record.inputs.map((slot) => [slot.role, slot]));
-  const outputByRole = new Map(record.outputObjects.map((output) => [output.role, output]));
-
-  return {
-    ...base,
-    requestId: record.requestId,
-    serviceVersion: record.serviceVersion,
-    status: record.status,
-    requesterEmail: record.requesterEmail,
-    subjectId: record.subjectId,
-    inputs: base.inputs.map((slot) => {
+  const contractInputRoles = new Set(
+    contractInputSlots.map((slot) => slot.role),
+  );
+  const contractOutputRoles = new Set(
+    contractOutputSlots.map((slot) => slot.role),
+  );
+  const inputs = [
+    ...contractInputSlots.map((slot) => {
       const existing = inputByRole.get(slot.role);
       return existing
-        ? {
-            ...slot,
-            objectId: existing.objectRef.objectId,
-            revision: String(existing.objectRef.revision),
-          }
-        : slot;
+        ? transactionInputDraft(existing, slot)
+        : emptyObjectRefDraft(slot);
     }),
-    outputObjects: base.outputObjects.map((output) => {
-      const existing = outputByRole.get(output.role);
+    ...recordInputs
+      .filter((slot) => !contractInputRoles.has(slot.role))
+      .map((slot) => transactionInputDraft(slot)),
+  ];
+  const outputObjects = [
+    ...contractOutputSlots.map((slot) => {
+      const existing = outputByRole.get(slot.role);
       return existing
         ? {
-            ...output,
+            role: existing.role,
             objectType: existing.objectType,
             objectCode: existing.objectCode,
           }
-        : output;
+        : outputObjectDraft(slot, contractInputSlots);
     }),
-    outputReportCodesText: record.outputReports
+    ...recordOutputObjects
+      .filter((output) => !contractOutputRoles.has(output.role))
+      .map((output) => ({ ...output })),
+  ];
+
+  const providerSnapshot = record.providerSnapshot ?? {
+    id: record.providerId,
+    kind: record.providerKind,
+    name: "",
+  };
+
+  return {
+    requestId: record.requestId,
+    offerId: record.offerId ?? "",
+    serviceId: record.serviceId,
+    serviceVersion: record.serviceVersion,
+    providerId: record.providerId ?? providerSnapshot.id ?? "",
+    providerKind:
+      record.providerKind ?? providerSnapshot.kind ?? "organization",
+    status: record.status,
+    requestedByUserId: record.requestedByUserId ?? "",
+    requestedByUserEmail: record.requestedByUserEmail ?? "",
+    requestedAt: record.requestedAt ?? "",
+    requestedAtClient:
+      record.requestedAtClient ?? record.requestedAt ?? record.createdAt ?? "",
+    requestRevision: record.requestRevision ?? 1,
+    idempotencyKey:
+      record.idempotencyKey ?? transactionIdempotencyKey(record.requestId),
+    inputs,
+    outputObjects,
+    outputReportCodesText: (record.outputReports ?? [])
       .map((report) => report.reportCode)
       .join("\n"),
-    missingRequiredInputRoles: record.missingRequiredInputRoles,
-    notes: record.notes,
+    issuesText: JSON.stringify(record.issues ?? [], null, 2),
+    missingRequiredInputRoles: record.missingRequiredInputRoles ?? [],
+    offerSnapshot: record.offerSnapshot ?? {},
+    providerSnapshot,
+    contractSource: record.contractSource ?? "service_offer",
+    attachmentsPending: Boolean(record.attachmentsPending),
   };
 }
 
@@ -1040,6 +1279,35 @@ function assertPositiveInteger(value: string, label: string) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
     throw new Error(`${label} must be a positive integer.`);
+  }
+  return parsed;
+}
+
+function parseJsonObject(value: string, label: string) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error(`${label} must be a valid JSON object.`);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${label} must be a valid JSON object.`);
+  }
+  if (Object.keys(parsed).length === 0) {
+    throw new Error(`${label} cannot be empty.`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function parseJsonArray(value: string, label: string) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error(`${label} must be a valid JSON array.`);
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error(`${label} must be a valid JSON array.`);
   }
   return parsed;
 }
@@ -1142,15 +1410,24 @@ function offerPayloadFromForm(
         (inputSlot) => inputSlot.role === slot.sameIdentityAsInput,
       );
       if (!sourceInputSlot) {
-        throw new Error("New revision outputs must reference an existing input role.");
+        throw new Error(
+          "New revision outputs must reference an existing input role.",
+        );
       }
       if (slotObjectType(sourceInputSlot) === FORM_OBJECT_TYPE) {
-        throw new Error("New revision outputs cannot revise the request form input.");
+        throw new Error(
+          "New revision outputs cannot revise the request form input.",
+        );
       }
-      if (slot.objectType !== sameIdentityObjectType(slot.sameIdentityAsInput)) {
+      if (
+        slot.objectType !== sameIdentityObjectType(slot.sameIdentityAsInput)
+      ) {
         throw new Error("New revision outputs must use same_as:<input_role>.");
       }
-    } else if (slot.sameIdentityAsInput || slot.objectType.startsWith("same_as:")) {
+    } else if (
+      slot.sameIdentityAsInput ||
+      slot.objectType.startsWith("same_as:")
+    ) {
       throw new Error("same_as outputs must use New revision.");
     } else if (slot.objectType === FORM_OBJECT_TYPE) {
       throw new Error("Output slots cannot produce request forms.");
@@ -1178,6 +1455,7 @@ function offerPayloadFromForm(
     providerName: form.providerName.trim(),
     stages: form.stages,
     status: form.status,
+    isHiddenFromSearch: form.isHiddenFromSearch,
     description: form.description.trim(),
     shortContract: calculatedShortContract(form.inputSlots, form.outputSlots),
     providerWork: form.providerWork.trim(),
@@ -1204,7 +1482,9 @@ function offerPayloadFromForm(
     }),
     outputSlots: form.outputSlots.map((slot) => {
       const sameIdentityAsInput =
-        slot.mutationMode === "new_revision" ? slot.sameIdentityAsInput : undefined;
+        slot.mutationMode === "new_revision"
+          ? slot.sameIdentityAsInput
+          : undefined;
 
       return {
         role: slot.role.trim(),
@@ -1215,7 +1495,9 @@ function offerPayloadFromForm(
         sameIdentityAsInput,
       };
     }),
-    acceptedConditions: acceptedConditions.length ? acceptedConditions : undefined,
+    acceptedConditions: acceptedConditions.length
+      ? acceptedConditions
+      : undefined,
     scopeRules: scopeRules.length ? scopeRules : undefined,
     commercialTerms: commercialTermsPayload(form.commercialTerms),
   };
@@ -1247,8 +1529,11 @@ function commercialTermsPayload(
     };
   }
 
+  const priceSummary = terms.price?.summary?.trim();
+
   return {
     pricingModel,
+    price: priceSummary ? { summary: priceSummary } : undefined,
     turnaround,
   };
 }
@@ -1258,13 +1543,36 @@ function transactionPayloadFromForm(
 ): SupportServiceTransactionInput {
   assertIdentifier(form.requestId, "pgr", "Request ID");
   assertIdentifier(form.serviceId, "pgs", "Service ID");
+  if (!form.offerId.trim()) {
+    throw new Error("Offer ID is required.");
+  }
+  if (!form.providerId.trim()) {
+    throw new Error("Provider ID is required.");
+  }
+  if (!form.requestedByUserId.trim()) {
+    throw new Error("Requester user ID is required.");
+  }
+  if (!form.requestedAtClient.trim()) {
+    throw new Error("Client request timestamp is required.");
+  }
+  if (!form.idempotencyKey.trim()) {
+    throw new Error("Idempotency key is required.");
+  }
+  if (!form.contractSource.trim()) {
+    throw new Error("Contract source is required.");
+  }
   const requiredInputs = form.inputs.filter((slot) => slot.required);
   const missingRequiredInputRoles = requiredInputs
     .filter((slot) => !slot.objectId.trim())
     .map((slot) => slot.role);
   for (const slot of requiredInputs) {
-    if (!slot.objectId.trim() && slot.acceptedTypes.includes(FORM_OBJECT_TYPE)) {
-      throw new Error(`Input ${slot.role} is required before creating the transaction.`);
+    if (
+      !slot.objectId.trim() &&
+      slot.acceptedTypes.includes(FORM_OBJECT_TYPE)
+    ) {
+      throw new Error(
+        `Input ${slot.role} is required before creating the transaction.`,
+      );
     }
   }
 
@@ -1272,16 +1580,77 @@ function transactionPayloadFromForm(
     .filter((slot) => slot.objectId.trim())
     .map((slot) => {
       assertIdentifier(slot.objectId, "obj", `Input ${slot.role} object ID`);
-      return {
+      if (!/^pgo_[a-z0-9_]+$/.test(slot.objectType)) {
+        throw new Error(`Input ${slot.role} needs a concrete PGO object type.`);
+      }
+      const objectId = slot.objectId.trim();
+      const revision = assertPositiveInteger(
+        slot.revision,
+        `Input ${slot.role} revision`,
+      );
+      const objectSnapshot = parseJsonObject(
+        slot.objectSnapshotText,
+        `Input ${slot.role} object snapshot`,
+      );
+      if (objectSnapshot.objectId !== objectId) {
+        throw new Error(
+          `Input ${slot.role} object snapshot must match its object ID.`,
+        );
+      }
+      if (objectSnapshot.objectType !== slot.objectType) {
+        throw new Error(
+          `Input ${slot.role} object snapshot must match its object type.`,
+        );
+      }
+      if (objectSnapshot.revision !== revision) {
+        throw new Error(
+          `Input ${slot.role} object snapshot must match its revision.`,
+        );
+      }
+      const input: SupportServiceTransactionSlot = {
         role: slot.role,
         objectRef: {
-          objectId: slot.objectId.trim(),
-          revision: assertPositiveInteger(
-            slot.revision,
-            `Input ${slot.role} revision`,
-          ),
+          objectId,
+          revision,
         },
+        objectType: slot.objectType,
+        objectSnapshot,
       };
+
+      if (slot.objectType === FORM_OBJECT_TYPE) {
+        const objectCode = slot.objectCode.trim();
+        if (!/^\d{9}$/.test(objectCode)) {
+          throw new Error(`Input ${slot.role} needs a 9-digit object code.`);
+        }
+        if (
+          !slot.uploadedObjectId.trim() ||
+          !slot.fileStorageId.trim() ||
+          !slot.objectOwnerId.trim()
+        ) {
+          throw new Error(
+            `Input ${slot.role} needs uploaded object, file storage, and object owner IDs.`,
+          );
+        }
+        input.objectCode = objectCode;
+        input.uploadedObjectId = slot.uploadedObjectId.trim();
+        input.fileStorageId = slot.fileStorageId.trim();
+        input.objectOwnerId = slot.objectOwnerId.trim();
+      } else {
+        if (slot.objectCode.trim()) {
+          input.objectCode = slot.objectCode.trim();
+        }
+        if (slot.uploadedObjectId.trim()) {
+          input.uploadedObjectId = slot.uploadedObjectId.trim();
+        }
+        if (slot.fileStorageId.trim()) {
+          input.fileStorageId = slot.fileStorageId.trim();
+        }
+        if (slot.objectOwnerId.trim()) {
+          input.objectOwnerId = slot.objectOwnerId.trim();
+        }
+      }
+
+      return input;
     });
   const outputObjects = form.outputObjects
     .filter((output) => output.objectCode.trim())
@@ -1291,7 +1660,9 @@ function transactionPayloadFromForm(
         throw new Error(`Output ${output.role} needs a 9-digit object code.`);
       }
       if (!/^pgo_[a-z0-9_]+$/.test(output.objectType)) {
-        throw new Error(`Output ${output.role} needs a concrete PGO object type.`);
+        throw new Error(
+          `Output ${output.role} needs a concrete PGO object type.`,
+        );
       }
       return {
         role: output.role,
@@ -1305,7 +1676,9 @@ function transactionPayloadFromForm(
     .filter(Boolean)
     .map((reportCode) => {
       if (!/^[A-Z0-9]{6}$/.test(reportCode)) {
-        throw new Error("Optional report codes must contain exactly 6 letters or digits.");
+        throw new Error(
+          "Optional report codes must contain exactly 6 letters or digits.",
+        );
       }
       return { reportCode };
     });
@@ -1321,16 +1694,27 @@ function transactionPayloadFromForm(
 
   return {
     requestId: form.requestId.trim(),
+    offerId: form.offerId.trim(),
     serviceId: form.serviceId.trim(),
     serviceVersion: form.serviceVersion || 1,
+    providerId: form.providerId.trim(),
+    providerKind: form.providerKind,
+    requestedByUserId: form.requestedByUserId.trim(),
+    requestedByUserEmail: form.requestedByUserEmail.trim() || undefined,
+    requestedAt: form.requestedAt.trim() || undefined,
+    requestedAtClient: form.requestedAtClient.trim(),
     status: form.status,
-    requesterEmail: form.requesterEmail.trim(),
-    subjectId: form.subjectId.trim(),
+    requestRevision: form.requestRevision || 1,
+    idempotencyKey: form.idempotencyKey.trim(),
     inputs,
     outputObjects,
     outputReports,
+    issues: parseJsonArray(form.issuesText, "Issues"),
     missingRequiredInputRoles,
-    notes: form.notes.trim(),
+    offerSnapshot: form.offerSnapshot,
+    providerSnapshot: form.providerSnapshot,
+    contractSource: form.contractSource.trim(),
+    attachmentsPending: missingRequiredInputRoles.length > 0,
   };
 }
 
@@ -1363,7 +1747,11 @@ function mutationErrorToast(
   };
 }
 
-function buildListPath(kind: WorkbenchKind, filters: ServiceFilters, cursor: string) {
+function buildListPath(
+  kind: WorkbenchKind,
+  filters: ServiceFilters,
+  cursor: string,
+) {
   const params = new URLSearchParams({
     limit: String(SERVICE_PAGE_SIZE),
   });
@@ -1416,9 +1804,9 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
     queryKey: [queryKey, filters],
     queryFn: ({ pageParam }) => {
       const cursor = typeof pageParam === "string" ? pageParam : "";
-      return sdkFetch<SupportServiceOffersPage | SupportServiceTransactionsPage>(
-        buildListPath(kind, filters, cursor),
-      );
+      return sdkFetch<
+        SupportServiceOffersPage | SupportServiceTransactionsPage
+      >(buildListPath(kind, filters, cursor));
     },
     initialPageParam: "",
     getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -1464,7 +1852,9 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
     record: SupportServiceOfferRecord | SupportServiceTransactionRecord,
   ) {
     const label =
-      "name" in record ? record.name : (record as SupportServiceTransactionRecord).requestId;
+      "name" in record
+        ? record.name
+        : (record as SupportServiceTransactionRecord).requestId;
     if (!window.confirm(`${t("Delete")} ${label}?`)) {
       return;
     }
@@ -1472,7 +1862,9 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
   }
 
   const title = isOffers ? "Service Offers" : "Service Transactions";
-  const createLabel = isOffers ? "Alta de service offer" : "Alta de transaccion";
+  const createLabel = isOffers
+    ? "Alta de service offer"
+    : "Alta de transaccion";
   const isInitialLoading = listQuery.isLoading && rows.length === 0;
 
   return (
@@ -1483,7 +1875,9 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
         language={language}
       />
       <section className={SUPPORT_SERVICE_PANEL_CLASS}>
-        <div className={cn("flex flex-col gap-4", SUPPORT_SERVICE_HEADER_CLASS)}>
+        <div
+          className={cn("flex flex-col gap-4", SUPPORT_SERVICE_HEADER_CLASS)}
+        >
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-2">
               <h2 className="font-heading text-xl font-semibold text-foreground">
@@ -1502,7 +1896,11 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                 <RefreshCw className="h-4 w-4" />
                 <span>{t("Refresh")}</span>
               </Button>
-              <Button asChild size="sm" className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}>
+              <Button
+                asChild
+                size="sm"
+                className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+              >
                 <Link href={`${route}/new`}>
                   <Plus className="h-4 w-4" />
                   <span>{t(createLabel)}</span>
@@ -1618,7 +2016,11 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-muted-foreground">
                       <FileText className="h-8 w-8" />
                       <p className="text-sm">{t("No records found.")}</p>
-                      <Button asChild size="sm" className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}>
+                      <Button
+                        asChild
+                        size="sm"
+                        className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+                      >
                         <Link href={`${route}/new`}>
                           <Plus className="h-4 w-4" />
                           <span>{t(createLabel)}</span>
@@ -1659,9 +2061,18 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={offer.status === "active" ? "default" : "outline"}>
+                      <Badge
+                        variant={
+                          offer.status === "active" ? "default" : "outline"
+                        }
+                      >
                         {t(offerStatusLabel(offer.status))}
                       </Badge>
+                      {offer.isHiddenFromSearch ? (
+                        <Badge variant="outline" className="ml-2">
+                          {t("Hidden from search")}
+                        </Badge>
+                      ) : null}
                     </TableCell>
                     <TableCell className="max-w-[20rem] truncate text-sm text-muted-foreground">
                       {offer.shortContract || "-"}
@@ -1685,7 +2096,9 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                         {transaction.requestId}
                       </Link>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {transaction.requesterEmail || transaction.subjectId || "-"}
+                        {transaction.requestedByUserEmail ||
+                          transaction.requestedByUserId ||
+                          "-"}
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
@@ -1694,7 +2107,9 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                     <TableCell>
                       <Badge
                         variant={
-                          transaction.status === "delivered" ? "default" : "outline"
+                          transaction.status === "delivered"
+                            ? "default"
+                            : "outline"
                         }
                       >
                         {t(transactionStatusLabel(transaction.status))}
@@ -1792,9 +2207,8 @@ export function SupportServiceOfferWorkbench({
     offerId ?? null,
   );
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [statusDraft, setStatusDraft] = useState<SupportServiceOfferStatus>(
-    "draft",
-  );
+  const [statusDraft, setStatusDraft] =
+    useState<SupportServiceOfferStatus>("draft");
   const [publishDialog, setPublishDialog] =
     useState<ServiceOfferPublishDialogState | null>(null);
   const [toastCounter, setToastCounter] = useState(1);
@@ -1827,26 +2241,49 @@ export function SupportServiceOfferWorkbench({
     }
   }, [offerQuery.data?.offer]);
 
-  const providerOffersQuery = useQuery({
+  const providerOffersQuery = useInfiniteQuery({
     queryKey: [OFFERS_QUERY_KEY, "provider-siblings", form.providerId],
-    queryFn: () =>
-      sdkFetch<SupportServiceOffersPage>(
-        `/admin/support-services/offers?limit=${PROVIDER_OFFER_LOOKUP_LIMIT}&query=${encodeURIComponent(
-          form.providerId.trim(),
-        )}`,
-      ),
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({
+        limit: String(PROVIDER_OFFER_LOOKUP_LIMIT),
+        query: form.providerId.trim(),
+      });
+      if (typeof pageParam === "string" && pageParam) {
+        params.set("cursor", pageParam);
+      }
+      return sdkFetch<SupportServiceOffersPage>(
+        `/admin/support-services/offers?${params.toString()}`,
+      );
+    },
+    initialPageParam: "",
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: Boolean(form.providerId.trim()),
   });
 
+  useEffect(() => {
+    if (
+      providerOffersQuery.hasNextPage &&
+      !providerOffersQuery.isFetchingNextPage
+    ) {
+      void providerOffersQuery.fetchNextPage();
+    }
+  }, [
+    providerOffersQuery.fetchNextPage,
+    providerOffersQuery.hasNextPage,
+    providerOffersQuery.isFetchingNextPage,
+  ]);
+
   const reservedServiceIds = useMemo(
     () =>
-      (providerOffersQuery.data?.offers ?? [])
+      (providerOffersQuery.data?.pages ?? [])
+        .flatMap((page) => page.offers)
         .filter(
           (offer) =>
-            offer.providerId === form.providerId && offer.id !== effectiveOfferId,
+            offer.providerId === form.providerId &&
+            offer.id !== effectiveOfferId,
         )
         .map((offer) => offer.serviceId),
-    [form.providerId, effectiveOfferId, providerOffersQuery.data?.offers],
+    [form.providerId, effectiveOfferId, providerOffersQuery.data?.pages],
   );
 
   useEffect(() => {
@@ -1861,7 +2298,8 @@ export function SupportServiceOfferWorkbench({
     );
     if (
       ids &&
-      (ids.serviceId !== form.serviceId || ids.formShapeId !== form.formShape.id)
+      (ids.serviceId !== form.serviceId ||
+        ids.formShapeId !== form.formShape.id)
     ) {
       setForm((current) => applyGeneratedOfferIds(current, reservedServiceIds));
     }
@@ -1874,10 +2312,9 @@ export function SupportServiceOfferWorkbench({
 
   const saveMutation = useMutation({
     mutationFn: async (payload: SupportServiceOfferInput) => {
-      const path =
-        effectiveOfferId
-          ? `/admin/support-services/offers/${encodeURIComponent(effectiveOfferId)}`
-          : "/admin/support-services/offers";
+      const path = effectiveOfferId
+        ? `/admin/support-services/offers/${encodeURIComponent(effectiveOfferId)}`
+        : "/admin/support-services/offers";
       return sdkFetch<{ offer: SupportServiceOfferRecord }>(path, {
         method: effectiveOfferId ? "PUT" : "POST",
         body: JSON.stringify(payload),
@@ -1887,9 +2324,12 @@ export function SupportServiceOfferWorkbench({
 
   const deleteMutation = useMutation({
     mutationFn: () =>
-      sdkFetch(`/admin/support-services/offers/${encodeURIComponent(offerId ?? "")}`, {
-        method: "DELETE",
-      }),
+      sdkFetch(
+        `/admin/support-services/offers/${encodeURIComponent(offerId ?? "")}`,
+        {
+          method: "DELETE",
+        },
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [OFFERS_QUERY_KEY] });
       router.push("/god-mode/service-offers");
@@ -1913,8 +2353,7 @@ export function SupportServiceOfferWorkbench({
     () => predictedStagesForContract(form.inputSlots, form.outputSlots),
     [form.inputSlots, form.outputSlots],
   );
-  const lastPredictedStagesRef =
-    useRef<SupportServiceStage[]>(predictedStages);
+  const lastPredictedStagesRef = useRef<SupportServiceStage[]>(predictedStages);
 
   useEffect(() => {
     const previousPrediction = lastPredictedStagesRef.current;
@@ -1969,8 +2408,18 @@ export function SupportServiceOfferWorkbench({
     } = {},
   ) {
     try {
-      if (form.providerId.trim() && providerOffersQuery.isFetching) {
-        throw new Error("Generated service ID is still checking existing offers.");
+      if (
+        form.providerId.trim() &&
+        (providerOffersQuery.isFetching || providerOffersQuery.hasNextPage)
+      ) {
+        throw new Error(
+          "Generated service ID is still checking existing offers.",
+        );
+      }
+      if (form.providerId.trim() && providerOffersQuery.isError) {
+        throw new Error(
+          "Generated service ID could not check every existing offer.",
+        );
       }
 
       const result = await saveMutation.mutateAsync(
@@ -2036,7 +2485,9 @@ export function SupportServiceOfferWorkbench({
     if (!published) {
       setPublishDialog({
         status: "error",
-        message: t("Publishing stopped. Review the service offer requirements and try again."),
+        message: t(
+          "Publishing stopped. Review the service offer requirements and try again.",
+        ),
       });
       return;
     }
@@ -2101,7 +2552,8 @@ export function SupportServiceOfferWorkbench({
                     applyGeneratedOfferIds(
                       {
                         ...current,
-                        providerKind: providerKind as SupportServiceProviderKind,
+                        providerKind:
+                          providerKind as SupportServiceProviderKind,
                         providerId:
                           providerKind === current.providerKind
                             ? current.providerId
@@ -2158,7 +2610,10 @@ export function SupportServiceOfferWorkbench({
               <Input
                 value={form.name}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, name: event.target.value }))
+                  setForm((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
                 }
                 required
               />
@@ -2181,13 +2636,39 @@ export function SupportServiceOfferWorkbench({
                 placeholder={t("Optional general category")}
               />
             </Field>
+            <Field label="Native discovery">
+              <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                <Checkbox
+                  id="service-offer-hidden-from-search"
+                  checked={form.isHiddenFromSearch}
+                  onCheckedChange={(checked) =>
+                    setForm((current) => ({
+                      ...current,
+                      isHiddenFromSearch: checked === true,
+                    }))
+                  }
+                />
+                <div className="grid gap-1">
+                  <Label htmlFor="service-offer-hidden-from-search">
+                    {t("Hide from native service search")}
+                  </Label>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {t(
+                      "The offer remains active and available to authorized backoffice workflows, but it is excluded from native discovery.",
+                    )}
+                  </p>
+                </div>
+              </div>
+            </Field>
           </div>
         </Section>
         <Section title="Contract">
           <div className="grid gap-4">
             <Field label="Description">
               <p className="text-xs leading-5 text-muted-foreground">
-                {t("Requester-facing summary shown in the app as the service offer description. Use it to explain what the service is, when someone should request it, and what outcome they can expect.")}
+                {t(
+                  "Requester-facing summary shown in the app as the service offer description. Use it to explain what the service is, when someone should request it, and what outcome they can expect.",
+                )}
               </p>
               <Textarea
                 value={form.description}
@@ -2203,7 +2684,9 @@ export function SupportServiceOfferWorkbench({
             </Field>
             <Field label="Provider work">
               <p className="text-xs leading-5 text-muted-foreground">
-                {t("Operational description of what the provider does after the request is submitted. It appears in the service detail context to clarify the provider-side work, not as the short marketing summary.")}
+                {t(
+                  "Operational description of what the provider does after the request is submitted. It appears in the service detail context to clarify the provider-side work, not as the short marketing summary.",
+                )}
               </p>
               <Textarea
                 value={form.providerWork}
@@ -2367,7 +2850,9 @@ function ServiceOfferStatusBlock({
             </p>
             {status !== "active" ? (
               <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-200">
-                {t("Active status is available only through Publish service offer.")}
+                {t(
+                  "Active status is available only through Publish service offer.",
+                )}
               </p>
             ) : null}
           </div>
@@ -2390,7 +2875,9 @@ function ServiceOfferStatusBlock({
                 {t("Change service offer status")}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                {t("Pick the state that best matches what should happen next for this service offer.")}
+                {t(
+                  "Pick the state that best matches what should happen next for this service offer.",
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
 
@@ -2441,7 +2928,9 @@ function ServiceOfferStatusBlock({
               </div>
               {status !== "active" ? (
                 <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-200">
-                  {t("Active status is available only through Publish service offer.")}
+                  {t(
+                    "Active status is available only through Publish service offer.",
+                  )}
                 </p>
               ) : null}
             </div>
@@ -2640,11 +3129,15 @@ function StagePipeline({
                   "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-200",
               )}
             >
-              {matchesPrediction ? t("Best-effort prediction") : t("Manually adjusted")}
+              {matchesPrediction
+                ? t("Best-effort prediction")
+                : t("Manually adjusted")}
             </Badge>
           </div>
           <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-            {t("Stages are inferred from the current input and output objects. Use the checkboxes only when the catalog needs a manual correction.")}
+            {t(
+              "Stages are inferred from the current input and output objects. Use the checkboxes only when the catalog needs a manual correction.",
+            )}
           </p>
         </div>
         {!matchesPrediction ? (
@@ -2843,7 +3336,9 @@ function ServiceOfferPublishDialog({
           </DialogTitle>
           <DialogDescription className="text-violet-950/70 dark:text-violet-50/70">
             {dialog?.message ??
-              t("Saving the service contract and making it available for transactions.")}
+              t(
+                "Saving the service contract and making it available for transactions.",
+              )}
           </DialogDescription>
         </DialogHeader>
 
@@ -2868,10 +3363,16 @@ function ServiceOfferPublishDialog({
               </p>
               <p className="mt-2 text-sm text-violet-950/70 dark:text-violet-50/70">
                 {dialog?.status === "success"
-                  ? t("The offer is saved with status active and can be selected by new service transactions.")
+                  ? t(
+                      "The offer is saved with status active and can be selected by new service transactions.",
+                    )
                   : dialog?.status === "error"
-                    ? t("The offer stayed unchanged. Fix the form requirement and publish again.")
-                    : t("Validating provider, contract slots, form shape, and output requirements.")}
+                    ? t(
+                        "The offer stayed unchanged. Fix the form requirement and publish again.",
+                      )
+                    : t(
+                        "Validating provider, contract slots, form shape, and output requirements.",
+                      )}
               </p>
             </div>
           </div>
@@ -2943,7 +3444,9 @@ function MockTemplatePicker({
         <DialogHeader>
           <DialogTitle>{t("Prefill with mocked template")}</DialogTitle>
           <DialogDescription>
-            {t("Choose one Pocket-Genes-Wiki template to prefill editable fields.")}
+            {t(
+              "Choose one Pocket-Genes-Wiki template to prefill editable fields.",
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[28rem] overflow-y-auto">
@@ -3003,14 +3506,15 @@ function MockTemplatePicker({
   );
 }
 
-type ProviderRecord =
-  | DiscoverOrganizationRecord
-  | DiscoverIndividualRecord;
+type ProviderRecord = DiscoverOrganizationRecord | DiscoverIndividualRecord;
 
-function providerMeta(provider: ProviderRecord, kind: SupportServiceProviderKind) {
+function providerMeta(
+  provider: ProviderRecord,
+  kind: SupportServiceProviderKind,
+) {
   return kind === "organization"
-    ? (provider as DiscoverOrganizationRecord).organizationType ?? ""
-    : (provider as DiscoverIndividualRecord).individualType ?? "";
+    ? ((provider as DiscoverOrganizationRecord).organizationType ?? "")
+    : ((provider as DiscoverIndividualRecord).individualType ?? "");
 }
 
 function ProviderPicker({
@@ -3029,7 +3533,9 @@ function ProviderPicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const endpoint =
-    kind === "organization" ? "/discover/organizations" : "/discover/individuals";
+    kind === "organization"
+      ? "/discover/organizations"
+      : "/discover/individuals";
 
   const providerQuery = useInfiniteQuery({
     queryKey: ["support-service-provider-picker", kind],
@@ -3149,7 +3655,10 @@ function ProviderPicker({
                     ))
                   ) : filteredProviders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
+                      <TableCell
+                        colSpan={4}
+                        className="py-8 text-center text-sm text-muted-foreground"
+                      >
                         {t("No providers found in the loaded page.")}
                       </TableCell>
                     </TableRow>
@@ -3165,7 +3674,13 @@ function ProviderPicker({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={provider.status === "active" ? "default" : "outline"}>
+                          <Badge
+                            variant={
+                              provider.status === "active"
+                                ? "default"
+                                : "outline"
+                            }
+                          >
                             {provider.status}
                           </Badge>
                         </TableCell>
@@ -3178,6 +3693,7 @@ function ProviderPicker({
                             variant="outline"
                             size="sm"
                             onClick={() => chooseProvider(provider)}
+                            disabled={provider.status !== "active"}
                             className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
                           >
                             {t("Select")}
@@ -3199,7 +3715,9 @@ function ProviderPicker({
                 disabled={providerQuery.isFetchingNextPage}
                 className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
               >
-                {providerQuery.isFetchingNextPage ? t("Loading...") : t("Load more")}
+                {providerQuery.isFetchingNextPage
+                  ? t("Loading...")
+                  : t("Load more")}
               </Button>
             ) : null}
           </DialogFooter>
@@ -3258,9 +3776,7 @@ function FormShapeEditor({
     setFieldDialog({
       index,
       draft:
-        index == null
-          ? emptyFieldDraft()
-          : { ...form.formShape.fields[index] },
+        index == null ? emptyFieldDraft() : { ...form.formShape.fields[index] },
     });
   }
 
@@ -3278,9 +3794,7 @@ function FormShapeEditor({
 
   function updateFieldDraft(patch: Partial<FormFieldDraft>) {
     setFieldDialog((current) =>
-      current
-        ? { ...current, draft: { ...current.draft, ...patch } }
-        : current,
+      current ? { ...current, draft: { ...current.draft, ...patch } } : current,
     );
   }
 
@@ -3339,9 +3853,7 @@ function FormShapeEditor({
             {t("Request form")}
           </h3>
           <div className="text-sm text-muted-foreground">
-            {form.supportsFormShape
-              ? t("Enabled")
-              : t("Not requested")}
+            {form.supportsFormShape ? t("Enabled") : t("Not requested")}
           </div>
         </div>
         <label className="flex items-center gap-3 text-sm font-medium">
@@ -3356,215 +3868,219 @@ function FormShapeEditor({
       </div>
       {!form.supportsFormShape ? null : (
         <>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Field label="Form shape ID">
-          <GeneratedValue value={formShapeIdsPreview?.formShapeId ?? "pgfs_"} />
-        </Field>
-        <Field label="Form shape version">
-          <GeneratedValue value={String(form.formShape.version || 1)} />
-        </Field>
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm text-muted-foreground">
-          {form.formShape.fields.length} {t("fields")}
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => openFieldDialog(null)}
-          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
-        >
-          <Plus className="h-4 w-4" />
-          <span>{t("Add field")}</span>
-        </Button>
-      </div>
-      <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("Key")}</TableHead>
-              <TableHead>{t("Label")}</TableHead>
-              <TableHead>{t("Type")}</TableHead>
-              <TableHead>{t("Required")}</TableHead>
-              <TableHead>{t("Options")}</TableHead>
-              <TableHead className="text-right">{t("Actions")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {form.formShape.fields.map((field, index) => (
-              <TableRow key={`${field.key}-${index}`}>
-                <TableCell className="min-w-[12rem] font-mono text-sm">
-                  {field.key}
-                </TableCell>
-                <TableCell className="min-w-[12rem]">
-                  {field.label}
-                </TableCell>
-                <TableCell>
-                  {t(
-                    SUPPORT_SERVICE_FORM_FIELD_TYPES.find(
-                      (option) => option.value === field.type,
-                    )?.label ?? field.type,
-                  )}
-                </TableCell>
-                <TableCell>
-                  {field.required ? (
-                    <Badge variant="outline">{t("Required")}</Badge>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">-</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {splitLines(field.optionsText).length || "-"}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => openFieldDialog(index)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                      <span className="sr-only">{t("Edit")}</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => removeField(index)}
-                      disabled={
-                        field.key === "requested_at" ||
-                        field.key === "requested_by"
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">{t("Delete")}</span>
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      <Dialog
-        open={Boolean(fieldDialog)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setFieldDialog(null);
-          }
-        }}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {fieldDialog?.index == null
-                ? t("Add form field")
-                : t("Edit form field")}
-            </DialogTitle>
-            <DialogDescription>
-              {t("Configure one form field for the support service request form.")}
-            </DialogDescription>
-          </DialogHeader>
-          {fieldDialog ? (
-            <div className="grid gap-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Key">
-                  <Input
-                    value={fieldDialog.draft.key}
-                    onChange={(event) =>
-                      updateFieldDraft({ key: event.target.value })
-                    }
-                    disabled={
-                      fieldDialog.draft.key === "requested_at" ||
-                      fieldDialog.draft.key === "requested_by"
-                    }
-                    placeholder="lowercase_key"
-                  />
-                </Field>
-                <Field label="Label">
-                  <Input
-                    value={fieldDialog.draft.label}
-                    onChange={(event) =>
-                      updateFieldDraft({ label: event.target.value })
-                    }
-                  />
-                </Field>
-                <Field label="Type">
-                  <Select
-                    value={fieldDialog.draft.type}
-                    onValueChange={(type) =>
-                      updateFieldDraft({
-                        type: type as SupportServiceFormFieldType,
-                        optionsText:
-                          type === "enum" || type === "multi_enum"
-                            ? fieldDialog.draft.optionsText
-                            : "",
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SUPPORT_SERVICE_FORM_FIELD_TYPES.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {t(option.label)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <label className="flex items-center gap-3 pt-7 text-sm font-medium">
-                  <Checkbox
-                    checked={fieldDialog.draft.required}
-                    onCheckedChange={(checked) =>
-                      updateFieldDraft({ required: checked === true })
-                    }
-                  />
-                  <span>{t("Required")}</span>
-                </label>
-              </div>
-              <Field label="Options">
-                <Textarea
-                  value={fieldDialog.draft.optionsText}
-                  onChange={(event) =>
-                    updateFieldDraft({ optionsText: event.target.value })
-                  }
-                  rows={5}
-                  disabled={
-                    fieldDialog.draft.type !== "enum" &&
-                    fieldDialog.draft.type !== "multi_enum"
-                  }
-                  placeholder="value | Label"
-                  className="font-mono text-xs"
-                />
-              </Field>
-              {fieldError ? (
-                <p className="text-sm text-destructive">{fieldError}</p>
-              ) : null}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Field label="Form shape ID">
+              <GeneratedValue
+                value={formShapeIdsPreview?.formShapeId ?? "pgfs_"}
+              />
+            </Field>
+            <Field label="Form shape version">
+              <GeneratedValue value={String(form.formShape.version || 1)} />
+            </Field>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-muted-foreground">
+              {form.formShape.fields.length} {t("fields")}
             </div>
-          ) : null}
-          <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => setFieldDialog(null)}
+              size="sm"
+              onClick={() => openFieldDialog(null)}
               className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
             >
-              {t("Cancel")}
+              <Plus className="h-4 w-4" />
+              <span>{t("Add field")}</span>
             </Button>
-            <Button
-              type="button"
-              onClick={saveFieldDraft}
-              className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
-            >
-              {t("Save field")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+          <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("Key")}</TableHead>
+                  <TableHead>{t("Label")}</TableHead>
+                  <TableHead>{t("Type")}</TableHead>
+                  <TableHead>{t("Required")}</TableHead>
+                  <TableHead>{t("Options")}</TableHead>
+                  <TableHead className="text-right">{t("Actions")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {form.formShape.fields.map((field, index) => (
+                  <TableRow key={`${field.key}-${index}`}>
+                    <TableCell className="min-w-[12rem] font-mono text-sm">
+                      {field.key}
+                    </TableCell>
+                    <TableCell className="min-w-[12rem]">
+                      {field.label}
+                    </TableCell>
+                    <TableCell>
+                      {t(
+                        SUPPORT_SERVICE_FORM_FIELD_TYPES.find(
+                          (option) => option.value === field.type,
+                        )?.label ?? field.type,
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {field.required ? (
+                        <Badge variant="outline">{t("Required")}</Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {splitLines(field.optionsText).length || "-"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => openFieldDialog(index)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">{t("Edit")}</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => removeField(index)}
+                          disabled={
+                            field.key === "requested_at" ||
+                            field.key === "requested_by"
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">{t("Delete")}</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <Dialog
+            open={Boolean(fieldDialog)}
+            onOpenChange={(open) => {
+              if (!open) {
+                setFieldDialog(null);
+              }
+            }}
+          >
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>
+                  {fieldDialog?.index == null
+                    ? t("Add form field")
+                    : t("Edit form field")}
+                </DialogTitle>
+                <DialogDescription>
+                  {t(
+                    "Configure one form field for the support service request form.",
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              {fieldDialog ? (
+                <div className="grid gap-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Key">
+                      <Input
+                        value={fieldDialog.draft.key}
+                        onChange={(event) =>
+                          updateFieldDraft({ key: event.target.value })
+                        }
+                        disabled={
+                          fieldDialog.draft.key === "requested_at" ||
+                          fieldDialog.draft.key === "requested_by"
+                        }
+                        placeholder="lowercase_key"
+                      />
+                    </Field>
+                    <Field label="Label">
+                      <Input
+                        value={fieldDialog.draft.label}
+                        onChange={(event) =>
+                          updateFieldDraft({ label: event.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Type">
+                      <Select
+                        value={fieldDialog.draft.type}
+                        onValueChange={(type) =>
+                          updateFieldDraft({
+                            type: type as SupportServiceFormFieldType,
+                            optionsText:
+                              type === "enum" || type === "multi_enum"
+                                ? fieldDialog.draft.optionsText
+                                : "",
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SUPPORT_SERVICE_FORM_FIELD_TYPES.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {t(option.label)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <label className="flex items-center gap-3 pt-7 text-sm font-medium">
+                      <Checkbox
+                        checked={fieldDialog.draft.required}
+                        onCheckedChange={(checked) =>
+                          updateFieldDraft({ required: checked === true })
+                        }
+                      />
+                      <span>{t("Required")}</span>
+                    </label>
+                  </div>
+                  <Field label="Options">
+                    <Textarea
+                      value={fieldDialog.draft.optionsText}
+                      onChange={(event) =>
+                        updateFieldDraft({ optionsText: event.target.value })
+                      }
+                      rows={5}
+                      disabled={
+                        fieldDialog.draft.type !== "enum" &&
+                        fieldDialog.draft.type !== "multi_enum"
+                      }
+                      placeholder="value | Label"
+                      className="font-mono text-xs"
+                    />
+                  </Field>
+                  {fieldError ? (
+                    <p className="text-sm text-destructive">{fieldError}</p>
+                  ) : null}
+                </div>
+              ) : null}
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setFieldDialog(null)}
+                  className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+                >
+                  {t("Cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={saveFieldDraft}
+                  className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+                >
+                  {t("Save field")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </Section>
@@ -3619,11 +4135,11 @@ function InputSlotEditor({
     });
   }
 
-  function updateSlotDraft(patch: Partial<NonNullable<typeof slotDialog>["draft"]>) {
+  function updateSlotDraft(
+    patch: Partial<NonNullable<typeof slotDialog>["draft"]>,
+  ) {
     setSlotDialog((current) =>
-      current
-        ? { ...current, draft: { ...current.draft, ...patch } }
-        : current,
+      current ? { ...current, draft: { ...current.draft, ...patch } } : current,
     );
   }
 
@@ -3697,7 +4213,10 @@ function InputSlotEditor({
           <TableBody>
             {form.inputSlots.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell
+                  colSpan={3}
+                  className="py-8 text-center text-sm text-muted-foreground"
+                >
                   {t("No input slots defined.")}
                 </TableCell>
               </TableRow>
@@ -3764,10 +4283,14 @@ function InputSlotEditor({
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>
-              {slotDialog?.index == null ? t("Add input slot") : t("Edit input slot")}
+              {slotDialog?.index == null
+                ? t("Add input slot")
+                : t("Edit input slot")}
             </DialogTitle>
             <DialogDescription>
-              {t("Choose the object type. The input key and one required file are generated automatically.")}
+              {t(
+                "Choose the object type. The input key and one required file are generated automatically.",
+              )}
             </DialogDescription>
           </DialogHeader>
           {slotDialog ? (
@@ -3848,9 +4371,7 @@ function OutputSlotEditor({
 
   function updateSlotDraft(patch: Partial<SupportServiceOutputSlot>) {
     setSlotDialog((current) =>
-      current
-        ? { ...current, draft: { ...current.draft, ...patch } }
-        : current,
+      current ? { ...current, draft: { ...current.draft, ...patch } } : current,
     );
   }
 
@@ -3864,7 +4385,9 @@ function OutputSlotEditor({
     }
     if (slotDialog.draft.mutationMode === "new_revision") {
       if (!slotDialog.draft.sameIdentityAsInput) {
-        setSlotError(t("Choose the input role that keeps the same object identity."));
+        setSlotError(
+          t("Choose the input role that keeps the same object identity."),
+        );
         return;
       }
     } else {
@@ -3933,7 +4456,10 @@ function OutputSlotEditor({
           <TableBody>
             {form.outputSlots.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell
+                  colSpan={4}
+                  className="py-8 text-center text-sm text-muted-foreground"
+                >
                   {t("No output slots defined.")}
                 </TableCell>
               </TableRow>
@@ -3944,9 +4470,7 @@ function OutputSlotEditor({
                     {slot.role || "-"}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">
-                      {outputObjectLabel(slot)}
-                    </Badge>
+                    <Badge variant="secondary">{outputObjectLabel(slot)}</Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {t(mutationModeLabel(slot.mutationMode))}
@@ -3998,10 +4522,14 @@ function OutputSlotEditor({
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>
-              {slotDialog?.index == null ? t("Add output slot") : t("Edit output slot")}
+              {slotDialog?.index == null
+                ? t("Add output slot")
+                : t("Edit output slot")}
             </DialogTitle>
             <DialogDescription>
-              {t("Define the object produced or revised by this service offer.")}
+              {t(
+                "Define the object produced or revised by this service offer.",
+              )}
             </DialogDescription>
           </DialogHeader>
           {slotDialog ? (
@@ -4037,7 +4565,9 @@ function OutputSlotEditor({
                     updateSlotDraft({
                       mutationMode: nextMode,
                       sameIdentityAsInput: undefined,
-                      objectType: slotDialog.draft.objectType.startsWith("same_as:")
+                      objectType: slotDialog.draft.objectType.startsWith(
+                        "same_as:",
+                      )
                         ? DEFAULT_OUTPUT_OBJECT_TYPE
                         : slotDialog.draft.objectType,
                     });
@@ -4160,13 +4690,35 @@ function TermsEditor({
     }));
   }
 
-  function updatePricingModel(nextModel: SupportServicePricingModel) {
+  function updatePricingModel(value: string) {
+    if (
+      value !== "not_specified" &&
+      value !== "free" &&
+      value !== "fixed" &&
+      value !== "calculated_after_submission"
+    ) {
+      return;
+    }
+    const nextModel: SupportServicePricingModel = value;
+
     if (nextModel === "fixed") {
       updateTerms({
         pricingModel: nextModel,
         price: {
           amount: form.commercialTerms.price?.amount ?? 0,
           currency: form.commercialTerms.price?.currency || "ARS",
+        },
+      });
+      return;
+    }
+
+    if (nextModel === "calculated_after_submission") {
+      updateTerms({
+        pricingModel: nextModel,
+        price: {
+          summary:
+            form.commercialTerms.price?.summary ||
+            "Calculated after submission",
         },
       });
       return;
@@ -4195,17 +4747,14 @@ function TermsEditor({
     <Section title="Commercial terms">
       <div className="grid gap-4 lg:grid-cols-3">
         <Field label="Pricing">
-          <Select
-            value={pricingModel}
-            onValueChange={(value) =>
-              updatePricingModel(value as SupportServicePricingModel)
-            }
-          >
+          <Select value={pricingModel} onValueChange={updatePricingModel}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="not_specified">{t("Not specified")}</SelectItem>
+              <SelectItem value="not_specified">
+                {t("Not specified")}
+              </SelectItem>
               <SelectItem value="free">{t("Free")}</SelectItem>
               <SelectItem value="fixed">{t("Fixed price")}</SelectItem>
               <SelectItem value="calculated_after_submission">
@@ -4252,6 +4801,19 @@ function TermsEditor({
               </Select>
             </Field>
           </>
+        ) : null}
+        {pricingModel === "calculated_after_submission" ? (
+          <Field label="Price summary">
+            <Input
+              value={form.commercialTerms.price?.summary ?? ""}
+              onChange={(event) =>
+                updateTerms({
+                  price: { summary: event.target.value },
+                })
+              }
+              placeholder={t("Calculated after submission")}
+            />
+          </Field>
         ) : null}
         <Field label="Turnaround">
           <div className="grid grid-cols-[minmax(0,1fr)_9rem] gap-2">
@@ -4325,72 +4887,112 @@ export function SupportServiceTransactionWorkbench({
   });
   const transactionRecord = transactionQuery.data?.transaction ?? null;
 
-  const offersQuery = useQuery({
+  const offersQuery = useInfiniteQuery({
     queryKey: [LIVE_OFFERS_QUERY_KEY],
-    queryFn: () =>
-      sdkFetch<SupportServiceOffersPage>(
-        "/admin/support-services/offers?limit=50&status=active",
-      ),
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({
+        limit: String(SERVICE_PAGE_SIZE),
+        status: "active",
+      });
+      if (typeof pageParam === "string" && pageParam) {
+        params.set("cursor", pageParam);
+      }
+      return sdkFetch<SupportServiceOffersPage>(
+        `/admin/support-services/offers?${params.toString()}`,
+      );
+    },
+    initialPageParam: "",
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: !isEditing,
   });
   const linkedOfferQuery = useQuery({
-    queryKey: [LIVE_OFFERS_QUERY_KEY, "linked", transactionRecord?.serviceId],
+    queryKey: [LIVE_OFFERS_QUERY_KEY, "linked", transactionRecord?.offerId],
     queryFn: () =>
-      sdkFetch<SupportServiceOffersPage>(
-        `/admin/support-services/offers?limit=1&serviceId=${encodeURIComponent(
-          transactionRecord?.serviceId ?? "",
+      sdkFetch<{ offer: SupportServiceOfferRecord }>(
+        `/admin/support-services/offers/${encodeURIComponent(
+          transactionRecord?.offerId ?? "",
         )}`,
       ),
-    enabled: isEditing && Boolean(transactionRecord?.serviceId),
+    enabled: isEditing && Boolean(transactionRecord?.offerId),
   });
+  const paginatedLiveOffers = useMemo(
+    () =>
+      offersQuery.data?.pages.flatMap((page) => page.offers) ??
+      EMPTY_SUPPORT_SERVICE_OFFERS,
+    [offersQuery.data?.pages],
+  );
   const liveOffers = isEditing
-    ? linkedOfferQuery.data?.offers ?? EMPTY_SUPPORT_SERVICE_OFFERS
-    : offersQuery.data?.offers ?? EMPTY_SUPPORT_SERVICE_OFFERS;
+    ? linkedOfferQuery.data?.offer
+      ? [linkedOfferQuery.data.offer]
+      : EMPTY_SUPPORT_SERVICE_OFFERS
+    : paginatedLiveOffers;
 
   useEffect(() => {
     if (transactionRecord) {
-      setForm(transactionFormFromRecord(transactionRecord, liveOffers));
+      setForm(transactionFormFromRecord(transactionRecord));
     }
-  }, [liveOffers, transactionRecord]);
+  }, [transactionRecord]);
 
   useEffect(() => {
-    if (!isEditing && !form.serviceId && liveOffers[0]) {
+    if (!isEditing && !form.offerId && liveOffers[0]) {
       setForm(transactionFormForOffer(liveOffers[0]));
     }
-  }, [form.serviceId, isEditing, liveOffers]);
+  }, [form.offerId, isEditing, liveOffers]);
 
   const serviceChoices = useMemo(() => {
     if (isEditing) {
       return [];
     }
 
-    const seen = new Set<string>();
     const choices = liveOffers.map((offer) => ({
-      value: offer.serviceId,
-      label: `${offer.name} (${offer.serviceId}, ${t(offerStatusLabel(offer.status))})`,
+      value: offer.id,
+      label: `${offer.name} (${offer.serviceId}, ${offer.providerName || offer.providerId})`,
     }));
 
     if (
-      form.serviceId &&
-      !choices.some((choice) => choice.value === form.serviceId)
+      form.offerId &&
+      !choices.some((choice) => choice.value === form.offerId)
     ) {
       choices.push({
-        value: form.serviceId,
-        label: `${form.serviceId} (${t("missing active offer")})`,
+        value: form.offerId,
+        label: `${form.offerId} (${t("missing active offer")})`,
       });
     }
 
-    return choices.filter((choice) => {
-      if (seen.has(choice.value)) {
-        return false;
-      }
-      seen.add(choice.value);
-      return true;
-    });
-  }, [form.serviceId, isEditing, liveOffers, t]);
+    return choices;
+  }, [form.offerId, isEditing, liveOffers, t]);
 
   const selectedOffer =
-    liveOffers.find((offer) => offer.serviceId === form.serviceId) ?? null;
+    liveOffers.find((offer) => offer.id === form.offerId) ?? null;
+  const terminalStatusLocked = Boolean(
+    isEditing &&
+    transactionRecord &&
+    TERMINAL_TRANSACTION_STATUSES.has(transactionRecord.status),
+  );
+  const selectableTransactionStatuses = useMemo(() => {
+    if (
+      !transactionRecord ||
+      TERMINAL_TRANSACTION_STATUSES.has(transactionRecord.status)
+    ) {
+      return SUPPORT_SERVICE_TRANSACTION_STATUSES;
+    }
+    const allowed =
+      ALLOWED_TRANSACTION_STATUS_TRANSITIONS[
+        transactionRecord.status as keyof typeof ALLOWED_TRANSACTION_STATUS_TRANSITIONS
+      ];
+    return SUPPORT_SERVICE_TRANSACTION_STATUSES.filter(
+      (option) =>
+        option.value === transactionRecord.status || allowed.has(option.value),
+    );
+  }, [transactionRecord]);
+  const frozenOfferName =
+    typeof form.offerSnapshot.name === "string"
+      ? form.offerSnapshot.name
+      : form.serviceId;
+  const frozenShortContract =
+    typeof form.offerSnapshot.shortContract === "string"
+      ? form.offerSnapshot.shortContract
+      : "";
 
   const saveMutation = useMutation({
     mutationFn: async (payload: SupportServiceTransactionInput) => {
@@ -4406,7 +5008,9 @@ export function SupportServiceTransactionWorkbench({
       });
     },
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: [TRANSACTIONS_QUERY_KEY] });
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTIONS_QUERY_KEY],
+      });
       setToast({
         id: nextToastId(),
         tone: "success",
@@ -4431,27 +5035,40 @@ export function SupportServiceTransactionWorkbench({
         { method: "DELETE" },
       ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: [TRANSACTIONS_QUERY_KEY] });
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTIONS_QUERY_KEY],
+      });
       router.push("/god-mode/service-transactions");
       router.refresh();
     },
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
-  function handleServiceChange(serviceId: string) {
-    setForm(transactionFormForService(serviceId, liveOffers));
+  function handleServiceChange(offerId: string) {
+    setForm(transactionFormForOfferId(offerId, liveOffers));
   }
 
   function updateInputRef(index: number, patch: Partial<ObjectRefDraft>) {
-    setForm((current) => ({
-      ...current,
-      inputs: current.inputs.map((slot, slotIndex) =>
+    setForm((current) => {
+      const inputs = current.inputs.map((slot, slotIndex) =>
         slotIndex === index ? { ...slot, ...patch } : slot,
-      ),
-    }));
+      );
+      const missingRequiredInputRoles = inputs
+        .filter((slot) => slot.required && !slot.objectId.trim())
+        .map((slot) => slot.role);
+      return {
+        ...current,
+        inputs,
+        missingRequiredInputRoles,
+        attachmentsPending: missingRequiredInputRoles.length > 0,
+      };
+    });
   }
 
-  function updateOutputObject(index: number, patch: Partial<OutputObjectDraft>) {
+  function updateOutputObject(
+    index: number,
+    patch: Partial<OutputObjectDraft>,
+  ) {
     setForm((current) => ({
       ...current,
       outputObjects: current.outputObjects.map((output, outputIndex) =>
@@ -4504,18 +5121,34 @@ export function SupportServiceTransactionWorkbench({
             <Field label="Service">
               {isEditing ? (
                 <div className="grid min-h-24 gap-2 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 text-sm shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-                  <div className="font-medium text-foreground">
-                    {selectedOffer?.name || t("Linked service")}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="font-medium text-foreground">
+                      {frozenOfferName || t("Frozen service contract")}
+                    </div>
+                    <Badge variant="secondary">
+                      {t("Frozen transaction contract")}
+                    </Badge>
                   </div>
                   <div className="font-mono text-xs text-muted-foreground">
                     {form.serviceId || "-"} · v{form.serviceVersion || 1}
                   </div>
-                  {selectedOffer ? (
+                  {frozenShortContract ? (
                     <div className="text-muted-foreground">
-                      {selectedOffer.shortContract || "-"}
+                      {frozenShortContract}
+                    </div>
+                  ) : null}
+                  {selectedOffer ? (
+                    <div className="mt-1 border-t border-violet-100 pt-2 text-xs text-muted-foreground dark:border-violet-400/14">
+                      <div className="font-semibold uppercase tracking-wide">
+                        {t("Current live offer context")}
+                      </div>
+                      <div className="mt-1">
+                        {selectedOffer.name} ·{" "}
+                        {selectedOffer.shortContract || "-"}
+                      </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="mt-1 flex items-center gap-2 border-t border-violet-100 pt-2 text-xs text-muted-foreground dark:border-violet-400/14">
                       {linkedOfferQuery.isLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
@@ -4530,98 +5163,177 @@ export function SupportServiceTransactionWorkbench({
                   )}
                 </div>
               ) : (
+                <div className="grid gap-2">
+                  <Select
+                    value={form.offerId}
+                    onValueChange={handleServiceChange}
+                    disabled={serviceChoices.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={t("Choose active service offer")}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {serviceChoices.map((service) => (
+                        <SelectItem key={service.value} value={service.value}>
+                          {service.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {offersQuery.hasNextPage ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => offersQuery.fetchNextPage()}
+                      disabled={offersQuery.isFetchingNextPage}
+                      className={cn(
+                        SUPPORT_SERVICE_SOFT_BUTTON_CLASS,
+                        "justify-self-start",
+                      )}
+                    >
+                      {offersQuery.isFetchingNextPage
+                        ? t("Loading...")
+                        : t("Load more")}
+                    </Button>
+                  ) : null}
+                </div>
+              )}
+            </Field>
+            <Field label="Status">
+              {!isEditing || terminalStatusLocked ? (
+                <div className="grid gap-2">
+                  <GeneratedValue
+                    value={t(transactionStatusLabel(form.status))}
+                  />
+                  {terminalStatusLocked ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t("Terminal transactions cannot be reopened.")}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
                 <Select
-                  value={form.serviceId}
-                  onValueChange={handleServiceChange}
-                  disabled={serviceChoices.length === 0}
+                  value={form.status}
+                  onValueChange={(status) =>
+                    setForm((current) => ({
+                      ...current,
+                      status: status as TransactionFormState["status"],
+                    }))
+                  }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t("Choose active service offer")} />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {serviceChoices.map((service) => (
-                      <SelectItem key={service.value} value={service.value}>
-                        {service.label}
+                    {selectableTransactionStatuses.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {t(option.label)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
             </Field>
-            <Field label="Status">
-              <Select
-                value={form.status}
-                onValueChange={(status) =>
-                  setForm((current) => ({
-                    ...current,
-                    status: status as TransactionFormState["status"],
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUPPORT_SERVICE_TRANSACTION_STATUSES.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(option.label)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
             <Field label="Request ID">
               {isEditing ? (
-                <GeneratedValue value={form.requestId || transactionId || "pgr_"} />
+                <GeneratedValue
+                  value={form.requestId || transactionId || "pgr_"}
+                />
               ) : (
                 <Input
                   value={form.requestId}
+                  onChange={(event) => {
+                    const requestId = event.target.value;
+                    setForm((current) => ({
+                      ...current,
+                      requestId,
+                      idempotencyKey: transactionIdempotencyKey(requestId),
+                    }));
+                  }}
+                  required
+                />
+              )}
+            </Field>
+            <Field label="Offer ID">
+              <GeneratedValue value={form.offerId || "-"} />
+            </Field>
+            <Field label="Service version">
+              <GeneratedValue value={String(form.serviceVersion || 1)} />
+            </Field>
+            <Field label="Provider ID">
+              <GeneratedValue value={form.providerId || "-"} />
+            </Field>
+            <Field label="Provider kind">
+              <GeneratedValue value={t(form.providerKind)} />
+            </Field>
+            <Field label="Requester user ID">
+              {isEditing ? (
+                <GeneratedValue value={form.requestedByUserId || "-"} />
+              ) : (
+                <Input
+                  value={form.requestedByUserId}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      requestId: event.target.value,
+                      requestedByUserId: event.target.value,
                     }))
                   }
                   required
                 />
               )}
             </Field>
-            <Field label="Service version">
-              <GeneratedValue value={String(form.serviceVersion || 1)} />
-            </Field>
             <Field label="Requester email">
-              <Input
-                value={form.requesterEmail}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    requesterEmail: event.target.value,
-                  }))
-                }
-                type="email"
-              />
+              {isEditing ? (
+                <GeneratedValue value={form.requestedByUserEmail || "-"} />
+              ) : (
+                <Input
+                  value={form.requestedByUserEmail}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      requestedByUserEmail: event.target.value,
+                    }))
+                  }
+                  type="email"
+                />
+              )}
             </Field>
-            <Field label="Subject ID">
-              <Input
-                value={form.subjectId}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    subjectId: event.target.value,
-                  }))
-                }
-              />
+            <Field label="Idempotency key">
+              <GeneratedValue value={form.idempotencyKey || "-"} />
+            </Field>
+            <Field label="Client request time">
+              <GeneratedValue value={form.requestedAtClient || "-"} />
+            </Field>
+            {isEditing ? (
+              <>
+                <Field label="Requested at">
+                  <GeneratedValue value={form.requestedAt || "-"} />
+                </Field>
+                <Field label="Request revision">
+                  <GeneratedValue value={String(form.requestRevision || 1)} />
+                </Field>
+              </>
+            ) : null}
+            <Field label="Contract source">
+              <GeneratedValue value={form.contractSource || "-"} />
             </Field>
           </div>
           {!isEditing && serviceChoices.length === 0 ? (
             <div className="flex items-center gap-2 rounded-2xl border border-violet-100/80 bg-white/78 p-3 text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
               <CircleAlert className="h-4 w-4" />
-              <span>{t("No service offers are available for transactions.")}</span>
+              <span>
+                {t("No service offers are available for transactions.")}
+              </span>
             </div>
           ) : null}
           {!isEditing && selectedOffer ? (
             <div className="rounded-2xl border border-violet-100/80 bg-white/78 p-3 text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-              <div className="font-medium text-foreground">{selectedOffer.name}</div>
+              <div className="font-medium text-foreground">
+                {selectedOffer.name}
+              </div>
               <div>{selectedOffer.shortContract}</div>
             </div>
           ) : null}
@@ -4661,17 +5373,24 @@ export function SupportServiceTransactionWorkbench({
               />
             </Field>
             <p className="mt-2 text-sm text-muted-foreground">
-              {t("Reports may accompany a delivery, but they are not validated as service contract outputs.")}
+              {t(
+                "Reports may accompany a delivery, but they are not validated as service contract outputs.",
+              )}
             </p>
           </div>
         </Section>
-        <Section title="Notes">
+        <Section title="Issues">
           <Textarea
-            value={form.notes}
+            value={form.issuesText}
             onChange={(event) =>
-              setForm((current) => ({ ...current, notes: event.target.value }))
+              setForm((current) => ({
+                ...current,
+                issuesText: event.target.value,
+              }))
             }
-            rows={4}
+            rows={6}
+            className="font-mono text-xs"
+            placeholder={t("Issues JSON array")}
           />
         </Section>
       </form>
@@ -4715,14 +5434,18 @@ function OutputObjectTable({
             <TableRow key={`${output.role}-${index}`}>
               <TableCell className="font-mono text-sm">{output.role}</TableCell>
               <TableCell className="min-w-[14rem]">
-                <Badge variant="secondary">{bindingTypeLabel(output.objectType)}</Badge>
+                <Badge variant="secondary">
+                  {bindingTypeLabel(output.objectType)}
+                </Badge>
               </TableCell>
               <TableCell className="min-w-[16rem]">
                 <Input
                   value={output.objectCode}
                   onChange={(event) =>
                     onChange(index, {
-                      objectCode: event.target.value.replace(/\D/g, "").slice(0, 9),
+                      objectCode: event.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 9),
                     })
                   }
                   inputMode="numeric"
@@ -4737,7 +5460,9 @@ function OutputObjectTable({
       </Table>
       {status === "delivered" ? (
         <div className="border-t border-violet-100/80 px-4 py-3 text-sm text-muted-foreground dark:border-violet-400/14">
-          {t("Delivered is accepted only after every code resolves to a ready uploaded object of the promised type.")}
+          {t(
+            "Delivered is accepted only after every code resolves to a ready uploaded object of the promised type.",
+          )}
         </div>
       ) : null}
     </div>
@@ -4769,7 +5494,7 @@ function ObjectRefTable({
         <TableHeader>
           <TableRow>
             <TableHead>{t("Role")}</TableHead>
-            <TableHead>{t("Accepted types")}</TableHead>
+            <TableHead>{t("Object type")}</TableHead>
             <TableHead>{t("Object ID")}</TableHead>
             <TableHead>{t("Revision")}</TableHead>
           </TableRow>
@@ -4780,46 +5505,138 @@ function ObjectRefTable({
               slot.required && slot.acceptedTypes.includes(FORM_OBJECT_TYPE);
 
             return (
-            <TableRow key={`${slot.role}-${index}`}>
-              <TableCell className="font-mono text-sm">
-                {slot.role}
-                {slot.required ? (
-                  <Badge variant="outline" className="ml-2">
-                    {t("Required")}
-                  </Badge>
-                ) : null}
-              </TableCell>
-              <TableCell className="min-w-[14rem]">
-                <div className="flex flex-wrap gap-1">
-                  {slot.acceptedTypes.map((type) => (
-                    <Badge key={type} variant="secondary">
-                      {bindingTypeLabel(type)}
+              <Fragment key={`${slot.role}-${index}`}>
+                <TableRow>
+                  <TableCell className="font-mono text-sm">
+                    {slot.role}
+                    {slot.required ? (
+                      <Badge variant="outline" className="ml-2">
+                        {t("Required")}
+                      </Badge>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="min-w-[14rem]">
+                    <Badge variant="secondary">
+                      {bindingTypeLabel(slot.objectType)}
                     </Badge>
-                  ))}
-                </div>
-              </TableCell>
-              <TableCell className="min-w-[16rem]">
-                <Input
-                  value={slot.objectId}
-                  onChange={(event) =>
-                    onChange(index, { objectId: event.target.value })
-                  }
-                  required={mustAttachNow}
-                  placeholder="obj_..."
-                />
-              </TableCell>
-              <TableCell className="w-32">
-                <Input
-                  value={slot.revision}
-                  onChange={(event) =>
-                    onChange(index, { revision: event.target.value })
-                  }
-                  inputMode="numeric"
-                  required={mustAttachNow || Boolean(slot.objectId)}
-                />
-              </TableCell>
-            </TableRow>
-          );
+                  </TableCell>
+                  <TableCell className="min-w-[16rem]">
+                    <Input
+                      aria-label={`${t("Object ID")} · ${slot.role}`}
+                      value={slot.objectId}
+                      onChange={(event) =>
+                        onChange(index, { objectId: event.target.value })
+                      }
+                      required={mustAttachNow}
+                      placeholder="obj_..."
+                    />
+                  </TableCell>
+                  <TableCell className="w-32">
+                    <Input
+                      aria-label={`${t("Revision")} · ${slot.role}`}
+                      value={slot.revision}
+                      onChange={(event) =>
+                        onChange(index, { revision: event.target.value })
+                      }
+                      inputMode="numeric"
+                      required={mustAttachNow || Boolean(slot.objectId)}
+                    />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="bg-violet-50/30 dark:bg-violet-500/[0.03]"
+                  >
+                    <div className="grid gap-4 py-2">
+                      <label className="grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <span>{t("Object snapshot")}</span>
+                        <Textarea
+                          aria-label={`${t("Object snapshot")} · ${slot.role}`}
+                          value={slot.objectSnapshotText}
+                          onChange={(event) =>
+                            onChange(index, {
+                              objectSnapshotText: event.target.value,
+                            })
+                          }
+                          required={mustAttachNow || Boolean(slot.objectId)}
+                          rows={5}
+                          className="font-mono text-xs font-normal normal-case tracking-normal"
+                          placeholder={
+                            '{"objectId":"obj_...","objectType":"pgo_...","revision":1}'
+                          }
+                        />
+                      </label>
+                      {slot.objectType === FORM_OBJECT_TYPE ? (
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                          <label className="grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <span>{t("Object code")}</span>
+                            <Input
+                              aria-label={`${t("Object code")} · ${slot.role}`}
+                              value={slot.objectCode}
+                              onChange={(event) =>
+                                onChange(index, {
+                                  objectCode: event.target.value
+                                    .replace(/\D/g, "")
+                                    .slice(0, 9),
+                                })
+                              }
+                              required
+                              inputMode="numeric"
+                              maxLength={9}
+                              placeholder="000000000"
+                              className="font-normal normal-case tracking-normal"
+                            />
+                          </label>
+                          <label className="grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <span>{t("Uploaded object ID")}</span>
+                            <Input
+                              aria-label={`${t("Uploaded object ID")} · ${slot.role}`}
+                              value={slot.uploadedObjectId}
+                              onChange={(event) =>
+                                onChange(index, {
+                                  uploadedObjectId: event.target.value,
+                                })
+                              }
+                              required
+                              className="font-normal normal-case tracking-normal"
+                            />
+                          </label>
+                          <label className="grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <span>{t("File storage ID")}</span>
+                            <Input
+                              aria-label={`${t("File storage ID")} · ${slot.role}`}
+                              value={slot.fileStorageId}
+                              onChange={(event) =>
+                                onChange(index, {
+                                  fileStorageId: event.target.value,
+                                })
+                              }
+                              required
+                              className="font-normal normal-case tracking-normal"
+                            />
+                          </label>
+                          <label className="grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <span>{t("Object owner ID")}</span>
+                            <Input
+                              aria-label={`${t("Object owner ID")} · ${slot.role}`}
+                              value={slot.objectOwnerId}
+                              onChange={(event) =>
+                                onChange(index, {
+                                  objectOwnerId: event.target.value,
+                                })
+                              }
+                              required
+                              className="font-normal normal-case tracking-normal"
+                            />
+                          </label>
+                        </div>
+                      ) : null}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </Fragment>
+            );
           })}
         </TableBody>
       </Table>
@@ -4848,7 +5665,12 @@ function WorkbenchTopbar({
   const t = (text: string) => appText(language, text);
 
   return (
-    <div className={cn("flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between", SUPPORT_SERVICE_HEADER_CLASS)}>
+    <div
+      className={cn(
+        "flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between",
+        SUPPORT_SERVICE_HEADER_CLASS,
+      )}
+    >
       <div className="flex min-w-0 items-center gap-2">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-violet-200 bg-violet-100 text-violet-700 shadow-inner dark:border-violet-400/20 dark:bg-violet-500/14 dark:text-violet-100">
           <FileText className="h-5 w-5" />

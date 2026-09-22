@@ -4,6 +4,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   SUPPORT_SERVICE_OFFER_STATUSES,
+  SUPPORT_SERVICE_OBJECT_TYPES,
   SUPPORT_SERVICE_STAGES,
   SUPPORT_SERVICE_TRANSACTION_STATUSES,
   createSupportServiceOffer,
@@ -19,6 +20,7 @@ import {
 } from "../repositories/support-services.repository.js";
 
 const ServiceStageSchema = z.enum(SUPPORT_SERVICE_STAGES);
+const ServiceObjectTypeSchema = z.enum(SUPPORT_SERVICE_OBJECT_TYPES);
 const OfferStatusSchema = z.enum(SUPPORT_SERVICE_OFFER_STATUSES);
 const TransactionStatusSchema = z.enum(SUPPORT_SERVICE_TRANSACTION_STATUSES);
 const FORM_OBJECT_TYPE = "pgo_form";
@@ -38,7 +40,10 @@ const ProviderKindSchema = z.enum(["organization", "individual"]);
 const ServiceIdSchema = z
   .string()
   .trim()
-  .regex(/^pgs_[a-z0-9_]+$/, "Use a pgs_* service ID.");
+  .regex(
+    /^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]+$/,
+    "Use a generated pgs_<provider_slug>_<n> service ID.",
+  );
 const ProviderIdSchema = z.string().trim().min(1).max(180);
 const VersionSchema = z.coerce.number().int().positive();
 const RequestIdSchema = z
@@ -108,15 +113,14 @@ const FormShapeSchema = z.object({
   version: VersionSchema.optional(),
   allowUnknownFields: z
     .literal(false)
-    .optional()
     .describe("Support service forms reject undeclared fields."),
   fields: z.array(FormFieldSchema).min(2).max(100),
 });
 const InputSlotSchema = z.object({
   role: RoleSchema,
-  objectType: ObjectTypeSchema,
+  objectType: ServiceObjectTypeSchema,
   acceptedTypes: z
-    .array(ObjectTypeSchema)
+    .array(ServiceObjectTypeSchema)
     .length(1, "Each input slot accepts exactly one object type."),
   required: z.literal(true),
   cardinality: z.object({
@@ -137,8 +141,12 @@ const OutputSlotSchema = z
     role: RoleSchema,
     objectType: z.union([
       ObjectTypeSchema.refine(
-        (value) => value !== FORM_OBJECT_TYPE,
-        "Output slots cannot produce request forms.",
+        (value) =>
+          value !== FORM_OBJECT_TYPE &&
+          SUPPORT_SERVICE_OBJECT_TYPES.includes(
+            value as (typeof SUPPORT_SERVICE_OBJECT_TYPES)[number],
+          ),
+        "Output slots must use a registered non-form object type.",
       ),
       SameIdentityObjectTypeSchema,
     ]),
@@ -191,17 +199,38 @@ const CommercialTermsSchema = z.object({
     .object({
       amount: z.coerce.number().min(0).optional(),
       currency: z.string().trim().regex(/^[A-Z]{3}$/).optional(),
+      summary: z.string().trim().min(1).max(500).optional(),
     })
     .strict()
     .optional(),
   turnaround: TurnaroundSchema.optional(),
 }).strict();
-const TransactionSlotSchema = z.object({
-  role: RoleSchema,
-  objectRef: ObjectRefSchema,
-}).strict();
+const TransactionSlotSchema = z
+  .object({
+    role: RoleSchema,
+    objectRef: ObjectRefSchema,
+    objectType: ServiceObjectTypeSchema,
+    objectSnapshot: z.record(z.string(), z.unknown()),
+    objectCode: z.string().trim().regex(/^\d{9}$/).optional(),
+    uploadedObjectId: z.string().trim().min(1).optional(),
+    fileStorageId: z.string().trim().min(1).optional(),
+    objectOwnerId: z.string().trim().min(1).optional(),
+  })
+  .strict();
+const TransactionOutputObjectSchema = z
+  .object({
+    role: RoleSchema,
+    objectType: ServiceObjectTypeSchema,
+    objectCode: z.string().trim().regex(/^\d{9}$/),
+  })
+  .strict();
+const TransactionOutputReportSchema = z
+  .object({
+    reportCode: z.string().trim().regex(/^[A-Z0-9]{6}$/),
+  })
+  .strict();
 const ListQuerySchema = z.object({
-  cursor: z.string().trim().datetime().optional(),
+  cursor: z.string().trim().min(1).max(500).optional(),
   limit: z.coerce.number().int().positive().max(50).optional(),
   query: z.string().trim().max(180).optional(),
   status: z.string().trim().max(40).optional(),
@@ -223,6 +252,7 @@ const OfferBodySchema = z.object({
   providerName: z.string().trim().max(180).optional(),
   stages: z.array(ServiceStageSchema).min(1).max(3).optional(),
   status: OfferStatusSchema.optional(),
+  isHiddenFromSearch: z.boolean(),
   description: z.string().trim().min(1).max(4000),
   shortContract: z.string().trim().max(500).optional(),
   providerWork: z.string().trim().min(1).max(4000),
@@ -241,15 +271,27 @@ const OfferBodySchema = z.object({
 }).strict();
 const TransactionBodySchema = z.object({
   requestId: RequestIdSchema,
+  offerId: z.string().trim().min(1),
   serviceId: ServiceIdSchema,
   serviceVersion: VersionSchema.optional(),
+  providerId: ProviderIdSchema,
+  providerKind: ProviderKindSchema,
   status: TransactionStatusSchema.optional(),
-  requesterEmail: OptionalEmailSchema,
-  subjectId: z.string().trim().max(160).optional(),
+  requestedByUserId: z.string().trim().min(1).max(180),
+  requestedByUserEmail: OptionalEmailSchema,
+  requestedAt: z.string().trim().datetime().optional(),
+  requestedAtClient: z.string().trim().datetime(),
+  requestRevision: VersionSchema.optional(),
+  idempotencyKey: z.string().trim().min(1).max(240),
   inputs: z.array(TransactionSlotSchema).max(50).optional(),
-  outputs: z.array(TransactionSlotSchema).max(50).optional(),
+  outputObjects: z.array(TransactionOutputObjectSchema).max(50).optional(),
+  outputReports: z.array(TransactionOutputReportSchema).max(50).optional(),
   missingRequiredInputRoles: z.array(RoleSchema).max(50).optional(),
-  notes: z.string().trim().max(4000).optional(),
+  issues: z.array(z.unknown()).max(100).optional(),
+  offerSnapshot: z.record(z.string(), z.unknown()).optional(),
+  providerSnapshot: z.record(z.string(), z.unknown()).optional(),
+  contractSource: z.string().trim().min(1).max(180),
+  attachmentsPending: z.boolean().optional(),
 }).strict();
 const OfferParamsSchema = z.object({
   offerId: z.string().trim().min(1),

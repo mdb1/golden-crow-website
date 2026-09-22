@@ -1,8 +1,13 @@
+import { createHash } from "node:crypto";
 import {
+  FieldPath,
   FieldValue,
   Timestamp,
+  type DocumentReference,
+  type DocumentSnapshot,
   type Query,
   type QueryDocumentSnapshot,
+  type Transaction,
 } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import type { AdminContext } from "../types/sdk.types.js";
@@ -13,8 +18,12 @@ const FEED_ORGANIZATIONS_COLLECTION = "feed_organizations";
 const FEED_INDIVIDUALS_COLLECTION = "feed_individuals";
 const SERVICE_OFFERS_COLLECTION = "service_offers";
 const SERVICE_TRANSACTIONS_COLLECTION = "service_transactions";
+const SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION =
+  "service_transaction_idempotency";
 const OBJECT_CODES_COLLECTION = "object_codes";
 const UPLOADED_OBJECTS_COLLECTION = "uploaded_objects";
+const OBJECT_OWNERS_COLLECTION = "object_owners";
+const FILE_STORAGE_COLLECTION = "file_storage";
 const COMMUNITY_USERS_COLLECTION = "community_users";
 const REQUESTED_TRANSACTIONS_FIELD = "requestedServiceTransactions";
 const MAX_PAGE_SIZE = 50;
@@ -31,8 +40,31 @@ export const SUPPORT_SERVICE_STAGES = [
 export const SUPPORT_SERVICE_OFFER_STATUSES = [
   "draft",
   "active",
-  "paused",
+  "inactive",
   "archived",
+] as const;
+
+export const SUPPORT_SERVICE_OBJECT_TYPES = [
+  "pgo_form",
+  "pgo_bundle_of_symptoms",
+  "pgo_bundle_of_candidate_genes",
+  "pgo_informed_consent",
+  "pgo_test_order",
+  "pgo_collection_request",
+  "pgo_blood_sample",
+  "pgo_tissue_sample",
+  "pgo_embryo_sample",
+  "pgo_dna_sample",
+  "pgo_sequence_reads",
+  "pgo_sequence_data",
+  "pgo_aligned_reads",
+  "pgo_unannotated_vcf",
+  "pgo_annotated_vcf",
+  "pgo_interactive_report",
+  "pgo_pdf_report",
+  "pgo_image_bundle",
+  "pgo_karyotype_result",
+  "pgo_flow_cytometry_data",
 ] as const;
 
 export const SUPPORT_SERVICE_TRANSACTION_STATUSES = [
@@ -53,6 +85,8 @@ export type SupportServiceOfferStatus =
   (typeof SUPPORT_SERVICE_OFFER_STATUSES)[number];
 export type SupportServiceTransactionStatus =
   (typeof SUPPORT_SERVICE_TRANSACTION_STATUSES)[number];
+export type SupportServiceObjectType =
+  (typeof SUPPORT_SERVICE_OBJECT_TYPES)[number];
 export type SupportServiceProviderKind = "organization" | "individual";
 export type SupportServicePricingModel =
   | "not_specified"
@@ -86,6 +120,7 @@ export interface SupportServiceOfferInput {
   providerName?: string;
   stages?: string[];
   status?: SupportServiceOfferStatus;
+  isHiddenFromSearch?: boolean;
   description?: string;
   shortContract?: string;
   providerWork?: string;
@@ -109,6 +144,7 @@ export interface SupportServiceOfferRecord {
   providerName: string;
   stages: SupportServiceStage[];
   status: SupportServiceOfferStatus;
+  isHiddenFromSearch: boolean;
   description: string;
   shortContract: string;
   providerWork: string;
@@ -133,11 +169,17 @@ export interface SupportServiceTransactionsInputRef {
 export interface SupportServiceTransactionInputSlot {
   role: string;
   objectRef: SupportServiceTransactionsInputRef;
+  objectType: SupportServiceObjectType;
+  objectSnapshot: Record<string, unknown>;
+  objectCode?: string;
+  uploadedObjectId?: string;
+  fileStorageId?: string;
+  objectOwnerId?: string;
 }
 
 export interface SupportServiceTransactionOutputObjectSnapshot {
   role: string;
-  objectType: string;
+  objectType: SupportServiceObjectType;
   objectCode: string;
 }
 
@@ -147,32 +189,54 @@ export interface SupportServiceTransactionOutputReportSnapshot {
 
 export interface SupportServiceTransactionInput {
   requestId?: string;
+  offerId?: string;
   serviceId?: string;
   serviceVersion?: number;
+  providerId?: string;
+  providerKind?: SupportServiceProviderKind;
   status?: SupportServiceTransactionStatus;
-  requesterEmail?: string;
-  subjectId?: string;
+  requestedByUserId?: string;
+  requestedByUserEmail?: string;
+  requestedAt?: string;
+  requestedAtClient?: string;
+  requestRevision?: number;
+  idempotencyKey?: string;
   inputs?: SupportServiceTransactionInputSlot[];
   outputObjects?: SupportServiceTransactionOutputObjectSnapshot[];
   outputReports?: SupportServiceTransactionOutputReportSnapshot[];
   missingRequiredInputRoles?: string[];
-  notes?: string;
+  issues?: unknown[];
+  offerSnapshot?: Record<string, unknown>;
+  providerSnapshot?: Record<string, unknown>;
+  contractSource?: string;
+  attachmentsPending?: boolean;
 }
 
 export interface SupportServiceTransactionRecord {
   id: string;
   schemaVersion: number;
   requestId: string;
+  offerId: string;
   serviceId: string;
   serviceVersion: number;
+  providerId: string;
+  providerKind: SupportServiceProviderKind;
   status: SupportServiceTransactionStatus;
-  requesterEmail: string;
-  subjectId: string;
+  requestedByUserId: string;
+  requestedByUserEmail?: string;
+  requestedAt?: string;
+  requestedAtClient?: string;
+  requestRevision: number;
+  idempotencyKey: string;
   inputs: SupportServiceTransactionInputSlot[];
   outputObjects: SupportServiceTransactionOutputObjectSnapshot[];
   outputReports: SupportServiceTransactionOutputReportSnapshot[];
   missingRequiredInputRoles: string[];
-  notes: string;
+  issues: unknown[];
+  offerSnapshot: Record<string, unknown>;
+  providerSnapshot: Record<string, unknown>;
+  contractSource: string;
+  attachmentsPending: boolean;
   normalizedName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -202,12 +266,149 @@ const PRICING_MODEL_SET = new Set<string>([
   "fixed",
   "calculated_after_submission",
 ]);
+const OBJECT_TYPE_SET = new Set<string>(SUPPORT_SERVICE_OBJECT_TYPES);
+const FORM_FIELD_TYPE_SET = new Set([
+  "text",
+  "number",
+  "integer",
+  "boolean",
+  "date",
+  "datetime",
+  "enum",
+  "multi_enum",
+  "string_list",
+]);
 const PUBLISHED_OFFER_STATUSES = new Set<SupportServiceOfferStatus>([
   "active",
-  "paused",
+  "inactive",
   "archived",
 ]);
+const TERMINAL_TRANSACTION_STATUSES = new Set<SupportServiceTransactionStatus>([
+  "delivered",
+  "rejected",
+  "failed",
+  "cancelled",
+]);
+const ALLOWED_TRANSACTION_STATUS_TRANSITIONS: Record<
+  Exclude<
+    SupportServiceTransactionStatus,
+    "delivered" | "rejected" | "failed" | "cancelled"
+  >,
+  ReadonlySet<SupportServiceTransactionStatus>
+> = {
+  received: new Set([
+    "validating",
+    "awaiting_input",
+    "accepted",
+    "rejected",
+    "failed",
+    "cancelled",
+  ]),
+  validating: new Set([
+    "awaiting_input",
+    "accepted",
+    "rejected",
+    "failed",
+    "cancelled",
+  ]),
+  awaiting_input: new Set([
+    "validating",
+    "accepted",
+    "rejected",
+    "failed",
+    "cancelled",
+  ]),
+  accepted: new Set([
+    "awaiting_input",
+    "queued",
+    "running",
+    "rejected",
+    "failed",
+    "cancelled",
+  ]),
+  queued: new Set(["awaiting_input", "running", "failed", "cancelled"]),
+  running: new Set(["awaiting_input", "delivered", "failed", "cancelled"]),
+};
+const ISSUE_REQUIRED_STATUSES = new Set<SupportServiceTransactionStatus>([
+  "awaiting_input",
+  "rejected",
+  "failed",
+  "cancelled",
+]);
 const FORM_OBJECT_TYPE = "pgo_form";
+const FORBIDDEN_TRANSACTION_ROOT_KEYS = [
+  "request_id",
+  "offer_id",
+  "service_id",
+  "service_version",
+  "provider_id",
+  "provider_kind",
+  "requested_by_user_id",
+  "requested_by_user_email",
+  "requested_at",
+  "requested_at_client",
+  "request_revision",
+  "idempotency_key",
+  "output_objects",
+  "output_reports",
+  "missing_required_input_roles",
+  "offer_snapshot",
+  "provider_snapshot",
+  "contract_source",
+  "attachments_pending",
+] as const;
+const FORBIDDEN_OFFER_ROOT_KEYS = [
+  "service_id",
+  "service_version",
+  "service_category",
+  "provider_id",
+  "provider_kind",
+  "provider_name",
+  "is_hidden_from_search",
+  "short_contract",
+  "provider_work",
+  "form_shape",
+  "input_slots",
+  "output_slots",
+  "accepted_conditions",
+  "scope_rules",
+  "commercial_terms",
+] as const;
+
+type DocumentReader = (
+  reference: DocumentReference,
+) => Promise<DocumentSnapshot>;
+
+function rejectForbiddenKeys(
+  record: Record<string, unknown>,
+  forbiddenKeys: readonly string[],
+  context: string,
+) {
+  const found = forbiddenKeys.filter((key) =>
+    Object.prototype.hasOwnProperty.call(record, key),
+  );
+  if (found.length > 0) {
+    throw new AdminRepositoryError(
+      `${context} uses forbidden snake-case field${found.length === 1 ? "" : "s"}: ${found.join(", ")}.`,
+      400,
+    );
+  }
+}
+
+function rejectUnknownKeys(
+  record: Record<string, unknown>,
+  allowedKeys: readonly string[],
+  context: string,
+) {
+  const allowed = new Set(allowedKeys);
+  const unknown = Object.keys(record).filter((key) => !allowed.has(key));
+  if (unknown.length > 0) {
+    throw new AdminRepositoryError(
+      `${context} contains unknown field${unknown.length === 1 ? "" : "s"}: ${unknown.join(", ")}.`,
+      400,
+    );
+  }
+}
 
 function requireGodMode(context: AdminContext) {
   if (!context.isBootstrap) {
@@ -270,17 +471,68 @@ function timestampToIso(value: unknown): string | undefined {
   return undefined;
 }
 
-function parseCursorTimestamp(cursor?: string) {
+function dateFromUnknown(
+  value: unknown,
+  label: string,
+  required = false,
+): Date | undefined {
+  if (value instanceof Timestamp) {
+    return value.toDate();
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  if (required || (value !== undefined && value !== null && value !== "")) {
+    throw new AdminRepositoryError(`${label} must be a valid date-time.`, 400);
+  }
+  return undefined;
+}
+
+type ServiceListCursor = {
+  updatedAt: Timestamp;
+  id: string;
+};
+
+function parseListCursor(cursor?: string): ServiceListCursor | undefined {
   if (!cursor) {
     return undefined;
   }
-
-  const parsed = new Date(cursor);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
+  try {
+    const value = optionalRecord(
+      JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")),
+    );
+    const id = cleanString(value.id);
+    const updatedAt = dateFromUnknown(value.updatedAt, "cursor updatedAt", true);
+    if (!id || id.includes("/") || !updatedAt) {
+      throw new Error("invalid cursor");
+    }
+    return { updatedAt: Timestamp.fromDate(updatedAt), id };
+  } catch (error) {
+    if (error instanceof AdminRepositoryError) {
+      throw error;
+    }
+    throw new AdminRepositoryError("Invalid service list cursor.", 400);
   }
+}
 
-  return Timestamp.fromDate(parsed);
+function serviceListCursor(doc: QueryDocumentSnapshot) {
+  const updatedAt = timestampToIso(doc.data().updatedAt);
+  if (!updatedAt) {
+    throw new AdminRepositoryError(
+      `Service record ${doc.id} has no valid updatedAt cursor value.`,
+      500,
+    );
+  }
+  return Buffer.from(
+    JSON.stringify({ updatedAt, id: doc.id }),
+    "utf8",
+  ).toString("base64url");
 }
 
 function withoutUndefined<T extends Record<string, unknown>>(input: T) {
@@ -297,6 +549,34 @@ function optionalRecord(value: unknown): Record<string, unknown> {
   return {};
 }
 
+function requireRecord(value: unknown, label: string): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  throw new AdminRepositoryError(`${label} must be an object.`, 400);
+}
+
+function booleanValue(value: unknown, allowLegacyMissing = false) {
+  if (allowLegacyMissing && (value === undefined || value === null)) {
+    return false;
+  }
+  if (typeof value !== "boolean") {
+    throw new AdminRepositoryError("isHiddenFromSearch must be a boolean.", 400);
+  }
+  return value;
+}
+
+function strictBoolean(value: unknown, label: string, fallback = false) {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  if (typeof value !== "boolean") {
+    throw new AdminRepositoryError(`${label} must be a boolean.`, 400);
+  }
+  return value;
+}
+
 function optionalRecordArray(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value)
     ? value.filter(
@@ -310,6 +590,58 @@ function cleanStringArray(value: unknown) {
   return Array.isArray(value)
     ? value.map(cleanString).filter((item) => item.length > 0)
     : [];
+}
+
+function unknownArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
+function hasMeaningfulIssueContent(value: unknown): boolean {
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+  if (Array.isArray(value)) {
+    return value.some(hasMeaningfulIssueContent);
+  }
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).some(
+      hasMeaningfulIssueContent,
+    );
+  }
+  return false;
+}
+
+function assertTransactionStatusTransition(
+  previousStatus: SupportServiceTransactionStatus,
+  document: SupportServiceTransactionDocument,
+) {
+  if (
+    ISSUE_REQUIRED_STATUSES.has(document.status) &&
+    !document.issues.some(hasMeaningfulIssueContent)
+  ) {
+    throw new AdminRepositoryError(
+      `Status ${document.status} requires at least one nonempty issue or reason.`,
+      400,
+    );
+  }
+  if (document.status === previousStatus) {
+    return;
+  }
+  if (TERMINAL_TRANSACTION_STATUSES.has(previousStatus)) {
+    throw new AdminRepositoryError(
+      `Terminal service transaction status ${previousStatus} cannot transition to ${document.status}.`,
+      409,
+    );
+  }
+  const allowed = ALLOWED_TRANSACTION_STATUS_TRANSITIONS[
+    previousStatus as keyof typeof ALLOWED_TRANSACTION_STATUS_TRANSITIONS
+  ];
+  if (!allowed?.has(document.status)) {
+    throw new AdminRepositoryError(
+      `Invalid service transaction status transition: ${previousStatus} -> ${document.status}.`,
+      409,
+    );
+  }
 }
 
 function numericValue(value: unknown, fallback: number) {
@@ -356,41 +688,75 @@ function stableString(value: unknown) {
   return JSON.stringify(stableValue(value));
 }
 
-function normalizeFormShape(value: unknown) {
+function normalizeFormShape(value: unknown, serializedPgoShape = false) {
   const formShape = optionalRecord(value);
-  const fields = optionalRecordArray(formShape.fields).map((field) => ({
-    key: cleanString(field.key),
-    label: cleanString(field.label),
-    type: cleanString(field.type) || "text",
-    required: Boolean(field.required),
-    options: optionalRecordArray(field.options).map((option) => ({
-      value: cleanString(option.value),
-      label: cleanString(option.label) || cleanString(option.value),
-    })),
-  }));
   const id = cleanString(formShape.id);
 
-  if (!id && fields.length === 0) {
+  if (!id && Object.keys(formShape).length === 0) {
     return undefined;
+  }
+
+  rejectForbiddenKeys(
+    formShape,
+    serializedPgoShape ? ["allowUnknownFields"] : ["allow_unknown_fields"],
+    serializedPgoShape ? "Serialized PGO form shape" : "Service form shape",
+  );
+  if (!Array.isArray(formShape.fields)) {
+    throw new AdminRepositoryError("Form shape fields must be an array.", 400);
+  }
+  const fields = optionalRecordArray(formShape.fields).map((field) => {
+    if (typeof field.required !== "boolean") {
+      throw new AdminRepositoryError(
+        `Form field ${cleanString(field.key) || "(unknown)"} required must be a boolean.`,
+        400,
+      );
+    }
+    const type = cleanString(field.type);
+    if (!FORM_FIELD_TYPE_SET.has(type)) {
+      throw new AdminRepositoryError(
+        `Form field ${cleanString(field.key) || "(unknown)"} has an unsupported type.`,
+        400,
+      );
+    }
+    return {
+      key: cleanString(field.key),
+      label: cleanString(field.label),
+      type,
+      required: field.required,
+      options: optionalRecordArray(field.options).map((option) => ({
+        value: cleanString(option.value),
+        label: cleanString(option.label) || cleanString(option.value),
+      })),
+    };
+  });
+  const allowUnknownFieldsKey = serializedPgoShape
+    ? "allow_unknown_fields"
+    : "allowUnknownFields";
+  if (typeof formShape[allowUnknownFieldsKey] !== "boolean") {
+    throw new AdminRepositoryError(
+      `${allowUnknownFieldsKey} must be a boolean.`,
+      400,
+    );
   }
 
   return {
     id,
     version: versionNumber(formShape.version),
-    allowUnknownFields: Boolean(
-      formShape.allowUnknownFields ?? formShape.allow_unknown_fields,
-    ),
+    allowUnknownFields: formShape[allowUnknownFieldsKey] as boolean,
     fields,
   };
 }
 
 function normalizeOfferInputSlots(value: unknown) {
   return optionalRecordArray(value).map((slot) => {
-    const acceptedTypes = stringValueArray(
-      slot.acceptedTypes ?? slot.accepted_types,
+    rejectForbiddenKeys(
+      slot,
+      ["object_type", "accepted_types"],
+      "Service offer input slot",
     );
+    const acceptedTypes = stringValueArray(slot.acceptedTypes);
     const objectType =
-      cleanString(slot.objectType ?? slot.object_type) || acceptedTypes[0] || "";
+      cleanString(slot.objectType) || acceptedTypes[0] || "";
     return {
       role: cleanString(slot.role),
       objectType,
@@ -402,24 +768,37 @@ function normalizeOfferInputSlots(value: unknown) {
 }
 
 function normalizeOfferOutputSlots(value: unknown) {
-  return optionalRecordArray(value).map((slot) => ({
-    role: cleanString(slot.role),
-    objectType: cleanString(slot.objectType ?? slot.object_type),
-    mutationMode:
-      cleanString(slot.mutationMode ?? slot.mutation_mode) === "new_revision"
-        ? "new_revision"
-        : "new_object",
-    sameIdentityAsInput:
-      cleanString(slot.sameIdentityAsInput ?? slot.same_identity_as_input) ||
-      undefined,
-  }));
+  return optionalRecordArray(value).map((slot) => {
+    rejectForbiddenKeys(
+      slot,
+      ["object_type", "mutation_mode", "same_identity_as_input"],
+      "Service offer output slot",
+    );
+    return {
+      role: cleanString(slot.role),
+      objectType: cleanString(slot.objectType),
+      mutationMode:
+        cleanString(slot.mutationMode) === "new_revision"
+          ? "new_revision"
+          : "new_object",
+      sameIdentityAsInput:
+        cleanString(slot.sameIdentityAsInput) || undefined,
+    };
+  });
 }
 
-function normalizeProviderKind(value: unknown): SupportServiceProviderKind {
+function normalizeProviderKind(
+  value: unknown,
+  rejectUnsupported = false,
+): SupportServiceProviderKind {
   const normalized = normalizeKey(cleanString(value));
-  return PROVIDER_KIND_SET.has(normalized)
-    ? (normalized as SupportServiceProviderKind)
-    : "organization";
+  if (PROVIDER_KIND_SET.has(normalized)) {
+    return normalized as SupportServiceProviderKind;
+  }
+  if (rejectUnsupported) {
+    throw new AdminRepositoryError("Provider kind must be organization or individual.", 400);
+  }
+  return "organization";
 }
 
 function contractObjectTypeLabel(value: string) {
@@ -457,13 +836,21 @@ function supportServiceShortContract({
 
 function normalizeCommercialTerms(value: unknown) {
   const terms = optionalRecord(value);
+  rejectForbiddenKeys(
+    terms,
+    ["pricing_model"],
+    "Service commercial terms",
+  );
   const price = optionalRecord(terms.price);
   const rawPricingModel = normalizeKey(
-    cleanString(terms.pricingModel ?? terms.pricing_model),
+    cleanString(terms.pricingModel),
   );
   const hasPrice = Object.keys(price).length > 0;
+  const priceSummary = cleanString(price.summary);
   const pricingModel = PRICING_MODEL_SET.has(rawPricingModel)
     ? (rawPricingModel as SupportServicePricingModel)
+    : priceSummary
+      ? "calculated_after_submission"
     : hasPrice
       ? numericValue(price.amount, 0) === 0
         ? "free"
@@ -471,7 +858,7 @@ function normalizeCommercialTerms(value: unknown) {
       : "not_specified";
   const turnaround = cleanString(terms.turnaround);
 
-  if (pricingModel === "not_specified" && !turnaround) {
+  if (pricingModel === "not_specified" && !turnaround && !priceSummary) {
     return undefined;
   }
 
@@ -481,15 +868,17 @@ function normalizeCommercialTerms(value: unknown) {
       price: withoutUndefined({
         amount: numericValue(price.amount, 0),
         currency: cleanString(price.currency).toUpperCase() || "ARS",
+        summary: priceSummary || undefined,
       }),
       turnaround: turnaround || undefined,
     });
   }
 
-  return {
+  return withoutUndefined({
     pricingModel,
-    ...(turnaround ? { turnaround } : {}),
-  };
+    price: priceSummary ? { summary: priceSummary } : undefined,
+    turnaround: turnaround || undefined,
+  });
 }
 
 function normalizeStage(value: unknown): SupportServiceStage | null {
@@ -513,11 +902,24 @@ function normalizeStages(value: unknown): SupportServiceStage[] {
   return seen.size > 0 ? [...seen] : ["test_planning"];
 }
 
-function normalizeOfferStatus(value: unknown): SupportServiceOfferStatus {
+function normalizeOfferStatus(
+  value: unknown,
+  rejectUnsupported = false,
+): SupportServiceOfferStatus {
   const normalized = normalizeKey(cleanString(value));
-  return OFFER_STATUS_SET.has(normalized)
-    ? (normalized as SupportServiceOfferStatus)
-    : "draft";
+  if (!normalized) {
+    return "draft";
+  }
+  if (OFFER_STATUS_SET.has(normalized)) {
+    return normalized as SupportServiceOfferStatus;
+  }
+  if (rejectUnsupported) {
+    throw new AdminRepositoryError(
+      `Unsupported service offer status: ${cleanString(value)}.`,
+      400,
+    );
+  }
+  return "draft";
 }
 
 function normalizeTransactionStatus(
@@ -542,13 +944,18 @@ function normalizeTransactionStatus(
 
 function objectRefFromUnknown(
   value: unknown,
+  rejectMalformed = false,
 ): SupportServiceTransactionsInputRef | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
+    if (rejectMalformed) {
+      throw new AdminRepositoryError("Transaction objectRef must be an object.", 400);
+    }
     return null;
   }
 
   const record = value as Record<string, unknown>;
-  const objectId = cleanString(record.objectId ?? record.object_id);
+  rejectForbiddenKeys(record, ["object_id"], "Transaction objectRef");
+  const objectId = cleanString(record.objectId);
   const rawRevision = record.revision;
   const parsedRevision =
     typeof rawRevision === "number"
@@ -557,40 +964,102 @@ function objectRefFromUnknown(
         ? Number(rawRevision)
         : NaN;
 
-  if (!objectId || !Number.isFinite(parsedRevision)) {
+  if (
+    !objectId ||
+    !Number.isInteger(parsedRevision) ||
+    parsedRevision < 1
+  ) {
+    if (rejectMalformed) {
+      throw new AdminRepositoryError(
+        "Transaction objectRef requires an obj_* objectId and a positive integer revision.",
+        400,
+      );
+    }
     return null;
   }
 
   return {
     objectId,
-    revision: Math.max(1, Math.trunc(parsedRevision)),
+    revision: parsedRevision,
   };
 }
 
 function inputSlotsFromUnknown(
   value: unknown,
+  rejectMalformed = false,
 ): SupportServiceTransactionInputSlot[] {
   if (!Array.isArray(value)) {
+    if (rejectMalformed && value !== undefined) {
+      throw new AdminRepositoryError("Transaction inputs must be an array.", 400);
+    }
     return [];
   }
 
-  return value
-    .map((item) => {
+  const slots: SupportServiceTransactionInputSlot[] = [];
+  value.forEach((item, index) => {
       if (!item || typeof item !== "object" || Array.isArray(item)) {
-        return null;
+        if (rejectMalformed) {
+          throw new AdminRepositoryError(
+            `Transaction input ${index + 1} must be an object.`,
+            400,
+          );
+        }
+        return;
       }
 
       const record = item as Record<string, unknown>;
-      const role = cleanString(record.role);
-      const objectRef = objectRefFromUnknown(
-        record.objectRef ?? record.object_ref,
+      rejectForbiddenKeys(
+        record,
+        [
+          "object_ref",
+          "object_type",
+          "object_snapshot",
+          "object_code",
+          "uploaded_object_id",
+          "file_storage_id",
+          "object_owner_id",
+        ],
+        `Transaction input ${index + 1}`,
       );
+      const role = cleanString(record.role);
+      const objectRef = objectRefFromUnknown(record.objectRef, rejectMalformed);
+      const objectType = cleanString(record.objectType);
+      const rawSnapshot = record.objectSnapshot;
+      const objectSnapshot =
+        rawSnapshot && typeof rawSnapshot === "object" && !Array.isArray(rawSnapshot)
+          ? (rawSnapshot as Record<string, unknown>)
+          : {};
 
-      return role && objectRef ? { role, objectRef } : null;
-    })
-    .filter((item): item is SupportServiceTransactionInputSlot =>
-      Boolean(item),
-    );
+      if (!role || !objectRef || !objectType || !OBJECT_TYPE_SET.has(objectType)) {
+        if (rejectMalformed) {
+          throw new AdminRepositoryError(
+            `Transaction input ${index + 1} requires role, objectRef, and a canonical objectType.`,
+            400,
+          );
+        }
+        if (!role || !objectRef) {
+          return;
+        }
+      }
+      if (rejectMalformed && Object.keys(objectSnapshot).length === 0) {
+        throw new AdminRepositoryError(
+          `Transaction input ${index + 1} requires an authoritative objectSnapshot.`,
+          400,
+        );
+      }
+
+      slots.push(withoutUndefined({
+        role,
+        objectRef,
+        objectType: objectType as SupportServiceObjectType,
+        objectSnapshot,
+        objectCode: cleanString(record.objectCode) || undefined,
+        uploadedObjectId: cleanString(record.uploadedObjectId) || undefined,
+        fileStorageId: cleanString(record.fileStorageId) || undefined,
+        objectOwnerId: cleanString(record.objectOwnerId) || undefined,
+      }));
+    });
+  return slots;
 }
 
 function outputObjectsFromUnknown(
@@ -609,17 +1078,31 @@ function outputObjectsFromUnknown(
     }
 
     const record = item as Record<string, unknown>;
+    rejectForbiddenKeys(
+      record,
+      ["object_type", "object_code"],
+      `Output object snapshot ${index + 1}`,
+    );
     const role = cleanString(record.role);
-    const objectType = cleanString(record.objectType ?? record.object_type);
-    const objectCode = cleanString(record.objectCode ?? record.object_code);
-    if (!role || !objectType || !objectCode) {
+    const objectType = cleanString(record.objectType);
+    const objectCode = cleanString(record.objectCode);
+    if (
+      !role ||
+      !objectType ||
+      !OBJECT_TYPE_SET.has(objectType) ||
+      !objectCode
+    ) {
       throw new AdminRepositoryError(
         `Output object snapshot ${index + 1} requires role, object type, and object code.`,
         400,
       );
     }
 
-    return { role, objectType, objectCode };
+    return {
+      role,
+      objectType: objectType as SupportServiceObjectType,
+      objectCode,
+    };
   });
 }
 
@@ -639,7 +1122,12 @@ function outputReportsFromUnknown(
     }
 
     const record = item as Record<string, unknown>;
-    const reportCode = cleanString(record.reportCode ?? record.report_code);
+    rejectForbiddenKeys(
+      record,
+      ["report_code"],
+      `Output report snapshot ${index + 1}`,
+    );
+    const reportCode = cleanString(record.reportCode);
     if (!reportCode) {
       throw new AdminRepositoryError(
         `Output report snapshot ${index + 1} requires a report code.`,
@@ -651,6 +1139,11 @@ function outputReportsFromUnknown(
 }
 
 function offerDocument(input: SupportServiceOfferInput) {
+  rejectForbiddenKeys(
+    input as Record<string, unknown>,
+    ["is_hidden_from_search"],
+    "Service offer",
+  );
   const name = cleanString(input.name);
   const serviceId = cleanString(input.serviceId);
   const providerId = cleanString(input.providerId);
@@ -667,11 +1160,12 @@ function offerDocument(input: SupportServiceOfferInput) {
     serviceVersion,
     name,
     serviceCategory,
-    providerKind: normalizeProviderKind(input.providerKind),
+    providerKind: normalizeProviderKind(input.providerKind, true),
     providerId,
     providerName,
     stages,
     status: normalizeOfferStatus(input.status),
+    isHiddenFromSearch: booleanValue(input.isHiddenFromSearch),
     description: cleanString(input.description),
     shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
     providerWork: cleanString(input.providerWork),
@@ -688,26 +1182,64 @@ function offerDocument(input: SupportServiceOfferInput) {
 }
 
 function transactionDocument(input: SupportServiceTransactionInput) {
+  rejectForbiddenKeys(
+    input as unknown as Record<string, unknown>,
+    FORBIDDEN_TRANSACTION_ROOT_KEYS,
+    "Service transaction",
+  );
   const requestId = cleanString(input.requestId);
+  const offerId = cleanString(input.offerId);
   const serviceId = cleanString(input.serviceId);
-  const requesterEmail = cleanString(input.requesterEmail).toLowerCase();
-  const subjectId = cleanString(input.subjectId);
+  const providerId = cleanString(input.providerId);
+  const requestedByUserId = cleanString(input.requestedByUserId);
+  const requestedByUserEmail = cleanString(
+    input.requestedByUserEmail,
+  ).toLowerCase();
+  const requestedAt = dateFromUnknown(input.requestedAt, "requestedAt");
+  const requestedAtClient = dateFromUnknown(
+    input.requestedAtClient,
+    "requestedAtClient",
+    true,
+  );
+  const requestRevision = Number(input.requestRevision ?? 1);
+  if (!Number.isInteger(requestRevision) || requestRevision < 1) {
+    throw new AdminRepositoryError(
+      "requestRevision must be a positive integer.",
+      400,
+    );
+  }
 
-  return {
+  return withoutUndefined({
     schemaVersion: 1,
     requestId,
+    offerId,
     serviceId,
     serviceVersion: versionNumber(input.serviceVersion),
+    providerId,
+    providerKind: normalizeProviderKind(input.providerKind, true),
     status: normalizeTransactionStatus(input.status, true),
-    requesterEmail,
-    subjectId,
-    inputs: inputSlotsFromUnknown(input.inputs),
-    output_objects: outputObjectsFromUnknown(input.outputObjects),
-    output_reports: outputReportsFromUnknown(input.outputReports),
+    requestedByUserId,
+    requestedByUserEmail: requestedByUserEmail || undefined,
+    requestedAt,
+    requestedAtClient,
+    requestRevision,
+    idempotencyKey: cleanString(input.idempotencyKey),
+    inputs: inputSlotsFromUnknown(input.inputs, true),
+    outputObjects: outputObjectsFromUnknown(input.outputObjects),
+    outputReports: outputReportsFromUnknown(input.outputReports),
     missingRequiredInputRoles: cleanStringArray(input.missingRequiredInputRoles),
-    notes: cleanString(input.notes),
-    normalizedName: normalizeName(`${requestId} ${serviceId} ${requesterEmail}`),
-  };
+    issues: unknownArray(input.issues),
+    offerSnapshot: requireRecord(input.offerSnapshot, "offerSnapshot"),
+    providerSnapshot: requireRecord(input.providerSnapshot, "providerSnapshot"),
+    contractSource: cleanString(input.contractSource),
+    attachmentsPending: strictBoolean(
+      input.attachmentsPending,
+      "attachmentsPending",
+    ),
+    normalizedName: normalizeName(
+      `${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
+    ),
+  });
 }
 
 type SupportServiceOfferDocument = ReturnType<typeof offerDocument>;
@@ -725,6 +1257,7 @@ function comparableOfferDefinition(document: SupportServiceOfferDocument) {
   const {
     serviceVersion: _serviceVersion,
     status: _status,
+    isHiddenFromSearch: _isHiddenFromSearch,
     normalizedName: _normalizedName,
     formShape,
     ...definition
@@ -787,7 +1320,7 @@ type SupportServiceTransactionDocument = ReturnType<typeof transactionDocument>;
 function applyTransactionOfferContract(
   document: SupportServiceTransactionDocument,
   offer: SupportServiceOfferRecord,
-  options: { serviceVersion?: number } = {},
+  providerSnapshot: Record<string, unknown>,
 ): SupportServiceTransactionDocument {
   const suppliedInputRoles = new Set(document.inputs.map((slot) => slot.role));
   const missingRequiredInputRoles = offer.inputSlots
@@ -797,10 +1330,190 @@ function applyTransactionOfferContract(
 
   return {
     ...document,
+    offerId: offer.id,
     serviceId: offer.serviceId,
-    serviceVersion: options.serviceVersion ?? offer.serviceVersion,
+    serviceVersion: offer.serviceVersion,
+    providerId: offer.providerId,
+    providerKind: offer.providerKind,
     missingRequiredInputRoles,
+    offerSnapshot: offerSnapshotForTransaction(offer),
+    providerSnapshot,
+    attachmentsPending: missingRequiredInputRoles.length > 0,
   };
+}
+
+function offerSnapshotForTransaction(
+  offer: SupportServiceOfferRecord,
+): Record<string, unknown> {
+  return withoutUndefined({
+    offerId: offer.id,
+    schemaVersion: offer.schemaVersion,
+    serviceId: offer.serviceId,
+    serviceVersion: offer.serviceVersion,
+    name: offer.name,
+    serviceCategory: offer.serviceCategory || undefined,
+    providerId: offer.providerId,
+    providerKind: offer.providerKind,
+    providerName: offer.providerName,
+    status: offer.status,
+    isHiddenFromSearch: offer.isHiddenFromSearch,
+    description: offer.description,
+    shortContract: offer.shortContract,
+    providerWork: offer.providerWork,
+    stages: offer.stages,
+    formShape: offer.formShape,
+    inputSlots: offer.inputSlots,
+    outputSlots: offer.outputSlots,
+    acceptedConditions: offer.acceptedConditions,
+    scopeRules: offer.scopeRules,
+    commercialTerms: offer.commercialTerms,
+  });
+}
+
+function providerSnapshotForTransaction(
+  offer: SupportServiceOfferRecord,
+  providerData: Record<string, unknown>,
+): Record<string, unknown> {
+  const name =
+    cleanString(providerData.name) ||
+    cleanString(providerData.title) ||
+    offer.providerName;
+  return withoutUndefined({
+    id: offer.providerId,
+    kind: offer.providerKind,
+    name,
+    imageUrl: cleanString(providerData.imageUrl) || undefined,
+    imageUploadDataUrl:
+      cleanString(providerData.imageUploadDataUrl) || undefined,
+  });
+}
+
+function providerOwnerCommunityUserId(
+  offer: SupportServiceOfferRecord,
+  providerData: Record<string, unknown>,
+) {
+  return (
+    cleanString(providerData.ownerCommunityUserId) ||
+    cleanString(providerData.communityUserId) ||
+    cleanString(providerData.firebaseUid) ||
+    cleanString(providerData.updatedByUserId) ||
+    cleanString(providerData.createdByUserId) ||
+    offer.providerId
+  );
+}
+
+function assertActiveProviderData(providerData: Record<string, unknown>) {
+  if (normalizeKey(cleanString(providerData.status)) !== "active") {
+    throw new AdminRepositoryError(
+      "Selected Discover provider must be active.",
+      400,
+    );
+  }
+}
+
+async function resolveAuthoritativeProviderOwner(
+  offer: SupportServiceOfferRecord,
+  providerData: Record<string, unknown>,
+  readDocument: DocumentReader,
+  requireActive = true,
+) {
+  if (requireActive) {
+    assertActiveProviderData(providerData);
+  }
+  const ownerCommunityUserId = providerOwnerCommunityUserId(
+    offer,
+    providerData,
+  );
+  const ownerRef = adminDb
+    .collection(OBJECT_OWNERS_COLLECTION)
+    .doc(ownerCommunityUserId);
+  const communityUserRef = adminDb
+    .collection(COMMUNITY_USERS_COLLECTION)
+    .doc(ownerCommunityUserId);
+  const [ownerSnapshot, communityUserSnapshot] = await Promise.all([
+    readDocument(ownerRef),
+    readDocument(communityUserRef),
+  ]);
+  if (!ownerSnapshot.exists || !communityUserSnapshot.exists) {
+    throw new AdminRepositoryError(
+      "Selected service provider has no authoritative object owner account.",
+      400,
+    );
+  }
+  if (requireActive) {
+    for (const [data, label] of [
+      [ownerSnapshot.data() ?? {}, "object owner"],
+      [communityUserSnapshot.data() ?? {}, "provider community user"],
+    ] as const) {
+      const status = normalizeKey(cleanString(data.status));
+      if (status && !["active", "approved"].includes(status)) {
+        throw new AdminRepositoryError(
+          `Selected service provider ${label} must be active.`,
+          400,
+        );
+      }
+    }
+  }
+  return ownerCommunityUserId;
+}
+
+function offerFromFrozenTransaction(
+  transaction: SupportServiceTransactionRecord,
+): SupportServiceOfferRecord {
+  const snapshot = transaction.offerSnapshot;
+  const snapshotOfferId = cleanString(snapshot.offerId);
+  if (!snapshotOfferId || snapshotOfferId !== transaction.offerId) {
+    throw new AdminRepositoryError(
+      "Stored offerSnapshot does not match the transaction offerId.",
+      400,
+    );
+  }
+  if (
+    !Number.isInteger(snapshot.schemaVersion) ||
+    Number(snapshot.schemaVersion) < 1 ||
+    !Number.isInteger(snapshot.serviceVersion) ||
+    Number(snapshot.serviceVersion) < 1 ||
+    snapshot.status !== "active" ||
+    (snapshot.isHiddenFromSearch !== undefined &&
+      typeof snapshot.isHiddenFromSearch !== "boolean") ||
+    !PROVIDER_KIND_SET.has(cleanString(snapshot.providerKind)) ||
+    !cleanString(snapshot.serviceId) ||
+    !cleanString(snapshot.providerId) ||
+    !cleanString(snapshot.name) ||
+    !cleanString(snapshot.providerName) ||
+    !cleanString(snapshot.description) ||
+    !cleanString(snapshot.providerWork) ||
+    !cleanString(snapshot.shortContract) ||
+    !Array.isArray(snapshot.stages) ||
+    snapshot.stages.length === 0 ||
+    !Array.isArray(snapshot.outputSlots) ||
+    snapshot.outputSlots.length === 0
+  ) {
+    throw new AdminRepositoryError(
+      "Stored offerSnapshot is not a complete frozen service contract.",
+      400,
+    );
+  }
+  const offer = toOfferRecord(snapshotOfferId, snapshot);
+  if (
+    offer.serviceId !== transaction.serviceId ||
+    offer.serviceVersion !== transaction.serviceVersion ||
+    offer.providerId !== transaction.providerId ||
+    offer.providerKind !== transaction.providerKind
+  ) {
+    throw new AdminRepositoryError(
+      "Stored offerSnapshot identity does not match the frozen transaction contract.",
+      400,
+    );
+  }
+  validateOfferDocument(offerDocument(offer));
+  if (cleanString(snapshot.shortContract) !== offer.shortContract) {
+    throw new AdminRepositoryError(
+      "Stored offerSnapshot shortContract does not match its frozen slots.",
+      400,
+    );
+  }
+  return offer;
 }
 
 function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
@@ -816,9 +1529,9 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
   if (!document.providerWork) {
     throw new AdminRepositoryError("Provider work is required.", 400);
   }
-  if (!/^pgs_[a-z0-9_]+$/.test(document.serviceId)) {
+  if (!/^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]+$/.test(document.serviceId)) {
     throw new AdminRepositoryError(
-      "Service ID must use the pgs_* convention.",
+      "Service ID must use the generated pgs_<provider_slug>_<n> convention.",
       400,
     );
   }
@@ -831,13 +1544,17 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
       400,
     );
   }
+  if (!document.providerName) {
+    throw new AdminRepositoryError("Provider name is required.", 400);
+  }
   const formInputSlotCount = document.inputSlots.filter(
     (slot) => slot.objectType === FORM_OBJECT_TYPE,
   ).length;
   if (document.formShape) {
-    if (!/^pgfs_[a-z0-9_]+$/.test(cleanString(document.formShape.id))) {
+    const expectedFormShapeId = `pgfs_${document.serviceId.slice(4)}`;
+    if (cleanString(document.formShape.id) !== expectedFormShapeId) {
       throw new AdminRepositoryError(
-        "Form shape ID must use the pgfs_* convention.",
+        `Form shape ID must be ${expectedFormShapeId}.`,
         400,
       );
     }
@@ -861,6 +1578,10 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
     }
 
     const fieldKeys = new Set<string>();
+    const fieldsByKey = new Map<
+      string,
+      (typeof document.formShape.fields)[number]
+    >();
     for (const field of document.formShape.fields) {
       const key = cleanString(field.key);
       const label = cleanString(field.label);
@@ -879,6 +1600,7 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         );
       }
       fieldKeys.add(key);
+      fieldsByKey.set(key, field);
       if (!label) {
         throw new AdminRepositoryError(
           `Form field ${key} needs a label.`,
@@ -891,6 +1613,19 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
           400,
         );
       }
+      if (!["enum", "multi_enum"].includes(type) && options.length > 0) {
+        throw new AdminRepositoryError(
+          `Form field ${key} cannot declare options for type ${type}.`,
+          400,
+        );
+      }
+      const optionValues = options.map((option) => cleanString(option.value));
+      if (new Set(optionValues).size !== optionValues.length) {
+        throw new AdminRepositoryError(
+          `Form field ${key} has duplicate option values.`,
+          400,
+        );
+      }
     }
 
     for (const requiredKey of ["requested_at", "requested_by"]) {
@@ -900,6 +1635,26 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
           400,
         );
       }
+    }
+    const requestedAtField = fieldsByKey.get("requested_at");
+    if (
+      cleanString(requestedAtField?.type) !== "datetime" ||
+      requestedAtField?.required !== true
+    ) {
+      throw new AdminRepositoryError(
+        "Base field requested_at must be a required datetime.",
+        400,
+      );
+    }
+    const requestedByField = fieldsByKey.get("requested_by");
+    if (
+      cleanString(requestedByField?.type) !== "text" ||
+      requestedByField?.required !== true
+    ) {
+      throw new AdminRepositoryError(
+        "Base field requested_by must be required text.",
+        400,
+      );
     }
   } else if (formInputSlotCount > 0) {
     throw new AdminRepositoryError(
@@ -918,15 +1673,21 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         400,
       );
     }
-    if (!/^pgo_[a-z0-9_]+$/.test(slot.objectType)) {
+    if (!OBJECT_TYPE_SET.has(slot.objectType)) {
       throw new AdminRepositoryError(
-        `Input slot ${slot.role} needs a pgo_* object type.`,
+        `Input slot ${slot.role} needs a registered Pocket Genes object type.`,
         400,
       );
     }
     if (slot.role !== inputRoleForObjectType(slot.objectType)) {
       throw new AdminRepositoryError(
         `Input slot ${slot.role} must use the generated role for ${slot.objectType}.`,
+        400,
+      );
+    }
+    if (inputRoles.has(slot.role)) {
+      throw new AdminRepositoryError(
+        `Duplicate input slot role: ${slot.role}.`,
         400,
       );
     }
@@ -965,6 +1726,7 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
       400,
     );
   }
+  const outputRoles = new Set<string>();
   for (const slot of document.outputSlots) {
     if (!/^[a-z][a-z0-9_]*$/.test(slot.role)) {
       throw new AdminRepositoryError(
@@ -972,6 +1734,13 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         400,
       );
     }
+    if (outputRoles.has(slot.role)) {
+      throw new AdminRepositoryError(
+        `Duplicate output slot role: ${slot.role}.`,
+        400,
+      );
+    }
+    outputRoles.add(slot.role);
     if (slot.mutationMode === "new_revision") {
       if (!slot.sameIdentityAsInput) {
         throw new AdminRepositoryError(
@@ -1005,9 +1774,9 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
         400,
       );
     }
-    if (!/^pgo_[a-z0-9_]+$/.test(slot.objectType)) {
+    if (!OBJECT_TYPE_SET.has(slot.objectType)) {
       throw new AdminRepositoryError(
-        `Output slot ${slot.role} needs a pgo_* object type.`,
+        `Output slot ${slot.role} needs a registered Pocket Genes object type.`,
         400,
       );
     }
@@ -1053,6 +1822,55 @@ function validateTransactionDocument(
       400,
     );
   }
+  if (!document.offerId) {
+    throw new AdminRepositoryError("Offer ID is required.", 400);
+  }
+  if (!document.providerId || !PROVIDER_KIND_SET.has(document.providerKind)) {
+    throw new AdminRepositoryError("Provider identity is required.", 400);
+  }
+  if (!document.requestedByUserId) {
+    throw new AdminRepositoryError("Requester user ID is required.", 400);
+  }
+  if (!document.requestedAtClient) {
+    throw new AdminRepositoryError("Client request timestamp is required.", 400);
+  }
+  if (!document.idempotencyKey) {
+    throw new AdminRepositoryError("Idempotency key is required.", 400);
+  }
+  if (!document.contractSource) {
+    throw new AdminRepositoryError("Contract source is required.", 400);
+  }
+  if (document.issues.some((issue) => !hasMeaningfulIssueContent(issue))) {
+    throw new AdminRepositoryError(
+      "Every transaction issue must contain nonblank reason content.",
+      400,
+    );
+  }
+  if (
+    cleanString(document.offerSnapshot.offerId) !== document.offerId ||
+    cleanString(document.offerSnapshot.serviceId) !== document.serviceId ||
+    versionNumber(document.offerSnapshot.serviceVersion) !==
+      document.serviceVersion ||
+    cleanString(document.offerSnapshot.providerId) !== document.providerId ||
+    normalizeProviderKind(document.offerSnapshot.providerKind, true) !==
+      document.providerKind
+  ) {
+    throw new AdminRepositoryError(
+      "offerSnapshot must match the frozen transaction identity.",
+      400,
+    );
+  }
+  if (
+    cleanString(document.providerSnapshot.id) !== document.providerId ||
+    normalizeProviderKind(document.providerSnapshot.kind, true) !==
+      document.providerKind ||
+    !cleanString(document.providerSnapshot.name)
+  ) {
+    throw new AdminRepositoryError(
+      "providerSnapshot must contain the frozen provider id, kind, and name.",
+      400,
+    );
+  }
   const offerInputRoles = new Set(
     offer?.inputSlots.map((slot) => cleanString(slot.role)) ?? [],
   );
@@ -1079,18 +1897,55 @@ function validateTransactionDocument(
         400,
       );
     }
-  }
-  for (const slot of document.inputs) {
+    if (suppliedInputRoles.has(slot.role)) {
+      throw new AdminRepositoryError(
+        `Duplicate transaction input role: ${slot.role}.`,
+        400,
+      );
+    }
+    if (!OBJECT_TYPE_SET.has(slot.objectType)) {
+      throw new AdminRepositoryError(
+        `Transaction slot ${slot.role} uses an unregistered object type.`,
+        400,
+      );
+    }
     if (offer && !offerInputRoles.has(slot.role)) {
       throw new AdminRepositoryError(
         `Input slot ${slot.role} is not declared by the selected service offer.`,
         400,
       );
     }
+    const promisedInput = offer?.inputSlots.find(
+      (candidate) => cleanString(candidate.role) === slot.role,
+    );
+    if (
+      promisedInput &&
+      cleanString(promisedInput.objectType) !== slot.objectType
+    ) {
+      throw new AdminRepositoryError(
+        `Input slot ${slot.role} must be ${cleanString(promisedInput.objectType)}, not ${slot.objectType}.`,
+        400,
+      );
+    }
+    validateTransactionInputSnapshot(slot, offer, document);
+    if (slot.objectType === FORM_OBJECT_TYPE) {
+      if (
+        slot.role !== "form" ||
+        !/^\d{9}$/.test(slot.objectCode ?? "") ||
+        !slot.uploadedObjectId ||
+        !slot.fileStorageId ||
+        !slot.objectOwnerId
+      ) {
+        throw new AdminRepositoryError(
+          "The form input requires role form plus objectCode, uploadedObjectId, fileStorageId, and objectOwnerId.",
+          400,
+        );
+      }
+    }
     suppliedInputRoles.add(slot.role);
   }
   const suppliedOutputRoles = new Set<string>();
-  for (const output of document.output_objects) {
+  for (const output of document.outputObjects) {
     if (!/^[a-z][a-z0-9_]*$/.test(output.role)) {
       throw new AdminRepositoryError(
         "Output object roles must be lowercase identifier keys.",
@@ -1110,9 +1965,9 @@ function validateTransactionDocument(
         400,
       );
     }
-    if (!/^pgo_[a-z0-9_]+$/.test(output.objectType)) {
+    if (!OBJECT_TYPE_SET.has(output.objectType)) {
       throw new AdminRepositoryError(
-        `Output object ${output.role} must declare a concrete pgo_* object type.`,
+        `Output object ${output.role} must use a registered Pocket Genes object type.`,
         400,
       );
     }
@@ -1134,7 +1989,7 @@ function validateTransactionDocument(
     }
   }
   const suppliedReportCodes = new Set<string>();
-  for (const report of document.output_reports) {
+  for (const report of document.outputReports) {
     if (!/^[A-Z0-9]{6}$/.test(report.reportCode)) {
       throw new AdminRepositoryError(
         "Output reports must use an uppercase 6-character alphanumeric report code.",
@@ -1175,9 +2030,32 @@ function validateTransactionDocument(
       );
     }
   }
+  const expectedMissingRoles = new Set(
+    offer?.inputSlots
+      .filter((slot) => Boolean(slot.required))
+      .map((slot) => cleanString(slot.role))
+      .filter((role) => role && !suppliedInputRoles.has(role)) ?? [],
+  );
+  if (
+    document.missingRequiredInputRoles.length !== expectedMissingRoles.size ||
+    document.missingRequiredInputRoles.some(
+      (role) => !expectedMissingRoles.has(role),
+    )
+  ) {
+    throw new AdminRepositoryError(
+      "missingRequiredInputRoles must exactly match unresolved required offer inputs.",
+      400,
+    );
+  }
+  if (document.attachmentsPending !== (expectedMissingRoles.size > 0)) {
+    throw new AdminRepositoryError(
+      "attachmentsPending must match unresolved required offer inputs.",
+      400,
+    );
+  }
   if (document.status === "delivered") {
     const expectedRoles = [...offerOutputRoles];
-    if (document.output_objects.length !== expectedRoles.length) {
+    if (document.outputObjects.length !== expectedRoles.length) {
       throw new AdminRepositoryError(
         "Delivered transactions require exactly one output object for every promised output slot.",
         400,
@@ -1212,19 +2090,733 @@ function resolvedOutputObjectType(
   );
 }
 
+function isValidDateOnly(value: unknown) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
+function isValidDateTime(value: unknown) {
+  return (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      value,
+    ) &&
+    !Number.isNaN(Date.parse(value))
+  );
+}
+
+type NormalizedFormField = NonNullable<
+  ReturnType<typeof normalizeFormShape>
+>["fields"][number];
+
+function formAnswerMatchesField(value: unknown, field: NormalizedFormField) {
+  const optionValues = new Set(field.options.map((option) => option.value));
+  switch (field.type) {
+    case "text":
+      return typeof value === "string" && cleanString(value).length > 0;
+    case "number":
+      return typeof value === "number" && Number.isFinite(value);
+    case "integer":
+      return typeof value === "number" && Number.isInteger(value);
+    case "boolean":
+      return typeof value === "boolean";
+    case "date":
+      return isValidDateOnly(value);
+    case "datetime":
+      return isValidDateTime(value);
+    case "enum":
+      return typeof value === "string" && optionValues.has(value);
+    case "multi_enum":
+      return (
+        Array.isArray(value) &&
+        value.length > 0 &&
+        value.every(
+          (item): item is string =>
+            typeof item === "string" && optionValues.has(item),
+        ) &&
+        new Set(value).size === value.length
+      );
+    case "string_list":
+      return (
+        Array.isArray(value) &&
+        value.length > 0 &&
+        value.every(
+          (item): item is string =>
+            typeof item === "string" && cleanString(item).length > 0,
+        )
+      );
+    default:
+      return false;
+  }
+}
+
+function normalizedPgoInputRefs(
+  value: unknown,
+  serialized: boolean,
+  label: string,
+) {
+  if (!Array.isArray(value)) {
+    throw new AdminRepositoryError(`${label} input refs must be an array.`, 400);
+  }
+  return value.map((item, index) => {
+    const reference = requireRecord(item, `${label} input ref ${index + 1}`);
+    rejectForbiddenKeys(
+      reference,
+      serialized ? ["objectId", "objectType"] : ["object_id", "object_type"],
+      `${label} input ref ${index + 1}`,
+    );
+    rejectUnknownKeys(
+      reference,
+      serialized
+        ? ["object_id", "object_type", "revision", "role"]
+        : ["objectId", "objectType", "revision", "role"],
+      `${label} input ref ${index + 1}`,
+    );
+    const objectId = cleanString(
+      serialized ? reference.object_id : reference.objectId,
+    );
+    const revision = Number(reference.revision);
+    const objectType = cleanString(
+      serialized ? reference.object_type : reference.objectType,
+    );
+    const role = cleanString(reference.role);
+    if (!objectId || !Number.isInteger(revision) || revision < 1) {
+      throw new AdminRepositoryError(
+        `${label} input ref ${index + 1} is invalid.`,
+        400,
+      );
+    }
+    return withoutUndefined({
+      objectId,
+      revision,
+      objectType: objectType || undefined,
+      role: role || undefined,
+    });
+  });
+}
+
+function normalizedPgoFileRefs(
+  value: unknown,
+  serialized: boolean,
+  label: string,
+) {
+  if (!Array.isArray(value)) {
+    throw new AdminRepositoryError(`${label} files must be an array.`, 400);
+  }
+  return value.map((item, index) => {
+    const file = requireRecord(item, `${label} file ${index + 1}`);
+    rejectForbiddenKeys(
+      file,
+      serialized
+        ? ["fileStorageId", "mediaType", "sizeBytes"]
+        : ["file_storage_id", "media_type", "size_bytes"],
+      `${label} file ${index + 1}`,
+    );
+    rejectUnknownKeys(
+      file,
+      serialized
+        ? [
+            "role",
+            "path",
+            "url",
+            "file_storage_id",
+            "media_type",
+            "size_bytes",
+            "sha256",
+          ]
+        : [
+            "role",
+            "path",
+            "url",
+            "fileStorageId",
+            "mediaType",
+            "sizeBytes",
+            "sha256",
+          ],
+      `${label} file ${index + 1}`,
+    );
+    return withoutUndefined({
+      role: cleanString(file.role) || undefined,
+      path: cleanString(file.path) || undefined,
+      url: cleanString(file.url) || undefined,
+      fileStorageId:
+        cleanString(serialized ? file.file_storage_id : file.fileStorageId) ||
+        undefined,
+      mediaType:
+        cleanString(serialized ? file.media_type : file.mediaType) || undefined,
+      sizeBytes:
+        typeof (serialized ? file.size_bytes : file.sizeBytes) === "number"
+          ? Number(serialized ? file.size_bytes : file.sizeBytes)
+          : undefined,
+      sha256: cleanString(file.sha256) || undefined,
+    });
+  });
+}
+
+function normalizedPgoEnvelope(
+  value: unknown,
+  serialized: boolean,
+  label: string,
+) {
+  const envelope = requireRecord(value, label);
+  rejectForbiddenKeys(
+    envelope,
+    serialized
+      ? [
+          "objectId",
+          "objectType",
+          "schemaVersion",
+          "createdAt",
+          "createdBy",
+          "inputRefs",
+        ]
+      : [
+          "object_id",
+          "object_type",
+          "schema_version",
+          "created_at",
+          "created_by",
+          "input_refs",
+        ],
+    label,
+  );
+  rejectUnknownKeys(
+    envelope,
+    serialized
+      ? [
+          "object_id",
+          "object_type",
+          "schema_version",
+          "revision",
+          "created_at",
+          "created_by",
+          "input_refs",
+          "data",
+          "files",
+        ]
+      : [
+          "objectId",
+          "objectType",
+          "schemaVersion",
+          "revision",
+          "createdAt",
+          "createdBy",
+          "inputRefs",
+          "data",
+          "files",
+        ],
+    label,
+  );
+  const objectId = cleanString(
+    serialized ? envelope.object_id : envelope.objectId,
+  );
+  const objectType = cleanString(
+    serialized ? envelope.object_type : envelope.objectType,
+  );
+  const schemaVersion = cleanString(
+    serialized ? envelope.schema_version : envelope.schemaVersion,
+  );
+  const revision = Number(envelope.revision);
+  const createdAt = dateFromUnknown(
+    serialized ? envelope.created_at : envelope.createdAt,
+    `${label} createdAt`,
+    true,
+  );
+  const createdBy = cleanString(
+    serialized ? envelope.created_by : envelope.createdBy,
+  );
+  if (
+    !objectId ||
+    !OBJECT_TYPE_SET.has(objectType) ||
+    schemaVersion !== "1.0.0" ||
+    !Number.isInteger(revision) ||
+    revision < 1 ||
+    !createdAt ||
+    !createdBy
+  ) {
+    throw new AdminRepositoryError(`${label} has an invalid PGO envelope.`, 400);
+  }
+  return {
+    objectId,
+    objectType,
+    schemaVersion,
+    revision,
+    createdAt: createdAt.toISOString(),
+    createdBy,
+    inputRefs: normalizedPgoInputRefs(
+      serialized ? envelope.input_refs : envelope.inputRefs,
+      serialized,
+      label,
+    ),
+    data: requireRecord(envelope.data, `${label} data`),
+    files: normalizedPgoFileRefs(envelope.files, serialized, label),
+  };
+}
+
+function validateTransactionInputSnapshot(
+  slot: SupportServiceTransactionInputSlot,
+  offer: SupportServiceOfferRecord | undefined,
+  transaction: Pick<
+    SupportServiceTransactionDocument,
+    "requestedByUserId" | "requestedByUserEmail" | "requestedAtClient"
+  >,
+) {
+  const snapshot = slot.objectSnapshot;
+  rejectForbiddenKeys(
+    snapshot,
+    [
+      "object_id",
+      "object_type",
+      "schema_version",
+      "created_at",
+      "created_by",
+      "input_refs",
+    ],
+    `Input slot ${slot.role} objectSnapshot`,
+  );
+  if (
+    cleanString(snapshot.objectId) !== slot.objectRef.objectId ||
+    cleanString(snapshot.objectType) !== slot.objectType ||
+    cleanString(snapshot.schemaVersion) !== "1.0.0" ||
+    Number(snapshot.revision) !== slot.objectRef.revision ||
+    !dateFromUnknown(snapshot.createdAt, `${slot.role} objectSnapshot.createdAt`) ||
+    !cleanString(snapshot.createdBy) ||
+    !Array.isArray(snapshot.inputRefs) ||
+    !snapshot.data ||
+    typeof snapshot.data !== "object" ||
+    Array.isArray(snapshot.data) ||
+    !Array.isArray(snapshot.files)
+  ) {
+    throw new AdminRepositoryError(
+      `Input slot ${slot.role} objectSnapshot must contain the complete native object envelope.`,
+      400,
+    );
+  }
+  for (const [index, value] of (snapshot.inputRefs as unknown[]).entries()) {
+    const inputRef = optionalRecord(value);
+    rejectForbiddenKeys(
+      inputRef,
+      ["object_id", "object_type"],
+      `Input slot ${slot.role} objectSnapshot inputRef ${index + 1}`,
+    );
+    if (
+      !/^obj_[a-z0-9_]+$/.test(cleanString(inputRef.objectId)) ||
+      !Number.isInteger(inputRef.revision) ||
+      Number(inputRef.revision) < 1 ||
+      (inputRef.objectType !== undefined &&
+        !OBJECT_TYPE_SET.has(cleanString(inputRef.objectType))) ||
+      (inputRef.role !== undefined &&
+        !/^[a-z][a-z0-9_]*$/.test(cleanString(inputRef.role)))
+    ) {
+      throw new AdminRepositoryError(
+        `Input slot ${slot.role} objectSnapshot inputRef ${index + 1} is invalid.`,
+        400,
+      );
+    }
+  }
+
+  if (slot.objectType !== FORM_OBJECT_TYPE) {
+    return;
+  }
+  if (
+    (snapshot.files as unknown[]).length !== 0 ||
+    cleanString(snapshot.createdBy) !== transaction.requestedByUserId
+  ) {
+    throw new AdminRepositoryError(
+      "The request form snapshot must be created by the requester and contain no payload files.",
+      400,
+    );
+  }
+  const data = snapshot.data as Record<string, unknown>;
+  const formShapeId = cleanString(data.form_shape_id);
+  const formShapeVersion = Number(data.form_shape_version);
+  const formShape = optionalRecord(data.form_shape);
+  const fields = data.fields;
+  if (
+    !formShapeId ||
+    !Number.isInteger(formShapeVersion) ||
+    formShapeVersion < 1 ||
+    Object.keys(formShape).length === 0 ||
+    formShape.allow_unknown_fields !== false ||
+    !Array.isArray(formShape.fields) ||
+    formShape.fields.length < 2 ||
+    !Array.isArray(fields) ||
+    fields.length === 0
+  ) {
+    throw new AdminRepositoryError(
+      "The form input objectSnapshot must embed the strict PGO form shape and filled fields.",
+      400,
+    );
+  }
+  if (
+    cleanString(formShape.id) !== formShapeId ||
+    Number(formShape.version) !== formShapeVersion
+  ) {
+    throw new AdminRepositoryError(
+      "The form input objectSnapshot shape identity is inconsistent.",
+      400,
+    );
+  }
+  const expectedShape = offer?.formShape;
+  const normalizedEmbeddedShape = normalizeFormShape(formShape, true);
+  if (
+    !normalizedEmbeddedShape ||
+    (expectedShape &&
+      stableString(normalizedEmbeddedShape) !==
+        stableString(normalizeFormShape(expectedShape)))
+  ) {
+    throw new AdminRepositoryError(
+      "The form input objectSnapshot must embed the exact frozen offer form shape.",
+      400,
+    );
+  }
+  const declaredFields = new Map(
+    normalizedEmbeddedShape.fields.map((field) => [field.key, field]),
+  );
+  const submittedFields = new Map<string, unknown>();
+  for (const [index, value] of (fields as unknown[]).entries()) {
+    const field = optionalRecord(value);
+    const key = cleanString(field.key);
+    const declaredField = declaredFields.get(key);
+    if (
+      !key ||
+      !declaredField ||
+      submittedFields.has(key) ||
+      !Object.prototype.hasOwnProperty.call(field, "value") ||
+      !formAnswerMatchesField(field.value, declaredField)
+    ) {
+      throw new AdminRepositoryError(
+        `Submitted form field ${index + 1} must be unique, declared, and match its frozen field type.`,
+        400,
+      );
+    }
+    submittedFields.set(key, field.value);
+  }
+  for (const field of normalizedEmbeddedShape.fields) {
+    if (field.required && !submittedFields.has(field.key)) {
+      throw new AdminRepositoryError(
+        `Submitted form is missing required field ${field.key}.`,
+        400,
+      );
+    }
+  }
+  const requestedAt = dateFromUnknown(
+    submittedFields.get("requested_at"),
+    "submitted requested_at",
+    true,
+  );
+  const snapshotCreatedAt = dateFromUnknown(
+    snapshot.createdAt,
+    "form objectSnapshot.createdAt",
+    true,
+  );
+  if (
+    !requestedAt ||
+    !snapshotCreatedAt ||
+    requestedAt.getTime() !== snapshotCreatedAt.getTime() ||
+    requestedAt.getTime() > transaction.requestedAtClient!.getTime()
+  ) {
+    throw new AdminRepositoryError(
+      "Submitted requested_at must match the form creation timestamp and cannot be later than the transaction client timestamp.",
+      400,
+    );
+  }
+  const requestedBy = cleanString(submittedFields.get("requested_by"));
+  if (
+    !requestedBy ||
+    (transaction.requestedByUserEmail &&
+      !requestedBy
+        .toLowerCase()
+        .includes(transaction.requestedByUserEmail.toLowerCase()))
+  ) {
+    throw new AdminRepositoryError(
+      "Submitted requested_by must identify the transaction requester.",
+      400,
+    );
+  }
+}
+
+async function assertProvisionedFormInputsAvailable(
+  document: SupportServiceTransactionDocument,
+  readDocument: DocumentReader,
+  providerOwnerId: string,
+) {
+  const formInputs = document.inputs.filter(
+    (input) => input.objectType === FORM_OBJECT_TYPE,
+  );
+  await Promise.all(
+    formInputs.map(async (input) => {
+      const objectCode = cleanString(input.objectCode);
+      const uploadedObjectId = cleanString(input.uploadedObjectId);
+      const fileStorageId = cleanString(input.fileStorageId);
+      const objectOwnerId = cleanString(input.objectOwnerId);
+      const expectedOwnerId = cleanString(providerOwnerId);
+      if (
+        !objectCode ||
+        !uploadedObjectId ||
+        !fileStorageId ||
+        !objectOwnerId ||
+        !expectedOwnerId ||
+        objectOwnerId !== expectedOwnerId
+      ) {
+        throw new AdminRepositoryError(
+          "The provisioned request form must belong to the frozen provider owner.",
+          400,
+        );
+      }
+
+      const codeRef = adminDb
+        .collection(OBJECT_CODES_COLLECTION)
+        .doc(objectCode);
+      const codeSnapshot = await readDocument(codeRef);
+      if (!codeSnapshot.exists) {
+        throw new AdminRepositoryError(
+          `Request form object code ${objectCode} does not exist.`,
+          400,
+        );
+      }
+      const codeData = codeSnapshot.data() ?? {};
+      if (
+        cleanString(codeData.uploaded_object_id) !== uploadedObjectId ||
+        cleanString(codeData.owner_id) !== objectOwnerId
+      ) {
+        throw new AdminRepositoryError(
+          `Request form object code ${objectCode} does not match its uploaded object and owner.`,
+          400,
+        );
+      }
+
+      const uploadedRef = adminDb
+        .collection(UPLOADED_OBJECTS_COLLECTION)
+        .doc(uploadedObjectId);
+      const fileRef = adminDb
+        .collection(FILE_STORAGE_COLLECTION)
+        .doc(fileStorageId);
+      const ownerRef = adminDb
+        .collection(OBJECT_OWNERS_COLLECTION)
+        .doc(objectOwnerId);
+      const providerCommunityRef = adminDb
+        .collection(COMMUNITY_USERS_COLLECTION)
+        .doc(objectOwnerId);
+      const [
+        uploadedSnapshot,
+        fileSnapshot,
+        ownerSnapshot,
+        providerCommunitySnapshot,
+      ] = await Promise.all([
+        readDocument(uploadedRef),
+        readDocument(fileRef),
+        readDocument(ownerRef),
+        readDocument(providerCommunityRef),
+      ]);
+      if (
+        !uploadedSnapshot.exists ||
+        !fileSnapshot.exists ||
+        !ownerSnapshot.exists ||
+        !providerCommunitySnapshot.exists
+      ) {
+        throw new AdminRepositoryError(
+          `Request form object code ${objectCode} has incomplete provisioned records.`,
+          400,
+        );
+      }
+
+      const uploadedData = uploadedSnapshot.data() ?? {};
+      rejectForbiddenKeys(
+        uploadedData,
+        ["object_type", "object_code"],
+        `Request form uploaded object ${uploadedObjectId}`,
+      );
+      if (
+        cleanString(uploadedData.objectCode) !== objectCode ||
+        cleanString(uploadedData.objectType) !== FORM_OBJECT_TYPE ||
+        cleanString(uploadedData.linked_file_id) !== fileStorageId ||
+        cleanString(uploadedData.object_owner_id) !== objectOwnerId ||
+        cleanString(uploadedData.owner_community_user_id) !== objectOwnerId ||
+        cleanString(uploadedData.owner_public_profile_id) !== objectOwnerId ||
+        !Number.isInteger(uploadedData.upload_version_count) ||
+        Number(uploadedData.upload_version_count) < 1 ||
+        cleanString(uploadedData.tracking_progress_status) !== "document_ready"
+      ) {
+        throw new AdminRepositoryError(
+          `Request form uploaded object ${uploadedObjectId} has invalid linkage or provenance.`,
+          400,
+        );
+      }
+
+      const fileData = fileSnapshot.data() ?? {};
+      let storedFormSnapshot: ReturnType<typeof normalizedPgoEnvelope> | null;
+      try {
+        storedFormSnapshot = normalizedPgoEnvelope(
+          JSON.parse(cleanString(fileData.file_content)),
+          true,
+          `Request form stored file ${fileStorageId}`,
+        );
+      } catch {
+        storedFormSnapshot = null;
+      }
+      const transactionFormSnapshot = normalizedPgoEnvelope(
+        input.objectSnapshot,
+        false,
+        `Request form transaction snapshot ${input.role}`,
+      );
+      if (
+        cleanString(fileData.linked_object_code) !== objectCode ||
+        cleanString(fileData.file_type) !== FORM_OBJECT_TYPE ||
+        cleanString(fileData.owner_community_user_id) !== objectOwnerId ||
+        cleanString(fileData.provider_id) !== document.providerId ||
+        !storedFormSnapshot ||
+        stableString(storedFormSnapshot) !==
+          stableString(transactionFormSnapshot)
+      ) {
+        throw new AdminRepositoryError(
+          `Request form stored file ${fileStorageId} does not match its object linkage.`,
+          400,
+        );
+      }
+      const providerCommunityData = providerCommunitySnapshot.data() ?? {};
+      const ownedObjects = stringValueArray(
+        providerCommunityData.owned_objects,
+      );
+      if (!ownedObjects.includes(uploadedObjectId)) {
+        throw new AdminRepositoryError(
+          `Provider owner ${objectOwnerId} does not index request form ${uploadedObjectId}.`,
+          400,
+        );
+      }
+    }),
+  );
+}
+
+function inputFileStorageId(input: SupportServiceTransactionInputSlot) {
+  const snapshotData = optionalRecord(input.objectSnapshot.data);
+  const snapshotFiles = Array.isArray(input.objectSnapshot.files)
+    ? (input.objectSnapshot.files as unknown[])
+    : [];
+  return (
+    cleanString(input.fileStorageId) ||
+    cleanString(snapshotData.fileStorageId) ||
+    snapshotFiles
+      .map((file) => cleanString(optionalRecord(file).fileStorageId))
+      .find(Boolean) ||
+    ""
+  );
+}
+
+function serializedEnvelopeFromFile(
+  fileData: Record<string, unknown>,
+  label: string,
+) {
+  try {
+    return normalizedPgoEnvelope(
+      JSON.parse(cleanString(fileData.file_content)),
+      true,
+      label,
+    );
+  } catch {
+    throw new AdminRepositoryError(
+      `${label} must contain a valid serialized PGO wrapper.`,
+      400,
+    );
+  }
+}
+
+async function assertNewRevisionDelivery(
+  document: SupportServiceTransactionDocument,
+  output: SupportServiceTransactionOutputObjectSnapshot,
+  promisedOutput: Record<string, unknown>,
+  outputFileSnapshot: DocumentSnapshot | null,
+  readDocument: DocumentReader,
+) {
+  const sourceRole = cleanString(promisedOutput.sameIdentityAsInput);
+  const sourceInput = document.inputs.find((input) => input.role === sourceRole);
+  const sourceFileStorageId = sourceInput
+    ? inputFileStorageId(sourceInput)
+    : "";
+  const sourceFileSnapshot = sourceFileStorageId
+    ? await readDocument(
+        adminDb.collection(FILE_STORAGE_COLLECTION).doc(sourceFileStorageId),
+      )
+    : null;
+  if (!sourceInput || !sourceFileSnapshot?.exists || !outputFileSnapshot?.exists) {
+    throw new AdminRepositoryError(
+      `Output object ${output.role} cannot prove the frozen source revision for ${sourceRole}.`,
+      400,
+    );
+  }
+
+  const sourceFileData = sourceFileSnapshot.data() ?? {};
+  const outputFileData = outputFileSnapshot.data() ?? {};
+  const sourceEnvelope = serializedEnvelopeFromFile(
+    sourceFileData,
+    `Source input ${sourceRole} stored file`,
+  );
+  const outputEnvelope = serializedEnvelopeFromFile(
+    outputFileData,
+    `Output object ${output.role} stored file`,
+  );
+  const transactionSourceEnvelope = normalizedPgoEnvelope(
+    sourceInput.objectSnapshot,
+    false,
+    `Source input ${sourceRole} transaction snapshot`,
+  );
+  if (
+    stableString(sourceEnvelope) !== stableString(transactionSourceEnvelope) ||
+    sourceEnvelope.objectId !== sourceInput.objectRef.objectId ||
+    sourceEnvelope.objectType !== sourceInput.objectType ||
+    sourceEnvelope.revision !== sourceInput.objectRef.revision ||
+    output.objectType !== sourceEnvelope.objectType ||
+    outputEnvelope.objectType !== sourceEnvelope.objectType ||
+    outputEnvelope.objectId !== sourceEnvelope.objectId ||
+    outputEnvelope.revision !== sourceEnvelope.revision + 1
+  ) {
+    throw new AdminRepositoryError(
+      `Output object ${output.role} must be the sequential next PGO revision of ${sourceRole} with the same object identity.`,
+      400,
+    );
+  }
+}
+
 async function assertDeliveredOutputObjectsAvailable(
   document: ReturnType<typeof transactionDocument>,
+  offer: SupportServiceOfferRecord,
+  readDocument: DocumentReader,
+  providerOwnerId: string,
 ) {
   if (document.status !== "delivered") {
     return;
   }
 
+  const formOwnerId = cleanString(
+    document.inputs.find((input) => input.objectType === FORM_OBJECT_TYPE)
+      ?.objectOwnerId,
+  );
+  if (formOwnerId && formOwnerId !== providerOwnerId) {
+    throw new AdminRepositoryError(
+      "The provisioned request form owner no longer matches the authoritative provider owner.",
+      400,
+    );
+  }
+
   await Promise.all(
-    document.output_objects.map(async (output) => {
-      const codeSnapshot = await adminDb
+    document.outputObjects.map(async (output) => {
+      const promisedOutput = offer.outputSlots.find(
+        (slot) => cleanString(slot.role) === output.role,
+      );
+      const codeRef = adminDb
         .collection(OBJECT_CODES_COLLECTION)
-        .doc(output.objectCode)
-        .get();
+        .doc(output.objectCode);
+      const codeSnapshot = await readDocument(codeRef);
       if (!codeSnapshot.exists) {
         throw new AdminRepositoryError(
           `Output object code ${output.objectCode} does not exist.`,
@@ -1233,7 +2825,9 @@ async function assertDeliveredOutputObjectsAvailable(
       }
 
       const codeData = codeSnapshot.data() ?? {};
-      const uploadedObjectId = cleanString(codeData.uploaded_object_id);
+      const uploadedObjectId = cleanString(
+        codeData.uploaded_object_id ?? codeData.uploadedObjectId,
+      );
       if (!uploadedObjectId) {
         throw new AdminRepositoryError(
           `Output object code ${output.objectCode} has no uploaded object.`,
@@ -1241,10 +2835,10 @@ async function assertDeliveredOutputObjectsAvailable(
         );
       }
 
-      const objectSnapshot = await adminDb
+      const objectRef = adminDb
         .collection(UPLOADED_OBJECTS_COLLECTION)
-        .doc(uploadedObjectId)
-        .get();
+        .doc(uploadedObjectId);
+      const objectSnapshot = await readDocument(objectRef);
       if (!objectSnapshot.exists) {
         throw new AdminRepositoryError(
           `Uploaded object for code ${output.objectCode} does not exist.`,
@@ -1253,19 +2847,31 @@ async function assertDeliveredOutputObjectsAvailable(
       }
 
       const objectData = objectSnapshot.data() ?? {};
-      if (cleanString(objectData.object_code) !== output.objectCode) {
+      rejectForbiddenKeys(
+        objectData,
+        ["object_type", "object_code"],
+        `Uploaded object ${output.objectCode}`,
+      );
+      if (
+        cleanString(objectData.objectCode) !== output.objectCode
+      ) {
         throw new AdminRepositoryError(
           `Uploaded object does not belong to object code ${output.objectCode}.`,
           400,
         );
       }
-      if (cleanString(objectData.object_type) !== output.objectType) {
+      if (
+        cleanString(objectData.objectType) !== output.objectType
+      ) {
         throw new AdminRepositoryError(
           `Uploaded object ${output.objectCode} does not match ${output.objectType}.`,
           400,
         );
       }
-      if (!Number.isInteger(objectData.upload_version_count) || Number(objectData.upload_version_count) < 1) {
+      if (
+        !Number.isInteger(objectData.upload_version_count) ||
+        Number(objectData.upload_version_count) < 1
+      ) {
         throw new AdminRepositoryError(
           `Output object ${output.objectCode} requires a positive upload_version_count.`,
           400,
@@ -1279,11 +2885,122 @@ async function assertDeliveredOutputObjectsAvailable(
       }
       if (
         !cleanString(objectData.download_url) &&
-        !cleanString(objectData.linked_file_id)
+        !cleanString(objectData.linked_file_id ?? objectData.linkedFileId)
       ) {
         throw new AdminRepositoryError(
           `Output object ${output.objectCode} has no downloadable payload.`,
           400,
+        );
+      }
+
+      const objectOwnerId = cleanString(
+        objectData.object_owner_id ?? objectData.objectOwnerId,
+      );
+      const ownerCommunityUserId = cleanString(
+        objectData.owner_community_user_id ??
+          objectData.ownerCommunityUserId,
+      );
+      const ownerPublicProfileId = cleanString(
+        objectData.owner_public_profile_id ?? objectData.ownerPublicProfileId,
+      );
+      const ownerName = cleanString(
+        objectData.owner_name ?? objectData.ownerName,
+      );
+      const ownerEmail = cleanString(
+        objectData.owner_email ?? objectData.ownerEmail,
+      );
+      if (
+        !objectOwnerId ||
+        objectOwnerId !== ownerCommunityUserId ||
+        ownerPublicProfileId !== objectOwnerId ||
+        !ownerName ||
+        !ownerEmail
+      ) {
+        throw new AdminRepositoryError(
+          `Output object ${output.objectCode} has an invalid owner relationship or provenance snapshot.`,
+          400,
+        );
+      }
+      const codeOwnerId = cleanString(codeData.owner_id ?? codeData.ownerId);
+      if (
+        !codeOwnerId ||
+        codeOwnerId !== objectOwnerId ||
+        !providerOwnerId ||
+        objectOwnerId !== providerOwnerId
+      ) {
+        throw new AdminRepositoryError(
+          `Output object code ${output.objectCode} does not match the frozen provider owner.`,
+          400,
+        );
+      }
+      const ownerRef = adminDb
+        .collection(OBJECT_OWNERS_COLLECTION)
+        .doc(objectOwnerId);
+      const ownerCommunityRef = adminDb
+        .collection(COMMUNITY_USERS_COLLECTION)
+        .doc(objectOwnerId);
+      const linkedFileId = cleanString(
+        objectData.linked_file_id ?? objectData.linkedFileId,
+      );
+      const linkedFileRef = linkedFileId
+        ? adminDb.collection(FILE_STORAGE_COLLECTION).doc(linkedFileId)
+        : null;
+      const [ownerSnapshot, ownerCommunitySnapshot, linkedFileSnapshot] =
+        await Promise.all([
+          readDocument(ownerRef),
+          readDocument(ownerCommunityRef),
+          linkedFileRef ? readDocument(linkedFileRef) : Promise.resolve(null),
+        ]);
+      if (!ownerSnapshot.exists || !ownerCommunitySnapshot.exists) {
+        throw new AdminRepositoryError(
+          `Object owner ${objectOwnerId} does not exist.`,
+          400,
+        );
+      }
+      const ownedObjects = stringValueArray(
+        (ownerCommunitySnapshot.data() ?? {}).owned_objects,
+      );
+      if (!ownedObjects.includes(uploadedObjectId)) {
+        throw new AdminRepositoryError(
+          `Object owner ${objectOwnerId} does not index output ${uploadedObjectId}.`,
+          400,
+        );
+      }
+      if (linkedFileId) {
+        const fileData = linkedFileSnapshot?.data() ?? {};
+        if (
+          !linkedFileSnapshot?.exists ||
+          cleanString(fileData.linked_object_code) !== output.objectCode ||
+          cleanString(fileData.file_type) !== output.objectType ||
+          cleanString(fileData.owner_community_user_id) !== objectOwnerId ||
+          (!cleanString(fileData.file_content) &&
+            !cleanString(fileData.download_url))
+        ) {
+          throw new AdminRepositoryError(
+            `Output object ${output.objectCode} has an invalid linked file.`,
+            400,
+          );
+        }
+        if (cleanString(fileData.file_content)) {
+          const outputEnvelope = serializedEnvelopeFromFile(
+            fileData,
+            `Output object ${output.role} stored file`,
+          );
+          if (outputEnvelope.objectType !== output.objectType) {
+            throw new AdminRepositoryError(
+              `Output object ${output.role} stored PGO wrapper must be ${output.objectType}.`,
+              400,
+            );
+          }
+        }
+      }
+      if (promisedOutput?.mutationMode === "new_revision") {
+        await assertNewRevisionDelivery(
+          document,
+          output,
+          promisedOutput,
+          linkedFileSnapshot,
+          readDocument,
         );
       }
     }),
@@ -1291,44 +3008,55 @@ async function assertDeliveredOutputObjectsAvailable(
 }
 
 function toOfferRecord(id: string, data: Record<string, unknown>) {
-  const serviceId = cleanString(data.serviceId ?? data.service_id);
-  const providerId = cleanString(data.providerId ?? data.provider_id);
-  const providerName = cleanString(data.providerName ?? data.provider_name);
+  rejectForbiddenKeys(data, FORBIDDEN_OFFER_ROOT_KEYS, "Stored service offer");
+  if (
+    !Number.isInteger(data.serviceVersion) ||
+    Number(data.serviceVersion) < 1 ||
+    !cleanString(data.status) ||
+    !Array.isArray(data.stages) ||
+    data.stages.length === 0 ||
+    !Array.isArray(data.outputSlots) ||
+    (data.inputSlots !== undefined && !Array.isArray(data.inputSlots)) ||
+    (data.acceptedConditions !== undefined &&
+      !Array.isArray(data.acceptedConditions)) ||
+    (data.scopeRules !== undefined && !Array.isArray(data.scopeRules))
+  ) {
+    throw new AdminRepositoryError(
+      "Stored service offer is missing required canonical contract fields.",
+      400,
+    );
+  }
+  const serviceId = cleanString(data.serviceId);
+  const providerId = cleanString(data.providerId);
+  const providerName = cleanString(data.providerName);
   const name = cleanString(data.name);
-  const inputSlots = normalizeOfferInputSlots(data.inputSlots ?? data.input_slots);
-  const outputSlots = normalizeOfferOutputSlots(
-    data.outputSlots ?? data.output_slots,
-  );
-  const serviceCategory = cleanString(
-    data.serviceCategory ?? data.service_category,
-  );
+  const inputSlots = normalizeOfferInputSlots(data.inputSlots);
+  const outputSlots = normalizeOfferOutputSlots(data.outputSlots);
+  const serviceCategory = cleanString(data.serviceCategory);
 
-  return {
+  const record = {
     id,
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     serviceId,
-    serviceVersion: versionNumber(data.serviceVersion ?? data.service_version),
+    serviceVersion: versionNumber(data.serviceVersion),
     name,
     serviceCategory,
-    providerKind: normalizeProviderKind(data.providerKind ?? data.provider_kind),
+    providerKind: normalizeProviderKind(data.providerKind, true),
     providerId,
     providerName,
     stages: normalizeStages(data.stages),
-    status: normalizeOfferStatus(data.status),
+    status: normalizeOfferStatus(data.status, true),
+    isHiddenFromSearch: booleanValue(data.isHiddenFromSearch, true),
     description: cleanString(data.description),
     shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
-    providerWork: cleanString(data.providerWork ?? data.provider_work),
-    formShape: normalizeFormShape(data.formShape ?? data.form_shape),
+    providerWork: cleanString(data.providerWork),
+    formShape: normalizeFormShape(data.formShape),
     inputSlots,
     outputSlots,
-    acceptedConditions: cleanStringArray(
-      data.acceptedConditions ?? data.accepted_conditions,
-    ),
-    scopeRules: cleanStringArray(data.scopeRules ?? data.scope_rules),
-    commercialTerms: normalizeCommercialTerms(
-      data.commercialTerms ?? data.mock_commercial_terms,
-    ),
+    acceptedConditions: cleanStringArray(data.acceptedConditions),
+    scopeRules: cleanStringArray(data.scopeRules),
+    commercialTerms: normalizeCommercialTerms(data.commercialTerms),
     normalizedName:
       cleanString(data.normalizedName) ||
       normalizeName(
@@ -1339,38 +3067,62 @@ function toOfferRecord(id: string, data: Record<string, unknown>) {
     createdByEmail: cleanString(data.createdByEmail),
     updatedByEmail: cleanString(data.updatedByEmail),
   } satisfies SupportServiceOfferRecord;
+  validateOfferDocument(offerDocument(record));
+  return record;
 }
 
 function toTransactionRecord(id: string, data: Record<string, unknown>) {
-  const requestId = cleanString(data.requestId ?? data.request_id);
-  const serviceId = cleanString(data.serviceId ?? data.service_id);
-  const requesterEmail = cleanString(data.requesterEmail).toLowerCase();
+  rejectForbiddenKeys(
+    data,
+    FORBIDDEN_TRANSACTION_ROOT_KEYS,
+    "Stored service transaction",
+  );
+  const requestId = cleanString(data.requestId);
+  const serviceId = cleanString(data.serviceId);
+  const requestedByUserId = cleanString(data.requestedByUserId);
+  const requestedByUserEmail = cleanString(
+    data.requestedByUserEmail,
+  ).toLowerCase();
 
-  return {
+  return withoutUndefined({
     id,
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     requestId,
+    offerId: cleanString(data.offerId),
     serviceId,
-    serviceVersion: versionNumber(data.serviceVersion ?? data.service_version),
+    serviceVersion: versionNumber(data.serviceVersion),
+    providerId: cleanString(data.providerId),
+    providerKind: normalizeProviderKind(data.providerKind, true),
     status: normalizeTransactionStatus(data.status, true),
-    requesterEmail,
-    subjectId: cleanString(data.subjectId ?? data.subject_id),
+    requestedByUserId,
+    requestedByUserEmail: requestedByUserEmail || undefined,
+    requestedAt: timestampToIso(data.requestedAt),
+    requestedAtClient: timestampToIso(data.requestedAtClient),
+    requestRevision: versionNumber(data.requestRevision),
+    idempotencyKey: cleanString(data.idempotencyKey),
     inputs: inputSlotsFromUnknown(data.inputs),
-    outputObjects: outputObjectsFromUnknown(data.output_objects),
-    outputReports: outputReportsFromUnknown(data.output_reports),
-    missingRequiredInputRoles: cleanStringArray(
-      data.missingRequiredInputRoles ?? data.missing_required_input_roles,
+    outputObjects: outputObjectsFromUnknown(data.outputObjects),
+    outputReports: outputReportsFromUnknown(data.outputReports),
+    missingRequiredInputRoles: cleanStringArray(data.missingRequiredInputRoles),
+    issues: unknownArray(data.issues),
+    offerSnapshot: optionalRecord(data.offerSnapshot),
+    providerSnapshot: optionalRecord(data.providerSnapshot),
+    contractSource: cleanString(data.contractSource),
+    attachmentsPending: strictBoolean(
+      data.attachmentsPending,
+      "attachmentsPending",
     ),
-    notes: cleanString(data.notes),
     normalizedName:
       cleanString(data.normalizedName) ||
-      normalizeName(`${requestId} ${serviceId} ${requesterEmail}`),
+      normalizeName(
+        `${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
+      ),
     createdAt: timestampToIso(data.createdAt),
     updatedAt: timestampToIso(data.updatedAt),
     createdByEmail: cleanString(data.createdByEmail),
     updatedByEmail: cleanString(data.updatedByEmail),
-  } satisfies SupportServiceTransactionRecord;
+  }) satisfies SupportServiceTransactionRecord;
 }
 
 function matchesTextSearch(record: { normalizedName: string }, query?: string) {
@@ -1429,14 +3181,15 @@ async function listWithFilters<TRecord>({
   toRecord: (id: string, data: Record<string, unknown>) => TRecord;
   matches: (record: TRecord) => boolean;
 }): Promise<{ records: TRecord[]; nextCursor?: string }> {
-  const cursorTimestamp = parseCursorTimestamp(cursor);
+  const parsedCursor = parseListCursor(cursor);
   const baseQuery = adminDb
     .collection(collectionName)
-    .orderBy("updatedAt", "desc");
+    .orderBy("updatedAt", "desc")
+    .orderBy(FieldPath.documentId(), "desc");
   let query: Query = baseQuery;
 
-  if (cursorTimestamp) {
-    query = query.startAfter(cursorTimestamp);
+  if (parsedCursor) {
+    query = query.startAfter(parsedCursor.updatedAt, parsedCursor.id);
   }
 
   if (!hasFilters) {
@@ -1448,14 +3201,14 @@ async function listWithFilters<TRecord>({
     const lastVisible = visibleDocs[visibleDocs.length - 1];
     const nextCursor =
       snapshot.docs.length > limit && lastVisible
-        ? timestampToIso(lastVisible.data().updatedAt)
+        ? serviceListCursor(lastVisible)
         : undefined;
 
     return { records, nextCursor };
   }
 
   const records: TRecord[] = [];
-  let pageCursorTimestamp = cursorTimestamp;
+  let pageCursor = parsedCursor;
   let scannedDocs = 0;
   let nextCursor: string | undefined;
 
@@ -1466,8 +3219,11 @@ async function listWithFilters<TRecord>({
     );
     let batchQuery: Query = baseQuery;
 
-    if (pageCursorTimestamp) {
-      batchQuery = batchQuery.startAfter(pageCursorTimestamp);
+    if (pageCursor) {
+      batchQuery = batchQuery.startAfter(
+        pageCursor.updatedAt,
+        pageCursor.id,
+      );
     }
 
     const snapshot = await batchQuery.limit(batchLimit).get();
@@ -1500,20 +3256,29 @@ async function listWithFilters<TRecord>({
       break;
     }
 
-    nextCursor = timestampToIso(lastConsumedDoc.data().updatedAt);
+    nextCursor = serviceListCursor(lastConsumedDoc);
     const lastSnapshotDoc = snapshot.docs[snapshot.docs.length - 1];
     const consumedWholeBatch =
       lastSnapshotDoc && lastConsumedDoc.id === lastSnapshotDoc.id;
 
-    if (!consumedWholeBatch || snapshot.docs.length < batchLimit) {
+    if (!consumedWholeBatch) {
       break;
     }
-
-    pageCursorTimestamp = parseCursorTimestamp(nextCursor);
-    if (!pageCursorTimestamp) {
+    if (snapshot.docs.length < batchLimit) {
       nextCursor = undefined;
       break;
     }
+
+    pageCursor = {
+      updatedAt: Timestamp.fromDate(
+        dateFromUnknown(
+          lastConsumedDoc.data().updatedAt,
+          "service record updatedAt",
+          true,
+        )!,
+      ),
+      id: lastConsumedDoc.id,
+    };
   }
 
   return { records, nextCursor };
@@ -1525,15 +3290,6 @@ async function getOfferSnapshot(offerId: string) {
     .doc(offerId)
     .get();
   return snapshot.exists ? snapshot : null;
-}
-
-async function getOfferSnapshotByServiceId(serviceId: string) {
-  const snapshot = await adminDb
-    .collection(SERVICE_OFFERS_COLLECTION)
-    .where("serviceId", "==", serviceId)
-    .limit(1)
-    .get();
-  return snapshot.docs[0] ?? null;
 }
 
 async function getTransactionSnapshot(transactionId: string) {
@@ -1560,7 +3316,10 @@ async function getTransactionSnapshotByIdOrRequestId(transactionId: string) {
 }
 
 async function assertOfferProviderExists(
-  document: ReturnType<typeof offerDocument>,
+  document: Pick<
+    SupportServiceOfferRecord | ReturnType<typeof offerDocument>,
+    "providerKind" | "providerId"
+  >,
 ) {
   const collectionName =
     document.providerKind === "individual"
@@ -1580,6 +3339,410 @@ async function assertOfferProviderExists(
       } document.`,
       400,
     );
+  }
+  const providerData = snapshot.data() ?? {};
+  if (normalizeKey(cleanString(providerData.status)) !== "active") {
+    throw new AdminRepositoryError(
+      "Selected Discover provider must be active.",
+      400,
+    );
+  }
+
+  return providerData;
+}
+
+function applyAuthoritativeOfferProviderName(
+  document: SupportServiceOfferDocument,
+  providerData: Record<string, unknown>,
+): SupportServiceOfferDocument {
+  const providerName =
+    cleanString(providerData.name) || cleanString(providerData.title);
+  if (!providerName) {
+    throw new AdminRepositoryError(
+      "Selected Discover provider must have a display name.",
+      400,
+    );
+  }
+  return {
+    ...document,
+    providerName,
+    normalizedName: normalizeName(
+      `${document.name} ${document.serviceId} ${document.serviceCategory} ${document.providerId} ${providerName}`,
+    ),
+  };
+}
+
+function applyFrozenTransactionOfferContract(
+  document: SupportServiceTransactionDocument,
+  offer: SupportServiceOfferRecord,
+): SupportServiceTransactionDocument {
+  const suppliedInputRoles = new Set(document.inputs.map((slot) => slot.role));
+  const missingRequiredInputRoles = offer.inputSlots
+    .filter((slot) => Boolean(slot.required))
+    .map((slot) => cleanString(slot.role))
+    .filter((role) => role && !suppliedInputRoles.has(role));
+
+  return {
+    ...document,
+    offerId: offer.id,
+    serviceId: offer.serviceId,
+    serviceVersion: offer.serviceVersion,
+    providerId: offer.providerId,
+    providerKind: offer.providerKind,
+    missingRequiredInputRoles,
+    attachmentsPending: missingRequiredInputRoles.length > 0,
+  };
+}
+
+function transactionCreationFingerprint(
+  transaction: Pick<
+    SupportServiceTransactionRecord,
+    | "requestId"
+    | "offerId"
+    | "serviceId"
+    | "serviceVersion"
+    | "providerId"
+    | "providerKind"
+    | "requestedByUserId"
+    | "requestedByUserEmail"
+    | "requestedAtClient"
+    | "idempotencyKey"
+    | "inputs"
+    | "contractSource"
+  >,
+) {
+  return stableString({
+    requestId: transaction.requestId,
+    offerId: transaction.offerId,
+    serviceId: transaction.serviceId,
+    serviceVersion: transaction.serviceVersion,
+    providerId: transaction.providerId,
+    providerKind: transaction.providerKind,
+    requestedByUserId: transaction.requestedByUserId,
+    requestedByUserEmail: transaction.requestedByUserEmail || undefined,
+    requestedAtClient: transaction.requestedAtClient,
+    idempotencyKey: transaction.idempotencyKey,
+    inputs: transaction.inputs,
+    contractSource: transaction.contractSource,
+  });
+}
+
+function attemptedCreationFingerprint(
+  input: SupportServiceTransactionInput,
+  offer: SupportServiceOfferRecord,
+) {
+  return stableString({
+    requestId: cleanString(input.requestId),
+    offerId: cleanString(input.offerId),
+    serviceId: cleanString(input.serviceId) || offer.serviceId,
+    serviceVersion:
+      input.serviceVersion === undefined
+        ? offer.serviceVersion
+        : versionNumber(input.serviceVersion),
+    providerId: cleanString(input.providerId) || offer.providerId,
+    providerKind: input.providerKind ?? offer.providerKind,
+    requestedByUserId: cleanString(input.requestedByUserId),
+    requestedByUserEmail:
+      cleanString(input.requestedByUserEmail).toLowerCase() || undefined,
+    requestedAtClient: dateFromUnknown(
+      input.requestedAtClient,
+      "requestedAtClient",
+      true,
+    )?.toISOString(),
+    idempotencyKey: cleanString(input.idempotencyKey),
+    inputs: inputSlotsFromUnknown(input.inputs, true),
+    contractSource: cleanString(input.contractSource),
+  });
+}
+
+async function findLegacyTransactionByIdempotencyKey(
+  idempotencyKey: string,
+) {
+  const snapshot = await adminDb
+    .collection(SERVICE_TRANSACTIONS_COLLECTION)
+    .where("idempotencyKey", "==", idempotencyKey)
+    .limit(2)
+    .get();
+  if (snapshot.docs.length > 1) {
+    throw new AdminRepositoryError(
+      "Idempotency key resolves to multiple service transactions.",
+      409,
+    );
+  }
+  return snapshot.docs[0] ?? null;
+}
+
+function idempotencyClaimId(idempotencyKey: string) {
+  return createHash("sha256").update(idempotencyKey, "utf8").digest("hex");
+}
+
+function policyInteger(
+  value: unknown,
+  fallback: number,
+  minimum: number,
+) {
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= minimum
+    ? value
+    : fallback;
+}
+
+function aggregateCount(snapshot: unknown) {
+  const data =
+    snapshot &&
+    typeof snapshot === "object" &&
+    "data" in snapshot &&
+    typeof (snapshot as { data?: unknown }).data === "function"
+      ? (snapshot as { data: () => unknown }).data()
+      : {};
+  const count = numericValue(optionalRecord(data).count, 0);
+  return Math.max(0, Math.trunc(count));
+}
+
+async function assertServiceTransactionAdmission(
+  firestoreTransaction: Transaction,
+  requestedByUserId: string,
+  now: Date,
+  userData: Record<string, unknown>,
+) {
+  const tokenStatus = optionalRecord(userData.token_status);
+  const totalLimit = policyInteger(
+    tokenStatus.total_transaction_limit,
+    20,
+    0,
+  );
+  const dailyLimit = policyInteger(
+    tokenStatus.daily_transaction_limit,
+    5,
+    1,
+  );
+  const cooldownSeconds = policyInteger(
+    tokenStatus.cooldown_seconds,
+    300,
+    0,
+  );
+  const startOfUtcDay = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const rootTransactions = adminDb.collection(
+    SERVICE_TRANSACTIONS_COLLECTION,
+  );
+  const requesterTransactions = rootTransactions
+    .where("requestedByUserId", "==", requestedByUserId)
+    .where("requestedAt", "<=", now);
+  const [totalSnapshot, dailySnapshot, latestSnapshot] = await Promise.all([
+    firestoreTransaction.get(requesterTransactions.count()),
+    firestoreTransaction.get(
+      requesterTransactions
+        .where("requestedAt", ">=", startOfUtcDay)
+        .count(),
+    ),
+    firestoreTransaction.get(
+      requesterTransactions.orderBy("requestedAt", "desc").limit(1),
+    ),
+  ]);
+  const totalUsed = aggregateCount(totalSnapshot);
+  const dailyUsed = aggregateCount(dailySnapshot);
+  if (totalUsed >= totalLimit) {
+    throw new AdminRepositoryError(
+      "token_balance_exhausted: requester has reached the total service transaction limit.",
+      429,
+    );
+  }
+
+  const latestRequestedAt = dateFromUnknown(
+    latestSnapshot.docs[0]?.data()?.requestedAt,
+    "requestedAt",
+  );
+  const cooldownDeadline = latestRequestedAt
+    ? new Date(latestRequestedAt.getTime() + cooldownSeconds * 1000)
+    : undefined;
+  const dailyBlocked = dailyUsed >= dailyLimit;
+  const cooldownBlocked = Boolean(
+    cooldownDeadline && cooldownDeadline.getTime() > now.getTime(),
+  );
+  if (dailyBlocked || cooldownBlocked) {
+    const nextUtcDay = new Date(startOfUtcDay.getTime() + 86_400_000);
+    const nextAllowedAt = new Date(
+      Math.max(
+        dailyBlocked ? nextUtcDay.getTime() : 0,
+        cooldownBlocked ? cooldownDeadline!.getTime() : 0,
+      ),
+    );
+    throw new AdminRepositoryError(
+      `${dailyBlocked ? "token_daily_limit_reached" : "token_cooldown_active"}: next request is allowed after ${nextAllowedAt.toISOString()}.`,
+      429,
+    );
+  }
+}
+
+function transactionSummary(
+  document: SupportServiceTransactionDocument,
+  offer: SupportServiceOfferRecord,
+  providerSnapshot: Record<string, unknown>,
+  requestedAt: Date,
+) {
+  return withoutUndefined({
+    serviceTransactionId: document.requestId,
+    offerId: document.offerId,
+    serviceName: offer.name,
+    providerName: cleanString(providerSnapshot.name),
+    providerKind: document.providerKind,
+    providerImageUrl: cleanString(providerSnapshot.imageUrl) || undefined,
+    status: document.status,
+    deliveryMode:
+      cleanString(document.offerSnapshot.deliveryMode) || undefined,
+    requestedAt,
+    serviceId: document.serviceId,
+    serviceVersion: document.serviceVersion,
+    stages: offer.stages,
+    formShapeId: cleanString(offer.formShape?.id) || undefined,
+  });
+}
+
+function replaceTransactionSummaryStatus(
+  summaries: unknown[],
+  requestId: string,
+  status: SupportServiceTransactionStatus,
+) {
+  let found = false;
+  const updated = summaries.map((summary) => {
+    if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
+      return summary;
+    }
+    const record = summary as Record<string, unknown>;
+    if (cleanString(record.serviceTransactionId) !== requestId) {
+      return summary;
+    }
+    found = true;
+    return { ...record, status };
+  });
+  return { found, updated };
+}
+
+function rejectImmutableTransactionChanges(
+  input: SupportServiceTransactionInput,
+  previous: SupportServiceTransactionRecord,
+) {
+  const stringChecks: Array<[unknown, string, string]> = [
+    [input.requestId, previous.requestId, "requestId"],
+    [input.offerId, previous.offerId, "offerId"],
+    [input.serviceId, previous.serviceId, "serviceId"],
+    [input.providerId, previous.providerId, "providerId"],
+    [input.requestedByUserId, previous.requestedByUserId, "requestedByUserId"],
+    [input.idempotencyKey, previous.idempotencyKey, "idempotencyKey"],
+    [input.contractSource, previous.contractSource, "contractSource"],
+  ];
+  for (const [supplied, expected, label] of stringChecks) {
+    if (supplied !== undefined && cleanString(supplied) !== expected) {
+      throw new AdminRepositoryError(
+        `${label} is immutable after transaction creation.`,
+        409,
+      );
+    }
+  }
+  if (
+    input.serviceVersion !== undefined &&
+    versionNumber(input.serviceVersion) !== previous.serviceVersion
+  ) {
+    throw new AdminRepositoryError(
+      "serviceVersion is immutable after transaction creation.",
+      409,
+    );
+  }
+  if (
+    input.providerKind !== undefined &&
+    input.providerKind !== previous.providerKind
+  ) {
+    throw new AdminRepositoryError(
+      "providerKind is immutable after transaction creation.",
+      409,
+    );
+  }
+  if (
+    input.requestedByUserEmail !== undefined &&
+    cleanString(input.requestedByUserEmail).toLowerCase() !==
+      (previous.requestedByUserEmail ?? "")
+  ) {
+    throw new AdminRepositoryError(
+      "requestedByUserEmail is immutable after transaction creation.",
+      409,
+    );
+  }
+  for (const [supplied, expected, label] of [
+    [input.requestedAt, previous.requestedAt, "requestedAt"],
+    [input.requestedAtClient, previous.requestedAtClient, "requestedAtClient"],
+  ] as const) {
+    if (
+      supplied !== undefined &&
+      dateFromUnknown(supplied, label, true)?.toISOString() !== expected
+    ) {
+      throw new AdminRepositoryError(
+        `${label} is immutable after transaction creation.`,
+        409,
+      );
+    }
+  }
+  if (
+    input.requestRevision !== undefined &&
+    input.requestRevision !== previous.requestRevision
+  ) {
+    throw new AdminRepositoryError(
+      "requestRevision is stale or invalid.",
+      409,
+    );
+  }
+  if (
+    input.offerSnapshot !== undefined &&
+    stableString(input.offerSnapshot) !== stableString(previous.offerSnapshot)
+  ) {
+    throw new AdminRepositoryError(
+      "offerSnapshot is immutable after transaction creation.",
+      409,
+    );
+  }
+  if (
+    input.providerSnapshot !== undefined &&
+    stableString(input.providerSnapshot) !==
+      stableString(previous.providerSnapshot)
+  ) {
+    throw new AdminRepositoryError(
+      "providerSnapshot is immutable after transaction creation.",
+      409,
+    );
+  }
+  if (input.inputs !== undefined) {
+    const nextInputs = inputSlotsFromUnknown(input.inputs, true);
+    const nextInputsByRole = new Map(
+      nextInputs.map((slot) => [slot.role, slot]),
+    );
+    const previousInputsByRole = new Map(
+      previous.inputs.map((slot) => [slot.role, slot]),
+    );
+    for (const previousInput of previous.inputs) {
+      if (
+        stableString(nextInputsByRole.get(previousInput.role)) !==
+        stableString(previousInput)
+      ) {
+        throw new AdminRepositoryError(
+          `Bound transaction input ${previousInput.role} is immutable after transaction creation.`,
+          409,
+        );
+      }
+    }
+    const unresolvedRoles = new Set(previous.missingRequiredInputRoles);
+    for (const nextInput of nextInputs) {
+      if (
+        !previousInputsByRole.has(nextInput.role) &&
+        !unresolvedRoles.has(nextInput.role)
+      ) {
+        throw new AdminRepositoryError(
+          `Transaction input ${nextInput.role} was not unresolved at creation time.`,
+          409,
+        );
+      }
+    }
   }
 }
 
@@ -1626,9 +3789,12 @@ export async function createSupportServiceOffer(
   input: SupportServiceOfferInput,
 ) {
   requireGodMode(context);
-  const document = applyOfferVersions(offerDocument(input));
+  const draft = offerDocument(input);
+  const providerData = await assertOfferProviderExists(draft);
+  const document = applyOfferVersions(
+    applyAuthoritativeOfferProviderName(draft, providerData),
+  );
   validateOfferDocument(document);
-  await assertOfferProviderExists(document);
 
   const ref = adminDb.collection(SERVICE_OFFERS_COLLECTION).doc();
   await ref.set(
@@ -1658,9 +3824,13 @@ export async function updateSupportServiceOffer(
   const previousDocument = offerDocument(
     toOfferRecord(offerId, snapshot.data() ?? {}),
   );
-  const document = applyOfferVersions(offerDocument(input), previousDocument);
+  const draft = offerDocument(input);
+  const providerData = await assertOfferProviderExists(draft);
+  const document = applyOfferVersions(
+    applyAuthoritativeOfferProviderName(draft, providerData),
+    previousDocument,
+  );
   validateOfferDocument(document);
-  await assertOfferProviderExists(document);
   await snapshot.ref.set(
     withoutUndefined({
       ...document,
@@ -1729,8 +3899,90 @@ export async function createSupportServiceTransaction(
   input: SupportServiceTransactionInput,
 ) {
   requireGodMode(context);
-  const initialDocument = transactionDocument(input);
-  const offerSnapshot = await getOfferSnapshotByServiceId(initialDocument.serviceId);
+  const idempotencyKey = cleanString(input.idempotencyKey);
+  if (!idempotencyKey) {
+    throw new AdminRepositoryError("Idempotency key is required.", 400);
+  }
+  const requestId = cleanString(input.requestId);
+  const offerId = cleanString(input.offerId);
+  if (!requestId || !offerId) {
+    throw new AdminRepositoryError(
+      "Request ID and offer ID are required.",
+      400,
+    );
+  }
+  const idempotentSnapshot = await findLegacyTransactionByIdempotencyKey(
+    idempotencyKey,
+  );
+  if (idempotentSnapshot) {
+    const existing = toTransactionRecord(
+      idempotentSnapshot.id,
+      idempotentSnapshot.data() ?? {},
+    );
+    const frozenOffer = offerFromFrozenTransaction(existing);
+    if (
+      attemptedCreationFingerprint(input, frozenOffer) !==
+      transactionCreationFingerprint(existing)
+    ) {
+      throw new AdminRepositoryError(
+        "Idempotency key is already bound to a different service transaction request.",
+        409,
+      );
+    }
+    const existingFingerprint = transactionCreationFingerprint(existing);
+    const claimRef = adminDb
+      .collection(SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION)
+      .doc(idempotencyClaimId(idempotencyKey));
+    await adminDb.runTransaction(async (firestoreTransaction) => {
+      const [latestSnapshot, claimSnapshot] = await Promise.all([
+        firestoreTransaction.get(idempotentSnapshot.ref),
+        firestoreTransaction.get(claimRef),
+      ]);
+      if (!latestSnapshot.exists) {
+        throw new AdminRepositoryError(
+          "Idempotency key was already consumed by a deleted service transaction.",
+          409,
+        );
+      }
+      const latest = toTransactionRecord(
+        latestSnapshot.id,
+        latestSnapshot.data() ?? {},
+      );
+      if (
+        latest.requestId !== requestId ||
+        latest.idempotencyKey !== idempotencyKey ||
+        transactionCreationFingerprint(latest) !== existingFingerprint
+      ) {
+        throw new AdminRepositoryError(
+          "Idempotency key is already bound to a different service transaction request.",
+          409,
+        );
+      }
+      if (claimSnapshot.exists) {
+        const claim = claimSnapshot.data() ?? {};
+        if (
+          cleanString(claim.idempotencyKey) !== idempotencyKey ||
+          cleanString(claim.requestId) !== requestId ||
+          cleanString(claim.creationFingerprint) !== existingFingerprint
+        ) {
+          throw new AdminRepositoryError(
+            "Idempotency key is already bound to a different service transaction request.",
+            409,
+          );
+        }
+        return;
+      }
+      firestoreTransaction.set(claimRef, {
+        idempotencyKey,
+        requestId,
+        creationFingerprint: existingFingerprint,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    });
+    return getSupportServiceTransaction(context, existing.id);
+  }
+
+  const offerSnapshot = await getOfferSnapshot(offerId);
   if (!offerSnapshot) {
     throw new AdminRepositoryError(
       "Service transaction must reference an existing service offer.",
@@ -1744,22 +3996,300 @@ export async function createSupportServiceTransaction(
       400,
     );
   }
-  const document = applyTransactionOfferContract(initialDocument, offer);
-  validateTransactionDocument(document, offer);
-  await assertDeliveredOutputObjectsAvailable(document);
-
-  const ref = adminDb.collection(SERVICE_TRANSACTIONS_COLLECTION).doc();
-  await ref.set(
-    withoutUndefined({
-      ...document,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-      createdByEmail: context.email,
-      updatedByEmail: context.email,
-    }),
+  for (const [supplied, expected, label] of [
+    [input.serviceId, offer.serviceId, "serviceId"],
+    [input.providerId, offer.providerId, "providerId"],
+    [input.providerKind, offer.providerKind, "providerKind"],
+  ] as const) {
+    if (supplied !== undefined && cleanString(supplied) !== expected) {
+      throw new AdminRepositoryError(
+        `${label} does not match the selected service offer.`,
+        400,
+      );
+    }
+  }
+  if (
+    input.serviceVersion !== undefined &&
+    versionNumber(input.serviceVersion) !== offer.serviceVersion
+  ) {
+    throw new AdminRepositoryError(
+      "serviceVersion does not match the selected service offer.",
+      400,
+    );
+  }
+  if (normalizeTransactionStatus(input.status, true) !== "received") {
+    throw new AdminRepositoryError(
+      "New service transactions must start in received status.",
+      400,
+    );
+  }
+  if (
+    (input.outputObjects?.length ?? 0) > 0 ||
+    (input.outputReports?.length ?? 0) > 0
+  ) {
+    throw new AdminRepositoryError(
+      "New service transactions cannot begin with delivered outputs.",
+      400,
+    );
+  }
+  const providerData = await assertOfferProviderExists(offer);
+  const providerOwnerId = providerOwnerCommunityUserId(offer, providerData);
+  const providerSnapshot = providerSnapshotForTransaction(
+    offer,
+    providerData,
   );
+  const initialDocument = transactionDocument({
+    ...input,
+    requestId,
+    offerId: offer.id,
+    serviceId: offer.serviceId,
+    serviceVersion: offer.serviceVersion,
+    providerId: offer.providerId,
+    providerKind: offer.providerKind,
+    status: "received",
+    requestedAt: undefined,
+    requestRevision: 1,
+    outputObjects: [],
+    outputReports: [],
+    offerSnapshot: offerSnapshotForTransaction(offer),
+    providerSnapshot,
+  });
+  const document = applyTransactionOfferContract(
+    initialDocument,
+    offer,
+    providerSnapshot,
+  );
+  validateTransactionDocument(document, offer);
+  const now = new Date();
+  const attemptedFingerprint = attemptedCreationFingerprint(input, offer);
 
-  return getSupportServiceTransaction(context, ref.id);
+  const ref = adminDb
+    .collection(SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(document.requestId);
+  const userRef = adminDb
+    .collection(COMMUNITY_USERS_COLLECTION)
+    .doc(document.requestedByUserId);
+  const providerRef = adminDb
+    .collection(
+      document.providerKind === "individual"
+        ? FEED_INDIVIDUALS_COLLECTION
+        : FEED_ORGANIZATIONS_COLLECTION,
+    )
+    .doc(document.providerId);
+  const offerRef = adminDb
+    .collection(SERVICE_OFFERS_COLLECTION)
+    .doc(document.offerId);
+  const idempotencyRef = adminDb
+    .collection(SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION)
+    .doc(idempotencyClaimId(document.idempotencyKey));
+  const requestIdQuery = adminDb
+    .collection(SERVICE_TRANSACTIONS_COLLECTION)
+    .where("requestId", "==", document.requestId)
+    .limit(2);
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const [
+      existingRoot,
+      userSnapshot,
+      latestOfferSnapshot,
+      providerDocumentSnapshot,
+      idempotencySnapshot,
+      requestIdSnapshot,
+    ] =
+      await Promise.all([
+        firestoreTransaction.get(ref),
+        firestoreTransaction.get(userRef),
+        firestoreTransaction.get(offerRef),
+        firestoreTransaction.get(providerRef),
+        firestoreTransaction.get(idempotencyRef),
+        firestoreTransaction.get(requestIdQuery),
+      ]);
+    if (requestIdSnapshot.docs.some((candidate) => candidate.id !== ref.id)) {
+      throw new AdminRepositoryError(
+        "Request ID is already bound to another service transaction document.",
+        409,
+      );
+    }
+    if (idempotencySnapshot.exists) {
+      const claim = idempotencySnapshot.data() ?? {};
+      if (
+        cleanString(claim.idempotencyKey) !== document.idempotencyKey ||
+        cleanString(claim.requestId) !== document.requestId ||
+        cleanString(claim.creationFingerprint) !== attemptedFingerprint
+      ) {
+        throw new AdminRepositoryError(
+          "Idempotency key is already bound to a different service transaction request.",
+          409,
+        );
+      }
+      if (!existingRoot.exists) {
+        throw new AdminRepositoryError(
+          "Idempotency key was already consumed by a deleted service transaction.",
+          409,
+        );
+      }
+    }
+    if (existingRoot.exists) {
+      const existing = toTransactionRecord(
+        existingRoot.id,
+        existingRoot.data() ?? {},
+      );
+      if (
+        existing.idempotencyKey !== document.idempotencyKey ||
+        transactionCreationFingerprint(existing) !== attemptedFingerprint
+      ) {
+        throw new AdminRepositoryError(
+          "Request ID is already bound to a different transaction payload.",
+          409,
+        );
+      }
+      if (!idempotencySnapshot.exists) {
+        firestoreTransaction.set(idempotencyRef, {
+          idempotencyKey: document.idempotencyKey,
+          requestId: document.requestId,
+          creationFingerprint: attemptedFingerprint,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+      return;
+    }
+    if (!userSnapshot.exists) {
+      throw new AdminRepositoryError(
+        "Requester must reference an existing community user.",
+        400,
+      );
+    }
+    if (!latestOfferSnapshot.exists) {
+      throw new AdminRepositoryError(
+        "Service offer no longer exists.",
+        400,
+      );
+    }
+    const latestOffer = toOfferRecord(
+      latestOfferSnapshot.id,
+      latestOfferSnapshot.data() ?? {},
+    );
+    if (
+      latestOffer.status !== "active" ||
+      stableString(offerSnapshotForTransaction(latestOffer)) !==
+        stableString(document.offerSnapshot)
+    ) {
+      throw new AdminRepositoryError(
+        "Service offer changed or became inactive while the request was being admitted.",
+        409,
+      );
+    }
+    if (!providerDocumentSnapshot.exists) {
+      throw new AdminRepositoryError(
+        "Service provider no longer exists.",
+        400,
+      );
+    }
+    const latestProviderData = providerDocumentSnapshot.data() ?? {};
+    const latestProviderOwnerId = await resolveAuthoritativeProviderOwner(
+      latestOffer,
+      latestProviderData,
+      (reference) => firestoreTransaction.get(reference),
+    );
+    const latestProviderSnapshot = providerSnapshotForTransaction(
+      latestOffer,
+      latestProviderData,
+    );
+    if (
+      latestProviderOwnerId !== providerOwnerId ||
+      stableString(latestProviderSnapshot) !== stableString(providerSnapshot)
+    ) {
+      throw new AdminRepositoryError(
+        "Service provider identity changed while the request was being admitted.",
+        409,
+      );
+    }
+    const userData = userSnapshot.data() ?? {};
+    await assertServiceTransactionAdmission(
+      firestoreTransaction,
+      document.requestedByUserId,
+      now,
+      userData,
+    );
+    await assertProvisionedFormInputsAvailable(
+      document,
+      (reference) => firestoreTransaction.get(reference),
+      providerOwnerId,
+    );
+    const summaries = Array.isArray(userData[REQUESTED_TRANSACTIONS_FIELD])
+      ? (userData[REQUESTED_TRANSACTIONS_FIELD] as unknown[])
+      : [];
+    if (
+      summaries.some(
+        (summary) =>
+          cleanString(optionalRecord(summary).serviceTransactionId) ===
+          document.requestId,
+      )
+    ) {
+      throw new AdminRepositoryError(
+        "Requester summary already contains this service transaction.",
+        409,
+      );
+    }
+    const providerDocumentData = providerDocumentSnapshot.data() ?? {};
+    const providerSummaries = Array.isArray(
+      providerDocumentData[REQUESTED_TRANSACTIONS_FIELD],
+    )
+      ? (providerDocumentData[REQUESTED_TRANSACTIONS_FIELD] as unknown[])
+      : [];
+    if (
+      providerSummaries.some(
+        (summary) =>
+          cleanString(optionalRecord(summary).serviceTransactionId) ===
+          document.requestId,
+      )
+    ) {
+      throw new AdminRepositoryError(
+        "Provider summary already contains this service transaction.",
+        409,
+      );
+    }
+    const summary = transactionSummary(
+      document,
+      offer,
+      providerSnapshot,
+      now,
+    );
+    firestoreTransaction.set(idempotencyRef, {
+      idempotencyKey: document.idempotencyKey,
+      requestId: document.requestId,
+      creationFingerprint: attemptedFingerprint,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    firestoreTransaction.set(
+      ref,
+      withoutUndefined({
+        ...document,
+        requestedAt: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        createdByEmail: context.email,
+        updatedByEmail: context.email,
+      }),
+    );
+    firestoreTransaction.set(
+      userRef,
+      {
+        [REQUESTED_TRANSACTIONS_FIELD]: [...summaries, summary],
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    firestoreTransaction.set(
+      providerRef,
+      {
+        [REQUESTED_TRANSACTIONS_FIELD]: [...providerSummaries, summary],
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
+
+  return getSupportServiceTransaction(context, document.requestId);
 }
 
 export async function updateSupportServiceTransaction(
@@ -1774,108 +4304,174 @@ export async function updateSupportServiceTransaction(
   }
 
   const previous = toTransactionRecord(snapshot.id, snapshot.data() ?? {});
-  const offerSnapshot = await getOfferSnapshotByServiceId(previous.serviceId);
-  if (!offerSnapshot) {
-    throw new AdminRepositoryError(
-      "Linked service offer not found for this transaction.",
-      400,
-    );
-  }
-  const offer = toOfferRecord(offerSnapshot.id, offerSnapshot.data() ?? {});
-  const document = applyTransactionOfferContract(
+  rejectImmutableTransactionChanges(input, previous);
+  const offer = offerFromFrozenTransaction(previous);
+  const document = applyFrozenTransactionOfferContract(
     transactionDocument({
       ...input,
       requestId: previous.requestId,
+      offerId: previous.offerId,
       serviceId: previous.serviceId,
       serviceVersion: previous.serviceVersion,
+      providerId: previous.providerId,
+      providerKind: previous.providerKind,
+      status: input.status ?? previous.status,
+      requestedByUserId: previous.requestedByUserId,
+      requestedByUserEmail: previous.requestedByUserEmail,
+      requestedAt: previous.requestedAt,
+      requestedAtClient: previous.requestedAtClient,
+      requestRevision: previous.requestRevision + 1,
+      idempotencyKey: previous.idempotencyKey,
+      inputs: input.inputs ?? previous.inputs,
+      outputObjects: input.outputObjects ?? previous.outputObjects,
+      outputReports: input.outputReports ?? previous.outputReports,
+      issues: input.issues ?? previous.issues,
+      offerSnapshot: previous.offerSnapshot,
+      providerSnapshot: previous.providerSnapshot,
+      contractSource: previous.contractSource,
+      attachmentsPending: previous.attachmentsPending,
     }),
     offer,
-    { serviceVersion: previous.serviceVersion },
   );
   validateTransactionDocument(document, offer);
-  await assertDeliveredOutputObjectsAvailable(document);
-  await snapshot.ref.set(
-    withoutUndefined({
-      ...(snapshot.data() ?? {}),
-      ...document,
-      createdAt: snapshot.data()?.createdAt,
-      createdByEmail: snapshot.data()?.createdByEmail,
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedByEmail: context.email,
-    }),
-  );
-
-  await updateRequestedTransactionSummary(
-    snapshot.data() ?? {},
-    previous.requestId,
-    document.status,
-  );
-
-  return getSupportServiceTransaction(context, snapshot.id);
-}
-
-async function updateRequestedTransactionSummary(
-  transactionData: Record<string, unknown>,
-  requestId: string,
-  status: SupportServiceTransactionStatus,
-) {
-  const requestedByUserId = cleanString(transactionData.requestedByUserId);
-  if (!requestedByUserId) {
-    return;
-  }
+  assertTransactionStatusTransition(previous.status, document);
 
   const userRef = adminDb
     .collection(COMMUNITY_USERS_COLLECTION)
-    .doc(requestedByUserId);
-  const userSnapshot = await userRef.get();
-  if (!userSnapshot.exists) {
-    return;
-  }
-
-  const userData = userSnapshot.data() ?? {};
-  const summaries = Array.isArray(userData[REQUESTED_TRANSACTIONS_FIELD])
-    ? (userData[REQUESTED_TRANSACTIONS_FIELD] as unknown[])
-    : [];
-  let changed = false;
-  const updatedSummaries = summaries.map((summary) => {
-    if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
-      return summary;
+    .doc(previous.requestedByUserId);
+  const providerRef = adminDb
+    .collection(
+      previous.providerKind === "individual"
+        ? FEED_INDIVIDUALS_COLLECTION
+        : FEED_ORGANIZATIONS_COLLECTION,
+    )
+    .doc(previous.providerId);
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const [latestSnapshot, userSnapshot, providerDocumentSnapshot] =
+      await Promise.all([
+        firestoreTransaction.get(snapshot.ref),
+        firestoreTransaction.get(userRef),
+        firestoreTransaction.get(providerRef),
+      ]);
+    if (!latestSnapshot.exists) {
+      throw new AdminRepositoryError("Service transaction not found.", 404);
     }
-    const record = summary as Record<string, unknown>;
-    if (cleanString(record.serviceTransactionId) !== requestId) {
-      return summary;
+    const latest = toTransactionRecord(
+      latestSnapshot.id,
+      latestSnapshot.data() ?? {},
+    );
+    if (latest.requestRevision !== previous.requestRevision) {
+      throw new AdminRepositoryError(
+        "Service transaction changed while it was being updated.",
+        409,
+      );
     }
-    changed = true;
-    return { ...record, status };
-  });
-
-  if (changed) {
-    await userRef.set(
+    assertTransactionStatusTransition(latest.status, document);
+    if (!userSnapshot.exists) {
+      throw new AdminRepositoryError(
+        "Requester summary document no longer exists.",
+        400,
+      );
+    }
+    if (!providerDocumentSnapshot.exists) {
+      throw new AdminRepositoryError(
+        "Service provider no longer exists.",
+        400,
+      );
+    }
+    const providerOwnerId =
+      document.status === "delivered"
+        ? await resolveAuthoritativeProviderOwner(
+            offer,
+            providerDocumentSnapshot.data() ?? {},
+            (reference) => firestoreTransaction.get(reference),
+            false,
+          )
+        : "";
+    await assertDeliveredOutputObjectsAvailable(
+      document,
+      offer,
+      (reference) => firestoreTransaction.get(reference),
+      providerOwnerId,
+    );
+    const userData = userSnapshot.data() ?? {};
+    const summaries = Array.isArray(userData[REQUESTED_TRANSACTIONS_FIELD])
+      ? (userData[REQUESTED_TRANSACTIONS_FIELD] as unknown[])
+      : [];
+    const summaryUpdate = replaceTransactionSummaryStatus(
+      summaries,
+      previous.requestId,
+      document.status,
+    );
+    const providerDocumentData = providerDocumentSnapshot.data() ?? {};
+    const providerSummaries = Array.isArray(
+      providerDocumentData[REQUESTED_TRANSACTIONS_FIELD],
+    )
+      ? (providerDocumentData[REQUESTED_TRANSACTIONS_FIELD] as unknown[])
+      : [];
+    const providerSummaryUpdate = replaceTransactionSummaryStatus(
+      providerSummaries,
+      previous.requestId,
+      document.status,
+    );
+    const requestedAt = dateFromUnknown(
+      previous.requestedAt,
+      "requestedAt",
+      true,
+    )!;
+    firestoreTransaction.set(
+      snapshot.ref,
+      withoutUndefined({
+        ...document,
+        createdAt: snapshot.data()?.createdAt,
+        createdByEmail: snapshot.data()?.createdByEmail,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByEmail: context.email,
+      }),
+    );
+    firestoreTransaction.set(
+      userRef,
       {
-        [REQUESTED_TRANSACTIONS_FIELD]: updatedSummaries,
+        [REQUESTED_TRANSACTIONS_FIELD]: summaryUpdate.found
+          ? summaryUpdate.updated
+          : [
+              ...summaries,
+              transactionSummary(
+                document,
+                offer,
+                previous.providerSnapshot,
+                requestedAt,
+              ),
+            ],
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
     );
-  }
+    const fallbackSummary = transactionSummary(
+      document,
+      offer,
+      previous.providerSnapshot,
+      requestedAt,
+    );
+    firestoreTransaction.set(
+      providerRef,
+      {
+        [REQUESTED_TRANSACTIONS_FIELD]: providerSummaryUpdate.found
+          ? providerSummaryUpdate.updated
+          : [...providerSummaries, fallbackSummary],
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
+
+  return getSupportServiceTransaction(context, snapshot.id);
 }
 
-async function removeRequestedTransactionSummary(
-  collectionName: string,
-  documentId: string,
+function requestedTransactionSummariesAfterRemoval(
+  data: Record<string, unknown>,
   transactionIds: Set<string>,
 ) {
-  if (!documentId) {
-    return;
-  }
-
-  const ref = adminDb.collection(collectionName).doc(documentId);
-  const snapshot = await ref.get();
-  if (!snapshot.exists) {
-    return;
-  }
-
-  const data = snapshot.data() ?? {};
   const summaries = Array.isArray(data[REQUESTED_TRANSACTIONS_FIELD])
     ? (data[REQUESTED_TRANSACTIONS_FIELD] as unknown[])
     : [];
@@ -1888,16 +4484,7 @@ async function removeRequestedTransactionSummary(
     );
     return !transactionIds.has(serviceTransactionId);
   });
-
-  if (remainingSummaries.length !== summaries.length) {
-    await ref.set(
-      {
-        [REQUESTED_TRANSACTIONS_FIELD]: remainingSummaries,
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
-  }
+  return { summaries, remainingSummaries };
 }
 
 export async function deleteSupportServiceTransaction(
@@ -1910,36 +4497,103 @@ export async function deleteSupportServiceTransaction(
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
 
-  const transactionData = snapshot.data() ?? {};
-  const requestId = cleanString(transactionData.requestId);
-  const transactionIds = new Set(
-    [snapshot.id, requestId, cleanString(transactionId)].filter(Boolean),
-  );
-  const requestedByUserId = cleanString(transactionData.requestedByUserId);
-  const offerSnapshot = await getOfferSnapshotByServiceId(
-    cleanString(transactionData.serviceId),
-  );
-  const offer = offerSnapshot
-    ? toOfferRecord(offerSnapshot.id, offerSnapshot.data() ?? {})
-    : null;
-
-  await Promise.all([
-    removeRequestedTransactionSummary(
-      COMMUNITY_USERS_COLLECTION,
-      requestedByUserId,
-      transactionIds,
-    ),
-    ...(offer
-      ? [
-          removeRequestedTransactionSummary(
-            offer.providerKind === "individual"
-              ? FEED_INDIVIDUALS_COLLECTION
-              : FEED_ORGANIZATIONS_COLLECTION,
-            offer.providerId,
-            transactionIds,
-          ),
-        ]
-      : []),
-  ]);
-  await snapshot.ref.delete();
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const latestSnapshot = await firestoreTransaction.get(snapshot.ref);
+    if (!latestSnapshot.exists) {
+      throw new AdminRepositoryError("Service transaction not found.", 404);
+    }
+    const transactionData = latestSnapshot.data() ?? {};
+    const requestId = cleanString(transactionData.requestId);
+    const storedTransaction = toTransactionRecord(
+      latestSnapshot.id,
+      transactionData,
+    );
+    const idempotencyRef = adminDb
+      .collection(SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION)
+      .doc(idempotencyClaimId(storedTransaction.idempotencyKey));
+    const transactionIds = new Set(
+      [latestSnapshot.id, requestId, cleanString(transactionId)].filter(Boolean),
+    );
+    const requestedByUserId = cleanString(transactionData.requestedByUserId);
+    const storedProviderSnapshot = optionalRecord(
+      transactionData.providerSnapshot,
+    );
+    const providerId =
+      cleanString(transactionData.providerId) ||
+      cleanString(storedProviderSnapshot.id);
+    const providerKind =
+      cleanString(transactionData.providerKind) ||
+      cleanString(storedProviderSnapshot.kind);
+    const userRef = requestedByUserId
+      ? adminDb.collection(COMMUNITY_USERS_COLLECTION).doc(requestedByUserId)
+      : null;
+    const providerRef =
+      providerId && PROVIDER_KIND_SET.has(providerKind)
+        ? adminDb
+            .collection(
+              providerKind === "individual"
+                ? FEED_INDIVIDUALS_COLLECTION
+                : FEED_ORGANIZATIONS_COLLECTION,
+            )
+            .doc(providerId)
+        : null;
+    const [userSnapshot, providerDocumentSnapshot, idempotencySnapshot] =
+      await Promise.all([
+      userRef ? firestoreTransaction.get(userRef) : Promise.resolve(null),
+      providerRef
+        ? firestoreTransaction.get(providerRef)
+        : Promise.resolve(null),
+        firestoreTransaction.get(idempotencyRef),
+      ]);
+    if (userRef && userSnapshot?.exists) {
+      const summaryUpdate = requestedTransactionSummariesAfterRemoval(
+        userSnapshot.data() ?? {},
+        transactionIds,
+      );
+      if (
+        summaryUpdate.remainingSummaries.length !==
+        summaryUpdate.summaries.length
+      ) {
+        firestoreTransaction.set(
+          userRef,
+          {
+            [REQUESTED_TRANSACTIONS_FIELD]:
+              summaryUpdate.remainingSummaries,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+    }
+    if (providerRef && providerDocumentSnapshot?.exists) {
+      const summaryUpdate = requestedTransactionSummariesAfterRemoval(
+        providerDocumentSnapshot.data() ?? {},
+        transactionIds,
+      );
+      if (
+        summaryUpdate.remainingSummaries.length !==
+        summaryUpdate.summaries.length
+      ) {
+        firestoreTransaction.set(
+          providerRef,
+          {
+            [REQUESTED_TRANSACTIONS_FIELD]:
+              summaryUpdate.remainingSummaries,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+    }
+    if (!idempotencySnapshot.exists) {
+      firestoreTransaction.set(idempotencyRef, {
+        idempotencyKey: storedTransaction.idempotencyKey,
+        requestId: storedTransaction.requestId,
+        creationFingerprint: transactionCreationFingerprint(storedTransaction),
+        createdAt: FieldValue.serverTimestamp(),
+        deletedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    firestoreTransaction.delete(snapshot.ref);
+  });
 }

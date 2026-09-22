@@ -7,7 +7,7 @@ export const SUPPORT_SERVICE_STAGES = [
 export const SUPPORT_SERVICE_OFFER_STATUSES = [
   { value: "draft", label: "Draft" },
   { value: "active", label: "Active" },
-  { value: "paused", label: "Paused" },
+  { value: "inactive", label: "Inactive" },
   { value: "archived", label: "Archived" },
 ] as const;
 
@@ -100,6 +100,7 @@ export interface SupportServiceOutputSlot {
 export interface SupportServiceCommercialTerms {
   pricingModel?: SupportServicePricingModel;
   price?: {
+    summary?: string;
     amount?: number;
     currency?: string;
   };
@@ -116,6 +117,7 @@ export interface SupportServiceOfferInput {
   providerName?: string;
   stages?: SupportServiceStage[];
   status?: SupportServiceOfferStatus;
+  isHiddenFromSearch: boolean;
   description?: string;
   shortContract?: string;
   providerWork?: string;
@@ -151,6 +153,12 @@ export interface SupportServiceObjectRef {
 export interface SupportServiceTransactionSlot {
   role: string;
   objectRef: SupportServiceObjectRef;
+  objectType: string;
+  objectSnapshot: Record<string, unknown>;
+  objectCode?: string;
+  uploadedObjectId?: string;
+  fileStorageId?: string;
+  objectOwnerId?: string;
 }
 
 export interface SupportServiceTransactionOutputObject {
@@ -163,26 +171,78 @@ export interface SupportServiceTransactionOutputReport {
   reportCode: string;
 }
 
+export interface SupportServiceOfferSnapshot extends Record<string, unknown> {
+  offerId?: string;
+  schemaVersion?: number;
+  serviceId?: string;
+  serviceVersion?: number;
+  name?: string;
+  status?: SupportServiceOfferStatus;
+  isHiddenFromSearch?: boolean;
+  serviceCategory?: string;
+  providerId?: string;
+  providerKind?: SupportServiceProviderKind;
+  providerName?: string;
+  description?: string;
+  providerWork?: string;
+  shortContract?: string;
+  stages?: SupportServiceStage[];
+  formShape?: SupportServiceFormShape;
+  inputSlots?: SupportServiceInputSlot[];
+  outputSlots?: SupportServiceOutputSlot[];
+  acceptedConditions?: string[];
+  scopeRules?: string[];
+  commercialTerms?: SupportServiceCommercialTerms;
+}
+
+export interface SupportServiceProviderSnapshot extends Record<string, unknown> {
+  id: string;
+  kind: SupportServiceProviderKind;
+  name: string;
+  imageUrl?: string;
+  imageUploadDataUrl?: string;
+}
+
 export interface SupportServiceTransactionInput {
   requestId: string;
+  offerId: string;
   serviceId: string;
   serviceVersion?: number;
+  providerId: string;
+  providerKind: SupportServiceProviderKind;
+  requestedByUserId: string;
+  requestedByUserEmail?: string;
+  requestedAt?: string;
+  requestedAtClient: string;
   status?: SupportServiceTransactionStatus;
-  requesterEmail?: string;
-  subjectId?: string;
+  requestRevision?: number;
+  idempotencyKey: string;
   inputs?: SupportServiceTransactionSlot[];
   outputObjects?: SupportServiceTransactionOutputObject[];
   outputReports?: SupportServiceTransactionOutputReport[];
+  issues?: unknown[];
   missingRequiredInputRoles?: string[];
-  notes?: string;
+  offerSnapshot?: SupportServiceOfferSnapshot;
+  providerSnapshot?: SupportServiceProviderSnapshot;
+  contractSource: string;
+  attachmentsPending?: boolean;
 }
 
 export interface SupportServiceTransactionRecord
-  extends Required<SupportServiceTransactionInput> {
+  extends SupportServiceTransactionInput {
   id: string;
   schemaVersion: number;
   serviceVersion: number;
   status: SupportServiceTransactionStatus;
+  requestRevision: number;
+  inputs: SupportServiceTransactionSlot[];
+  outputObjects: SupportServiceTransactionOutputObject[];
+  outputReports: SupportServiceTransactionOutputReport[];
+  issues: unknown[];
+  missingRequiredInputRoles: string[];
+  offerSnapshot: SupportServiceOfferSnapshot;
+  providerSnapshot: SupportServiceProviderSnapshot;
+  attachmentsPending: boolean;
   normalizedName: string;
   createdAt?: string;
   updatedAt?: string;

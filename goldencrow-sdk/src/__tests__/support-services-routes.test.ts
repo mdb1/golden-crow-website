@@ -12,7 +12,29 @@ const mockCreateSupportServiceTransaction = jest.fn();
 
 jest.mock("../repositories/support-services.repository.js", () => ({
   SUPPORT_SERVICE_STAGES: ["test_planning", "wet_lab", "bioinformatics"],
-  SUPPORT_SERVICE_OFFER_STATUSES: ["draft", "active", "paused", "archived"],
+  SUPPORT_SERVICE_OFFER_STATUSES: ["draft", "active", "inactive", "archived"],
+  SUPPORT_SERVICE_OBJECT_TYPES: [
+    "pgo_form",
+    "pgo_bundle_of_symptoms",
+    "pgo_bundle_of_candidate_genes",
+    "pgo_informed_consent",
+    "pgo_test_order",
+    "pgo_collection_request",
+    "pgo_blood_sample",
+    "pgo_tissue_sample",
+    "pgo_embryo_sample",
+    "pgo_dna_sample",
+    "pgo_sequence_reads",
+    "pgo_sequence_data",
+    "pgo_aligned_reads",
+    "pgo_unannotated_vcf",
+    "pgo_annotated_vcf",
+    "pgo_interactive_report",
+    "pgo_pdf_report",
+    "pgo_image_bundle",
+    "pgo_karyotype_result",
+    "pgo_flow_cytometry_data",
+  ],
   SUPPORT_SERVICE_TRANSACTION_STATUSES: [
     "received",
     "validating",
@@ -49,7 +71,7 @@ const bootstrapContext: AdminContext = {
 };
 
 const validOfferPayload = {
-  serviceId: "pgs_final_report",
+  serviceId: "pgs_pocket_genes_report_studio_1",
   serviceVersion: 1,
   name: "Create the final self-contained report",
   serviceCategory: "Final report production",
@@ -58,13 +80,14 @@ const validOfferPayload = {
   providerName: "Pocket Genes Report Studio",
   stages: ["bioinformatics"],
   status: "active",
+  isHiddenFromSearch: false,
   description:
     "Combine the complete test order with the interactive genomic result into a final PDF.",
   shortContract: "form + test_order + pgi1 -> final PDF",
   providerWork:
     "Verify the match and scope, perform report review, and issue a complete PDF.",
   formShape: {
-    id: "pgfs_final_report",
+    id: "pgfs_pocket_genes_report_studio_1",
     version: 1,
     allowUnknownFields: false,
     fields: [
@@ -141,7 +164,7 @@ describe("support service admin routes", () => {
     jest.clearAllMocks();
     mockCreateSupportServiceOffer.mockResolvedValue({
       id: "offer-1",
-      serviceId: "pgs_final_report",
+      serviceId: "pgs_pocket_genes_report_studio_1",
       name: "Create the final self-contained report",
     });
     mockDeleteSupportServiceOffer.mockResolvedValue(undefined);
@@ -152,7 +175,7 @@ describe("support service admin routes", () => {
     mockCreateSupportServiceTransaction.mockResolvedValue({
       id: "txn-1",
       requestId: "pgr_demo_final_report",
-      serviceId: "pgs_final_report",
+      serviceId: "pgs_pocket_genes_report_studio_1",
     });
   });
 
@@ -168,7 +191,7 @@ describe("support service admin routes", () => {
     expect(response.statusCode).toBe(201);
     expect(response.json()).toEqual({
       offer: expect.objectContaining({
-        serviceId: "pgs_final_report",
+        serviceId: "pgs_pocket_genes_report_studio_1",
       }),
     });
     expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
@@ -185,7 +208,7 @@ describe("support service admin routes", () => {
     const fastify = await buildTestServer();
     const payload = {
       ...validOfferPayload,
-      serviceId: "pgs_no_form_service",
+      serviceId: "pgs_pocket_genes_report_studio_2",
       formShape: undefined,
       inputSlots: validOfferPayload.inputSlots.filter(
         (slot) => slot.objectType !== "pgo_form",
@@ -203,7 +226,7 @@ describe("support service admin routes", () => {
     expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
       bootstrapContext,
       expect.objectContaining({
-        serviceId: "pgs_no_form_service",
+        serviceId: "pgs_pocket_genes_report_studio_2",
       }),
     );
     const [, offerBody] = mockCreateSupportServiceOffer.mock.calls.at(-1) ?? [];
@@ -245,6 +268,81 @@ describe("support service admin routes", () => {
     expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 
+  it("requires canonical visibility and rejects the retired paused status", async () => {
+    const fastify = await buildTestServer();
+    const missingVisibility: Record<string, unknown> = {
+      ...validOfferPayload,
+    };
+    delete missingVisibility.isHiddenFromSearch;
+
+    const missingResponse = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: missingVisibility,
+    });
+    const snakeCaseResponse = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...missingVisibility,
+        is_hidden_from_search: false,
+      },
+    });
+    const pausedResponse = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: { ...validOfferPayload, status: "paused" },
+    });
+
+    expect(missingResponse.statusCode).toBe(400);
+    expect(snakeCaseResponse.statusCode).toBe(400);
+    expect(pausedResponse.statusCode).toBe(400);
+    expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
+  });
+
+  it("accepts price summaries and rejects object types outside the fixed registry", async () => {
+    const fastify = await buildTestServer();
+
+    const accepted = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        commercialTerms: {
+          pricingModel: "calculated_after_submission",
+          price: { summary: "Quoted after review" },
+        },
+      },
+    });
+    expect(accepted.statusCode).toBe(201);
+    expect(mockCreateSupportServiceOffer).toHaveBeenLastCalledWith(
+      bootstrapContext,
+      expect.objectContaining({
+        commercialTerms: expect.objectContaining({
+          price: { summary: "Quoted after review" },
+        }),
+      }),
+    );
+
+    mockCreateSupportServiceOffer.mockClear();
+    const rejected = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        outputSlots: [
+          {
+            role: "result",
+            objectType: "pgo_unregistered_result",
+            mutationMode: "new_object",
+          },
+        ],
+      },
+    });
+    expect(rejected.statusCode).toBe(400);
+    expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
+  });
+
   it("rejects request forms as service offer outputs", async () => {
     const fastify = await buildTestServer();
 
@@ -275,7 +373,7 @@ describe("support service admin routes", () => {
       url: "/admin/support-services/offers",
       payload: {
         ...validOfferPayload,
-        serviceId: "pgs_sample_transport",
+        serviceId: "pgs_pocket_genes_report_studio_3",
         inputSlots: [
           {
             role: "blood_sample",
@@ -396,9 +494,17 @@ describe("support service admin routes", () => {
       url: "/admin/support-services/transactions",
       payload: {
         requestId: "pgr_demo_final_report",
-        serviceId: "pgs_final_report",
+        offerId: "offer-1",
+        serviceId: "pgs_pocket_genes_report_studio_1",
         serviceVersion: 1,
+        providerId: "feed-org-1",
+        providerKind: "organization",
+        requestedByUserId: "user-1",
+        requestedByUserEmail: "patient@example.com",
+        requestedAtClient: "2026-09-16T12:00:00.000Z",
         status: "received",
+        idempotencyKey: "pgr_demo_final_report:backoffice",
+        contractSource: "service_offer",
         inputs: [
           {
             role: "form",
@@ -406,11 +512,27 @@ describe("support service admin routes", () => {
               objectId: "obj_demo_form_final_report",
               revision: 1,
             },
+            objectType: "pgo_form",
+            objectCode: "987654321",
+            uploadedObjectId: "uploaded-form-1",
+            fileStorageId: "stored-form-1",
+            objectOwnerId: "provider-owner-1",
+            objectSnapshot: {
+              objectId: "obj_demo_form_final_report",
+              objectType: "pgo_form",
+              revision: 1,
+            },
           },
           {
             role: "test_order",
             objectRef: {
               objectId: "obj_demo_order",
+              revision: 1,
+            },
+            objectType: "pgo_test_order",
+            objectSnapshot: {
+              objectId: "obj_demo_order",
+              objectType: "pgo_test_order",
               revision: 1,
             },
           },

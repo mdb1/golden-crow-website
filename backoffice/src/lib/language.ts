@@ -2897,7 +2897,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "Select case type": "Seleccionar tipo de caso",
   "Select priority": "Seleccionar prioridad",
   "Tracking number": "Número de seguimiento",
-  "Requested at": "Solicitado el",
   "Due at": "Vence el",
   "Case notes": "Notas del caso",
   "Sample ID": "Sample ID",
@@ -4804,9 +4803,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Not requested": "No solicitado",
   Number: "Número",
   "Object ID": "ID de objeto",
+  "Object owner ID": "ID del propietario del objeto",
   "Object type": "Tipo de objeto",
   "Object type is required.": "El tipo de objeto es obligatorio.",
   Offer: "Oferta",
+  "Offer ID": "ID de oferta",
   "Offer identity": "Identidad de la oferta",
   "Offer name": "Nombre de la oferta",
   "Only one form input slot is allowed.":
@@ -4831,14 +4832,19 @@ const SPANISH_TEXT: Record<string, string> = {
   "Pick a Discover publisher": "Elegí un publicador de Discover",
   "Prefill with mocked template": "Precargar plantilla mock",
   "Price amount": "Importe",
+  "Price summary": "Resumen del precio",
   Pricing: "Precio",
   "Professional individual": "Profesional individual",
   "Provider kind": "Tipo de proveedor",
+  "Provider ID": "ID de proveedor",
   "Provider work": "Trabajo del proveedor",
   "Request ID": "ID de solicitud",
   "Request form": "Formulario de solicitud",
   "Request identity": "Identidad de la solicitud",
+  "Request revision": "Revisión de la solicitud",
   "Requester email": "Email solicitante",
+  "Requester user ID": "ID de usuario solicitante",
+  "Requested at": "Solicitado el",
   Required: "Obligatorio",
   Revision: "Revisión",
   "Role is required.": "El rol es obligatorio.",
@@ -4885,6 +4891,25 @@ const SPANISH_TEXT: Record<string, string> = {
   "Turnaround": "Tiempo de entrega",
   "Turnaround must be a duration like 2w, 1d, 3h, or 15m.":
     "El tiempo de entrega debe ser una duración como 2w, 1d, 3h o 15m.",
+  "Client request time": "Hora de solicitud del cliente",
+  "Contract source": "Fuente del contrato",
+  "Current live offer context": "Contexto de la oferta actual",
+  "File storage ID": "ID de File Storage",
+  "Frozen service contract": "Contrato de servicio congelado",
+  "Frozen transaction contract": "Contrato congelado de la transacción",
+  "Hidden from search": "Oculta en la búsqueda",
+  "Hide from native service search":
+    "Ocultar de la búsqueda nativa de servicios",
+  "Idempotency key": "Clave de idempotencia",
+  Issues: "Incidencias",
+  "Issues JSON array": "Array JSON de incidencias",
+  "Native discovery": "Descubrimiento nativo",
+  "Object snapshot": "Snapshot del objeto",
+  "Terminal transactions cannot be reopened.":
+    "Las transacciones terminales no se pueden reabrir.",
+  "The offer remains active and available to authorized backoffice workflows, but it is excluded from native discovery.":
+    "La oferta permanece activa y disponible para flujos autorizados del backoffice, pero se excluye del descubrimiento nativo.",
+  "Uploaded object ID": "ID del objeto cargado",
   "Action failed.": "La acción falló.",
   "Offer name is required.": "El nombre de la oferta es obligatorio.",
   "Choose an organization or professional provider.":
@@ -4900,8 +4925,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Se requiere al menos un slot de salida.",
   "Active service offers are published and can be selected by new service transactions.":
     "Las ofertas de servicio activas están publicadas y se pueden seleccionar en nuevas transacciones de servicio.",
-  "Paused service offers stay saved, but should not receive new transaction requests until they are published again.":
-    "Las ofertas de servicio pausadas quedan guardadas, pero no deberían recibir nuevas solicitudes hasta que se publiquen otra vez.",
+  "Inactive service offers stay saved, but should not receive new transaction requests until they are published again.":
+    "Las ofertas de servicio inactivas quedan guardadas, pero no deberían recibir nuevas solicitudes hasta que se publiquen otra vez.",
   "Archived service offers stay available for audit and historical transactions, but are removed from normal operation.":
     "Las ofertas de servicio archivadas quedan disponibles para auditoría y transacciones históricas, pero se retiran de la operación normal.",
   "Draft service offers stay private while the contract is still being shaped. Publish when the service is ready to receive transactions.":
