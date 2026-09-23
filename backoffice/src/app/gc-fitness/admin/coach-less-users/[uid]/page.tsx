@@ -23,6 +23,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
+import { AdminNutritionCard } from "../../_components/admin-nutrition-card";
 import { AdminSubmitButton } from "../../_components/admin-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 import {
   listClientAssignmentsForAdmin,
   listClientHabitsForAdmin,
+  listClientNutritionForAdmin,
   listCoachOptionsForAdmin,
   transferClientToCoach,
 } from "@/lib/gc-fitness/admin-actions";
@@ -202,6 +204,7 @@ export default async function CoachlessUserDetailPage({
     calendar,
     exerciseProgress,
     personalRecords,
+    nutrition,
   ] = await Promise.all([
     listRecentLogsForClientAsAdmin(uid, uid).catch(() => null),
     listProgressPhotosForClientAsAdmin(uid, uid).catch(() => []),
@@ -219,6 +222,9 @@ export default async function CoachlessUserDetailPage({
     }).catch(() => null),
     getClientExerciseProgressAsAdmin(uid, uid, timezone).catch(() => null),
     listClientPersonalRecordsAsAdmin(uid, uid).catch(() => ({ clientId: uid, records: [] })),
+    // #1133 — nutrition was the one section this page never loaded, so a user's own
+    // plan (`source: "self"`, trainerId === clientId) was invisible here.
+    listClientNutritionForAdmin(uid, uid).catch(() => null),
   ]);
 
   // The chart components take their copy as props (they are shared client
@@ -832,6 +838,8 @@ export default async function CoachlessUserDetailPage({
           <HabitTrendsWidget clientId={uid} timezone={timezone} />
         </CardContent>
       </Card>
+
+      <AdminNutritionCard nutrition={nutrition} />
 
       <Card>
         <CardHeader className="pb-3">

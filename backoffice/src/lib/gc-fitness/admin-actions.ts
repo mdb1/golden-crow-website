@@ -9,6 +9,8 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { planChatCoachRepoint } from "@/lib/gc-fitness/chat-coach-repoint";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { decodeNutritionPlan } from "@/lib/gc-fitness/nutrition-decode";
+import { isSelfAuthoredPlan } from "@/lib/gc-fitness/nutrition-schema";
+import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { loadNutritionRosterSummaries } from "@/lib/gc-fitness/nutrition-roster";
 import { recurrenceLabel } from "@/lib/gc-fitness/coach-activity-log";
 import {
@@ -1218,6 +1220,14 @@ export interface AdminClientNutritionPhase {
   /** `null` for an open-ended phase. */
   endsOn: string | null;
   deleted: boolean;
+  /**
+   * Who wrote it. A coach-less user can carry a phase their ex-coach left behind (unlink
+   * does not close it — the app closes it on their first own save), so "active" alone
+   * can't tell an operator whose plan they are looking at (#1133).
+   */
+  source: "self" | "coach";
+  /** `endsOn` is before today in the CLIENT's zone — a closed or superseded phase. */
+  ended: boolean;
 }
 
 export async function listClientNutritionForAdmin(
@@ -1244,6 +1254,7 @@ export async function listClientNutritionForAdmin(
   ]);
 
   const summary = summaries.get(clientId);
+  const today = civilDateToday(timezone ?? "UTC");
   const phases = plansSnap.docs
     .map((doc) => decodeNutritionPlan(doc.id, doc.data()))
     .filter((plan): plan is NonNullable<typeof plan> => plan !== null)
@@ -1259,6 +1270,8 @@ export async function listClientNutritionForAdmin(
       startsOn: plan.startsOn,
       endsOn: plan.endsOn ?? null,
       deleted: plan.deleted === true,
+      source: isSelfAuthoredPlan(plan) ? ("self" as const) : ("coach" as const),
+      ended: plan.endsOn != null && plan.endsOn < today,
     }));
 
   return {
