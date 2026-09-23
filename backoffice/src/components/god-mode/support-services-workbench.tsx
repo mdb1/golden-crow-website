@@ -24,6 +24,8 @@ import {
   CheckCircle2,
   CircleAlert,
   ClipboardList,
+  Copy,
+  Download,
   FileText,
   Filter,
   FlaskConical,
@@ -1855,6 +1857,33 @@ function requestErrorLog(error: unknown) {
   }
 }
 
+function rawJsonContent(value: unknown) {
+  return JSON.stringify(value ?? {}, null, 2);
+}
+
+function rawJsonFileName(prefix: string, id?: string) {
+  const safeId = (id || "record")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return `${prefix}-${safeId || "record"}.json`;
+}
+
+function downloadJsonFile(fileName: string, content: string) {
+  const blob = new Blob([content], {
+    type: "application/json;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function buildListPath(
   kind: WorkbenchKind,
   filters: ServiceFilters,
@@ -2417,6 +2446,7 @@ export function SupportServiceOfferWorkbench({
     useState<SupportServiceOfferStatus>("draft");
   const [publishDialog, setPublishDialog] =
     useState<ServiceOfferPublishDialogState | null>(null);
+  const [rawExportOpen, setRawExportOpen] = useState(false);
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const isEditing = mode === "edit";
@@ -2549,6 +2579,7 @@ export function SupportServiceOfferWorkbench({
     form.serviceId,
     reservedServiceIds,
   );
+  const persistedOfferRecord = offerQuery.data?.offer ?? null;
   const changed = JSON.stringify(form) !== JSON.stringify(savedForm);
   const isWorking = saveMutation.isPending || deleteMutation.isPending;
   const canPublishCurrentOffer = hasPersistedOffer && form.status !== "active";
@@ -2728,6 +2759,8 @@ export function SupportServiceOfferWorkbench({
           backLabel="Back to Service Offers"
           isSaving={isWorking}
           canDelete={isEditing}
+          canExportRaw={Boolean(persistedOfferRecord)}
+          onExportRaw={() => setRawExportOpen(true)}
           onDelete={() => {
             if (window.confirm(t("Delete this service offer?"))) {
               deleteMutation.mutate();
@@ -3026,6 +3059,17 @@ export function SupportServiceOfferWorkbench({
           router.push("/god-mode/service-offers");
         }}
         onClose={() => setPublishDialog(null)}
+      />
+      <RawJsonExportDialog
+        open={rawExportOpen}
+        onOpenChange={setRawExportOpen}
+        title="Service offer raw JSON"
+        description="Read-only Firebase record preview."
+        fileName={rawJsonFileName(
+          "service-offer",
+          persistedOfferRecord?.id ?? effectiveOfferId,
+        )}
+        value={persistedOfferRecord}
       />
     </>
   );
@@ -5113,6 +5157,7 @@ export function SupportServiceTransactionWorkbench({
     Record<string, string>
   >({});
   const [outputUploadError, setOutputUploadError] = useState("");
+  const [rawExportOpen, setRawExportOpen] = useState(false);
   const isEditing = mode === "edit";
 
   function nextToastId() {
@@ -5693,6 +5738,8 @@ export function SupportServiceTransactionWorkbench({
           showSaveAction={false}
           deleteDisabled={transactionCommandPending}
           canDelete={isEditing}
+          canExportRaw={Boolean(transactionRecord)}
+          onExportRaw={() => setRawExportOpen(true)}
           onDelete={() => {
             if (window.confirm(t("Delete this service transaction?"))) {
               deleteMutation.mutate();
@@ -6110,6 +6157,17 @@ export function SupportServiceTransactionWorkbench({
           }
         }}
         onSubmit={handleOutputUpload}
+      />
+      <RawJsonExportDialog
+        open={rawExportOpen}
+        onOpenChange={setRawExportOpen}
+        title="Service transaction raw JSON"
+        description="Read-only Firebase record preview."
+        fileName={rawJsonFileName(
+          "service-transaction",
+          transactionRecord?.requestId ?? transactionId,
+        )}
+        value={transactionRecord}
       />
     </>
   );
@@ -6646,6 +6704,116 @@ function ObjectRefTable({
   );
 }
 
+function RawJsonExportDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  fileName,
+  value,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  fileName: string;
+  value: unknown;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
+    "idle",
+  );
+  const content = useMemo(() => rawJsonContent(value), [value]);
+  const lineCount = content.split("\n").length;
+
+  useEffect(() => {
+    if (open) {
+      setCopyState("idle");
+    }
+  }, [content, open]);
+
+  async function copyJson() {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopyState("copied");
+    } catch {
+      setCopyState("error");
+    }
+  }
+
+  function downloadJson() {
+    downloadJsonFile(fileName, content);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl overflow-hidden p-0">
+        <DialogHeader className="border-b border-violet-100 bg-[linear-gradient(135deg,rgba(250,245,255,0.96),rgba(255,255,255,0.92))] px-6 py-5 dark:border-violet-400/14 dark:bg-[linear-gradient(135deg,rgba(46,30,88,0.36),rgba(15,23,42,0.92))]">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <DialogTitle>{t(title)}</DialogTitle>
+              <DialogDescription>{t(description)}</DialogDescription>
+            </div>
+            <Badge
+              variant="outline"
+              className="border-violet-200 bg-white/82 text-violet-700 dark:border-violet-400/22 dark:bg-violet-500/10 dark:text-violet-100"
+            >
+              {t("Preview")}
+            </Badge>
+          </div>
+        </DialogHeader>
+        <div className="grid gap-4 bg-violet-50/35 px-6 py-4 dark:bg-violet-500/[0.04]">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">{t("Raw JSON")}</Badge>
+            <span className="break-all font-mono text-xs text-muted-foreground">
+              {fileName}
+            </span>
+            <span className="rounded-full bg-white/78 px-2 py-0.5 text-xs font-medium text-muted-foreground shadow-sm dark:bg-slate-950/50">
+              {lineCount} {t("lines")}
+            </span>
+          </div>
+          {copyState === "copied" ? (
+            <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm text-emerald-900 dark:border-emerald-400/28 dark:bg-emerald-500/12 dark:text-emerald-100">
+              {t("JSON copied.")}
+            </div>
+          ) : copyState === "error" ? (
+            <div className="rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+              {t(
+                "Clipboard copy failed. You can still select the JSON and copy it manually.",
+              )}
+            </div>
+          ) : null}
+        </div>
+        <pre className="max-h-[62vh] overflow-auto whitespace-pre-wrap break-words bg-white p-6 font-mono text-xs leading-5 text-foreground dark:bg-slate-950/88">
+          {content}
+        </pre>
+        <DialogFooter className="gap-3 border-t border-violet-100 bg-white/92 px-6 py-4 dark:border-violet-400/14 dark:bg-slate-950/88">
+          <Button type="button" variant="outline" onClick={() => void copyJson()}>
+            {copyState === "copied" ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+            {copyState === "copied" ? t("Copied") : t("Copy JSON")}
+          </Button>
+          <Button
+            type="button"
+            className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+            onClick={downloadJson}
+          >
+            <Download className="h-4 w-4" />
+            {t("Download JSON")}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {t("Close")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ServiceTransactionActionFooter({
   isEditing,
   changed,
@@ -6731,6 +6899,8 @@ function WorkbenchTopbar({
   showSaveAction = true,
   deleteDisabled = false,
   canDelete,
+  canExportRaw = false,
+  onExportRaw,
   onDelete,
   saveLabel = "Save",
 }: {
@@ -6742,6 +6912,8 @@ function WorkbenchTopbar({
   showSaveAction?: boolean;
   deleteDisabled?: boolean;
   canDelete: boolean;
+  canExportRaw?: boolean;
+  onExportRaw?: () => void;
   onDelete: () => void;
   saveLabel?: string;
 }) {
@@ -6782,6 +6954,18 @@ function WorkbenchTopbar({
             <span>{t(backLabel)}</span>
           </Link>
         </Button>
+        {canExportRaw ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onExportRaw}
+            className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+          >
+            <Download className="h-4 w-4" />
+            <span>{t("Export raw file")}</span>
+          </Button>
+        ) : null}
         {canDelete ? (
           <Button
             type="button"

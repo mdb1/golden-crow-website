@@ -406,6 +406,48 @@ describe("support services workbenches", () => {
     expect(screen.getByText("Offer identity")).toBeTruthy();
   });
 
+  it("exports the persisted service offer record as raw JSON", async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value === `/admin/support-services/offers/${hiddenOffer.id}`) {
+        return { offer: hiddenOffer };
+      }
+      if (value.startsWith("/admin/support-services/offers?")) {
+        return { offers: [], nextCursor: undefined };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Export raw file" }),
+    );
+
+    expect(await screen.findByText("Service offer raw JSON")).toBeTruthy();
+    expect(screen.getByText("service-offer-offer-hidden.json")).toBeTruthy();
+    expect(
+      screen.getByText((content) => content.includes('"id": "offer-hidden"')),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download JSON" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy JSON" }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(
+        expect.stringContaining('"id": "offer-hidden"'),
+      );
+    });
+    expect(await screen.findByText("JSON copied.")).toBeTruthy();
+  });
+
   it("reports secondary cleanup warnings after the root transaction is deleted", async () => {
     jest.spyOn(window, "confirm").mockReturnValue(true);
     sdkFetchMock.mockImplementation(async (_path, init) => {
@@ -858,6 +900,43 @@ describe("support services workbenches", () => {
         `${hiddenOffer.name} (${hiddenOffer.serviceId}, ${hiddenOffer.providerName})`,
       ),
     ).not.toHaveLength(0);
+  });
+
+  it("exports the persisted service transaction record as raw JSON", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (
+        String(path).endsWith(`/transactions/${deliveredTransaction.requestId}`)
+      ) {
+        return { transaction: deliveredTransaction };
+      }
+      if (String(path).endsWith(`/offers/${deliveredTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${String(path)}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={deliveredTransaction.requestId}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Export raw file" }),
+    );
+
+    expect(await screen.findByText("Service transaction raw JSON")).toBeTruthy();
+    expect(
+      screen.getByText("service-transaction-pgr_frozen_1.json"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText((content) =>
+        content.includes('"requestId": "pgr_frozen_1"'),
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy JSON" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download JSON" })).toBeTruthy();
   });
 
   it("edits against the frozen contract, preserves rich inputs, and cannot reopen a terminal transaction", async () => {
