@@ -167,6 +167,55 @@ describe("Gmail mailer", () => {
     expect(decoded).toContain("Federico Bustos Fierro\nGolden Crow VS");
   });
 
+  it("uses the canonical fallback without reading a potentially stale Gmail signature", async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "access-token" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "message-1" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+    await sendGmailMessage(
+      {
+        to: "recipient@example.com",
+        subject: "CRM note",
+        text: "Hola.",
+        html: "<p>Hola.</p>",
+      },
+      {
+        from: "Federico Bustos Fierro <federico@goldencrowvs.com>",
+        user: "federico@goldencrowvs.com",
+        clientId: "client-id",
+        clientSecret: "client-secret",
+        refreshToken: "refresh-token",
+        appendSendAsSignature: true,
+        sendAsEmail: "federico@goldencrowvs.com",
+        fallbackSignatureHtml:
+          '<div dir="ltr">Federico<br>+54 9 11 2184-6934</div>',
+        preferFallbackSignature: true,
+      },
+    );
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).not.toHaveBeenCalledWith(
+      expect.stringContaining("/settings/sendAs/"),
+      expect.anything(),
+    );
+    const sendBody = JSON.parse(
+      String(jest.mocked(fetch).mock.calls[1]?.[1]?.body),
+    ) as { raw: string };
+    const decoded = decodeBase64Url(sendBody.raw);
+    expect(decoded).toContain("+54 9 11 2184-6934");
+  });
+
   it("keeps sending without a signature when Gmail settings fails and no fallback is configured", async () => {
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
     jest

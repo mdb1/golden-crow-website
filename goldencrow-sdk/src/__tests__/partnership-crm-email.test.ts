@@ -74,6 +74,7 @@ describe("partnership CRM email", () => {
         appendSendAsSignature: true,
         sendAsEmail: PARTNERSHIP_CRM_FROM_EMAIL,
         fallbackSignatureHtml: PARTNERSHIP_CRM_FALLBACK_SIGNATURE_HTML,
+        preferFallbackSignature: true,
       }),
     );
   });

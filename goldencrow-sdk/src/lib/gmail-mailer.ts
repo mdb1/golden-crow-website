@@ -15,6 +15,7 @@ type GmailSendOptions = {
   appendSendAsSignature?: boolean;
   sendAsEmail?: string;
   fallbackSignatureHtml?: string;
+  preferFallbackSignature?: boolean;
 };
 
 type TokenResponse = {
@@ -182,6 +183,10 @@ async function withGmailSendAsSignature(
   }
 
   const fallbackSignatureHtml = cleanOptional(options.fallbackSignatureHtml);
+  if (options.preferFallbackSignature && fallbackSignatureHtml) {
+    return appendMessageSignature(input, fallbackSignatureHtml);
+  }
+
   const sendAsEmail = senderEmailForSignature(options);
   if (!sendAsEmail) {
     return fallbackSignatureHtml
