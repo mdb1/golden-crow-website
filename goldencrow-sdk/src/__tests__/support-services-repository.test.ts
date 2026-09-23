@@ -1443,7 +1443,7 @@ describe("support service delivered transactions", () => {
         object_type: "pgo_pdf_report",
         object_id: `obj_output_${attached.object.objectCode}`,
         object_revision: 1,
-        file_name: "report.pgo.json",
+        file_name: "Final report",
         download_url: "https://objects.example/report.pgo.json",
         linked_file_id: null,
         upload_version_count: 1,
@@ -1530,7 +1530,7 @@ describe("support service delivered transactions", () => {
         id: expect.stringMatching(/^pgo_output_\d{9}$/),
         role: "report",
         objectType: "pgo_pdf_report",
-        fileName: "final-report.pgo.json",
+        fileName: "Final report",
         fileStorageId: "stored-output-file-alpha",
         status: "ready",
       }),
@@ -1542,7 +1542,7 @@ describe("support service delivered transactions", () => {
       expect.objectContaining({
         object_code: attached.object.objectCode,
         object_type: "pgo_pdf_report",
-        file_name: "final-report.pgo.json",
+        file_name: "Final report",
         download_url: null,
         linked_file_id: "stored-output-file-alpha",
         tracking_progress_status: "document_ready",
@@ -1553,6 +1553,7 @@ describe("support service delivered transactions", () => {
     ).toEqual(
       expect.objectContaining({
         linked_object_code: attached.object.objectCode,
+        file_name: "Final report",
         file_type: "pgo_pdf_report",
         owner_community_user_id: "feed-org-1",
         provider_id: "feed-org-1",

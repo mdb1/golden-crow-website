@@ -290,7 +290,7 @@ describe("file storage JSON contracts", () => {
 
     expect(result.document.id).toBe("file_storage-generated");
     expect(result.document.data).toMatchObject({
-      file_name: "pdf_report.pgo.json",
+      file_name: "Final report",
       creator_email: "god@example.com",
       file_type: "pgo_pdf_report",
       file_content: JSON.stringify(validPdfPgo),

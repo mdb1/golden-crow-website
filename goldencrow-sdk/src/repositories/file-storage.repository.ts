@@ -206,8 +206,45 @@ function defaultStoredFileName(fileType: string): string {
   return `${fileType.replace(/^pgo_/, "")}.pgo.json`;
 }
 
-function normalizedStoredFileName(value: unknown, fileType: string): string {
-  const fileName = normalizeString(value) ?? defaultStoredFileName(fileType);
+function safeStoredFileTitleName(value: unknown): string | undefined {
+  const title = normalizeString(value);
+  if (!title) {
+    return undefined;
+  }
+  const fileName = title
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[\\/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 255);
+  return fileName || undefined;
+}
+
+function storedFileNameFromContentTitle(
+  fileContent: string,
+): string | undefined {
+  try {
+    const content = JSON.parse(fileContent) as unknown;
+    if (!content || typeof content !== "object" || Array.isArray(content)) {
+      return undefined;
+    }
+    return safeStoredFileTitleName(
+      (content as Record<string, unknown>).title,
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizedStoredFileName(
+  value: unknown,
+  fileType: string,
+  fileContent: string,
+): string {
+  const fileName =
+    normalizeString(value) ??
+    storedFileNameFromContentTitle(fileContent) ??
+    defaultStoredFileName(fileType);
   if (
     fileName.length > 255 ||
     fileName.includes("/") ||
@@ -378,6 +415,7 @@ function buildStoredFilePayload(
     file_name: normalizedStoredFileName(
       nextData.file_name,
       validatedContent.fileType,
+      validatedContent.fileContent,
     ),
     creator_email: creatorEmail,
     file_type: validatedContent.fileType,

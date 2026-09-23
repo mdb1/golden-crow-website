@@ -2909,6 +2909,19 @@ function normalizedOutputFileName(value: string) {
   return leaf.slice(0, 255);
 }
 
+function normalizedOutputTitleFileName(value: string) {
+  return value
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[\\/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 255);
+}
+
+function outputFileNameFromPgoTitle(content: Record<string, unknown>) {
+  return normalizedOutputTitleFileName(cleanString(content.title));
+}
+
 function decodedFileName(value: string) {
   try {
     return normalizedOutputFileName(decodeURIComponent(value));
@@ -2996,6 +3009,7 @@ function validateStoredPgoObject(
     content,
     fileStorageId,
     fileName:
+      outputFileNameFromPgoTitle(content) ||
       normalizedOutputFileName(cleanString(fileData.file_name)) ||
       `${objectType}.pgo.json`,
     contentSha256: createHash("sha256").update(contentBytes).digest("hex"),
@@ -3129,11 +3143,13 @@ async function downloadAndValidatePgoObject(
       objectType,
       content: parsedContent,
       downloadUrl: requestedUrl.href,
-      fileName: outputFileNameFromResponse(
-        result.response,
-        requestedUrl,
-        objectType,
-      ),
+      fileName:
+        outputFileNameFromPgoTitle(parsedContent) ||
+        outputFileNameFromResponse(
+          result.response,
+          requestedUrl,
+          objectType,
+        ),
       contentSha256: createHash("sha256").update(content).digest("hex"),
       contentSizeBytes: content.length,
     };
@@ -5776,6 +5792,7 @@ export async function attachSupportServiceTransactionOutputObject(
         sourceFileRef,
         {
           linked_object_code: objectCode,
+          file_name: validatedObject.fileName,
           file_type: expectedObjectType,
           owner_community_user_id: providerOwnerId,
           provider_id: latest.providerId,

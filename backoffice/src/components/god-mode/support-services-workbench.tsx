@@ -131,8 +131,8 @@ import {
 } from "@/lib/support-services";
 import { cn } from "@/lib/utils";
 import {
-  defaultStoredFileName,
   MAX_INLINE_STORED_FILE_BYTES,
+  storedFileNameFromJsonTitle,
   storedFileContentByteLength,
   validateStoredFileJson,
 } from "@/lib/file-storage";
@@ -5380,7 +5380,11 @@ export function SupportServiceTransactionWorkbench({
             method: "POST",
             body: JSON.stringify({
               data: {
-                file_name: defaultStoredFileName(draft.objectType, draft.role),
+                file_name: storedFileNameFromJsonTitle(
+                  draft.objectType,
+                  draft.role,
+                  draft.newFileContent,
+                ),
                 file_type: draft.objectType,
                 file_content: draft.newFileContent,
               },

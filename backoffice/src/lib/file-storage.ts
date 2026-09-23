@@ -131,6 +131,33 @@ export function defaultStoredFileName(fileType: string, role?: string) {
   return "stored-file.json";
 }
 
+function safeStoredFileTitleName(value: string) {
+  return value
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[\\/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 255);
+}
+
+export function storedFileNameFromJsonTitle(
+  fileType: string,
+  role: string | undefined,
+  value: string,
+) {
+  const fallback = defaultStoredFileName(fileType, role);
+  try {
+    const content = JSON.parse(normalizeStoredFileContent(value));
+    if (!content || typeof content !== "object" || Array.isArray(content)) {
+      return fallback;
+    }
+    const title = getString((content as Record<string, unknown>).title);
+    return title ? safeStoredFileTitleName(title) || fallback : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function parseStoredFileRecord(
   document: ModerationDocumentRecord
 ): StoredFileRecord {

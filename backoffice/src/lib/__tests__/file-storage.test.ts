@@ -5,6 +5,7 @@ import {
   MAX_INLINE_STORED_FILE_BYTES,
   parseStoredFileRecord,
   storedFileContentByteLength,
+  storedFileNameFromJsonTitle,
 } from "@/lib/file-storage";
 import type { ModerationDocumentRecord } from "@/lib/moderation-types";
 
@@ -56,5 +57,22 @@ describe("file storage links", () => {
     expect(
       storedFileContentByteLength("x".repeat(MAX_INLINE_STORED_FILE_BYTES + 1)),
     ).toBeGreaterThan(MAX_INLINE_STORED_FILE_BYTES);
+  });
+
+  it("uses the PGO JSON title as the default saved file name", () => {
+    expect(
+      storedFileNameFromJsonTitle(
+        "pgo_pdf_report",
+        "result",
+        '{"title":"Final result","download_url":"https://example.org/final.pdf"}',
+      ),
+    ).toBe("Final result");
+    expect(
+      storedFileNameFromJsonTitle(
+        "pgo_pdf_report",
+        "result",
+        '{"download_url":"https://example.org/final.pdf"}',
+      ),
+    ).toBe("result.pgo.json");
   });
 });

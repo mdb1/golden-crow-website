@@ -1489,7 +1489,7 @@ describe("support services workbenches", () => {
         const payload = JSON.parse(String(init.body));
         expect(payload).toEqual({
           data: {
-            file_name: "result.pgo.json",
+            file_name: "Final result",
             file_type: "pgo_pdf_report",
             file_content:
               '{"title":"Final result","download_url":"https://example.org/final.pdf"}',
@@ -1521,7 +1521,7 @@ describe("support services workbenches", () => {
             role: "result",
             objectCode: "112233445",
             objectType: "pgo_pdf_report",
-            fileName: "result.pgo.json",
+            fileName: "Final result",
             fileStorageId: "stored-file-new-1",
             status: "ready",
           },
