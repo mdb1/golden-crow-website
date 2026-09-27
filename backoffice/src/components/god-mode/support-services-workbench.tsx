@@ -329,10 +329,10 @@ const PROMOTIONAL_BANNER_IMAGE_WIDTH = 1024;
 const PROMOTIONAL_BANNER_IMAGE_HEIGHT = 500;
 const GENERATED_SERVICE_ID_PATTERN =
   /^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]{5}$/;
+const CURRENT_SERVICE_VERSION_CHART_COLOR = "#059669";
 const SERVICE_VERSION_CHART_COLORS = [
   "#7c3aed",
   "#0891b2",
-  "#059669",
   "#d97706",
   "#e11d48",
   "#4f46e5",
@@ -8492,11 +8492,17 @@ function ServiceOfferTransactionStatsSection({
     );
   }
 
-  const versions = [...stats.versions].sort(
-    (left, right) => right.serviceVersion - left.serviceVersion,
+  const finishedTransactions = Math.max(
+    0,
+    stats.totalTransactions - stats.activeTransactions,
   );
-  const colorByVersion = new Map(
-    [...stats.versions]
+  const historicalVersions = stats.versions
+    .filter(
+      (version) => version.serviceVersion !== stats.currentServiceVersion,
+    )
+    .sort((left, right) => right.serviceVersion - left.serviceVersion);
+  const colorByHistoricalVersion = new Map(
+    [...historicalVersions]
       .sort((left, right) => left.serviceVersion - right.serviceVersion)
       .map((version, index) => [
         version.serviceVersion,
@@ -8505,13 +8511,46 @@ function ServiceOfferTransactionStatsSection({
         ],
       ]),
   );
-  const chartData = versions
-    .filter((version) => version.activeTransactions > 0)
-    .map((version) => ({
+  const totalStatusChartData: ServiceTransactionChartDatum[] = [
+    {
+      name: t("Active transactions"),
+      value: stats.activeTransactions,
+      fill: "#7c3aed",
+    },
+    {
+      name: t("Finished transactions"),
+      value: finishedTransactions,
+      fill: "#0891b2",
+    },
+  ];
+  const activeRecencyChartData: ServiceTransactionChartDatum[] = [
+    {
+      name: t("Current version active"),
+      value: stats.currentVersionActiveTransactions,
+      fill: CURRENT_SERVICE_VERSION_CHART_COLOR,
+    },
+    {
+      name: t("Older-version active"),
+      value: stats.outdatedActiveTransactions,
+      fill: "#d97706",
+    },
+  ];
+  const activeByVersionChartData: ServiceTransactionChartDatum[] = [
+    {
+      name: `v${stats.currentServiceVersion}`,
+      value: stats.currentVersionActiveTransactions,
+      fill: CURRENT_SERVICE_VERSION_CHART_COLOR,
+      badge: t("Current contract"),
+    },
+    ...historicalVersions.map((version) => ({
       name: `v${version.serviceVersion}`,
       value: version.activeTransactions,
-      fill: colorByVersion.get(version.serviceVersion),
-    }));
+      fill:
+        colorByHistoricalVersion.get(version.serviceVersion) ??
+        SERVICE_VERSION_CHART_COLORS[0] ??
+        "#7c3aed",
+    })),
+  ];
   const metrics = [
     {
       label: "Active transactions",
@@ -8520,10 +8559,10 @@ function ServiceOfferTransactionStatsSection({
       testId: "service-offer-active-transactions",
     },
     {
-      label: "Total linked",
-      value: stats.totalTransactions,
+      label: "Finished transactions",
+      value: finishedTransactions,
       className: "text-cyan-700 dark:text-cyan-200",
-      testId: "service-offer-total-transactions",
+      testId: "service-offer-finished-transactions",
     },
     {
       label: "Current version active",
@@ -8546,126 +8585,182 @@ function ServiceOfferTransactionStatsSection({
     >
       <p className="text-sm leading-6 text-muted-foreground">
         {t(
-          "Counts include every transaction linked to this offer. Active excludes delivered, rejected, failed, and cancelled transactions.",
+          "Counts include every transaction linked to this offer. Finished transactions are the total minus the active transactions.",
         )}
       </p>
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(26rem,1.1fr)] xl:items-center">
-        <dl className="grid grid-cols-2 border-y border-violet-100/80 dark:border-violet-400/16">
-          {metrics.map((metric, index) => (
-            <div
-              key={metric.label}
-              className={cn(
-                "grid min-h-28 content-center gap-1 px-4 py-5",
-                index % 2 === 0 &&
-                  "border-r border-violet-100/80 dark:border-violet-400/16",
-                index < 2 &&
-                  "border-b border-violet-100/80 dark:border-violet-400/16",
-              )}
-            >
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t(metric.label)}
-              </dt>
-              <dd
-                data-testid={metric.testId}
-                className={cn("text-3xl font-bold", metric.className)}
-              >
-                {numberFormatter.format(metric.value)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-        <div className="grid gap-5 sm:grid-cols-[13rem_minmax(0,1fr)] sm:items-center">
-          <div className="grid justify-items-center gap-2">
-            <div className="text-sm font-semibold text-foreground">
-              {t("Active transactions by offer version")}
-            </div>
-            {chartData.length > 0 ? (
-              <div
-                role="img"
-                aria-label={`${t("Active transactions by offer version")}: ${chartData.map((item) => `${item.name} ${item.value}`).join(", ")}`}
-                className="relative h-[190px] w-[190px]"
-              >
-                <PieChart width={190} height={190}>
-                  <Pie
-                    data={chartData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx={95}
-                    cy={95}
-                    innerRadius={48}
-                    outerRadius={78}
-                    paddingAngle={2}
-                    stroke="transparent"
-                    isAnimationActive={false}
-                  >
-                    {chartData.map((item) => (
-                      <Cell key={item.name} fill={item.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-                <div className="pointer-events-none absolute inset-0 grid place-content-center text-center">
-                  <span className="text-2xl font-bold text-foreground">
-                    {numberFormatter.format(stats.activeTransactions)}
-                  </span>
-                  <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {t("Active count")}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="grid h-[190px] w-[190px] place-content-center justify-items-center gap-2 rounded-full border border-dashed border-violet-200 text-center text-muted-foreground dark:border-violet-400/25">
-                <ChartPie className="h-7 w-7" />
-                <span className="max-w-32 text-xs">
-                  {t("No active transactions for this offer.")}
-                </span>
-              </div>
+      <dl className="grid grid-cols-2 border-y border-violet-100/80 sm:grid-cols-4 dark:border-violet-400/16">
+        {metrics.map((metric, index) => (
+          <div
+            key={metric.label}
+            className={cn(
+              "grid min-h-24 content-center gap-1 border-violet-100/80 px-4 py-5 dark:border-violet-400/16",
+              index % 2 === 0 && "border-r sm:border-r-0",
+              index < 2 && "border-b sm:border-b-0",
+              index > 0 && "sm:border-l",
             )}
+          >
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t(metric.label)}
+            </dt>
+            <dd
+              data-testid={metric.testId}
+              className={cn("text-3xl font-bold", metric.className)}
+            >
+              {numberFormatter.format(metric.value)}
+            </dd>
           </div>
-          <div className="divide-y divide-violet-100/80 border-y border-violet-100/80 dark:divide-violet-400/16 dark:border-violet-400/16">
-            {versions.map((version) => (
-              <div
-                key={version.serviceVersion}
-                className="flex min-h-14 items-center justify-between gap-3 py-3"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="h-3 w-3 shrink-0 rounded-sm"
-                    style={{
-                      backgroundColor: colorByVersion.get(
-                        version.serviceVersion,
-                      ),
-                    }}
-                  />
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="font-mono text-sm font-semibold text-foreground">
-                      v{version.serviceVersion}
-                    </span>
-                    {version.serviceVersion === stats.currentServiceVersion ? (
-                      <Badge
-                        variant="outline"
-                        className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200"
-                      >
-                        {t("Current contract")}
-                      </Badge>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <div className="text-sm font-semibold text-foreground">
-                    {numberFormatter.format(version.activeTransactions)} {t("active transactions")}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {numberFormatter.format(version.totalTransactions)} {t("transactions total")}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        ))}
+      </dl>
+      <div className="grid gap-8 lg:grid-cols-3 lg:items-start">
+        <ServiceTransactionDonutChart
+          title={t("Total transactions by status")}
+          data={totalStatusChartData}
+          total={stats.totalTransactions}
+          centerLabel={t("Total count")}
+          emptyLabel={t("No transactions for this offer.")}
+          numberFormatter={numberFormatter}
+          testId="service-offer-total-status-chart"
+        />
+        <ServiceTransactionDonutChart
+          title={t("Active transactions by version recency")}
+          data={activeRecencyChartData}
+          total={stats.activeTransactions}
+          centerLabel={t("Active count")}
+          emptyLabel={t("No active transactions for this offer.")}
+          numberFormatter={numberFormatter}
+          testId="service-offer-active-recency-chart"
+        />
+        <ServiceTransactionDonutChart
+          title={t("Active transactions by offer version")}
+          data={activeByVersionChartData}
+          total={stats.activeTransactions}
+          centerLabel={t("Active count")}
+          emptyLabel={t("No active transactions for this offer.")}
+          numberFormatter={numberFormatter}
+          testId="service-offer-active-by-version-chart"
+        />
       </div>
     </ServiceOfferTransactionStatsAccordion>
+  );
+}
+
+type ServiceTransactionChartDatum = {
+  name: string;
+  value: number;
+  fill: string;
+  badge?: string;
+};
+
+function ServiceTransactionDonutChart({
+  title,
+  data,
+  total,
+  centerLabel,
+  emptyLabel,
+  numberFormatter,
+  testId,
+}: {
+  title: string;
+  data: ServiceTransactionChartDatum[];
+  total: number;
+  centerLabel: string;
+  emptyLabel: string;
+  numberFormatter: Intl.NumberFormat;
+  testId: string;
+}) {
+  const visibleData = data.filter((item) => item.value > 0);
+  const ariaLabel = `${title}: ${data
+    .map((item) => `${item.name} ${item.value}`)
+    .join(", ")}`;
+
+  return (
+    <div
+      data-testid={testId}
+      className="grid min-w-0 content-start justify-items-center gap-4 border-t border-violet-100/80 pt-5 dark:border-violet-400/16"
+    >
+      <h4 className="min-h-10 text-center text-sm font-semibold leading-5 text-foreground">
+        {title}
+      </h4>
+      <div
+        role="img"
+        aria-label={ariaLabel}
+        className="relative h-[190px] w-[190px]"
+      >
+        {visibleData.length > 0 ? (
+          <>
+            <PieChart width={190} height={190}>
+              <Pie
+                data={visibleData}
+                dataKey="value"
+                nameKey="name"
+                cx={95}
+                cy={95}
+                innerRadius={48}
+                outerRadius={78}
+                paddingAngle={2}
+                startAngle={90}
+                endAngle={-270}
+                stroke="transparent"
+                isAnimationActive={false}
+              >
+                {visibleData.map((item) => (
+                  <Cell key={item.name} fill={item.fill} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+            <div className="pointer-events-none absolute inset-0 grid place-content-center text-center">
+              <span className="text-2xl font-bold text-foreground">
+                {numberFormatter.format(total)}
+              </span>
+              <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                {centerLabel}
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="grid h-[190px] w-[190px] place-content-center justify-items-center gap-2 rounded-full border border-dashed border-violet-200 text-center text-muted-foreground dark:border-violet-400/25">
+            <ChartPie className="h-7 w-7" />
+            <span className="max-w-32 text-xs">{emptyLabel}</span>
+          </div>
+        )}
+      </div>
+      <div
+        data-testid={`${testId}-legend`}
+        className="w-full divide-y divide-violet-100/80 border-y border-violet-100/80 dark:divide-violet-400/16 dark:border-violet-400/16"
+      >
+        {data.map((item) => (
+          <div
+            key={item.name}
+            data-testid={`${testId}-legend-item`}
+            data-color={item.fill}
+            className="flex min-h-12 items-center justify-between gap-3 py-2.5"
+          >
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span
+                aria-hidden="true"
+                className="h-3 w-3 shrink-0 rounded-sm"
+                style={{ backgroundColor: item.fill }}
+              />
+              <span className="min-w-0 text-sm font-medium text-foreground">
+                {item.name}
+              </span>
+              {item.badge ? (
+                <Badge
+                  variant="outline"
+                  className="shrink-0 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200"
+                >
+                  {item.badge}
+                </Badge>
+              ) : null}
+            </div>
+            <span className="shrink-0 font-mono text-sm font-semibold text-foreground">
+              {numberFormatter.format(item.value)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

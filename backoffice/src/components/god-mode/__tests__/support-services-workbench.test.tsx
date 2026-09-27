@@ -1659,7 +1659,7 @@ describe("support services workbenches", () => {
     ).toBeNull();
   });
 
-  it("shows all linked transaction counts and active versions on offer detail", async () => {
+  it("shows finished counts and three ordered transaction charts on offer detail", async () => {
     const versionedOffer: SupportServiceOfferRecord = {
       ...hiddenOffer,
       serviceVersion: 3,
@@ -1733,8 +1733,9 @@ describe("support services workbenches", () => {
         .textContent,
     ).toBe("7");
     expect(
-      screen.getByTestId("service-offer-total-transactions").textContent,
-    ).toBe("12");
+      screen.getByTestId("service-offer-finished-transactions").textContent,
+    ).toBe("5");
+    expect(screen.queryByText("Total vinculadas")).toBeNull();
     expect(
       screen.getByTestId("service-offer-current-version-transactions")
         .textContent,
@@ -1744,9 +1745,31 @@ describe("support services workbenches", () => {
     ).toBe("5");
     expect(
       screen.getByRole("img", {
+        name: /Transacciones totales por estado: Transacciones activas 7, Transacciones finalizadas 5/,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("img", {
+        name: /Transacciones activas según la vigencia de la versión: Activas en la versión actual 2, Activas en versiones anteriores 5/,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("img", {
         name: /v3 2, v2 2, v1 3/,
       }),
     ).toBeTruthy();
+    expect(screen.getAllByRole("img")).toHaveLength(3);
+    const versionLegendItems = within(
+      screen.getByTestId("service-offer-active-by-version-chart-legend"),
+    ).getAllByTestId("service-offer-active-by-version-chart-legend-item");
+    expect(
+      versionLegendItems.map((item) =>
+        within(item).getByText(/^v\d+$/).textContent,
+      ),
+    ).toEqual(["v3", "v2", "v1"]);
+    expect(versionLegendItems[0]?.getAttribute("data-color")).toBe(
+      "#059669",
+    );
     expect(screen.getByText("Contrato actual")).toBeTruthy();
 
     fireEvent.click(statsTrigger);

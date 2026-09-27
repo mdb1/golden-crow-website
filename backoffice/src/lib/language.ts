@@ -5021,19 +5021,25 @@ const SPANISH_TEXT: Record<string, string> = {
     "Todavía no se registraron cambios de versión.",
   "Number of active transactions": "Número de transacciones activas",
   "Active transactions": "Transacciones activas",
-  "Total linked": "Total vinculadas",
+  "Finished transactions": "Transacciones finalizadas",
   "Current version active": "Activas en la versión actual",
   "Older-version active": "Activas en versiones anteriores",
+  "Total transactions by status": "Transacciones totales por estado",
+  "Active transactions by version recency":
+    "Transacciones activas según la vigencia de la versión",
   "Active transactions by offer version":
     "Transacciones activas por versión de la oferta",
-  "Counts include every transaction linked to this offer. Active excludes delivered, rejected, failed, and cancelled transactions.":
-    "Los conteos incluyen todas las transacciones vinculadas a esta oferta. Las activas excluyen las entregadas, rechazadas, fallidas y canceladas.",
+  "Counts include every transaction linked to this offer. Finished transactions are the total minus the active transactions.":
+    "Los conteos incluyen todas las transacciones vinculadas a esta oferta. Las transacciones finalizadas son el total menos las transacciones activas.",
+  "No transactions for this offer.":
+    "No hay transacciones para esta oferta.",
   "No active transactions for this offer.":
     "No hay transacciones activas para esta oferta.",
   "Current contract": "Contrato actual",
   "Could not load transaction statistics.":
     "No se pudieron cargar las estadísticas de transacciones.",
   "Active count": "Activas",
+  "Total count": "Total",
   "active transactions": "activas",
   "transactions total": "totales",
   "Export raw file": "Exportar archivo raw",
