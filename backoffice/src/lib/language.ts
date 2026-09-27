@@ -4952,6 +4952,19 @@ const SPANISH_TEXT: Record<string, string> = {
   Service: "Servicio",
   "Service ID": "ID de servicio",
   "Service category": "Categoría de servicio",
+  "Choose service category": "Elegí una categoría de servicio",
+  "Choose one service category.": "Elegí una categoría de servicio.",
+  "Change service category": "Cambiar categoría de servicio",
+  "Service category options": "Opciones de categoría de servicio",
+  "Choose the single category that describes the primary contracted and billable outcome. Supporting inputs, steps, and provider profession do not determine it.":
+    "Elegí la única categoría que describe el resultado principal contratado y facturable. Los insumos, pasos auxiliares y la profesión del proveedor no la determinan.",
+  Uncategorized: "Sin categoría",
+  "Choose one registered category before saving this offer.":
+    "Elegí una categoría registrada antes de guardar esta oferta.",
+  "No category selected": "No hay una categoría seleccionada",
+  "Select one category to continue.":
+    "Seleccioná una categoría para continuar.",
+  "Apply category": "Aplicar categoría",
   "Service offer deleted.": "Oferta de servicio eliminada.",
   "Service offer saved.": "Oferta de servicio guardada.",
   "Service transaction deleted.": "Transacción de servicio eliminada.",

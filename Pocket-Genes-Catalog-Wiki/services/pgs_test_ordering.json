@@ -575,7 +575,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_genetic_test_ordering",
   "providerName": "Meridian Clinical Planning",
   "providerKind": "organization",
   "regions": [

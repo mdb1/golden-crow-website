@@ -189,7 +189,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_dna_sequencing",
   "providerName": "Atlas Precision Laboratory",
   "providerKind": "organization",
   "regions": [

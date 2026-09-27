@@ -1,3 +1,5 @@
+import type { SupportServiceCategoryKey } from "@/lib/support-service-categories";
+
 export const SUPPORT_SERVICE_STAGES = [
   { value: "test_planning", label: "Test planning" },
   { value: "wet_lab", label: "Wet lab" },
@@ -125,7 +127,7 @@ export interface SupportServiceOfferInput {
   serviceId: string;
   serviceVersion?: number;
   name: string;
-  serviceCategory?: string;
+  serviceCategory: SupportServiceCategoryKey;
   providerKind?: SupportServiceProviderKind;
   providerId: string;
   providerName?: string;
@@ -153,6 +155,7 @@ export interface SupportServiceOfferRecord
       SupportServiceOfferInput,
       | "formShape"
       | "commercialTerms"
+      | "serviceCategory"
       | "promotionalBannerImageUrl"
       | "promotionalBannerImageUploadDataUrl"
     >
@@ -160,6 +163,7 @@ export interface SupportServiceOfferRecord
   id: string;
   schemaVersion: number;
   serviceVersion: number;
+  serviceCategory: string;
   formShape?: SupportServiceFormShape;
   commercialTerms?: SupportServiceCommercialTerms;
   promotionalBannerImageUrl?: string | null;

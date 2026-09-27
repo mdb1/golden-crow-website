@@ -130,7 +130,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_clinical_intake_phenotyping",
       "providerName": "Meridian Clinical Planning",
       "providerKind": "organization",
       "regions": [
@@ -323,7 +323,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_gene_variant_prioritization",
       "providerName": "Meridian Clinical Planning",
       "providerKind": "organization",
       "regions": [
@@ -565,7 +565,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_informed_consent",
       "providerName": "Meridian Clinical Planning",
       "providerKind": "organization",
       "regions": [
@@ -1153,7 +1153,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_genetic_test_ordering",
       "providerName": "Meridian Clinical Planning",
       "providerKind": "organization",
       "regions": [
@@ -1826,7 +1826,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_sample_collection",
       "providerName": "Origin Sample Services",
       "providerKind": "organization",
       "regions": [
@@ -2022,7 +2022,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_sample_logistics",
       "providerName": "Origin Sample Services",
       "providerKind": "organization",
       "regions": [
@@ -2240,7 +2240,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_dna_extraction",
       "providerName": "Atlas Precision Laboratory",
       "providerKind": "organization",
       "regions": [
@@ -2442,7 +2442,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_dna_sequencing",
       "providerName": "Atlas Precision Laboratory",
       "providerKind": "organization",
       "regions": [
@@ -2628,7 +2628,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_read_alignment",
       "providerName": "Variant Analysis Cooperative",
       "providerKind": "organization",
       "regions": [
@@ -2814,7 +2814,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_variant_calling",
       "providerName": "Variant Analysis Cooperative",
       "providerKind": "organization",
       "regions": [
@@ -3001,7 +3001,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_variant_annotation",
       "providerName": "Variant Analysis Cooperative",
       "providerKind": "organization",
       "regions": [
@@ -3170,7 +3170,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_genomic_interpretation",
       "providerName": "Variant Analysis Cooperative",
       "providerKind": "organization",
       "regions": [
@@ -3416,7 +3416,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_genomic_report_generation",
       "providerName": "Clarity Report Studio",
       "providerKind": "organization",
       "regions": [
@@ -3603,7 +3603,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_cytogenetic_analysis",
       "providerName": "Chromosome Image Services",
       "providerKind": "organization",
       "regions": [
@@ -3824,7 +3824,7 @@
         ]
       },
       "status": "active",
-      "serviceCategory": "",
+      "serviceCategory": "sot_genomic_report_generation",
       "providerName": "Meridian Clinical Planning",
       "providerKind": "organization",
       "regions": [

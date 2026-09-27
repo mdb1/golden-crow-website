@@ -1,0 +1,244 @@
+{
+  "serviceOfferTypes": [
+    {
+      "key": "sot_genetic_counseling",
+      "nameEnglish": "Genetic counseling",
+      "nameSpanish": "Asesoramiento genético",
+      "descriptionEnglish": "Professional counseling that explains genetic risk, testing choices, inheritance, and informed next steps; it does not perform laboratory testing or interpret a completed genomic dataset.",
+      "descriptionSpanish": "Asesoramiento profesional que explica el riesgo genético, las opciones de estudio, la herencia y los próximos pasos informados; no realiza pruebas de laboratorio ni interpreta un conjunto de datos genómicos completo.",
+      "systemImage": "person.2.wave.2.fill"
+    },
+    {
+      "key": "sot_clinical_intake_phenotyping",
+      "nameEnglish": "Clinical intake and phenotyping",
+      "nameSpanish": "Admisión clínica y fenotipado",
+      "descriptionEnglish": "Collection and structuring of symptoms, diagnoses, family history, and observable traits before test selection or genomic analysis.",
+      "descriptionSpanish": "Recopilación y estructuración de síntomas, diagnósticos, antecedentes familiares y rasgos observables antes de seleccionar un estudio o realizar un análisis genómico.",
+      "systemImage": "list.clipboard.fill"
+    },
+    {
+      "key": "sot_informed_consent",
+      "nameEnglish": "Genetic informed consent",
+      "nameSpanish": "Consentimiento informado genético",
+      "descriptionEnglish": "Creation, review, or capture of consent specifically authorizing a genetic or genomic service and its declared data uses.",
+      "descriptionSpanish": "Creación, revisión o registro del consentimiento que autoriza específicamente un servicio genético o genómico y los usos de datos declarados.",
+      "systemImage": "signature"
+    },
+    {
+      "key": "sot_genetic_test_selection",
+      "nameEnglish": "Genetic test selection",
+      "nameSpanish": "Selección de estudio genético",
+      "descriptionEnglish": "Comparison and recommendation of the most appropriate genetic test for an already defined clinical question; it does not place the order.",
+      "descriptionSpanish": "Comparación y recomendación del estudio genético más apropiado para una pregunta clínica ya definida; no realiza la orden.",
+      "systemImage": "checklist.checked"
+    },
+    {
+      "key": "sot_genetic_test_ordering",
+      "nameEnglish": "Genetic test ordering",
+      "nameSpanish": "Orden de estudio genético",
+      "descriptionEnglish": "Preparation and issuance of a concrete genetic test order after the test, patient, sample requirements, and authorization are known.",
+      "descriptionSpanish": "Preparación y emisión de una orden concreta de estudio genético una vez definidos el estudio, la persona, los requisitos de muestra y la autorización.",
+      "systemImage": "doc.badge.plus"
+    },
+    {
+      "key": "sot_sample_collection",
+      "nameEnglish": "Biological sample collection",
+      "nameSpanish": "Toma de muestra biológica",
+      "descriptionEnglish": "Scheduling or performing collection of blood, saliva, tissue, cells, or another declared biological specimen.",
+      "descriptionSpanish": "Programación o realización de la toma de sangre, saliva, tejido, células u otra muestra biológica declarada.",
+      "systemImage": "cross.vial.fill"
+    },
+    {
+      "key": "sot_sample_logistics",
+      "nameEnglish": "Sample transport and logistics",
+      "nameSpanish": "Transporte y logística de muestras",
+      "descriptionEnglish": "Chain-of-custody transport, routing, delivery, or temperature-controlled logistics for an already collected biological sample.",
+      "descriptionSpanish": "Transporte con cadena de custodia, ruteo, entrega o logística con temperatura controlada para una muestra biológica ya tomada.",
+      "systemImage": "shippingbox.fill"
+    },
+    {
+      "key": "sot_sample_accession_quality",
+      "nameEnglish": "Sample accession and quality",
+      "nameSpanish": "Recepción y calidad de muestras",
+      "descriptionEnglish": "Laboratory receipt, identity verification, suitability checks, and pre-analytic quality assessment of a submitted sample.",
+      "descriptionSpanish": "Recepción en laboratorio, verificación de identidad, controles de aptitud y evaluación de calidad preanalítica de una muestra recibida.",
+      "systemImage": "checkmark.seal.fill"
+    },
+    {
+      "key": "sot_dna_extraction",
+      "nameEnglish": "DNA extraction",
+      "nameSpanish": "Extracción de ADN",
+      "descriptionEnglish": "Isolation of DNA from a biological specimen, producing an extracted-DNA object rather than sequence data or interpretation.",
+      "descriptionSpanish": "Aislamiento de ADN a partir de una muestra biológica, con producción de un objeto de ADN extraído y no de datos de secuencia ni interpretación.",
+      "systemImage": "drop.triangle.fill"
+    },
+    {
+      "key": "sot_dna_sequencing",
+      "nameEnglish": "DNA sequencing",
+      "nameSpanish": "Secuenciación de ADN",
+      "descriptionEnglish": "Generation of raw DNA sequence reads from prepared genetic material using a declared sequencing assay or platform.",
+      "descriptionSpanish": "Generación de lecturas crudas de secuencia de ADN a partir de material genético preparado mediante un ensayo o plataforma declarados.",
+      "systemImage": "waveform.path.ecg.rectangle.fill"
+    },
+    {
+      "key": "sot_genotyping",
+      "nameEnglish": "Targeted genotyping",
+      "nameSpanish": "Genotipado dirigido",
+      "descriptionEnglish": "Measurement of a predefined set of loci, alleles, or markers; it is distinct from broad sequencing and from downstream interpretation.",
+      "descriptionSpanish": "Medición de un conjunto predefinido de loci, alelos o marcadores; es diferente de la secuenciación amplia y de la interpretación posterior.",
+      "systemImage": "scope"
+    },
+    {
+      "key": "sot_cytogenetic_analysis",
+      "nameEnglish": "Cytogenetic analysis",
+      "nameSpanish": "Análisis citogenético",
+      "descriptionEnglish": "Chromosome-level laboratory analysis such as karyotyping, FISH, or equivalent cytogenetic assessment.",
+      "descriptionSpanish": "Análisis de laboratorio a nivel cromosómico, como cariotipo, FISH o una evaluación citogenética equivalente.",
+      "systemImage": "square.grid.3x3.fill"
+    },
+    {
+      "key": "sot_prenatal_genetic_screening",
+      "nameEnglish": "Prenatal genetic screening",
+      "nameSpanish": "Cribado genético prenatal",
+      "descriptionEnglish": "Screening during pregnancy for declared fetal or chromosomal risks, including NIPT; screening is not a definitive diagnostic interpretation.",
+      "descriptionSpanish": "Cribado durante el embarazo de riesgos fetales o cromosómicos declarados, incluido NIPT; el cribado no constituye una interpretación diagnóstica definitiva.",
+      "systemImage": "figure.and.child.holdinghands"
+    },
+    {
+      "key": "sot_reproductive_carrier_screening",
+      "nameEnglish": "Reproductive carrier screening",
+      "nameSpanish": "Cribado reproductivo de portadores",
+      "descriptionEnglish": "Assessment of carrier status for inherited conditions in an individual or reproductive pair for family-planning use.",
+      "descriptionSpanish": "Evaluación del estado de portador de enfermedades hereditarias en una persona o pareja reproductiva para planificación familiar.",
+      "systemImage": "figure.2.and.child.holdinghands"
+    },
+    {
+      "key": "sot_sequence_quality_control",
+      "nameEnglish": "Sequence quality control",
+      "nameSpanish": "Control de calidad de secuencias",
+      "descriptionEnglish": "Technical assessment, trimming, filtering, or validation of raw sequence reads before alignment or variant discovery.",
+      "descriptionSpanish": "Evaluación técnica, recorte, filtrado o validación de lecturas crudas antes del alineamiento o el descubrimiento de variantes.",
+      "systemImage": "waveform.and.magnifyingglass"
+    },
+    {
+      "key": "sot_read_alignment",
+      "nameEnglish": "Sequence read alignment",
+      "nameSpanish": "Alineamiento de lecturas",
+      "descriptionEnglish": "Mapping sequence reads to a declared reference assembly, producing aligned-read data without calling variants.",
+      "descriptionSpanish": "Mapeo de lecturas de secuencia contra un ensamblado de referencia declarado, produciendo datos alineados sin detectar variantes.",
+      "systemImage": "point.3.connected.trianglepath.dotted"
+    },
+    {
+      "key": "sot_variant_calling",
+      "nameEnglish": "Small-variant calling",
+      "nameSpanish": "Detección de variantes pequeñas",
+      "descriptionEnglish": "Identification of SNVs and small insertions or deletions from aligned genomic reads; it excludes structural and copy-number analysis.",
+      "descriptionSpanish": "Identificación de SNV y pequeñas inserciones o deleciones a partir de lecturas genómicas alineadas; excluye el análisis estructural y de número de copias.",
+      "systemImage": "text.badge.checkmark"
+    },
+    {
+      "key": "sot_structural_variant_cnv_analysis",
+      "nameEnglish": "Structural variant and CNV analysis",
+      "nameSpanish": "Análisis de variantes estructurales y CNV",
+      "descriptionEnglish": "Detection of large rearrangements, copy-number gains or losses, and other declared structural genomic events.",
+      "descriptionSpanish": "Detección de grandes reordenamientos, ganancias o pérdidas de número de copias y otros eventos genómicos estructurales declarados.",
+      "systemImage": "rectangle.3.group.fill"
+    },
+    {
+      "key": "sot_variant_annotation",
+      "nameEnglish": "Variant annotation",
+      "nameSpanish": "Anotación de variantes",
+      "descriptionEnglish": "Addition of gene, transcript, population, functional, and database context to already called variants without ranking or clinical conclusions.",
+      "descriptionSpanish": "Incorporación de contexto de genes, transcritos, población, función y bases de datos a variantes ya detectadas, sin priorización ni conclusiones clínicas.",
+      "systemImage": "tag.fill"
+    },
+    {
+      "key": "sot_gene_variant_prioritization",
+      "nameEnglish": "Gene and variant prioritization",
+      "nameSpanish": "Priorización de genes y variantes",
+      "descriptionEnglish": "Ranking of candidate genes or variants against a declared phenotype or analysis goal without issuing a final clinical interpretation.",
+      "descriptionSpanish": "Ordenamiento de genes o variantes candidatos según un fenotipo u objetivo de análisis declarado, sin emitir una interpretación clínica final.",
+      "systemImage": "arrow.up.arrow.down.square.fill"
+    },
+    {
+      "key": "sot_genomic_interpretation",
+      "nameEnglish": "Clinical genomic interpretation",
+      "nameSpanish": "Interpretación genómica clínica",
+      "descriptionEnglish": "Expert classification and clinical assessment of genomic findings for a defined case, including evidence and limitations.",
+      "descriptionSpanish": "Clasificación experta y evaluación clínica de hallazgos genómicos para un caso definido, con evidencia y limitaciones.",
+      "systemImage": "stethoscope"
+    },
+    {
+      "key": "sot_rare_disease_analysis",
+      "nameEnglish": "Rare-disease genomic analysis",
+      "nameSpanish": "Análisis genómico de enfermedades raras",
+      "descriptionEnglish": "Case-level genomic investigation specifically for a suspected rare or undiagnosed disorder using phenotype-linked evidence.",
+      "descriptionSpanish": "Investigación genómica de un caso específicamente por una enfermedad rara o no diagnosticada, usando evidencia vinculada al fenotipo.",
+      "systemImage": "magnifyingglass.circle.fill"
+    },
+    {
+      "key": "sot_hereditary_cancer_analysis",
+      "nameEnglish": "Hereditary cancer analysis",
+      "nameSpanish": "Análisis de cáncer hereditario",
+      "descriptionEnglish": "Assessment of germline findings and family context specifically for inherited cancer susceptibility syndromes.",
+      "descriptionSpanish": "Evaluación de hallazgos germinales y contexto familiar específicamente para síndromes de predisposición hereditaria al cáncer.",
+      "systemImage": "shield.checkerboard"
+    },
+    {
+      "key": "sot_pharmacogenomic_analysis",
+      "nameEnglish": "Pharmacogenomic analysis",
+      "nameSpanish": "Análisis farmacogenómico",
+      "descriptionEnglish": "Evaluation of genetic variants for declared medication response, metabolism, efficacy, or adverse-reaction guidance.",
+      "descriptionSpanish": "Evaluación de variantes genéticas para orientar respuesta, metabolismo, eficacia o reacciones adversas de medicamentos declarados.",
+      "systemImage": "pills.fill"
+    },
+    {
+      "key": "sot_nutrigenomic_metabolic_analysis",
+      "nameEnglish": "Nutrigenomic and metabolic analysis",
+      "nameSpanish": "Análisis nutrigenómico y metabólico",
+      "descriptionEnglish": "Interpretation of genetic factors specifically related to nutrient processing, dietary response, or inherited metabolic traits.",
+      "descriptionSpanish": "Interpretación de factores genéticos relacionados específicamente con el procesamiento de nutrientes, la respuesta alimentaria o rasgos metabólicos heredados.",
+      "systemImage": "leaf.fill"
+    },
+    {
+      "key": "sot_ancestry_analysis",
+      "nameEnglish": "Genetic ancestry analysis",
+      "nameSpanish": "Análisis de ascendencia genética",
+      "descriptionEnglish": "Estimation of population ancestry, geographic origins, or genetic lineages; it does not provide medical risk interpretation.",
+      "descriptionSpanish": "Estimación de ascendencia poblacional, orígenes geográficos o linajes genéticos; no proporciona interpretación de riesgo médico.",
+      "systemImage": "globe.americas.fill"
+    },
+    {
+      "key": "sot_polygenic_risk_analysis",
+      "nameEnglish": "Polygenic risk analysis",
+      "nameSpanish": "Análisis de riesgo poligénico",
+      "descriptionEnglish": "Calculation and contextualization of a declared polygenic score for a specified trait or condition using an identified model and population scope.",
+      "descriptionSpanish": "Cálculo y contextualización de una puntuación poligénica declarada para un rasgo o condición, usando un modelo y alcance poblacional identificados.",
+      "systemImage": "chart.xyaxis.line"
+    },
+    {
+      "key": "sot_genomic_report_generation",
+      "nameEnglish": "Genomic report generation",
+      "nameSpanish": "Generación de informe genómico",
+      "descriptionEnglish": "Assembly of validated service outputs into a human-readable genomic report without adding a separate second-opinion review.",
+      "descriptionSpanish": "Composición de resultados validados del servicio en un informe genómico legible, sin agregar una revisión independiente de segunda opinión.",
+      "systemImage": "doc.richtext.fill"
+    },
+    {
+      "key": "sot_genomic_report_review",
+      "nameEnglish": "Genomic report review",
+      "nameSpanish": "Revisión de informe genómico",
+      "descriptionEnglish": "Independent professional review, explanation, or second opinion on an already completed genomic report.",
+      "descriptionSpanish": "Revisión profesional independiente, explicación o segunda opinión sobre un informe genómico ya finalizado.",
+      "systemImage": "doc.text.magnifyingglass"
+    },
+    {
+      "key": "sot_genomic_data_interoperability",
+      "nameEnglish": "Genomic data conversion and interoperability",
+      "nameSpanish": "Conversión e interoperabilidad de datos genómicos",
+      "descriptionEnglish": "Deterministic conversion, packaging, validation, or exchange of genomic files between declared formats without biological analysis or interpretation.",
+      "descriptionSpanish": "Conversión determinística, empaquetado, validación o intercambio de archivos genómicos entre formatos declarados, sin análisis biológico ni interpretación.",
+      "systemImage": "arrow.left.arrow.right.square.fill"
+    }
+  ]
+}

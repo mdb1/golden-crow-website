@@ -19,6 +19,7 @@ import {
   POCKET_GENES_SERVICE_OPTIONS,
   normalizePocketGenesCatalogFormShape,
 } from "@/lib/pocket-genes-service-catalog";
+import { SUPPORT_SERVICE_CATEGORIES } from "@/lib/support-service-categories";
 import { appText } from "@/lib/language";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 import type {
@@ -56,7 +57,7 @@ const hiddenOffer: SupportServiceOfferRecord = {
   serviceId: "pgs_frozen_lab_1",
   serviceVersion: 1,
   name: "Frozen lab service",
-  serviceCategory: "",
+  serviceCategory: "sot_genomic_report_generation",
   providerKind: "organization",
   providerId: "provider-frozen",
   providerName: "Frozen Lab",
@@ -227,7 +228,10 @@ const currentLiveOffer: SupportServiceOfferRecord = {
   ],
 };
 
-function renderWithQueryClient(children: React.ReactNode) {
+function renderWithQueryClient(
+  children: React.ReactNode,
+  language: "en" | "es" = "en",
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -237,7 +241,7 @@ function renderWithQueryClient(children: React.ReactNode) {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
+      <AppLanguageProvider initialLanguage={language} forcedLanguage={language}>
         {children}
       </AppLanguageProvider>
     </QueryClientProvider>,
@@ -406,6 +410,100 @@ describe("support services workbenches", () => {
       ),
     ).toBeTruthy();
     expect(screen.getByText("Offer identity")).toBeTruthy();
+  });
+
+  it("uses a wide, bilingual single-select registry modal and persists only its key", async () => {
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        return { offer: { ...hiddenOffer, ...payload } };
+      }
+      if (String(path).includes("?limit=")) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: hiddenOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
+      "es",
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Cambiar categoría de servicio",
+      }),
+    );
+
+    const modal = await screen.findByRole("dialog");
+    expect(modal.className).toContain("80rem");
+    expect(within(modal).getAllByRole("radio")).toHaveLength(
+      SUPPORT_SERVICE_CATEGORIES.length,
+    );
+    expect(within(modal).getByText("Preparación clínica")).toBeTruthy();
+    expect(
+      within(modal).getByText(
+        "Revisión profesional independiente, explicación o segunda opinión sobre un informe genómico ya finalizado.",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      within(modal).getByRole("radio", {
+        name: /Revisión de informe genómico/,
+      }),
+    );
+    fireEvent.click(
+      within(modal).getByRole("button", { name: "Aplicar categoría" }),
+    );
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Guardar cambios" })[0],
+    );
+
+    await waitFor(() => {
+      const putCall = sdkFetchMock.mock.calls.find(
+        ([, init]) => init?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const payload = JSON.parse(String(putCall?.[1]?.body));
+      expect(payload.serviceCategory).toBe("sot_genomic_report_review");
+      expect(payload.serviceCategory).not.toBe("Revisión de informe genómico");
+    });
+  });
+
+  it("renders invalid historical categories as Uncategorized and blocks save until one is selected", async () => {
+    const historicalOffer: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      id: "offer-historical-category",
+      serviceCategory: "Reports",
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (String(path).includes("?limit=")) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: historicalOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="edit"
+        offerId={historicalOffer.id}
+      />,
+    );
+
+    expect(await screen.findByText("Uncategorized")).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        sdkFetchMock.mock.calls.some(([path]) =>
+          String(path).startsWith("/admin/support-services/offers?"),
+        ),
+      ).toBe(true);
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+
+    expect(await screen.findByText("Choose one service category.")).toBeTruthy();
+    expect(
+      sdkFetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
   });
 
   it("exports the persisted service offer record as raw JSON", async () => {

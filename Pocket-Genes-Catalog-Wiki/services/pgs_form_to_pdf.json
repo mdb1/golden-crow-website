@@ -208,7 +208,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_genomic_report_generation",
   "providerName": "Meridian Clinical Planning",
   "providerKind": "organization",
   "regions": [

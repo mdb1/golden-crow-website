@@ -174,7 +174,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_variant_annotation",
   "providerName": "Variant Analysis Cooperative",
   "providerKind": "organization",
   "regions": [

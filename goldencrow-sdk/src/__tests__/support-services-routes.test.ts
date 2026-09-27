@@ -14,6 +14,7 @@ const mockAttachSupportServiceTransactionOutputObject = jest.fn();
 const mockDeliverSupportServiceTransaction = jest.fn();
 
 jest.mock("../repositories/support-services.repository.js", () => ({
+  SUPPORT_SERVICE_CATEGORY_KEYS: ["sot_genomic_report_generation"],
   SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH: 900_000,
   SUPPORT_SERVICE_STAGES: ["test_planning", "wet_lab", "bioinformatics"],
   SUPPORT_SERVICE_OFFER_STATUSES: ["draft", "active", "inactive", "archived"],
@@ -81,7 +82,7 @@ const validOfferPayload = {
   serviceId: "pgs_pocket_genes_report_studio_1",
   serviceVersion: 1,
   name: "Create the final self-contained report",
-  serviceCategory: "Final report production",
+  serviceCategory: "sot_genomic_report_generation",
   providerKind: "organization",
   providerId: "feed-org-1",
   providerName: "Pocket Genes Report Studio",
@@ -246,6 +247,31 @@ describe("support service admin routes", () => {
         promotionalBannerImageUrl: null,
       }),
     );
+  });
+
+  it.each([
+    ["a missing category", undefined],
+    ["an empty category", ""],
+    ["a translated label", "Generación de informe genómico"],
+    ["an unknown key", "sot_unknown"],
+    ["a key with surrounding whitespace", " sot_genomic_report_generation "],
+  ])("rejects %s before calling the offer repository", async (_label, category) => {
+    const fastify = await buildTestServer();
+    const payload: Record<string, unknown> = { ...validOfferPayload };
+    if (category === undefined) {
+      delete payload.serviceCategory;
+    } else {
+      payload.serviceCategory = category;
+    }
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload,
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 
   it("accepts canonical promotional banner upload data through the enlarged offer route", async () => {

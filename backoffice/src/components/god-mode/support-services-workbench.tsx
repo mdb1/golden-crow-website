@@ -95,6 +95,15 @@ import {
   catalogServiceById,
   objectLabel,
 } from "@/lib/pocket-genes-service-catalog";
+import {
+  SUPPORT_SERVICE_CATEGORIES,
+  SUPPORT_SERVICE_CATEGORY_GROUPS,
+  isSupportServiceCategoryKey,
+  supportServiceCategoryByKey,
+  supportServiceCategoryDescription,
+  supportServiceCategoryName,
+  type SupportServiceCategoryKey,
+} from "@/lib/support-service-categories";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 import type {
   DiscoverIndividualRecord,
@@ -963,7 +972,7 @@ function offerFormFromCatalog(
     serviceId: catalogOffer.serviceId,
     serviceVersion: catalogOffer.serviceVersion,
     name: catalogOffer.name,
-    serviceCategory: catalogOffer.name,
+    serviceCategory: catalogOffer.serviceCategory,
     providerKind: currentProvider.providerKind,
     providerId: currentProvider.providerId,
     providerName: currentProvider.providerName,
@@ -1021,7 +1030,9 @@ function offerFormFromRecord(
     serviceId: record.serviceId,
     serviceVersion: record.serviceVersion,
     name: record.name,
-    serviceCategory: record.serviceCategory ?? "",
+    serviceCategory: isSupportServiceCategoryKey(record.serviceCategory)
+      ? record.serviceCategory
+      : "",
     providerKind: record.providerKind ?? "organization",
     providerId: record.providerId,
     providerName: record.providerName ?? "",
@@ -1774,12 +1785,16 @@ function offerPayloadFromForm(
   }
   const acceptedConditions = splitLines(form.acceptedConditionsText);
   const scopeRules = splitLines(form.scopeRulesText);
+  const serviceCategory = form.serviceCategory;
+  if (!isSupportServiceCategoryKey(serviceCategory)) {
+    throw new Error("Choose one service category.");
+  }
 
   return {
     serviceId: generatedIds.serviceId,
     serviceVersion: form.serviceVersion || 1,
     name: form.name.trim(),
-    serviceCategory: form.serviceCategory.trim(),
+    serviceCategory,
     providerKind: form.providerKind,
     providerId: form.providerId.trim(),
     providerName: form.providerName.trim(),
@@ -3577,15 +3592,15 @@ export function SupportServiceOfferWorkbench({
               <GeneratedValue value={String(form.serviceVersion || 1)} />
             </Field>
             <Field label="Service category">
-              <Input
+              <ServiceCategoryPicker
                 value={form.serviceCategory}
-                onChange={(event) =>
+                disabled={isWorking}
+                onChange={(serviceCategory) =>
                   setForm((current) => ({
                     ...current,
-                    serviceCategory: event.target.value,
+                    serviceCategory,
                   }))
                 }
-                placeholder={t("Optional general category")}
               />
             </Field>
             <Field label="Native discovery">
@@ -4433,6 +4448,243 @@ function ServiceOfferPublishDialog({
         ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function serviceCategoryGroupIcon(groupId: string) {
+  switch (groupId) {
+    case "clinical_preparation":
+      return ClipboardList;
+    case "specimen_and_laboratory":
+      return FlaskConical;
+    case "specialized_screening":
+      return UserRound;
+    case "bioinformatics_pipeline":
+      return Binary;
+    case "interpretation_by_purpose":
+      return Search;
+    default:
+      return FileText;
+  }
+}
+
+function ServiceCategoryPicker({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: string;
+  disabled?: boolean;
+  onChange: (value: SupportServiceCategoryKey) => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<SupportServiceCategoryKey | "">("");
+  const selectedCategory = supportServiceCategoryByKey(value);
+  const draftCategory = supportServiceCategoryByKey(draft);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
+      setDraft(selectedCategory?.key ?? "");
+    }
+    setOpen(nextOpen);
+  }
+
+  function applyCategory() {
+    if (!isSupportServiceCategoryKey(draft)) {
+      return;
+    }
+    onChange(draft);
+    setOpen(false);
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => handleOpenChange(true)}
+        disabled={disabled}
+        aria-label={
+          selectedCategory
+            ? t("Change service category")
+            : t("Choose service category")
+        }
+        className={cn(
+          "flex min-h-24 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left shadow-sm transition",
+          selectedCategory
+            ? "border-violet-200 bg-white/82 hover:border-violet-300 hover:bg-violet-50/70 dark:border-violet-400/20 dark:bg-slate-950/42 dark:hover:bg-violet-500/10"
+            : "border-amber-300 bg-amber-50/85 hover:border-amber-400 hover:bg-amber-50 dark:border-amber-400/30 dark:bg-amber-500/10",
+          disabled && "cursor-not-allowed opacity-60",
+        )}
+      >
+        <span
+          className={cn(
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+            selectedCategory
+              ? "bg-violet-100 text-violet-700 dark:bg-violet-500/16 dark:text-violet-100"
+              : "bg-amber-100 text-amber-700 dark:bg-amber-500/16 dark:text-amber-100",
+          )}
+        >
+          {selectedCategory ? (
+            <CheckCircle2 className="h-5 w-5" />
+          ) : (
+            <CircleAlert className="h-5 w-5" />
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-foreground">
+            {selectedCategory
+              ? supportServiceCategoryName(selectedCategory, language)
+              : t("Uncategorized")}
+          </span>
+          <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+            {selectedCategory
+              ? supportServiceCategoryDescription(selectedCategory, language)
+              : t("Choose one registered category before saving this offer.")}
+          </span>
+          {selectedCategory ? (
+            <code className="mt-2 block truncate text-[11px] text-violet-700 dark:text-violet-200">
+              {selectedCategory.key}
+            </code>
+          ) : null}
+        </span>
+        <Settings2 className="h-4 w-4 shrink-0 text-violet-600 dark:text-violet-200" />
+      </button>
+
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="flex max-h-[92vh] w-[min(calc(100vw-2rem),80rem)] max-w-none flex-col overflow-hidden rounded-2xl border border-violet-100 bg-white p-0 shadow-[0_34px_120px_rgba(109,40,217,0.24)] sm:max-w-none dark:border-violet-300/20 dark:bg-slate-950">
+          <DialogHeader className="shrink-0 border-b border-violet-100 bg-violet-50/55 px-6 py-5 text-left dark:border-violet-300/16 dark:bg-violet-950/24">
+            <DialogTitle className="font-heading text-2xl font-semibold">
+              {t("Choose service category")}
+            </DialogTitle>
+            <DialogDescription className="max-w-4xl leading-6">
+              {t(
+                "Choose the single category that describes the primary contracted and billable outcome. Supporting inputs, steps, and provider profession do not determine it.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+            <div
+              role="radiogroup"
+              aria-label={t("Service category options")}
+              className="grid gap-7"
+            >
+              {SUPPORT_SERVICE_CATEGORY_GROUPS.map((group) => {
+                const GroupIcon = serviceCategoryGroupIcon(group.id);
+                const categories = group.keys
+                  .map((key) =>
+                    SUPPORT_SERVICE_CATEGORIES.find(
+                      (category) => category.key === key,
+                    ),
+                  )
+                  .filter((category) => category !== undefined);
+
+                return (
+                  <section key={group.id} className="grid gap-3">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/16 dark:text-violet-100">
+                        <GroupIcon className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <h3 className="text-base font-semibold text-foreground">
+                          {language === "es"
+                            ? group.nameSpanish
+                            : group.nameEnglish}
+                        </h3>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {language === "es"
+                            ? group.descriptionSpanish
+                            : group.descriptionEnglish}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      {categories.map((category) => {
+                        const selected = draft === category.key;
+                        return (
+                          <button
+                            key={category.key}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => setDraft(category.key)}
+                            className={cn(
+                              "flex min-h-40 w-full items-start gap-4 rounded-xl border px-4 py-4 text-left transition",
+                              selected
+                                ? "border-violet-400 bg-violet-50 text-violet-950 shadow-[0_16px_40px_-28px_rgba(109,40,217,0.7)] ring-2 ring-violet-200 dark:border-violet-300/50 dark:bg-violet-500/14 dark:text-violet-50 dark:ring-violet-400/18"
+                                : "border-violet-100 bg-white/82 text-foreground hover:border-violet-200 hover:bg-violet-50/55 dark:border-violet-400/16 dark:bg-slate-950/42 dark:hover:bg-violet-500/10",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border",
+                                selected
+                                  ? "border-violet-600 bg-violet-600 text-white"
+                                  : "border-violet-200 bg-white text-transparent dark:border-violet-400/28 dark:bg-slate-950",
+                              )}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold">
+                                {supportServiceCategoryName(category, language)}
+                              </span>
+                              <span className="mt-2 block text-xs leading-5 text-muted-foreground">
+                                {supportServiceCategoryDescription(
+                                  category,
+                                  language,
+                                )}
+                              </span>
+                              <span className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-violet-700 dark:text-violet-200">
+                                <code>{category.key}</code>
+                                <span aria-hidden="true">·</span>
+                                <code>{category.systemImage}</code>
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </div>
+
+          <DialogFooter className="shrink-0 gap-3 border-t border-violet-100 bg-white/95 px-6 py-4 dark:border-violet-300/16 dark:bg-slate-950/95">
+            <div className="mr-auto hidden min-w-0 sm:block">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {draftCategory
+                  ? supportServiceCategoryName(draftCategory, language)
+                  : t("No category selected")}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {draftCategory?.key ?? t("Select one category to continue.")}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+            >
+              {t("Cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={applyCategory}
+              disabled={!draftCategory}
+              className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+            >
+              <Check className="h-4 w-4" />
+              {t("Apply category")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

@@ -340,7 +340,7 @@ const baseOffer = {
   serviceId: "pgs_pocket_genes_1",
   serviceVersion: 3,
   name: "Report service",
-  serviceCategory: "Reports",
+  serviceCategory: "sot_genomic_report_generation",
   providerKind: "organization" as const,
   providerId: "feed-org-1",
   providerName: "Pocket Genes",
@@ -411,6 +411,89 @@ describe("support service repository versions", () => {
     seedDoc("service_offers", "offer-1", baseOffer);
   });
 
+  it.each([
+    "",
+    "Genomic report generation",
+    "sot_unknown",
+    " sot_genomic_report_generation ",
+  ])(
+    "rejects non-registry serviceCategory value %p on write",
+    async (serviceCategory) => {
+      const { createSupportServiceOffer } = await import(
+        "../repositories/support-services.repository.js"
+      );
+
+      await expect(
+        createSupportServiceOffer(context, {
+          serviceId: "pgs_pocket_genes_2",
+          name: "Report generation",
+          serviceCategory,
+          providerKind: "organization",
+          providerId: "feed-org-1",
+          providerName: "Pocket Genes",
+          stages: ["bioinformatics"],
+          status: "draft",
+          isHiddenFromSearch: false,
+          isHighlightedOffer: false,
+          isProfessionalOffer: true,
+          description: "Generate a genomic report.",
+          providerWork: "Assemble the validated result.",
+          inputSlots: [],
+          outputSlots: [
+            {
+              role: "report",
+              objectType: "pgo_pdf_report",
+              mutationMode: "new_object",
+            },
+          ],
+        }),
+      ).rejects.toThrow(
+        "serviceCategory must be one exact key from the closed service-offer category registry.",
+      );
+    },
+  );
+
+  it("shows an invalid historical category as Uncategorized with a remediation warning", async () => {
+    seedDoc("service_offers", "offer-historical", {
+      ...baseOffer,
+      serviceCategory: "Reports",
+    });
+    const { getSupportServiceOffer, updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const offer = await getSupportServiceOffer(context, "offer-historical");
+
+    expect(offer.serviceCategory).toBe("");
+    expect(offer.complianceWarnings).toContain(
+      "serviceCategory Reports is not registered; it is shown as Uncategorized and must be selected before saving.",
+    );
+
+    const repaired = await updateSupportServiceOffer(
+      context,
+      "offer-historical",
+      {
+        ...baseOffer,
+        serviceCategory: "sot_genomic_report_generation",
+      },
+    );
+    expect(repaired.serviceCategory).toBe("sot_genomic_report_generation");
+    expect(repaired.serviceVersion).toBe(4);
+  });
+
+  it("exports the exact closed 30-key category registry", async () => {
+    const { SUPPORT_SERVICE_CATEGORY_KEYS } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    expect(SUPPORT_SERVICE_CATEGORY_KEYS).toHaveLength(30);
+    expect(new Set(SUPPORT_SERVICE_CATEGORY_KEYS).size).toBe(30);
+    expect(SUPPORT_SERVICE_CATEGORY_KEYS[0]).toBe("sot_genetic_counseling");
+    expect(SUPPORT_SERVICE_CATEGORY_KEYS[29]).toBe(
+      "sot_genomic_data_interoperability",
+    );
+  });
+
   it("omits sameIdentityAsInput when persisting a new-object output slot", async () => {
     const { createSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
@@ -420,7 +503,7 @@ describe("support service repository versions", () => {
       serviceId: "pgs_pocket_genes_1",
       serviceVersion: 1,
       name: "Nueva solicitud de consentimiento informado",
-      serviceCategory: "",
+      serviceCategory: "sot_informed_consent",
       providerKind: "organization",
       providerId: "feed-org-1",
       providerName: "Pocket Genes",

@@ -233,7 +233,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_genomic_report_generation",
   "providerName": "Clarity Report Studio",
   "providerKind": "organization",
   "regions": [

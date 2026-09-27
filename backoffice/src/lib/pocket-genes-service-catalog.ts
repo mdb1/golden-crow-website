@@ -10,6 +10,10 @@ import type {
   SupportServicePricingModel,
   SupportServiceStage,
 } from "@/lib/support-services";
+import {
+  isSupportServiceCategoryKey,
+  type SupportServiceCategoryKey,
+} from "@/lib/support-service-categories";
 
 type RawCatalog = Record<string, unknown>;
 
@@ -68,6 +72,14 @@ function normalizeStage(value: string): SupportServiceStage {
   return value === "wet_lab" || value === "bioinformatics"
     ? value
     : "test_planning";
+}
+
+function normalizeServiceCategory(value: unknown): SupportServiceCategoryKey {
+  const category = typeof value === "string" ? value : "";
+  if (!isSupportServiceCategoryKey(category)) {
+    throw new Error(`Unknown serviceCategory: ${category || "empty"}.`);
+  }
+  return category;
 }
 
 function normalizeInputSlot(slot: Record<string, unknown>): SupportServiceInputSlot {
@@ -178,6 +190,7 @@ export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
     serviceId: cleanString(service.serviceId),
     serviceVersion: versionNumber(service.serviceVersion),
     name: cleanString(service.name),
+    serviceCategory: normalizeServiceCategory(service.serviceCategory),
     providerId: cleanString(service.providerId),
     stages: stringArray(service.stages).map(normalizeStage),
     isHiddenFromSearch: requiredBoolean(

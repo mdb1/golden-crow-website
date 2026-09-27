@@ -173,7 +173,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_read_alignment",
   "providerName": "Variant Analysis Cooperative",
   "providerKind": "organization",
   "regions": [

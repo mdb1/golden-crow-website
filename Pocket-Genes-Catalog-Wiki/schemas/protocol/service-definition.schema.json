@@ -1211,7 +1211,40 @@
           ]
         },
         "serviceCategory": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "sot_genetic_counseling",
+            "sot_clinical_intake_phenotyping",
+            "sot_informed_consent",
+            "sot_genetic_test_selection",
+            "sot_genetic_test_ordering",
+            "sot_sample_collection",
+            "sot_sample_logistics",
+            "sot_sample_accession_quality",
+            "sot_dna_extraction",
+            "sot_dna_sequencing",
+            "sot_genotyping",
+            "sot_cytogenetic_analysis",
+            "sot_prenatal_genetic_screening",
+            "sot_reproductive_carrier_screening",
+            "sot_sequence_quality_control",
+            "sot_read_alignment",
+            "sot_variant_calling",
+            "sot_structural_variant_cnv_analysis",
+            "sot_variant_annotation",
+            "sot_gene_variant_prioritization",
+            "sot_genomic_interpretation",
+            "sot_rare_disease_analysis",
+            "sot_hereditary_cancer_analysis",
+            "sot_pharmacogenomic_analysis",
+            "sot_nutrigenomic_metabolic_analysis",
+            "sot_ancestry_analysis",
+            "sot_polygenic_risk_analysis",
+            "sot_genomic_report_generation",
+            "sot_genomic_report_review",
+            "sot_genomic_data_interoperability"
+          ],
+          "description": "Closed service-offer type key from catalog/service-offer-types.json."
         },
         "normalizedName": {
           "type": "string"
@@ -1350,6 +1383,7 @@
         "providerKind",
         "providerName",
         "status",
+        "serviceCategory",
         "stages",
         "availability",
         "isHiddenFromSearch",

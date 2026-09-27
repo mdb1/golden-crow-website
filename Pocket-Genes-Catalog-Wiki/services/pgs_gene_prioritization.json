@@ -180,7 +180,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_gene_variant_prioritization",
   "providerName": "Meridian Clinical Planning",
   "providerKind": "organization",
   "regions": [

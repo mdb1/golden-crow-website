@@ -205,7 +205,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_dna_extraction",
   "providerName": "Atlas Precision Laboratory",
   "providerKind": "organization",
   "regions": [

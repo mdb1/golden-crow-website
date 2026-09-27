@@ -116,6 +116,39 @@ export const SUPPORT_SERVICE_TRANSACTION_STATUSES = [
   "cancelled",
 ] as const;
 
+export const SUPPORT_SERVICE_CATEGORY_KEYS = [
+  "sot_genetic_counseling",
+  "sot_clinical_intake_phenotyping",
+  "sot_informed_consent",
+  "sot_genetic_test_selection",
+  "sot_genetic_test_ordering",
+  "sot_sample_collection",
+  "sot_sample_logistics",
+  "sot_sample_accession_quality",
+  "sot_dna_extraction",
+  "sot_dna_sequencing",
+  "sot_genotyping",
+  "sot_cytogenetic_analysis",
+  "sot_prenatal_genetic_screening",
+  "sot_reproductive_carrier_screening",
+  "sot_sequence_quality_control",
+  "sot_read_alignment",
+  "sot_variant_calling",
+  "sot_structural_variant_cnv_analysis",
+  "sot_variant_annotation",
+  "sot_gene_variant_prioritization",
+  "sot_genomic_interpretation",
+  "sot_rare_disease_analysis",
+  "sot_hereditary_cancer_analysis",
+  "sot_pharmacogenomic_analysis",
+  "sot_nutrigenomic_metabolic_analysis",
+  "sot_ancestry_analysis",
+  "sot_polygenic_risk_analysis",
+  "sot_genomic_report_generation",
+  "sot_genomic_report_review",
+  "sot_genomic_data_interoperability",
+] as const;
+
 export type SupportServiceStage = (typeof SUPPORT_SERVICE_STAGES)[number];
 export type SupportServiceOfferStatus =
   (typeof SUPPORT_SERVICE_OFFER_STATUSES)[number];
@@ -123,6 +156,8 @@ export type SupportServiceTransactionStatus =
   (typeof SUPPORT_SERVICE_TRANSACTION_STATUSES)[number];
 export type SupportServiceObjectType =
   (typeof SUPPORT_SERVICE_OBJECT_TYPES)[number];
+export type SupportServiceCategoryKey =
+  (typeof SUPPORT_SERVICE_CATEGORY_KEYS)[number];
 export type SupportServiceProviderKind = "organization" | "individual";
 export type SupportServicePricingModel =
   | "not_specified"
@@ -521,6 +556,27 @@ function requireGodMode(context: AdminContext) {
 
 function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+const SUPPORT_SERVICE_CATEGORY_SET = new Set<string>(
+  SUPPORT_SERVICE_CATEGORY_KEYS,
+);
+
+function serviceCategoryValue(
+  value: unknown,
+  options: { allowHistorical?: boolean } = {},
+) {
+  const category = typeof value === "string" ? value : "";
+  if (SUPPORT_SERVICE_CATEGORY_SET.has(category)) {
+    return category;
+  }
+  if (options.allowHistorical) {
+    return category;
+  }
+  throw new AdminRepositoryError(
+    "serviceCategory must be one exact key from the closed service-offer category registry.",
+    400,
+  );
 }
 
 function normalizeKey(value: string) {
@@ -1390,7 +1446,10 @@ function outputReportsFromUnknown(
   });
 }
 
-function offerDocument(input: SupportServiceOfferInput) {
+function offerDocument(
+  input: SupportServiceOfferInput,
+  options: { allowHistoricalServiceCategory?: boolean } = {},
+) {
   rejectForbiddenKeys(
     input as Record<string, unknown>,
     FORBIDDEN_OFFER_ROOT_KEYS,
@@ -1404,7 +1463,9 @@ function offerDocument(input: SupportServiceOfferInput) {
   const stages = normalizeStages(input.stages);
   const inputSlots = normalizeOfferInputSlots(input.inputSlots);
   const outputSlots = normalizeOfferOutputSlots(input.outputSlots);
-  const serviceCategory = cleanString(input.serviceCategory);
+  const serviceCategory = serviceCategoryValue(input.serviceCategory, {
+    allowHistorical: options.allowHistoricalServiceCategory,
+  });
 
   return {
     schemaVersion: 1,
@@ -1816,7 +1877,10 @@ function offerFromFrozenTransaction(
       400,
     );
   }
-  validateOfferDocument(offerDocument(offer));
+  validateOfferDocument(
+    offerDocument(offer, { allowHistoricalServiceCategory: true }),
+    { allowHistoricalServiceCategory: true },
+  );
   if (cleanString(snapshot.shortContract) !== offer.shortContract) {
     throw new AdminRepositoryError(
       "Stored offerSnapshot shortContract does not match its frozen slots.",
@@ -1826,7 +1890,10 @@ function offerFromFrozenTransaction(
   return offer;
 }
 
-function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
+function validateOfferDocument(
+  document: ReturnType<typeof offerDocument>,
+  options: { allowHistoricalServiceCategory?: boolean } = {},
+) {
   if (!document.name) {
     throw new AdminRepositoryError("Service offer name is required.", 400);
   }
@@ -1856,6 +1923,15 @@ function validateOfferDocument(document: ReturnType<typeof offerDocument>) {
   }
   if (!document.providerName) {
     throw new AdminRepositoryError("Provider name is required.", 400);
+  }
+  if (
+    !options.allowHistoricalServiceCategory &&
+    !SUPPORT_SERVICE_CATEGORY_SET.has(document.serviceCategory)
+  ) {
+    throw new AdminRepositoryError(
+      "serviceCategory must be one exact key from the closed service-offer category registry.",
+      400,
+    );
   }
   const formInputSlotCount = document.inputSlots.filter(
     (slot) => slot.objectType === FORM_OBJECT_TYPE,
@@ -3793,7 +3869,13 @@ function toOfferRecord(
   const name = cleanString(data.name);
   const inputSlots = normalizeOfferInputSlots(data.inputSlots);
   const outputSlots = normalizeOfferOutputSlots(data.outputSlots);
-  const serviceCategory = cleanString(data.serviceCategory);
+  const storedServiceCategory =
+    typeof data.serviceCategory === "string" ? data.serviceCategory : "";
+  const serviceCategory = SUPPORT_SERVICE_CATEGORY_SET.has(
+    storedServiceCategory,
+  )
+    ? storedServiceCategory
+    : "";
 
   const record = {
     id,
@@ -3854,7 +3936,10 @@ function toOfferRecord(
     updatedByEmail: cleanString(data.updatedByEmail),
     complianceWarnings: [],
   } satisfies SupportServiceOfferRecord;
-  validateOfferDocument(offerDocument(record));
+  validateOfferDocument(
+    offerDocument(record, { allowHistoricalServiceCategory: true }),
+    { allowHistoricalServiceCategory: true },
+  );
   return record;
 }
 
@@ -4112,7 +4197,17 @@ function toOfferAdminRecord(
   const providerId = cleanString(data.providerId);
   const providerName = cleanString(data.providerName);
   const name = cleanString(data.name);
-  const serviceCategory = cleanString(data.serviceCategory);
+  const rawServiceCategory =
+    typeof data.serviceCategory === "string" ? data.serviceCategory : "";
+  const serviceCategory = SUPPORT_SERVICE_CATEGORY_SET.has(rawServiceCategory)
+    ? rawServiceCategory
+    : "";
+  if (!serviceCategory) {
+    pushComplianceWarning(
+      complianceWarnings,
+      `${rawServiceCategory.trim() ? `serviceCategory ${rawServiceCategory} is not registered` : "serviceCategory is missing"}; it is shown as Uncategorized and must be selected before saving.`,
+    );
+  }
   const createdAt = timestampToIso(data.createdAt);
   const updatedAt = timestampToIso(data.updatedAt);
   if (!createdAt) {
@@ -4186,7 +4281,10 @@ function toOfferAdminRecord(
   }) satisfies SupportServiceOfferRecord;
 
   try {
-    validateOfferDocument(offerDocument(record));
+    validateOfferDocument(
+      offerDocument(record, { allowHistoricalServiceCategory: true }),
+      { allowHistoricalServiceCategory: true },
+    );
   } catch (error) {
     pushComplianceWarning(
       complianceWarnings,
@@ -5120,7 +5218,9 @@ export async function updateSupportServiceOffer(
   }
 
   const previousRecord = toOfferAdminRecord(offerId, snapshot.data() ?? {});
-  const previousDocument = offerDocument(previousRecord);
+  const previousDocument = offerDocument(previousRecord, {
+    allowHistoricalServiceCategory: true,
+  });
   const draft = offerDocument(
     preserveExistingPromotionalBannerImage(input, previousRecord),
   );

@@ -229,7 +229,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_informed_consent",
   "providerName": "Meridian Clinical Planning",
   "providerKind": "organization",
   "regions": [

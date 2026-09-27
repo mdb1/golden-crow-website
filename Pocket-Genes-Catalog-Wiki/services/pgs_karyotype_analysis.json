@@ -174,7 +174,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_cytogenetic_analysis",
   "providerName": "Chromosome Image Services",
   "providerKind": "organization",
   "regions": [

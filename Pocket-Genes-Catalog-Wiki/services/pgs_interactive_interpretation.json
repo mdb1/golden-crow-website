@@ -156,7 +156,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_genomic_interpretation",
   "providerName": "Variant Analysis Cooperative",
   "providerKind": "organization",
   "regions": [

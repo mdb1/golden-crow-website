@@ -660,7 +660,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_sample_collection",
   "providerName": "Origin Sample Services",
   "providerKind": "organization",
   "regions": [

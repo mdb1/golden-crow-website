@@ -127,7 +127,7 @@
     ]
   },
   "status": "active",
-  "serviceCategory": "",
+  "serviceCategory": "sot_clinical_intake_phenotyping",
   "providerName": "Meridian Clinical Planning",
   "providerKind": "organization",
   "regions": [
