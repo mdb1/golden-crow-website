@@ -6,6 +6,7 @@ import {
 import type { AdminContext } from "../types/sdk.types.js";
 
 const mockCreateSupportServiceOffer = jest.fn();
+const mockUpdateSupportServiceOffer = jest.fn();
 const mockDeleteSupportServiceOffer = jest.fn();
 const mockListSupportServiceOffers = jest.fn();
 const mockListSupportServiceTransactions = jest.fn();
@@ -68,7 +69,7 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   getSupportServiceTransaction: jest.fn(),
   listSupportServiceOffers: mockListSupportServiceOffers,
   listSupportServiceTransactions: mockListSupportServiceTransactions,
-  updateSupportServiceOffer: jest.fn(),
+  updateSupportServiceOffer: mockUpdateSupportServiceOffer,
   updateSupportServiceTransaction: jest.fn(),
 }));
 
@@ -183,6 +184,12 @@ describe("support service admin routes", () => {
       serviceId: "pgs_pocket_genes_report_studio_12345",
       name: "Create the final self-contained report",
     });
+    mockUpdateSupportServiceOffer.mockResolvedValue({
+      id: "offer-1",
+      serviceId: "pgs_pocket_genes_report_studio_12345",
+      serviceVersion: 2,
+      name: "Create the final self-contained report",
+    });
     mockDeleteSupportServiceOffer.mockResolvedValue(undefined);
     mockListSupportServiceOffers.mockResolvedValue({
       offers: [],
@@ -264,6 +271,36 @@ describe("support service admin routes", () => {
         isHighlightedOffer: false,
         isProfessionalOffer: true,
         promotionalBannerImageUrl: null,
+      }),
+    );
+  });
+
+  it("requires and forwards the existing-transaction contract acknowledgement on updates", async () => {
+    const fastify = await buildTestServer();
+    const withoutAcknowledgement = await fastify.inject({
+      method: "PUT",
+      url: "/admin/support-services/offers/offer-1",
+      payload: validOfferPayload,
+    });
+
+    expect(withoutAcknowledgement.statusCode).toBe(400);
+    expect(mockUpdateSupportServiceOffer).not.toHaveBeenCalled();
+
+    const acknowledged = await fastify.inject({
+      method: "PUT",
+      url: "/admin/support-services/offers/offer-1",
+      payload: {
+        ...validOfferPayload,
+        acknowledgesExistingTransactionContracts: true,
+      },
+    });
+
+    expect(acknowledged.statusCode).toBe(200);
+    expect(mockUpdateSupportServiceOffer).toHaveBeenCalledWith(
+      bootstrapContext,
+      "offer-1",
+      expect.objectContaining({
+        acknowledgesExistingTransactionContracts: true,
       }),
     );
   });

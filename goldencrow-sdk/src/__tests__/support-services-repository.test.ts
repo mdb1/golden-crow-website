@@ -400,6 +400,10 @@ const baseOffer = {
   createdByEmail: "god@example.com",
 };
 
+const existingOfferContractAcknowledgement = {
+  acknowledgesExistingTransactionContracts: true,
+} as const;
+
 describe("support service repository versions", () => {
   beforeEach(() => {
     jest.resetModules();
@@ -478,6 +482,7 @@ describe("support service repository versions", () => {
       "offer-historical",
       {
         ...baseOffer,
+        ...existingOfferContractAcknowledgement,
         serviceCategory: "sot_genomic_report_generation",
       },
     );
@@ -592,6 +597,7 @@ describe("support service repository versions", () => {
     await expect(
       updateSupportServiceOffer(context, "offer-1", {
         ...baseOffer,
+        ...existingOfferContractAcknowledgement,
         serviceId: "pgs_pocket_genes_54321",
         formShape: {
           ...baseOffer.formShape,
@@ -800,7 +806,12 @@ describe("support service repository versions", () => {
     });
 
     expect(offer).toEqual(
-      expect.objectContaining({ inputSlots, outputSlots, shortContract }),
+      expect.objectContaining({
+        inputSlots,
+        outputSlots,
+        shortContract,
+        changeLogHistoryByVersion: {},
+      }),
     );
     expect(
       collectionStore("service_offers").get("service_offers-generated"),
@@ -816,6 +827,7 @@ describe("support service repository versions", () => {
 
     const offer = await updateSupportServiceOffer(context, "offer-1", {
       ...baseOffer,
+      ...existingOfferContractAcknowledgement,
       description: "Create a reviewed report.",
       serviceVersion: 99,
       formShape: {
@@ -837,6 +849,102 @@ describe("support service repository versions", () => {
     );
   });
 
+  it("requires contract continuity acknowledgement for every existing-offer save", async () => {
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceOffer(context, "offer-1", baseOffer),
+    ).rejects.toThrow(
+      "requires acknowledgement that previous transaction contracts remain binding",
+    );
+    expect(writes).toEqual([]);
+  });
+
+  it("appends an exhaustive bilingual change log for each version transition", async () => {
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const first = await updateSupportServiceOffer(context, "offer-1", {
+      ...baseOffer,
+      ...existingOfferContractAcknowledgement,
+      description: "Create a reviewed report.",
+      isHighlightedOffer: true,
+      acceptedConditions: ["The order must identify the subject."],
+    });
+
+    expect(first.serviceVersion).toBe(4);
+    expect(first.changeLogHistoryByVersion).toEqual({
+      v3_to_v4: {
+        en: expect.stringContaining(
+          "Service offer changes from v3 to v4:\n· Service version increased from 3 to 4.",
+        ),
+        es: expect.stringContaining(
+          "Cambios de la oferta de servicio de v3 a v4:\n· La versión del servicio aumentó de 3 a 4.",
+        ),
+      },
+    });
+    const firstTransition = first.changeLogHistoryByVersion?.v3_to_v4;
+    expect(firstTransition).toBeDefined();
+    expect(firstTransition!.en).toContain(
+      'Description changed from "Create a report." to "Create a reviewed report.".',
+    );
+    expect(firstTransition!.en).toContain(
+      "Highlighted offer changed from no to yes.",
+    );
+    expect(firstTransition!.en).toContain(
+      "Acceptance conditions / item 1 was added",
+    );
+    expect(firstTransition!.es).toContain(
+      "Continuidad contractual: v4 se aplica solamente a las transacciones creadas después de este guardado.",
+    );
+
+    const second = await updateSupportServiceOffer(context, "offer-1", {
+      ...baseOffer,
+      ...existingOfferContractAcknowledgement,
+      description: "Create a reviewed report.",
+      isHighlightedOffer: true,
+      acceptedConditions: ["The order must identify the subject."],
+    });
+
+    expect(second.serviceVersion).toBe(5);
+    expect(second.changeLogHistoryByVersion?.v3_to_v4).toEqual(
+      first.changeLogHistoryByVersion?.v3_to_v4,
+    );
+    const secondTransition = second.changeLogHistoryByVersion?.v4_to_v5;
+    expect(secondTransition).toBeDefined();
+    expect(secondTransition!.en).toContain(
+      "No contract fields changed in this save.",
+    );
+    expect(secondTransition!.es).toContain(
+      "No cambiaron campos del contrato en este guardado.",
+    );
+    expect(
+      collectionStore("service_offers").get("offer-1")
+        ?.changeLogHistoryByVersion,
+    ).toEqual(second.changeLogHistoryByVersion);
+  });
+
+  it("rejects client-authored change-log history", async () => {
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const input = {
+      ...baseOffer,
+      ...existingOfferContractAcknowledgement,
+      changeLogHistoryByVersion: {
+        v3_to_v4: { en: "Client text", es: "Texto del cliente" },
+      },
+    };
+
+    await expect(
+      updateSupportServiceOffer(context, "offer-1", input),
+    ).rejects.toThrow(
+      "changeLogHistoryByVersion is generated by the server and cannot be submitted",
+    );
+  });
+
   it("increments from the latest version inside the Firestore transaction", async () => {
     const { updateSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
@@ -850,6 +958,7 @@ describe("support service repository versions", () => {
 
     const offer = await updateSupportServiceOffer(context, "offer-1", {
       ...baseOffer,
+      ...existingOfferContractAcknowledgement,
       description: "Create a concurrently reviewed report.",
     });
 
@@ -869,6 +978,7 @@ describe("support service repository versions", () => {
 
     const offer = await updateSupportServiceOffer(context, "offer-1", {
       ...baseOffer,
+      ...existingOfferContractAcknowledgement,
       formShape: {
         ...baseOffer.formShape,
         fields: [
@@ -909,6 +1019,7 @@ describe("support service repository versions", () => {
 
     const offer = await updateSupportServiceOffer(context, "offer-1", {
       ...baseOffer,
+      ...existingOfferContractAcknowledgement,
       formShape: {
         ...baseOffer.formShape,
         fields: [
@@ -945,6 +1056,7 @@ describe("support service repository versions", () => {
 
     const offer = await updateSupportServiceOffer(context, "offer-1", {
       ...baseOffer,
+      ...existingOfferContractAcknowledgement,
       providerName: "Untrusted client label",
       isHiddenFromSearch: true,
     });
@@ -967,6 +1079,7 @@ describe("support service repository versions", () => {
 
     const offer = await updateSupportServiceOffer(context, "offer-1", {
       ...baseOffer,
+      ...existingOfferContractAcknowledgement,
       isHighlightedOffer: true,
       isProfessionalOffer: false,
       promotionalBannerImageUrl: "https://example.org/promo.webp",
@@ -1012,7 +1125,7 @@ describe("support service repository versions", () => {
     const offer = await updateSupportServiceOffer(
       context,
       "offer-1",
-      inputWithoutBanner,
+      { ...inputWithoutBanner, ...existingOfferContractAcknowledgement },
     );
     const stored = collectionStore("service_offers").get("offer-1");
 
@@ -1051,6 +1164,7 @@ describe("support service repository versions", () => {
     await expect(
       updateSupportServiceOffer(context, "offer-1", {
         ...baseOffer,
+        ...existingOfferContractAcknowledgement,
         promotionalBannerImageUrl: null,
         ...banner,
       }),
@@ -1099,6 +1213,7 @@ describe("support service repository versions", () => {
     await expect(
       updateSupportServiceOffer(context, "offer-1", {
         ...baseOffer,
+        ...existingOfferContractAcknowledgement,
         promotionalBannerImageUrl: null,
         promotionalBannerImageUploadDataUrl: upload,
         formShape: {
@@ -1162,6 +1277,7 @@ describe("support service repository versions", () => {
 
     const repaired = await updateSupportServiceOffer(context, "offer-1", {
       ...baseOffer,
+      ...existingOfferContractAcknowledgement,
       status: "inactive",
     });
     expect(repaired.complianceWarnings).toEqual([]);
@@ -1222,17 +1338,27 @@ describe("support service repository versions", () => {
     const { isProfessionalOffer: ___, ...missingProfessional } = baseOffer;
 
     await expect(
-      updateSupportServiceOffer(context, "offer-1", missingVisibility),
+      updateSupportServiceOffer(context, "offer-1", {
+        ...missingVisibility,
+        ...existingOfferContractAcknowledgement,
+      }),
     ).rejects.toThrow("isHiddenFromSearch must be a boolean.");
     await expect(
-      updateSupportServiceOffer(context, "offer-1", missingHighlight),
+      updateSupportServiceOffer(context, "offer-1", {
+        ...missingHighlight,
+        ...existingOfferContractAcknowledgement,
+      }),
     ).rejects.toThrow("isHighlightedOffer must be a boolean.");
     await expect(
-      updateSupportServiceOffer(context, "offer-1", missingProfessional),
+      updateSupportServiceOffer(context, "offer-1", {
+        ...missingProfessional,
+        ...existingOfferContractAcknowledgement,
+      }),
     ).rejects.toThrow("isProfessionalOffer must be a boolean.");
     await expect(
       updateSupportServiceOffer(context, "offer-1", {
         ...baseOffer,
+        ...existingOfferContractAcknowledgement,
         is_highlighted_offer: false,
       } as typeof baseOffer),
     ).rejects.toThrow("Service offer uses forbidden snake-case field: is_highlighted_offer.");
@@ -1245,6 +1371,7 @@ describe("support service repository versions", () => {
 
     const offer = await updateSupportServiceOffer(context, "offer-1", {
       ...baseOffer,
+      ...existingOfferContractAcknowledgement,
       commercialTerms: {
         pricingModel: "calculated_after_submission",
         price: { summary: "Quoted after review" },
@@ -1265,6 +1392,7 @@ describe("support service repository versions", () => {
     await expect(
       updateSupportServiceOffer(context, "offer-1", {
         ...baseOffer,
+        ...existingOfferContractAcknowledgement,
         formShape: {
           ...baseOffer.formShape,
           fields: [],
@@ -1279,6 +1407,7 @@ describe("support service repository versions", () => {
     await expect(
       updateSupportServiceOffer(context, "offer-1", {
         ...baseOffer,
+        ...existingOfferContractAcknowledgement,
         outputSlots: [
           ...baseOffer.outputSlots,
           {
@@ -1304,6 +1433,7 @@ describe("support service repository versions", () => {
       await expect(
         updateSupportServiceOffer(context, "offer-1", {
           ...baseOffer,
+          ...existingOfferContractAcknowledgement,
           formShape: {
             ...baseOffer.formShape,
             fields: [

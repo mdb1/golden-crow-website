@@ -282,7 +282,7 @@ Every type has optional root \`notes: string\`. Notes may be absent or empty. No
 | \`service_offers\` | Untimed published contract and slots | lower camel case |
 | \`service_transactions\` | Timed request, role bindings, status and outputs | lower camel case |
 
-The same concept intentionally changes casing at a boundary. There are no aliases, fallback reads, or dual writes.`;
+The same concept intentionally changes casing at a boundary. There are no aliases, fallback reads, or dual writes. The sole declared nested-map exception is \`service_offers.changeLogHistoryByVersion\`: its server-generated transition IDs use \`v<from>_to_v<to>\` such as \`v1_to_v2\`, while the field itself and its \`en\` / \`es\` entry fields remain camelCase-compatible. These immutable transition IDs are not aliases.`;
 
 const registryTable = markdownTable(
   ["Type", "Required content", "Optional content"],
@@ -303,6 +303,10 @@ A service offer is an untimed, provider-owned published template. It selects a r
 Every new offer receives an immutable \`serviceId\` in the exact form \`pgs_<provider_name_slug>_<five_digits>\`. The provider-name slug is lowercase ASCII with underscore separators, and the random suffix is an integer from \`10000\` through \`99999\`. Creation must validate the complete ID against persisted offers and atomically claim it; a collision is rejected and requires a newly generated suffix. Existing offers keep their original ID, including historical IDs created before this rule.
 
 \`serviceVersion\` starts at integer \`1\` and is server-controlled. The backend increments it by exactly one on every successful update; clients never submit a chosen replacement version. A transaction freezes the offer's current \`serviceId\` and \`serviceVersion\` when it is created, so later offer updates do not rewrite the transaction and consumers can identify requests pinned to an older contract version.
+
+Every persisted offer initializes \`changeLogHistoryByVersion\` as a map. Each successful update atomically appends exactly one immutable entry under the consecutive transition key \`v<from>_to_v<to>\`, for example \`v1_to_v2\`. The key is the deliberate snake-case exception inside this camelCase collection. Its value contains exactly \`en\` and \`es\`; each is one directly readable natural-language string made of line-separated middle-dot bullets that precisely enumerates every changed contract or presentation field, the automatic version increment, and the continuity rule. The server generates this history from the persisted prior document and the normalized next document; clients cannot submit, edit, delete, or replace it.
+
+Before any existing offer is saved, the operator must explicitly acknowledge that all transactions created under earlier versions remain governed by their complete frozen contract, including requirements, inputs, promised outputs, timing and provider commitments. The new version governs only transactions created after that successful save. Status-only and no-field-change saves still create the next version and a corresponding history entry.
 
 If and only if an offer enables form input, it declares exactly one required \`pgo_form\` slot with role \`form\` and a matching external \`formShape\`. Manual slots cannot use \`pgo_form\`. The external shape retains generated ID and integer version; the submitted PGO freezes only its field definitions and answers.
 
@@ -437,7 +441,7 @@ ${markdownTable(
   ])
 )}
 
-Serialized PGO keys remain snake_case. Explicit adapters convert them when embedding snapshots in camelCase service transactions. Wrong-case aliases are rejected.
+Serialized PGO keys remain snake_case. Explicit adapters convert them when embedding snapshots in camelCase service transactions. Wrong-case aliases are rejected. The only nested key exception is the server-owned \`changeLogHistoryByVersion.vN_to_vN+1\` transition identifier documented above; it is never a compatibility alias.
 
 ${validationChapter}`;
 writeText(path.join(root, "docs/service-model.md"), serviceModel);

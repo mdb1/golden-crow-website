@@ -211,7 +211,18 @@ export interface SupportServiceOfferInput {
   acceptedConditions?: string[];
   scopeRules?: string[];
   commercialTerms?: Record<string, unknown>;
+  acknowledgesExistingTransactionContracts?: boolean;
 }
+
+export interface SupportServiceOfferChangeLogEntry {
+  en: string;
+  es: string;
+}
+
+export type SupportServiceOfferChangeLogHistory = Record<
+  string,
+  SupportServiceOfferChangeLogEntry
+>;
 
 export interface SupportServiceOfferRecord {
   id: string;
@@ -239,6 +250,7 @@ export interface SupportServiceOfferRecord {
   acceptedConditions: string[];
   scopeRules: string[];
   commercialTerms?: Record<string, unknown>;
+  changeLogHistoryByVersion?: SupportServiceOfferChangeLogHistory;
   normalizedName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -534,6 +546,7 @@ const FORBIDDEN_OFFER_ROOT_KEYS = [
   "accepted_conditions",
   "scope_rules",
   "commercial_terms",
+  "change_log_history_by_version",
 ] as const;
 
 type DocumentReader = (
@@ -965,6 +978,62 @@ function stableValue(value: unknown): unknown {
 
 function stableString(value: unknown) {
   return JSON.stringify(stableValue(value));
+}
+
+function changeLogHistoryFromUnknown(
+  value: unknown,
+  warnings?: string[],
+): SupportServiceOfferChangeLogHistory {
+  if (value === undefined) {
+    return {};
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    if (warnings) {
+      pushComplianceWarning(
+        warnings,
+        "changeLogHistoryByVersion must be a map and was shown as empty.",
+      );
+      return {};
+    }
+    throw new AdminRepositoryError(
+      "changeLogHistoryByVersion must be a map.",
+      400,
+    );
+  }
+
+  const history: SupportServiceOfferChangeLogHistory = {};
+  for (const [transitionKey, rawEntry] of Object.entries(value)) {
+    const transition = transitionKey.match(/^v([1-9]\d*)_to_v([1-9]\d*)$/);
+    const fromVersion = transition ? Number(transition[1]) : 0;
+    const toVersion = transition ? Number(transition[2]) : 0;
+    const entryIsObject =
+      rawEntry && typeof rawEntry === "object" && !Array.isArray(rawEntry);
+    const entry = entryIsObject
+      ? (rawEntry as Record<string, unknown>)
+      : {};
+    const entryKeys = Object.keys(entry).sort();
+    const en = typeof entry.en === "string" ? entry.en.trim() : "";
+    const es = typeof entry.es === "string" ? entry.es.trim() : "";
+    const isValid =
+      Boolean(transition) &&
+      toVersion === fromVersion + 1 &&
+      entryIsObject &&
+      stableString(entryKeys) === stableString(["en", "es"]) &&
+      Boolean(en) &&
+      Boolean(es);
+
+    if (!isValid) {
+      const message = `changeLogHistoryByVersion.${transitionKey} must be a consecutive vN_to_vN+1 transition containing only nonempty en and es strings.`;
+      if (warnings) {
+        pushComplianceWarning(warnings, `${message} The entry was omitted.`);
+        continue;
+      }
+      throw new AdminRepositoryError(message, 400);
+    }
+
+    history[transitionKey] = { en, es };
+  }
+  return history;
 }
 
 function comparableOutputObjects(value: readonly unknown[]) {
@@ -1637,6 +1706,329 @@ function applyOfferVersions(
         }
       : undefined,
   };
+}
+
+type ChangeLogLanguage = "en" | "es";
+type ChangeLogPath = Array<string | number>;
+type OfferModelChange = {
+  path: ChangeLogPath;
+  before: unknown;
+  after: unknown;
+};
+
+const CHANGE_LOG_FIELD_LABELS: Record<
+  ChangeLogLanguage,
+  Record<string, string>
+> = {
+  en: {
+    serviceId: "Service ID",
+    name: "Offer name",
+    serviceCategory: "Service category",
+    providerKind: "Provider type",
+    providerId: "Provider ID",
+    providerName: "Provider name",
+    stages: "Stages",
+    status: "Offer status",
+    isHiddenFromSearch: "Hidden from native search",
+    isHighlightedOffer: "Highlighted offer",
+    isProfessionalOffer: "Professional offer",
+    promotionalBannerImageUrl: "Promotional banner URL",
+    promotionalBannerImageUploadDataUrl: "Uploaded promotional banner",
+    description: "Description",
+    shortContract: "Calculated short contract",
+    providerWork: "Provider work",
+    formShape: "Form shape",
+    inputSlots: "Input slots",
+    outputSlots: "Output slots",
+    acceptedConditions: "Acceptance conditions",
+    scopeRules: "Scope rules",
+    commercialTerms: "Commercial terms",
+    id: "ID",
+    version: "version",
+    allowUnknownFields: "allow unknown fields",
+    fields: "fields",
+    key: "key",
+    label: "label",
+    type: "type",
+    required: "required",
+    options: "options",
+    value: "value",
+    helpInfoText: "help text",
+    role: "role",
+    objectType: "object type",
+    acceptedTypes: "accepted types",
+    cardinality: "cardinality",
+    min: "minimum",
+    max: "maximum",
+    mutationMode: "mutation mode",
+    sameIdentityAsInput: "same identity as input",
+    pricingModel: "pricing model",
+    price: "price",
+    summary: "summary",
+    amount: "amount",
+    currency: "currency",
+    turnaround: "turnaround",
+  },
+  es: {
+    serviceId: "ID de servicio",
+    name: "Nombre de la oferta",
+    serviceCategory: "Categoría de servicio",
+    providerKind: "Tipo de proveedor",
+    providerId: "ID del proveedor",
+    providerName: "Nombre del proveedor",
+    stages: "Etapas",
+    status: "Estado de la oferta",
+    isHiddenFromSearch: "Oculta en la búsqueda nativa",
+    isHighlightedOffer: "Oferta destacada",
+    isProfessionalOffer: "Oferta profesional",
+    promotionalBannerImageUrl: "URL del banner promocional",
+    promotionalBannerImageUploadDataUrl: "Banner promocional cargado",
+    description: "Descripción",
+    shortContract: "Contrato corto calculado",
+    providerWork: "Trabajo del proveedor",
+    formShape: "Estructura del formulario",
+    inputSlots: "Slots de entrada",
+    outputSlots: "Slots de salida",
+    acceptedConditions: "Condiciones de aceptación",
+    scopeRules: "Reglas de alcance",
+    commercialTerms: "Términos comerciales",
+    id: "ID",
+    version: "versión",
+    allowUnknownFields: "permitir campos desconocidos",
+    fields: "campos",
+    key: "clave",
+    label: "etiqueta",
+    type: "tipo",
+    required: "obligatorio",
+    options: "opciones",
+    value: "valor",
+    helpInfoText: "texto de ayuda",
+    role: "rol",
+    objectType: "tipo de objeto",
+    acceptedTypes: "tipos aceptados",
+    cardinality: "cardinalidad",
+    min: "mínimo",
+    max: "máximo",
+    mutationMode: "modo de mutación",
+    sameIdentityAsInput: "misma identidad que la entrada",
+    pricingModel: "modelo de precio",
+    price: "precio",
+    summary: "resumen",
+    amount: "importe",
+    currency: "moneda",
+    turnaround: "tiempo de entrega",
+  },
+};
+
+function offerChangeLogModel(document: SupportServiceOfferDocument) {
+  return {
+    serviceId: document.serviceId,
+    name: document.name,
+    serviceCategory: document.serviceCategory,
+    providerKind: document.providerKind,
+    providerId: document.providerId,
+    providerName: document.providerName,
+    stages: document.stages,
+    status: document.status,
+    isHiddenFromSearch: document.isHiddenFromSearch,
+    isHighlightedOffer: document.isHighlightedOffer,
+    isProfessionalOffer: document.isProfessionalOffer,
+    promotionalBannerImageUrl: document.promotionalBannerImageUrl,
+    promotionalBannerImageUploadDataUrl:
+      document.promotionalBannerImageUploadDataUrl,
+    description: document.description,
+    shortContract: document.shortContract,
+    providerWork: document.providerWork,
+    formShape: document.formShape,
+    inputSlots: document.inputSlots,
+    outputSlots: document.outputSlots,
+    acceptedConditions: document.acceptedConditions,
+    scopeRules: document.scopeRules,
+    commercialTerms: document.commercialTerms,
+  };
+}
+
+function collectOfferModelChanges(
+  before: unknown,
+  after: unknown,
+  path: ChangeLogPath = [],
+  changes: OfferModelChange[] = [],
+) {
+  if (stableString(before) === stableString(after)) {
+    return changes;
+  }
+  if (before === undefined || after === undefined) {
+    changes.push({ path, before, after });
+    return changes;
+  }
+  if (Array.isArray(before) && Array.isArray(after)) {
+    const itemCount = Math.max(before.length, after.length);
+    for (let index = 0; index < itemCount; index += 1) {
+      collectOfferModelChanges(
+        before[index],
+        after[index],
+        [...path, index],
+        changes,
+      );
+    }
+    return changes;
+  }
+  if (
+    before &&
+    after &&
+    typeof before === "object" &&
+    typeof after === "object" &&
+    !Array.isArray(before) &&
+    !Array.isArray(after)
+  ) {
+    const beforeRecord = before as Record<string, unknown>;
+    const afterRecord = after as Record<string, unknown>;
+    const keys = [...new Set([
+      ...Object.keys(beforeRecord),
+      ...Object.keys(afterRecord),
+    ])].sort();
+    for (const key of keys) {
+      collectOfferModelChanges(
+        beforeRecord[key],
+        afterRecord[key],
+        [...path, key],
+        changes,
+      );
+    }
+    return changes;
+  }
+
+  changes.push({ path, before, after });
+  return changes;
+}
+
+function changeLogPathLabel(path: ChangeLogPath, language: ChangeLogLanguage) {
+  return path
+    .map((segment) => {
+      if (typeof segment === "number") {
+        return language === "es"
+          ? `elemento ${segment + 1}`
+          : `item ${segment + 1}`;
+      }
+      return (
+        CHANGE_LOG_FIELD_LABELS[language][segment] ??
+        segment.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase()
+      );
+    })
+    .join(" / ");
+}
+
+function describeChangeLogValue(
+  value: unknown,
+  language: ChangeLogLanguage,
+  path: ChangeLogPath,
+): string {
+  if (value === undefined || value === null) {
+    return language === "es" ? "sin definir" : "not set";
+  }
+  if (typeof value === "boolean") {
+    if (language === "es") {
+      return value ? "sí" : "no";
+    }
+    return value ? "yes" : "no";
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "string") {
+    if (path.at(-1) === "promotionalBannerImageUploadDataUrl") {
+      const digest = createHash("sha256").update(value).digest("hex");
+      const size = Buffer.byteLength(value);
+      return language === "es"
+        ? `imagen cargada de ${size} bytes con SHA-256 ${digest}`
+        : `uploaded image of ${size} bytes with SHA-256 ${digest}`;
+    }
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return language === "es" ? "lista vacía" : "empty list";
+    }
+    return value
+      .map((item) => describeChangeLogValue(item, language, path))
+      .join("; ");
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) {
+      return language === "es" ? "mapa vacío" : "empty map";
+    }
+    return entries
+      .map(
+        ([key, item]) =>
+          `${CHANGE_LOG_FIELD_LABELS[language][key] ?? key}: ${describeChangeLogValue(item, language, [...path, key])}`,
+      )
+      .join("; ");
+  }
+  return JSON.stringify(value);
+}
+
+function offerModelChangeSentence(
+  change: OfferModelChange,
+  language: ChangeLogLanguage,
+) {
+  const label = changeLogPathLabel(change.path, language);
+  if (change.before === undefined) {
+    const value = describeChangeLogValue(change.after, language, change.path);
+    return language === "es"
+      ? `${label} se agregó con ${value}.`
+      : `${label} was added with ${value}.`;
+  }
+  if (change.after === undefined) {
+    const value = describeChangeLogValue(change.before, language, change.path);
+    return language === "es"
+      ? `${label} se eliminó; su valor anterior era ${value}.`
+      : `${label} was removed; its previous value was ${value}.`;
+  }
+  const before = describeChangeLogValue(
+    change.before,
+    language,
+    change.path,
+  );
+  const after = describeChangeLogValue(change.after, language, change.path);
+  return language === "es"
+    ? `${label} cambió de ${before} a ${after}.`
+    : `${label} changed from ${before} to ${after}.`;
+}
+
+function offerChangeLogEntry(
+  previousDocument: SupportServiceOfferDocument,
+  document: SupportServiceOfferDocument,
+): SupportServiceOfferChangeLogEntry {
+  const previousVersion = previousDocument.serviceVersion;
+  const nextVersion = document.serviceVersion;
+  const changes = collectOfferModelChanges(
+    offerChangeLogModel(previousDocument),
+    offerChangeLogModel(document),
+  );
+  const bullet = "\u00b7";
+  const en = [
+    `Service offer changes from v${previousVersion} to v${nextVersion}:`,
+    `${bullet} Service version increased from ${previousVersion} to ${nextVersion}.`,
+    ...(changes.length > 0
+      ? changes.map(
+          (change) => `${bullet} ${offerModelChangeSentence(change, "en")}`,
+        )
+      : [`${bullet} No contract fields changed in this save.`]),
+    `${bullet} Contract continuity: v${nextVersion} applies only to transactions created after this save. Every transaction created under v${previousVersion} or an earlier version keeps its complete original contract, including input requirements, acceptance conditions, scope rules, promised outputs, commercial terms, turnaround, and provider commitments.`,
+  ].join("\n");
+  const es = [
+    `Cambios de la oferta de servicio de v${previousVersion} a v${nextVersion}:`,
+    `${bullet} La versión del servicio aumentó de ${previousVersion} a ${nextVersion}.`,
+    ...(changes.length > 0
+      ? changes.map(
+          (change) => `${bullet} ${offerModelChangeSentence(change, "es")}`,
+        )
+      : [`${bullet} No cambiaron campos del contrato en este guardado.`]),
+    `${bullet} Continuidad contractual: v${nextVersion} se aplica solamente a las transacciones creadas después de este guardado. Cada transacción creada bajo v${previousVersion} o una versión anterior conserva por completo su contrato original, incluidos los requisitos de entrada, las condiciones de aceptación, las reglas de alcance, las salidas prometidas, los términos comerciales, el tiempo de entrega y los compromisos del proveedor.`,
+  ].join("\n");
+
+  return { en, es };
 }
 
 type SupportServiceTransactionDocument = ReturnType<typeof transactionDocument>;
@@ -3943,6 +4335,9 @@ function toOfferRecord(
     acceptedConditions: cleanStringArray(data.acceptedConditions),
     scopeRules: cleanStringArray(data.scopeRules),
     commercialTerms: normalizeCommercialTerms(data.commercialTerms),
+    changeLogHistoryByVersion: changeLogHistoryFromUnknown(
+      data.changeLogHistoryByVersion,
+    ),
     normalizedName:
       cleanString(data.normalizedName) ||
       normalizeName(
@@ -4289,6 +4684,10 @@ function toOfferAdminRecord(
       complianceWarnings,
     ),
     commercialTerms,
+    changeLogHistoryByVersion: changeLogHistoryFromUnknown(
+      data.changeLogHistoryByVersion,
+      complianceWarnings,
+    ),
     normalizedName:
       cleanString(data.normalizedName) ||
       normalizeName(
@@ -4545,6 +4944,7 @@ function offerListRecord(
 ): SupportServiceOfferRecord {
   const {
     promotionalBannerImageUploadDataUrl: _promotionalBannerImageUploadDataUrl,
+    changeLogHistoryByVersion: _changeLogHistoryByVersion,
     ...summary
   } = record;
   return summary;
@@ -5344,14 +5744,29 @@ export async function createSupportServiceOffer(
   input: SupportServiceOfferInput,
 ) {
   requireGodMode(context);
+  if (
+    Object.prototype.hasOwnProperty.call(
+      input as Record<string, unknown>,
+      "changeLogHistoryByVersion",
+    )
+  ) {
+    throw new AdminRepositoryError(
+      "changeLogHistoryByVersion is generated by the server and cannot be submitted.",
+      400,
+    );
+  }
   const draft = offerDocument(input);
   const providerData = await assertOfferProviderExists(draft);
   const document = applyOfferVersions(
     applyAuthoritativeOfferProviderName(draft, providerData),
   );
+  const documentWithHistory = {
+    ...document,
+    changeLogHistoryByVersion: {},
+  };
   validateOfferDocument(document);
   assertSupportServiceFirestoreDocumentSize(
-    offerPersistenceSizeCandidate(document, context),
+    offerPersistenceSizeCandidate(documentWithHistory, context),
     "Service offer",
   );
 
@@ -5372,7 +5787,7 @@ export async function createSupportServiceOffer(
     firestoreTransaction.set(
       ref,
       withoutUndefined({
-        ...document,
+        ...documentWithHistory,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
         createdByEmail: context.email,
@@ -5396,6 +5811,23 @@ export async function updateSupportServiceOffer(
   input: SupportServiceOfferInput,
 ) {
   requireGodMode(context);
+  if (input.acknowledgesExistingTransactionContracts !== true) {
+    throw new AdminRepositoryError(
+      "Saving an existing service offer requires acknowledgement that previous transaction contracts remain binding.",
+      400,
+    );
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(
+      input as Record<string, unknown>,
+      "changeLogHistoryByVersion",
+    )
+  ) {
+    throw new AdminRepositoryError(
+      "changeLogHistoryByVersion is generated by the server and cannot be submitted.",
+      400,
+    );
+  }
   const submittedDraft = offerDocument(input);
   const providerData = await assertOfferProviderExists(submittedDraft);
   const ref = adminDb.collection(SERVICE_OFFERS_COLLECTION).doc(offerId);
@@ -5430,15 +5862,36 @@ export async function updateSupportServiceOffer(
       applyAuthoritativeOfferProviderName(draft, providerData),
       previousDocument,
     );
+    const transitionKey = `v${previousDocument.serviceVersion}_to_v${document.serviceVersion}`;
+    const previousHistory = changeLogHistoryFromUnknown(
+      snapshot.data()?.changeLogHistoryByVersion,
+    );
+    if (Object.prototype.hasOwnProperty.call(previousHistory, transitionKey)) {
+      throw new AdminRepositoryError(
+        `Change-log transition ${transitionKey} already exists and cannot be overwritten.`,
+        409,
+      );
+    }
+    const documentWithHistory = {
+      ...document,
+      changeLogHistoryByVersion: {
+        ...previousHistory,
+        [transitionKey]: offerChangeLogEntry(previousDocument, document),
+      },
+    };
     validateOfferDocument(document, { allowHistoricalServiceId: true });
     assertSupportServiceFirestoreDocumentSize(
-      offerPersistenceSizeCandidate(document, context, snapshot.data() ?? {}),
+      offerPersistenceSizeCandidate(
+        documentWithHistory,
+        context,
+        snapshot.data() ?? {},
+      ),
       "Service offer",
     );
     firestoreTransaction.set(
       ref,
       withoutUndefined({
-        ...document,
+        ...documentWithHistory,
         createdAt:
           snapshot.data()?.createdAt ?? FieldValue.serverTimestamp(),
         createdByEmail:

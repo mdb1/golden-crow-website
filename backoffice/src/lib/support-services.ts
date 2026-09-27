@@ -149,6 +149,21 @@ export interface SupportServiceOfferInput {
   commercialTerms?: SupportServiceCommercialTerms;
 }
 
+export interface SupportServiceOfferUpdateInput
+  extends SupportServiceOfferInput {
+  acknowledgesExistingTransactionContracts: true;
+}
+
+export interface SupportServiceOfferChangeLogEntry {
+  en: string;
+  es: string;
+}
+
+export type SupportServiceOfferChangeLogHistory = Record<
+  string,
+  SupportServiceOfferChangeLogEntry
+>;
+
 export interface SupportServiceOfferRecord
   extends Required<
     Omit<
@@ -158,6 +173,7 @@ export interface SupportServiceOfferRecord
       | "serviceCategory"
       | "promotionalBannerImageUrl"
       | "promotionalBannerImageUploadDataUrl"
+      | "acknowledgesExistingTransactionContracts"
     >
   > {
   id: string;
@@ -168,6 +184,7 @@ export interface SupportServiceOfferRecord
   commercialTerms?: SupportServiceCommercialTerms;
   promotionalBannerImageUrl?: string | null;
   promotionalBannerImageUploadDataUrl?: string | null;
+  changeLogHistoryByVersion?: SupportServiceOfferChangeLogHistory;
   stages: SupportServiceStage[];
   status: SupportServiceOfferStatus;
   normalizedName: string;

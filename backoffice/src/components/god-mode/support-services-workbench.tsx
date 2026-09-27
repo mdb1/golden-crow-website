@@ -138,6 +138,7 @@ import {
   type SupportServiceMutationMode,
   type SupportServiceOfferInput,
   type SupportServiceOfferRecord,
+  type SupportServiceOfferUpdateInput,
   type SupportServiceOfferTransactionStats,
   type SupportServiceOfferSnapshot,
   type SupportServiceOfferStatus,
@@ -282,6 +283,8 @@ type ServiceOfferPublishDialogState = {
   offerId?: string;
   message?: string;
 };
+
+type ServiceOfferSaveIntent = "save" | "status" | "publish";
 
 type ServiceIdValidationStatus =
   | "idle"
@@ -3168,6 +3171,10 @@ export function SupportServiceOfferWorkbench({
     useState<SupportServiceOfferStatus>("draft");
   const [publishDialog, setPublishDialog] =
     useState<ServiceOfferPublishDialogState | null>(null);
+  const [pendingSaveIntent, setPendingSaveIntent] =
+    useState<ServiceOfferSaveIntent | null>(null);
+  const [contractContinuityAccepted, setContractContinuityAccepted] =
+    useState(false);
   const [rawExportOpen, setRawExportOpen] = useState(false);
   const [promotionalBannerUploadPending, setPromotionalBannerUploadPending] =
     useState(false);
@@ -3221,7 +3228,9 @@ export function SupportServiceOfferWorkbench({
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (payload: SupportServiceOfferInput) => {
+    mutationFn: async (
+      payload: SupportServiceOfferInput | SupportServiceOfferUpdateInput,
+    ) => {
       const path = effectiveOfferId
         ? `/admin/support-services/offers/${encodeURIComponent(effectiveOfferId)}`
         : "/admin/support-services/offers";
@@ -3363,9 +3372,14 @@ export function SupportServiceOfferWorkbench({
       }
 
       const previousVersion = form.serviceVersion;
-      const result = await saveMutation.mutateAsync(
-        offerPayloadFromForm({ ...form, status }),
-      );
+      const basePayload = offerPayloadFromForm({ ...form, status });
+      const payload = hasPersistedOffer
+        ? ({
+            ...basePayload,
+            acknowledgesExistingTransactionContracts: true,
+          } satisfies SupportServiceOfferUpdateInput)
+        : basePayload;
+      const result = await saveMutation.mutateAsync(payload);
       await queryClient.invalidateQueries({ queryKey: [OFFERS_QUERY_KEY] });
 
       const nextForm = offerFormFromRecord(result.offer);
@@ -3410,7 +3424,7 @@ export function SupportServiceOfferWorkbench({
     }
   }
 
-  async function saveCurrentOffer() {
+  async function executeSaveCurrentOffer() {
     const status = hasPersistedOffer ? form.status : "draft";
     await persistOffer(status, {
       successMessage: hasPersistedOffer
@@ -3419,12 +3433,7 @@ export function SupportServiceOfferWorkbench({
     });
   }
 
-  async function saveStatusDraft() {
-    if (statusDraft === form.status) {
-      setStatusDialogOpen(false);
-      return;
-    }
-
+  async function executeSaveStatusDraft() {
     const saved = await persistOffer(statusDraft, {
       redirectToOffer: false,
       successMessage: "Service offer status updated.",
@@ -3434,7 +3443,7 @@ export function SupportServiceOfferWorkbench({
     }
   }
 
-  async function publishOffer() {
+  async function executePublishOffer() {
     setPublishDialog({ status: "publishing" });
     const published = await persistOffer("active", {
       redirectToOffer: false,
@@ -3455,6 +3464,72 @@ export function SupportServiceOfferWorkbench({
       offerId: published.id,
       message: t("This service offer is now published."),
     });
+  }
+
+  function requestOfferSave(intent: ServiceOfferSaveIntent) {
+    if (!hasPersistedOffer) {
+      if (intent === "publish") {
+        void executePublishOffer();
+      } else {
+        void executeSaveCurrentOffer();
+      }
+      return;
+    }
+
+    try {
+      const requestedStatus =
+        intent === "status"
+          ? statusDraft
+          : intent === "publish"
+            ? "active"
+            : form.status;
+      offerPayloadFromForm({ ...form, status: requestedStatus });
+    } catch (error) {
+      setToast(mutationErrorToast(error, nextToastId(), t));
+      return;
+    }
+
+    if (intent === "status") {
+      if (statusDraft === form.status) {
+        setStatusDialogOpen(false);
+        return;
+      }
+      setStatusDialogOpen(false);
+    }
+    setContractContinuityAccepted(false);
+    setPendingSaveIntent(intent);
+  }
+
+  async function confirmOfferSave() {
+    if (!pendingSaveIntent || !contractContinuityAccepted) {
+      return;
+    }
+
+    const intent = pendingSaveIntent;
+    setPendingSaveIntent(null);
+    setContractContinuityAccepted(false);
+
+    if (intent === "status") {
+      await executeSaveStatusDraft();
+      return;
+    }
+    if (intent === "publish") {
+      await executePublishOffer();
+      return;
+    }
+    await executeSaveCurrentOffer();
+  }
+
+  function saveCurrentOffer() {
+    requestOfferSave("save");
+  }
+
+  function saveStatusDraft() {
+    requestOfferSave("status");
+  }
+
+  function publishOffer() {
+    requestOfferSave("publish");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -3864,6 +3939,17 @@ export function SupportServiceOfferWorkbench({
         }}
         onClose={() => setPublishDialog(null)}
       />
+      <ServiceOfferContractContinuityDialog
+        open={pendingSaveIntent !== null}
+        checked={contractContinuityAccepted}
+        pending={saveMutation.isPending}
+        onCheckedChange={setContractContinuityAccepted}
+        onCancel={() => {
+          setPendingSaveIntent(null);
+          setContractContinuityAccepted(false);
+        }}
+        onConfirm={() => void confirmOfferSave()}
+      />
       <RawJsonExportDialog
         open={rawExportOpen}
         onOpenChange={setRawExportOpen}
@@ -3876,6 +3962,97 @@ export function SupportServiceOfferWorkbench({
         value={persistedOfferRecord}
       />
     </>
+  );
+}
+
+function ServiceOfferContractContinuityDialog({
+  open,
+  checked,
+  pending,
+  onCheckedChange,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  checked: boolean;
+  pending: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const checkboxId = "service-offer-contract-continuity";
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !pending) {
+          onCancel();
+        }
+      }}
+    >
+      <AlertDialogContent className="max-w-2xl overflow-hidden rounded-2xl border border-violet-100 bg-white p-0 shadow-[0_34px_120px_rgba(109,40,217,0.22)] dark:border-violet-300/22 dark:bg-slate-950">
+        <AlertDialogHeader className="border-b border-violet-100 px-6 py-5 text-left dark:border-violet-300/16">
+          <AlertDialogTitle className="font-heading text-xl font-semibold">
+            {t("Existing transaction contracts remain binding")}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="leading-6">
+            {t(
+              "This save creates a new service-offer version. It does not rewrite any transaction already created.",
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="grid gap-4 px-6 py-5">
+          <div className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50/80 p-4 dark:border-violet-400/24 dark:bg-violet-500/10">
+            <Checkbox
+              id={checkboxId}
+              checked={checked}
+              disabled={pending}
+              onCheckedChange={(value) => onCheckedChange(value === true)}
+              className="mt-0.5"
+            />
+            <Label
+              htmlFor={checkboxId}
+              className="cursor-pointer text-sm leading-6 text-violet-950 dark:text-violet-50"
+            >
+              {t(
+                "I acknowledge that every existing transaction must be completed under the offer version, requirements, outputs, timing, and provider commitments that applied when that user requested the service.",
+              )}
+            </Label>
+          </div>
+          <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm leading-6 text-emerald-950 dark:border-emerald-400/24 dark:bg-emerald-500/10 dark:text-emerald-100">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+            <p>
+              {t(
+                "The new version applies only to transactions created after this save.",
+              )}
+            </p>
+          </div>
+        </div>
+
+        <AlertDialogFooter className="mx-0 mb-0 gap-3 border-violet-100 bg-violet-50/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
+          <AlertDialogCancel disabled={pending} onClick={onCancel}>
+            {t("Cancel")}
+          </AlertDialogCancel>
+          <Button
+            type="button"
+            onClick={onConfirm}
+            disabled={!checked || pending}
+            className="h-10 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+          >
+            {pending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="h-4 w-4" />
+            )}
+            {t("Acknowledge and save")}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

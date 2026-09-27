@@ -10,6 +10,10 @@ Every new offer receives an immutable `serviceId` in the exact form `pgs_<provid
 
 `serviceVersion` starts at integer `1` and is server-controlled. The backend increments it by exactly one on every successful update; clients never submit a chosen replacement version. A transaction freezes the offer's current `serviceId` and `serviceVersion` when it is created, so later offer updates do not rewrite the transaction and consumers can identify requests pinned to an older contract version.
 
+Every persisted offer initializes `changeLogHistoryByVersion` as a map. Each successful update atomically appends exactly one immutable entry under the consecutive transition key `v<from>_to_v<to>`, for example `v1_to_v2`. The key is the deliberate snake-case exception inside this camelCase collection. Its value contains exactly `en` and `es`; each is one directly readable natural-language string made of line-separated middle-dot bullets that precisely enumerates every changed contract or presentation field, the automatic version increment, and the continuity rule. The server generates this history from the persisted prior document and the normalized next document; clients cannot submit, edit, delete, or replace it.
+
+Before any existing offer is saved, the operator must explicitly acknowledge that all transactions created under earlier versions remain governed by their complete frozen contract, including requirements, inputs, promised outputs, timing and provider commitments. The new version governs only transactions created after that successful save. Status-only and no-field-change saves still create the next version and a corresponding history entry.
+
 If and only if an offer enables form input, it declares exactly one required `pgo_form` slot with role `form` and a matching external `formShape`. Manual slots cannot use `pgo_form`. The external shape retains generated ID and integer version; the submitted PGO freezes only its field definitions and answers.
 
 ### Transactions

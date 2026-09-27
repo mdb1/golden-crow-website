@@ -4978,6 +4978,15 @@ const SPANISH_TEXT: Record<string, string> = {
   "Apply category": "Aplicar categoría",
   "Service offer deleted.": "Oferta de servicio eliminada.",
   "Service offer saved.": "Oferta de servicio guardada.",
+  "Existing transaction contracts remain binding":
+    "Los contratos de las transacciones existentes siguen vigentes",
+  "This save creates a new service-offer version. It does not rewrite any transaction already created.":
+    "Este guardado crea una nueva versión de la oferta de servicio. No modifica ninguna transacción ya creada.",
+  "I acknowledge that every existing transaction must be completed under the offer version, requirements, outputs, timing, and provider commitments that applied when that user requested the service.":
+    "Reconozco que cada transacción existente debe completarse según la versión de la oferta, los requisitos, las salidas, los plazos y los compromisos del proveedor que regían cuando esa persona solicitó el servicio.",
+  "The new version applies only to transactions created after this save.":
+    "La nueva versión se aplica únicamente a las transacciones creadas después de este guardado.",
+  "Acknowledge and save": "Reconocer y guardar",
   "Service transaction deleted.": "Transacción de servicio eliminada.",
   "Service transaction deleted. Secondary cleanup warnings:":
     "Transacción de servicio eliminada. Advertencias de limpieza secundaria:",

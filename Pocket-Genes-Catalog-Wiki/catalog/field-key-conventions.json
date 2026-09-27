@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.2.0",
+  "schema_version": "1.3.0",
   "policy": "Field-key casing is selected by the containing Firestore collection. Collection-local coherence takes priority over a global casing preference.",
   "applies_to_nested_maps": true,
   "compatibility_aliases_allowed": false,
@@ -14,6 +14,7 @@
         "isProfessionalOffer",
         "promotionalBannerImageUrl",
         "promotionalBannerImageUploadDataUrl",
+        "changeLogHistoryByVersion",
         "inputSlots",
         "outputSlots",
         "objectType"
@@ -91,6 +92,15 @@
       ]
     }
   ],
+  "nested_map_key_exceptions": [
+    {
+      "collection": "service_offers",
+      "field": "changeLogHistoryByVersion",
+      "key_pattern": "^v[1-9][0-9]*_to_v[1-9][0-9]*$",
+      "example": "v1_to_v2",
+      "rule": "Server-generated immutable version-transition identifiers use snake_case; the destination version must equal the source version plus one. Entry fields remain exactly en and es. These keys are not compatibility aliases."
+    }
+  ],
   "cross_boundary_examples": [
     {
       "concept": "object type",
@@ -119,5 +129,5 @@
     ],
     "rule": "The file contains only the strict domain allowlist for its externally selected PGO type. No casing aliases or envelope fields are accepted."
   },
-  "boundary_adapter_rule": "Map strict snake_case PGO content explicitly at persistence boundaries. service_offers and service_transactions keep camelCase; uploaded_objects and other listed storage collections keep snake_case."
+  "boundary_adapter_rule": "Map strict snake_case PGO content explicitly at persistence boundaries. service_offers and service_transactions keep camelCase except for the declared server-generated changeLogHistoryByVersion transition-key pattern; uploaded_objects and other listed storage collections keep snake_case."
 }

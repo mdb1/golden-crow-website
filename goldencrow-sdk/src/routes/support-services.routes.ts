@@ -379,6 +379,9 @@ const OfferBodySchema = z.object({
 const CreateOfferBodySchema = OfferBodySchema.extend({
   serviceId: GeneratedServiceIdSchema,
 });
+const UpdateOfferBodySchema = OfferBodySchema.extend({
+  acknowledgesExistingTransactionContracts: z.literal(true),
+});
 const TransactionBodySchema = z.object({
   requestId: RequestIdSchema,
   offerId: z.string().trim().min(1),
@@ -613,7 +616,7 @@ export async function supportServicesRoutes(
       bodyLimit: OFFER_REQUEST_BODY_LIMIT_BYTES,
       schema: {
         params: OfferParamsSchema,
-        body: OfferBodySchema,
+        body: UpdateOfferBodySchema,
       },
     },
     async (request, reply) => {

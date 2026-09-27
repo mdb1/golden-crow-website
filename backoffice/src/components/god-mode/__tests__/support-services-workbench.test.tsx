@@ -248,6 +248,33 @@ function renderWithQueryClient(
   );
 }
 
+async function acknowledgeExistingOfferContract(
+  language: "en" | "es" = "en",
+) {
+  const title =
+    language === "es"
+      ? "Los contratos de las transacciones existentes siguen vigentes"
+      : "Existing transaction contracts remain binding";
+  const checkboxName =
+    language === "es"
+      ? /Reconozco que cada transacción existente debe completarse/
+      : /I acknowledge that every existing transaction must be completed/;
+  const confirmName =
+    language === "es" ? "Reconocer y guardar" : "Acknowledge and save";
+  const dialog = await screen.findByRole("alertdialog", { name: title });
+  const confirm = within(dialog).getByRole("button", { name: confirmName });
+
+  expect(
+    sdkFetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+  ).toBe(false);
+  expect((confirm as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(
+    within(dialog).getByRole("checkbox", { name: checkboxName }),
+  );
+  expect((confirm as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(confirm);
+}
+
 describe("support services workbenches", () => {
   beforeEach(() => {
     routerPush.mockClear();
@@ -458,6 +485,7 @@ describe("support services workbenches", () => {
     fireEvent.click(
       screen.getAllByRole("button", { name: "Guardar cambios" })[0],
     );
+    await acknowledgeExistingOfferContract("es");
 
     await waitFor(() => {
       const putCall = sdkFetchMock.mock.calls.find(
@@ -467,6 +495,53 @@ describe("support services workbenches", () => {
       const payload = JSON.parse(String(putCall?.[1]?.body));
       expect(payload.serviceCategory).toBe("sot_genomic_report_review");
       expect(payload.serviceCategory).not.toBe("Revisión de informe genómico");
+      expect(payload.acknowledgesExistingTransactionContracts).toBe(true);
+      expect(payload).not.toHaveProperty("changeLogHistoryByVersion");
+    });
+  });
+
+  it("also guards status saves with the frozen-contract acknowledgement", async () => {
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        return {
+          offer: {
+            ...hiddenOffer,
+            ...payload,
+            serviceVersion: hiddenOffer.serviceVersion + 1,
+          },
+        };
+      }
+      if (String(path).includes("?limit=")) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: hiddenOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Change status" }),
+    );
+    const statusDialog = await screen.findByRole("alertdialog", {
+      name: "Change service offer status",
+    });
+    fireEvent.click(
+      within(statusDialog).getByRole("radio", { name: /Inactive/ }),
+    );
+    fireEvent.click(within(statusDialog).getByRole("button", { name: "Save" }));
+    await acknowledgeExistingOfferContract();
+
+    await waitFor(() => {
+      const putCall = sdkFetchMock.mock.calls.find(
+        ([, init]) => init?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const payload = JSON.parse(String(putCall?.[1]?.body));
+      expect(payload.status).toBe("inactive");
+      expect(payload.acknowledgesExistingTransactionContracts).toBe(true);
     });
   });
 
@@ -687,6 +762,7 @@ describe("support services workbenches", () => {
     expect(screen.getByText("No output slots defined.")).toBeTruthy();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
 
     await waitFor(() => {
       const putCall = sdkFetchMock.mock.calls.find(
@@ -745,6 +821,7 @@ describe("support services workbenches", () => {
     );
     fireEvent.click(hiddenCheckbox!);
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
 
     await waitFor(() => {
       const putCall = sdkFetchMock.mock.calls.find(
@@ -960,6 +1037,7 @@ describe("support services workbenches", () => {
 
     fireEvent.click(hiddenCheckbox!);
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
 
     await waitFor(() => {
       const putCall = sdkFetchMock.mock.calls.find(
@@ -1020,6 +1098,7 @@ describe("support services workbenches", () => {
       target: { value: "https://example.org/service-banner.png" },
     });
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
 
     await waitFor(() => {
       const putCall = sdkFetchMock.mock.calls.find(
@@ -1079,6 +1158,7 @@ describe("support services workbenches", () => {
       within(bannerSection).queryByLabelText("Banner image URL"),
     ).toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
 
     await waitFor(() => {
       const putCall = sdkFetchMock.mock.calls.find(
@@ -1129,6 +1209,7 @@ describe("support services workbenches", () => {
       "service-offer-promotional-banner-dropzone",
     );
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
     await screen.findAllByText("Saving...");
 
     const droppedFile = new File(["ignored-banner"], "ignored.png", {
@@ -1198,6 +1279,7 @@ describe("support services workbenches", () => {
       }),
     );
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
 
     await waitFor(() => {
       const putCall = sdkFetchMock.mock.calls.find(
@@ -1349,6 +1431,7 @@ describe("support services workbenches", () => {
     fireEvent.click(
       screen.getAllByRole("button", { name: "Save changes" })[0],
     );
+    await acknowledgeExistingOfferContract();
 
     expect(await screen.findByTestId("service-version-bump")).toBeTruthy();
     expect(
