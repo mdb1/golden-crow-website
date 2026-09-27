@@ -7,7 +7,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     <div class="legal-container">
       <p class="legal-lang"><a href="/en/gc-fitness/privacy">English version</a></p>
       <h1>Política de Privacidad — GC Fitness</h1>
-      <p class="legal-updated">Vigente desde: 21 de agosto de 2026</p>
+      <p class="legal-updated">Vigente desde: 27 de septiembre de 2026</p>
 
       <p>
         Esta política describe cómo Golden Crow («nosotros») trata tus datos personales cuando
@@ -25,7 +25,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           cargues (peso, altura), récords personales y objetivos.</li>
         <li><strong>Fotos de progreso:</strong> las fotos que subas voluntariamente para tu
           seguimiento visual.</li>
-        <li><strong>Mensajes:</strong> el chat con tu entrenador (texto, fotos y notas de voz).</li>
+        <li><strong>Mensajes:</strong> el chat con tu entrenador (texto, fotos y notas de voz) y,
+          si usás las funciones sociales, los mensajes directos con otras personas (sólo
+          texto).</li>
+        <li><strong>Funciones sociales (opcionales):</strong> tu perfil público (@usuario, nombre,
+          foto y biografía), a quién seguís y quién te sigue, las solicitudes de seguimiento, a
+          quién bloqueaste, las rutinas que publicás, tus comentarios, «me gusta» y rutinas
+          guardadas, y los reportes que enviás. Ver <a href="#social">Funciones sociales</a>.</li>
+        <li><strong>Compras:</strong> el historial de tus suscripciones y compras dentro de la app
+          (no los datos de tu tarjeta, que maneja la tienda).</li>
         <li><strong>Datos técnicos:</strong> token del dispositivo para notificaciones push (FCM),
           informes de fallos (Firebase Crashlytics) y eventos de uso de la app (Firebase
           Analytics: por ejemplo «entrenamiento iniciado», «serie registrada» y vistas de
@@ -87,10 +95,43 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         <a href="mailto:support@goldencrowvs.com">support@goldencrowvs.com</a>.
       </p>
 
+      <h2 id="social">Funciones sociales</h2>
+      <p>
+        Las funciones sociales son opcionales. Esto es lo que ven otras personas cuando las usás:
+      </p>
+      <ul>
+        <li><strong>Tu perfil público</strong> (@usuario, nombre, foto, biografía y cantidad de
+          seguidores y seguidos) lo puede ver cualquier persona con una cuenta de GC Fitness. Si tu
+          perfil es <strong>privado</strong>, tus rutinas y tus listas de seguidores sólo las ven
+          las personas que aceptaste. La foto es la misma que la de tu cuenta.</li>
+        <li><strong>Las rutinas que publicás</strong>, con sus comentarios y «me gusta», las puede
+          ver cualquier persona con una cuenta que tenga acceso a tu perfil, y también cualquiera
+          que tenga el link de la rutina en la web. Tus entrenamientos registrados, hábitos,
+          métricas y fotos de progreso <strong>nunca</strong> se publican.</li>
+        <li><strong>Los mensajes directos</strong> sólo se pueden enviar entre personas que se
+          siguen mutuamente y sólo los ven los dos participantes.</li>
+        <li><strong>Los bloqueos</strong> sólo los ve quien bloquea: la persona bloqueada no recibe
+          ningún aviso.</li>
+        <li><strong>Las búsquedas</strong> de personas no se guardan: sólo contamos cuántas hacés
+          por día para limitar el abuso.</li>
+        <li><strong>Sugerencias:</strong> te sugerimos rutinas públicas a partir de las rutinas que
+          tenés y de a quién seguís.</li>
+      </ul>
+      <p>
+        <strong>Moderación.</strong> Cuando alguien reporta un contenido (un perfil, una rutina, un
+        comentario o un mensaje), nuestro equipo de moderación puede ver ese contenido y su
+        contexto para decidir si incumple los <a href="/gc-fitness/terms">Términos de Uso</a>. La
+        persona reportada nunca sabe quién la reportó.
+      </p>
+
       <h2>Con quién compartimos datos</h2>
       <ul>
         <li><strong>Tu entrenador:</strong> ve los datos de fitness, fotos y mensajes asociados a tu
           cuenta — es el propósito del servicio.</li>
+        <li><strong>Otras personas que usan GC Fitness:</strong> sólo lo que publicás a través de
+          las funciones sociales, como se describe arriba.</li>
+        <li><strong>RevenueCat:</strong> procesa el estado de tus suscripciones y compras para
+          habilitar Premium. Actúa como encargado del tratamiento.</li>
         <li><strong>Proveedores de infraestructura:</strong> usamos Google Firebase
           (autenticación, base de datos, almacenamiento, notificaciones, Crashlytics y Analytics)
           para operar la app. Google actúa como encargado del tratamiento.</li>
@@ -103,8 +144,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <h2>Seguridad y almacenamiento</h2>
       <p>
         Tus datos se almacenan en Google Cloud (Firebase) y se transmiten cifrados (TLS). El acceso
-        está restringido por reglas de seguridad: solo vos y tu entrenador pueden acceder a tus
-        datos.
+        está restringido por reglas de seguridad: sólo vos y tu entrenador pueden acceder a tus
+        datos, salvo lo que publiques a través de las funciones sociales.
       </p>
 
       <h2>Retención y eliminación</h2>
@@ -115,6 +156,16 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         perfil, entrenamientos, hábitos, métricas, fotos y mensajes; se conserva un registro mínimo
         anonimizado (sin nombre ni email) por integridad del sistema, y los informes de fallos /
         analítica se eliminan según los plazos de retención de Firebase.
+      </p>
+      <p>
+        Si usaste las funciones sociales, al eliminar tu cuenta también se borran tu perfil
+        público, a quién seguías y quién te seguía, tus solicitudes y bloqueos, las rutinas que
+        publicaste, tus «me gusta» y rutinas guardadas, y tus mensajes directos. De tus
+        comentarios se borran el texto, el nombre y la foto; queda un espacio vacío para no romper
+        las respuestas de otras personas. Tu @usuario queda reservado 90 días para que nadie pueda
+        hacerse pasar por vos. Se conservan los reportes que <em>enviaste</em> sobre contenido de
+        otras personas, y las copias que otras personas ya hicieron de tus rutinas, que son
+        suyas.
       </p>
 
       <h2>Tus derechos</h2>
