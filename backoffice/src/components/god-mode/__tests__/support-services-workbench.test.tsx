@@ -598,6 +598,13 @@ describe("support services workbenches", () => {
   it("starts a new offer with no input or output slots", () => {
     renderWithQueryClient(<SupportServiceOfferWorkbench mode="create" />);
 
+    expect(
+      screen.getByTestId("service-category-discovery-row"),
+    ).toHaveClass("md:grid-cols-2", "lg:col-span-2");
+    expect(screen.getByTestId("service-offer-audience-row")).toHaveClass(
+      "md:grid-cols-2",
+      "lg:col-span-2",
+    );
     expect(screen.getByText("No input slots defined.")).toBeTruthy();
     expect(screen.getByText("No output slots defined.")).toBeTruthy();
     expect(screen.getByText("Not requested")).toBeTruthy();

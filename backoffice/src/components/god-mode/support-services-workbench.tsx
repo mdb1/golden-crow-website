@@ -3591,90 +3591,100 @@ export function SupportServiceOfferWorkbench({
             <Field label="Service version">
               <GeneratedValue value={String(form.serviceVersion || 1)} />
             </Field>
-            <Field label="Service category">
-              <ServiceCategoryPicker
-                value={form.serviceCategory}
-                disabled={isWorking}
-                onChange={(serviceCategory) =>
-                  setForm((current) => ({
-                    ...current,
-                    serviceCategory,
-                  }))
-                }
-              />
-            </Field>
-            <Field label="Native discovery">
-              <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-                <Checkbox
-                  id="service-offer-hidden-from-search"
-                  checked={form.isHiddenFromSearch}
-                  onCheckedChange={(checked) =>
+            <div
+              data-testid="service-category-discovery-row"
+              className="grid gap-4 md:grid-cols-2 lg:col-span-2"
+            >
+              <Field label="Service category">
+                <ServiceCategoryPicker
+                  value={form.serviceCategory}
+                  disabled={isWorking}
+                  onChange={(serviceCategory) =>
                     setForm((current) => ({
                       ...current,
-                      isHiddenFromSearch: checked === true,
+                      serviceCategory,
                     }))
                   }
                 />
-                <div className="grid gap-1">
-                  <Label htmlFor="service-offer-hidden-from-search">
-                    {t("Hide from native service search")}
-                  </Label>
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    {t(
-                      "The offer remains active and available to authorized backoffice workflows, but it is excluded from native discovery.",
-                    )}
-                  </p>
+              </Field>
+              <Field label="Native discovery">
+                <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                  <Checkbox
+                    id="service-offer-hidden-from-search"
+                    checked={form.isHiddenFromSearch}
+                    onCheckedChange={(checked) =>
+                      setForm((current) => ({
+                        ...current,
+                        isHiddenFromSearch: checked === true,
+                      }))
+                    }
+                  />
+                  <div className="grid gap-1">
+                    <Label htmlFor="service-offer-hidden-from-search">
+                      {t("Hide from native service search")}
+                    </Label>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "The offer remains active and available to authorized backoffice workflows, but it is excluded from native discovery.",
+                      )}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Field>
-            <Field label="Highlighted offer">
-              <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-                <Checkbox
-                  id="service-offer-highlighted"
-                  checked={form.isHighlightedOffer}
-                  onCheckedChange={(checked) =>
-                    setForm((current) => ({
-                      ...current,
-                      isHighlightedOffer: checked === true,
-                    }))
-                  }
-                />
-                <div className="grid gap-1">
-                  <Label htmlFor="service-offer-highlighted">
-                    {t("Show as a highlighted offer")}
-                  </Label>
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    {t(
-                      "Places this offer in the highlighted services segment of the native experience.",
-                    )}
-                  </p>
+              </Field>
+            </div>
+            <div
+              data-testid="service-offer-audience-row"
+              className="grid gap-4 md:grid-cols-2 lg:col-span-2"
+            >
+              <Field label="Professional offer">
+                <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                  <Checkbox
+                    id="service-offer-professional"
+                    checked={form.isProfessionalOffer}
+                    onCheckedChange={(checked) =>
+                      setForm((current) => ({
+                        ...current,
+                        isProfessionalOffer: checked === true,
+                      }))
+                    }
+                  />
+                  <div className="grid gap-1">
+                    <Label htmlFor="service-offer-professional">
+                      {t("Show as a professional offer")}
+                    </Label>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "Places this offer in the services for professionals segment of the native experience.",
+                      )}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Field>
-            <Field label="Professional offer">
-              <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-                <Checkbox
-                  id="service-offer-professional"
-                  checked={form.isProfessionalOffer}
-                  onCheckedChange={(checked) =>
-                    setForm((current) => ({
-                      ...current,
-                      isProfessionalOffer: checked === true,
-                    }))
-                  }
-                />
-                <div className="grid gap-1">
-                  <Label htmlFor="service-offer-professional">
-                    {t("Show as a professional offer")}
-                  </Label>
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    {t(
-                      "Places this offer in the services for professionals segment of the native experience.",
-                    )}
-                  </p>
+              </Field>
+              <Field label="Highlighted offer">
+                <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                  <Checkbox
+                    id="service-offer-highlighted"
+                    checked={form.isHighlightedOffer}
+                    onCheckedChange={(checked) =>
+                      setForm((current) => ({
+                        ...current,
+                        isHighlightedOffer: checked === true,
+                      }))
+                    }
+                  />
+                  <div className="grid gap-1">
+                    <Label htmlFor="service-offer-highlighted">
+                      {t("Show as a highlighted offer")}
+                    </Label>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "Places this offer in the highlighted services segment of the native experience.",
+                      )}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Field>
+              </Field>
+            </div>
             <PromotionalBannerImageEditor
               imageUrl={form.promotionalBannerImageUrl}
               imageUploadDataUrl={form.promotionalBannerImageUploadDataUrl}
