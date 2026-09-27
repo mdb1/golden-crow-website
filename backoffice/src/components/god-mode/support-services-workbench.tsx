@@ -4728,7 +4728,7 @@ function ServiceCategoryPicker({
             : t("Choose service category")
         }
         className={cn(
-          "flex min-h-24 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left shadow-sm transition",
+          "flex min-h-20 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left shadow-sm transition",
           selectedCategory
             ? "border-violet-200 bg-white/82 hover:border-violet-300 hover:bg-violet-50/70 dark:border-violet-400/20 dark:bg-slate-950/42 dark:hover:bg-violet-500/10"
             : "border-amber-300 bg-amber-50/85 hover:border-amber-400 hover:bg-amber-50 dark:border-amber-400/30 dark:bg-amber-500/10",
@@ -4755,13 +4755,8 @@ function ServiceCategoryPicker({
               ? supportServiceCategoryName(selectedCategory, language)
               : t("Uncategorized")}
           </span>
-          <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-            {selectedCategory
-              ? supportServiceCategoryDescription(selectedCategory, language)
-              : t("Choose one registered category before saving this offer.")}
-          </span>
           {selectedCategory ? (
-            <code className="mt-2 block truncate text-[11px] text-violet-700 dark:text-violet-200">
+            <code className="mt-1 block truncate text-[11px] text-violet-700 dark:text-violet-200">
               {selectedCategory.key}
             </code>
           ) : null}

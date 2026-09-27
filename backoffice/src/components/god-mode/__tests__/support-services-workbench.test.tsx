@@ -19,7 +19,10 @@ import {
   POCKET_GENES_SERVICE_OPTIONS,
   normalizePocketGenesCatalogFormShape,
 } from "@/lib/pocket-genes-service-catalog";
-import { SUPPORT_SERVICE_CATEGORIES } from "@/lib/support-service-categories";
+import {
+  SUPPORT_SERVICE_CATEGORIES,
+  supportServiceCategoryDescription,
+} from "@/lib/support-service-categories";
 import { appText } from "@/lib/language";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 import type {
@@ -456,14 +459,22 @@ describe("support services workbenches", () => {
       "es",
     );
 
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Cambiar categoría de servicio",
-      }),
+    const categoryButton = await screen.findByRole("button", {
+      name: "Cambiar categoría de servicio",
+    });
+    const selectedCategory = SUPPORT_SERVICE_CATEGORIES.find(
+      (category) => category.key === hiddenOffer.serviceCategory,
+    )!;
+    const selectedDescription = supportServiceCategoryDescription(
+      selectedCategory,
+      "es",
     );
+    expect(within(categoryButton).queryByText(selectedDescription)).toBeNull();
+    fireEvent.click(categoryButton);
 
     const modal = await screen.findByRole("dialog");
     expect(modal.className).toContain("80rem");
+    expect(within(modal).getByText(selectedDescription)).toBeTruthy();
     expect(within(modal).getAllByRole("radio")).toHaveLength(
       SUPPORT_SERVICE_CATEGORIES.length,
     );
