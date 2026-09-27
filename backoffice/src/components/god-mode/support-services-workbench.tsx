@@ -3769,10 +3769,16 @@ export function SupportServiceOfferWorkbench({
                     id="service-offer-professional"
                     checked={form.isProfessionalOffer}
                     onCheckedChange={(checked) =>
-                      setForm((current) => ({
-                        ...current,
-                        isProfessionalOffer: checked === true,
-                      }))
+                      setForm((current) => {
+                        const isProfessionalOffer = checked === true;
+                        return {
+                          ...current,
+                          isProfessionalOffer,
+                          isHighlightedOffer: isProfessionalOffer
+                            ? false
+                            : current.isHighlightedOffer,
+                        };
+                      })
                     }
                   />
                   <div className="grid gap-1">
@@ -3793,10 +3799,16 @@ export function SupportServiceOfferWorkbench({
                     id="service-offer-highlighted"
                     checked={form.isHighlightedOffer}
                     onCheckedChange={(checked) =>
-                      setForm((current) => ({
-                        ...current,
-                        isHighlightedOffer: checked === true,
-                      }))
+                      setForm((current) => {
+                        const isHighlightedOffer = checked === true;
+                        return {
+                          ...current,
+                          isHighlightedOffer,
+                          isProfessionalOffer: isHighlightedOffer
+                            ? false
+                            : current.isProfessionalOffer,
+                        };
+                      })
                     }
                   />
                   <div className="grid gap-1">

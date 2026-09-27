@@ -1093,7 +1093,25 @@ describe("support services workbenches", () => {
     expect(professionalCheckbox?.getAttribute("data-state")).toBe("checked");
 
     fireEvent.click(highlightedCheckbox!);
+    expect(highlightedCheckbox?.getAttribute("data-state")).toBe("checked");
+    expect(professionalCheckbox?.getAttribute("data-state")).toBe("unchecked");
+
     fireEvent.click(professionalCheckbox!);
+    expect(highlightedCheckbox?.getAttribute("data-state")).toBe("unchecked");
+    expect(professionalCheckbox?.getAttribute("data-state")).toBe("checked");
+
+    fireEvent.click(highlightedCheckbox!);
+    expect(highlightedCheckbox?.getAttribute("data-state")).toBe("checked");
+    expect(professionalCheckbox?.getAttribute("data-state")).toBe("unchecked");
+
+    fireEvent.click(highlightedCheckbox!);
+    expect(highlightedCheckbox?.getAttribute("data-state")).toBe("unchecked");
+    expect(professionalCheckbox?.getAttribute("data-state")).toBe("unchecked");
+
+    fireEvent.click(highlightedCheckbox!);
+    expect(highlightedCheckbox?.getAttribute("data-state")).toBe("checked");
+    expect(professionalCheckbox?.getAttribute("data-state")).toBe("unchecked");
+
     const bannerUrlInput = screen.getByLabelText("Banner image URL");
     const bannerUrlGroup = bannerUrlInput.closest('[data-slot="input-group"]');
     expect(bannerUrlGroup?.classList.contains("h-10")).toBe(true);
