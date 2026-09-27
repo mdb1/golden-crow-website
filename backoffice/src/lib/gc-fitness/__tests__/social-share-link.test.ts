@@ -85,15 +85,16 @@ describe("/.well-known/assetlinks.json", () => {
     expect(body[0].target.package_name).toBe(APP_BUNDLE_ID);
   });
 
-  it("la lista de fingerprints está vacía A PROPÓSITO hasta que llegue el de Play", async () => {
-    // Uno inventado verificaría igual de mal que ninguno, pero además mentiría sobre
-    // estar hecho. Con la lista vacía el archivo es válido, Android simplemente no
-    // verifica el dominio, y el esquema `gcfitness://` + esta landing siguen andando.
-    //
-    // Cuando llegue el SHA-256 de Play App Signing (H-4), este test cambia a
-    // `toHaveLength(1)` — y ese cambio es la señal de que la verificación ya se
-    // puede probar en un teléfono.
+  it("declara exactamente el fingerprint de Play App Signing, no el de subida", async () => {
+    // El de Play sale de la API (`generatedapks.list` → `certificateSha256Hash`).
+    // El de la clave de SUBIDA (D3:E2:AF:…) es el error clásico: verifica tan mal
+    // como ninguno y no se nota sin un teléfono con la app instalada desde Play.
     const body = await assetLinks().json();
-    expect(body[0].target.sha256_cert_fingerprints).toEqual([]);
+    const fingerprints: string[] = body[0].target.sha256_cert_fingerprints;
+    expect(fingerprints).toEqual([
+      "E8:97:39:77:75:74:FE:8A:63:96:14:3A:27:CF:8A:D9:41:DD:FE:B7:A3:9C:E8:95:22:63:BA:7C:AB:F4:6C:CD",
+    ]);
+    expect(fingerprints.some((f) => f.startsWith("D3:E2:AF"))).toBe(false);
+    for (const f of fingerprints) expect(f).toMatch(/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/);
   });
 });

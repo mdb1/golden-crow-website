@@ -16,11 +16,10 @@
  * firma de la app. Poner el de subida es el error clásico y produce exactamente el
  * mismo silencio.
  *
- * ⚠️ Hoy la lista está VACÍA y eso es deliberado (H-4 del ticket): un fingerprint
- * inventado verificaría igual de mal que ninguno, pero además mentiría sobre estar
- * hecho. Con la lista vacía el archivo es válido, Android no verifica el dominio, y
- * el esquema `gcfitness://` + la landing web siguen funcionando. Completar
- * `ANDROID_APP_SIGNING_SHA256` es un solo commit de datos.
+ * Se sacó el 2026-09-27 por la API de Play (`generatedapks.list`, campo
+ * `certificateSha256Hash`) sobre el versionCode 54, y se confirmó que NO coincide
+ * con el del keystore de subida (`D3:E2:AF:…`). Si algún día se rota la clave de
+ * firma de la app en Play Console, este valor cambia con ella.
  */
 import { NextResponse } from "next/server";
 
@@ -29,10 +28,12 @@ import { APP_BUNDLE_ID } from "@/lib/gc-fitness/social-share-link";
 export const dynamic = "force-static";
 
 /**
- * SHA-256 de la clave con la que firma Google Play, en mayúsculas y separado por
- * dos puntos (`AB:CD:…`). Vacío hasta que un humano lo saque de Play Console.
+ * SHA-256 de la clave con la que firma Google Play (Play App Signing), en
+ * mayúsculas y separado por dos puntos.
  */
-const ANDROID_APP_SIGNING_SHA256: string[] = [];
+const ANDROID_APP_SIGNING_SHA256: string[] = [
+  "E8:97:39:77:75:74:FE:8A:63:96:14:3A:27:CF:8A:D9:41:DD:FE:B7:A3:9C:E8:95:22:63:BA:7C:AB:F4:6C:CD",
+];
 
 export function GET() {
   const body = [
