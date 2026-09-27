@@ -2036,7 +2036,6 @@ function offerChangeLogEntry(
           (change) => `${bullet} ${offerModelChangeSentence(change, "en")}`,
         )
       : [`${bullet} No contract fields changed in this save.`]),
-    `${bullet} Contract continuity: v${nextVersion} applies only to transactions created after this save. Every transaction created under v${previousVersion} or an earlier version keeps its complete original contract, including input requirements, acceptance conditions, scope rules, promised outputs, commercial terms, turnaround, and provider commitments.`,
   ].join("\n");
   const es = [
     `Cambios de la oferta de servicio de v${previousVersion} a v${nextVersion}:`,
@@ -2046,7 +2045,6 @@ function offerChangeLogEntry(
           (change) => `${bullet} ${offerModelChangeSentence(change, "es")}`,
         )
       : [`${bullet} No cambiaron campos del contrato en este guardado.`]),
-    `${bullet} Continuidad contractual: v${nextVersion} se aplica solamente a las transacciones creadas después de este guardado. Cada transacción creada bajo v${previousVersion} o una versión anterior conserva por completo su contrato original, incluidos los requisitos de entrada, las condiciones de aceptación, las reglas de alcance, las salidas prometidas, los términos comerciales, el tiempo de entrega y los compromisos del proveedor.`,
   ].join("\n");
 
   return { en, es };
@@ -2070,7 +2068,6 @@ function formShapeChangeLogEntry(
     ...changes.map(
       (change) => `${bullet} ${offerModelChangeSentence(change, "en")}`,
     ),
-    `${bullet} Contract continuity: transactions created with request form v${previousVersion} or an earlier version keep their frozen field definitions and requirements. Request form v${nextVersion} applies only to transactions created after this save.`,
   ].join("\n");
   const es = [
     `Cambios del formulario de solicitud de v${previousVersion} a v${nextVersion}:`,
@@ -2078,7 +2075,6 @@ function formShapeChangeLogEntry(
     ...changes.map(
       (change) => `${bullet} ${offerModelChangeSentence(change, "es")}`,
     ),
-    `${bullet} Continuidad contractual: las transacciones creadas con el formulario de solicitud v${previousVersion} o una versión anterior conservan sus definiciones y requisitos congelados. El formulario v${nextVersion} se aplica solamente a las transacciones creadas después de este guardado.`,
   ].join("\n");
 
   return { en, es };

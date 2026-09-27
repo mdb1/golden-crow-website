@@ -897,9 +897,8 @@ describe("support service repository versions", () => {
     expect(firstTransition!.en).toContain(
       "Acceptance conditions / item 1 was added",
     );
-    expect(firstTransition!.es).toContain(
-      "Continuidad contractual: v4 se aplica solamente a las transacciones creadas después de este guardado.",
-    );
+    expect(firstTransition!.en).not.toContain("Contract continuity:");
+    expect(firstTransition!.es).not.toContain("Continuidad contractual:");
 
     const second = await updateSupportServiceOffer(context, "offer-1", {
       ...baseOffer,
@@ -1038,10 +1037,11 @@ describe("support service repository versions", () => {
       changedFormOffer.changeLogFormShapeByVersion?.v2_to_v3?.en,
     ).toContain('fields / item 3 was added with');
     expect(
+      changedFormOffer.changeLogFormShapeByVersion?.v2_to_v3?.en,
+    ).not.toContain("Contract continuity:");
+    expect(
       changedFormOffer.changeLogFormShapeByVersion?.v2_to_v3?.es,
-    ).toContain(
-      "Continuidad contractual: las transacciones creadas con el formulario de solicitud v2",
-    );
+    ).not.toContain("Continuidad contractual:");
 
     const unchangedFormOffer = await updateSupportServiceOffer(
       context,
