@@ -96,6 +96,7 @@ type MockQueryReference = {
   orderBy(field: string, direction?: "asc" | "desc"): MockQueryReference;
   startAfter(...values: unknown[]): MockQueryReference;
   limit(limit: number): MockQueryReference;
+  select(...fields: string[]): MockQueryReference;
   count(): {
     get(): Promise<{ data(): { count: number } }>;
   };
@@ -214,6 +215,9 @@ function queryRef(
     ),
     limit: jest.fn((limit: number) =>
       queryRef(name, filters, orderings, limit, afterValues),
+    ),
+    select: jest.fn(() =>
+      queryRef(name, filters, orderings, maximum, afterValues),
     ),
     count: jest.fn(() => ({
       async get() {
@@ -595,6 +599,60 @@ describe("support service repository versions", () => {
         },
       }),
     ).rejects.toThrow("Service ID is immutable");
+  });
+
+  it("aggregates every active transaction by its frozen offer version", async () => {
+    for (let index = 0; index < 205; index += 1) {
+      seedDoc(
+        "service_transactions",
+        `transaction-stat-${String(index).padStart(3, "0")}`,
+        {
+          offerId: "offer-1",
+          serviceVersion: index % 2 === 0 ? 1 : 2,
+          status: index % 5 === 0 ? "delivered" : "running",
+        },
+      );
+    }
+    seedDoc("service_transactions", "transaction-other-offer", {
+      offerId: "offer-other",
+      serviceVersion: 1,
+      status: "running",
+    });
+    const { getSupportServiceOfferTransactionStats } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      getSupportServiceOfferTransactionStats(context, "offer-1"),
+    ).resolves.toEqual({
+      offerId: "offer-1",
+      currentServiceVersion: 3,
+      totalTransactions: 205,
+      activeTransactions: 164,
+      terminalTransactions: 41,
+      currentVersionActiveTransactions: 0,
+      outdatedActiveTransactions: 164,
+      versions: [
+        {
+          serviceVersion: 1,
+          totalTransactions: 103,
+          activeTransactions: 82,
+          terminalTransactions: 21,
+        },
+        {
+          serviceVersion: 2,
+          totalTransactions: 102,
+          activeTransactions: 82,
+          terminalTransactions: 20,
+        },
+        {
+          serviceVersion: 3,
+          totalTransactions: 0,
+          activeTransactions: 0,
+          terminalTransactions: 0,
+        },
+      ],
+    });
   });
 
   it("omits sameIdentityAsInput when persisting a new-object output slot", async () => {

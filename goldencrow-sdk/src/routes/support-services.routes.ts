@@ -17,6 +17,7 @@ import {
   deliverSupportServiceTransaction,
   getSupportServiceIdAvailability,
   getSupportServiceOffer,
+  getSupportServiceOfferTransactionStats,
   getSupportServiceTransaction,
   listSupportServiceOffers,
   listSupportServiceTransactions,
@@ -525,6 +526,22 @@ export async function supportServicesRoutes(
           request.query.excludeOfferId,
         );
         return reply.send(availability);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/support-services/offers/:offerId/transaction-stats",
+    { schema: { params: OfferParamsSchema } },
+    async (request, reply) => {
+      try {
+        const stats = await getSupportServiceOfferTransactionStats(
+          request.adminContext!,
+          request.params.offerId,
+        );
+        return reply.send(stats);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

@@ -22,6 +22,7 @@ import {
   ArrowRight,
   Binary,
   Building2,
+  ChartPie,
   Check,
   CheckCircle2,
   CircleAlert,
@@ -46,6 +47,7 @@ import {
   Wand2,
   XCircle,
 } from "lucide-react";
+import { Cell, Pie, PieChart, Tooltip } from "recharts";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { FileJsonWizard } from "@/components/file-storage/file-json-wizard";
@@ -136,6 +138,7 @@ import {
   type SupportServiceMutationMode,
   type SupportServiceOfferInput,
   type SupportServiceOfferRecord,
+  type SupportServiceOfferTransactionStats,
   type SupportServiceOfferSnapshot,
   type SupportServiceOfferStatus,
   type SupportServiceOffersPage,
@@ -315,6 +318,16 @@ const PROMOTIONAL_BANNER_IMAGE_WIDTH = 1024;
 const PROMOTIONAL_BANNER_IMAGE_HEIGHT = 500;
 const GENERATED_SERVICE_ID_PATTERN =
   /^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]{5}$/;
+const SERVICE_VERSION_CHART_COLORS = [
+  "#7c3aed",
+  "#0891b2",
+  "#059669",
+  "#d97706",
+  "#e11d48",
+  "#4f46e5",
+  "#0d9488",
+  "#c026d3",
+];
 const PROMOTIONAL_BANNER_IMAGE_UPLOAD_TYPES = new Set([
   "image/png",
   "image/jpeg",
@@ -3825,6 +3838,9 @@ export function SupportServiceOfferWorkbench({
           onStatusDraftChange={setStatusDraft}
           onSaveStatusDraft={() => void saveStatusDraft()}
         />
+        {hasPersistedOffer && effectiveOfferId ? (
+          <ServiceOfferTransactionStatsSection offerId={effectiveOfferId} />
+        ) : null}
         <ServiceOfferPublishFooter
           changed={changed}
           mode={hasPersistedOffer ? "edit" : "create"}
@@ -8046,6 +8062,239 @@ function GeneratedValue({ value }: { value: string }) {
     <div className="flex min-h-11 items-center rounded-xl border border-violet-100 bg-white/78 px-4 py-2 font-mono text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
       {value}
     </div>
+  );
+}
+
+function ServiceOfferTransactionStatsSection({
+  offerId,
+}: {
+  offerId: string;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const statsQuery = useQuery({
+    queryKey: [OFFERS_QUERY_KEY, offerId, "transaction-stats"],
+    queryFn: () =>
+      sdkFetch<SupportServiceOfferTransactionStats>(
+        `/admin/support-services/offers/${encodeURIComponent(offerId)}/transaction-stats`,
+      ),
+    enabled: Boolean(offerId),
+    retry: false,
+  });
+  const stats =
+    statsQuery.data && Array.isArray(statsQuery.data.versions)
+      ? statsQuery.data
+      : null;
+  const numberFormatter = useMemo(
+    () => new Intl.NumberFormat(language === "es" ? "es-AR" : "en-US"),
+    [language],
+  );
+
+  if (statsQuery.isLoading) {
+    return (
+      <Section title="Number of active transactions">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.9fr)]">
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-52 w-full rounded-xl" />
+        </div>
+      </Section>
+    );
+  }
+
+  if (statsQuery.isError || !stats) {
+    return (
+      <Section title="Number of active transactions">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50/70 px-4 py-3 text-rose-800 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <CircleAlert className="h-4 w-4" />
+            <span>{t("Could not load transaction statistics.")}</span>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => statsQuery.refetch()}
+            className="border-current/20 bg-white/80 dark:bg-slate-950/50"
+          >
+            <RefreshCw className="h-4 w-4" />
+            {t("Try again")}
+          </Button>
+        </div>
+      </Section>
+    );
+  }
+
+  const versions = [...stats.versions].sort(
+    (left, right) => right.serviceVersion - left.serviceVersion,
+  );
+  const colorByVersion = new Map(
+    [...stats.versions]
+      .sort((left, right) => left.serviceVersion - right.serviceVersion)
+      .map((version, index) => [
+        version.serviceVersion,
+        SERVICE_VERSION_CHART_COLORS[
+          index % SERVICE_VERSION_CHART_COLORS.length
+        ],
+      ]),
+  );
+  const chartData = versions
+    .filter((version) => version.activeTransactions > 0)
+    .map((version) => ({
+      name: `v${version.serviceVersion}`,
+      value: version.activeTransactions,
+      fill: colorByVersion.get(version.serviceVersion),
+    }));
+  const metrics = [
+    {
+      label: "Active transactions",
+      value: stats.activeTransactions,
+      className: "text-violet-700 dark:text-violet-200",
+      testId: "service-offer-active-transactions",
+    },
+    {
+      label: "Total linked",
+      value: stats.totalTransactions,
+      className: "text-cyan-700 dark:text-cyan-200",
+      testId: "service-offer-total-transactions",
+    },
+    {
+      label: "Current version active",
+      value: stats.currentVersionActiveTransactions,
+      className: "text-emerald-700 dark:text-emerald-200",
+      testId: "service-offer-current-version-transactions",
+    },
+    {
+      label: "Older-version active",
+      value: stats.outdatedActiveTransactions,
+      className: "text-amber-700 dark:text-amber-200",
+      testId: "service-offer-outdated-transactions",
+    },
+  ];
+
+  return (
+    <Section title="Number of active transactions">
+      <p className="text-sm leading-6 text-muted-foreground">
+        {t(
+          "Counts include every transaction linked to this offer. Active excludes delivered, rejected, failed, and cancelled transactions.",
+        )}
+      </p>
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(26rem,1.1fr)] xl:items-center">
+        <dl className="grid grid-cols-2 border-y border-violet-100/80 dark:border-violet-400/16">
+          {metrics.map((metric, index) => (
+            <div
+              key={metric.label}
+              className={cn(
+                "grid min-h-28 content-center gap-1 px-4 py-5",
+                index % 2 === 0 &&
+                  "border-r border-violet-100/80 dark:border-violet-400/16",
+                index < 2 &&
+                  "border-b border-violet-100/80 dark:border-violet-400/16",
+              )}
+            >
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t(metric.label)}
+              </dt>
+              <dd
+                data-testid={metric.testId}
+                className={cn("text-3xl font-bold", metric.className)}
+              >
+                {numberFormatter.format(metric.value)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <div className="grid gap-5 sm:grid-cols-[13rem_minmax(0,1fr)] sm:items-center">
+          <div className="grid justify-items-center gap-2">
+            <div className="text-sm font-semibold text-foreground">
+              {t("Active transactions by offer version")}
+            </div>
+            {chartData.length > 0 ? (
+              <div
+                role="img"
+                aria-label={`${t("Active transactions by offer version")}: ${chartData.map((item) => `${item.name} ${item.value}`).join(", ")}`}
+                className="relative h-[190px] w-[190px]"
+              >
+                <PieChart width={190} height={190}>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx={95}
+                    cy={95}
+                    innerRadius={48}
+                    outerRadius={78}
+                    paddingAngle={2}
+                    stroke="transparent"
+                    isAnimationActive={false}
+                  >
+                    {chartData.map((item) => (
+                      <Cell key={item.name} fill={item.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+                <div className="pointer-events-none absolute inset-0 grid place-content-center text-center">
+                  <span className="text-2xl font-bold text-foreground">
+                    {numberFormatter.format(stats.activeTransactions)}
+                  </span>
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t("Active count")}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="grid h-[190px] w-[190px] place-content-center justify-items-center gap-2 rounded-full border border-dashed border-violet-200 text-center text-muted-foreground dark:border-violet-400/25">
+                <ChartPie className="h-7 w-7" />
+                <span className="max-w-32 text-xs">
+                  {t("No active transactions for this offer.")}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="divide-y divide-violet-100/80 border-y border-violet-100/80 dark:divide-violet-400/16 dark:border-violet-400/16">
+            {versions.map((version) => (
+              <div
+                key={version.serviceVersion}
+                className="flex min-h-14 items-center justify-between gap-3 py-3"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="h-3 w-3 shrink-0 rounded-sm"
+                    style={{
+                      backgroundColor: colorByVersion.get(
+                        version.serviceVersion,
+                      ),
+                    }}
+                  />
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="font-mono text-sm font-semibold text-foreground">
+                      v{version.serviceVersion}
+                    </span>
+                    {version.serviceVersion === stats.currentServiceVersion ? (
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200"
+                      >
+                        {t("Current contract")}
+                      </Badge>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-sm font-semibold text-foreground">
+                    {numberFormatter.format(version.activeTransactions)} {t("active transactions")}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {numberFormatter.format(version.totalTransactions)} {t("transactions total")}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Section>
   );
 }
 

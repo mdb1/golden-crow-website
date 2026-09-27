@@ -184,6 +184,24 @@ export interface SupportServiceIdAvailability {
   conflictingOfferId?: string;
 }
 
+export interface SupportServiceOfferTransactionVersionStats {
+  serviceVersion: number;
+  totalTransactions: number;
+  activeTransactions: number;
+  terminalTransactions: number;
+}
+
+export interface SupportServiceOfferTransactionStats {
+  offerId: string;
+  currentServiceVersion: number;
+  totalTransactions: number;
+  activeTransactions: number;
+  terminalTransactions: number;
+  currentVersionActiveTransactions: number;
+  outdatedActiveTransactions: number;
+  versions: SupportServiceOfferTransactionVersionStats[];
+}
+
 export interface SupportServiceObjectRef {
   objectId: string;
   revision: number;

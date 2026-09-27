@@ -1359,6 +1359,79 @@ describe("support services workbenches", () => {
     ).toContain("+1");
   });
 
+  it("shows all linked transaction counts and active versions on offer detail", async () => {
+    const versionedOffer: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      serviceVersion: 3,
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (String(path).endsWith("/transaction-stats")) {
+        return {
+          offerId: versionedOffer.id,
+          currentServiceVersion: 3,
+          totalTransactions: 12,
+          activeTransactions: 7,
+          terminalTransactions: 5,
+          currentVersionActiveTransactions: 2,
+          outdatedActiveTransactions: 5,
+          versions: [
+            {
+              serviceVersion: 1,
+              totalTransactions: 5,
+              activeTransactions: 3,
+              terminalTransactions: 2,
+            },
+            {
+              serviceVersion: 2,
+              totalTransactions: 4,
+              activeTransactions: 2,
+              terminalTransactions: 2,
+            },
+            {
+              serviceVersion: 3,
+              totalTransactions: 3,
+              activeTransactions: 2,
+              terminalTransactions: 1,
+            },
+          ],
+        };
+      }
+      return { offer: versionedOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="edit"
+        offerId={versionedOffer.id}
+      />,
+      "es",
+    );
+
+    expect(
+      await screen.findByText("Número de transacciones activas"),
+    ).toBeTruthy();
+    expect(
+      (await screen.findByTestId("service-offer-active-transactions"))
+        .textContent,
+    ).toBe("7");
+    expect(
+      screen.getByTestId("service-offer-total-transactions").textContent,
+    ).toBe("12");
+    expect(
+      screen.getByTestId("service-offer-current-version-transactions")
+        .textContent,
+    ).toBe("2");
+    expect(
+      screen.getByTestId("service-offer-outdated-transactions").textContent,
+    ).toBe("5");
+    expect(
+      screen.getByRole("img", {
+        name: /v3 2, v2 2, v1 3/,
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText("Contrato actual")).toBeTruthy();
+  });
+
   it("loads additional active offers for assisted creation without excluding hidden offers", async () => {
     const firstOffer: SupportServiceOfferRecord = {
       ...hiddenOffer,

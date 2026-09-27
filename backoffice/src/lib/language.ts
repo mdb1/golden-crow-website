@@ -4988,6 +4988,23 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service version": "Versión del servicio",
   "The service version increases after every successful save.":
     "La versión del servicio aumenta después de cada guardado exitoso.",
+  "Number of active transactions": "Número de transacciones activas",
+  "Active transactions": "Transacciones activas",
+  "Total linked": "Total vinculadas",
+  "Current version active": "Activas en la versión actual",
+  "Older-version active": "Activas en versiones anteriores",
+  "Active transactions by offer version":
+    "Transacciones activas por versión de la oferta",
+  "Counts include every transaction linked to this offer. Active excludes delivered, rejected, failed, and cancelled transactions.":
+    "Los conteos incluyen todas las transacciones vinculadas a esta oferta. Las activas excluyen las entregadas, rechazadas, fallidas y canceladas.",
+  "No active transactions for this offer.":
+    "No hay transacciones activas para esta oferta.",
+  "Current contract": "Contrato actual",
+  "Could not load transaction statistics.":
+    "No se pudieron cargar las estadísticas de transacciones.",
+  "Active count": "Activas",
+  "active transactions": "activas",
+  "transactions total": "totales",
   "Export raw file": "Exportar archivo raw",
   "Read-only Firebase record preview.":
     "Vista previa de solo lectura del registro de Firebase.",

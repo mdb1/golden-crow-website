@@ -13,6 +13,7 @@ const mockCreateSupportServiceTransaction = jest.fn();
 const mockAttachSupportServiceTransactionOutputObject = jest.fn();
 const mockDeliverSupportServiceTransaction = jest.fn();
 const mockGetSupportServiceIdAvailability = jest.fn();
+const mockGetSupportServiceOfferTransactionStats = jest.fn();
 
 jest.mock("../repositories/support-services.repository.js", () => ({
   SUPPORT_SERVICE_CATEGORY_KEYS: ["sot_genomic_report_generation"],
@@ -62,6 +63,8 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   deliverSupportServiceTransaction: mockDeliverSupportServiceTransaction,
   getSupportServiceIdAvailability: mockGetSupportServiceIdAvailability,
   getSupportServiceOffer: jest.fn(),
+  getSupportServiceOfferTransactionStats:
+    mockGetSupportServiceOfferTransactionStats,
   getSupportServiceTransaction: jest.fn(),
   listSupportServiceOffers: mockListSupportServiceOffers,
   listSupportServiceTransactions: mockListSupportServiceTransactions,
@@ -225,6 +228,16 @@ describe("support service admin routes", () => {
       serviceId: "pgs_pocket_genes_report_studio_12345",
       available: true,
     });
+    mockGetSupportServiceOfferTransactionStats.mockResolvedValue({
+      offerId: "offer-1",
+      currentServiceVersion: 3,
+      totalTransactions: 8,
+      activeTransactions: 5,
+      terminalTransactions: 3,
+      currentVersionActiveTransactions: 2,
+      outdatedActiveTransactions: 3,
+      versions: [],
+    });
   });
 
   it("creates a service offer with the Pocket Genes service identifiers", async () => {
@@ -272,6 +285,28 @@ describe("support service admin routes", () => {
       bootstrapContext,
       "pgs_pocket_genes_report_studio_12345",
       undefined,
+    );
+  });
+
+  it("returns transaction version statistics for one offer", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/support-services/offers/offer-1/transaction-stats",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        offerId: "offer-1",
+        activeTransactions: 5,
+        outdatedActiveTransactions: 3,
+      }),
+    );
+    expect(mockGetSupportServiceOfferTransactionStats).toHaveBeenCalledWith(
+      bootstrapContext,
+      "offer-1",
     );
   });
 

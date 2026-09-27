@@ -39,6 +39,7 @@ const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = 20;
 const FILTERED_BATCH_LIMIT = MAX_PAGE_SIZE;
 const MAX_FILTERED_SCAN = MAX_PAGE_SIZE * 3;
+const TRANSACTION_STATS_PAGE_SIZE = 200;
 const OUTPUT_OBJECT_DOWNLOAD_MAX_BYTES = 5 * 1024 * 1024;
 const OUTPUT_OBJECT_DOWNLOAD_TIMEOUT_MS = 10_000;
 const OUTPUT_OBJECT_CODE_CANDIDATE_COUNT = 12;
@@ -366,6 +367,24 @@ export interface SupportServiceOffersPage {
 export interface SupportServiceTransactionsPage {
   transactions: SupportServiceTransactionRecord[];
   nextCursor?: string;
+}
+
+export interface SupportServiceOfferTransactionVersionStats {
+  serviceVersion: number;
+  totalTransactions: number;
+  activeTransactions: number;
+  terminalTransactions: number;
+}
+
+export interface SupportServiceOfferTransactionStats {
+  offerId: string;
+  currentServiceVersion: number;
+  totalTransactions: number;
+  activeTransactions: number;
+  terminalTransactions: number;
+  currentVersionActiveTransactions: number;
+  outdatedActiveTransactions: number;
+  versions: SupportServiceOfferTransactionVersionStats[];
 }
 
 const STAGE_SET = new Set<string>(SUPPORT_SERVICE_STAGES);
@@ -5190,6 +5209,97 @@ export async function getSupportServiceOffer(
   }
 
   return toOfferAdminRecord(offerId, snapshot.data() ?? {});
+}
+
+export async function getSupportServiceOfferTransactionStats(
+  context: AdminContext,
+  offerId: string,
+): Promise<SupportServiceOfferTransactionStats> {
+  requireGodMode(context);
+  const offerSnapshot = await getOfferSnapshot(offerId);
+  if (!offerSnapshot) {
+    throw new AdminRepositoryError("Service offer not found.", 404);
+  }
+
+  const currentServiceVersion = versionNumber(
+    offerSnapshot.data()?.serviceVersion,
+  );
+  const versions = new Map<
+    number,
+    SupportServiceOfferTransactionVersionStats
+  >();
+  versions.set(currentServiceVersion, {
+    serviceVersion: currentServiceVersion,
+    totalTransactions: 0,
+    activeTransactions: 0,
+    terminalTransactions: 0,
+  });
+
+  let totalTransactions = 0;
+  let activeTransactions = 0;
+  let cursorId = "";
+
+  while (true) {
+    let query: Query = adminDb
+      .collection(SERVICE_TRANSACTIONS_COLLECTION)
+      .where("offerId", "==", offerId)
+      .select("serviceVersion", "status")
+      .orderBy(FieldPath.documentId(), "asc");
+    if (cursorId) {
+      query = query.startAfter(cursorId);
+    }
+    const snapshot = await query.limit(TRANSACTION_STATS_PAGE_SIZE).get();
+
+    for (const transactionSnapshot of snapshot.docs) {
+      const data = transactionSnapshot.data() ?? {};
+      const serviceVersion = versionNumber(data.serviceVersion);
+      const status = normalizeTransactionStatus(data.status);
+      const isActive = !TERMINAL_TRANSACTION_STATUSES.has(status);
+      const versionStats = versions.get(serviceVersion) ?? {
+        serviceVersion,
+        totalTransactions: 0,
+        activeTransactions: 0,
+        terminalTransactions: 0,
+      };
+
+      versionStats.totalTransactions += 1;
+      if (isActive) {
+        versionStats.activeTransactions += 1;
+        activeTransactions += 1;
+      } else {
+        versionStats.terminalTransactions += 1;
+      }
+      versions.set(serviceVersion, versionStats);
+      totalTransactions += 1;
+    }
+
+    const lastDocument = snapshot.docs[snapshot.docs.length - 1];
+    if (
+      snapshot.docs.length < TRANSACTION_STATS_PAGE_SIZE ||
+      !lastDocument
+    ) {
+      break;
+    }
+    cursorId = lastDocument.id;
+  }
+
+  const versionStats = [...versions.values()].sort(
+    (left, right) => left.serviceVersion - right.serviceVersion,
+  );
+  const currentVersionActiveTransactions =
+    versions.get(currentServiceVersion)?.activeTransactions ?? 0;
+
+  return {
+    offerId,
+    currentServiceVersion,
+    totalTransactions,
+    activeTransactions,
+    terminalTransactions: totalTransactions - activeTransactions,
+    currentVersionActiveTransactions,
+    outdatedActiveTransactions:
+      activeTransactions - currentVersionActiveTransactions,
+    versions: versionStats,
+  };
 }
 
 export async function getSupportServiceIdAvailability(
