@@ -8391,14 +8391,17 @@ function ServiceOfferTransactionStatsSection({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const [expanded, setExpanded] = useState(false);
   const statsQuery = useQuery({
     queryKey: [OFFERS_QUERY_KEY, offerId, "transaction-stats"],
     queryFn: () =>
       sdkFetch<SupportServiceOfferTransactionStats>(
         `/admin/support-services/offers/${encodeURIComponent(offerId)}/transaction-stats`,
       ),
-    enabled: Boolean(offerId),
+    enabled: Boolean(offerId) && expanded,
     retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
   const stats =
     statsQuery.data && Array.isArray(statsQuery.data.versions)
@@ -8409,20 +8412,26 @@ function ServiceOfferTransactionStatsSection({
     [language],
   );
 
-  if (statsQuery.isLoading) {
+  if (statsQuery.isLoading || (!stats && !statsQuery.isError)) {
     return (
-      <Section title="Number of active transactions">
+      <ServiceOfferTransactionStatsAccordion
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+      >
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.9fr)]">
           <Skeleton className="h-28 w-full rounded-xl" />
           <Skeleton className="h-52 w-full rounded-xl" />
         </div>
-      </Section>
+      </ServiceOfferTransactionStatsAccordion>
     );
   }
 
   if (statsQuery.isError || !stats) {
     return (
-      <Section title="Number of active transactions">
+      <ServiceOfferTransactionStatsAccordion
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50/70 px-4 py-3 text-rose-800 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100">
           <div className="flex items-center gap-2 text-sm font-medium">
             <CircleAlert className="h-4 w-4" />
@@ -8439,7 +8448,7 @@ function ServiceOfferTransactionStatsSection({
             {t("Try again")}
           </Button>
         </div>
-      </Section>
+      </ServiceOfferTransactionStatsAccordion>
     );
   }
 
@@ -8491,7 +8500,10 @@ function ServiceOfferTransactionStatsSection({
   ];
 
   return (
-    <Section title="Number of active transactions">
+    <ServiceOfferTransactionStatsAccordion
+      expanded={expanded}
+      onExpandedChange={setExpanded}
+    >
       <p className="text-sm leading-6 text-muted-foreground">
         {t(
           "Counts include every transaction linked to this offer. Active excludes delivered, rejected, failed, and cancelled transactions.",
@@ -8613,7 +8625,52 @@ function ServiceOfferTransactionStatsSection({
           </div>
         </div>
       </div>
-    </Section>
+    </ServiceOfferTransactionStatsAccordion>
+  );
+}
+
+function ServiceOfferTransactionStatsAccordion({
+  expanded,
+  onExpandedChange,
+  children,
+}: {
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
+  children: React.ReactNode;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <section
+      data-testid="service-offer-transaction-stats"
+      className={SUPPORT_SERVICE_SECTION_CLASS}
+    >
+      <Accordion
+        type="single"
+        collapsible
+        value={expanded ? "transaction-stats" : ""}
+        onValueChange={(value) =>
+          onExpandedChange(value === "transaction-stats")
+        }
+      >
+        <AccordionItem value="transaction-stats" className="border-0">
+          <AccordionTrigger className="rounded-none border-0 border-b border-violet-100/80 py-0 pb-4 hover:no-underline dark:border-violet-400/14">
+            <span className="flex min-w-0 flex-1 items-center gap-3 pr-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-100 bg-cyan-50 text-cyan-700 shadow-inner dark:border-cyan-400/18 dark:bg-cyan-500/10 dark:text-cyan-100">
+                <ChartPie className="h-4 w-4" />
+              </span>
+              <span className="font-heading text-xl font-semibold text-foreground">
+                {t("Number of active transactions")}
+              </span>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="pt-6">{children}</div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    </section>
   );
 }
 

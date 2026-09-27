@@ -1601,9 +1601,27 @@ describe("support services workbenches", () => {
       "es",
     );
 
+    const statsTrigger = await screen.findByRole("button", {
+      name: "Número de transacciones activas",
+    });
     expect(
-      await screen.findByText("Número de transacciones activas"),
-    ).toBeTruthy();
+      sdkFetchMock.mock.calls.filter(([path]) =>
+        String(path).endsWith("/transaction-stats"),
+      ),
+    ).toHaveLength(0);
+    expect(
+      screen.queryByTestId("service-offer-active-transactions"),
+    ).toBeNull();
+
+    fireEvent.click(statsTrigger);
+
+    await waitFor(() => {
+      expect(
+        sdkFetchMock.mock.calls.filter(([path]) =>
+          String(path).endsWith("/transaction-stats"),
+        ),
+      ).toHaveLength(1);
+    });
     expect(
       (await screen.findByTestId("service-offer-active-transactions"))
         .textContent,
@@ -1624,6 +1642,16 @@ describe("support services workbenches", () => {
       }),
     ).toBeTruthy();
     expect(screen.getByText("Contrato actual")).toBeTruthy();
+
+    fireEvent.click(statsTrigger);
+    fireEvent.click(statsTrigger);
+    await waitFor(() => {
+      expect(
+        sdkFetchMock.mock.calls.filter(([path]) =>
+          String(path).endsWith("/transaction-stats"),
+        ),
+      ).toHaveLength(1);
+    });
   });
 
   it("loads additional active offers for assisted creation without excluding hidden offers", async () => {
