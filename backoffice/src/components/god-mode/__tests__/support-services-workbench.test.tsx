@@ -1630,7 +1630,19 @@ describe("support services workbenches", () => {
 
     fireEvent.click(trigger);
 
-    const transitions = within(historySection).getAllByRole("article");
+    const historyDialog = await screen.findByRole("dialog", {
+      name: "Historial de versiones",
+    });
+    expect(historyDialog.className).toContain("90rem");
+    expect(historyDialog.className).toContain("max-h-[92vh]");
+    expect(historyDialog.className).toContain("overflow-hidden");
+    const scrollViewport = within(historyDialog).getByTestId(
+      "service-offer-version-history-scroll",
+    );
+    expect(scrollViewport.className).toContain("overflow-y-auto");
+    expect(scrollViewport.className).toContain("min-h-0");
+
+    const transitions = within(historyDialog).getAllByRole("article");
     expect(
       transitions.map((transition) => transition.getAttribute("aria-label")),
     ).toEqual([
@@ -1655,8 +1667,16 @@ describe("support services workbenches", () => {
       ).toBeNull();
     });
     expect(
-      within(historySection).queryByText("Turnaround changed from 2d to 1d."),
+      within(historyDialog).queryByText("Turnaround changed from 2d to 1d."),
     ).toBeNull();
+    fireEvent.click(
+      within(historyDialog).getByRole("button", { name: "Cerrar" }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Historial de versiones" }),
+      ).toBeNull();
+    });
   });
 
   it("shows finished counts and three ordered transaction charts on offer detail", async () => {

@@ -37,6 +37,7 @@ import {
   Link2,
   Loader2,
   LockKeyhole,
+  Maximize2,
   Pencil,
   Plus,
   RefreshCw,
@@ -4018,6 +4019,7 @@ function ServiceOfferVersionHistory({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const [open, setOpen] = useState(false);
   const transitions = Object.entries(history ?? {})
     .flatMap(([key, entry]) => {
       const match = key.match(/^v([1-9]\d*)_to_v([1-9]\d*)$/);
@@ -4036,22 +4038,62 @@ function ServiceOfferVersionHistory({
     .sort((left, right) => left.fromVersion - right.fromVersion);
 
   return (
-    <section
-      data-testid="service-offer-version-history"
-      className={SUPPORT_SERVICE_SECTION_CLASS}
-    >
-      <Accordion type="single" collapsible>
-        <AccordionItem value="version-history" className="border-0">
-          <AccordionTrigger className="rounded-none border-0 border-b border-violet-100/80 py-0 pb-4 hover:no-underline dark:border-violet-400/14">
-            <span className="flex min-w-0 flex-1 items-center gap-3 pr-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/18 dark:bg-violet-500/12 dark:text-violet-100">
-                <History className="h-4 w-4" />
+    <>
+      <section
+        data-testid="service-offer-version-history"
+        className={SUPPORT_SERVICE_SECTION_CLASS}
+      >
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
+          className="flex w-full items-center justify-between gap-4 border-b border-violet-100/80 pb-4 text-left transition-colors hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-4 dark:border-violet-400/14 dark:hover:text-violet-200"
+        >
+          <span className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/18 dark:bg-violet-500/12 dark:text-violet-100">
+              <History className="h-4 w-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-heading text-xl font-semibold text-foreground">
+                {t("Version history")}
               </span>
-              <span className="min-w-0 text-left">
-                <span className="block font-heading text-xl font-semibold text-foreground">
-                  {t("Version history")}
+              <span className="mt-1 flex flex-wrap items-center gap-2 text-xs font-normal text-muted-foreground">
+                <span>{`${transitions.length} ${t(
+                  transitions.length === 1
+                    ? "version change"
+                    : "version changes",
+                )}`}</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 dark:border-emerald-400/24 dark:bg-emerald-500/10 dark:text-emerald-200">
+                  <LockKeyhole className="h-3 w-3" />
+                  {t("Read only")}
                 </span>
-                <span className="mt-1 flex flex-wrap items-center gap-2 text-xs font-normal text-muted-foreground">
+              </span>
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2 text-xs font-semibold text-violet-700 dark:text-violet-200">
+            <span className="hidden sm:inline">{t("Open full history")}</span>
+            <Maximize2 className="h-4 w-4" />
+          </span>
+        </button>
+      </section>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="flex max-h-[92vh] w-[min(calc(100vw-2rem),90rem)] max-w-none flex-col overflow-hidden rounded-2xl border border-violet-100 bg-white p-0 shadow-[0_34px_120px_rgba(109,40,217,0.24)] sm:max-w-none dark:border-violet-300/20 dark:bg-slate-950">
+          <DialogHeader className="shrink-0 border-b border-violet-100 px-5 py-5 text-left sm:px-7 dark:border-violet-400/16">
+            <div className="flex items-start gap-3 pr-8">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 dark:border-violet-400/18 dark:bg-violet-500/12 dark:text-violet-100">
+                <History className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <DialogTitle className="font-heading text-2xl font-semibold">
+                  {t("Version history")}
+                </DialogTitle>
+                <DialogDescription className="mt-1 leading-6">
+                  {t(
+                    "Complete read-only record of every service-offer version transition.",
+                  )}
+                </DialogDescription>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span>{`${transitions.length} ${t(
                     transitions.length === 1
                       ? "version change"
@@ -4061,13 +4103,16 @@ function ServiceOfferVersionHistory({
                     <LockKeyhole className="h-3 w-3" />
                     {t("Read only")}
                   </span>
-                </span>
-              </span>
-            </span>
-          </AccordionTrigger>
-          <AccordionContent className="pb-0 pt-6">
+                </div>
+              </div>
+            </div>
+          </DialogHeader>
+          <div
+            data-testid="service-offer-version-history-scroll"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-7 sm:py-7"
+          >
             {transitions.length > 0 ? (
-              <div className="relative grid gap-5 before:absolute before:bottom-8 before:left-[1.45rem] before:top-8 before:w-px before:bg-violet-200 dark:before:bg-violet-400/24">
+              <div className="relative grid gap-6 before:absolute before:bottom-8 before:left-[1.45rem] before:top-8 before:w-px before:bg-violet-200 dark:before:bg-violet-400/24">
                 {transitions.map((transition) => {
                   const lines = transition.text
                     .split(/\r?\n/)
@@ -4082,16 +4127,16 @@ function ServiceOfferVersionHistory({
                     <article
                       key={transition.key}
                       aria-label={`${t("Version transition")} v${transition.fromVersion} ${t("to")} v${transition.toVersion}`}
-                      className="relative grid gap-3 pl-14 lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-5"
+                      className="relative grid min-w-0 gap-4 pl-14 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6"
                     >
                       <span className="absolute left-0 top-4 flex h-12 w-12 items-center justify-center rounded-2xl border-4 border-white bg-violet-600 text-white shadow-[0_12px_28px_rgba(109,40,217,0.28)] dark:border-slate-950">
                         <History className="h-4 w-4" />
                       </span>
-                      <div className="flex flex-col justify-center rounded-xl border border-violet-100 bg-violet-50/70 px-4 py-3 dark:border-violet-400/18 dark:bg-violet-500/10">
-                        <code className="text-xs font-semibold text-violet-700 dark:text-violet-200">
+                      <div className="flex min-w-0 flex-col justify-center rounded-xl border border-violet-100 bg-violet-50/70 px-4 py-4 dark:border-violet-400/18 dark:bg-violet-500/10">
+                        <code className="break-all text-xs font-semibold text-violet-700 dark:text-violet-200">
                           {transition.key}
                         </code>
-                        <div className="mt-2 flex items-center gap-2" aria-hidden="true">
+                        <div className="mt-3 flex items-center gap-2" aria-hidden="true">
                           <span className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 font-mono text-sm font-semibold text-violet-800 dark:border-violet-400/24 dark:bg-slate-950/60 dark:text-violet-100">
                             {`v${transition.fromVersion}`}
                           </span>
@@ -4101,24 +4146,24 @@ function ServiceOfferVersionHistory({
                           </span>
                         </div>
                         {transition.toVersion === currentVersion ? (
-                          <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-400/24 dark:bg-emerald-500/10 dark:text-emerald-200">
+                          <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-400/24 dark:bg-emerald-500/10 dark:text-emerald-200">
                             <CheckCircle2 className="h-3 w-3" />
                             {t("Current version")}
                           </span>
                         ) : null}
                       </div>
-                      <div className="rounded-xl border border-violet-100 bg-white/82 px-4 py-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-                        <p className="text-sm font-semibold text-foreground">
+                      <div className="min-w-0 rounded-xl border border-violet-100 bg-white/82 px-5 py-5 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                        <p className="whitespace-pre-wrap break-words text-base font-semibold leading-6 text-foreground">
                           {heading}
                         </p>
-                        <div className="mt-3 grid gap-2.5">
+                        <div className="mt-4 grid gap-3">
                           {changes.map((change, index) => (
                             <div
                               key={`${transition.key}-${index}`}
-                              className="flex items-start gap-3 rounded-lg bg-violet-50/65 px-3 py-2.5 text-sm leading-6 text-foreground dark:bg-violet-500/8"
+                              className="flex min-w-0 items-start gap-3 rounded-lg bg-violet-50/65 px-4 py-3 text-sm leading-6 text-foreground dark:bg-violet-500/8"
                             >
                               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
-                              <span className="whitespace-pre-wrap break-words">
+                              <span className="min-w-0 whitespace-pre-wrap break-words">
                                 {change}
                               </span>
                             </div>
@@ -4135,10 +4180,20 @@ function ServiceOfferVersionHistory({
                 <span>{t("No version changes have been recorded yet.")}</span>
               </div>
             )}
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </section>
+          </div>
+          <DialogFooter className="shrink-0 border-t border-violet-100 px-5 py-4 sm:px-7 dark:border-violet-400/16">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+            >
+              {t("Close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

@@ -5012,6 +5012,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "This version increases only when the request form changes.":
     "Esta versión aumenta únicamente cuando cambia el formulario de solicitud.",
   "Version history": "Historial de versiones",
+  "Open full history": "Abrir historial completo",
+  "Complete read-only record of every service-offer version transition.":
+    "Registro completo y de solo lectura de cada transición de versión de la oferta de servicio.",
   "version change": "cambio de versión",
   "version changes": "cambios de versión",
   "Version transition": "Transición de versión",
