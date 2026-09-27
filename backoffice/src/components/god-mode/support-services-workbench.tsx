@@ -33,8 +33,10 @@ import {
   Filter,
   FlaskConical,
   ImageIcon,
+  History,
   Link2,
   Loader2,
+  LockKeyhole,
   Pencil,
   Plus,
   RefreshCw,
@@ -52,6 +54,12 @@ import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { FileJsonWizard } from "@/components/file-storage/file-json-wizard";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -3897,6 +3905,12 @@ export function SupportServiceOfferWorkbench({
             setForm((current) => ({ ...current, stages: predictedStages }));
           }}
         />
+        {hasPersistedOffer ? (
+          <ServiceOfferVersionHistory
+            history={persistedOfferRecord?.changeLogHistoryByVersion}
+            currentVersion={form.serviceVersion || 1}
+          />
+        ) : null}
         <ServiceOfferStatusBlock
           status={form.status}
           statusDraft={statusDraft}
@@ -3962,6 +3976,139 @@ export function SupportServiceOfferWorkbench({
         value={persistedOfferRecord}
       />
     </>
+  );
+}
+
+function ServiceOfferVersionHistory({
+  history,
+  currentVersion,
+}: {
+  history: SupportServiceOfferRecord["changeLogHistoryByVersion"];
+  currentVersion: number;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const transitions = Object.entries(history ?? {})
+    .flatMap(([key, entry]) => {
+      const match = key.match(/^v([1-9]\d*)_to_v([1-9]\d*)$/);
+      if (!match) {
+        return [];
+      }
+      return [
+        {
+          key,
+          fromVersion: Number(match[1]),
+          toVersion: Number(match[2]),
+          text: language === "es" ? entry.es : entry.en,
+        },
+      ];
+    })
+    .sort((left, right) => left.fromVersion - right.fromVersion);
+
+  return (
+    <section
+      data-testid="service-offer-version-history"
+      className={SUPPORT_SERVICE_SECTION_CLASS}
+    >
+      <Accordion type="single" collapsible>
+        <AccordionItem value="version-history" className="border-0">
+          <AccordionTrigger className="rounded-none border-0 border-b border-violet-100/80 py-0 pb-4 hover:no-underline dark:border-violet-400/14">
+            <span className="flex min-w-0 flex-1 items-center gap-3 pr-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/18 dark:bg-violet-500/12 dark:text-violet-100">
+                <History className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 text-left">
+                <span className="block font-heading text-xl font-semibold text-foreground">
+                  {t("Version history")}
+                </span>
+                <span className="mt-1 flex flex-wrap items-center gap-2 text-xs font-normal text-muted-foreground">
+                  <span>{`${transitions.length} ${t(
+                    transitions.length === 1
+                      ? "version change"
+                      : "version changes",
+                  )}`}</span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 dark:border-emerald-400/24 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    <LockKeyhole className="h-3 w-3" />
+                    {t("Read only")}
+                  </span>
+                </span>
+              </span>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="pb-0 pt-6">
+            {transitions.length > 0 ? (
+              <div className="relative grid gap-5 before:absolute before:bottom-8 before:left-[1.45rem] before:top-8 before:w-px before:bg-violet-200 dark:before:bg-violet-400/24">
+                {transitions.map((transition) => {
+                  const lines = transition.text
+                    .split(/\r?\n/)
+                    .map((line) => line.trim())
+                    .filter(Boolean);
+                  const heading = lines[0] ?? transition.key;
+                  const changes = lines.slice(1).map((line) =>
+                    line.replace(/^·\s*/, ""),
+                  );
+
+                  return (
+                    <article
+                      key={transition.key}
+                      aria-label={`${t("Version transition")} v${transition.fromVersion} ${t("to")} v${transition.toVersion}`}
+                      className="relative grid gap-3 pl-14 lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-5"
+                    >
+                      <span className="absolute left-0 top-4 flex h-12 w-12 items-center justify-center rounded-2xl border-4 border-white bg-violet-600 text-white shadow-[0_12px_28px_rgba(109,40,217,0.28)] dark:border-slate-950">
+                        <History className="h-4 w-4" />
+                      </span>
+                      <div className="flex flex-col justify-center rounded-xl border border-violet-100 bg-violet-50/70 px-4 py-3 dark:border-violet-400/18 dark:bg-violet-500/10">
+                        <code className="text-xs font-semibold text-violet-700 dark:text-violet-200">
+                          {transition.key}
+                        </code>
+                        <div className="mt-2 flex items-center gap-2" aria-hidden="true">
+                          <span className="rounded-lg border border-violet-200 bg-white px-2.5 py-1 font-mono text-sm font-semibold text-violet-800 dark:border-violet-400/24 dark:bg-slate-950/60 dark:text-violet-100">
+                            {`v${transition.fromVersion}`}
+                          </span>
+                          <ArrowRight className="h-4 w-4 text-violet-500" />
+                          <span className="rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 font-mono text-sm font-semibold text-cyan-800 dark:border-cyan-400/24 dark:bg-cyan-500/10 dark:text-cyan-100">
+                            {`v${transition.toVersion}`}
+                          </span>
+                        </div>
+                        {transition.toVersion === currentVersion ? (
+                          <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-400/24 dark:bg-emerald-500/10 dark:text-emerald-200">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {t("Current version")}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="rounded-xl border border-violet-100 bg-white/82 px-4 py-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                        <p className="text-sm font-semibold text-foreground">
+                          {heading}
+                        </p>
+                        <div className="mt-3 grid gap-2.5">
+                          {changes.map((change, index) => (
+                            <div
+                              key={`${transition.key}-${index}`}
+                              className="flex items-start gap-3 rounded-lg bg-violet-50/65 px-3 py-2.5 text-sm leading-6 text-foreground dark:bg-violet-500/8"
+                            >
+                              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
+                              <span className="whitespace-pre-wrap break-words">
+                                {change}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 rounded-xl border border-dashed border-violet-200 bg-violet-50/45 px-4 py-4 text-sm text-muted-foreground dark:border-violet-400/20 dark:bg-violet-500/8">
+                <History className="h-4 w-4 shrink-0" />
+                <span>{t("No version changes have been recorded yet.")}</span>
+              </div>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    </section>
   );
 }
 

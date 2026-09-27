@@ -4997,6 +4997,14 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service version": "Versión del servicio",
   "The service version increases after every successful save.":
     "La versión del servicio aumenta después de cada guardado exitoso.",
+  "Version history": "Historial de versiones",
+  "version change": "cambio de versión",
+  "version changes": "cambios de versión",
+  "Version transition": "Transición de versión",
+  "Current version": "Versión actual",
+  to: "a",
+  "No version changes have been recorded yet.":
+    "Todavía no se registraron cambios de versión.",
   "Number of active transactions": "Número de transacciones activas",
   "Active transactions": "Transacciones activas",
   "Total linked": "Total vinculadas",

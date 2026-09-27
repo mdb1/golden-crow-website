@@ -1453,6 +1453,106 @@ describe("support services workbenches", () => {
     ).toContain("+1");
   });
 
+  it("shows the localized offer change log as a chronological read-only history", async () => {
+    const offerWithHistory: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      serviceVersion: 3,
+      changeLogHistoryByVersion: {
+        v1_to_v2: {
+          en: [
+            "Service offer changes from v1 to v2:",
+            "· Service version increased from 1 to 2.",
+            '· Description changed from "Initial report" to "Reviewed report".',
+          ].join("\n"),
+          es: [
+            "Cambios de la oferta de servicio de v1 a v2:",
+            "· La versión del servicio aumentó de 1 a 2.",
+            '· Descripción cambió de "Informe inicial" a "Informe revisado".',
+          ].join("\n"),
+        },
+        v2_to_v3: {
+          en: [
+            "Service offer changes from v2 to v3:",
+            "· Service version increased from 2 to 3.",
+            "· Turnaround changed from 2d to 1d.",
+          ].join("\n"),
+          es: [
+            "Cambios de la oferta de servicio de v2 a v3:",
+            "· La versión del servicio aumentó de 2 a 3.",
+            "· Tiempo de entrega cambió de 2d a 1d.",
+          ].join("\n"),
+        },
+      },
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (String(path).endsWith("/transaction-stats")) {
+        return {
+          offerId: offerWithHistory.id,
+          currentServiceVersion: 3,
+          totalTransactions: 0,
+          activeTransactions: 0,
+          terminalTransactions: 0,
+          currentVersionActiveTransactions: 0,
+          outdatedActiveTransactions: 0,
+          versions: [],
+        };
+      }
+      return { offer: offerWithHistory };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="edit"
+        offerId={offerWithHistory.id}
+      />,
+      "es",
+    );
+
+    const historySection = await screen.findByTestId(
+      "service-offer-version-history",
+    );
+    const trigger = within(historySection).getByRole("button", {
+      name: /Historial de versiones/,
+    });
+    expect(within(trigger).getByText("2 cambios de versión")).toBeTruthy();
+    expect(within(trigger).getByText("Solo lectura")).toBeTruthy();
+    expect(
+      within(historySection).queryByRole("article", {
+        name: "Transición de versión v1 a v2",
+      }),
+    ).toBeNull();
+
+    fireEvent.click(trigger);
+
+    const transitions = within(historySection).getAllByRole("article");
+    expect(
+      transitions.map((transition) => transition.getAttribute("aria-label")),
+    ).toEqual([
+      "Transición de versión v1 a v2",
+      "Transición de versión v2 a v3",
+    ]);
+    expect(within(transitions[0]!).getByText("v1_to_v2")).toBeTruthy();
+    expect(
+      within(transitions[0]!).getByText(
+        'Descripción cambió de "Informe inicial" a "Informe revisado".',
+      ),
+    ).toBeTruthy();
+    expect(within(transitions[1]!).getByText("Versión actual")).toBeTruthy();
+    expect(
+      within(transitions[1]!).getByText(
+        "Tiempo de entrega cambió de 2d a 1d.",
+      ),
+    ).toBeTruthy();
+    transitions.forEach((transition) => {
+      expect(
+        transition.querySelector("input, textarea, select, button"),
+      ).toBeNull();
+    });
+    expect(
+      within(historySection).queryByText("Turnaround changed from 2d to 1d."),
+    ).toBeNull();
+  });
+
   it("shows all linked transaction counts and active versions on offer detail", async () => {
     const versionedOffer: SupportServiceOfferRecord = {
       ...hiddenOffer,
