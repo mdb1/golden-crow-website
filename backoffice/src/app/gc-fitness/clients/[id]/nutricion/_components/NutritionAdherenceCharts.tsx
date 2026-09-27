@@ -46,13 +46,17 @@ export interface NutritionAdherenceChartsProps {
 }
 
 /**
- * Verde arriba de 80, ámbar entre 50 y 80, rojo abajo.
+ * Verde arriba de 80, ámbar entre 50 y 80, rojo abajo: más cumplimiento, más verde.
+ *
+ * ⚠️ El verde es `chart-3`. Esto usaba `chart-2`, que en TODOS los temas es rosa (globals.css):
+ * un 95% se pintaba rosa y un 60% naranja, así que la escala se leía al revés. Es la misma
+ * paleta que usa `ComplianceBar` del roster (`bg-chart-3` bien, `bg-chart-4` en riesgo).
  *
  * Los cortes son los mismos que usa el coach al hablar, y el color NUNCA va solo: cada barra
  * tiene su porcentaje escrito en el tooltip y el eje está rotulado.
  */
-function barColor(percent: number): string {
-  if (percent >= 80) return "var(--color-chart-2)";
+export function barColor(percent: number): string {
+  if (percent >= 80) return "var(--color-chart-3)";
   if (percent >= 50) return "var(--color-chart-4)";
   return "var(--color-destructive)";
 }

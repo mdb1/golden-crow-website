@@ -364,6 +364,21 @@ function forEachSlot(
   end: string,
   visit: (meal: NutritionSnapshotMeal, status: NutritionMealStatus | null) => void,
 ): void {
+  forEachDatedNutritionSlot(plans, logs, start, end, (_day, meal, status) => visit(meal, status));
+}
+
+/**
+ * The slot walk, WITH the civil date — twin of iOS `forEachSlot` / Android `forEachDatedSlot`.
+ * Days from `end` backward to `start`, meals in each day's expected order; `null` status =
+ * unmarked. The excuse analyzer (#1148) needs the date for the weekday and the note lookup.
+ */
+export function forEachDatedNutritionSlot(
+  plans: NutritionPlan[],
+  logs: NutritionLog[],
+  start: string,
+  end: string,
+  visit: (civilDate: string, meal: NutritionSnapshotMeal, status: NutritionMealStatus | null) => void,
+): void {
   if (start > end) return;
 
   const logsByDate = indexLogs(logs);
@@ -376,7 +391,7 @@ function forEachSlot(
     const expected = expectedNutritionMeals(day, plans, logsByDate);
     const log = logsByDate.get(day);
     for (const meal of expected) {
-      visit(meal, log?.meals[meal.mealId]?.status ?? null);
+      visit(day, meal, log?.meals[meal.mealId]?.status ?? null);
     }
 
     cursor = civilDateAddDays(day, -1);

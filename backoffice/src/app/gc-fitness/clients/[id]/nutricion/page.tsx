@@ -27,6 +27,8 @@ import {
   collectNutritionNotes,
 } from "@/lib/gc-fitness/nutrition-compliance";
 import { failingMeals } from "@/lib/gc-fitness/nutrition-coach-reply";
+import { analyzeNutritionExcuses, nutritionNotePresetGroups } from "@/lib/gc-fitness/nutrition-excuses";
+import { nutritionHighlights } from "@/lib/gc-fitness/nutrition-highlights";
 import { localizedNamePair } from "@/lib/gc-fitness/localized-name";
 import { buildNutritionPhaseStrip } from "@/lib/gc-fitness/nutrition-plan-form";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
@@ -36,6 +38,7 @@ import { NutritionCoachActions } from "./_components/NutritionCoachActions";
 import { NutritionAdherenceCharts } from "./_components/NutritionAdherenceCharts";
 import { NutritionComplianceGrid } from "./_components/NutritionComplianceGrid";
 import { NutritionNotesFeed } from "./_components/NutritionNotesFeed";
+import { NutritionPatterns } from "./_components/NutritionPatterns";
 import { NutritionPhaseStrip } from "./_components/NutritionPhaseStrip";
 import { NutritionPhaseWeightTable } from "./_components/NutritionPhaseWeightTable";
 import { NutritionCurrentTargets } from "./_components/NutritionCurrentTargets";
@@ -50,6 +53,9 @@ const GRID_WEEKS = 8;
 
 /** Log window, matching every other per-client trend widget. */
 const LOOKBACK_DAYS = 365;
+
+/** gc-fitness#1148 — "Por qué falla" reads the same 28 days the client's own screen opens on. */
+const PATTERN_RANGE_DAYS = 28;
 
 /**
  * The coach's nutrition surface for one client (#914, extended by #919).
@@ -161,6 +167,19 @@ export default async function ClientNutritionPage({
       )
     : [];
   const failing = failingMeals(adherenceByMeal);
+
+  // gc-fitness#1148 — the window the client's own "Ver mis números" opens on (28 days), so the
+  // coach and the client read the same slice and the same sentence.
+  const patternStart = civilDateAddDays(context.todayCivil, -(PATTERN_RANGE_DAYS - 1)) ??
+    context.todayCivil;
+  const excuses = analyzeNutritionExcuses(
+    plans,
+    logs,
+    patternStart,
+    context.todayCivil,
+    nutritionNotePresetGroups(locale),
+  );
+  const highlights = nutritionHighlights(plans, logs, patternStart, context.todayCivil);
   const phaseRows = buildNutritionPhaseRows(
     plans,
     logs,
@@ -226,6 +245,10 @@ export default async function ClientNutritionPage({
           semana, el gráfico dice si viene mejorando. Sin lecturas nuevas: las dos series
           salen de `weeks` y de `adherenceByMeal`, que ya estaban calculadas. */}
       <NutritionAdherenceCharts weeks={weeks} byMeal={adherenceByMeal} />
+
+      {/* gc-fitness#1148 — the per-meal analysis the client sees in "Ver mis números": why and
+          where they miss, plus the extra numbers. Same twins, same data already loaded. */}
+      <NutritionPatterns excuses={excuses} highlights={highlights} rangeDays={PATTERN_RANGE_DAYS} />
 
       <NutritionNotesFeed notes={notes} locale={locale} clientId={id} />
 

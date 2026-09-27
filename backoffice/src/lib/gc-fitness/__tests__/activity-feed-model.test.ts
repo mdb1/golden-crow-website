@@ -1175,7 +1175,7 @@ describe("findDuplicateCoachEventIds", () => {
 describe("summarizeNutritionMarks", () => {
   const snapshot = ["desayuno", "almuerzo", "merienda", "cena"];
 
-  it("splits the day by status — `done` is the only compliant one", () => {
+  it("splits the day in the two outcomes — the legacy `different` counts as not done", () => {
     const summary = summarizeNutritionMarks(
       {
         desayuno: { status: "done" },
@@ -1188,8 +1188,7 @@ describe("summarizeNutritionMarks", () => {
       marked: 3,
       expected: 4,
       done: 1,
-      different: 1,
-      missed: 1,
+      missed: 2,
       isComplete: false,
     });
   });
@@ -1236,7 +1235,6 @@ describe("summarizeNutritionMarks", () => {
       marked: 0,
       expected: 0,
       done: 0,
-      different: 0,
       missed: 0,
       isComplete: false,
     });
@@ -1248,23 +1246,21 @@ describe("describeNutritionMarks", () => {
     marked: 4,
     expected: 4,
     done: 2,
-    different: 1,
-    missed: 1,
+    missed: 2,
     isComplete: true,
   };
 
   it("leads with the compliant count and spells out the rest", () => {
     expect(describeNutritionMarks(base, "2026-08-19", "2026-08-19T21:00:00.000Z")).toEqual([
       "2 de 4 cumplidas",
-      "1 distinto",
-      "1 sin cumplir",
+      "2 sin cumplir",
     ]);
   });
 
   it("omits the statuses that did not happen", () => {
     expect(
       describeNutritionMarks(
-        { ...base, done: 4, different: 0, missed: 0 },
+        { ...base, done: 4, missed: 0 },
         "2026-08-19",
         "2026-08-19T21:00:00.000Z",
       ),
@@ -1275,7 +1271,7 @@ describe("describeNutritionMarks", () => {
     // Marked today, for yesterday — the row sits under today's header, so the
     // day it is about is the fact worth adding.
     expect(
-      describeNutritionMarks({ ...base, different: 0, missed: 0 }, "2026-08-18", "2026-08-19T09:00:00.000Z"),
+      describeNutritionMarks({ ...base, missed: 0 }, "2026-08-18", "2026-08-19T09:00:00.000Z"),
     ).toContain("día 2026-08-18");
   });
 });
