@@ -137,7 +137,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Prioritize candidate genes",
@@ -328,7 +330,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Record informed consent",
@@ -568,7 +572,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Create the test order",
@@ -1154,7 +1160,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Create an actual biological sample collection request",
@@ -1825,7 +1833,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Transport an already collected specimen",
@@ -2019,7 +2029,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Extract DNA from an accepted specimen",
@@ -2235,7 +2247,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Sequence the requested scope",
@@ -2435,7 +2449,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Align sequence reads",
@@ -2619,7 +2635,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Call variants in the requested scope",
@@ -2803,7 +2821,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Annotate a VCF",
@@ -2988,7 +3008,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Produce an interactive genomic result",
@@ -3155,7 +3177,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Create the final self-contained report",
@@ -3399,7 +3423,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Analyze a metaphase image bundle",
@@ -3584,7 +3610,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     },
     {
       "name": "Prepare a consultation summary PDF",
@@ -3803,7 +3831,9 @@
         "AR"
       ],
       "providerApiContractId": "pg_api_service_requests_v1",
-      "isHiddenFromSearch": false
+      "isHiddenFromSearch": false,
+      "isHighlightedOffer": false,
+      "isProfessionalOffer": true
     }
   ],
   "schemaVersion": 1,

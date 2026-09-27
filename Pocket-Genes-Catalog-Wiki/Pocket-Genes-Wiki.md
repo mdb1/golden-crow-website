@@ -52,7 +52,7 @@ The same concept intentionally changes casing at a boundary. There are no aliase
 
 ### Offers
 
-A service offer is an untimed, provider-owned published template. It selects a real Discover organization or professional individual, may declare zero or more input slots and zero or more output slots independently, and declares integer contract versions, work description, optional commercial terms, and at least one stage. An offer may therefore have no inputs, no outputs, or neither. Offers start as draft and become selectable only through publish/active state. `isHiddenFromSearch` removes an offer from discovery without hiding transactions already created from it.
+A service offer is an untimed, provider-owned published template. It selects a real Discover organization or professional individual, may declare zero or more input slots and zero or more output slots independently, and declares integer contract versions, work description, optional commercial terms, and at least one stage. An offer may therefore have no inputs, no outputs, or neither. Offers start as draft and become selectable only through publish/active state. `isHiddenFromSearch` always removes an offer from discovery without hiding transactions already created from it. Otherwise, `isHighlightedOffer` places it under Highlighted and `isProfessionalOffer` places it under For professionals; an offer may appear in both segments, and one with both flags false appears in neither. Optional promotional art uses `promotionalBannerImageUrl` or, when no URL is present, `promotionalBannerImageUploadDataUrl`.
 
 If and only if an offer enables form input, it declares exactly one required `pgo_form` slot with role `form` and a matching external `formShape`. Manual slots cannot use `pgo_form`. The external shape retains generated ID and integer version; the submitted PGO freezes only its field definitions and answers.
 
@@ -1532,7 +1532,10 @@ Turn the submitted observations into a reusable symptom bundle. A professional o
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** test_planning
+**Stages:** test_planning<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -1601,7 +1604,10 @@ Use a symptom bundle to return a ranked or selected bundle of candidate genes fo
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** test_planning
+**Stages:** test_planning<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -1689,7 +1695,10 @@ Receive the completed consent-specific form and produce an informed-consent reco
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** test_planning
+**Stages:** test_planning<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -1813,7 +1822,10 @@ Combine the consent record, candidate genes and patient/request context into the
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** test_planning
+**Stages:** test_planning<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -2096,7 +2108,10 @@ Create a request for a qualified collector or laboratory to obtain a real biolog
 **Provider:** Origin Sample Services (`pgp_sample_logistics`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** wet_lab
+**Stages:** wet_lab<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -2431,7 +2446,10 @@ Move an already biologically collected physical specimen from origin to destinat
 **Provider:** Origin Sample Services (`pgp_sample_logistics`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** wet_lab
+**Stages:** wet_lab<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -2513,7 +2531,10 @@ Produce an identified DNA sample from one compatible blood, tissue or embryo-bio
 **Provider:** Atlas Precision Laboratory (`pgp_precision_lab`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** wet_lab
+**Stages:** wet_lab<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -2601,7 +2622,10 @@ Process an accepted DNA sample and deliver FASTQ reads supporting the contracted
 **Provider:** Atlas Precision Laboratory (`pgp_precision_lab`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** wet_lab
+**Stages:** wet_lab<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -2681,7 +2705,10 @@ Align accepted FASTQ reads to the order reference and return an aligned-read obj
 **Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** bioinformatics
+**Stages:** bioinformatics<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -2757,7 +2784,10 @@ Derive an unannotated VCF from aligned reads for the contracted genes, regions a
 **Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** bioinformatics
+**Stages:** bioinformatics<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -2833,7 +2863,10 @@ Add the agreed variant annotations while preserving input identity, native varia
 **Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** bioinformatics
+**Stages:** bioinformatics<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -2910,7 +2943,10 @@ Convert an annotated VCF into a registered Pocket Genes interactive report backe
 **Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** bioinformatics
+**Stages:** bioinformatics<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -2987,7 +3023,10 @@ Combine the complete test order with a registered PGI payload into a final PDF f
 **Provider:** Clarity Report Studio (`pgp_report_studio`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** bioinformatics
+**Stages:** bioinformatics<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -3096,7 +3135,10 @@ Review a compatible bundle of metaphase images and return a structured karyotype
 **Provider:** Chromosome Image Services (`pgp_cytogenetics`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** bioinformatics
+**Stages:** bioinformatics<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 
@@ -3182,7 +3224,10 @@ Create a standalone professional summary from the submitted form, demonstrating 
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** test_planning
+**Stages:** test_planning<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 

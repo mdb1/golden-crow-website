@@ -673,6 +673,12 @@ def validate_service_forms_and_slots():
     forbidden_paths = re.compile(r"data\.(scope|fulfillment|analysis_support|reference_id|profile_id|native_format|payload_ref|source_pgi_ref|source_images_ref|lineage_refs)", re.I)
     for service in SERVICES:
         service_id = service["serviceId"]
+        require(type(service.get("isHighlightedOffer")) is bool, f"Invalid isHighlightedOffer for {service_id}")
+        require(type(service.get("isProfessionalOffer")) is bool, f"Invalid isProfessionalOffer for {service_id}")
+        require("is_highlighted_offer" not in service, f"Snake-case highlighted alias in {service_id}")
+        require("is_professional_offer" not in service, f"Snake-case professional alias in {service_id}")
+        require("promotional_banner_image_url" not in service, f"Snake-case promotional banner alias in {service_id}")
+        require("promotional_banner_image_upload_data_url" not in service, f"Snake-case promotional upload alias in {service_id}")
         form_slots = [slot for slot in service["inputSlots"] if slot["objectType"] == "pgo_form"]
         has_shape = "formShape" in service
         require(has_shape == bool(form_slots), f"Form slot/shape mismatch for {service_id}")
@@ -709,6 +715,9 @@ check("service_forms_slots_and_deleted_paths", validate_service_forms_and_slots)
 
 def validate_optional_service_slots():
     validator = schema_validator(read("schemas/protocol/service-definition.schema.json"))
+    service_schema = read("schemas/protocol/service-definition.schema.json")["$defs"]["service_definition"]
+    require("isHighlightedOffer" in service_schema["required"], "isHighlightedOffer must be required")
+    require("isProfessionalOffer" in service_schema["required"], "isProfessionalOffer must be required")
     base = SERVICES[0]
     variants = (
         ("no_inputs", False, True),

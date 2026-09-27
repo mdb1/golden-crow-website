@@ -5,6 +5,7 @@ import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   SUPPORT_SERVICE_OFFER_STATUSES,
   SUPPORT_SERVICE_OBJECT_TYPES,
+  SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH,
   SUPPORT_SERVICE_STAGES,
   SUPPORT_SERVICE_TRANSACTION_STATUSES,
   attachSupportServiceTransactionOutputObject,
@@ -76,6 +77,40 @@ const TurnaroundSchema = z
     /^[1-9]\d*[wdhm]$/,
     "Use a compact duration such as 2w, 1d, 3h, or 15m.",
   );
+const OFFER_REQUEST_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
+const OptionalPromotionalBannerImageUrlSchema = z.preprocess(
+  (value) => (typeof value === "string" && !value.trim() ? null : value),
+  z
+    .string()
+    .trim()
+    .url()
+    .max(1_000)
+    .refine(
+      (value) => {
+        try {
+          return new URL(value).protocol === "https:";
+        } catch {
+          return false;
+        }
+      },
+      { message: "Promotional banner image URL must use HTTPS." },
+    )
+    .nullable()
+    .optional(),
+);
+const PromotionalBannerImageUploadDataUrlSchema = z.preprocess(
+  (value) => (typeof value === "string" && !value.trim() ? undefined : value),
+  z
+    .string()
+    .trim()
+    .max(SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH)
+    .regex(
+      /^data:image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/,
+      "Promotional banner upload must be a PNG, JPG, WebP, SVG, or ICO data URL.",
+    )
+    .nullable()
+    .optional(),
+);
 const ObjectIdSchema = z
   .string()
   .trim()
@@ -305,6 +340,11 @@ const OfferBodySchema = z.object({
   stages: z.array(ServiceStageSchema).min(1).max(3).optional(),
   status: OfferStatusSchema.optional(),
   isHiddenFromSearch: z.boolean(),
+  isHighlightedOffer: z.boolean(),
+  isProfessionalOffer: z.boolean(),
+  promotionalBannerImageUrl: OptionalPromotionalBannerImageUrlSchema,
+  promotionalBannerImageUploadDataUrl:
+    PromotionalBannerImageUploadDataUrlSchema,
   description: z.string().trim().min(1).max(4000),
   shortContract: z.string().trim().max(500).optional(),
   providerWork: z.string().trim().min(1).max(4000),
@@ -440,7 +480,10 @@ export async function supportServicesRoutes(
 
   f.post(
     "/admin/support-services/offers",
-    { schema: { body: OfferBodySchema } },
+    {
+      bodyLimit: OFFER_REQUEST_BODY_LIMIT_BYTES,
+      schema: { body: OfferBodySchema },
+    },
     async (request, reply) => {
       try {
         const offer = await createSupportServiceOffer(
@@ -516,6 +559,7 @@ export async function supportServicesRoutes(
   f.put(
     "/admin/support-services/offers/:offerId",
     {
+      bodyLimit: OFFER_REQUEST_BODY_LIMIT_BYTES,
       schema: {
         params: OfferParamsSchema,
         body: OfferBodySchema,

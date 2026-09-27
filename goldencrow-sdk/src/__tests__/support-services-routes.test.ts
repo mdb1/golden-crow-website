@@ -14,6 +14,7 @@ const mockAttachSupportServiceTransactionOutputObject = jest.fn();
 const mockDeliverSupportServiceTransaction = jest.fn();
 
 jest.mock("../repositories/support-services.repository.js", () => ({
+  SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH: 900_000,
   SUPPORT_SERVICE_STAGES: ["test_planning", "wet_lab", "bioinformatics"],
   SUPPORT_SERVICE_OFFER_STATUSES: ["draft", "active", "inactive", "archived"],
   SUPPORT_SERVICE_OBJECT_TYPES: [
@@ -87,6 +88,9 @@ const validOfferPayload = {
   stages: ["bioinformatics"],
   status: "active",
   isHiddenFromSearch: false,
+  isHighlightedOffer: false,
+  isProfessionalOffer: true,
+  promotionalBannerImageUrl: null,
   description:
     "Combine the complete test order with the interactive genomic result into a final PDF.",
   shortContract: "form + test_order + pgi1 -> final PDF",
@@ -237,8 +241,58 @@ describe("support service admin routes", () => {
         providerKind: "organization",
         providerId: "feed-org-1",
         stages: ["bioinformatics"],
+        isHighlightedOffer: false,
+        isProfessionalOffer: true,
+        promotionalBannerImageUrl: null,
       }),
     );
+  });
+
+  it("accepts canonical promotional banner upload data through the enlarged offer route", async () => {
+    const fastify = await buildTestServer();
+    const prefix = "data:image/png;base64,";
+    const promotionalBannerImageUploadDataUrl = `${prefix}${"A".repeat(
+      900_000 - prefix.length,
+    )}`;
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        promotionalBannerImageUrl: null,
+        promotionalBannerImageUploadDataUrl,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
+      bootstrapContext,
+      expect.objectContaining({ promotionalBannerImageUploadDataUrl }),
+    );
+  });
+
+  it.each([
+    ["an unsupported uploaded MIME type", "data:image/gif;base64,AAAA"],
+    [
+      "an oversized uploaded banner",
+      `data:image/png;base64,${"A".repeat(900_001)}`,
+    ],
+  ])("rejects %s before calling the offer repository", async (_name, upload) => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        promotionalBannerImageUrl: null,
+        promotionalBannerImageUploadDataUrl: upload,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 
   it("returns diagnostic JSON when a support service list fails unexpectedly", async () => {
@@ -370,24 +424,27 @@ describe("support service admin routes", () => {
     expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 
-  it("requires canonical visibility and rejects the retired paused status", async () => {
+  it("requires canonical offer flags and rejects snake case and the retired paused status", async () => {
     const fastify = await buildTestServer();
-    const missingVisibility: Record<string, unknown> = {
-      ...validOfferPayload,
-    };
-    delete missingVisibility.isHiddenFromSearch;
-
-    const missingResponse = await fastify.inject({
-      method: "POST",
-      url: "/admin/support-services/offers",
-      payload: missingVisibility,
-    });
+    const missingResponses = await Promise.all(
+      ["isHiddenFromSearch", "isHighlightedOffer", "isProfessionalOffer"].map(
+        async (key) => {
+          const payload: Record<string, unknown> = { ...validOfferPayload };
+          delete payload[key];
+          return fastify.inject({
+            method: "POST",
+            url: "/admin/support-services/offers",
+            payload,
+          });
+        },
+      ),
+    );
     const snakeCaseResponse = await fastify.inject({
       method: "POST",
       url: "/admin/support-services/offers",
       payload: {
-        ...missingVisibility,
-        is_hidden_from_search: false,
+        ...validOfferPayload,
+        is_highlighted_offer: false,
       },
     });
     const pausedResponse = await fastify.inject({
@@ -396,7 +453,9 @@ describe("support service admin routes", () => {
       payload: { ...validOfferPayload, status: "paused" },
     });
 
-    expect(missingResponse.statusCode).toBe(400);
+    expect(missingResponses.map((response) => response.statusCode)).toEqual([
+      400, 400, 400,
+    ]);
     expect(snakeCaseResponse.statusCode).toBe(400);
     expect(pausedResponse.statusCode).toBe(400);
     expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();

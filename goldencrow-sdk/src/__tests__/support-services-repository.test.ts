@@ -347,6 +347,9 @@ const baseOffer = {
   stages: ["bioinformatics"],
   status: "active" as const,
   isHiddenFromSearch: false,
+  isHighlightedOffer: false,
+  isProfessionalOffer: true,
+  promotionalBannerImageUrl: null,
   description: "Create a report.",
   shortContract: "form:form -> report:pdf_report",
   providerWork: "Review and issue a report.",
@@ -424,6 +427,8 @@ describe("support service repository versions", () => {
       stages: ["test_planning"],
       status: "active",
       isHiddenFromSearch: false,
+      isHighlightedOffer: false,
+      isProfessionalOffer: true,
       description:
         "Este servicio sirve para obtener consentimientos informados de pacientes.",
       shortContract: "form:Form -> informed_consent:Informed consent",
@@ -673,6 +678,168 @@ describe("support service repository versions", () => {
     );
   });
 
+  it("persists discovery flags and URL-preferred promotional banners without versioning the contract", async () => {
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const offer = await updateSupportServiceOffer(context, "offer-1", {
+      ...baseOffer,
+      isHighlightedOffer: true,
+      isProfessionalOffer: false,
+      promotionalBannerImageUrl: "https://example.org/promo.webp",
+      promotionalBannerImageUploadDataUrl: "data:image/png;base64,AAAA",
+    });
+
+    expect(offer).toEqual(
+      expect.objectContaining({
+        serviceVersion: 3,
+        isHighlightedOffer: true,
+        isProfessionalOffer: false,
+        promotionalBannerImageUrl: "https://example.org/promo.webp",
+      }),
+    );
+    expect(offer).not.toHaveProperty("promotionalBannerImageUploadDataUrl");
+    expect(collectionStore("service_offers").get("offer-1")).toEqual(
+      expect.objectContaining({
+        serviceVersion: 3,
+        isHighlightedOffer: true,
+        isProfessionalOffer: false,
+        promotionalBannerImageUrl: "https://example.org/promo.webp",
+      }),
+    );
+    expect(collectionStore("service_offers").get("offer-1")).not.toHaveProperty(
+      "promotionalBannerImageUploadDataUrl",
+    );
+  });
+
+  it("persists and preserves uploaded promotional banner data without undefined fields", async () => {
+    const upload = "data:image/webp;base64,AAAA";
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      promotionalBannerImageUploadDataUrl: upload,
+    });
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const {
+      promotionalBannerImageUrl: _promotionalBannerImageUrl,
+      ...inputWithoutBanner
+    } = baseOffer;
+
+    const offer = await updateSupportServiceOffer(
+      context,
+      "offer-1",
+      inputWithoutBanner,
+    );
+    const stored = collectionStore("service_offers").get("offer-1");
+
+    expect(offer.promotionalBannerImageUploadDataUrl).toBe(upload);
+    expect(stored?.promotionalBannerImageUploadDataUrl).toBe(upload);
+    expect(stored).not.toHaveProperty("promotionalBannerImageUrl");
+    expect(Object.values(stored ?? {})).not.toContain(undefined);
+    expect(offer.serviceVersion).toBe(3);
+  });
+
+  it.each([
+    [
+      "a non-HTTPS URL",
+      { promotionalBannerImageUrl: "http://example.org/promo.png" },
+      "must be a valid HTTPS URL",
+    ],
+    [
+      "an unsupported uploaded MIME type",
+      { promotionalBannerImageUploadDataUrl: "data:image/gif;base64,AAAA" },
+      "must be a PNG, JPG, WebP, SVG, or ICO data URL",
+    ],
+    [
+      "an oversized uploaded image",
+      {
+        promotionalBannerImageUploadDataUrl: `data:image/png;base64,${"A".repeat(
+          900_001,
+        )}`,
+      },
+      "is too large",
+    ],
+  ])("rejects %s", async (_name, banner, expectedMessage) => {
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceOffer(context, "offer-1", {
+        ...baseOffer,
+        promotionalBannerImageUrl: null,
+        ...banner,
+      }),
+    ).rejects.toThrow(expectedMessage);
+  });
+
+  it("enforces the deterministic Firestore-safe encoded document boundary", async () => {
+    const {
+      SUPPORT_SERVICE_FIRESTORE_SAFE_DOCUMENT_MAX_BYTES,
+      assertSupportServiceFirestoreDocumentSize,
+      encodedSupportServiceDocumentBytes,
+    } = await import("../repositories/support-services.repository.js");
+    const emptyPayloadBytes = encodedSupportServiceDocumentBytes({
+      payload: "",
+    });
+    const atBoundary = {
+      payload: "A".repeat(
+        SUPPORT_SERVICE_FIRESTORE_SAFE_DOCUMENT_MAX_BYTES - emptyPayloadBytes,
+      ),
+    };
+    const overBoundary = { payload: `${atBoundary.payload}A` };
+
+    expect(encodedSupportServiceDocumentBytes(atBoundary)).toBe(
+      SUPPORT_SERVICE_FIRESTORE_SAFE_DOCUMENT_MAX_BYTES,
+    );
+    expect(
+      assertSupportServiceFirestoreDocumentSize(atBoundary, "Test document"),
+    ).toBe(SUPPORT_SERVICE_FIRESTORE_SAFE_DOCUMENT_MAX_BYTES);
+    expect(() =>
+      assertSupportServiceFirestoreDocumentSize(
+        overBoundary,
+        "Test document",
+      ),
+    ).toThrow(
+      `maximum ${SUPPORT_SERVICE_FIRESTORE_SAFE_DOCUMENT_MAX_BYTES}`,
+    );
+  });
+
+  it("rejects an aggregate oversized offer before writing to Firestore", async () => {
+    const prefix = "data:image/png;base64,";
+    const upload = `${prefix}${"A".repeat(900_000 - prefix.length)}`;
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceOffer(context, "offer-1", {
+        ...baseOffer,
+        promotionalBannerImageUrl: null,
+        promotionalBannerImageUploadDataUrl: upload,
+        formShape: {
+          ...baseOffer.formShape,
+          fields: Array.from({ length: 240 }, (_, index) => ({
+            key: `large_field_${index}`,
+            label: `Large field ${index}`,
+            type: "long_text",
+            required: false,
+            helpInfoText: "A".repeat(500),
+          })),
+        },
+      }),
+    ).rejects.toThrow("Service offer is too large to store safely");
+
+    expect(
+      writes.filter((write) => write.collectionName === "service_offers"),
+    ).toEqual([]);
+    expect(
+      collectionStore("service_offers").get("offer-1"),
+    ).not.toHaveProperty("promotionalBannerImageUploadDataUrl");
+  });
+
   it("keeps a malformed legacy offer visible and allows a strict corrective save", async () => {
     seedDoc("service_offers", "offer-1", {
       service_id: baseOffer.serviceId,
@@ -683,6 +850,7 @@ describe("support service repository versions", () => {
       status: "paused",
       stages: "bioinformatics",
       isHiddenFromSearch: "no",
+      promotionalBannerImageUploadDataUrl: { malformed: true },
       description: baseOffer.description,
       providerWork: baseOffer.providerWork,
       inputSlots: [],
@@ -696,11 +864,16 @@ describe("support service repository versions", () => {
     const legacy = await getSupportServiceOffer(context, "offer-1");
     expect(legacy.id).toBe("offer-1");
     expect(legacy.status).toBe("draft");
+    expect(legacy.isHighlightedOffer).toBe(false);
+    expect(legacy.isProfessionalOffer).toBe(true);
     expect(legacy.outputSlots).toEqual([]);
     expect(legacy.complianceWarnings).toEqual(
       expect.arrayContaining([
         expect.stringContaining("forbidden snake-case fields: service_id"),
         expect.stringContaining("status paused"),
+        expect.stringContaining("isHighlightedOffer is missing or invalid"),
+        expect.stringContaining("isProfessionalOffer is missing or invalid"),
+        expect.stringContaining("Promotional banner:"),
         expect.stringContaining("updatedAt is missing or invalid"),
       ]),
     );
@@ -758,21 +931,29 @@ describe("support service repository versions", () => {
     );
   });
 
-  it("rejects missing and snake-case service visibility keys", async () => {
+  it("rejects missing and snake-case service offer flag keys", async () => {
     const { updateSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
     );
     const { isHiddenFromSearch: _, ...missingVisibility } = baseOffer;
+    const { isHighlightedOffer: __, ...missingHighlight } = baseOffer;
+    const { isProfessionalOffer: ___, ...missingProfessional } = baseOffer;
 
     await expect(
       updateSupportServiceOffer(context, "offer-1", missingVisibility),
     ).rejects.toThrow("isHiddenFromSearch must be a boolean.");
     await expect(
+      updateSupportServiceOffer(context, "offer-1", missingHighlight),
+    ).rejects.toThrow("isHighlightedOffer must be a boolean.");
+    await expect(
+      updateSupportServiceOffer(context, "offer-1", missingProfessional),
+    ).rejects.toThrow("isProfessionalOffer must be a boolean.");
+    await expect(
       updateSupportServiceOffer(context, "offer-1", {
         ...baseOffer,
-        is_hidden_from_search: false,
+        is_highlighted_offer: false,
       } as typeof baseOffer),
-    ).rejects.toThrow("Service offer uses forbidden snake-case field: is_hidden_from_search.");
+    ).rejects.toThrow("Service offer uses forbidden snake-case field: is_highlighted_offer.");
   });
 
   it("preserves calculated-after-submission price summaries", async () => {
@@ -928,6 +1109,80 @@ describe("support service pagination", () => {
     expect(second.offers).toHaveLength(1);
     expect(second.nextCursor).toBeUndefined();
     expect(new Set(ids).size).toBe(21);
+  });
+
+  it("omits uploaded banner data from paginated rows while preserving detail responses", async () => {
+    const upload = "data:image/png;base64,AAAA";
+    seedDoc("service_offers", "offer-page-00", {
+      ...baseOffer,
+      promotionalBannerImageUploadDataUrl: upload,
+      updatedAt: "2026-09-16T12:00:00.000Z",
+    });
+    seedDoc("service_transactions", "transaction-with-banner-snapshot", {
+      schemaVersion: 1,
+      requestId: "transaction-with-banner-snapshot",
+      offerId: "offer-page-00",
+      serviceId: baseOffer.serviceId,
+      serviceVersion: baseOffer.serviceVersion,
+      providerId: baseOffer.providerId,
+      providerKind: baseOffer.providerKind,
+      status: "received",
+      requestedByUserId: "user-1",
+      requestRevision: 1,
+      idempotencyKey: "transaction-with-banner-snapshot",
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      issues: [],
+      missingRequiredInputRoles: [],
+      offerSnapshot: {
+        ...baseOffer,
+        offerId: "offer-page-00",
+        promotionalBannerImageUploadDataUrl: upload,
+      },
+      providerSnapshot: {},
+      contractSource: "pocket_genes_services_wiki_v1",
+      updatedAt: "2026-09-16T12:00:00.000Z",
+    });
+    const {
+      getSupportServiceOffer,
+      getSupportServiceTransaction,
+      listSupportServiceOffers,
+      listSupportServiceTransactions,
+    } = await import("../repositories/support-services.repository.js");
+
+    const offers = await listSupportServiceOffers(context, { limit: 20 });
+    const offerRow = offers.offers.find(
+      (offer) => offer.id === "offer-page-00",
+    );
+    const transactions = await listSupportServiceTransactions(context, {
+      limit: 20,
+    });
+    const transactionRow = transactions.transactions[0];
+
+    expect(offerRow).not.toHaveProperty(
+      "promotionalBannerImageUploadDataUrl",
+    );
+    expect(transactionRow?.offerSnapshot).not.toHaveProperty(
+      "promotionalBannerImageUploadDataUrl",
+    );
+    await expect(
+      getSupportServiceOffer(context, "offer-page-00"),
+    ).resolves.toEqual(
+      expect.objectContaining({ promotionalBannerImageUploadDataUrl: upload }),
+    );
+    await expect(
+      getSupportServiceTransaction(
+        context,
+        "transaction-with-banner-snapshot",
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        offerSnapshot: expect.objectContaining({
+          promotionalBannerImageUploadDataUrl: upload,
+        }),
+      }),
+    );
   });
 
   it("paginates offers and transactions that lack updatedAt instead of excluding them", async () => {
@@ -1987,6 +2242,29 @@ describe("support service delivered transactions", () => {
     ).rejects.toThrow(
       "Bound transaction input form is immutable after transaction creation.",
     );
+  });
+
+  it("keeps historical frozen offer snapshots without the new flags editable", async () => {
+    const legacyOfferSnapshot = clone(transaction.offerSnapshot) as MockData;
+    delete legacyOfferSnapshot.isHighlightedOffer;
+    delete legacyOfferSnapshot.isProfessionalOffer;
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      offerSnapshot: legacyOfferSnapshot,
+    });
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const updated = await updateSupportServiceTransaction(
+      context,
+      "transaction-1",
+      { issues: [{ reason: "Legacy review" }] },
+    );
+
+    expect(updated.issues).toEqual([{ reason: "Legacy review" }]);
+    expect(updated.offerSnapshot).not.toHaveProperty("isHighlightedOffer");
+    expect(updated.offerSnapshot).not.toHaveProperty("isProfessionalOffer");
   });
 
   it("attaches and delivers outputs without rewriting a legacy frozen input snapshot", async () => {
@@ -3099,6 +3377,50 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
+  it.each(["isHighlightedOffer", "isProfessionalOffer"])(
+    "rejects a new transaction when the live offer is missing %s",
+    async (missingField) => {
+      const incompleteOffer = clone(baseOffer) as MockData;
+      delete incompleteOffer[missingField];
+      seedDoc("service_offers", "offer-1", incompleteOffer);
+      const { createSupportServiceTransaction } = await import(
+        "../repositories/support-services.repository.js"
+      );
+
+      await expect(
+        createSupportServiceTransaction(context, creationInput()),
+      ).rejects.toThrow(
+        "must define boolean isHighlightedOffer and isProfessionalOffer",
+      );
+      expect(
+        collectionStore("service_transactions").has("pgr_new_report_1"),
+      ).toBe(false);
+    },
+  );
+
+  it("rejects an aggregate oversized transaction including its frozen banner snapshot", async () => {
+    const prefix = "data:image/png;base64,";
+    const upload = `${prefix}${"A".repeat(900_000 - prefix.length)}`;
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      promotionalBannerImageUrl: undefined,
+      promotionalBannerImageUploadDataUrl: upload,
+    });
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createSupportServiceTransaction(context, {
+        ...creationInput(),
+        issues: ["A".repeat(150_000)],
+      }),
+    ).rejects.toThrow("Service transaction is too large to store safely");
+    expect(
+      collectionStore("service_transactions").has("pgr_new_report_1"),
+    ).toBe(false);
+  });
+
   it("atomically writes the canonical root and requester/provider summaries", async () => {
     const { createSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
@@ -3114,7 +3436,15 @@ describe("support service canonical transaction creation", () => {
       offerId: "offer-1",
       serviceId: baseOffer.serviceId,
       serviceVersion: baseOffer.serviceVersion,
+      isHighlightedOffer: false,
+      isProfessionalOffer: true,
     });
+    expect(created.offerSnapshot).not.toHaveProperty(
+      "promotionalBannerImageUrl",
+    );
+    expect(created.offerSnapshot).not.toHaveProperty(
+      "promotionalBannerImageUploadDataUrl",
+    );
     expect(created.providerSnapshot).toEqual(
       expect.objectContaining({
         id: "feed-org-1",
@@ -3151,6 +3481,57 @@ describe("support service canonical transaction creation", () => {
         }),
       ],
     });
+  });
+
+  it.each([
+    {
+      name: "uploaded banner data",
+      offerBanner: {
+        promotionalBannerImageUploadDataUrl:
+          "data:image/png;base64,AAAA",
+      },
+      expected: {
+        promotionalBannerImageUploadDataUrl:
+          "data:image/png;base64,AAAA",
+      },
+      omitted: "promotionalBannerImageUrl",
+    },
+    {
+      name: "URL precedence over uploaded banner data",
+      offerBanner: {
+        promotionalBannerImageUrl: "https://example.org/promo.png",
+        promotionalBannerImageUploadDataUrl:
+          "data:image/png;base64,AAAA",
+      },
+      expected: {
+        promotionalBannerImageUrl: "https://example.org/promo.png",
+      },
+      omitted: "promotionalBannerImageUploadDataUrl",
+    },
+  ])("freezes $name in the transaction offer snapshot", async ({
+    offerBanner,
+    expected,
+    omitted,
+  }) => {
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      ...offerBanner,
+    });
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+
+    expect(created.offerSnapshot).toEqual(expect.objectContaining(expected));
+    expect(created.offerSnapshot).not.toHaveProperty(omitted);
+    expect(
+      collectionStore("service_transactions").get("pgr_new_report_1")
+        ?.offerSnapshot,
+    ).toEqual(expect.objectContaining(expected));
   });
 
   it("creates a transaction with empty input and output collections from an empty contract", async () => {

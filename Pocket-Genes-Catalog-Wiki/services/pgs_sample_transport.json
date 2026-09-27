@@ -190,5 +190,7 @@
     "AR"
   ],
   "providerApiContractId": "pg_api_service_requests_v1",
-  "isHiddenFromSearch": false
+  "isHiddenFromSearch": false,
+  "isHighlightedOffer": false,
+  "isProfessionalOffer": true
 }

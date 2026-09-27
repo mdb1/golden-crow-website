@@ -5,7 +5,10 @@ Produce an identified DNA sample from one compatible blood, tissue or embryo-bio
 **Provider:** Atlas Precision Laboratory (`pgp_precision_lab`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** wet_lab
+**Stages:** wet_lab<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 

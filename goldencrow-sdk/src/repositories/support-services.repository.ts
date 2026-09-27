@@ -43,6 +43,30 @@ const OUTPUT_OBJECT_DOWNLOAD_TIMEOUT_MS = 10_000;
 const OUTPUT_OBJECT_CODE_CANDIDATE_COUNT = 12;
 const MAX_OBJECT_REVISION_HISTORY_RECORDS = 100;
 
+export const SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH =
+  900_000;
+export const SUPPORT_SERVICE_FIRESTORE_SAFE_DOCUMENT_MAX_BYTES = 1_000_000;
+const DOCUMENT_SIZE_TIMESTAMP_PLACEHOLDER = "2000-01-01T00:00:00.000Z";
+
+export function encodedSupportServiceDocumentBytes(value: unknown) {
+  const encoded = JSON.stringify(value);
+  return Buffer.byteLength(encoded ?? "", "utf8");
+}
+
+export function assertSupportServiceFirestoreDocumentSize(
+  value: unknown,
+  label: string,
+) {
+  const encodedBytes = encodedSupportServiceDocumentBytes(value);
+  if (encodedBytes > SUPPORT_SERVICE_FIRESTORE_SAFE_DOCUMENT_MAX_BYTES) {
+    throw new AdminRepositoryError(
+      `${label} is too large to store safely (${encodedBytes} encoded bytes; maximum ${SUPPORT_SERVICE_FIRESTORE_SAFE_DOCUMENT_MAX_BYTES}). Remove or reduce the promotional banner upload or other large fields and try again.`,
+      400,
+    );
+  }
+  return encodedBytes;
+}
+
 export const SUPPORT_SERVICE_STAGES = [
   "test_planning",
   "wet_lab",
@@ -133,6 +157,10 @@ export interface SupportServiceOfferInput {
   stages?: string[];
   status?: SupportServiceOfferStatus;
   isHiddenFromSearch?: boolean;
+  isHighlightedOffer?: boolean;
+  isProfessionalOffer?: boolean;
+  promotionalBannerImageUrl?: string | null;
+  promotionalBannerImageUploadDataUrl?: string | null;
   description?: string;
   shortContract?: string;
   providerWork?: string;
@@ -157,6 +185,10 @@ export interface SupportServiceOfferRecord {
   stages: SupportServiceStage[];
   status: SupportServiceOfferStatus;
   isHiddenFromSearch: boolean;
+  isHighlightedOffer: boolean;
+  isProfessionalOffer: boolean;
+  promotionalBannerImageUrl?: string;
+  promotionalBannerImageUploadDataUrl?: string;
   description: string;
   shortContract: string;
   providerWork: string;
@@ -431,6 +463,10 @@ const FORBIDDEN_OFFER_ROOT_KEYS = [
   "provider_kind",
   "provider_name",
   "is_hidden_from_search",
+  "is_highlighted_offer",
+  "is_professional_offer",
+  "promotional_banner_image_url",
+  "promotional_banner_image_upload_data_url",
   "short_contract",
   "provider_work",
   "form_shape",
@@ -615,14 +651,119 @@ function requireRecord(value: unknown, label: string): Record<string, unknown> {
   throw new AdminRepositoryError(`${label} must be an object.`, 400);
 }
 
-function booleanValue(value: unknown, allowLegacyMissing = false) {
-  if (allowLegacyMissing && (value === undefined || value === null)) {
-    return false;
+function booleanValue(
+  value: unknown,
+  label = "isHiddenFromSearch",
+  legacyFallback?: boolean,
+) {
+  if (
+    legacyFallback !== undefined &&
+    (value === undefined || value === null)
+  ) {
+    return legacyFallback;
   }
   if (typeof value !== "boolean") {
-    throw new AdminRepositoryError("isHiddenFromSearch must be a boolean.", 400);
+    throw new AdminRepositoryError(`${label} must be a boolean.`, 400);
   }
   return value;
+}
+
+function promotionalBannerImageDocumentFields(
+  input: Pick<
+    SupportServiceOfferInput,
+    | "promotionalBannerImageUrl"
+    | "promotionalBannerImageUploadDataUrl"
+  >,
+) {
+  if (
+    input.promotionalBannerImageUrl !== undefined &&
+    input.promotionalBannerImageUrl !== null &&
+    typeof input.promotionalBannerImageUrl !== "string"
+  ) {
+    throw new AdminRepositoryError(
+      "Promotional banner image URL must be a string.",
+      400,
+    );
+  }
+  const promotionalBannerImageUrl = cleanString(
+    input.promotionalBannerImageUrl,
+  );
+  if (
+    promotionalBannerImageUrl &&
+    (promotionalBannerImageUrl.length > 1_000 ||
+      !isValidHttpsUrl(promotionalBannerImageUrl))
+  ) {
+    throw new AdminRepositoryError(
+      "Promotional banner image URL must be a valid HTTPS URL up to 1000 characters.",
+      400,
+    );
+  }
+  if (promotionalBannerImageUrl) {
+    return { promotionalBannerImageUrl };
+  }
+
+  if (
+    input.promotionalBannerImageUploadDataUrl !== undefined &&
+    input.promotionalBannerImageUploadDataUrl !== null &&
+    typeof input.promotionalBannerImageUploadDataUrl !== "string"
+  ) {
+    throw new AdminRepositoryError(
+      "Uploaded promotional banner image data must be a string.",
+      400,
+    );
+  }
+  const promotionalBannerImageUploadDataUrl = cleanString(
+    input.promotionalBannerImageUploadDataUrl,
+  );
+  if (
+    promotionalBannerImageUploadDataUrl.length >
+    SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH
+  ) {
+    throw new AdminRepositoryError(
+      "Uploaded promotional banner image is too large.",
+      400,
+    );
+  }
+  if (
+    promotionalBannerImageUploadDataUrl &&
+    !/^data:image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/.test(
+      promotionalBannerImageUploadDataUrl,
+    )
+  ) {
+    throw new AdminRepositoryError(
+      "Uploaded promotional banner image must be a PNG, JPG, WebP, SVG, or ICO data URL.",
+      400,
+    );
+  }
+
+  if (promotionalBannerImageUploadDataUrl) {
+    return { promotionalBannerImageUploadDataUrl };
+  }
+  return {};
+}
+
+function preserveExistingPromotionalBannerImage(
+  input: SupportServiceOfferInput,
+  existing: SupportServiceOfferRecord,
+): SupportServiceOfferInput {
+  const hasUrl = Object.prototype.hasOwnProperty.call(
+    input,
+    "promotionalBannerImageUrl",
+  );
+  const hasUpload = Object.prototype.hasOwnProperty.call(
+    input,
+    "promotionalBannerImageUploadDataUrl",
+  );
+  if (hasUrl || hasUpload) {
+    return input;
+  }
+
+  return {
+    ...input,
+    promotionalBannerImageUrl: existing.promotionalBannerImageUrl,
+    promotionalBannerImageUploadDataUrl:
+      existing.promotionalBannerImageUploadDataUrl,
+  };
 }
 
 function strictBoolean(value: unknown, label: string, fallback = false) {
@@ -1252,7 +1393,7 @@ function outputReportsFromUnknown(
 function offerDocument(input: SupportServiceOfferInput) {
   rejectForbiddenKeys(
     input as Record<string, unknown>,
-    ["is_hidden_from_search"],
+    FORBIDDEN_OFFER_ROOT_KEYS,
     "Service offer",
   );
   const name = cleanString(input.name);
@@ -1277,6 +1418,15 @@ function offerDocument(input: SupportServiceOfferInput) {
     stages,
     status: normalizeOfferStatus(input.status),
     isHiddenFromSearch: booleanValue(input.isHiddenFromSearch),
+    isHighlightedOffer: booleanValue(
+      input.isHighlightedOffer,
+      "isHighlightedOffer",
+    ),
+    isProfessionalOffer: booleanValue(
+      input.isProfessionalOffer,
+      "isProfessionalOffer",
+    ),
+    ...promotionalBannerImageDocumentFields(input),
     description: cleanString(input.description),
     shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
     providerWork: cleanString(input.providerWork),
@@ -1369,6 +1519,11 @@ function comparableOfferDefinition(document: SupportServiceOfferDocument) {
     serviceVersion: _serviceVersion,
     status: _status,
     isHiddenFromSearch: _isHiddenFromSearch,
+    isHighlightedOffer: _isHighlightedOffer,
+    isProfessionalOffer: _isProfessionalOffer,
+    promotionalBannerImageUrl: _promotionalBannerImageUrl,
+    promotionalBannerImageUploadDataUrl:
+      _promotionalBannerImageUploadDataUrl,
     normalizedName: _normalizedName,
     formShape,
     ...definition
@@ -1428,6 +1583,42 @@ function applyOfferVersions(
 
 type SupportServiceTransactionDocument = ReturnType<typeof transactionDocument>;
 
+function offerPersistenceSizeCandidate(
+  document: SupportServiceOfferDocument,
+  context: AdminContext,
+  existing?: Record<string, unknown>,
+) {
+  return withoutUndefined({
+    ...document,
+    createdAt:
+      timestampToIso(existing?.createdAt) ??
+      DOCUMENT_SIZE_TIMESTAMP_PLACEHOLDER,
+    updatedAt: DOCUMENT_SIZE_TIMESTAMP_PLACEHOLDER,
+    createdByEmail: cleanString(existing?.createdByEmail) || context.email,
+    updatedByEmail: context.email,
+  });
+}
+
+function transactionPersistenceSizeCandidate(
+  document: SupportServiceTransactionDocument,
+  context: AdminContext,
+  existing?: Record<string, unknown>,
+) {
+  return withoutUndefined({
+    ...document,
+    requestedAt:
+      timestampToIso(existing?.requestedAt) ??
+      timestampToIso(document.requestedAt) ??
+      DOCUMENT_SIZE_TIMESTAMP_PLACEHOLDER,
+    createdAt:
+      timestampToIso(existing?.createdAt) ??
+      DOCUMENT_SIZE_TIMESTAMP_PLACEHOLDER,
+    updatedAt: DOCUMENT_SIZE_TIMESTAMP_PLACEHOLDER,
+    createdByEmail: cleanString(existing?.createdByEmail) || context.email,
+    updatedByEmail: context.email,
+  });
+}
+
 function applyTransactionOfferContract(
   document: SupportServiceTransactionDocument,
   offer: SupportServiceOfferRecord,
@@ -1468,6 +1659,11 @@ function offerSnapshotForTransaction(
     providerName: offer.providerName,
     status: offer.status,
     isHiddenFromSearch: offer.isHiddenFromSearch,
+    isHighlightedOffer: offer.isHighlightedOffer,
+    isProfessionalOffer: offer.isProfessionalOffer,
+    promotionalBannerImageUrl: offer.promotionalBannerImageUrl,
+    promotionalBannerImageUploadDataUrl:
+      offer.promotionalBannerImageUploadDataUrl,
     description: offer.description,
     shortContract: offer.shortContract,
     providerWork: offer.providerWork,
@@ -1587,6 +1783,10 @@ function offerFromFrozenTransaction(
     snapshot.status !== "active" ||
     (snapshot.isHiddenFromSearch !== undefined &&
       typeof snapshot.isHiddenFromSearch !== "boolean") ||
+    (snapshot.isHighlightedOffer !== undefined &&
+      typeof snapshot.isHighlightedOffer !== "boolean") ||
+    (snapshot.isProfessionalOffer !== undefined &&
+      typeof snapshot.isProfessionalOffer !== "boolean") ||
     !PROVIDER_KIND_SET.has(cleanString(snapshot.providerKind)) ||
     !cleanString(snapshot.serviceId) ||
     !cleanString(snapshot.providerId) ||
@@ -3554,8 +3754,22 @@ async function assertDeliveredOutputObjectsAvailable(
   );
 }
 
-function toOfferRecord(id: string, data: Record<string, unknown>) {
+function toOfferRecord(
+  id: string,
+  data: Record<string, unknown>,
+  options: { requirePresentationFlags?: boolean } = {},
+) {
   rejectForbiddenKeys(data, FORBIDDEN_OFFER_ROOT_KEYS, "Stored service offer");
+  if (
+    options.requirePresentationFlags &&
+    (typeof data.isHighlightedOffer !== "boolean" ||
+      typeof data.isProfessionalOffer !== "boolean")
+  ) {
+    throw new AdminRepositoryError(
+      "Selected service offer must define boolean isHighlightedOffer and isProfessionalOffer fields before it can receive new transactions.",
+      400,
+    );
+  }
   if (
     !Number.isInteger(data.serviceVersion) ||
     Number(data.serviceVersion) < 1 ||
@@ -3594,7 +3808,32 @@ function toOfferRecord(id: string, data: Record<string, unknown>) {
     providerName,
     stages: normalizeStages(data.stages),
     status: normalizeOfferStatus(data.status, true),
-    isHiddenFromSearch: booleanValue(data.isHiddenFromSearch, true),
+    isHiddenFromSearch: booleanValue(
+      data.isHiddenFromSearch,
+      "isHiddenFromSearch",
+      false,
+    ),
+    isHighlightedOffer: booleanValue(
+      data.isHighlightedOffer,
+      "isHighlightedOffer",
+      false,
+    ),
+    isProfessionalOffer: booleanValue(
+      data.isProfessionalOffer,
+      "isProfessionalOffer",
+      true,
+    ),
+    ...promotionalBannerImageDocumentFields({
+      promotionalBannerImageUrl: data.promotionalBannerImageUrl as
+        | string
+        | null
+        | undefined,
+      promotionalBannerImageUploadDataUrl:
+        data.promotionalBannerImageUploadDataUrl as
+          | string
+          | null
+          | undefined,
+    }),
     description: cleanString(data.description),
     shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
     providerWork: cleanString(data.providerWork),
@@ -3759,6 +3998,18 @@ function toOfferAdminRecord(
       "isHiddenFromSearch is missing or invalid; it is shown as false.",
     );
   }
+  if (typeof data.isHighlightedOffer !== "boolean") {
+    pushComplianceWarning(
+      complianceWarnings,
+      "isHighlightedOffer is missing or invalid; it is shown as false.",
+    );
+  }
+  if (typeof data.isProfessionalOffer !== "boolean") {
+    pushComplianceWarning(
+      complianceWarnings,
+      "isProfessionalOffer is missing or invalid; it is shown as true.",
+    );
+  }
 
   const canonicalStages = Array.isArray(data.stages)
     ? data.stages.map(normalizeStage).filter(Boolean)
@@ -3833,6 +4084,30 @@ function toOfferAdminRecord(
     }
   }
 
+  let promotionalBannerImage: ReturnType<
+    typeof promotionalBannerImageDocumentFields
+  > = {};
+  try {
+    promotionalBannerImage = promotionalBannerImageDocumentFields({
+      promotionalBannerImageUrl: data.promotionalBannerImageUrl as
+        | string
+        | null
+        | undefined,
+      promotionalBannerImageUploadDataUrl:
+        data.promotionalBannerImageUploadDataUrl as
+          | string
+          | null
+          | undefined,
+    });
+  } catch (error) {
+    pushComplianceWarning(
+      complianceWarnings,
+      error instanceof Error
+        ? `Promotional banner: ${error.message}`
+        : "Promotional banner is malformed and was omitted.",
+    );
+  }
+
   const serviceId = cleanString(data.serviceId);
   const providerId = cleanString(data.providerId);
   const providerName = cleanString(data.providerName);
@@ -3872,6 +4147,15 @@ function toOfferAdminRecord(
       typeof data.isHiddenFromSearch === "boolean"
         ? data.isHiddenFromSearch
         : false,
+    isHighlightedOffer:
+      typeof data.isHighlightedOffer === "boolean"
+        ? data.isHighlightedOffer
+        : false,
+    isProfessionalOffer:
+      typeof data.isProfessionalOffer === "boolean"
+        ? data.isProfessionalOffer
+        : true,
+    ...promotionalBannerImage,
     description: cleanString(data.description),
     shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
     providerWork: cleanString(data.providerWork),
@@ -4132,6 +4416,29 @@ function matchesTextSearch(record: { normalizedName: string }, query?: string) {
   }
 
   return record.normalizedName.includes(normalizedQuery);
+}
+
+function offerListRecord(
+  record: SupportServiceOfferRecord,
+): SupportServiceOfferRecord {
+  const {
+    promotionalBannerImageUploadDataUrl: _promotionalBannerImageUploadDataUrl,
+    ...summary
+  } = record;
+  return summary;
+}
+
+function transactionListRecord(
+  record: SupportServiceTransactionRecord,
+): SupportServiceTransactionRecord {
+  const {
+    promotionalBannerImageUploadDataUrl: _promotionalBannerImageUploadDataUrl,
+    ...offerSnapshot
+  } = record.offerSnapshot;
+  return {
+    ...record,
+    offerSnapshot,
+  };
 }
 
 function matchesOfferFilters(
@@ -4751,7 +5058,7 @@ export async function listSupportServiceOffers(
     cursor: options.cursor,
     limit,
     hasFilters,
-    toRecord: toOfferAdminRecord,
+    toRecord: (id, data) => offerListRecord(toOfferAdminRecord(id, data)),
     matches: (record) => matchesOfferFilters(record, options),
   });
 
@@ -4782,6 +5089,10 @@ export async function createSupportServiceOffer(
     applyAuthoritativeOfferProviderName(draft, providerData),
   );
   validateOfferDocument(document);
+  assertSupportServiceFirestoreDocumentSize(
+    offerPersistenceSizeCandidate(document, context),
+    "Service offer",
+  );
 
   const ref = adminDb.collection(SERVICE_OFFERS_COLLECTION).doc();
   await ref.set(
@@ -4808,16 +5119,21 @@ export async function updateSupportServiceOffer(
     throw new AdminRepositoryError("Service offer not found.", 404);
   }
 
-  const previousDocument = offerDocument(
-    toOfferAdminRecord(offerId, snapshot.data() ?? {}),
+  const previousRecord = toOfferAdminRecord(offerId, snapshot.data() ?? {});
+  const previousDocument = offerDocument(previousRecord);
+  const draft = offerDocument(
+    preserveExistingPromotionalBannerImage(input, previousRecord),
   );
-  const draft = offerDocument(input);
   const providerData = await assertOfferProviderExists(draft);
   const document = applyOfferVersions(
     applyAuthoritativeOfferProviderName(draft, providerData),
     previousDocument,
   );
   validateOfferDocument(document);
+  assertSupportServiceFirestoreDocumentSize(
+    offerPersistenceSizeCandidate(document, context, snapshot.data() ?? {}),
+    "Service offer",
+  );
   await snapshot.ref.set(
     withoutUndefined({
       ...document,
@@ -4862,7 +5178,8 @@ export async function listSupportServiceTransactions(
     cursor: options.cursor,
     limit,
     hasFilters,
-    toRecord: toTransactionAdminRecord,
+    toRecord: (id, data) =>
+      transactionListRecord(toTransactionAdminRecord(id, data)),
     matches: (record) => matchesTransactionFilters(record, options),
   });
 
@@ -4977,7 +5294,9 @@ export async function createSupportServiceTransaction(
       400,
     );
   }
-  const offer = toOfferRecord(offerSnapshot.id, offerSnapshot.data() ?? {});
+  const offer = toOfferRecord(offerSnapshot.id, offerSnapshot.data() ?? {}, {
+    requirePresentationFlags: true,
+  });
   if (offer.status !== "active") {
     throw new AdminRepositoryError(
       "Only active service offers are selectable for new transactions.",
@@ -5048,6 +5367,10 @@ export async function createSupportServiceTransaction(
     providerSnapshot,
   );
   validateTransactionDocument(document, offer);
+  assertSupportServiceFirestoreDocumentSize(
+    transactionPersistenceSizeCandidate(document, context),
+    "Service transaction",
+  );
   const now = new Date();
   const attemptedFingerprint = attemptedCreationFingerprint(input, offer);
 
@@ -5155,6 +5478,7 @@ export async function createSupportServiceTransaction(
     const latestOffer = toOfferRecord(
       latestOfferSnapshot.id,
       latestOfferSnapshot.data() ?? {},
+      { requirePresentationFlags: true },
     );
     if (
       latestOffer.status !== "active" ||
@@ -5725,6 +6049,14 @@ export async function attachSupportServiceTransactionOutputObject(
     validateTransactionDocument(document, latestOffer, {
       preservedInputs: latest.inputs,
     });
+    assertSupportServiceFirestoreDocumentSize(
+      transactionPersistenceSizeCandidate(
+        document,
+        context,
+        latestSnapshot.data() ?? {},
+      ),
+      "Service transaction",
+    );
 
     const ownerData = ownerSnapshot.data() ?? {};
     const ownerCommunityData = ownerCommunitySnapshot.data() ?? {};
@@ -5918,6 +6250,14 @@ async function persistSupportServiceTransactionUpdate(
   validateTransactionDocument(document, offer, {
     preservedInputs: previous.inputs,
   });
+  assertSupportServiceFirestoreDocumentSize(
+    transactionPersistenceSizeCandidate(
+      document,
+      context,
+      snapshot.data() ?? {},
+    ),
+    "Service transaction",
+  );
   assertTransactionStatusTransition(previous.status, document);
   const downloadedObjects =
     document.status === "delivered"

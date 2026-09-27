@@ -50,7 +50,7 @@ The same concept intentionally changes casing at a boundary. There are no aliase
 
 ### Offers
 
-A service offer is an untimed, provider-owned published template. It selects a real Discover organization or professional individual, may declare zero or more input slots and zero or more output slots independently, and declares integer contract versions, work description, optional commercial terms, and at least one stage. An offer may therefore have no inputs, no outputs, or neither. Offers start as draft and become selectable only through publish/active state. `isHiddenFromSearch` removes an offer from discovery without hiding transactions already created from it.
+A service offer is an untimed, provider-owned published template. It selects a real Discover organization or professional individual, may declare zero or more input slots and zero or more output slots independently, and declares integer contract versions, work description, optional commercial terms, and at least one stage. An offer may therefore have no inputs, no outputs, or neither. Offers start as draft and become selectable only through publish/active state. `isHiddenFromSearch` always removes an offer from discovery without hiding transactions already created from it. Otherwise, `isHighlightedOffer` places it under Highlighted and `isProfessionalOffer` places it under For professionals; an offer may appear in both segments, and one with both flags false appears in neither. Optional promotional art uses `promotionalBannerImageUrl` or, when no URL is present, `promotionalBannerImageUploadDataUrl`.
 
 If and only if an offer enables form input, it declares exactly one required `pgo_form` slot with role `form` and a matching external `formShape`. Manual slots cannot use `pgo_form`. The external shape retains generated ID and integer version; the submitted PGO freezes only its field definitions and answers.
 
@@ -111,7 +111,7 @@ The repository fixtures are synthetic schema examples using the IANA-reserved `e
 
 | Boundary | Convention | Examples |
 | --- | --- | --- |
-| `service_offers` | lower_camel_case | `serviceId`, `isHiddenFromSearch`, `inputSlots`, `outputSlots`, `objectType` |
+| `service_offers` | lower_camel_case | `serviceId`, `isHiddenFromSearch`, `isHighlightedOffer`, `isProfessionalOffer`, `promotionalBannerImageUrl`, `promotionalBannerImageUploadDataUrl`, `inputSlots`, `outputSlots`, `objectType` |
 | `service_transactions` | lower_camel_case | `outputObjects`, `outputReports`, `objectType`, `objectCode`, `reportCode` |
 | `uploaded_objects` | snake_case | `object_type`, `object_code`, `object_owner_id`, `upload_version_count` |
 | `uploaded_reports` | snake_case | `report_code`, `report_owner_id`, `upload_version_count` |

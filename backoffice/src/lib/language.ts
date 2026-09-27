@@ -5010,6 +5010,20 @@ const SPANISH_TEXT: Record<string, string> = {
   Issues: "Incidencias",
   "Issues JSON array": "Array JSON de incidencias",
   "Native discovery": "Descubrimiento nativo",
+  "Highlighted offer": "Oferta destacada",
+  "Professional offer": "Oferta profesional",
+  "Show as a highlighted offer": "Mostrar como oferta destacada",
+  "Show as a professional offer": "Mostrar como oferta profesional",
+  "Places this offer in the highlighted services segment of the native experience.":
+    "Ubica esta oferta en el segmento de servicios destacados de la experiencia nativa.",
+  "Places this offer in the services for professionals segment of the native experience.":
+    "Ubica esta oferta en el segmento de servicios para profesionales de la experiencia nativa.",
+  "Promotional banner image": "Imagen de banner promocional",
+  "Use a wide 1024 x 500 image URL or upload a PNG, JPG, or WebP file.":
+    "Usá una URL de imagen horizontal de 1024 x 500 o subí un archivo PNG, JPG o WebP.",
+  "No promotional banner image": "Sin imagen de banner promocional",
+  "Promotional banner image URL must be a valid HTTPS URL.":
+    "La URL de la imagen del banner promocional debe ser una URL HTTPS válida.",
   "Object snapshot": "Snapshot del objeto",
   "View object snapshot": "Ver snapshot del objeto",
   "Object snapshot preview": "Vista previa del snapshot del objeto",

@@ -5,7 +5,10 @@ Create a request for a qualified collector or laboratory to obtain a real biolog
 **Provider:** Origin Sample Services (`pgp_sample_logistics`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** wet_lab
+**Stages:** wet_lab<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 

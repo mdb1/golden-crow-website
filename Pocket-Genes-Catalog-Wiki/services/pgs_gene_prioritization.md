@@ -5,7 +5,10 @@ Use a symptom bundle to return a ranked or selected bundle of candidate genes fo
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** test_planning
+**Stages:** test_planning<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 

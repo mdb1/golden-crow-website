@@ -5,7 +5,10 @@ Combine the consent record, candidate genes and patient/request context into the
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** test_planning
+**Stages:** test_planning<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 

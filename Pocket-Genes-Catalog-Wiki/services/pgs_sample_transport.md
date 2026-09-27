@@ -5,7 +5,10 @@ Move an already biologically collected physical specimen from origin to destinat
 **Provider:** Origin Sample Services (`pgp_sample_logistics`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** wet_lab
+**Stages:** wet_lab<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 

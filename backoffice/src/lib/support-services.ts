@@ -132,6 +132,10 @@ export interface SupportServiceOfferInput {
   stages?: SupportServiceStage[];
   status?: SupportServiceOfferStatus;
   isHiddenFromSearch: boolean;
+  isHighlightedOffer?: boolean;
+  isProfessionalOffer?: boolean;
+  promotionalBannerImageUrl?: string | null;
+  promotionalBannerImageUploadDataUrl?: string | null;
   description?: string;
   shortContract?: string;
   providerWork?: string;
@@ -144,12 +148,22 @@ export interface SupportServiceOfferInput {
 }
 
 export interface SupportServiceOfferRecord
-  extends Required<Omit<SupportServiceOfferInput, "formShape" | "commercialTerms">> {
+  extends Required<
+    Omit<
+      SupportServiceOfferInput,
+      | "formShape"
+      | "commercialTerms"
+      | "promotionalBannerImageUrl"
+      | "promotionalBannerImageUploadDataUrl"
+    >
+  > {
   id: string;
   schemaVersion: number;
   serviceVersion: number;
   formShape?: SupportServiceFormShape;
   commercialTerms?: SupportServiceCommercialTerms;
+  promotionalBannerImageUrl?: string | null;
+  promotionalBannerImageUploadDataUrl?: string | null;
   stages: SupportServiceStage[];
   status: SupportServiceOfferStatus;
   normalizedName: string;
@@ -194,6 +208,10 @@ export interface SupportServiceOfferSnapshot extends Record<string, unknown> {
   name?: string;
   status?: SupportServiceOfferStatus;
   isHiddenFromSearch?: boolean;
+  isHighlightedOffer?: boolean;
+  isProfessionalOffer?: boolean;
+  promotionalBannerImageUrl?: string | null;
+  promotionalBannerImageUploadDataUrl?: string | null;
   serviceCategory?: string;
   providerId?: string;
   providerKind?: SupportServiceProviderKind;

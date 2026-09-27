@@ -740,6 +740,8 @@ const migrateService = (service) => {
   }
 
   const migrated = structuredClone(service);
+  migrated.isHighlightedOffer ??= false;
+  migrated.isProfessionalOffer ??= true;
   if (config) {
     migrated.formShape = {
       id: service.formShape.id,

@@ -5,6 +5,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
+  type DragEvent,
   type FormEvent,
 } from "react";
 import Link from "next/link";
@@ -29,6 +31,8 @@ import {
   FileText,
   Filter,
   FlaskConical,
+  ImageIcon,
+  Link2,
   Loader2,
   Pencil,
   Plus,
@@ -40,6 +44,7 @@ import {
   Trash2,
   UploadCloud,
   Wand2,
+  XCircle,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -162,6 +167,12 @@ type OfferFormState = {
   stages: SupportServiceStage[];
   status: NonNullable<SupportServiceOfferInput["status"]>;
   isHiddenFromSearch: boolean;
+  isHighlightedOffer: boolean;
+  isProfessionalOffer: boolean;
+  promotionalBannerImageUrl: string;
+  promotionalBannerImageUploadDataUrl: string;
+  promotionalBannerImageUploadName: string;
+  promotionalBannerImageUploadMimeType: string;
   description: string;
   providerWork: string;
   supportsFormShape: boolean;
@@ -253,6 +264,20 @@ type ServiceOfferPublishDialogState = {
   message?: string;
 };
 
+type PromotionalBannerUploadStatus = {
+  tone: "loading" | "success" | "warning" | "error";
+  message: string;
+  href?: string;
+  linkLabel?: string;
+};
+
+type ProcessedPromotionalBannerUpload = {
+  dataUrl: string;
+  name: string;
+  mimeType: string;
+  compressed: boolean;
+};
+
 const SERVICE_PAGE_SIZE = 20;
 const PROVIDER_OFFER_LOOKUP_LIMIT = 50;
 const OFFERS_QUERY_KEY = "god-mode-support-service-offers";
@@ -261,6 +286,23 @@ const LIVE_OFFERS_QUERY_KEY = "god-mode-support-service-offers-live-picker";
 const EMPTY_SUPPORT_SERVICE_OFFERS: SupportServiceOfferRecord[] = [];
 const FORM_OBJECT_TYPE = "pgo_form";
 const DEFAULT_OUTPUT_OBJECT_TYPE = "pgo_pdf_report";
+const PROMOTIONAL_BANNER_IMAGE_UPLOAD_MAX_BYTES = 600 * 1024;
+const PROMOTIONAL_BANNER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH = 900000;
+const PROMOTIONAL_BANNER_IMAGE_WIDTH = 1024;
+const PROMOTIONAL_BANNER_IMAGE_HEIGHT = 500;
+const PROMOTIONAL_BANNER_IMAGE_UPLOAD_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+const PROMOTIONAL_BANNER_IMAGE_COMPRESSION_MIME_TYPES = [
+  "image/webp",
+  "image/jpeg",
+] as const;
+const PROMOTIONAL_BANNER_IMAGE_COMPRESSION_QUALITY_STEPS = [
+  0.86, 0.76, 0.66, 0.56, 0.46, 0.36,
+] as const;
+const IMAGE_REDUCER_URL = "https://squoosh.app/";
 const TERMINAL_TRANSACTION_STATUSES: ReadonlySet<SupportServiceTransactionStatus> =
   new Set(["delivered", "rejected", "failed", "cancelled"]);
 const ALLOWED_TRANSACTION_STATUS_TRANSITIONS: Record<
@@ -386,6 +428,174 @@ const SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS =
   "h-9 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700";
 const SUPPORT_SERVICE_TABLE_SHELL_CLASS =
   "overflow-x-auto rounded-2xl border border-violet-100/80 bg-white/80 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42";
+
+function formatPromotionalBannerFileSize(bytes: number) {
+  const kilobytes = bytes / 1024;
+  return kilobytes < 1024
+    ? `${Math.round(kilobytes)} KB`
+    : `${(kilobytes / 1024).toFixed(1)} MB`;
+}
+
+function promotionalBannerFileName(file: File, mimeType: string) {
+  const extension = mimeType === "image/webp" ? "webp" : "jpg";
+  const rawName = file.name || `promotional-banner.${extension}`;
+  const baseName = rawName.replace(/\.[^.]+$/, "") || "promotional-banner";
+  return `${baseName}-1024x500.${extension}`;
+}
+
+function readPromotionalBannerAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      if (!result) {
+        reject(new Error("IMAGE_READ_FAILED"));
+        return;
+      }
+      resolve(result);
+    };
+    reader.onerror = () => reject(new Error("IMAGE_READ_FAILED"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadPromotionalBannerImage(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("IMAGE_LOAD_FAILED"));
+    };
+    image.src = objectUrl;
+  });
+}
+
+function canResizePromotionalBanner() {
+  return (
+    typeof document !== "undefined" &&
+    typeof URL !== "undefined" &&
+    typeof URL.createObjectURL === "function" &&
+    typeof HTMLCanvasElement !== "undefined" &&
+    typeof HTMLCanvasElement.prototype.toBlob === "function"
+  );
+}
+
+function drawPromotionalBannerImage(
+  image: HTMLImageElement,
+  mimeType: string,
+) {
+  const sourceWidth = image.naturalWidth || image.width || 0;
+  const sourceHeight = image.naturalHeight || image.height || 0;
+  if (!sourceWidth || !sourceHeight) {
+    throw new Error("IMAGE_DIMENSIONS_UNAVAILABLE");
+  }
+
+  const targetAspect =
+    PROMOTIONAL_BANNER_IMAGE_WIDTH / PROMOTIONAL_BANNER_IMAGE_HEIGHT;
+  const sourceAspect = sourceWidth / sourceHeight;
+  const cropWidth =
+    sourceAspect > targetAspect
+      ? Math.round(sourceHeight * targetAspect)
+      : sourceWidth;
+  const cropHeight =
+    sourceAspect > targetAspect
+      ? sourceHeight
+      : Math.round(sourceWidth / targetAspect);
+  const sourceX = Math.max(0, Math.round((sourceWidth - cropWidth) / 2));
+  const sourceY = Math.max(0, Math.round((sourceHeight - cropHeight) / 2));
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("CANVAS_UNAVAILABLE");
+  }
+
+  canvas.width = PROMOTIONAL_BANNER_IMAGE_WIDTH;
+  canvas.height = PROMOTIONAL_BANNER_IMAGE_HEIGHT;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  if (mimeType === "image/jpeg") {
+    context.fillStyle = "#ffffff";
+    context.fillRect(
+      0,
+      0,
+      PROMOTIONAL_BANNER_IMAGE_WIDTH,
+      PROMOTIONAL_BANNER_IMAGE_HEIGHT,
+    );
+  }
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    PROMOTIONAL_BANNER_IMAGE_WIDTH,
+    PROMOTIONAL_BANNER_IMAGE_HEIGHT,
+  );
+  return canvas;
+}
+
+function promotionalBannerCanvasToBlob(
+  canvas: HTMLCanvasElement,
+  mimeType: string,
+  quality: number,
+) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, mimeType, quality);
+  });
+}
+
+async function resizePromotionalBannerFile(file: File) {
+  const image = await loadPromotionalBannerImage(file);
+  for (const mimeType of PROMOTIONAL_BANNER_IMAGE_COMPRESSION_MIME_TYPES) {
+    const canvas = drawPromotionalBannerImage(image, mimeType);
+    for (const quality of PROMOTIONAL_BANNER_IMAGE_COMPRESSION_QUALITY_STEPS) {
+      const blob = await promotionalBannerCanvasToBlob(
+        canvas,
+        mimeType,
+        quality,
+      );
+      if (
+        blob &&
+        blob.size > 0 &&
+        blob.size <= PROMOTIONAL_BANNER_IMAGE_UPLOAD_MAX_BYTES
+      ) {
+        return new File([blob], promotionalBannerFileName(file, mimeType), {
+          type: mimeType,
+          lastModified: Date.now(),
+        });
+      }
+    }
+  }
+  throw new Error("IMAGE_COMPRESSION_FAILED");
+}
+
+async function processPromotionalBannerFile(
+  file: File,
+): Promise<ProcessedPromotionalBannerUpload> {
+  if (!PROMOTIONAL_BANNER_IMAGE_UPLOAD_TYPES.has(file.type)) {
+    throw new Error("IMAGE_TYPE_UNSUPPORTED");
+  }
+  const finalFile = canResizePromotionalBanner()
+    ? await resizePromotionalBannerFile(file)
+    : file;
+  const dataUrl = await readPromotionalBannerAsDataUrl(finalFile);
+  if (dataUrl.length > PROMOTIONAL_BANNER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH) {
+    throw new Error("IMAGE_COMPRESSION_FAILED");
+  }
+  return {
+    dataUrl,
+    name: finalFile.name,
+    mimeType: finalFile.type,
+    compressed: finalFile !== file,
+  };
+}
 
 type TurnaroundUnit = (typeof TURNAROUND_UNITS)[number]["value"];
 
@@ -697,6 +907,12 @@ function defaultOfferForm(): OfferFormState {
     stages: ["test_planning"],
     status: "draft",
     isHiddenFromSearch: false,
+    isHighlightedOffer: false,
+    isProfessionalOffer: true,
+    promotionalBannerImageUrl: "",
+    promotionalBannerImageUploadDataUrl: "",
+    promotionalBannerImageUploadName: "",
+    promotionalBannerImageUploadMimeType: "",
     description: "",
     providerWork: "",
     supportsFormShape: false,
@@ -756,6 +972,14 @@ function offerFormFromCatalog(
       : ["test_planning"],
     status: "draft",
     isHiddenFromSearch: catalogOffer.isHiddenFromSearch,
+    isHighlightedOffer: catalogOffer.isHighlightedOffer,
+    isProfessionalOffer: catalogOffer.isProfessionalOffer,
+    promotionalBannerImageUrl:
+      catalogOffer.promotionalBannerImageUrl ?? "",
+    promotionalBannerImageUploadDataUrl:
+      catalogOffer.promotionalBannerImageUploadDataUrl ?? "",
+    promotionalBannerImageUploadName: "",
+    promotionalBannerImageUploadMimeType: "",
     description: catalogOffer.description,
     providerWork: catalogOffer.providerWork,
     supportsFormShape: hasFormShape,
@@ -804,6 +1028,13 @@ function offerFormFromRecord(
     stages: record.stages.length ? record.stages : ["test_planning"],
     status: record.status,
     isHiddenFromSearch: record.isHiddenFromSearch,
+    isHighlightedOffer: record.isHighlightedOffer ?? false,
+    isProfessionalOffer: record.isProfessionalOffer ?? true,
+    promotionalBannerImageUrl: record.promotionalBannerImageUrl ?? "",
+    promotionalBannerImageUploadDataUrl:
+      record.promotionalBannerImageUploadDataUrl ?? "",
+    promotionalBannerImageUploadName: "",
+    promotionalBannerImageUploadMimeType: "",
     description: record.description,
     providerWork: record.providerWork,
     supportsFormShape: hasFormShape,
@@ -1123,6 +1354,12 @@ function offerSnapshotFromOffer(
     name: offer.name,
     status: offer.status,
     isHiddenFromSearch: offer.isHiddenFromSearch,
+    isHighlightedOffer: offer.isHighlightedOffer,
+    isProfessionalOffer: offer.isProfessionalOffer,
+    promotionalBannerImageUrl: offer.promotionalBannerImageUrl,
+    promotionalBannerImageUploadDataUrl: offer.promotionalBannerImageUrl?.trim()
+      ? null
+      : offer.promotionalBannerImageUploadDataUrl,
     serviceCategory: offer.serviceCategory,
     providerId: offer.providerId,
     providerKind: offer.providerKind,
@@ -1443,6 +1680,24 @@ function offerPayloadFromForm(
   if (!form.stages.length) {
     throw new Error("At least one stage is required.");
   }
+  if (form.promotionalBannerImageUrl.trim()) {
+    let promotionalBannerUrl: URL;
+    try {
+      promotionalBannerUrl = new URL(form.promotionalBannerImageUrl.trim());
+    } catch {
+      throw new Error(
+        "Promotional banner image URL must be a valid HTTPS URL.",
+      );
+    }
+    if (
+      promotionalBannerUrl.protocol !== "https:" ||
+      !promotionalBannerUrl.hostname
+    ) {
+      throw new Error(
+        "Promotional banner image URL must be a valid HTTPS URL.",
+      );
+    }
+  }
   const formSlots = form.inputSlots.filter(isFormInputSlot);
   if (form.supportsFormShape) {
     assertIdentifier(generatedIds.formShapeId, "pgfs", "Form shape ID");
@@ -1531,6 +1786,14 @@ function offerPayloadFromForm(
     stages: form.stages,
     status: form.status,
     isHiddenFromSearch: form.isHiddenFromSearch,
+    isHighlightedOffer: form.isHighlightedOffer,
+    isProfessionalOffer: form.isProfessionalOffer,
+    promotionalBannerImageUrl:
+      form.promotionalBannerImageUrl.trim() || null,
+    promotionalBannerImageUploadDataUrl:
+      form.promotionalBannerImageUrl.trim()
+        ? null
+        : form.promotionalBannerImageUploadDataUrl || null,
     description: form.description.trim(),
     shortContract: calculatedShortContract(form.inputSlots, form.outputSlots),
     providerWork: form.providerWork.trim(),
@@ -2286,18 +2549,30 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          offer.status === "active" ? "default" : "outline"
-                        }
-                      >
-                        {t(offerStatusLabel(offer.status))}
-                      </Badge>
-                      {offer.isHiddenFromSearch ? (
-                        <Badge variant="outline" className="ml-2">
-                          {t("Hidden from search")}
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge
+                          variant={
+                            offer.status === "active" ? "default" : "outline"
+                          }
+                        >
+                          {t(offerStatusLabel(offer.status))}
                         </Badge>
-                      ) : null}
+                        {offer.isHiddenFromSearch ? (
+                          <Badge variant="outline">
+                            {t("Hidden from search")}
+                          </Badge>
+                        ) : null}
+                        {offer.isHighlightedOffer ? (
+                          <Badge variant="secondary">
+                            {t("Highlighted offer")}
+                          </Badge>
+                        ) : null}
+                        {offer.isProfessionalOffer ? (
+                          <Badge variant="secondary">
+                            {t("Professional offer")}
+                          </Badge>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className="max-w-[20rem] truncate text-sm text-muted-foreground">
                       {offer.shortContract || "-"}
@@ -2423,6 +2698,416 @@ function RowActions({
   );
 }
 
+function PromotionalBannerImageEditor({
+  imageUrl,
+  imageUploadDataUrl,
+  imageUploadName,
+  imageUploadMimeType,
+  disabled,
+  onChange,
+  onPendingChange,
+}: {
+  imageUrl: string;
+  imageUploadDataUrl: string;
+  imageUploadName: string;
+  imageUploadMimeType: string;
+  disabled: boolean;
+  onChange: (
+    patch: Pick<
+      OfferFormState,
+      | "promotionalBannerImageUrl"
+      | "promotionalBannerImageUploadDataUrl"
+      | "promotionalBannerImageUploadName"
+      | "promotionalBannerImageUploadMimeType"
+    >,
+  ) => void;
+  onPendingChange: (pending: boolean) => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const uploadTokenRef = useRef(0);
+  const [status, setStatus] =
+    useState<PromotionalBannerUploadStatus | null>(null);
+  const [pending, setPending] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const previewSource = imageUrl.trim() || imageUploadDataUrl;
+  const hasImageUrl = Boolean(imageUrl.trim());
+  const hasUploadedImage = Boolean(imageUploadDataUrl);
+  const hasChosenPath = hasImageUrl || hasUploadedImage;
+  const uploadLimitLabel = formatPromotionalBannerFileSize(
+    PROMOTIONAL_BANNER_IMAGE_UPLOAD_MAX_BYTES,
+  );
+  const uploadedImageSummary = imageUploadName
+    ? `${imageUploadName}${imageUploadMimeType ? ` · ${imageUploadMimeType}` : ""}`
+    : t("Using uploaded banner image");
+
+  function resetInput() {
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+  }
+
+  function updatePending(nextPending: boolean) {
+    setPending(nextPending);
+    onPendingChange(nextPending);
+  }
+
+  function clearUploadedImage() {
+    uploadTokenRef.current += 1;
+    updatePending(false);
+    setDragging(false);
+    setStatus(null);
+    resetInput();
+    onChange({
+      promotionalBannerImageUrl: "",
+      promotionalBannerImageUploadDataUrl: "",
+      promotionalBannerImageUploadName: "",
+      promotionalBannerImageUploadMimeType: "",
+    });
+  }
+
+  function clearImageUrl() {
+    onChange({
+      promotionalBannerImageUrl: "",
+      promotionalBannerImageUploadDataUrl: "",
+      promotionalBannerImageUploadName: "",
+      promotionalBannerImageUploadMimeType: "",
+    });
+  }
+
+  function handleImageUrlChange(event: ChangeEvent<HTMLInputElement>) {
+    const nextImageUrl = event.target.value;
+    if (nextImageUrl.trim()) {
+      uploadTokenRef.current += 1;
+      updatePending(false);
+      setDragging(false);
+      setStatus(null);
+      resetInput();
+    }
+    onChange({
+      promotionalBannerImageUrl: nextImageUrl,
+      promotionalBannerImageUploadDataUrl: nextImageUrl.trim()
+        ? ""
+        : imageUploadDataUrl,
+      promotionalBannerImageUploadName: nextImageUrl.trim()
+        ? ""
+        : imageUploadName,
+      promotionalBannerImageUploadMimeType: nextImageUrl.trim()
+        ? ""
+        : imageUploadMimeType,
+    });
+  }
+
+  async function handleUploadFile(file: File | undefined | null) {
+    if (!file || disabled || pending || hasImageUrl) {
+      return;
+    }
+
+    uploadTokenRef.current += 1;
+    const token = uploadTokenRef.current;
+    updatePending(true);
+    setDragging(false);
+    setStatus({
+      tone: "loading",
+      message:
+        file.size > PROMOTIONAL_BANNER_IMAGE_UPLOAD_MAX_BYTES ||
+        canResizePromotionalBanner()
+          ? t("Processing banner image...")
+          : t("Loading image..."),
+    });
+
+    try {
+      const processed = await processPromotionalBannerFile(file);
+      if (uploadTokenRef.current !== token) {
+        return;
+      }
+      onChange({
+        promotionalBannerImageUrl: "",
+        promotionalBannerImageUploadDataUrl: processed.dataUrl,
+        promotionalBannerImageUploadName: processed.name,
+        promotionalBannerImageUploadMimeType: processed.mimeType,
+      });
+      setStatus({
+        tone: "success",
+        message: processed.compressed
+          ? t("Banner image processed and ready.")
+          : t("Uploaded image ready."),
+      });
+    } catch (error) {
+      if (uploadTokenRef.current !== token) {
+        return;
+      }
+      const unsupported =
+        error instanceof Error && error.message === "IMAGE_TYPE_UNSUPPORTED";
+      setStatus(
+        unsupported
+          ? {
+              tone: "error",
+              message: t(
+                "Only PNG, JPG, or WebP images can be uploaded here.",
+              ),
+            }
+          : {
+              tone: "warning",
+              message: t(
+                "We could not compress this image under 600 KB. Reduce it and upload a smaller version.",
+              ),
+              href: IMAGE_REDUCER_URL,
+              linkLabel: t("Compress it for free"),
+            },
+      );
+    } finally {
+      if (uploadTokenRef.current === token) {
+        updatePending(false);
+        resetInput();
+      }
+    }
+  }
+
+  function handleDragEnter(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    if (!disabled && !pending && !hasImageUrl) {
+      setDragging(true);
+    }
+  }
+
+  function handleDragOver(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    if (!disabled && !pending && !hasImageUrl) {
+      setDragging(true);
+    }
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    setDragging(false);
+  }
+
+  function handleDrop(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    setDragging(false);
+    if (!disabled && !pending && !hasImageUrl) {
+      void handleUploadFile(event.dataTransfer.files?.[0]);
+    }
+  }
+
+  return (
+    <div
+      className="flex flex-col gap-3 rounded-xl border border-violet-200/80 bg-violet-50/35 p-4 shadow-sm lg:col-span-2 dark:border-violet-400/25 dark:bg-violet-500/8"
+      data-testid="service-offer-promotional-banner-section"
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+            <ImageIcon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-foreground">
+              {t("Promotional banner image")}
+            </div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {t(
+                "Use a wide 1024 x 500 image URL or upload a PNG, JPG, or WebP file.",
+              )}
+            </p>
+          </div>
+        </div>
+        {hasUploadedImage ? (
+          <span className="inline-flex w-fit items-center rounded-full bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-500/15 dark:text-violet-100">
+            {t("Using uploaded banner image")}
+          </span>
+        ) : null}
+      </div>
+
+      <div
+        className={cn(
+          "overflow-hidden rounded-xl border bg-background shadow-sm transition duration-200",
+          dragging
+            ? "border-violet-500 bg-violet-50 shadow-[0_18px_42px_rgba(109,40,217,0.18)] dark:bg-violet-500/12"
+            : "border-border",
+          !previewSource &&
+            "cursor-copy hover:border-violet-300 hover:bg-violet-50/40 dark:hover:border-violet-400/40 dark:hover:bg-violet-500/8",
+          pending && "cursor-progress opacity-80",
+        )}
+        onDragEnter={!previewSource ? handleDragEnter : undefined}
+        onDragOver={!previewSource ? handleDragOver : undefined}
+        onDragLeave={!previewSource ? handleDragLeave : undefined}
+        onDrop={!previewSource ? handleDrop : undefined}
+        data-testid="service-offer-promotional-banner-dropzone"
+      >
+        {previewSource ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={previewSource}
+            alt=""
+            className="aspect-[1024/500] w-full object-cover"
+          />
+        ) : (
+          <div className="flex aspect-[1024/500] flex-col items-center justify-center gap-3 px-4 text-center text-sm text-muted-foreground">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+              {pending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <UploadCloud className="h-5 w-5" />
+              )}
+            </span>
+            <span className="font-medium">
+              {dragging
+                ? t("Drop image to upload")
+                : t("No promotional banner image")}
+            </span>
+            <span className="max-w-md text-xs leading-5">
+              {t("Drag a banner image here or use the upload button below.")}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div
+        className={cn(
+          "grid gap-3",
+          hasChosenPath
+            ? "lg:grid-cols-1"
+            : "lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.8fr)]",
+        )}
+      >
+        {!hasUploadedImage ? (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="service-offer-promotional-banner-url">
+              {t("Banner image URL")}
+            </Label>
+            <div className="relative">
+              <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="service-offer-promotional-banner-url"
+                type="url"
+                value={imageUrl}
+                onChange={handleImageUrlChange}
+                placeholder="https://"
+                disabled={disabled || pending}
+                className={cn("pl-9", hasImageUrl && "pr-24")}
+              />
+              {hasImageUrl ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearImageUrl}
+                  disabled={disabled || pending}
+                  aria-label={t("Clear banner image URL")}
+                  className="absolute right-1 top-1/2 h-8 -translate-y-1/2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  {t("Clear")}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {!hasImageUrl ? (
+          <label
+            htmlFor="service-offer-promotional-banner-upload"
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={cn(
+              "relative flex min-h-24 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition duration-200",
+              dragging
+                ? "border-violet-500 bg-violet-50 shadow-[0_16px_34px_rgba(109,40,217,0.16)] dark:bg-violet-500/12"
+                : "border-violet-300/80 bg-background/70 hover:-translate-y-0.5 hover:border-violet-400 hover:bg-background dark:border-violet-400/35 dark:bg-background/60",
+              pending && "cursor-progress opacity-80",
+            )}
+          >
+            <input
+              ref={inputRef}
+              id="service-offer-promotional-banner-upload"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) =>
+                void handleUploadFile(event.target.files?.[0])
+              }
+              disabled={disabled || pending}
+              aria-label={t("Upload banner file")}
+              className="sr-only"
+            />
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 shadow-sm dark:bg-violet-500/15 dark:text-violet-200">
+              {pending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <UploadCloud className="h-5 w-5" />
+              )}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-foreground">
+                {hasUploadedImage
+                  ? t("Replace uploaded banner image")
+                  : t("Upload banner file")}
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                {dragging
+                  ? t("Drop image to upload")
+                  : t(
+                      "PNG, JPG, or WebP up to 600 KB. It will be cropped to 1024 x 500.",
+                    ).replace("600 KB", uploadLimitLabel)}
+              </span>
+            </span>
+          </label>
+        ) : null}
+      </div>
+
+      {hasUploadedImage ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-violet-200 bg-violet-50/65 px-3 py-2 text-sm text-violet-950 sm:flex-row sm:items-center sm:justify-between dark:border-violet-400/25 dark:bg-violet-500/10 dark:text-violet-100">
+          <span className="min-w-0 truncate">{uploadedImageSummary}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={clearUploadedImage}
+            disabled={disabled || pending}
+            className="w-fit text-violet-900 hover:bg-violet-100 hover:text-violet-950 dark:text-violet-100 dark:hover:bg-violet-500/15"
+          >
+            <XCircle className="h-3.5 w-3.5" />
+            {t("Remove uploaded banner image")}
+          </Button>
+        </div>
+      ) : null}
+
+      {status ? (
+        <p
+          className={cn(
+            "rounded-lg px-3 py-2 text-xs font-medium leading-5",
+            status.tone === "success" &&
+              "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200",
+            status.tone === "loading" &&
+              "bg-violet-50 text-violet-800 dark:bg-violet-500/10 dark:text-violet-200",
+            status.tone === "warning" &&
+              "bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-100",
+            status.tone === "error" && "bg-destructive/10 text-destructive",
+          )}
+        >
+          {status.message}
+          {status.href && status.linkLabel ? (
+            <>
+              {" "}
+              <a
+                href={status.href}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold underline underline-offset-4"
+              >
+                {status.linkLabel}
+              </a>
+            </>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function SupportServiceOfferWorkbench({
   mode,
   offerId,
@@ -2447,6 +3132,8 @@ export function SupportServiceOfferWorkbench({
   const [publishDialog, setPublishDialog] =
     useState<ServiceOfferPublishDialogState | null>(null);
   const [rawExportOpen, setRawExportOpen] = useState(false);
+  const [promotionalBannerUploadPending, setPromotionalBannerUploadPending] =
+    useState(false);
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const isEditing = mode === "edit";
@@ -2581,7 +3268,10 @@ export function SupportServiceOfferWorkbench({
   );
   const persistedOfferRecord = offerQuery.data?.offer ?? null;
   const changed = JSON.stringify(form) !== JSON.stringify(savedForm);
-  const isWorking = saveMutation.isPending || deleteMutation.isPending;
+  const isWorking =
+    saveMutation.isPending ||
+    deleteMutation.isPending ||
+    promotionalBannerUploadPending;
   const canPublishCurrentOffer = hasPersistedOffer && form.status !== "active";
   const statusOptions = SUPPORT_SERVICE_OFFER_STATUSES.filter(
     (option) => form.status === "active" || option.value !== "active",
@@ -2922,6 +3612,65 @@ export function SupportServiceOfferWorkbench({
                 </div>
               </div>
             </Field>
+            <Field label="Highlighted offer">
+              <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                <Checkbox
+                  id="service-offer-highlighted"
+                  checked={form.isHighlightedOffer}
+                  onCheckedChange={(checked) =>
+                    setForm((current) => ({
+                      ...current,
+                      isHighlightedOffer: checked === true,
+                    }))
+                  }
+                />
+                <div className="grid gap-1">
+                  <Label htmlFor="service-offer-highlighted">
+                    {t("Show as a highlighted offer")}
+                  </Label>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {t(
+                      "Places this offer in the highlighted services segment of the native experience.",
+                    )}
+                  </p>
+                </div>
+              </div>
+            </Field>
+            <Field label="Professional offer">
+              <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                <Checkbox
+                  id="service-offer-professional"
+                  checked={form.isProfessionalOffer}
+                  onCheckedChange={(checked) =>
+                    setForm((current) => ({
+                      ...current,
+                      isProfessionalOffer: checked === true,
+                    }))
+                  }
+                />
+                <div className="grid gap-1">
+                  <Label htmlFor="service-offer-professional">
+                    {t("Show as a professional offer")}
+                  </Label>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {t(
+                      "Places this offer in the services for professionals segment of the native experience.",
+                    )}
+                  </p>
+                </div>
+              </div>
+            </Field>
+            <PromotionalBannerImageEditor
+              imageUrl={form.promotionalBannerImageUrl}
+              imageUploadDataUrl={form.promotionalBannerImageUploadDataUrl}
+              imageUploadName={form.promotionalBannerImageUploadName}
+              imageUploadMimeType={form.promotionalBannerImageUploadMimeType}
+              disabled={isWorking}
+              onPendingChange={setPromotionalBannerUploadPending}
+              onChange={(patch) =>
+                setForm((current) => ({ ...current, ...patch }))
+              }
+            />
           </div>
         </Section>
         <Section title="Contract">

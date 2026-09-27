@@ -54,7 +54,7 @@
 
 | Collection | Field-key convention | Canonical examples |
 | --- | --- | --- |
-| `service_offers` | lower camel case | `serviceId`, `isHiddenFromSearch`, `outputSlots` |
+| `service_offers` | lower camel case | `serviceId`, `isHiddenFromSearch`, `isHighlightedOffer`, `isProfessionalOffer`, `promotionalBannerImageUrl`, `promotionalBannerImageUploadDataUrl`, `outputSlots` |
 | `service_transactions` | lower camel case | `outputObjects`, `outputReports`, `objectType`, `objectCode`, `reportCode` |
 | `uploaded_objects` | snake case | `object_type`, `object_code`, `object_owner_id`, `upload_version_count` |
 | `uploaded_reports` | snake case | `report_code`, `report_owner_id`, `upload_version_count` |

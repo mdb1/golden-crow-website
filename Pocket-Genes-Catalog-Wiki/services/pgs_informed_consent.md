@@ -5,7 +5,10 @@ Receive the completed consent-specific form and produce an informed-consent reco
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
 **Provider kind:** organization  
 **Service version:** 1  
-**Stages:** test_planning
+**Stages:** test_planning<br>
+**Highlighted:** No<br>
+**For professionals:** Yes<br>
+**Promotional banner:** Not set
 
 ## Provider work
 

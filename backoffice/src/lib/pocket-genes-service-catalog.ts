@@ -39,6 +39,16 @@ function requiredBoolean(value: unknown, fieldName: string) {
   return value;
 }
 
+function booleanWithDefault(
+  value: unknown,
+  defaultValue: boolean,
+  fieldName: string,
+) {
+  return value === undefined
+    ? defaultValue
+    : requiredBoolean(value, fieldName);
+}
+
 function recordArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter(
@@ -174,6 +184,20 @@ export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
       service.isHiddenFromSearch,
       "isHiddenFromSearch",
     ),
+    isHighlightedOffer: booleanWithDefault(
+      service.isHighlightedOffer,
+      false,
+      "isHighlightedOffer",
+    ),
+    isProfessionalOffer: booleanWithDefault(
+      service.isProfessionalOffer,
+      true,
+      "isProfessionalOffer",
+    ),
+    promotionalBannerImageUrl:
+      cleanString(service.promotionalBannerImageUrl) || null,
+    promotionalBannerImageUploadDataUrl:
+      cleanString(service.promotionalBannerImageUploadDataUrl) || null,
     description: cleanString(service.description),
     shortContract: cleanString(service.shortContract),
     providerWork: cleanString(service.providerWork),

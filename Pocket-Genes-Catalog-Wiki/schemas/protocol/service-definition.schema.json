@@ -1249,6 +1249,25 @@
           "type": "boolean",
           "description": "Discovery-only visibility flag. True excludes the offer from native available-service search/listing, without hiding or invalidating transactions already created from it."
         },
+        "isHighlightedOffer": {
+          "type": "boolean",
+          "description": "True places an otherwise visible active offer in the Highlighted marketplace segment."
+        },
+        "isProfessionalOffer": {
+          "type": "boolean",
+          "description": "True places an otherwise visible active offer in the For professionals marketplace segment."
+        },
+        "promotionalBannerImageUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://",
+          "description": "Optional absolute HTTPS URL for the offer's promotional banner image."
+        },
+        "promotionalBannerImageUploadDataUrl": {
+          "type": "string",
+          "pattern": "^data:image/[^;]+;base64,",
+          "description": "Optional uploaded-image fallback encoded as a complete data:image/...;base64,... URL; used only when promotionalBannerImageUrl is absent."
+        },
         "description": {
           "type": "string",
           "minLength": 1
@@ -1334,6 +1353,8 @@
         "stages",
         "availability",
         "isHiddenFromSearch",
+        "isHighlightedOffer",
+        "isProfessionalOffer",
         "description",
         "shortContract",
         "providerWork",

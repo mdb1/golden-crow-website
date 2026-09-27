@@ -63,6 +63,8 @@ const hiddenOffer: SupportServiceOfferRecord = {
   stages: ["test_planning"],
   status: "active",
   isHiddenFromSearch: true,
+  isHighlightedOffer: false,
+  isProfessionalOffer: true,
   description: "Requester-facing description.",
   shortContract: "form:Form -> report:PDF report",
   providerWork: "Provider-side work.",
@@ -484,6 +486,10 @@ describe("support services workbenches", () => {
       expect(offer.commercialTerms.price?.summary).toBe(
         "Calculated after submission",
       );
+      expect(offer.isHighlightedOffer).toBe(false);
+      expect(offer.isProfessionalOffer).toBe(true);
+      expect(offer.promotionalBannerImageUrl).toBeNull();
+      expect(offer.promotionalBannerImageUploadDataUrl).toBeNull();
     }
   });
 
@@ -497,6 +503,16 @@ describe("support services workbenches", () => {
     expect(screen.getByText("No input slots defined.")).toBeTruthy();
     expect(screen.getByText("No output slots defined.")).toBeTruthy();
     expect(screen.getByText("Not requested")).toBeTruthy();
+    expect(
+      document
+        .getElementById("service-offer-highlighted")
+        ?.getAttribute("data-state"),
+    ).toBe("unchecked");
+    expect(
+      document
+        .getElementById("service-offer-professional")
+        ?.getAttribute("data-state"),
+    ).toBe("checked");
   });
 
   it("saves an offer with no form, input slots, or output slots", async () => {
@@ -811,6 +827,238 @@ describe("support services workbenches", () => {
       expect(payload.isHiddenFromSearch).toBe(false);
       expect(payload.commercialTerms).toEqual(hiddenOffer.commercialTerms);
       expect(payload).not.toHaveProperty("is_hidden_from_search");
+    });
+  });
+
+  it("saves offer discovery flags and a promotional banner URL with exact camelCase keys", async () => {
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        return { offer: { ...hiddenOffer, ...payload } };
+      }
+      if (
+        String(path).includes("provider-siblings") ||
+        String(path).includes("?limit=")
+      ) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: hiddenOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
+    );
+
+    await screen.findByText("Show as a highlighted offer");
+    const highlightedCheckbox = document.getElementById(
+      "service-offer-highlighted",
+    );
+    const professionalCheckbox = document.getElementById(
+      "service-offer-professional",
+    );
+    expect(highlightedCheckbox?.getAttribute("data-state")).toBe("unchecked");
+    expect(professionalCheckbox?.getAttribute("data-state")).toBe("checked");
+
+    fireEvent.click(highlightedCheckbox!);
+    fireEvent.click(professionalCheckbox!);
+    fireEvent.change(screen.getByLabelText("Banner image URL"), {
+      target: { value: "https://example.org/service-banner.png" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+
+    await waitFor(() => {
+      const putCall = sdkFetchMock.mock.calls.find(
+        ([, init]) => init?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const payload = JSON.parse(String(putCall?.[1]?.body));
+      expect(payload.isHighlightedOffer).toBe(true);
+      expect(payload.isProfessionalOffer).toBe(false);
+      expect(payload.promotionalBannerImageUrl).toBe(
+        "https://example.org/service-banner.png",
+      );
+      expect(payload.promotionalBannerImageUploadDataUrl).toBeNull();
+      expect(payload).not.toHaveProperty("is_highlighted_offer");
+      expect(payload).not.toHaveProperty("is_professional_offer");
+      expect(payload).not.toHaveProperty("promotional_banner_image_url");
+      expect(payload).not.toHaveProperty(
+        "promotional_banner_image_upload_data_url",
+      );
+    });
+  });
+
+  it("uploads a promotional banner file and gives its data precedence over an empty URL", async () => {
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        return { offer: { ...hiddenOffer, ...payload } };
+      }
+      if (
+        String(path).includes("provider-siblings") ||
+        String(path).includes("?limit=")
+      ) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: hiddenOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
+    );
+
+    const bannerSection = await screen.findByTestId(
+      "service-offer-promotional-banner-section",
+    );
+    fireEvent.change(within(bannerSection).getByLabelText("Upload banner file"), {
+      target: {
+        files: [
+          new File(["tiny-service-banner"], "service-banner.png", {
+            type: "image/png",
+          }),
+        ],
+      },
+    });
+
+    expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
+    expect(
+      within(bannerSection).queryByLabelText("Banner image URL"),
+    ).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+
+    await waitFor(() => {
+      const putCall = sdkFetchMock.mock.calls.find(
+        ([, init]) => init?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const payload = JSON.parse(String(putCall?.[1]?.body));
+      expect(payload.promotionalBannerImageUrl).toBeNull();
+      expect(payload.promotionalBannerImageUploadDataUrl).toMatch(
+        /^data:image\/png;base64,/,
+      );
+      expect(payload).not.toHaveProperty("promotionalBannerImageUploadName");
+      expect(payload).not.toHaveProperty(
+        "promotionalBannerImageUploadMimeType",
+      );
+    });
+  });
+
+  it("ignores promotional banner drops while an offer save is in progress", async () => {
+    let resolveSave: (value: { offer: SupportServiceOfferRecord }) => void =
+      () => undefined;
+    const pendingSave = new Promise<{ offer: SupportServiceOfferRecord }>(
+      (resolve) => {
+        resolveSave = resolve;
+      },
+    );
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        return pendingSave;
+      }
+      if (
+        String(path).includes("provider-siblings") ||
+        String(path).includes("?limit=")
+      ) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: hiddenOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
+    );
+
+    const bannerSection = await screen.findByTestId(
+      "service-offer-promotional-banner-section",
+    );
+    const dropzone = within(bannerSection).getByTestId(
+      "service-offer-promotional-banner-dropzone",
+    );
+    await waitFor(() => {
+      expect(
+        sdkFetchMock.mock.calls.some(([path]) =>
+          String(path).startsWith("/admin/support-services/offers?"),
+        ),
+      ).toBe(true);
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await screen.findAllByText("Saving...");
+
+    const droppedFile = new File(["ignored-banner"], "ignored.png", {
+      type: "image/png",
+    });
+    fireEvent.dragEnter(dropzone, {
+      dataTransfer: { files: [droppedFile] },
+    });
+    fireEvent.drop(dropzone, {
+      dataTransfer: { files: [droppedFile] },
+    });
+
+    expect(
+      (
+        within(bannerSection).getByLabelText(
+          "Upload banner file",
+        ) as HTMLInputElement
+      ).disabled,
+    ).toBe(true);
+    expect(screen.queryByText("Uploaded image ready.")).toBeNull();
+    expect(
+      (within(bannerSection).getByLabelText("Banner image URL") as HTMLInputElement)
+        .value,
+    ).toBe("");
+
+    await act(async () => {
+      resolveSave({ offer: hiddenOffer });
+      await pendingSave;
+    });
+    expect(await screen.findByText("Service offer saved.")).toBeTruthy();
+  });
+
+  it("clears both promotional banner sources when an uploaded banner is removed", async () => {
+    const offerWithUploadedBanner: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      promotionalBannerImageUrl: null,
+      promotionalBannerImageUploadDataUrl:
+        "data:image/png;base64,c2VydmljZS1iYW5uZXI=",
+    };
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        return { offer: { ...offerWithUploadedBanner, ...payload } };
+      }
+      if (
+        String(path).includes("provider-siblings") ||
+        String(path).includes("?limit=")
+      ) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: offerWithUploadedBanner };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="edit"
+        offerId={offerWithUploadedBanner.id}
+      />,
+    );
+
+    const bannerSection = await screen.findByTestId(
+      "service-offer-promotional-banner-section",
+    );
+    fireEvent.click(
+      within(bannerSection).getByRole("button", {
+        name: "Remove uploaded banner image",
+      }),
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+
+    await waitFor(() => {
+      const putCall = sdkFetchMock.mock.calls.find(
+        ([, init]) => init?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const payload = JSON.parse(String(putCall?.[1]?.body));
+      expect(payload.promotionalBannerImageUrl).toBeNull();
+      expect(payload.promotionalBannerImageUploadDataUrl).toBeNull();
     });
   });
 
