@@ -74,12 +74,10 @@ export async function NutritionNotesFeed({
             {notes.map((entry) => {
               const mealName =
                 localizedNamePair(entry.mealName, locale).primary || entry.mealId;
-              const statusLabel =
-                entry.status === "missed"
-                  ? t("noteStatusMissed")
-                  : entry.status === "different"
-                    ? t("noteStatusDifferent")
-                    : t("noteStatusDone");
+              // Two outcomes only: the legacy `different` (gc-fitness#1143) reads "No cumplió",
+              // the same as in both apps and in the compliance grid.
+              const failed = entry.status !== "done";
+              const statusLabel = failed ? t("noteStatusMissed") : t("noteStatusDone");
               return (
                 <li
                   key={`${entry.civilDate}-${entry.mealId}`}
@@ -96,7 +94,7 @@ export async function NutritionNotesFeed({
                     </span>
                     <span className="text-sm font-medium">{mealName}</span>
                     <Badge
-                      variant={entry.status === "missed" ? "destructive" : "secondary"}
+                      variant={failed ? "destructive" : "secondary"}
                       className="text-[0.7rem]"
                     >
                       {statusLabel}

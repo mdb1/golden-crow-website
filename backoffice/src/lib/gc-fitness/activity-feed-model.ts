@@ -1553,7 +1553,8 @@ export interface NutritionMarkSummary {
   /** Meals the day ASKED for, per the frozen snapshot. */
   expected: number;
   done: number;
-  different: number;
+  /** Everything not `done` — including the legacy `different` (gc-fitness#1143), which every
+   * surface now reads as "No cumplió". */
   missed: number;
   /** Every expected meal has a mark. */
   isComplete: boolean;
@@ -1573,11 +1574,9 @@ export function summarizeNutritionMarks(
 ): NutritionMarkSummary {
   const entries = Object.values(meals ?? {});
   let done = 0;
-  let different = 0;
   let missed = 0;
   for (const entry of entries) {
     if (entry.status === "done") done += 1;
-    else if (entry.status === "different") different += 1;
     else missed += 1;
   }
   const marked = entries.length;
@@ -1586,7 +1585,6 @@ export function summarizeNutritionMarks(
     marked,
     expected,
     done,
-    different,
     missed,
     isComplete: expected > 0 && marked >= expected,
   };
@@ -1595,10 +1593,8 @@ export function summarizeNutritionMarks(
 /**
  * The "·"-joined facts under a nutrition row.
  *
- * `done` is the only compliant status (`statusCountsAsCompliant`), so the split
- * is spelled out rather than collapsed into one percentage — a day of 4 marks
- * that were all "distinto" is not the same day as 4 "cumplí", and a single
- * number would render them identically.
+ * `done` is the only compliant status (`statusCountsAsCompliant`); everything else —
+ * the legacy `different` included — is "sin cumplir", the two outcomes the product has.
  */
 export function describeNutritionMarks(
   summary: NutritionMarkSummary,
@@ -1606,7 +1602,6 @@ export function describeNutritionMarks(
   occurredAtISO: string | null,
 ): string[] {
   const meta: string[] = [`${summary.done} de ${summary.expected} cumplidas`];
-  if (summary.different > 0) meta.push(`${summary.different} distinto`);
   if (summary.missed > 0) meta.push(`${summary.missed} sin cumplir`);
   // Only when the marking is NOT for the day it was written: a back-dated day is
   // the interesting case; on the normal one the civil date just repeats the day

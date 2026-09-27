@@ -44,7 +44,6 @@ export interface NutritionComplianceGridProps {
  */
 const CELL_STYLE: Record<NutritionCellState, { glyph: string; className: string }> = {
   done: { glyph: "✓", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" },
-  different: { glyph: "≈", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400" },
   missed: { glyph: "✕", className: "bg-rose-500/15 text-rose-700 dark:text-rose-400" },
   unmarked: { glyph: "·", className: "bg-muted text-muted-foreground" },
   future: { glyph: "", className: "bg-transparent text-muted-foreground/40" },
@@ -53,7 +52,6 @@ const CELL_STYLE: Record<NutritionCellState, { glyph: string; className: string 
 
 const CELL_LABEL_KEY: Record<NutritionCellState, string> = {
   done: "cellDone",
-  different: "cellDifferent",
   missed: "cellMissed",
   unmarked: "cellUnmarked",
   future: "cellFuture",
@@ -211,7 +209,7 @@ export function NutritionComplianceGrid({ weeks }: NutritionComplianceGridProps)
         )}
 
         <ul className="text-muted-foreground mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          {(["done", "different", "missed", "unmarked", "noPlan"] as const).map((state) => (
+          {(["done", "missed", "unmarked", "noPlan"] as const).map((state) => (
             <li key={state} className="flex items-center gap-1.5">
               <span
                 aria-hidden
@@ -222,13 +220,11 @@ export function NutritionComplianceGrid({ weeks }: NutritionComplianceGridProps)
               {t(
                 state === "done"
                   ? "legendDone"
-                  : state === "different"
-                    ? "legendDifferent"
-                    : state === "missed"
-                      ? "legendMissed"
-                      : state === "unmarked"
-                        ? "legendUnmarked"
-                        : "legendNoPlan",
+                  : state === "missed"
+                    ? "legendMissed"
+                    : state === "unmarked"
+                      ? "legendUnmarked"
+                      : "legendNoPlan",
               )}
             </li>
           ))}

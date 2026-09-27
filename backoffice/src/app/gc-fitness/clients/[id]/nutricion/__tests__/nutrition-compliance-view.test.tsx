@@ -89,7 +89,8 @@ describe("NutritionComplianceGrid", () => {
     // The sentence is what a screen reader announces and what survives a greyscale
     // screenshot; the glyph is what survives colour blindness.
     expect(screen.getByText("Dinner on Aug 18: missed")).toBeInTheDocument();
-    expect(screen.getByText("Lunch on Aug 18: ate something different")).toBeInTheDocument();
+    // The legacy `different` is "No cumplió" now — two outcomes only (gc-fitness#1143).
+    expect(screen.getByText("Lunch on Aug 18: missed")).toBeInTheDocument();
     expect(screen.getByText("Breakfast on Aug 17: done")).toBeInTheDocument();
   });
 
@@ -158,7 +159,8 @@ describe("NutritionNotesFeed", () => {
 
     expect(screen.getByText("Comí afuera — milanesa con puré")).toBeInTheDocument();
     expect(screen.getByText("Lunch")).toBeInTheDocument();
-    expect(screen.getByText("Different")).toBeInTheDocument();
+    // The legacy `different` badge reads "Missed", like everywhere else (gc-fitness#1143).
+    expect(screen.queryByText("Different")).not.toBeInTheDocument();
   });
 
   it("puts the delta next to the note and prints that it does not score", async () => {

@@ -131,7 +131,8 @@ describe("buildNutritionWeekGrid", () => {
       grid.rows.find((row) => row.mealId === mealId)!.cells.find((c) => c.civilDate === date)!;
 
     expect(cellAt("m1", YESTERDAY).state).toBe("done");
-    expect(cellAt("m2", TODAY).state).toBe("different");
+    // Legacy `different` is drawn as "No cumplió" — two outcomes only (gc-fitness#1143).
+    expect(cellAt("m2", TODAY).state).toBe("missed");
     expect(cellAt("m3", TODAY).state).toBe("missed");
   });
 
@@ -216,7 +217,8 @@ describe("nutritionDayCellState", () => {
         m3: { status: "done" },
       }),
     ];
-    expect(nutritionDayCellState(TODAY, plans, logsByDate(noMiss), TODAY)).toBe("different");
+    // A legacy `different` is a failure, so the day fails like any other miss.
+    expect(nutritionDayCellState(TODAY, plans, logsByDate(noMiss), TODAY)).toBe("missed");
 
     const silent = [log(TODAY, { m1: { status: "done" } })];
     expect(nutritionDayCellState(TODAY, plans, logsByDate(silent), TODAY)).toBe("unmarked");

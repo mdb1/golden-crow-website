@@ -73,11 +73,21 @@ export { civilWeekStart };
  */
 export type NutritionCellState =
   | "done"
-  | "different"
   | "missed"
   | "unmarked"
   | "future"
   | "noPlan";
+
+/**
+ * Two outcomes only: "Cumplió" and "No cumplió". The legacy `different` status ("Distinto",
+ * removed as an option by gc-fitness#1143) is still in old logs and old app versions; every
+ * surface — both apps and this grid — draws it as "No cumplió". It already counted as a failure
+ * in every percent (`statusCountsAsCompliant` is `done` only); this is where it stops being a
+ * third colour.
+ */
+function outcomeOf(status: NutritionMealStatus): "done" | "missed" {
+  return status === "done" ? "done" : "missed";
+}
 
 export interface NutritionGridCell {
   civilDate: string;
@@ -139,8 +149,7 @@ export function nutritionDayCellState(
 
   const log = logsByDate.get(civilDate);
   const statuses = expected.map((meal) => log?.meals[meal.mealId]?.status ?? null);
-  if (statuses.some((status) => status === "missed")) return "missed";
-  if (statuses.some((status) => status === "different")) return "different";
+  if (statuses.some((status) => status !== null && outcomeOf(status) === "missed")) return "missed";
   return "unmarked";
 }
 
@@ -235,7 +244,7 @@ function cellFor(
   if (civilDate > today) return { civilDate, state: "future", hasNote: false };
 
   const entry = logsByDate.get(civilDate)?.meals[mealId];
-  const state: NutritionCellState = entry ? entry.status : "unmarked";
+  const state: NutritionCellState = entry ? outcomeOf(entry.status) : "unmarked";
   return {
     civilDate,
     state,
