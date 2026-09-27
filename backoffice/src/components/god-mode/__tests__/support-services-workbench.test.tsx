@@ -1091,6 +1091,10 @@ describe("support services workbenches", () => {
     );
     expect(highlightedCheckbox?.getAttribute("data-state")).toBe("unchecked");
     expect(professionalCheckbox?.getAttribute("data-state")).toBe("checked");
+    expect(
+      highlightedCheckbox!.compareDocumentPosition(professionalCheckbox!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
 
     fireEvent.click(highlightedCheckbox!);
     expect(highlightedCheckbox?.getAttribute("data-state")).toBe("checked");

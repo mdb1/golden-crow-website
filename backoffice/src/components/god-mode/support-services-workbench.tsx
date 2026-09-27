@@ -3758,36 +3758,6 @@ export function SupportServiceOfferWorkbench({
               data-testid="service-offer-audience-row"
               className="grid gap-4 md:grid-cols-2 lg:col-span-2"
             >
-              <Field label="Professional offer">
-                <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-                  <Checkbox
-                    id="service-offer-professional"
-                    checked={form.isProfessionalOffer}
-                    onCheckedChange={(checked) =>
-                      setForm((current) => {
-                        const isProfessionalOffer = checked === true;
-                        return {
-                          ...current,
-                          isProfessionalOffer,
-                          isHighlightedOffer: isProfessionalOffer
-                            ? false
-                            : current.isHighlightedOffer,
-                        };
-                      })
-                    }
-                  />
-                  <div className="grid gap-1">
-                    <Label htmlFor="service-offer-professional">
-                      {t("Show as a professional offer")}
-                    </Label>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      {t(
-                        "Places this offer in the services for professionals segment of the native experience.",
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </Field>
               <Field label="Highlighted offer">
                 <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
                   <Checkbox
@@ -3813,6 +3783,36 @@ export function SupportServiceOfferWorkbench({
                     <p className="text-xs leading-5 text-muted-foreground">
                       {t(
                         "Places this offer in the highlighted services segment of the native experience.",
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </Field>
+              <Field label="Professional offer">
+                <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                  <Checkbox
+                    id="service-offer-professional"
+                    checked={form.isProfessionalOffer}
+                    onCheckedChange={(checked) =>
+                      setForm((current) => {
+                        const isProfessionalOffer = checked === true;
+                        return {
+                          ...current,
+                          isProfessionalOffer,
+                          isHighlightedOffer: isProfessionalOffer
+                            ? false
+                            : current.isHighlightedOffer,
+                        };
+                      })
+                    }
+                  />
+                  <div className="grid gap-1">
+                    <Label htmlFor="service-offer-professional">
+                      {t("Show as a professional offer")}
+                    </Label>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "Places this offer in the services for professionals segment of the native experience.",
                       )}
                     </p>
                   </div>
