@@ -4908,7 +4908,7 @@ function ProviderPicker({
         </Button>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[min(calc(100vw-2rem),64rem)] max-w-none">
+        <DialogContent className="w-[min(calc(100vw-2rem),92rem)] max-w-none sm:max-w-none">
           <DialogHeader>
             <DialogTitle>
               {kind === "organization"

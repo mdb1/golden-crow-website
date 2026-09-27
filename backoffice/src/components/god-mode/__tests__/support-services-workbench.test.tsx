@@ -470,6 +470,38 @@ describe("support services workbenches", () => {
     });
   });
 
+  it("uses the full wide layout for the organization provider picker", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (String(path).startsWith("/discover/organizations?")) {
+        return { organizations: [], nextCursor: undefined };
+      }
+      return { offers: [], nextCursor: undefined };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="create" />,
+      "es",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Elegí proveedor",
+      }),
+    );
+
+    const modal = await screen.findByRole("dialog");
+    expect(modal.className).toContain("92rem");
+    expect(modal.classList.contains("sm:max-w-none")).toBe(true);
+    expect(
+      within(modal).getByText("Elegí organización proveedora"),
+    ).toBeTruthy();
+    expect(
+      within(modal).getByText(
+        "Seleccioná un registro de publicador de Discover para esta oferta de servicio.",
+      ),
+    ).toBeTruthy();
+  });
+
   it("renders invalid historical categories as Uncategorized and blocks save until one is selected", async () => {
     const historicalOffer: SupportServiceOfferRecord = {
       ...hiddenOffer,
