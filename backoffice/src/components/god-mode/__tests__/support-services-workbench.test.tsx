@@ -1741,6 +1741,18 @@ describe("support services workbenches", () => {
 
     fireEvent.click(statsTrigger);
 
+    const statsDialog = await screen.findByRole("dialog", {
+      name: "Número de transacciones activas",
+    });
+    expect(statsDialog.className).toContain("90rem");
+    expect(statsDialog.className).toContain("max-h-[92vh]");
+    expect(statsDialog.className).toContain("overflow-hidden");
+    const statsScrollViewport = within(statsDialog).getByTestId(
+      "service-offer-transaction-stats-scroll",
+    );
+    expect(statsScrollViewport.className).toContain("overflow-y-auto");
+    expect(statsScrollViewport.className).toContain("min-h-0");
+
     await waitFor(() => {
       expect(
         sdkFetchMock.mock.calls.filter(([path]) =>
@@ -1792,8 +1804,20 @@ describe("support services workbenches", () => {
     );
     expect(screen.getByText("Contrato actual")).toBeTruthy();
 
+    fireEvent.click(
+      within(statsDialog).getByRole("button", { name: "Cerrar" }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", {
+          name: "Número de transacciones activas",
+        }),
+      ).toBeNull();
+    });
     fireEvent.click(statsTrigger);
-    fireEvent.click(statsTrigger);
+    await screen.findByRole("dialog", {
+      name: "Número de transacciones activas",
+    });
     await waitFor(() => {
       expect(
         sdkFetchMock.mock.calls.filter(([path]) =>

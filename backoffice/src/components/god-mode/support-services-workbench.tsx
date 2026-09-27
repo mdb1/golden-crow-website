@@ -56,12 +56,6 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { FileJsonWizard } from "@/components/file-storage/file-json-wizard";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
   AlertDialog,
   AlertDialogCancel,
   AlertDialogContent,
@@ -8509,7 +8503,7 @@ function ServiceOfferTransactionStatsSection({
 
   if (statsQuery.isLoading || (!stats && !statsQuery.isError)) {
     return (
-      <ServiceOfferTransactionStatsAccordion
+      <ServiceOfferTransactionStatsModal
         expanded={expanded}
         onExpandedChange={setExpanded}
       >
@@ -8517,13 +8511,13 @@ function ServiceOfferTransactionStatsSection({
           <Skeleton className="h-28 w-full rounded-xl" />
           <Skeleton className="h-52 w-full rounded-xl" />
         </div>
-      </ServiceOfferTransactionStatsAccordion>
+      </ServiceOfferTransactionStatsModal>
     );
   }
 
   if (statsQuery.isError || !stats) {
     return (
-      <ServiceOfferTransactionStatsAccordion
+      <ServiceOfferTransactionStatsModal
         expanded={expanded}
         onExpandedChange={setExpanded}
       >
@@ -8543,7 +8537,7 @@ function ServiceOfferTransactionStatsSection({
             {t("Try again")}
           </Button>
         </div>
-      </ServiceOfferTransactionStatsAccordion>
+      </ServiceOfferTransactionStatsModal>
     );
   }
 
@@ -8634,7 +8628,7 @@ function ServiceOfferTransactionStatsSection({
   ];
 
   return (
-    <ServiceOfferTransactionStatsAccordion
+    <ServiceOfferTransactionStatsModal
       expanded={expanded}
       onExpandedChange={setExpanded}
     >
@@ -8695,7 +8689,7 @@ function ServiceOfferTransactionStatsSection({
           testId="service-offer-active-by-version-chart"
         />
       </div>
-    </ServiceOfferTransactionStatsAccordion>
+    </ServiceOfferTransactionStatsModal>
   );
 }
 
@@ -8819,7 +8813,7 @@ function ServiceTransactionDonutChart({
   );
 }
 
-function ServiceOfferTransactionStatsAccordion({
+function ServiceOfferTransactionStatsModal({
   expanded,
   onExpandedChange,
   children,
@@ -8832,35 +8826,71 @@ function ServiceOfferTransactionStatsAccordion({
   const t = (text: string) => appText(language, text);
 
   return (
-    <section
-      data-testid="service-offer-transaction-stats"
-      className={SUPPORT_SERVICE_SECTION_CLASS}
-    >
-      <Accordion
-        type="single"
-        collapsible
-        value={expanded ? "transaction-stats" : ""}
-        onValueChange={(value) =>
-          onExpandedChange(value === "transaction-stats")
-        }
+    <>
+      <section
+        data-testid="service-offer-transaction-stats"
+        className={SUPPORT_SERVICE_SECTION_CLASS}
       >
-        <AccordionItem value="transaction-stats" className="border-0">
-          <AccordionTrigger className="rounded-none border-0 border-b border-violet-100/80 py-0 pb-4 hover:no-underline dark:border-violet-400/14">
-            <span className="flex min-w-0 flex-1 items-center gap-3 pr-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-100 bg-cyan-50 text-cyan-700 shadow-inner dark:border-cyan-400/18 dark:bg-cyan-500/10 dark:text-cyan-100">
-                <ChartPie className="h-4 w-4" />
-              </span>
-              <span className="font-heading text-xl font-semibold text-foreground">
-                {t("Number of active transactions")}
-              </span>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-label={t("Number of active transactions")}
+          onClick={() => onExpandedChange(true)}
+          className="flex w-full items-center justify-between gap-4 border-b border-violet-100/80 pb-4 text-left transition-colors hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-4 dark:border-violet-400/14 dark:hover:text-cyan-200"
+        >
+          <span className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-100 bg-cyan-50 text-cyan-700 shadow-inner dark:border-cyan-400/18 dark:bg-cyan-500/10 dark:text-cyan-100">
+              <ChartPie className="h-4 w-4" />
             </span>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-6">{children}</div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </section>
+            <span className="font-heading text-xl font-semibold text-foreground">
+              {t("Number of active transactions")}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2 text-xs font-semibold text-cyan-700 dark:text-cyan-200">
+            <span className="hidden sm:inline">{t("Open full statistics")}</span>
+            <Maximize2 className="h-4 w-4" />
+          </span>
+        </button>
+      </section>
+
+      <Dialog open={expanded} onOpenChange={onExpandedChange}>
+        <DialogContent className="flex max-h-[92vh] w-[min(calc(100vw-2rem),90rem)] max-w-none flex-col overflow-hidden rounded-2xl border border-cyan-100 bg-white p-0 shadow-[0_34px_120px_rgba(8,145,178,0.2)] sm:max-w-none dark:border-cyan-300/20 dark:bg-slate-950">
+          <DialogHeader className="shrink-0 border-b border-cyan-100 px-5 py-5 text-left sm:px-7 dark:border-cyan-400/16">
+            <div className="flex items-start gap-3 pr-8">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-100 bg-cyan-50 text-cyan-700 dark:border-cyan-400/18 dark:bg-cyan-500/10 dark:text-cyan-100">
+                <ChartPie className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <DialogTitle className="font-heading text-2xl font-semibold">
+                  {t("Number of active transactions")}
+                </DialogTitle>
+                <DialogDescription className="mt-1 leading-6">
+                  {t(
+                    "Detailed transaction status and offer-version distribution.",
+                  )}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div
+            data-testid="service-offer-transaction-stats-scroll"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-7 sm:py-7"
+          >
+            <div className="grid gap-7">{children}</div>
+          </div>
+          <DialogFooter className="shrink-0 border-t border-cyan-100 px-5 py-4 sm:px-7 dark:border-cyan-400/16">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onExpandedChange(false)}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+            >
+              {t("Close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
