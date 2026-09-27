@@ -12,6 +12,7 @@ const mockListSupportServiceTransactions = jest.fn();
 const mockCreateSupportServiceTransaction = jest.fn();
 const mockAttachSupportServiceTransactionOutputObject = jest.fn();
 const mockDeliverSupportServiceTransaction = jest.fn();
+const mockGetSupportServiceIdAvailability = jest.fn();
 
 jest.mock("../repositories/support-services.repository.js", () => ({
   SUPPORT_SERVICE_CATEGORY_KEYS: ["sot_genomic_report_generation"],
@@ -59,6 +60,7 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   deleteSupportServiceOffer: mockDeleteSupportServiceOffer,
   deleteSupportServiceTransaction: jest.fn(),
   deliverSupportServiceTransaction: mockDeliverSupportServiceTransaction,
+  getSupportServiceIdAvailability: mockGetSupportServiceIdAvailability,
   getSupportServiceOffer: jest.fn(),
   getSupportServiceTransaction: jest.fn(),
   listSupportServiceOffers: mockListSupportServiceOffers,
@@ -79,7 +81,7 @@ const bootstrapContext: AdminContext = {
 };
 
 const validOfferPayload = {
-  serviceId: "pgs_pocket_genes_report_studio_1",
+  serviceId: "pgs_pocket_genes_report_studio_12345",
   serviceVersion: 1,
   name: "Create the final self-contained report",
   serviceCategory: "sot_genomic_report_generation",
@@ -98,7 +100,7 @@ const validOfferPayload = {
   providerWork:
     "Verify the match and scope, perform report review, and issue a complete PDF.",
   formShape: {
-    id: "pgfs_pocket_genes_report_studio_1",
+    id: "pgfs_pocket_genes_report_studio_12345",
     version: 1,
     allowUnknownFields: false,
     fields: [
@@ -175,7 +177,7 @@ describe("support service admin routes", () => {
     jest.clearAllMocks();
     mockCreateSupportServiceOffer.mockResolvedValue({
       id: "offer-1",
-      serviceId: "pgs_pocket_genes_report_studio_1",
+      serviceId: "pgs_pocket_genes_report_studio_12345",
       name: "Create the final self-contained report",
     });
     mockDeleteSupportServiceOffer.mockResolvedValue(undefined);
@@ -190,7 +192,7 @@ describe("support service admin routes", () => {
     mockCreateSupportServiceTransaction.mockResolvedValue({
       id: "txn-1",
       requestId: "pgr_demo_final_report",
-      serviceId: "pgs_pocket_genes_report_studio_1",
+      serviceId: "pgs_pocket_genes_report_studio_12345",
     });
     mockAttachSupportServiceTransactionOutputObject.mockResolvedValue({
       transaction: {
@@ -219,6 +221,10 @@ describe("support service admin routes", () => {
       requestId: "pgr_demo_final_report",
       status: "delivered",
     });
+    mockGetSupportServiceIdAvailability.mockResolvedValue({
+      serviceId: "pgs_pocket_genes_report_studio_12345",
+      available: true,
+    });
   });
 
   it("creates a service offer with the Pocket Genes service identifiers", async () => {
@@ -233,7 +239,7 @@ describe("support service admin routes", () => {
     expect(response.statusCode).toBe(201);
     expect(response.json()).toEqual({
       offer: expect.objectContaining({
-        serviceId: "pgs_pocket_genes_report_studio_1",
+        serviceId: "pgs_pocket_genes_report_studio_12345",
       }),
     });
     expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
@@ -247,6 +253,42 @@ describe("support service admin routes", () => {
         promotionalBannerImageUrl: null,
       }),
     );
+  });
+
+  it("checks exact five-digit service ID availability", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/support-services/offers/service-id-availability?serviceId=pgs_pocket_genes_report_studio_12345",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      serviceId: "pgs_pocket_genes_report_studio_12345",
+      available: true,
+    });
+    expect(mockGetSupportServiceIdAvailability).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgs_pocket_genes_report_studio_12345",
+      undefined,
+    );
+  });
+
+  it("rejects a new service offer without an exact five-digit suffix", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        serviceId: "pgs_pocket_genes_report_studio_1",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -346,7 +388,7 @@ describe("support service admin routes", () => {
     const fastify = await buildTestServer();
     const payload = {
       ...validOfferPayload,
-      serviceId: "pgs_pocket_genes_report_studio_2",
+      serviceId: "pgs_pocket_genes_report_studio_22345",
       formShape: undefined,
       inputSlots: validOfferPayload.inputSlots.filter(
         (slot) => slot.objectType !== "pgo_form",
@@ -364,7 +406,7 @@ describe("support service admin routes", () => {
     expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
       bootstrapContext,
       expect.objectContaining({
-        serviceId: "pgs_pocket_genes_report_studio_2",
+        serviceId: "pgs_pocket_genes_report_studio_22345",
       }),
     );
     const [, offerBody] = mockCreateSupportServiceOffer.mock.calls.at(-1) ?? [];
@@ -560,7 +602,7 @@ describe("support service admin routes", () => {
       url: "/admin/support-services/offers",
       payload: {
         ...validOfferPayload,
-        serviceId: "pgs_pocket_genes_report_studio_3",
+        serviceId: "pgs_pocket_genes_report_studio_32345",
         inputSlots: [
           {
             role: "blood_sample",

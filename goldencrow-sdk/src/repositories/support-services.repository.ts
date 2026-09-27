@@ -24,6 +24,7 @@ const adminDb = adminDbFor("mydnamap");
 const FEED_ORGANIZATIONS_COLLECTION = "feed_organizations";
 const FEED_INDIVIDUALS_COLLECTION = "feed_individuals";
 const SERVICE_OFFERS_COLLECTION = "service_offers";
+const SERVICE_OFFER_ID_CLAIMS_COLLECTION = "service_offer_id_claims";
 const SERVICE_TRANSACTIONS_COLLECTION = "service_transactions";
 const SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION =
   "service_transaction_idempotency";
@@ -47,6 +48,10 @@ export const SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH =
   900_000;
 export const SUPPORT_SERVICE_FIRESTORE_SAFE_DOCUMENT_MAX_BYTES = 1_000_000;
 const DOCUMENT_SIZE_TIMESTAMP_PLACEHOLDER = "2000-01-01T00:00:00.000Z";
+const GENERATED_SERVICE_ID_PATTERN =
+  /^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]{5}$/;
+const HISTORICAL_SERVICE_ID_PATTERN =
+  /^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]+$/;
 
 export function encodedSupportServiceDocumentBytes(value: unknown) {
   const encoded = JSON.stringify(value);
@@ -1575,27 +1580,6 @@ function comparableFormShape(formShape: SupportServiceOfferDocument["formShape"]
   return shape;
 }
 
-function comparableOfferDefinition(document: SupportServiceOfferDocument) {
-  const {
-    serviceVersion: _serviceVersion,
-    status: _status,
-    isHiddenFromSearch: _isHiddenFromSearch,
-    isHighlightedOffer: _isHighlightedOffer,
-    isProfessionalOffer: _isProfessionalOffer,
-    promotionalBannerImageUrl: _promotionalBannerImageUrl,
-    promotionalBannerImageUploadDataUrl:
-      _promotionalBannerImageUploadDataUrl,
-    normalizedName: _normalizedName,
-    formShape,
-    ...definition
-  } = document;
-
-  return {
-    ...definition,
-    formShape: comparableFormShape(formShape),
-  };
-}
-
 function applyOfferVersions(
   document: SupportServiceOfferDocument,
   previousDocument?: SupportServiceOfferDocument,
@@ -1613,19 +1597,13 @@ function applyOfferVersions(
   const previousWasPublished = PUBLISHED_OFFER_STATUSES.has(
     previousDocument.status,
   );
-  const serviceChanged =
-    stableString(comparableOfferDefinition(document)) !==
-    stableString(comparableOfferDefinition(previousDocument));
   const formShapeChanged =
     stableString(comparableFormShape(document.formShape)) !==
     stableString(comparableFormShape(previousDocument.formShape));
 
   return {
     ...document,
-    serviceVersion:
-      previousWasPublished && serviceChanged
-        ? previousDocument.serviceVersion + 1
-        : previousDocument.serviceVersion,
+    serviceVersion: previousDocument.serviceVersion + 1,
     formShape: document.formShape
       ? {
           ...document.formShape,
@@ -1879,7 +1857,10 @@ function offerFromFrozenTransaction(
   }
   validateOfferDocument(
     offerDocument(offer, { allowHistoricalServiceCategory: true }),
-    { allowHistoricalServiceCategory: true },
+    {
+      allowHistoricalServiceCategory: true,
+      allowHistoricalServiceId: true,
+    },
   );
   if (cleanString(snapshot.shortContract) !== offer.shortContract) {
     throw new AdminRepositoryError(
@@ -1892,7 +1873,10 @@ function offerFromFrozenTransaction(
 
 function validateOfferDocument(
   document: ReturnType<typeof offerDocument>,
-  options: { allowHistoricalServiceCategory?: boolean } = {},
+  options: {
+    allowHistoricalServiceCategory?: boolean;
+    allowHistoricalServiceId?: boolean;
+  } = {},
 ) {
   if (!document.name) {
     throw new AdminRepositoryError("Service offer name is required.", 400);
@@ -1906,11 +1890,26 @@ function validateOfferDocument(
   if (!document.providerWork) {
     throw new AdminRepositoryError("Provider work is required.", 400);
   }
-  if (!/^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]+$/.test(document.serviceId)) {
+  const serviceIdPattern = options.allowHistoricalServiceId
+    ? HISTORICAL_SERVICE_ID_PATTERN
+    : GENERATED_SERVICE_ID_PATTERN;
+  if (!serviceIdPattern.test(document.serviceId)) {
     throw new AdminRepositoryError(
-      "Service ID must use the generated pgs_<provider_slug>_<n> convention.",
+      options.allowHistoricalServiceId
+        ? "Service ID must use the pgs_<provider_slug>_<numeric_suffix> convention."
+        : "New service IDs must use the generated pgs_<provider_slug>_<five_digits> convention.",
       400,
     );
+  }
+  if (!options.allowHistoricalServiceId) {
+    const suffix = document.serviceId.match(/_(\d{5})$/)?.[1] ?? "";
+    const expectedServiceId = `pgs_${normalizeKey(document.providerName)}_${suffix}`;
+    if (document.serviceId !== expectedServiceId) {
+      throw new AdminRepositoryError(
+        `Service ID must be generated from the selected provider name as ${expectedServiceId}.`,
+        400,
+      );
+    }
   }
   if (!PROVIDER_KIND_SET.has(document.providerKind)) {
     throw new AdminRepositoryError("Provider kind is required.", 400);
@@ -3938,7 +3937,10 @@ function toOfferRecord(
   } satisfies SupportServiceOfferRecord;
   validateOfferDocument(
     offerDocument(record, { allowHistoricalServiceCategory: true }),
-    { allowHistoricalServiceCategory: true },
+    {
+      allowHistoricalServiceCategory: true,
+      allowHistoricalServiceId: true,
+    },
   );
   return record;
 }
@@ -4283,7 +4285,10 @@ function toOfferAdminRecord(
   try {
     validateOfferDocument(
       offerDocument(record, { allowHistoricalServiceCategory: true }),
-      { allowHistoricalServiceCategory: true },
+      {
+        allowHistoricalServiceCategory: true,
+        allowHistoricalServiceId: true,
+      },
     );
   } catch (error) {
     pushComplianceWarning(
@@ -4682,6 +4687,17 @@ async function getOfferSnapshot(offerId: string) {
     .doc(offerId)
     .get();
   return snapshot.exists ? snapshot : null;
+}
+
+function serviceOfferIdClaimRef(serviceId: string) {
+  return adminDb.collection(SERVICE_OFFER_ID_CLAIMS_COLLECTION).doc(serviceId);
+}
+
+function serviceOfferIdQuery(serviceId: string) {
+  return adminDb
+    .collection(SERVICE_OFFERS_COLLECTION)
+    .where("serviceId", "==", serviceId)
+    .limit(2);
 }
 
 async function getTransactionSnapshot(transactionId: string) {
@@ -5176,6 +5192,43 @@ export async function getSupportServiceOffer(
   return toOfferAdminRecord(offerId, snapshot.data() ?? {});
 }
 
+export async function getSupportServiceIdAvailability(
+  context: AdminContext,
+  serviceIdInput: string,
+  excludeOfferIdInput?: string,
+) {
+  requireGodMode(context);
+  const serviceId = cleanString(serviceIdInput);
+  const excludeOfferId = cleanString(excludeOfferIdInput);
+  if (!GENERATED_SERVICE_ID_PATTERN.test(serviceId)) {
+    throw new AdminRepositoryError(
+      "Service ID availability requires pgs_<provider_slug>_<five_digits>.",
+      400,
+    );
+  }
+
+  const [claimSnapshot, offerSnapshot] = await Promise.all([
+    serviceOfferIdClaimRef(serviceId).get(),
+    serviceOfferIdQuery(serviceId).get(),
+  ]);
+  const claimedOfferId = claimSnapshot.exists
+    ? cleanString(claimSnapshot.data()?.offerId)
+    : "";
+  const conflictingOffer = offerSnapshot.docs.find(
+    (snapshot) => snapshot.id !== excludeOfferId,
+  );
+  const claimConflicts =
+    claimSnapshot.exists && claimedOfferId !== excludeOfferId;
+  const conflictingOfferId =
+    conflictingOffer?.id || (claimConflicts ? claimedOfferId : "");
+
+  return {
+    serviceId,
+    available: !conflictingOffer && !claimConflicts,
+    ...(conflictingOfferId ? { conflictingOfferId } : {}),
+  };
+}
+
 export async function createSupportServiceOffer(
   context: AdminContext,
   input: SupportServiceOfferInput,
@@ -5193,15 +5246,36 @@ export async function createSupportServiceOffer(
   );
 
   const ref = adminDb.collection(SERVICE_OFFERS_COLLECTION).doc();
-  await ref.set(
-    withoutUndefined({
-      ...document,
+  const claimRef = serviceOfferIdClaimRef(document.serviceId);
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const [claimSnapshot, existingOfferSnapshot] = await Promise.all([
+      firestoreTransaction.get(claimRef),
+      firestoreTransaction.get(serviceOfferIdQuery(document.serviceId)),
+    ]);
+    if (claimSnapshot.exists || !existingOfferSnapshot.empty) {
+      throw new AdminRepositoryError(
+        "Service ID already exists. Generate and validate another ID.",
+        409,
+      );
+    }
+
+    firestoreTransaction.set(
+      ref,
+      withoutUndefined({
+        ...document,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        createdByEmail: context.email,
+        updatedByEmail: context.email,
+      }),
+    );
+    firestoreTransaction.set(claimRef, {
+      serviceId: document.serviceId,
+      offerId: ref.id,
       createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
       createdByEmail: context.email,
-      updatedByEmail: context.email,
-    }),
-  );
+    });
+  });
 
   return getSupportServiceOffer(context, ref.id);
 }
@@ -5212,38 +5286,58 @@ export async function updateSupportServiceOffer(
   input: SupportServiceOfferInput,
 ) {
   requireGodMode(context);
-  const snapshot = await getOfferSnapshot(offerId);
-  if (!snapshot) {
-    throw new AdminRepositoryError("Service offer not found.", 404);
-  }
+  const submittedDraft = offerDocument(input);
+  const providerData = await assertOfferProviderExists(submittedDraft);
+  const ref = adminDb.collection(SERVICE_OFFERS_COLLECTION).doc(offerId);
 
-  const previousRecord = toOfferAdminRecord(offerId, snapshot.data() ?? {});
-  const previousDocument = offerDocument(previousRecord, {
-    allowHistoricalServiceCategory: true,
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const snapshot = await firestoreTransaction.get(ref);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("Service offer not found.", 404);
+    }
+
+    const previousRecord = toOfferAdminRecord(
+      offerId,
+      snapshot.data() ?? {},
+    );
+    const previousDocument = offerDocument(previousRecord, {
+      allowHistoricalServiceCategory: true,
+    });
+    const draft = offerDocument(
+      preserveExistingPromotionalBannerImage(input, previousRecord),
+    );
+    if (
+      previousDocument.serviceId &&
+      draft.serviceId !== previousDocument.serviceId
+    ) {
+      throw new AdminRepositoryError(
+        "Service ID is immutable after the offer is created.",
+        409,
+      );
+    }
+
+    const document = applyOfferVersions(
+      applyAuthoritativeOfferProviderName(draft, providerData),
+      previousDocument,
+    );
+    validateOfferDocument(document, { allowHistoricalServiceId: true });
+    assertSupportServiceFirestoreDocumentSize(
+      offerPersistenceSizeCandidate(document, context, snapshot.data() ?? {}),
+      "Service offer",
+    );
+    firestoreTransaction.set(
+      ref,
+      withoutUndefined({
+        ...document,
+        createdAt:
+          snapshot.data()?.createdAt ?? FieldValue.serverTimestamp(),
+        createdByEmail:
+          cleanString(snapshot.data()?.createdByEmail) || context.email,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByEmail: context.email,
+      }),
+    );
   });
-  const draft = offerDocument(
-    preserveExistingPromotionalBannerImage(input, previousRecord),
-  );
-  const providerData = await assertOfferProviderExists(draft);
-  const document = applyOfferVersions(
-    applyAuthoritativeOfferProviderName(draft, providerData),
-    previousDocument,
-  );
-  validateOfferDocument(document);
-  assertSupportServiceFirestoreDocumentSize(
-    offerPersistenceSizeCandidate(document, context, snapshot.data() ?? {}),
-    "Service offer",
-  );
-  await snapshot.ref.set(
-    withoutUndefined({
-      ...document,
-      createdAt: snapshot.data()?.createdAt ?? FieldValue.serverTimestamp(),
-      createdByEmail:
-        cleanString(snapshot.data()?.createdByEmail) || context.email,
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedByEmail: context.email,
-    }),
-  );
 
   return getSupportServiceOffer(context, offerId);
 }
@@ -5258,7 +5352,21 @@ export async function deleteSupportServiceOffer(
     throw new AdminRepositoryError("Service offer not found.", 404);
   }
 
-  await snapshot.ref.delete();
+  const serviceId = cleanString(snapshot.data()?.serviceId);
+  const claimRef = serviceId ? serviceOfferIdClaimRef(serviceId) : null;
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const claimSnapshot = claimRef
+      ? await firestoreTransaction.get(claimRef)
+      : null;
+    firestoreTransaction.delete(snapshot.ref);
+    if (
+      claimRef &&
+      claimSnapshot?.exists &&
+      cleanString(claimSnapshot.data()?.offerId) === offerId
+    ) {
+      firestoreTransaction.delete(claimRef);
+    }
+  });
 }
 
 export async function listSupportServiceTransactions(

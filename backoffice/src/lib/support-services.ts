@@ -178,6 +178,12 @@ export interface SupportServiceOfferRecord
   complianceWarnings?: string[];
 }
 
+export interface SupportServiceIdAvailability {
+  serviceId: string;
+  available: boolean;
+  conflictingOfferId?: string;
+}
+
 export interface SupportServiceObjectRef {
   objectId: string;
   revision: number;

@@ -523,13 +523,6 @@ describe("support services workbenches", () => {
     );
 
     expect(await screen.findByText("Uncategorized")).toBeTruthy();
-    await waitFor(() => {
-      expect(
-        sdkFetchMock.mock.calls.some(([path]) =>
-          String(path).startsWith("/admin/support-services/offers?"),
-        ),
-      ).toBe(true);
-    });
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
 
     expect(await screen.findByText("Choose one service category.")).toBeTruthy();
@@ -1135,13 +1128,6 @@ describe("support services workbenches", () => {
     const dropzone = within(bannerSection).getByTestId(
       "service-offer-promotional-banner-dropzone",
     );
-    await waitFor(() => {
-      expect(
-        sdkFetchMock.mock.calls.some(([path]) =>
-          String(path).startsWith("/admin/support-services/offers?"),
-        ),
-      ).toBe(true);
-    });
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
     await screen.findAllByText("Saving...");
 
@@ -1224,47 +1210,153 @@ describe("support services workbenches", () => {
     });
   });
 
-  it("loads every provider sibling page within the SDK page-size cap", async () => {
-    const secondSibling: SupportServiceOfferRecord = {
-      ...hiddenOffer,
-      id: "offer-sibling-2",
-      serviceId: "pgs_frozen_lab_2",
-    };
+  it("generates, checks, rejects, and regenerates a five-digit service ID", async () => {
+    jest
+      .spyOn(Math, "random")
+      .mockReturnValueOnce(0.01234)
+      .mockReturnValue(0.98765);
+    let resolveFirstAvailability:
+      | ((value: {
+          serviceId: string;
+          available: boolean;
+          conflictingOfferId?: string;
+        }) => void)
+      | undefined;
+    const firstAvailability = new Promise<{
+      serviceId: string;
+      available: boolean;
+      conflictingOfferId?: string;
+    }>((resolve) => {
+      resolveFirstAvailability = resolve;
+    });
 
     sdkFetchMock.mockImplementation(async (path) => {
       const value = String(path);
-      if (value === `/admin/support-services/offers/${hiddenOffer.id}`) {
-        return { offer: hiddenOffer };
+      if (value.startsWith("/discover/organizations?")) {
+        return {
+          organizations: [
+            {
+              id: "feed-org-diagnostics",
+              name: "Pocket Genes Diagnostics",
+              status: "active",
+              organizationType: "laboratory",
+            },
+          ],
+          nextCursor: undefined,
+        };
       }
-      if (value.startsWith("/admin/support-services/offers?")) {
+      if (
+        value.startsWith(
+          "/admin/support-services/offers/service-id-availability?",
+        )
+      ) {
         const params = new URLSearchParams(value.split("?")[1]);
-        expect(params.get("limit")).toBe("50");
-        expect(params.get("query")).toBe(hiddenOffer.providerId);
-        if (params.get("cursor") === "provider-page-2") {
-          return { offers: [secondSibling], nextCursor: undefined };
+        const serviceId = params.get("serviceId") ?? "";
+        if (serviceId === "pgs_pocket_genes_diagnostics_11110") {
+          return firstAvailability;
         }
-        return { offers: [], nextCursor: "provider-page-2" };
+        return { serviceId, available: true };
       }
-      throw new Error(`Unexpected SDK path: ${value}`);
+      return { offers: [], nextCursor: undefined };
+    });
+
+    renderWithQueryClient(<SupportServiceOfferWorkbench mode="create" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose provider" }));
+    const providerName = await screen.findByText("Pocket Genes Diagnostics");
+    fireEvent.click(
+      within(providerName.closest("tr")!).getByRole("button", {
+        name: "Select",
+      }),
+    );
+
+    expect(
+      await screen.findByText("Generating and checking service ID..."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("pgs_pocket_genes_diagnostics_11110"),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "Save draft" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+
+    await act(async () => {
+      resolveFirstAvailability?.({
+        serviceId: "pgs_pocket_genes_diagnostics_11110",
+        available: false,
+        conflictingOfferId: "offer-existing",
+      });
+      await firstAvailability;
+    });
+
+    expect(await screen.findByText("Service ID already exists.")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Regenerate service ID" }),
+    );
+
+    expect(
+      await screen.findByText("pgs_pocket_genes_diagnostics_98888"),
+    ).toBeTruthy();
+    expect(await screen.findByText("Service ID is available.")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "Save draft" })
+        .hasAttribute("disabled"),
+    ).toBe(false);
+    expect(
+      screen.getByTestId("service-identity-row").classList.contains(
+        "md:grid-cols-2",
+      ),
+    ).toBe(true);
+  });
+
+  it("locks an existing service ID and animates each persisted version bump", async () => {
+    let persistedVersion = hiddenOffer.serviceVersion;
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        persistedVersion += 1;
+        const payload = JSON.parse(String(init.body));
+        return {
+          offer: {
+            ...hiddenOffer,
+            ...payload,
+            serviceId: hiddenOffer.serviceId,
+            serviceVersion: persistedVersion,
+          },
+        };
+      }
+      return { offer: hiddenOffer };
     });
 
     renderWithQueryClient(
       <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
     );
 
-    await screen.findByText("Hide from native service search");
-    await waitFor(() => {
-      expect(
-        sdkFetchMock.mock.calls.some(([path]) =>
-          String(path).includes("cursor=provider-page-2"),
-        ),
-      ).toBe(true);
-    });
+    expect(
+      await screen.findByText("Service ID is fixed for this existing offer."),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Regenerate service ID" }),
+    ).toBeNull();
     expect(
       sdkFetchMock.mock.calls.some(([path]) =>
-        String(path).includes("limit=100"),
+        String(path).includes("service-id-availability"),
       ),
     ).toBe(false);
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Save changes" })[0],
+    );
+
+    expect(await screen.findByTestId("service-version-bump")).toBeTruthy();
+    expect(
+      screen.getByTestId("service-version-generated-value").textContent,
+    ).toContain("v2");
+    expect(
+      screen.getByTestId("service-version-generated-value").textContent,
+    ).toContain("+1");
   });
 
   it("loads additional active offers for assisted creation without excluding hidden offers", async () => {

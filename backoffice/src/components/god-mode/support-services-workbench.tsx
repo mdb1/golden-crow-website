@@ -132,6 +132,7 @@ import {
   type SupportServiceFormField,
   type SupportServiceFormFieldType,
   type SupportServiceInputSlot,
+  type SupportServiceIdAvailability,
   type SupportServiceMutationMode,
   type SupportServiceOfferInput,
   type SupportServiceOfferRecord,
@@ -279,6 +280,14 @@ type ServiceOfferPublishDialogState = {
   message?: string;
 };
 
+type ServiceIdValidationStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "conflict"
+  | "error"
+  | "locked";
+
 type PromotionalBannerUploadStatus = {
   tone: "loading" | "success" | "warning" | "error";
   message: string;
@@ -294,7 +303,6 @@ type ProcessedPromotionalBannerUpload = {
 };
 
 const SERVICE_PAGE_SIZE = 20;
-const PROVIDER_OFFER_LOOKUP_LIMIT = 50;
 const OFFERS_QUERY_KEY = "god-mode-support-service-offers";
 const TRANSACTIONS_QUERY_KEY = "god-mode-support-service-transactions";
 const LIVE_OFFERS_QUERY_KEY = "god-mode-support-service-offers-live-picker";
@@ -305,6 +313,8 @@ const PROMOTIONAL_BANNER_IMAGE_UPLOAD_MAX_BYTES = 600 * 1024;
 const PROMOTIONAL_BANNER_IMAGE_UPLOAD_DATA_URL_MAX_LENGTH = 900000;
 const PROMOTIONAL_BANNER_IMAGE_WIDTH = 1024;
 const PROMOTIONAL_BANNER_IMAGE_HEIGHT = 500;
+const GENERATED_SERVICE_ID_PATTERN =
+  /^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]{5}$/;
 const PROMOTIONAL_BANNER_IMAGE_UPLOAD_TYPES = new Set([
   "image/png",
   "image/jpeg",
@@ -791,46 +801,43 @@ function slugKey(value: string) {
     .replace(/^_+|_+$/g, "");
 }
 
-function generatedIdSuffix(currentServiceId: string) {
-  const match = currentServiceId.trim().match(/_(\d+)$/);
-  return match ? Number(match[1]) : 1;
+function randomServiceIdSuffix(excludedServiceId = "") {
+  const excludedSuffix = excludedServiceId.match(/_(\d{5})$/)?.[1];
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const candidate = String(
+      Math.floor(10_000 + Math.random() * 90_000),
+    );
+    if (candidate !== excludedSuffix) {
+      return candidate;
+    }
+  }
+
+  const fallback = excludedSuffix ? Number(excludedSuffix) : 9_999;
+  return String(fallback >= 99_999 ? 10_000 : fallback + 1);
 }
 
-function generatedOfferIds(
-  providerName: string,
-  currentServiceId = "",
-  reservedServiceIds: string[] = [],
-) {
+function generatedOfferIds(providerName: string, excludedServiceId = "") {
   const slug = slugKey(providerName);
   if (!slug) {
     return null;
   }
 
-  const serviceBase = `pgs_${slug}`;
-  const formShapeBase = `pgfs_${slug}`;
-  const usedServiceIds = new Set(
-    reservedServiceIds.map((serviceId) => serviceId.trim()).filter(Boolean),
-  );
-  let suffix = generatedIdSuffix(currentServiceId);
-  while (usedServiceIds.has(`${serviceBase}_${suffix}`)) {
-    suffix += 1;
-  }
+  const suffix = randomServiceIdSuffix(excludedServiceId);
 
   return {
-    serviceId: `${serviceBase}_${suffix}`,
-    formShapeId: `${formShapeBase}_${suffix}`,
+    serviceId: `pgs_${slug}_${suffix}`,
+    formShapeId: `pgfs_${slug}_${suffix}`,
   };
 }
 
-function applyGeneratedOfferIds<T extends OfferFormState>(
-  form: T,
-  reservedServiceIds: string[] = [],
-): T {
-  const ids = generatedOfferIds(
-    form.providerName,
-    form.serviceId,
-    reservedServiceIds,
-  );
+function formShapeIdForServiceId(serviceId: string) {
+  return serviceId.startsWith("pgs_")
+    ? `pgfs_${serviceId.slice("pgs_".length)}`
+    : "pgfs_";
+}
+
+function applyGeneratedOfferIds<T extends OfferFormState>(form: T): T {
+  const ids = generatedOfferIds(form.providerName, form.serviceId);
   if (!ids) {
     return {
       ...form,
@@ -1669,25 +1676,16 @@ function parseJsonArray(value: string, label: string) {
   return parsed;
 }
 
-function offerPayloadFromForm(
-  form: OfferFormState,
-  reservedServiceIds: string[] = [],
-): SupportServiceOfferInput {
+function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
   if (!form.name.trim()) {
     throw new Error("Offer name is required.");
   }
   if (!form.providerId.trim()) {
     throw new Error("Choose an organization or professional provider.");
   }
-  const generatedIds = generatedOfferIds(
-    form.providerName,
-    form.serviceId,
-    reservedServiceIds,
-  );
-  if (!generatedIds) {
-    throw new Error("Choose an organization or professional provider.");
-  }
-  assertIdentifier(generatedIds.serviceId, "pgs", "Service ID");
+  const serviceId = form.serviceId.trim();
+  const formShapeId = formShapeIdForServiceId(serviceId);
+  assertIdentifier(serviceId, "pgs", "Service ID");
   if (!form.description.trim()) {
     throw new Error("Description is required.");
   }
@@ -1717,7 +1715,7 @@ function offerPayloadFromForm(
   }
   const formSlots = form.inputSlots.filter(isFormInputSlot);
   if (form.supportsFormShape) {
-    assertIdentifier(generatedIds.formShapeId, "pgfs", "Form shape ID");
+    assertIdentifier(formShapeId, "pgfs", "Form shape ID");
     if (formSlots.length !== 1) {
       throw new Error("A form shape requires exactly one pgo_form input slot.");
     }
@@ -1797,7 +1795,7 @@ function offerPayloadFromForm(
   }
 
   return {
-    serviceId: generatedIds.serviceId,
+    serviceId,
     serviceVersion: form.serviceVersion || 1,
     name: form.name.trim(),
     serviceCategory,
@@ -1820,7 +1818,7 @@ function offerPayloadFromForm(
     providerWork: form.providerWork.trim(),
     formShape: form.supportsFormShape
       ? {
-          id: generatedIds.formShapeId,
+          id: formShapeId,
           version: form.formShape.version || 1,
           allowUnknownFields: false,
           fields,
@@ -3162,6 +3160,7 @@ export function SupportServiceOfferWorkbench({
     useState(false);
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [versionBumpToken, setVersionBumpToken] = useState(0);
   const isEditing = mode === "edit";
   const effectiveOfferId = offerId ?? persistedOfferId ?? undefined;
   const hasPersistedOffer = Boolean(effectiveOfferId);
@@ -3187,77 +3186,26 @@ export function SupportServiceOfferWorkbench({
       setSavedForm(nextForm);
       setPersistedOfferId(offerQuery.data.offer.id);
       setStatusDraft(offerQuery.data.offer.status);
+      setVersionBumpToken(0);
     }
   }, [offerQuery.data?.offer]);
 
-  const providerOffersQuery = useInfiniteQuery({
-    queryKey: [OFFERS_QUERY_KEY, "provider-siblings", form.providerId],
-    queryFn: ({ pageParam }) => {
-      const params = new URLSearchParams({
-        limit: String(PROVIDER_OFFER_LOOKUP_LIMIT),
-        query: form.providerId.trim(),
-      });
-      if (typeof pageParam === "string" && pageParam) {
-        params.set("cursor", pageParam);
-      }
-      return sdkFetch<SupportServiceOffersPage>(
-        `/admin/support-services/offers?${params.toString()}`,
+  const shouldValidateServiceId =
+    !hasPersistedOffer &&
+    Boolean(form.providerId.trim()) &&
+    GENERATED_SERVICE_ID_PATTERN.test(form.serviceId);
+  const serviceIdAvailabilityQuery = useQuery({
+    queryKey: [OFFERS_QUERY_KEY, "service-id-availability", form.serviceId],
+    queryFn: () => {
+      const params = new URLSearchParams({ serviceId: form.serviceId });
+      return sdkFetch<SupportServiceIdAvailability>(
+        `/admin/support-services/offers/service-id-availability?${params.toString()}`,
       );
     },
-    initialPageParam: "",
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    enabled: Boolean(form.providerId.trim()),
+    enabled: shouldValidateServiceId,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
-
-  useEffect(() => {
-    if (
-      providerOffersQuery.hasNextPage &&
-      !providerOffersQuery.isFetchingNextPage
-    ) {
-      void providerOffersQuery.fetchNextPage();
-    }
-  }, [
-    providerOffersQuery.fetchNextPage,
-    providerOffersQuery.hasNextPage,
-    providerOffersQuery.isFetchingNextPage,
-  ]);
-
-  const reservedServiceIds = useMemo(
-    () =>
-      (providerOffersQuery.data?.pages ?? [])
-        .flatMap((page) => page.offers)
-        .filter(
-          (offer) =>
-            offer.providerId === form.providerId &&
-            offer.id !== effectiveOfferId,
-        )
-        .map((offer) => offer.serviceId),
-    [form.providerId, effectiveOfferId, providerOffersQuery.data?.pages],
-  );
-
-  useEffect(() => {
-    if (!form.providerName) {
-      return;
-    }
-
-    const ids = generatedOfferIds(
-      form.providerName,
-      form.serviceId,
-      reservedServiceIds,
-    );
-    if (
-      ids &&
-      (ids.serviceId !== form.serviceId ||
-        ids.formShapeId !== form.formShape.id)
-    ) {
-      setForm((current) => applyGeneratedOfferIds(current, reservedServiceIds));
-    }
-  }, [
-    form.formShape.id,
-    form.providerName,
-    form.serviceId,
-    reservedServiceIds,
-  ]);
 
   const saveMutation = useMutation({
     mutationFn: async (payload: SupportServiceOfferInput) => {
@@ -3287,17 +3235,29 @@ export function SupportServiceOfferWorkbench({
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
-  const offerIdsPreview = generatedOfferIds(
-    form.providerName,
-    form.serviceId,
-    reservedServiceIds,
-  );
   const persistedOfferRecord = offerQuery.data?.offer ?? null;
   const changed = JSON.stringify(form) !== JSON.stringify(savedForm);
   const isWorking =
     saveMutation.isPending ||
     deleteMutation.isPending ||
     promotionalBannerUploadPending;
+  const serviceIdValidated =
+    hasPersistedOffer ||
+    (serviceIdAvailabilityQuery.data?.serviceId === form.serviceId &&
+      serviceIdAvailabilityQuery.data.available);
+  const serviceIdValidationStatus: ServiceIdValidationStatus = hasPersistedOffer
+    ? "locked"
+    : !form.providerId.trim() ||
+        !GENERATED_SERVICE_ID_PATTERN.test(form.serviceId)
+      ? "idle"
+      : serviceIdAvailabilityQuery.isPending ||
+          serviceIdAvailabilityQuery.isFetching
+        ? "checking"
+        : serviceIdAvailabilityQuery.isError
+          ? "error"
+          : serviceIdAvailabilityQuery.data?.available
+            ? "available"
+            : "conflict";
   const canPublishCurrentOffer = hasPersistedOffer && form.status !== "active";
   const statusOptions = SUPPORT_SERVICE_OFFER_STATUSES.filter(
     (option) => form.status === "active" || option.value !== "active",
@@ -3337,15 +3297,24 @@ export function SupportServiceOfferWorkbench({
       providerId: form.providerId,
       providerName: form.providerName,
     });
-    setForm((current) =>
-      applyGeneratedOfferIds(
-        {
-          ...next,
-          status: current.status,
-        },
-        reservedServiceIds,
-      ),
-    );
+    setForm((current) => ({
+      ...next,
+      serviceId: current.serviceId,
+      serviceVersion: current.serviceVersion,
+      status: current.status,
+      formShape: {
+        ...next.formShape,
+        id: formShapeIdForServiceId(current.serviceId),
+        version: current.formShape.version,
+      },
+    }));
+  }
+
+  function regenerateServiceId() {
+    if (hasPersistedOffer || !form.providerName.trim()) {
+      return;
+    }
+    setForm((current) => applyGeneratedOfferIds(current));
   }
 
   async function persistOffer(
@@ -3362,21 +3331,27 @@ export function SupportServiceOfferWorkbench({
   ) {
     try {
       if (
+        !hasPersistedOffer &&
         form.providerId.trim() &&
-        (providerOffersQuery.isFetching || providerOffersQuery.hasNextPage)
+        (serviceIdAvailabilityQuery.isPending ||
+          serviceIdAvailabilityQuery.isFetching)
       ) {
-        throw new Error(
-          "Generated service ID is still checking existing offers.",
-        );
+        throw new Error("Wait until the generated service ID is validated.");
       }
-      if (form.providerId.trim() && providerOffersQuery.isError) {
-        throw new Error(
-          "Generated service ID could not check every existing offer.",
-        );
+      if (
+        !hasPersistedOffer &&
+        form.providerId.trim() &&
+        serviceIdAvailabilityQuery.isError
+      ) {
+        throw new Error("The generated service ID could not be validated.");
+      }
+      if (!hasPersistedOffer && form.providerId.trim() && !serviceIdValidated) {
+        throw new Error("Service ID already exists. Generate another ID.");
       }
 
+      const previousVersion = form.serviceVersion;
       const result = await saveMutation.mutateAsync(
-        offerPayloadFromForm({ ...form, status }, reservedServiceIds),
+        offerPayloadFromForm({ ...form, status }),
       );
       await queryClient.invalidateQueries({ queryKey: [OFFERS_QUERY_KEY] });
 
@@ -3385,6 +3360,12 @@ export function SupportServiceOfferWorkbench({
       setSavedForm(nextForm);
       setPersistedOfferId(result.offer.id);
       setStatusDraft(result.offer.status);
+      if (
+        hasPersistedOffer &&
+        result.offer.serviceVersion === previousVersion + 1
+      ) {
+        setVersionBumpToken((current) => current + 1);
+      }
 
       if (showToast) {
         setToast({
@@ -3400,6 +3381,17 @@ export function SupportServiceOfferWorkbench({
       router.refresh();
       return result.offer;
     } catch (error) {
+      if (
+        !hasPersistedOffer &&
+        error instanceof SdkRequestError &&
+        error.status === 409 &&
+        error.message.includes("Service ID")
+      ) {
+        queryClient.setQueryData<SupportServiceIdAvailability>(
+          [OFFERS_QUERY_KEY, "service-id-availability", form.serviceId],
+          { serviceId: form.serviceId, available: false },
+        );
+      }
       setToast(mutationErrorToast(error, nextToastId(), t));
       return null;
     }
@@ -3474,6 +3466,11 @@ export function SupportServiceOfferWorkbench({
           backHref="/god-mode/service-offers"
           backLabel="Back to Service Offers"
           isSaving={isWorking}
+          saveDisabled={
+            !hasPersistedOffer &&
+            Boolean(form.providerId.trim()) &&
+            !serviceIdValidated
+          }
           canDelete={isEditing}
           canExportRaw={Boolean(persistedOfferRecord)}
           onExportRaw={() => setRawExportOpen(true)}
@@ -3514,9 +3511,7 @@ export function SupportServiceOfferWorkbench({
                 {form.name || t("New service offer")}
               </div>
               <div className="font-mono text-xs text-muted-foreground">
-                {`${offerIdsPreview?.serviceId ?? "pgs_"} · v${
-                  form.serviceVersion || 1
-                }`}
+                {`${form.serviceId || "pgs_"} · v${form.serviceVersion || 1}`}
               </div>
             </div>
             <MockTemplatePicker onSelect={applyMockTemplate} />
@@ -3526,30 +3521,27 @@ export function SupportServiceOfferWorkbench({
               <Select
                 value={form.providerKind}
                 onValueChange={(providerKind) =>
-                  setForm((current) =>
-                    applyGeneratedOfferIds(
-                      {
-                        ...current,
-                        providerKind:
-                          providerKind as SupportServiceProviderKind,
-                        providerId:
-                          providerKind === current.providerKind
-                            ? current.providerId
-                            : "",
-                        providerName:
-                          providerKind === current.providerKind
-                            ? current.providerName
-                            : "",
-                        serviceId:
-                          providerKind === current.providerKind
-                            ? current.serviceId
-                            : "pgs_",
+                  setForm((current) => {
+                    if (providerKind === current.providerKind) {
+                      return current;
+                    }
+                    return {
+                      ...current,
+                      providerKind:
+                        providerKind as SupportServiceProviderKind,
+                      providerId: "",
+                      providerName: "",
+                      serviceId: hasPersistedOffer
+                        ? current.serviceId
+                        : "pgs_",
+                      formShape: {
+                        ...current.formShape,
+                        id: hasPersistedOffer
+                          ? current.formShape.id
+                          : "pgfs_",
                       },
-                      providerKind === current.providerKind
-                        ? reservedServiceIds
-                        : [],
-                    ),
-                  )
+                    };
+                  })
                 }
               >
                 <SelectTrigger>
@@ -3572,36 +3564,51 @@ export function SupportServiceOfferWorkbench({
               onSelect={(provider) =>
                 setForm((current) => {
                   const sameProvider = provider.id === current.providerId;
-                  return applyGeneratedOfferIds(
-                    {
-                      ...current,
-                      providerId: provider.id,
-                      providerName: provider.name,
-                      serviceId: sameProvider ? current.serviceId : "pgs_",
-                    },
-                    sameProvider ? reservedServiceIds : [],
-                  );
+                  const next = {
+                    ...current,
+                    providerId: provider.id,
+                    providerName: provider.name,
+                  };
+                  if (hasPersistedOffer || sameProvider) {
+                    return next;
+                  }
+                  return applyGeneratedOfferIds(next);
                 })
               }
             />
-            <Field label="Offer name">
-              <Input
-                value={form.name}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
-                }
-                required
-              />
-            </Field>
-            <Field label="Service ID">
-              <GeneratedValue value={offerIdsPreview?.serviceId ?? "pgs_"} />
-            </Field>
-            <Field label="Service version">
-              <GeneratedValue value={String(form.serviceVersion || 1)} />
-            </Field>
+            <div className="lg:col-span-2">
+              <Field label="Offer name">
+                <Input
+                  value={form.name}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </Field>
+            </div>
+            <div
+              data-testid="service-identity-row"
+              className="grid gap-4 md:grid-cols-2 lg:col-span-2"
+            >
+              <DisplayField label="Service ID">
+                <ServiceIdGeneratedValue
+                  serviceId={form.serviceId}
+                  status={serviceIdValidationStatus}
+                  canRegenerate={!hasPersistedOffer}
+                  onRegenerate={regenerateServiceId}
+                />
+              </DisplayField>
+              <DisplayField label="Service version">
+                <ServiceVersionGeneratedValue
+                  value={form.serviceVersion || 1}
+                  bumpToken={versionBumpToken}
+                />
+              </DisplayField>
+            </div>
             <div
               data-testid="service-category-discovery-row"
               className="grid gap-4 md:grid-cols-2 lg:col-span-2"
@@ -3749,11 +3756,7 @@ export function SupportServiceOfferWorkbench({
             </Field>
           </div>
         </Section>
-        <FormShapeEditor
-          form={form}
-          reservedServiceIds={reservedServiceIds}
-          setForm={setForm}
-        />
+        <FormShapeEditor form={form} setForm={setForm} />
         <SlotEditors form={form} setForm={setForm} />
         <TermsEditor form={form} setForm={setForm} />
         <Section title="Acceptance and scope">
@@ -5024,20 +5027,14 @@ function ProviderPicker({
 
 function FormShapeEditor({
   form,
-  reservedServiceIds,
   setForm,
 }: {
   form: OfferFormState;
-  reservedServiceIds: string[];
   setForm: React.Dispatch<React.SetStateAction<OfferFormState>>;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
-  const formShapeIdsPreview = generatedOfferIds(
-    form.providerName,
-    form.serviceId,
-    reservedServiceIds,
-  );
+  const formShapeIdPreview = formShapeIdForServiceId(form.serviceId);
   const [fieldDialog, setFieldDialog] = useState<{
     index: number | null;
     draft: FormFieldDraft;
@@ -5167,9 +5164,7 @@ function FormShapeEditor({
         <>
           <div className="grid gap-4 lg:grid-cols-2">
             <Field label="Form shape ID">
-              <GeneratedValue
-                value={formShapeIdsPreview?.formShapeId ?? "pgfs_"}
-              />
+              <GeneratedValue value={formShapeIdPreview} />
             </Field>
             <Field label="Form shape version">
               <GeneratedValue value={String(form.formShape.version || 1)} />
@@ -8054,6 +8049,152 @@ function GeneratedValue({ value }: { value: string }) {
   );
 }
 
+function ServiceIdGeneratedValue({
+  serviceId,
+  status,
+  canRegenerate,
+  onRegenerate,
+}: {
+  serviceId: string;
+  status: ServiceIdValidationStatus;
+  canRegenerate: boolean;
+  onRegenerate: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const statusContent = {
+    idle: {
+      icon: CircleAlert,
+      label: t("Choose a provider to generate a service ID."),
+      className:
+        "border-violet-100 bg-white/78 text-muted-foreground dark:border-violet-400/16 dark:bg-slate-950/42",
+    },
+    checking: {
+      icon: Loader2,
+      label: t("Generating and checking service ID..."),
+      className:
+        "border-violet-200 bg-violet-50/70 text-violet-700 dark:border-violet-400/25 dark:bg-violet-500/10 dark:text-violet-100",
+    },
+    available: {
+      icon: CheckCircle2,
+      label: t("Service ID is available."),
+      className:
+        "border-emerald-200 bg-emerald-50/75 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200",
+    },
+    conflict: {
+      icon: XCircle,
+      label: t("Service ID already exists."),
+      className:
+        "border-rose-200 bg-rose-50/75 text-rose-700 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-200",
+    },
+    error: {
+      icon: XCircle,
+      label: t("Service ID could not be validated."),
+      className:
+        "border-rose-200 bg-rose-50/75 text-rose-700 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-200",
+    },
+    locked: {
+      icon: CheckCircle2,
+      label: t("Service ID is fixed for this existing offer."),
+      className:
+        "border-emerald-200 bg-emerald-50/75 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200",
+    },
+  } satisfies Record<
+    ServiceIdValidationStatus,
+    {
+      icon: typeof CircleAlert;
+      label: string;
+      className: string;
+    }
+  >;
+  const currentStatus = statusContent[status];
+  const StatusIcon = currentStatus.icon;
+  const showRegenerate =
+    canRegenerate && (status === "conflict" || status === "error");
+
+  return (
+    <div
+      data-testid="service-id-generated-value"
+      className={cn(
+        "flex min-h-16 flex-col gap-3 rounded-xl border px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between",
+        currentStatus.className,
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <StatusIcon
+          className={cn(
+            "h-5 w-5 shrink-0",
+            status === "checking" && "animate-spin",
+          )}
+        />
+        <div className="min-w-0">
+          <div className="break-all font-mono text-sm font-semibold text-foreground">
+            {serviceId || "pgs_"}
+          </div>
+          <div
+            data-testid="service-id-validation-status"
+            aria-live="polite"
+            className="mt-1 text-xs font-medium"
+          >
+            {currentStatus.label}
+          </div>
+        </div>
+      </div>
+      {showRegenerate ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onRegenerate}
+          className="shrink-0 gap-2 border-current/20 bg-white/80 dark:bg-slate-950/50"
+        >
+          <RefreshCw className="h-4 w-4" />
+          {t("Regenerate service ID")}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function ServiceVersionGeneratedValue({
+  value,
+  bumpToken,
+}: {
+  value: number;
+  bumpToken: number;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <div
+      data-testid="service-version-generated-value"
+      className="relative flex min-h-16 items-center gap-3 overflow-hidden rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42"
+    >
+      <span className="flex h-10 min-w-14 items-center justify-center rounded-xl bg-violet-100 px-3 font-mono text-lg font-bold text-violet-800 dark:bg-violet-500/16 dark:text-violet-100">
+        v{value}
+      </span>
+      <span className="pr-10 text-xs leading-5 text-muted-foreground">
+        {t("The service version increases after every successful save.")}
+      </span>
+      {bumpToken > 0 ? (
+        <span
+          key={bumpToken}
+          data-testid="service-version-bump"
+          aria-live="polite"
+          className="pointer-events-none absolute right-4 top-1/2 font-mono text-base font-bold text-emerald-600 dark:text-emerald-300"
+          style={{
+            animation:
+              "support-service-version-bump 1.5s ease-out forwards",
+          }}
+        >
+          +1
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function Field({
   label,
   children,
@@ -8071,6 +8212,26 @@ function Field({
       </span>
       {children}
     </Label>
+  );
+}
+
+function DisplayField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <div className="grid gap-2 text-sm font-medium text-foreground">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {t(label)}
+      </div>
+      {children}
+    </div>
   );
 }
 

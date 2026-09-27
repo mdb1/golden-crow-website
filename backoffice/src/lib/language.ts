@@ -4951,6 +4951,17 @@ const SPANISH_TEXT: Record<string, string> = {
     "Seleccioná un registro de publicador de Discover para esta oferta de servicio.",
   Service: "Servicio",
   "Service ID": "ID de servicio",
+  "Choose a provider to generate a service ID.":
+    "Elegí un proveedor para generar el ID de servicio.",
+  "Generating and checking service ID...":
+    "Generando y verificando el ID de servicio...",
+  "Service ID is available.": "El ID de servicio está disponible.",
+  "Service ID already exists.": "El ID de servicio ya existe.",
+  "Service ID could not be validated.":
+    "No se pudo validar el ID de servicio.",
+  "Service ID is fixed for this existing offer.":
+    "El ID de servicio es fijo para esta oferta existente.",
+  "Regenerate service ID": "Regenerar ID de servicio",
   "Service category": "Categoría de servicio",
   "Choose service category": "Elegí una categoría de servicio",
   "Choose one service category.": "Elegí una categoría de servicio.",
@@ -4975,6 +4986,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service offer raw JSON": "JSON raw de la oferta de servicio",
   "Service transaction raw JSON": "JSON raw de la transacción de servicio",
   "Service version": "Versión del servicio",
+  "The service version increases after every successful save.":
+    "La versión del servicio aumenta después de cada guardado exitoso.",
   "Export raw file": "Exportar archivo raw",
   "Read-only Firebase record preview.":
     "Vista previa de solo lectura del registro de Firebase.",

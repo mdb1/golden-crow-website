@@ -15,6 +15,7 @@ import {
   deleteSupportServiceOffer,
   deleteSupportServiceTransaction,
   deliverSupportServiceTransaction,
+  getSupportServiceIdAvailability,
   getSupportServiceOffer,
   getSupportServiceTransaction,
   listSupportServiceOffers,
@@ -61,6 +62,13 @@ const ServiceIdSchema = z
   .regex(
     /^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]+$/,
     "Use a generated pgs_<provider_slug>_<n> service ID.",
+  );
+const GeneratedServiceIdSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]{5}$/,
+    "Use a generated pgs_<provider_slug>_<five_digits> service ID.",
   );
 const ProviderIdSchema = z.string().trim().min(1).max(180);
 const VersionSchema = z.coerce.number().int().positive();
@@ -331,6 +339,10 @@ const ListOffersQuerySchema = ListQuerySchema.extend({
 const ListTransactionsQuerySchema = ListQuerySchema.extend({
   serviceId: z.string().trim().max(160).optional(),
 });
+const ServiceIdAvailabilityQuerySchema = z.object({
+  serviceId: GeneratedServiceIdSchema,
+  excludeOfferId: z.string().trim().min(1).max(180).optional(),
+});
 const OfferBodySchema = z.object({
   serviceId: ServiceIdSchema,
   serviceVersion: VersionSchema.optional(),
@@ -363,6 +375,9 @@ const OfferBodySchema = z.object({
     .optional(),
   commercialTerms: CommercialTermsSchema.optional(),
 }).strict();
+const CreateOfferBodySchema = OfferBodySchema.extend({
+  serviceId: GeneratedServiceIdSchema,
+});
 const TransactionBodySchema = z.object({
   requestId: RequestIdSchema,
   offerId: z.string().trim().min(1),
@@ -484,7 +499,7 @@ export async function supportServicesRoutes(
     "/admin/support-services/offers",
     {
       bodyLimit: OFFER_REQUEST_BODY_LIMIT_BYTES,
-      schema: { body: OfferBodySchema },
+      schema: { body: CreateOfferBodySchema },
     },
     async (request, reply) => {
       try {
@@ -493,6 +508,23 @@ export async function supportServicesRoutes(
           request.body,
         );
         return reply.status(201).send({ offer });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/support-services/offers/service-id-availability",
+    { schema: { querystring: ServiceIdAvailabilityQuerySchema } },
+    async (request, reply) => {
+      try {
+        const availability = await getSupportServiceIdAvailability(
+          request.adminContext!,
+          request.query.serviceId,
+          request.query.excludeOfferId,
+        );
+        return reply.send(availability);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

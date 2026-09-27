@@ -494,13 +494,116 @@ describe("support service repository versions", () => {
     );
   });
 
+  it("reports exact service ID availability from offers and atomic claims", async () => {
+    seedDoc("service_offers", "offer-five-digits", {
+      ...baseOffer,
+      serviceId: "pgs_pocket_genes_12345",
+      formShape: {
+        ...baseOffer.formShape,
+        id: "pgfs_pocket_genes_12345",
+      },
+    });
+    seedDoc("service_offer_id_claims", "pgs_pocket_genes_23456", {
+      serviceId: "pgs_pocket_genes_23456",
+      offerId: "offer-claimed",
+    });
+    const { getSupportServiceIdAvailability } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      getSupportServiceIdAvailability(
+        context,
+        "pgs_pocket_genes_12345",
+      ),
+    ).resolves.toEqual({
+      serviceId: "pgs_pocket_genes_12345",
+      available: false,
+      conflictingOfferId: "offer-five-digits",
+    });
+    await expect(
+      getSupportServiceIdAvailability(
+        context,
+        "pgs_pocket_genes_23456",
+      ),
+    ).resolves.toEqual({
+      serviceId: "pgs_pocket_genes_23456",
+      available: false,
+      conflictingOfferId: "offer-claimed",
+    });
+    await expect(
+      getSupportServiceIdAvailability(
+        context,
+        "pgs_pocket_genes_34567",
+      ),
+    ).resolves.toEqual({
+      serviceId: "pgs_pocket_genes_34567",
+      available: true,
+    });
+  });
+
+  it("rejects duplicate or non-five-digit IDs when creating an offer", async () => {
+    seedDoc("service_offers", "offer-five-digits", {
+      ...baseOffer,
+      serviceId: "pgs_pocket_genes_12345",
+      formShape: {
+        ...baseOffer.formShape,
+        id: "pgfs_pocket_genes_12345",
+      },
+    });
+    const { createSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createSupportServiceOffer(context, {
+        ...baseOffer,
+        serviceId: "pgs_pocket_genes_12345",
+        formShape: {
+          ...baseOffer.formShape,
+          id: "pgfs_pocket_genes_12345",
+        },
+      }),
+    ).rejects.toThrow("Service ID already exists");
+    await expect(
+      createSupportServiceOffer(context, baseOffer),
+    ).rejects.toThrow("pgs_<provider_slug>_<five_digits>");
+    await expect(
+      createSupportServiceOffer(context, {
+        ...baseOffer,
+        serviceId: "pgs_another_provider_34567",
+        formShape: {
+          ...baseOffer.formShape,
+          id: "pgfs_another_provider_34567",
+        },
+      }),
+    ).rejects.toThrow("generated from the selected provider name");
+  });
+
+  it("keeps the service ID immutable after creation", async () => {
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceOffer(context, "offer-1", {
+        ...baseOffer,
+        serviceId: "pgs_pocket_genes_54321",
+        formShape: {
+          ...baseOffer.formShape,
+          id: "pgfs_pocket_genes_54321",
+        },
+      }),
+    ).rejects.toThrow("Service ID is immutable");
+  });
+
   it("omits sameIdentityAsInput when persisting a new-object output slot", async () => {
     const { createSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
     );
 
     const offer = await createSupportServiceOffer(context, {
-      serviceId: "pgs_pocket_genes_1",
+      serviceId: "pgs_pocket_genes_12345",
       serviceVersion: 1,
       name: "Nueva solicitud de consentimiento informado",
       serviceCategory: "sot_informed_consent",
@@ -518,7 +621,7 @@ describe("support service repository versions", () => {
       providerWork:
         "Enviamos un mail al paciente para solicitar el consentimiento informado.",
       formShape: {
-        id: "pgfs_pocket_genes_1",
+        id: "pgfs_pocket_genes_12345",
         version: 1,
         allowUnknownFields: false,
         fields: [
@@ -584,6 +687,16 @@ describe("support service repository versions", () => {
       "sameIdentityAsInput",
     );
     expect(offer.outputSlots[0]).not.toHaveProperty("sameIdentityAsInput");
+    expect(
+      collectionStore("service_offer_id_claims").get(
+        "pgs_pocket_genes_12345",
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        serviceId: "pgs_pocket_genes_12345",
+        offerId: "service_offers-generated",
+      }),
+    );
   });
 
   it.each([
@@ -620,7 +733,10 @@ describe("support service repository versions", () => {
 
     const offer = await createSupportServiceOffer(context, {
       ...baseOffer,
-      formShape,
+      serviceId: "pgs_pocket_genes_12345",
+      formShape: formShape
+        ? { ...formShape, id: "pgfs_pocket_genes_12345" }
+        : undefined,
       inputSlots,
       outputSlots,
     });
@@ -659,6 +775,31 @@ describe("support service repository versions", () => {
         formShape: expect.objectContaining({
           version: 2,
         }),
+      }),
+    );
+  });
+
+  it("increments from the latest version inside the Firestore transaction", async () => {
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    beforeNextTransaction = () => {
+      seedDoc("service_offers", "offer-1", {
+        ...baseOffer,
+        serviceVersion: 8,
+      });
+    };
+
+    const offer = await updateSupportServiceOffer(context, "offer-1", {
+      ...baseOffer,
+      description: "Create a concurrently reviewed report.",
+    });
+
+    expect(offer.serviceVersion).toBe(9);
+    expect(collectionStore("service_offers").get("offer-1")).toEqual(
+      expect.objectContaining({
+        serviceVersion: 9,
+        description: "Create a concurrently reviewed report.",
       }),
     );
   });
@@ -739,7 +880,7 @@ describe("support service repository versions", () => {
     ).not.toHaveProperty("fields.2.help_info_text");
   });
 
-  it("persists visibility without treating it as a contract version change", async () => {
+  it("increments the service version when saving visibility", async () => {
     const { updateSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
     );
@@ -750,7 +891,7 @@ describe("support service repository versions", () => {
       isHiddenFromSearch: true,
     });
 
-    expect(offer.serviceVersion).toBe(3);
+    expect(offer.serviceVersion).toBe(4);
     expect(offer.isHiddenFromSearch).toBe(true);
     expect(offer.providerName).toBe("Pocket Genes");
     expect(collectionStore("service_offers").get("offer-1")).toEqual(
@@ -761,7 +902,7 @@ describe("support service repository versions", () => {
     );
   });
 
-  it("persists discovery flags and URL-preferred promotional banners without versioning the contract", async () => {
+  it("increments the service version when saving discovery presentation", async () => {
     const { updateSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
     );
@@ -776,7 +917,7 @@ describe("support service repository versions", () => {
 
     expect(offer).toEqual(
       expect.objectContaining({
-        serviceVersion: 3,
+        serviceVersion: 4,
         isHighlightedOffer: true,
         isProfessionalOffer: false,
         promotionalBannerImageUrl: "https://example.org/promo.webp",
@@ -785,7 +926,7 @@ describe("support service repository versions", () => {
     expect(offer).not.toHaveProperty("promotionalBannerImageUploadDataUrl");
     expect(collectionStore("service_offers").get("offer-1")).toEqual(
       expect.objectContaining({
-        serviceVersion: 3,
+        serviceVersion: 4,
         isHighlightedOffer: true,
         isProfessionalOffer: false,
         promotionalBannerImageUrl: "https://example.org/promo.webp",
@@ -821,7 +962,7 @@ describe("support service repository versions", () => {
     expect(stored?.promotionalBannerImageUploadDataUrl).toBe(upload);
     expect(stored).not.toHaveProperty("promotionalBannerImageUrl");
     expect(Object.values(stored ?? {})).not.toContain(undefined);
-    expect(offer.serviceVersion).toBe(3);
+    expect(offer.serviceVersion).toBe(4);
   });
 
   it.each([
