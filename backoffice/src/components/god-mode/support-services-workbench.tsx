@@ -3936,6 +3936,9 @@ export function SupportServiceOfferWorkbench({
             currentVersion={form.serviceVersion || 1}
           />
         ) : null}
+        {hasPersistedOffer && effectiveOfferId ? (
+          <ServiceOfferTransactionStatsSection offerId={effectiveOfferId} />
+        ) : null}
         <ServiceOfferStatusBlock
           status={form.status}
           statusDraft={statusDraft}
@@ -3952,9 +3955,6 @@ export function SupportServiceOfferWorkbench({
           onStatusDraftChange={setStatusDraft}
           onSaveStatusDraft={() => void saveStatusDraft()}
         />
-        {hasPersistedOffer && effectiveOfferId ? (
-          <ServiceOfferTransactionStatsSection offerId={effectiveOfferId} />
-        ) : null}
         <ServiceOfferPublishFooter
           changed={changed}
           mode={hasPersistedOffer ? "edit" : "create"}

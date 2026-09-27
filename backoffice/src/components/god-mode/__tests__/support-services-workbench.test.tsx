@@ -1730,6 +1730,17 @@ describe("support services workbenches", () => {
     const statsTrigger = await screen.findByRole("button", {
       name: "Número de transacciones activas",
     });
+    const statsSection = screen.getByTestId(
+      "service-offer-transaction-stats",
+    );
+    const statusSection = screen
+      .getByRole("heading", { name: "Estado de la oferta de servicio" })
+      .closest("section");
+    expect(statusSection).not.toBeNull();
+    expect(
+      statsSection.compareDocumentPosition(statusSection!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
     expect(
       sdkFetchMock.mock.calls.filter(([path]) =>
         String(path).endsWith("/transaction-stats"),
