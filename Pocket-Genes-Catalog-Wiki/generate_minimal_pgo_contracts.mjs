@@ -981,14 +981,23 @@ fieldConventions.serialized_pgo_content = {
   examples: ["form_shape", "sample_type", "download_url", "accepted_at"],
   rule: "The file contains only the strict domain allowlist for its externally selected PGO type. No casing aliases or envelope fields are accepted."
 };
-fieldConventions.nested_map_key_exceptions = [{
-  collection: "service_offers",
-  field: "changeLogHistoryByVersion",
-  key_pattern: "^v[1-9][0-9]*_to_v[1-9][0-9]*$",
-  example: "v1_to_v2",
-  rule: "Server-generated immutable version-transition identifiers use snake_case; the destination version must equal the source version plus one. Entry fields remain exactly en and es. These keys are not compatibility aliases."
-}];
-fieldConventions.boundary_adapter_rule = "Map strict snake_case PGO content explicitly at persistence boundaries. service_offers and service_transactions keep camelCase except for the declared server-generated changeLogHistoryByVersion transition-key pattern; uploaded_objects and other listed storage collections keep snake_case.";
+fieldConventions.nested_map_key_exceptions = [
+  {
+    collection: "service_offers",
+    field: "changeLogHistoryByVersion",
+    key_pattern: "^v[1-9][0-9]*_to_v[1-9][0-9]*$",
+    example: "v1_to_v2",
+    rule: "Server-generated immutable version-transition identifiers use snake_case; the destination version must equal the source version plus one. Entry fields remain exactly en and es. These keys are not compatibility aliases."
+  },
+  {
+    collection: "service_offers",
+    field: "changeLogFormShapeByVersion",
+    key_pattern: "^v[1-9][0-9]*_to_v[1-9][0-9]*$",
+    example: "v2_to_v3",
+    rule: "Server-generated immutable form-shape version-transition identifiers use snake_case and are appended only when the normalized request form changes. The destination version must equal the source version plus one. Entry fields remain exactly en and es."
+  }
+];
+fieldConventions.boundary_adapter_rule = "Map strict snake_case PGO content explicitly at persistence boundaries. service_offers and service_transactions keep camelCase except for the declared server-generated transition-key patterns inside changeLogHistoryByVersion and changeLogFormShapeByVersion; uploaded_objects and other listed storage collections keep snake_case.";
 writeJSON(fieldConventionPath, fieldConventions);
 
 await import("./generate_minimal_pgo_docs.mjs");

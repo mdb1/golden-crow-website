@@ -508,6 +508,7 @@ describe("support services workbenches", () => {
       expect(payload.serviceCategory).not.toBe("Revisión de informe genómico");
       expect(payload.acknowledgesExistingTransactionContracts).toBe(true);
       expect(payload).not.toHaveProperty("changeLogHistoryByVersion");
+      expect(payload).not.toHaveProperty("changeLogFormShapeByVersion");
     });
   });
 
@@ -1451,6 +1452,93 @@ describe("support services workbenches", () => {
     expect(
       screen.getByTestId("service-version-generated-value").textContent,
     ).toContain("+1");
+  });
+
+  it("shows generated request-form identity labels and animates a persisted form version bump", async () => {
+    const offerWithForm: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      formShape: {
+        id: "pgfs_frozen_lab_1",
+        version: 2,
+        allowUnknownFields: false,
+        fields: [],
+      },
+      inputSlots: [
+        {
+          role: "form",
+          objectType: "pgo_form",
+          acceptedTypes: ["pgo_form"],
+          required: true,
+          cardinality: { min: 1, max: 1 },
+        },
+      ],
+      changeLogFormShapeByVersion: {},
+    };
+    sdkFetchMock.mockImplementation(async (_path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        expect(payload.formShape.version).toBe(2);
+        expect(payload).not.toHaveProperty("changeLogFormShapeByVersion");
+        return {
+          offer: {
+            ...offerWithForm,
+            ...payload,
+            serviceVersion: offerWithForm.serviceVersion + 1,
+            formShape: {
+              ...payload.formShape,
+              version: 3,
+            },
+            changeLogFormShapeByVersion: {
+              v2_to_v3: {
+                en: "Request form changes from v2 to v3.",
+                es: "Cambios del formulario de solicitud de v2 a v3.",
+              },
+            },
+          },
+        };
+      }
+      return { offer: offerWithForm };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={offerWithForm.id} />,
+    );
+
+    const formId = await screen.findByTestId("form-shape-id-generated-value");
+    expect(formId.textContent).toContain("pgfs_frozen_lab_1");
+    expect(formId.textContent).toContain(
+      "Request form ID is fixed for this existing offer.",
+    );
+    expect(within(formId).queryByRole("textbox")).toBeNull();
+
+    const formVersion = screen.getByTestId(
+      "form-shape-version-generated-value",
+    );
+    expect(formVersion.textContent).toContain("v2");
+    expect(within(formVersion).queryByRole("textbox")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+    const fieldDialog = await screen.findByRole("dialog", {
+      name: "Add form field",
+    });
+    fireEvent.change(within(fieldDialog).getByLabelText("Key"), {
+      target: { value: "delivery_email" },
+    });
+    fireEvent.change(within(fieldDialog).getByLabelText("Label"), {
+      target: { value: "Delivery email" },
+    });
+    fireEvent.click(
+      within(fieldDialog).getByRole("button", { name: "Save field" }),
+    );
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Save changes" })[0],
+    );
+    await acknowledgeExistingOfferContract();
+
+    expect(await screen.findByTestId("form-shape-version-bump")).toBeTruthy();
+    expect(
+      screen.getByTestId("form-shape-version-generated-value").textContent,
+    ).toContain("v3");
   });
 
   it("shows the localized offer change log as a chronological read-only history", async () => {

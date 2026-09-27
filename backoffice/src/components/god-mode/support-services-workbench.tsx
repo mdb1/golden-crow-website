@@ -3189,6 +3189,8 @@ export function SupportServiceOfferWorkbench({
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [versionBumpToken, setVersionBumpToken] = useState(0);
+  const [formShapeVersionBumpToken, setFormShapeVersionBumpToken] =
+    useState(0);
   const isEditing = mode === "edit";
   const effectiveOfferId = offerId ?? persistedOfferId ?? undefined;
   const hasPersistedOffer = Boolean(effectiveOfferId);
@@ -3215,6 +3217,7 @@ export function SupportServiceOfferWorkbench({
       setPersistedOfferId(offerQuery.data.offer.id);
       setStatusDraft(offerQuery.data.offer.status);
       setVersionBumpToken(0);
+      setFormShapeVersionBumpToken(0);
     }
   }, [offerQuery.data?.offer]);
 
@@ -3380,6 +3383,9 @@ export function SupportServiceOfferWorkbench({
       }
 
       const previousVersion = form.serviceVersion;
+      const previousFormShapeVersion = form.supportsFormShape
+        ? form.formShape.version
+        : null;
       const basePayload = offerPayloadFromForm({ ...form, status });
       const payload = hasPersistedOffer
         ? ({
@@ -3400,6 +3406,13 @@ export function SupportServiceOfferWorkbench({
         result.offer.serviceVersion === previousVersion + 1
       ) {
         setVersionBumpToken((current) => current + 1);
+      }
+      if (
+        hasPersistedOffer &&
+        previousFormShapeVersion !== null &&
+        result.offer.formShape?.version === previousFormShapeVersion + 1
+      ) {
+        setFormShapeVersionBumpToken((current) => current + 1);
       }
 
       if (showToast) {
@@ -3852,7 +3865,12 @@ export function SupportServiceOfferWorkbench({
             </Field>
           </div>
         </Section>
-        <FormShapeEditor form={form} setForm={setForm} />
+        <FormShapeEditor
+          form={form}
+          setForm={setForm}
+          idStatus={serviceIdValidationStatus}
+          versionBumpToken={formShapeVersionBumpToken}
+        />
         <SlotEditors form={form} setForm={setForm} />
         <TermsEditor form={form} setForm={setForm} />
         <Section title="Acceptance and scope">
@@ -5363,9 +5381,13 @@ function ProviderPicker({
 function FormShapeEditor({
   form,
   setForm,
+  idStatus,
+  versionBumpToken,
 }: {
   form: OfferFormState;
   setForm: React.Dispatch<React.SetStateAction<OfferFormState>>;
+  idStatus: ServiceIdValidationStatus;
+  versionBumpToken: number;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -5498,12 +5520,18 @@ function FormShapeEditor({
       {!form.supportsFormShape ? null : (
         <>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Field label="Form shape ID">
-              <GeneratedValue value={formShapeIdPreview} />
-            </Field>
-            <Field label="Form shape version">
-              <GeneratedValue value={String(form.formShape.version || 1)} />
-            </Field>
+            <DisplayField label="Form shape ID">
+              <FormShapeIdGeneratedValue
+                formShapeId={formShapeIdPreview}
+                status={idStatus}
+              />
+            </DisplayField>
+            <DisplayField label="Form shape version">
+              <FormShapeVersionGeneratedValue
+                value={form.formShape.version || 1}
+                bumpToken={versionBumpToken}
+              />
+            </DisplayField>
           </div>
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm text-muted-foreground">
@@ -8806,6 +8834,128 @@ function ServiceVersionGeneratedValue({
         <span
           key={bumpToken}
           data-testid="service-version-bump"
+          aria-live="polite"
+          className="pointer-events-none absolute right-4 top-1/2 font-mono text-base font-bold text-emerald-600 dark:text-emerald-300"
+          style={{
+            animation:
+              "support-service-version-bump 1.5s ease-out forwards",
+          }}
+        >
+          +1
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function FormShapeIdGeneratedValue({
+  formShapeId,
+  status,
+}: {
+  formShapeId: string;
+  status: ServiceIdValidationStatus;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const statusContent = {
+    idle: {
+      icon: CircleAlert,
+      label: t("Choose a provider to generate the request form ID."),
+      className:
+        "border-violet-100 bg-white/78 text-muted-foreground dark:border-violet-400/16 dark:bg-slate-950/42",
+    },
+    checking: {
+      icon: Loader2,
+      label: t("Generating the request form ID from the service ID..."),
+      className:
+        "border-violet-200 bg-violet-50/70 text-violet-700 dark:border-violet-400/25 dark:bg-violet-500/10 dark:text-violet-100",
+    },
+    available: {
+      icon: CheckCircle2,
+      label: t("Request form ID is linked to the validated service ID."),
+      className:
+        "border-emerald-200 bg-emerald-50/75 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200",
+    },
+    conflict: {
+      icon: XCircle,
+      label: t("Resolve the service ID conflict to generate this ID."),
+      className:
+        "border-rose-200 bg-rose-50/75 text-rose-700 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-200",
+    },
+    error: {
+      icon: XCircle,
+      label: t("Request form ID could not be validated."),
+      className:
+        "border-rose-200 bg-rose-50/75 text-rose-700 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-200",
+    },
+    locked: {
+      icon: CheckCircle2,
+      label: t("Request form ID is fixed for this existing offer."),
+      className:
+        "border-emerald-200 bg-emerald-50/75 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200",
+    },
+  } satisfies Record<
+    ServiceIdValidationStatus,
+    {
+      icon: typeof CircleAlert;
+      label: string;
+      className: string;
+    }
+  >;
+  const currentStatus = statusContent[status];
+  const StatusIcon = currentStatus.icon;
+
+  return (
+    <div
+      data-testid="form-shape-id-generated-value"
+      className={cn(
+        "flex min-h-16 items-center gap-3 rounded-xl border px-4 py-3 shadow-sm",
+        currentStatus.className,
+      )}
+    >
+      <StatusIcon
+        className={cn(
+          "h-5 w-5 shrink-0",
+          status === "checking" && "animate-spin",
+        )}
+      />
+      <div className="min-w-0">
+        <div className="break-all font-mono text-sm font-semibold text-foreground">
+          {formShapeId || "pgfs_"}
+        </div>
+        <div aria-live="polite" className="mt-1 text-xs font-medium">
+          {currentStatus.label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FormShapeVersionGeneratedValue({
+  value,
+  bumpToken,
+}: {
+  value: number;
+  bumpToken: number;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <div
+      data-testid="form-shape-version-generated-value"
+      className="relative flex min-h-16 items-center gap-3 overflow-hidden rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42"
+    >
+      <span className="flex h-10 min-w-14 items-center justify-center rounded-xl bg-violet-100 px-3 font-mono text-lg font-bold text-violet-800 dark:bg-violet-500/16 dark:text-violet-100">
+        v{value}
+      </span>
+      <span className="pr-10 text-xs leading-5 text-muted-foreground">
+        {t("This version increases only when the request form changes.")}
+      </span>
+      {bumpToken > 0 ? (
+        <span
+          key={bumpToken}
+          data-testid="form-shape-version-bump"
           aria-live="polite"
           className="pointer-events-none absolute right-4 top-1/2 font-mono text-base font-bold text-emerald-600 dark:text-emerald-300"
           style={{

@@ -21,7 +21,7 @@ Every type has optional root `notes: string`. Notes may be absent or empty. Note
 | `service_offers` | Untimed published contract and slots | lower camel case |
 | `service_transactions` | Timed request, role bindings, status and outputs | lower camel case |
 
-The same concept intentionally changes casing at a boundary. There are no aliases, fallback reads, or dual writes. The sole declared nested-map exception is `service_offers.changeLogHistoryByVersion`: its server-generated transition IDs use `v<from>_to_v<to>` such as `v1_to_v2`, while the field itself and its `en` / `es` entry fields remain camelCase-compatible. These immutable transition IDs are not aliases.
+The same concept intentionally changes casing at a boundary. There are no aliases, fallback reads, or dual writes. The declared nested-map exceptions are `service_offers.changeLogHistoryByVersion` and `service_offers.changeLogFormShapeByVersion`: their server-generated transition IDs use `v<from>_to_v<to>` such as `v1_to_v2`, while the field names and their `en` / `es` entry fields remain camelCase-compatible. These immutable transition IDs are not aliases.
 
 ## Exact object registry
 
@@ -60,9 +60,11 @@ Every new offer receives an immutable `serviceId` in the exact form `pgs_<provid
 
 Every persisted offer initializes `changeLogHistoryByVersion` as a map. Each successful update atomically appends exactly one immutable entry under the consecutive transition key `v<from>_to_v<to>`, for example `v1_to_v2`. The key is the deliberate snake-case exception inside this camelCase collection. Its value contains exactly `en` and `es`; each is one directly readable natural-language string made of line-separated middle-dot bullets that precisely enumerates every changed contract or presentation field, the automatic version increment, and the continuity rule. The server generates this history from the persisted prior document and the normalized next document; clients cannot submit, edit, delete, or replace it.
 
+Every persisted offer also initializes `changeLogFormShapeByVersion`. The request-form ID is derived from the immutable service ID and cannot be edited. Its integer version starts at `1` and increases by exactly one whenever the normalized form shape changes, regardless of whether the offer is draft or published; offer-only saves leave it unchanged. Each form transition atomically appends one immutable bilingual `{ en, es }` entry under the same consecutive `v<from>_to_v<to>` key pattern. Each language value is one precise natural-language string describing every form change and the frozen-contract rule. Removing and later restoring form support continues the monotonic form-version history. Clients cannot submit the form version as an authoritative value or write this history.
+
 Before any existing offer is saved, the operator must explicitly acknowledge that all transactions created under earlier versions remain governed by their complete frozen contract, including requirements, inputs, promised outputs, timing and provider commitments. The new version governs only transactions created after that successful save. Status-only and no-field-change saves still create the next version and a corresponding history entry.
 
-If and only if an offer enables form input, it declares exactly one required `pgo_form` slot with role `form` and a matching external `formShape`. Manual slots cannot use `pgo_form`. The external shape retains generated ID and integer version; the submitted PGO freezes only its field definitions and answers.
+If and only if an offer enables form input, it declares exactly one required `pgo_form` slot with role `form` and a matching external `formShape`. Manual slots cannot use `pgo_form`. The external shape retains its generated read-only ID and server-controlled integer version; the submitted PGO freezes only its field definitions and answers.
 
 ### Transactions
 

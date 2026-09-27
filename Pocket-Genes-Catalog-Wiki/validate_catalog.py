@@ -828,12 +828,14 @@ def validate_field_key_matrix():
     serialized = FIELD_KEY_CONVENTIONS["serialized_pgo_content"]
     require(serialized["field_key_convention"] == "snake_case", "Serialized PGO content must use snake_case")
     exceptions = FIELD_KEY_CONVENTIONS["nested_map_key_exceptions"]
-    require(len(exceptions) == 1, "Exactly one nested-map key exception must be declared")
-    transition = exceptions[0]
-    require(transition["collection"] == "service_offers", "Change-log key exception must belong to service_offers")
-    require(transition["field"] == "changeLogHistoryByVersion", "Change-log key exception field differs")
-    require(re.fullmatch(transition["key_pattern"], transition["example"]) is not None, "Change-log example does not match its key pattern")
-    require(transition["example"] == "v1_to_v2", "Canonical change-log example differs")
+    require(len(exceptions) == 2, "Exactly two nested-map key exceptions must be declared")
+    transitions = {transition["field"]: transition for transition in exceptions}
+    require(set(transitions) == {"changeLogHistoryByVersion", "changeLogFormShapeByVersion"}, "Change-log key exception fields differ")
+    for transition in transitions.values():
+        require(transition["collection"] == "service_offers", "Change-log key exception must belong to service_offers")
+        require(re.fullmatch(transition["key_pattern"], transition["example"]) is not None, "Change-log example does not match its key pattern")
+    require(transitions["changeLogHistoryByVersion"]["example"] == "v1_to_v2", "Canonical offer change-log example differs")
+    require(transitions["changeLogFormShapeByVersion"]["example"] == "v2_to_v3", "Canonical form-shape change-log example differs")
 
 
 check("field_key_boundary_matrix", validate_field_key_matrix)

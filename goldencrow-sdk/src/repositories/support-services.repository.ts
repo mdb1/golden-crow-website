@@ -251,6 +251,7 @@ export interface SupportServiceOfferRecord {
   scopeRules: string[];
   commercialTerms?: Record<string, unknown>;
   changeLogHistoryByVersion?: SupportServiceOfferChangeLogHistory;
+  changeLogFormShapeByVersion?: SupportServiceOfferChangeLogHistory;
   normalizedName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -441,11 +442,6 @@ const ISO_COUNTRY_CODES = new Set(
     " ",
   ),
 );
-const PUBLISHED_OFFER_STATUSES = new Set<SupportServiceOfferStatus>([
-  "active",
-  "inactive",
-  "archived",
-]);
 const TERMINAL_TRANSACTION_STATUSES = new Set<SupportServiceTransactionStatus>([
   "delivered",
   "rejected",
@@ -547,6 +543,7 @@ const FORBIDDEN_OFFER_ROOT_KEYS = [
   "scope_rules",
   "commercial_terms",
   "change_log_history_by_version",
+  "change_log_form_shape_by_version",
 ] as const;
 
 type DocumentReader = (
@@ -983,6 +980,7 @@ function stableString(value: unknown) {
 function changeLogHistoryFromUnknown(
   value: unknown,
   warnings?: string[],
+  fieldName = "changeLogHistoryByVersion",
 ): SupportServiceOfferChangeLogHistory {
   if (value === undefined) {
     return {};
@@ -991,12 +989,12 @@ function changeLogHistoryFromUnknown(
     if (warnings) {
       pushComplianceWarning(
         warnings,
-        "changeLogHistoryByVersion must be a map and was shown as empty.",
+        `${fieldName} must be a map and was shown as empty.`,
       );
       return {};
     }
     throw new AdminRepositoryError(
-      "changeLogHistoryByVersion must be a map.",
+      `${fieldName} must be a map.`,
       400,
     );
   }
@@ -1023,7 +1021,7 @@ function changeLogHistoryFromUnknown(
       Boolean(es);
 
     if (!isValid) {
-      const message = `changeLogHistoryByVersion.${transitionKey} must be a consecutive vN_to_vN+1 transition containing only nonempty en and es strings.`;
+      const message = `${fieldName}.${transitionKey} must be a consecutive vN_to_vN+1 transition containing only nonempty en and es strings.`;
       if (warnings) {
         pushComplianceWarning(warnings, `${message} The entry was omitted.`);
         continue;
@@ -1668,9 +1666,33 @@ function comparableFormShape(formShape: SupportServiceOfferDocument["formShape"]
   return shape;
 }
 
+function formShapeChanged(
+  document: SupportServiceOfferDocument,
+  previousDocument: SupportServiceOfferDocument,
+) {
+  return (
+    stableString(comparableFormShape(document.formShape)) !==
+    stableString(comparableFormShape(previousDocument.formShape))
+  );
+}
+
+function latestFormShapeVersion(
+  previousDocument: SupportServiceOfferDocument,
+  history: SupportServiceOfferChangeLogHistory,
+) {
+  return Math.max(
+    previousDocument.formShape?.version ?? 0,
+    ...Object.keys(history).map((transitionKey) => {
+      const match = transitionKey.match(/^v[1-9]\d*_to_v([1-9]\d*)$/);
+      return match ? Number(match[1]) : 0;
+    }),
+  );
+}
+
 function applyOfferVersions(
   document: SupportServiceOfferDocument,
   previousDocument?: SupportServiceOfferDocument,
+  previousFormShapeHistory: SupportServiceOfferChangeLogHistory = {},
 ) {
   if (!previousDocument) {
     return {
@@ -1682,12 +1704,11 @@ function applyOfferVersions(
     };
   }
 
-  const previousWasPublished = PUBLISHED_OFFER_STATUSES.has(
-    previousDocument.status,
+  const didFormShapeChange = formShapeChanged(document, previousDocument);
+  const previousFormShapeVersion = latestFormShapeVersion(
+    previousDocument,
+    previousFormShapeHistory,
   );
-  const formShapeChanged =
-    stableString(comparableFormShape(document.formShape)) !==
-    stableString(comparableFormShape(previousDocument.formShape));
 
   return {
     ...document,
@@ -1696,10 +1717,10 @@ function applyOfferVersions(
       ? {
           ...document.formShape,
           version:
-            previousWasPublished &&
-            previousDocument.formShape &&
-            formShapeChanged
-              ? previousDocument.formShape.version + 1
+            didFormShapeChange
+              ? previousFormShapeVersion > 0
+                ? previousFormShapeVersion + 1
+                : 1
               : previousDocument.formShape
                 ? previousDocument.formShape.version
                 : 1,
@@ -2026,6 +2047,38 @@ function offerChangeLogEntry(
         )
       : [`${bullet} No cambiaron campos del contrato en este guardado.`]),
     `${bullet} Continuidad contractual: v${nextVersion} se aplica solamente a las transacciones creadas después de este guardado. Cada transacción creada bajo v${previousVersion} o una versión anterior conserva por completo su contrato original, incluidos los requisitos de entrada, las condiciones de aceptación, las reglas de alcance, las salidas prometidas, los términos comerciales, el tiempo de entrega y los compromisos del proveedor.`,
+  ].join("\n");
+
+  return { en, es };
+}
+
+function formShapeChangeLogEntry(
+  previousDocument: SupportServiceOfferDocument,
+  document: SupportServiceOfferDocument,
+  previousVersion: number,
+  nextVersion: number,
+): SupportServiceOfferChangeLogEntry {
+  const changes = collectOfferModelChanges(
+    comparableFormShape(previousDocument.formShape),
+    comparableFormShape(document.formShape),
+    ["formShape"],
+  );
+  const bullet = "\u00b7";
+  const en = [
+    `Request form changes from v${previousVersion} to v${nextVersion}:`,
+    `${bullet} Form shape version increased from ${previousVersion} to ${nextVersion}.`,
+    ...changes.map(
+      (change) => `${bullet} ${offerModelChangeSentence(change, "en")}`,
+    ),
+    `${bullet} Contract continuity: transactions created with request form v${previousVersion} or an earlier version keep their frozen field definitions and requirements. Request form v${nextVersion} applies only to transactions created after this save.`,
+  ].join("\n");
+  const es = [
+    `Cambios del formulario de solicitud de v${previousVersion} a v${nextVersion}:`,
+    `${bullet} La versión de la estructura del formulario aumentó de ${previousVersion} a ${nextVersion}.`,
+    ...changes.map(
+      (change) => `${bullet} ${offerModelChangeSentence(change, "es")}`,
+    ),
+    `${bullet} Continuidad contractual: las transacciones creadas con el formulario de solicitud v${previousVersion} o una versión anterior conservan sus definiciones y requisitos congelados. El formulario v${nextVersion} se aplica solamente a las transacciones creadas después de este guardado.`,
   ].join("\n");
 
   return { en, es };
@@ -4338,6 +4391,11 @@ function toOfferRecord(
     changeLogHistoryByVersion: changeLogHistoryFromUnknown(
       data.changeLogHistoryByVersion,
     ),
+    changeLogFormShapeByVersion: changeLogHistoryFromUnknown(
+      data.changeLogFormShapeByVersion,
+      undefined,
+      "changeLogFormShapeByVersion",
+    ),
     normalizedName:
       cleanString(data.normalizedName) ||
       normalizeName(
@@ -4688,6 +4746,11 @@ function toOfferAdminRecord(
       data.changeLogHistoryByVersion,
       complianceWarnings,
     ),
+    changeLogFormShapeByVersion: changeLogHistoryFromUnknown(
+      data.changeLogFormShapeByVersion,
+      complianceWarnings,
+      "changeLogFormShapeByVersion",
+    ),
     normalizedName:
       cleanString(data.normalizedName) ||
       normalizeName(
@@ -4945,6 +5008,7 @@ function offerListRecord(
   const {
     promotionalBannerImageUploadDataUrl: _promotionalBannerImageUploadDataUrl,
     changeLogHistoryByVersion: _changeLogHistoryByVersion,
+    changeLogFormShapeByVersion: _changeLogFormShapeByVersion,
     ...summary
   } = record;
   return summary;
@@ -5755,6 +5819,17 @@ export async function createSupportServiceOffer(
       400,
     );
   }
+  if (
+    Object.prototype.hasOwnProperty.call(
+      input as Record<string, unknown>,
+      "changeLogFormShapeByVersion",
+    )
+  ) {
+    throw new AdminRepositoryError(
+      "changeLogFormShapeByVersion is generated by the server and cannot be submitted.",
+      400,
+    );
+  }
   const draft = offerDocument(input);
   const providerData = await assertOfferProviderExists(draft);
   const document = applyOfferVersions(
@@ -5763,6 +5838,7 @@ export async function createSupportServiceOffer(
   const documentWithHistory = {
     ...document,
     changeLogHistoryByVersion: {},
+    changeLogFormShapeByVersion: {},
   };
   validateOfferDocument(document);
   assertSupportServiceFirestoreDocumentSize(
@@ -5828,6 +5904,17 @@ export async function updateSupportServiceOffer(
       400,
     );
   }
+  if (
+    Object.prototype.hasOwnProperty.call(
+      input as Record<string, unknown>,
+      "changeLogFormShapeByVersion",
+    )
+  ) {
+    throw new AdminRepositoryError(
+      "changeLogFormShapeByVersion is generated by the server and cannot be submitted.",
+      400,
+    );
+  }
   const submittedDraft = offerDocument(input);
   const providerData = await assertOfferProviderExists(submittedDraft);
   const ref = adminDb.collection(SERVICE_OFFERS_COLLECTION).doc(offerId);
@@ -5858,9 +5945,27 @@ export async function updateSupportServiceOffer(
       );
     }
 
-    const document = applyOfferVersions(
-      applyAuthoritativeOfferProviderName(draft, providerData),
+    const previousFormShapeHistory = changeLogHistoryFromUnknown(
+      snapshot.data()?.changeLogFormShapeByVersion,
+      undefined,
+      "changeLogFormShapeByVersion",
+    );
+    const normalizedDraft = applyAuthoritativeOfferProviderName(
+      draft,
+      providerData,
+    );
+    const didFormShapeChange = formShapeChanged(
+      normalizedDraft,
       previousDocument,
+    );
+    const previousFormShapeVersion = latestFormShapeVersion(
+      previousDocument,
+      previousFormShapeHistory,
+    );
+    const document = applyOfferVersions(
+      normalizedDraft,
+      previousDocument,
+      previousFormShapeHistory,
     );
     const transitionKey = `v${previousDocument.serviceVersion}_to_v${document.serviceVersion}`;
     const previousHistory = changeLogHistoryFromUnknown(
@@ -5878,7 +5983,33 @@ export async function updateSupportServiceOffer(
         ...previousHistory,
         [transitionKey]: offerChangeLogEntry(previousDocument, document),
       },
+      changeLogFormShapeByVersion: previousFormShapeHistory,
     };
+    if (didFormShapeChange && previousFormShapeVersion > 0) {
+      const nextFormShapeVersion = previousFormShapeVersion + 1;
+      const formTransitionKey =
+        `v${previousFormShapeVersion}_to_v${nextFormShapeVersion}`;
+      if (
+        Object.prototype.hasOwnProperty.call(
+          previousFormShapeHistory,
+          formTransitionKey,
+        )
+      ) {
+        throw new AdminRepositoryError(
+          `Form-shape change-log transition ${formTransitionKey} already exists and cannot be overwritten.`,
+          409,
+        );
+      }
+      documentWithHistory.changeLogFormShapeByVersion = {
+        ...previousFormShapeHistory,
+        [formTransitionKey]: formShapeChangeLogEntry(
+          previousDocument,
+          document,
+          previousFormShapeVersion,
+          nextFormShapeVersion,
+        ),
+      };
+    }
     validateOfferDocument(document, { allowHistoricalServiceId: true });
     assertSupportServiceFirestoreDocumentSize(
       offerPersistenceSizeCandidate(

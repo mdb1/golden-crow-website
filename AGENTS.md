@@ -54,7 +54,7 @@
 
 | Collection | Field-key convention | Canonical examples |
 | --- | --- | --- |
-| `service_offers` | lower camel case | `serviceId`, `isHiddenFromSearch`, `isHighlightedOffer`, `isProfessionalOffer`, `promotionalBannerImageUrl`, `promotionalBannerImageUploadDataUrl`, `changeLogHistoryByVersion`, `outputSlots` |
+| `service_offers` | lower camel case | `serviceId`, `isHiddenFromSearch`, `isHighlightedOffer`, `isProfessionalOffer`, `promotionalBannerImageUrl`, `promotionalBannerImageUploadDataUrl`, `changeLogHistoryByVersion`, `changeLogFormShapeByVersion`, `outputSlots` |
 | `service_transactions` | lower camel case | `outputObjects`, `outputReports`, `objectType`, `objectCode`, `reportCode` |
 | `uploaded_objects` | snake case | `object_type`, `object_code`, `object_owner_id`, `upload_version_count` |
 | `uploaded_reports` | snake case | `report_code`, `report_owner_id`, `upload_version_count` |
@@ -65,8 +65,9 @@
 | `report_codes` | snake case | `uploaded_report_id`, `owner_id` |
 
 - The same semantic value intentionally uses different spellings at different collection boundaries. For example, a `service_transactions.outputObjects[]` item uses `objectType` and `objectCode`, while the corresponding `uploaded_objects` document uses `object_type` and `object_code`.
-- `service_offers.changeLogHistoryByVersion` is the one declared nested-map key exception. The field name and each entry's `en` / `es` fields remain lower camel case, but its server-generated transition keys use the exact snake-case pattern `v<from>_to_v<to>` such as `v1_to_v2`, where `to` is exactly `from + 1`. These are immutable version-transition identifiers, not compatibility aliases or client-authored field names.
+- `service_offers.changeLogHistoryByVersion` and `service_offers.changeLogFormShapeByVersion` are the declared nested-map key exceptions. The field names and each entry's `en` / `es` fields remain lower camel case, but their server-generated transition keys use the exact snake-case pattern `v<from>_to_v<to>` such as `v1_to_v2`, where `to` is exactly `from + 1`. These are immutable version-transition identifiers, not compatibility aliases or client-authored field names.
 - The backend must append exactly one bilingual `{ en, es }` change-log entry for every successful existing-offer save, including saves that only change status or no editable contract field. Clients must never submit, replace, or remove `changeLogHistoryByVersion`.
+- The backend must append one bilingual `{ en, es }` entry to `changeLogFormShapeByVersion` only when the normalized request form changes. Form-shape versions start at `1`, increase by exactly one per form change regardless of offer publication state, and remain unchanged for offer-only saves. Clients never control the form-shape version or its history.
 - Updating a service offer requires explicit acknowledgement that transactions already created remain bound to their frozen offer version. The new offer version applies only to transactions created after the update.
 - Naming fixes are strict contract migrations within the affected collection. Do not add dual reads, fallback aliases, migration flags, or writes containing both spellings. Producers and consumers must move together, and the wrong convention for that collection must be rejected.
 - Collection names are identifiers rather than field keys and retain their canonical spelling.

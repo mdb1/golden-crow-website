@@ -1213,6 +1213,16 @@
             "$ref": "#/$defs/service_change_log_entry"
           }
         },
+        "changeLogFormShapeByVersion": {
+          "type": "object",
+          "description": "Server-owned append-only request-form history. A consecutive vN_to_vN+1 entry is added only when the normalized form shape changes; clients cannot write this map.",
+          "propertyNames": {
+            "pattern": "^v[1-9][0-9]*_to_v[1-9][0-9]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/service_change_log_entry"
+          }
+        },
         "name": {
           "type": "string",
           "minLength": 1

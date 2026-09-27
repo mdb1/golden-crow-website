@@ -185,6 +185,7 @@ export interface SupportServiceOfferRecord
   promotionalBannerImageUrl?: string | null;
   promotionalBannerImageUploadDataUrl?: string | null;
   changeLogHistoryByVersion?: SupportServiceOfferChangeLogHistory;
+  changeLogFormShapeByVersion?: SupportServiceOfferChangeLogHistory;
   stages: SupportServiceStage[];
   status: SupportServiceOfferStatus;
   normalizedName: string;

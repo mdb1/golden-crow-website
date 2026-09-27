@@ -4780,8 +4780,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Form input": "Entrada de formulario",
   "Form inputs are managed by Support form input.":
     "Las entradas de formulario se gestionan con Soportar entrada de formulario.",
-  "Form shape ID": "ID de forma de formulario",
-  "Form shape version": "Versión de forma de formulario",
+  "Form shape ID": "ID del formulario de solicitud",
+  "Form shape version": "Versión del formulario de solicitud",
   Hours: "Horas",
   "In progress": "En progreso",
   "Input object bindings": "Archivos de entrada",
@@ -4997,6 +4997,20 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service version": "Versión del servicio",
   "The service version increases after every successful save.":
     "La versión del servicio aumenta después de cada guardado exitoso.",
+  "Choose a provider to generate the request form ID.":
+    "Elegí un proveedor para generar el ID del formulario de solicitud.",
+  "Generating the request form ID from the service ID...":
+    "Generando el ID del formulario de solicitud desde el ID de servicio...",
+  "Request form ID is linked to the validated service ID.":
+    "El ID del formulario de solicitud está vinculado al ID de servicio validado.",
+  "Resolve the service ID conflict to generate this ID.":
+    "Resolvé el conflicto del ID de servicio para generar este ID.",
+  "Request form ID could not be validated.":
+    "No se pudo validar el ID del formulario de solicitud.",
+  "Request form ID is fixed for this existing offer.":
+    "El ID del formulario de solicitud es fijo para esta oferta existente.",
+  "This version increases only when the request form changes.":
+    "Esta versión aumenta únicamente cuando cambia el formulario de solicitud.",
   "Version history": "Historial de versiones",
   "version change": "cambio de versión",
   "version changes": "cambios de versión",
