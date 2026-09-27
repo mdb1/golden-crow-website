@@ -599,12 +599,25 @@ describe("support services workbenches", () => {
     renderWithQueryClient(<SupportServiceOfferWorkbench mode="create" />);
 
     expect(
-      screen.getByTestId("service-category-discovery-row"),
-    ).toHaveClass("md:grid-cols-2", "lg:col-span-2");
-    expect(screen.getByTestId("service-offer-audience-row")).toHaveClass(
-      "md:grid-cols-2",
-      "lg:col-span-2",
-    );
+      screen
+        .getByTestId("service-category-discovery-row")
+        .classList.contains("md:grid-cols-2"),
+    ).toBe(true);
+    expect(
+      screen
+        .getByTestId("service-category-discovery-row")
+        .classList.contains("lg:col-span-2"),
+    ).toBe(true);
+    expect(
+      screen
+        .getByTestId("service-offer-audience-row")
+        .classList.contains("md:grid-cols-2"),
+    ).toBe(true);
+    expect(
+      screen
+        .getByTestId("service-offer-audience-row")
+        .classList.contains("lg:col-span-2"),
+    ).toBe(true);
     expect(screen.getByText("No input slots defined.")).toBeTruthy();
     expect(screen.getByText("No output slots defined.")).toBeTruthy();
     expect(screen.getByText("Not requested")).toBeTruthy();
@@ -966,7 +979,19 @@ describe("support services workbenches", () => {
 
     fireEvent.click(highlightedCheckbox!);
     fireEvent.click(professionalCheckbox!);
-    fireEvent.change(screen.getByLabelText("Banner image URL"), {
+    const bannerUrlInput = screen.getByLabelText("Banner image URL");
+    const bannerUrlGroup = bannerUrlInput.closest('[data-slot="input-group"]');
+    expect(bannerUrlGroup?.classList.contains("h-10")).toBe(true);
+    expect(
+      screen
+        .getByTestId("service-offer-banner-url-prefix")
+        .getAttribute("data-align"),
+    ).toBe("inline-start");
+    expect(bannerUrlInput.previousElementSibling).toBe(
+      screen.getByTestId("service-offer-banner-url-prefix"),
+    );
+
+    fireEvent.change(bannerUrlInput, {
       target: { value: "https://example.org/service-banner.png" },
     });
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);

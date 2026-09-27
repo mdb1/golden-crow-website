@@ -71,6 +71,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -2992,32 +2998,37 @@ function PromotionalBannerImageEditor({
             <Label htmlFor="service-offer-promotional-banner-url">
               {t("Banner image URL")}
             </Label>
-            <div className="relative">
-              <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
+            <InputGroup className="h-10 border-foreground/20 bg-background shadow-[0_1px_0_rgba(255,255,255,0.4),0_12px_24px_rgba(9,12,18,0.08)] hover:border-foreground/30 dark:border-white/60 dark:bg-black">
+              <InputGroupAddon
+                data-testid="service-offer-banner-url-prefix"
+                className="h-full w-11 shrink-0 border-r border-violet-100 bg-violet-50/80 p-0 text-violet-700 dark:border-white/15 dark:bg-violet-500/12 dark:text-violet-200"
+              >
+                <Link2 className="h-4 w-4" />
+              </InputGroupAddon>
+              <InputGroupInput
                 id="service-offer-promotional-banner-url"
                 type="url"
                 value={imageUrl}
                 onChange={handleImageUrlChange}
                 placeholder="https://"
                 disabled={disabled || pending}
-                className={cn("pl-9", hasImageUrl && "pr-24")}
+                className="h-10 px-3"
               />
               {hasImageUrl ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearImageUrl}
-                  disabled={disabled || pending}
-                  aria-label={t("Clear banner image URL")}
-                  className="absolute right-1 top-1/2 h-8 -translate-y-1/2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                  {t("Clear")}
-                </Button>
+                <InputGroupAddon align="inline-end" className="pr-1">
+                  <InputGroupButton
+                    type="button"
+                    onClick={clearImageUrl}
+                    disabled={disabled || pending}
+                    aria-label={t("Clear banner image URL")}
+                    className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    {t("Clear")}
+                  </InputGroupButton>
+                </InputGroupAddon>
               ) : null}
-            </div>
+            </InputGroup>
           </div>
         ) : null}
 
