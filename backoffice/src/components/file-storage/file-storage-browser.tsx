@@ -4,10 +4,26 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Plus, RefreshCcw, Search, X } from "lucide-react";
+import {
+  ArrowRight,
+  FileText,
+  Plus,
+  RefreshCcw,
+  Search,
+  X,
+} from "lucide-react";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { ReportPill } from "@/components/reports/report-pill";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -17,7 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { sdkFetch } from "@/lib/sdk-client";
+import { appText } from "@/lib/language";
+import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import type { ModerationDocumentRecord } from "@/lib/moderation-types";
 import {
   compactList,
@@ -68,12 +85,15 @@ function sortDocuments(
 }
 
 export function FileStorageBrowser() {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("date");
   const [deletedFileNotice, setDeletedFileNotice] = useState<string | null>(null);
+  const [errorLogOpen, setErrorLogOpen] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("deleted") !== "1") {
@@ -143,6 +163,18 @@ export function FileStorageBrowser() {
     });
   }, [loadedDocuments, query, sortOption]);
 
+  const errorLog = error instanceof SdkRequestError
+    ? error.details
+    : error instanceof Error
+      ? [
+          "Request: GET /file-storage?limit=20",
+          "Status: No HTTP response details are available.",
+          `Error name: ${error.name}`,
+          `Message: ${error.message}`,
+          "Hint: The browser could not complete the stored-file request. Check the SDK deployment and network connection, then retry.",
+        ].join("\n\n")
+      : "Request: GET /file-storage?limit=20\n\nStatus: Unknown failure\n\nNo additional error details are available.";
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-3">
@@ -156,14 +188,67 @@ export function FileStorageBrowser() {
 
   if (error) {
     return (
-      <div className="glass-panel flex flex-col gap-3 px-4 py-4">
-        <p className="text-sm text-destructive">
-          Failed to load stored files. Confirm the SDK is running and retry.
-        </p>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          Retry
-        </Button>
-      </div>
+      <>
+        <Dialog open={errorLogOpen} onOpenChange={setErrorLogOpen}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>{t("Request log")}</DialogTitle>
+              <DialogDescription>
+                {t("Full request and response details for this failed list load.")}
+              </DialogDescription>
+            </DialogHeader>
+            <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/80 bg-muted/30 p-4 font-mono text-xs leading-5 text-foreground">
+              {errorLog || t("No log details are available.")}
+            </pre>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setErrorLogOpen(false)}
+              >
+                {t("Close")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <div className="glass-panel flex flex-col gap-3 px-4 py-4">
+          <div>
+            <p className="text-sm font-medium text-destructive">
+              {t(
+                "Failed to load stored files. Confirm the SDK is running and retry.",
+              )}
+            </p>
+            {error instanceof Error ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {error.message}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setErrorLogOpen(true)}
+            >
+              <FileText className="h-4 w-4" />
+              {t("Show log")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setErrorLogOpen(false);
+                void refetch();
+              }}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              {t("Retry")}
+            </Button>
+          </div>
+        </div>
+      </>
     );
   }
 

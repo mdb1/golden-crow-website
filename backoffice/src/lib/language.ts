@@ -3483,6 +3483,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se pudieron cargar los registros. Confirmá que el SDK esté corriendo y reintentá.",
   "Failed to load role assignments. Confirm the SDK is running and retry.":
     "No se pudieron cargar las asignaciones de rol. Confirmá que el SDK esté corriendo y reintentá.",
+  "Failed to load stored files. Confirm the SDK is running and retry.":
+    "No se pudieron cargar los archivos almacenados. Confirmá que el SDK esté corriendo y reintentá.",
   Field: "Campo",
   "field staged for this record.": "campo preparado para este registro.",
   "Fields being applied": "Campos aplicándose",

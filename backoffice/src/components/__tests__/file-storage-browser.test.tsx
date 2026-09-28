@@ -1,10 +1,16 @@
 /** @jest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { FileStorageBrowser } from "@/components/file-storage/file-storage-browser";
-import { sdkFetch } from "@/lib/sdk-client";
+import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn() }),
@@ -12,7 +18,30 @@ jest.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-jest.mock("@/lib/sdk-client", () => ({ sdkFetch: jest.fn() }));
+jest.mock("@/lib/sdk-client", () => ({
+  SdkRequestError: class SdkRequestError extends Error {
+    status: number;
+    method: string;
+    path: string;
+    details: string;
+
+    constructor({ status, method, path, message, details }: {
+      status: number;
+      method: string;
+      path: string;
+      message: string;
+      details: string;
+    }) {
+      super(message);
+      this.name = "SdkRequestError";
+      this.status = status;
+      this.method = method;
+      this.path = path;
+      this.details = details;
+    }
+  },
+  sdkFetch: jest.fn(),
+}));
 
 const sdkFetchMock = sdkFetch as jest.MockedFunction<typeof sdkFetch>;
 
@@ -72,5 +101,44 @@ describe("FileStorageBrowser", () => {
       ).toBe(true),
     );
     expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+
+  it("shows the complete SDK request log when stored files fail to load", async () => {
+    sdkFetchMock.mockRejectedValue(
+      new SdkRequestError({
+        status: 500,
+        method: "GET",
+        path: "/file-storage?limit=20",
+        message: "Internal Server Error",
+        details: [
+          "Request: GET /file-storage?limit=20",
+          "Status: 500 Internal Server Error",
+          "Response JSON:",
+          '{"error":"Stored files request failed."}',
+        ].join("\n\n"),
+      }),
+    );
+
+    renderBrowser();
+
+    expect(
+      await screen.findByText(
+        "Failed to load stored files. Confirm the SDK is running and retry.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Internal Server Error")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show log" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Request log" });
+    expect(
+      within(dialog).getByText(/Request: GET \/file-storage\?limit=20/),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Status: 500 Internal Server Error/),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Stored files request failed/),
+    ).toBeTruthy();
   });
 });
