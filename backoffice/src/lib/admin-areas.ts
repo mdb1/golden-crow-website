@@ -1,5 +1,6 @@
 export type AdminRole =
   | "full_admin"
+  | "2pq_admin"
   | "organization_publisher"
   | "individual_publisher"
   | "transport_dispatcher"
@@ -269,6 +270,7 @@ export interface ChangeMyAccountEmailResponse {
 
 export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
   full_admin: "Full admin",
+  "2pq_admin": "2PQ ADMIN",
   organization_publisher: "Organization publisher",
   individual_publisher: "Individual publisher",
   transport_dispatcher: "Transport dispatcher",
@@ -282,6 +284,8 @@ export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
 export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
   full_admin:
     "Global control over institutions, users, roles, and the legacy moderation tools.",
+  "2pq_admin":
+    "Full administrative control with Accounts, Community, Reports, and Learning omitted from the sidebar.",
   organization_publisher:
     "Organization-scoped Discover publishing access for one feed_organizations publisher and its feed entries.",
   individual_publisher:
@@ -302,6 +306,7 @@ export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
 
 export const ROLE_OPTIONS: Array<{ value: AdminRole; label: string }> = [
   { value: "full_admin", label: "Full admin" },
+  { value: "2pq_admin", label: "2PQ ADMIN" },
   { value: "organization_publisher", label: "Organization publisher" },
   { value: "individual_publisher", label: "Individual publisher" },
   { value: "transport_dispatcher", label: "Transport dispatcher" },
@@ -320,8 +325,12 @@ export const PERSON_STATUS_OPTIONS = [
   { value: "inactive", label: "Inactive" },
 ] as const;
 
+export function isGlobalAdminRole(role: AdminRole) {
+  return role === "full_admin" || role === "2pq_admin";
+}
+
 export function getAssignableRoleOptions(role: AdminRole) {
-  if (role === "full_admin") {
+  if (isGlobalAdminRole(role)) {
     return ROLE_OPTIONS;
   }
 
@@ -362,7 +371,7 @@ export function getAssignableRoleOptionsForContext(
 ) {
   const options = getAssignableRoleOptions(context.role);
 
-  if (context.role === "full_admin" && !context.isBootstrap) {
+  if (isGlobalAdminRole(context.role) && !context.isBootstrap) {
     return options.filter(
       (option) =>
         option.value !== "organization_publisher" &&
@@ -374,7 +383,7 @@ export function getAssignableRoleOptionsForContext(
 }
 
 export function isStandaloneRole(role: AdminRole) {
-  return role === "full_admin" || role === "transport_dispatcher";
+  return isGlobalAdminRole(role) || role === "transport_dispatcher";
 }
 
 export function getVisibleRoleRecordsForContext(
@@ -385,7 +394,7 @@ export function getVisibleRoleRecordsForContext(
     return records;
   }
 
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return records.filter(
       (record) =>
         !record.bootstrap &&

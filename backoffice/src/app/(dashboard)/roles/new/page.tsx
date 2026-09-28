@@ -2,13 +2,15 @@ import { redirect } from "next/navigation";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { RoleWorkbench } from "@/components/areas/role-workbench";
 import { PageHero } from "@/components/page-hero";
-import type {
-  AdminRole,
-  DoctorListItem,
-  InstitutionRecord,
-  PatientListItem,
+import {
+  getAssignableRoleOptionsForContext,
+  isGlobalAdminRole,
+  ROLE_OPTIONS,
+  type AdminRole,
+  type DoctorListItem,
+  type InstitutionRecord,
+  type PatientListItem,
 } from "@/lib/admin-areas";
-import { getAssignableRoleOptionsForContext, ROLE_OPTIONS } from "@/lib/admin-areas";
 import type {
   DiscoverIndividualsPage,
   DiscoverOrganizationsPage,
@@ -59,12 +61,12 @@ export default async function NewRolePage({
       ),
       sdkFetchServer<{ doctors: DoctorListItem[] }>("/areas/doctors"),
       sdkFetchServer<{ patients: PatientListItem[] }>("/areas/patients"),
-      adminContext.role === "full_admin" && adminContext.isBootstrap
+      isGlobalAdminRole(adminContext.role) && adminContext.isBootstrap
         ? sdkFetchServer<DiscoverOrganizationsPage>(
             "/discover/organizations?limit=50",
           )
         : Promise.resolve({ organizations: [], nextCursor: null }),
-      adminContext.role === "full_admin" && adminContext.isBootstrap
+      isGlobalAdminRole(adminContext.role) && adminContext.isBootstrap
         ? sdkFetchServer<DiscoverIndividualsPage>(
             "/discover/individuals?limit=50",
           )

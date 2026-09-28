@@ -37,6 +37,7 @@ import {
   ADMIN_ROLE_LABELS,
   getAssignableRoleOptions,
   getAssignableRoleOptionsForContext,
+  isGlobalAdminRole,
   isInstitutionManagerRole,
   isStandaloneRole,
   type DoctorListItem,
@@ -194,7 +195,7 @@ export function RoleWorkbench({
         : null;
   const canDeleteRoleUser =
     mode === "edit" && roleRecord
-      ? adminContext.role === "full_admin" &&
+      ? isGlobalAdminRole(adminContext.role) &&
         adminContext.isBootstrap &&
         !roleRecord.bootstrap &&
         roleRecord.email.toLowerCase() !== adminContext.email.toLowerCase()
@@ -253,7 +254,7 @@ export function RoleWorkbench({
 
   function applyRoleDefaults(nextRole: RoleManagementRecord["role"]) {
     setState((current) => {
-      if (nextRole === "full_admin") {
+      if (isGlobalAdminRole(nextRole)) {
         return {
           ...current,
           role: nextRole,
@@ -386,7 +387,7 @@ export function RoleWorkbench({
     }
 
     if (
-      state.role !== "full_admin" &&
+      !isGlobalAdminRole(state.role) &&
       state.role !== "organization_publisher" &&
       state.role !== "individual_publisher" &&
       state.role !== "transport_dispatcher" &&
@@ -686,7 +687,7 @@ export function RoleWorkbench({
                 }
                 placeholder={t("Select organization")}
                 emptyLabel={t("No organization")}
-                disabled={!isEditable || adminContext.role !== "full_admin"}
+                disabled={!isEditable || !isGlobalAdminRole(adminContext.role)}
               />
             </div>
           ) : null}
@@ -711,12 +712,12 @@ export function RoleWorkbench({
                 }
                 placeholder={t("Select individual publisher")}
                 emptyLabel={t("No individual publisher")}
-                disabled={!isEditable || adminContext.role !== "full_admin"}
+                disabled={!isEditable || !isGlobalAdminRole(adminContext.role)}
               />
             </div>
           ) : null}
 
-          {state.role !== "full_admin" &&
+          {!isGlobalAdminRole(state.role) &&
           state.role !== "organization_publisher" &&
           state.role !== "individual_publisher" &&
           state.role !== "transport_dispatcher" ? (

@@ -402,3 +402,35 @@ describe("transport dispatcher role metadata", () => {
     });
   });
 });
+
+describe("2PQ admin authorization", () => {
+  it("matches full-admin management targets and capabilities", async () => {
+    const {
+      canCreateInstitution,
+      canManageLegacyModeration,
+      getAdminCapabilities,
+      getRoleManagementTargets,
+    } = await import("../repositories/roles.repository");
+    const twoPQAdminContext = {
+      ...godModeContext,
+      email: "2pq-admin@example.com",
+      uid: "2pq-admin-uid",
+      role: "2pq_admin" as const,
+      isBootstrap: false,
+    };
+    const fullAdminCapabilities = getAdminCapabilities({
+      ...godModeContext,
+      isBootstrap: false,
+    }).filter((capability) => !capability.startsWith("role:"));
+    const twoPQAdminCapabilities = getAdminCapabilities(
+      twoPQAdminContext,
+    ).filter((capability) => !capability.startsWith("role:"));
+
+    expect(getRoleManagementTargets("2pq_admin")).toEqual(
+      getRoleManagementTargets("full_admin"),
+    );
+    expect(twoPQAdminCapabilities).toEqual(fullAdminCapabilities);
+    expect(canCreateInstitution(twoPQAdminContext)).toBe(true);
+    expect(canManageLegacyModeration(twoPQAdminContext)).toBe(true);
+  });
+});

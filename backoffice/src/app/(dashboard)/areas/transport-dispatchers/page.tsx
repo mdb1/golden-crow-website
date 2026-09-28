@@ -6,6 +6,7 @@ import { PageHero } from "@/components/page-hero";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import {
   getAssignableRoleOptions,
+  isGlobalAdminRole,
   type RoleManagementRecord,
 } from "@/lib/admin-areas";
 import { canCreateRoleUi } from "@/lib/areas-ui";
@@ -15,7 +16,7 @@ import { sdkFetchServer } from "@/lib/sdk-server";
 
 export default async function TransportDispatchersPage() {
   const adminContext = await getAdminContextServer();
-  if (adminContext.role !== "full_admin") {
+  if (!isGlobalAdminRole(adminContext.role)) {
     redirect("/2pq-dashboard");
   }
 

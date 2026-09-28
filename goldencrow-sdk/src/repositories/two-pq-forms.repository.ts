@@ -10,6 +10,7 @@ import {
   grantPatientPortalAccessForNewPatient,
 } from "./areas.repository.js";
 import { shouldAutomaticallyGrantPatientPortalAccess } from "../lib/patient-portal-credentials.js";
+import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import { sendInformedConsentEmail } from "../lib/informed-consent-email.js";
 import { sendPGFlexLogisticsAssignmentEmail } from "../lib/pgflex-dispatcher-email.js";
 import { formatPGFlexReadableDateTime } from "../lib/pgflex-readable-date.js";
@@ -1421,7 +1422,7 @@ function canWriteWithdrawalCase(
   context: AdminContext,
   record: Pick<TwoPQFormRecord, "institutionId" | "doctorId">,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
   if (isInstitutionManagerRole(context.role)) {
@@ -1755,7 +1756,7 @@ function canViewTwoPQForm(
   context: AdminContext,
   form: Pick<TwoPQFormRecord, "institutionId">,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -1811,7 +1812,7 @@ export async function listTwoPQFormsForContext(
       if (createdTo) {
         query = query.where("createdAt", "<=", createdTo);
       }
-      if (useIndexedFilters && context.role !== "full_admin") {
+      if (useIndexedFilters && !isGlobalAdminRole(context.role)) {
         query = query.where(
           "institutionId",
           "==",
@@ -2038,7 +2039,7 @@ export async function deleteTwoPQFormForContext(
   context: AdminContext,
   formId: string,
 ): Promise<{ deleted: true; formId: string }> {
-  if (context.role !== "full_admin") {
+  if (!isGlobalAdminRole(context.role)) {
     throw new AdminRepositoryError("Only full admins can delete forms.", 403);
   }
 

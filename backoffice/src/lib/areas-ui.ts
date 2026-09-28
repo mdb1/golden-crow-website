@@ -7,11 +7,12 @@ import type {
 } from "@/lib/admin-areas";
 import {
   getAssignableRoleOptions,
+  isGlobalAdminRole,
   isInstitutionManagerRole,
 } from "@/lib/admin-areas";
 
 export function getRoleBadgeVariant(role: AdminRole) {
-  if (role === "full_admin") {
+  if (isGlobalAdminRole(role)) {
     return "destructive" as const;
   }
 
@@ -39,7 +40,7 @@ export function getStatusBadgeVariant(status: "active" | "inactive") {
 }
 
 export function canCreateInstitutionUi(context: AdminContextRecord) {
-  return context.role === "full_admin";
+  return isGlobalAdminRole(context.role);
 }
 
 export function canEditInstitutionUi(
@@ -47,7 +48,7 @@ export function canEditInstitutionUi(
   institutionId: string,
 ) {
   return (
-    context.role === "full_admin" ||
+    isGlobalAdminRole(context.role) ||
     (isInstitutionManagerRole(context.role) &&
       context.institutionId === institutionId)
   );
@@ -57,14 +58,14 @@ export function canDeleteInstitutionUi(
   context: AdminContextRecord,
   _institutionId: string,
 ) {
-  return context.role === "full_admin";
+  return isGlobalAdminRole(context.role);
 }
 
 export function canCreateDoctorUi(
   context: AdminContextRecord,
   institutionId?: string,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -82,7 +83,7 @@ export function canEditDoctorUi(
   context: AdminContextRecord,
   doctor: Pick<DoctorListItem, "id" | "institutionId">,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -103,7 +104,7 @@ export function canDeleteDoctorUi(
   context: AdminContextRecord,
   doctor: Pick<DoctorListItem, "institutionId">,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -122,7 +123,7 @@ export function canCreatePatientUi(
   institutionId?: string,
   doctorId?: string,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -145,7 +146,7 @@ export function canEditPatientUi(
   context: AdminContextRecord,
   patient: Pick<PatientListItem, "institutionId" | "doctorId">,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -168,7 +169,7 @@ export function canManagePatientPortalCredentialsUi(
   context: AdminContextRecord,
   patient: Pick<PatientListItem, "institutionId" | "doctorId">,
 ) {
-  if (context.isBootstrap || context.role === "full_admin") {
+  if (context.isBootstrap || isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -223,7 +224,7 @@ export function canEditRoleUi(
     return false;
   }
 
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -233,7 +234,7 @@ export function canEditRoleUi(
 
   if (isInstitutionManagerRole(context.role)) {
     return (
-      roleRecord.role !== "full_admin" &&
+      !isGlobalAdminRole(roleRecord.role) &&
       !(
         context.role === "institution_operator" &&
         roleRecord.role === "institution_admin"
@@ -288,7 +289,7 @@ export function getRoleEditRestrictionMessage(
   }
 
   if (isInstitutionManagerRole(context.role)) {
-    if (roleRecord.role === "full_admin") {
+    if (isGlobalAdminRole(roleRecord.role)) {
       return "Institution managers cannot modify full-admin role assignments.";
     }
 
@@ -313,7 +314,7 @@ export function formatInstitutionScope(
   context: AdminContextRecord,
   institutionName?: string,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return institutionName ?? "All institutions";
   }
 
@@ -322,6 +323,11 @@ export function formatInstitutionScope(
 
 export const ROLE_CAPABILITY_LINES: Record<AdminRole, string[]> = {
   full_admin: [
+    "Can create institutions and any role.",
+    "Can see and edit every institution, doctor, patient, and legacy moderation surface.",
+    "Can promote or demote any non-bootstrap role record.",
+  ],
+  "2pq_admin": [
     "Can create institutions and any role.",
     "Can see and edit every institution, doctor, patient, and legacy moderation surface.",
     "Can promote or demote any non-bootstrap role record.",

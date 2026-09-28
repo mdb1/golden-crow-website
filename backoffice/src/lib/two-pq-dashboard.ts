@@ -14,7 +14,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import type { AdminRole } from "@/lib/admin-areas";
+import { isGlobalAdminRole, type AdminRole } from "@/lib/admin-areas";
 
 const AREA_ADMIN_ROLES: AdminRole[] = [
   "full_admin",
@@ -59,14 +59,28 @@ function institutionLaboratoryStaffNote(note: string) {
     .replace(/^Institution admin/g, "Institution laboratory staff");
 }
 
-function withInstitutionOperatorAccess(
+function withDerivedRoleAccess(
   entries: RoleAccessSpec[],
 ): RoleAccessSpec[] {
-  const expandedEntries = entries.some(
-    (entry) => entry.role === "institution_operator",
-  )
+  const globalAdminEntries = entries.some((entry) => entry.role === "2pq_admin")
     ? [...entries]
     : entries.flatMap((entry) =>
+        entry.role === "full_admin"
+          ? [
+              entry,
+              {
+                ...entry,
+                role: "2pq_admin" as const,
+                capabilities: [...entry.capabilities],
+              },
+            ]
+          : [entry],
+      );
+  const expandedEntries = globalAdminEntries.some(
+    (entry) => entry.role === "institution_operator",
+  )
+    ? globalAdminEntries
+    : globalAdminEntries.flatMap((entry) =>
         entry.role === "institution_admin"
           ? [
               entry,
@@ -1307,20 +1321,24 @@ const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
 export const TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] =
   BASE_TWO_PQ_WORKFLOW_AREAS.map((area) => ({
     ...area,
-    roleAccess: withInstitutionOperatorAccess(area.roleAccess),
+    roleAccess: withDerivedRoleAccess(area.roleAccess),
   }));
 
 export const ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] =
   BASE_ADMIN_SURFACE_SPECS.map((surface) => ({
     ...surface,
-    roleAccess: withInstitutionOperatorAccess(surface.roleAccess),
+    roleAccess: withDerivedRoleAccess(surface.roleAccess),
   }));
 
 export function canAccessTwoPQRoute(
   role: AdminRole,
   visibleRoles?: AdminRole[],
 ) {
-  return !visibleRoles || visibleRoles.includes(role);
+  return (
+    !visibleRoles ||
+    visibleRoles.includes(role) ||
+    (isGlobalAdminRole(role) && visibleRoles.includes("full_admin"))
+  );
 }
 
 export function getWorkflowArea(key: TwoPQWorkflowAreaSpec["key"]) {

@@ -15,6 +15,7 @@ import type {
   UserRoleRecord,
 } from "../types/sdk.types.js";
 import { sendPGFlexLogisticsAssignmentEmail } from "../lib/pgflex-dispatcher-email.js";
+import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { getUserRoleByEmail, normalizeRoleEmail } from "./roles.repository.js";
 
@@ -384,7 +385,7 @@ async function syncTwoPQCasesForPGFlexStatusChange({
 
 function canAccessPGFlexLogistics(context: AdminContext) {
   return (
-    context.role === "full_admin" || context.role === "transport_dispatcher"
+    isGlobalAdminRole(context.role) || context.role === "transport_dispatcher"
   );
 }
 
@@ -419,7 +420,7 @@ function assertPGFlexAccess(context: AdminContext) {
 
 function assertCanCreatePGFlexLogistics(context: AdminContext) {
   assertPGFlexAccess(context);
-  if (context.role !== "full_admin") {
+  if (!isGlobalAdminRole(context.role)) {
     throw new AdminRepositoryError(
       "Only full admins can create PGFlex logistics items.",
       403,
@@ -432,7 +433,7 @@ function assertCanViewPGFlexLogistics(
   record: PGFlexLogisticsRecord,
 ) {
   assertPGFlexAccess(context);
-  if (context.role === "full_admin" || isAssignedDispatcher(context, record)) {
+  if (isGlobalAdminRole(context.role) || isAssignedDispatcher(context, record)) {
     return;
   }
 
@@ -447,7 +448,7 @@ function assertCanUpdatePGFlexLogistics(
   record: PGFlexLogisticsRecord,
 ) {
   assertCanViewPGFlexLogistics(context, record);
-  if (context.role === "full_admin" || isAssignedDispatcher(context, record)) {
+  if (isGlobalAdminRole(context.role) || isAssignedDispatcher(context, record)) {
     return;
   }
 
@@ -459,7 +460,7 @@ function assertCanUpdatePGFlexLogistics(
 
 function assertCanDeletePGFlexLogistics(context: AdminContext) {
   assertPGFlexAccess(context);
-  if (context.role !== "full_admin") {
+  if (!isGlobalAdminRole(context.role)) {
     throw new AdminRepositoryError(
       "Only full admins can delete PGFlex logistics items.",
       403,
@@ -583,8 +584,8 @@ function withCapabilities(
 
   return {
     ...record,
-    canUpdate: context.role === "full_admin" || dispatcherCanUpdate,
-    canDelete: context.role === "full_admin",
+    canUpdate: isGlobalAdminRole(context.role) || dispatcherCanUpdate,
+    canDelete: isGlobalAdminRole(context.role),
   };
 }
 

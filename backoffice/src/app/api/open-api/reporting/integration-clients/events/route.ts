@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminContextServer } from "@/lib/admin-context-server";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 const ListIntegrationClientEventsQuerySchema = z.object({
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
 
   try {
     const context = await getAdminContextServer();
-    if (context.role !== "full_admin" && !context.isBootstrap) {
+    if (!isGlobalAdminRole(context.role) && !context.isBootstrap) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

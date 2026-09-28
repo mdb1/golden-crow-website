@@ -43,7 +43,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { sdkFetch } from "@/lib/sdk-client";
-import { isInstitutionManagerRole } from "@/lib/admin-areas";
+import {
+  isGlobalAdminRole,
+  isInstitutionManagerRole,
+} from "@/lib/admin-areas";
 import type {
   TwoPQFormRecord,
   TwoPQFormsOrder,
@@ -239,9 +242,9 @@ export function TwoPQFormsList({
     tone === "indigo"
       ? "flex flex-col gap-3 rounded-2xl border border-indigo-100/90 bg-white/68 px-4 py-3 shadow-[0_12px_32px_rgba(99,102,241,0.12)] md:flex-row md:items-center md:justify-between dark:border-indigo-300/18 dark:bg-indigo-950/28"
       : "flex flex-col gap-3 rounded-2xl border border-border/75 bg-background/64 px-4 py-3 md:flex-row md:items-center md:justify-between";
-  const canDeleteForms = adminContext.role === "full_admin";
+  const canDeleteForms = isGlobalAdminRole(adminContext.role);
   const canArchiveForms =
-    adminContext.role === "full_admin" ||
+    isGlobalAdminRole(adminContext.role) ||
     isInstitutionManagerRole(adminContext.role) ||
     adminContext.role === "institution_doctor";
 

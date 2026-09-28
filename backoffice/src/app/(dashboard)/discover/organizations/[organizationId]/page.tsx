@@ -3,6 +3,7 @@ import { DiscoverOrganizationWorkbench } from "@/components/discover/organizatio
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { requireDiscoverAccess } from "@/lib/discover-server";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 import type { DiscoverOrganizationRecord } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
@@ -36,7 +37,7 @@ export default async function DiscoverOrganizationDetailPage({
     adminContext.role === "organization_publisher" &&
     adminContext.organizationId === organization.id;
   const canDeletePublisher =
-    (adminContext.role === "full_admin" && adminContext.isBootstrap) ||
+    (isGlobalAdminRole(adminContext.role) && adminContext.isBootstrap) ||
     canDeleteOwnPublisher;
 
   return (
@@ -52,9 +53,9 @@ export default async function DiscoverOrganizationDetailPage({
       >
         <DiscoverOrganizationWorkbench
           organization={organization}
-          canManageSystemFields={adminContext.role === "full_admin"}
+          canManageSystemFields={isGlobalAdminRole(adminContext.role)}
           canManageGrcHighlight={
-            adminContext.role === "full_admin" && adminContext.isBootstrap
+            isGlobalAdminRole(adminContext.role) && adminContext.isBootstrap
           }
           canDeletePublisher={canDeletePublisher}
           deleteSuccessAction={

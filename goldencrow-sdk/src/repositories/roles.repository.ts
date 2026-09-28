@@ -14,6 +14,7 @@ import {
   canRoleAccessBackoffice,
   resolveRequiredAuthSurface,
 } from "../lib/access-surfaces.js";
+import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import type {
   AdminContext,
   AdminRole,
@@ -36,18 +37,22 @@ const FEED_ORGANIZATIONS_COLLECTION = "feed_organizations";
 const FEED_INDIVIDUALS_COLLECTION = "feed_individuals";
 const BOOTSTRAP_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
+const GLOBAL_ADMIN_ASSIGNABLE_ROLES: AdminRole[] = [
+  "full_admin",
+  "2pq_admin",
+  "organization_publisher",
+  "individual_publisher",
+  "transport_dispatcher",
+  "institution_admin",
+  "institution_operator",
+  "institution_laboratory_staff",
+  "institution_doctor",
+  "patient",
+];
+
 const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
-  full_admin: [
-    "full_admin",
-    "organization_publisher",
-    "individual_publisher",
-    "transport_dispatcher",
-    "institution_admin",
-    "institution_operator",
-    "institution_laboratory_staff",
-    "institution_doctor",
-    "patient",
-  ],
+  full_admin: GLOBAL_ADMIN_ASSIGNABLE_ROLES,
+  "2pq_admin": GLOBAL_ADMIN_ASSIGNABLE_ROLES,
   institution_admin: [
     "institution_admin",
     "institution_operator",
@@ -174,6 +179,7 @@ function toBootstrapRoleRecord(email: string): UserRoleRecord {
 function isAdminRole(value: string): value is AdminRole {
   return (
     value === "full_admin" ||
+    value === "2pq_admin" ||
     value === "organization_publisher" ||
     value === "individual_publisher" ||
     value === "transport_dispatcher" ||
@@ -299,7 +305,7 @@ export async function deleteRoleUserForContext(
   context: AdminContext,
   email: string,
 ) {
-  if (context.role !== "full_admin" || !context.isBootstrap) {
+  if (!isGlobalAdminRole(context.role) || !context.isBootstrap) {
     throw new AdminRepositoryError(
       "God mode is required to delete role users.",
       403,
@@ -446,7 +452,7 @@ function getLinkedCollectionIds(payload: {
         ? payload.individualId
         : undefined,
     institutionId:
-      payload.role === "full_admin" ||
+      isGlobalAdminRole(payload.role) ||
       payload.role === "organization_publisher" ||
       payload.role === "individual_publisher" ||
       payload.role === "transport_dispatcher"
@@ -476,7 +482,7 @@ async function validateLinkedRoleEntities(
     getLinkedCollectionIds(payload);
   const normalizedEmail = normalizeRoleEmail(email);
 
-  if (payload.role === "full_admin") {
+  if (isGlobalAdminRole(payload.role)) {
     return null;
   }
 
@@ -752,7 +758,7 @@ export function resolveRequiredAuthSurfaceForEmailAccess(
 export function getAdminCapabilities(context: AdminContext): string[] {
   const base = [`role:${context.role}`];
 
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return [
       ...base,
       "institutions:create",
@@ -841,12 +847,12 @@ export function getAdminCapabilities(context: AdminContext): string[] {
 }
 
 export function canManageLegacyModeration(context: AdminContext) {
-  return context.role === "full_admin";
+  return isGlobalAdminRole(context.role);
 }
 
 export function canAccessDiscover(context: AdminContext) {
   return (
-    context.role === "full_admin" ||
+    isGlobalAdminRole(context.role) ||
     (context.role === "organization_publisher" &&
       Boolean(context.organizationId)) ||
     (context.role === "individual_publisher" && Boolean(context.individualId))
@@ -854,14 +860,14 @@ export function canAccessDiscover(context: AdminContext) {
 }
 
 export function canCreateInstitution(context: AdminContext) {
-  return context.role === "full_admin";
+  return isGlobalAdminRole(context.role);
 }
 
 export function canViewInstitution(
   context: AdminContext,
   institutionId: string,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -872,7 +878,7 @@ export function canEditInstitution(
   context: AdminContext,
   institutionId: string,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -886,11 +892,11 @@ export function canDeleteInstitution(
   context: AdminContext,
   _institutionId: string,
 ) {
-  return context.role === "full_admin";
+  return isGlobalAdminRole(context.role);
 }
 
 export function canCreateDoctor(context: AdminContext, institutionId: string) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -908,7 +914,7 @@ export function canViewDoctor(
   context: AdminContext,
   doctor: Pick<DoctorRecord, "id" | "institutionId">,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -919,7 +925,7 @@ export function canEditDoctor(
   context: AdminContext,
   doctor: Pick<DoctorRecord, "id" | "institutionId">,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -940,7 +946,7 @@ export function canDeleteDoctor(
   context: AdminContext,
   doctor: Pick<DoctorRecord, "institutionId">,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -959,7 +965,7 @@ export function canCreatePatient(
   institutionId: string,
   doctorId: string,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -982,7 +988,7 @@ export function canViewPatient(
   context: AdminContext,
   patient: Pick<PatientRecord, "institutionId">,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -993,7 +999,7 @@ export function canEditPatient(
   context: AdminContext,
   patient: Pick<PatientRecord, "institutionId" | "doctorId">,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -1023,7 +1029,7 @@ export function canViewRoleRecord(
   context: AdminContext,
   record: UserRoleRecord,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -1033,7 +1039,7 @@ export function canViewRoleRecord(
 
   if (isInstitutionManagerRole(context.role)) {
     return (
-      record.role !== "full_admin" &&
+      !isGlobalAdminRole(record.role) &&
       record.institutionId === context.institutionId
     );
   }
@@ -1056,7 +1062,7 @@ export function canAssignRole(context: AdminContext, targetRole: AdminRole) {
 
 export function canCreateRoleAssignment(context: AdminContext) {
   return (
-    context.role === "full_admin" ||
+    isGlobalAdminRole(context.role) ||
     context.role === "institution_admin" ||
     context.role === "institution_doctor"
   );
@@ -1078,8 +1084,8 @@ export function validateRoleScope(
     return "This operator cannot assign the requested role.";
   }
 
-  if (payload.role === "full_admin") {
-    return context.role === "full_admin"
+  if (isGlobalAdminRole(payload.role)) {
+    return isGlobalAdminRole(context.role)
       ? null
       : "Only full admins can manage full-admin roles.";
   }
@@ -1097,7 +1103,7 @@ export function validateRoleScope(
   }
 
   if (payload.role === "transport_dispatcher") {
-    return context.role === "full_admin"
+    return isGlobalAdminRole(context.role)
       ? null
       : "Only full admins can manage transport dispatcher roles.";
   }
@@ -1107,7 +1113,7 @@ export function validateRoleScope(
   }
 
   if (
-    context.role !== "full_admin" &&
+    !isGlobalAdminRole(context.role) &&
     payload.institutionId !== context.institutionId
   ) {
     return "This role must stay inside the operator's institution scope.";
@@ -1141,7 +1147,7 @@ export async function listUserRolesForContext(
   context: AdminContext,
 ): Promise<RoleManagementRecord[]> {
   const snapshot =
-    context.role === "full_admin"
+    isGlobalAdminRole(context.role)
       ? await adminDb.collection(USER_ROLES_COLLECTION).get()
       : await adminDb
           .collection(USER_ROLES_COLLECTION)
@@ -1154,7 +1160,7 @@ export async function listUserRolesForContext(
     )
     .filter((record) => canViewRoleRecord(context, record));
 
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     const recordedEmails = new Set(records.map((record) => record.email));
     TEAM_ALLOWLIST.forEach((email) => {
       const normalizedEmail = normalizeRoleEmail(email);
@@ -1307,7 +1313,7 @@ export async function getUserRoleForContext(
   const normalizedEmail = normalizeRoleEmail(email);
   const record =
     (await getUserRoleByEmail(normalizedEmail)) ??
-    (context.role === "full_admin" && TEAM_ALLOWLIST.has(normalizedEmail)
+    (isGlobalAdminRole(context.role) && TEAM_ALLOWLIST.has(normalizedEmail)
       ? toBootstrapRoleRecord(normalizedEmail)
       : null);
   if (!record) {
@@ -1324,7 +1330,7 @@ export async function getUserRoleForContext(
 export async function listTransportDispatchersForContext(
   context: AdminContext,
 ): Promise<PGFlexTransportDispatcherOption[]> {
-  if (context.role !== "full_admin") {
+  if (!isGlobalAdminRole(context.role)) {
     throw new AdminRepositoryError(
       "Only full admins can list transport dispatchers.",
       403,
@@ -1590,7 +1596,7 @@ export async function provisionPublisherPortalRoleForContext(
     contactEmail: string;
   },
 ): Promise<RoleManagementRecord> {
-  if (context.role !== "full_admin") {
+  if (!isGlobalAdminRole(context.role)) {
     throw new AdminRepositoryError(
       "Only full admins can approve Discover publisher submissions.",
       403,
@@ -1732,7 +1738,7 @@ export async function upsertUserRoleForContext(
         ? (payload.individualId ?? null)
         : null,
     institutionId:
-      payload.role === "full_admin" ||
+      isGlobalAdminRole(payload.role) ||
       payload.role === "organization_publisher" ||
       payload.role === "individual_publisher" ||
       payload.role === "transport_dispatcher"

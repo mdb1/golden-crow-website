@@ -1,4 +1,7 @@
-import type { AdminContextRecord } from "@/lib/admin-areas";
+import {
+  isGlobalAdminRole,
+  type AdminContextRecord,
+} from "@/lib/admin-areas";
 
 export type PGFlexLogisticsStatus =
   "awaiting_pick_up" | "in_transit" | "arrived" | "lost";
@@ -127,12 +130,12 @@ export const PGFLEX_LOGISTICS_STATUS_OPTIONS: Array<{
 
 export function canAccessPGFlexLogistics(context: AdminContextRecord) {
   return (
-    context.role === "full_admin" || context.role === "transport_dispatcher"
+    isGlobalAdminRole(context.role) || context.role === "transport_dispatcher"
   );
 }
 
 export function canCreatePGFlexLogistics(context: AdminContextRecord) {
-  return context.role === "full_admin";
+  return isGlobalAdminRole(context.role);
 }
 
 export function getPGFlexStatusLabel(status: PGFlexLogisticsStatus) {

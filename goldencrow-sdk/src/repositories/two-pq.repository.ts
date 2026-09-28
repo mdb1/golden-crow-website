@@ -7,6 +7,7 @@ const adminDb = adminDbFor("mydnamap");
 import { FieldValue, type Transaction } from "firebase-admin/firestore";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { normalizeRoleEmail } from "./roles.repository.js";
+import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import type {
   AdminContext,
   DoctorListItem,
@@ -739,7 +740,7 @@ async function ensurePatientExists(patientId: string) {
 }
 
 function canViewTwoPQRecord(context: AdminContext, record: Pick<TwoPQRecord, "institutionId">) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -750,7 +751,7 @@ function canWriteTwoPQRecord(
   context: AdminContext,
   record: Pick<TwoPQRecord, "institutionId" | "doctorId">
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -770,7 +771,7 @@ function canCreateTwoPQRecord(
   institutionId: string,
   doctorId: string
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 
@@ -1155,7 +1156,7 @@ function buildListItem(
 }
 
 async function loadScopedInstitutions(context: AdminContext) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     const snapshot = await adminDb.collection(INSTITUTIONS_COLLECTION).get();
     return snapshot.docs.map((doc) =>
       toInstitutionRecord(doc.id, doc.data() as Record<string, unknown>)
@@ -1172,7 +1173,7 @@ async function loadScopedInstitutions(context: AdminContext) {
 
 async function loadScopedDoctors(context: AdminContext) {
   const snapshot =
-    context.role === "full_admin"
+    isGlobalAdminRole(context.role)
       ? await adminDb.collection(DOCTORS_COLLECTION).get()
       : await adminDb
           .collection(DOCTORS_COLLECTION)
@@ -1184,7 +1185,7 @@ async function loadScopedDoctors(context: AdminContext) {
 
 async function loadScopedPatients(context: AdminContext) {
   const snapshot =
-    context.role === "full_admin"
+    isGlobalAdminRole(context.role)
       ? await adminDb.collection(PATIENTS_COLLECTION).get()
       : await adminDb
           .collection(PATIENTS_COLLECTION)
@@ -1623,7 +1624,7 @@ export async function listTwoPQRecordsForContext(
 ): Promise<TwoPQListItem[]> {
   const config = AREA_CONFIG[areaKey];
   const [recordSnapshot, institutions, doctors, patients] = await Promise.all([
-    context.role === "full_admin"
+    isGlobalAdminRole(context.role)
       ? adminDb.collection(config.collectionKey).get()
       : adminDb
           .collection(config.collectionKey)

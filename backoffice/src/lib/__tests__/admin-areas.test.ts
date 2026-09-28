@@ -1,6 +1,7 @@
 import {
   getAssignableRoleOptionsForContext,
   getVisibleRoleRecordsForContext,
+  isGlobalAdminRole,
   type RoleManagementRecord,
 } from "../admin-areas";
 
@@ -35,6 +36,24 @@ describe("getAssignableRoleOptionsForContext", () => {
 
     expect(values).toContain("organization_publisher");
     expect(values).toContain("individual_publisher");
+  });
+
+  it("gives 2PQ admins the same non-bootstrap assignment options", () => {
+    const fullAdminValues = roleValues(
+      getAssignableRoleOptionsForContext({
+        role: "full_admin",
+        isBootstrap: false,
+      }),
+    );
+    const twoPQAdminValues = roleValues(
+      getAssignableRoleOptionsForContext({
+        role: "2pq_admin",
+        isBootstrap: false,
+      }),
+    );
+
+    expect(twoPQAdminValues).toEqual(fullAdminValues);
+    expect(isGlobalAdminRole("2pq_admin")).toBe(true);
   });
 });
 
@@ -100,5 +119,14 @@ describe("getVisibleRoleRecordsForContext", () => {
       "admin@example.com",
       "institution@example.com",
     ]);
+  });
+
+  it("applies the normal full-admin visibility boundary to 2PQ admins", () => {
+    const values = getVisibleRoleRecordsForContext(records, {
+      role: "2pq_admin",
+      isBootstrap: false,
+    }).map((record) => record.email);
+
+    expect(values).toEqual(["admin@example.com", "institution@example.com"]);
   });
 });

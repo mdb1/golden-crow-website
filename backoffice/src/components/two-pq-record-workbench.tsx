@@ -67,7 +67,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
-import { isInstitutionManagerRole } from "@/lib/admin-areas";
+import {
+  isGlobalAdminRole,
+  isInstitutionManagerRole,
+} from "@/lib/admin-areas";
 import {
   type TwoPQAreaConfig,
   type TwoPQAreaKey,
@@ -1545,7 +1548,7 @@ export function TwoPQRecordWorkbench({
     : 0;
   const storedFileId = detail?.record.stored_file_id?.trim() ?? "";
   const hasStoredFileId = Boolean(storedFileId);
-  const hasFileStorageAccess = adminContext.role === "full_admin";
+  const hasFileStorageAccess = isGlobalAdminRole(adminContext.role);
   const canOpenPublishFileStorageModal =
     areaKey === "cases" &&
     mode !== "create" &&

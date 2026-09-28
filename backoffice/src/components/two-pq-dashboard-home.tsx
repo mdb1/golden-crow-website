@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   getAssignableRoleOptions,
+  isGlobalAdminRole,
   isInstitutionManagerRole,
   type AdminContextRecord,
 } from "@/lib/admin-areas";
@@ -41,7 +42,7 @@ type ScopeCardKey =
 
 function canSeeScopeCard(role: AdminContextRecord["role"], key: ScopeCardKey) {
   if (key === "transportDispatchers") {
-    return role === "full_admin";
+    return isGlobalAdminRole(role);
   }
 
   if (role === "institution_doctor") {

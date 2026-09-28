@@ -8,6 +8,7 @@ import {
 } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import { AdminRepositoryError } from "./admin-errors.js";
+import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import {
   discoverIndividualCategoryProvider,
   discoverOrganizationCategoryProvider,
@@ -643,18 +644,18 @@ type SubmissionEvaluationDecision = "approve" | "reject";
 type DiscoverEqualityFilter = { field: string; value: unknown };
 
 function requireFullAdmin(context: AdminContext) {
-  if (context.role !== "full_admin") {
+  if (!isGlobalAdminRole(context.role)) {
     throw new AdminRepositoryError("Full admin access required.", 403);
   }
 }
 
 function canManageGrcHighlight(context: AdminContext) {
-  return context.role === "full_admin" && context.isBootstrap;
+  return isGlobalAdminRole(context.role) && context.isBootstrap;
 }
 
 function requireDiscoverAccess(context: AdminContext) {
   if (
-    context.role !== "full_admin" &&
+    !isGlobalAdminRole(context.role) &&
     context.role !== "organization_publisher" &&
     context.role !== "individual_publisher"
   ) {
@@ -735,7 +736,7 @@ function requirePublisherDeleteAccess(
   context: AdminContext,
   input: { kind: "organization" | "individual"; publisherId: string },
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     if (!context.isBootstrap) {
       throw new AdminRepositoryError(
         "God mode is required to delete Discover publishers.",

@@ -5,6 +5,7 @@ import {
 } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import { canAccessInformedConsentPatient } from "../lib/informed-consent-access.js";
+import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import {
   normalizeTemporaryPassword,
   sendInformedConsentEmail,
@@ -125,7 +126,7 @@ function consentQueryForContext(context: AdminContext): Query<DocumentData> {
       );
     }
     query = query.where("patientId", "==", context.patientId);
-  } else if (context.role !== "full_admin") {
+  } else if (!isGlobalAdminRole(context.role)) {
     if (!context.institutionId) {
       throw new AdminRepositoryError(
         "This account is not linked to an institution.",
@@ -152,7 +153,7 @@ function consentFallbackQueryForContext(
 
   if (context.role === "patient") {
     query = query.where("patientId", "==", context.patientId);
-  } else if (context.role !== "full_admin") {
+  } else if (!isGlobalAdminRole(context.role)) {
     query = query.where("institutionId", "==", context.institutionId);
   }
 
@@ -162,7 +163,7 @@ function consentFallbackQueryForContext(
 function patientQueryForContext(context: AdminContext): Query<DocumentData> {
   let query: Query<DocumentData> = adminDb.collection(PATIENTS_COLLECTION);
 
-  if (context.role !== "full_admin") {
+  if (!isGlobalAdminRole(context.role)) {
     if (!context.institutionId) {
       throw new AdminRepositoryError(
         "This account is not linked to an institution.",
@@ -191,7 +192,7 @@ function patientFallbackQueryForContext(
 ): Query<DocumentData> {
   let query: Query<DocumentData> = adminDb.collection(PATIENTS_COLLECTION);
 
-  if (context.role !== "full_admin") {
+  if (!isGlobalAdminRole(context.role)) {
     query = query.where("institutionId", "==", context.institutionId);
   }
 

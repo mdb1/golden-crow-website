@@ -5,6 +5,7 @@ export type AuthSurface =
 
 const BACKOFFICE_ROLES = new Set<AdminRole>([
   "full_admin",
+  "2pq_admin",
   "institution_admin",
   "institution_operator",
   "institution_laboratory_staff",

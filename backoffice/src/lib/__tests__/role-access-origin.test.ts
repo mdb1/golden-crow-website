@@ -26,6 +26,15 @@ describe("role access origin mapping", () => {
     ).toBe("institution_admin");
   });
 
+  it("accepts the 2PQ admin role in an explicit role query", () => {
+    expect(
+      selectedRoleForRoleAccess({
+        currentRole: "full_admin",
+        role: "2pq_admin",
+      }),
+    ).toBe("2pq_admin");
+  });
+
   it("falls back to the current role when the originating category is unknown", () => {
     expect(
       selectedRoleForRoleAccess({

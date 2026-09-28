@@ -1,8 +1,9 @@
 import { sdkFetchServer } from "@/lib/sdk-server";
-import type {
-  AdminRole,
-  AdminContextRecord,
-  ProjectKey,
+import {
+  isGlobalAdminRole,
+  type AdminContextRecord,
+  type AdminRole,
+  type ProjectKey,
 } from "@/lib/admin-areas";
 import { redirect } from "next/navigation";
 
@@ -59,7 +60,10 @@ export async function requireAdminRole(
 ) {
   const context = await getAdminContextServer(activeProject);
 
-  if (!allowedRoles.includes(context.role)) {
+  if (
+    !allowedRoles.includes(context.role) &&
+    !(isGlobalAdminRole(context.role) && allowedRoles.includes("full_admin"))
+  ) {
     throw new Error("forbidden");
   }
 
@@ -73,7 +77,10 @@ export async function requireAdminRoleRedirect(
 ) {
   const context = await getAdminContextServer(activeProject);
 
-  if (!allowedRoles.includes(context.role)) {
+  if (
+    !allowedRoles.includes(context.role) &&
+    !(isGlobalAdminRole(context.role) && allowedRoles.includes("full_admin"))
+  ) {
     redirect(fallbackHref);
   }
 

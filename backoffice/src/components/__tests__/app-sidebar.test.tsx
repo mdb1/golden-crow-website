@@ -40,6 +40,13 @@ const fullAdminContext: AdminContextRecord = {
   projectAccess: ["mydnamap"],
 };
 
+const twoPQAdminContext: AdminContextRecord = {
+  ...fullAdminContext,
+  email: "2pq-admin@example.com",
+  uid: "2pq-admin-uid",
+  role: "2pq_admin",
+};
+
 function renderSidebar(context: AdminContextRecord = fullAdminContext) {
   window.matchMedia = matchMedia;
 
@@ -89,5 +96,39 @@ describe("AppSidebar PGFlex section", () => {
       pgflexLogo.compareDocumentPosition(accounts as Element) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("hides only the restricted sidebar sections for 2PQ admins", () => {
+    renderSidebar(twoPQAdminContext);
+
+    const hiddenHrefs = [
+      "/users",
+      "/collections/profiles",
+      "/community",
+      "/community/public-profiles",
+      "/collections/community_users",
+      "/collections/community_posts",
+      "/reports",
+      "/collections/report_codes",
+      "/collections/uploaded_reports",
+      "/collections/file_storage",
+      "/collections/report_owners",
+      "/learning",
+      "/learning/library",
+      "/collections/user_progress",
+    ];
+
+    for (const href of hiddenHrefs) {
+      expect(document.querySelector(`a[href="${href}"]`)).toBeNull();
+    }
+
+    for (const href of [
+      "/2pq-dashboard",
+      "/pgflex/logistics",
+      "/areas/institutions",
+      "/roles",
+    ]) {
+      expect(document.querySelector(`a[href="${href}"]`)).toBeTruthy();
+    }
   });
 });

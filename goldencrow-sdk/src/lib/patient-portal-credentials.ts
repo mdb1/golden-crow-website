@@ -5,6 +5,7 @@ import type {
   PatientRecord,
   TwoPQFormType,
 } from "../types/sdk.types.js";
+import { isGlobalAdminRole } from "./admin-roles.js";
 
 const UPPERCASE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export const PATIENT_TEMPORARY_PASSWORD_LENGTH = 8;
@@ -34,7 +35,7 @@ export function canManagePatientPortalCredentials(
   >,
   patient: PatientPortalCredentialOwner,
 ) {
-  if (context.isBootstrap || context.role === "full_admin") {
+  if (context.isBootstrap || isGlobalAdminRole(context.role)) {
     return true;
   }
 

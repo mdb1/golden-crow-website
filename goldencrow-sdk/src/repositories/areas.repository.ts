@@ -15,6 +15,7 @@ import {
   patientTemporaryPasswordDocument,
   provisionPatientFirebaseAccount,
 } from "../lib/patient-portal-credentials.js";
+import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import {
   canCreateDoctor,
   canCreateInstitution,
@@ -319,7 +320,7 @@ async function getPatientById(patientId: string) {
 }
 
 async function loadScopedInstitutionRecords(context: AdminContext) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     const snapshot = await adminDb.collection(INSTITUTIONS_COLLECTION).get();
     return snapshot.docs.map((doc) =>
       toInstitutionRecord(doc.id, doc.data() as Record<string, unknown>),
@@ -336,7 +337,7 @@ async function loadScopedInstitutionRecords(context: AdminContext) {
 
 async function loadScopedDoctorRecords(context: AdminContext) {
   const snapshot =
-    context.role === "full_admin"
+    isGlobalAdminRole(context.role)
       ? await adminDb.collection(DOCTORS_COLLECTION).get()
       : await adminDb
           .collection(DOCTORS_COLLECTION)
@@ -350,7 +351,7 @@ async function loadScopedDoctorRecords(context: AdminContext) {
 
 async function loadScopedPatientRecords(context: AdminContext) {
   const snapshot =
-    context.role === "full_admin"
+    isGlobalAdminRole(context.role)
       ? await adminDb.collection(PATIENTS_COLLECTION).get()
       : await adminDb
           .collection(PATIENTS_COLLECTION)
@@ -370,7 +371,7 @@ async function loadScopedRoleRecords(context: AdminContext) {
   }
 
   const snapshot =
-    context.role === "full_admin"
+    isGlobalAdminRole(context.role)
       ? await adminDb.collection(USER_ROLES_COLLECTION).get()
       : await adminDb
           .collection(USER_ROLES_COLLECTION)
@@ -384,6 +385,7 @@ async function loadScopedRoleRecords(context: AdminContext) {
         email: doc.id,
         role:
           data.role === "full_admin" ||
+          data.role === "2pq_admin" ||
           data.role === "organization_publisher" ||
           data.role === "individual_publisher" ||
           data.role === "transport_dispatcher" ||
@@ -411,7 +413,7 @@ async function loadScopedRoleRecords(context: AdminContext) {
         createdByEmail: normalizeOptionalString(data.createdByEmail),
       } satisfies UserRoleRecord;
     })
-    .filter((record) => record.institutionId || context.role === "full_admin");
+    .filter((record) => record.institutionId || isGlobalAdminRole(context.role));
 }
 
 function toDoctorListItem(
@@ -778,6 +780,7 @@ export async function getInstitutionDetailForContext(
       email: doc.id,
       role:
         data.role === "full_admin" ||
+        data.role === "2pq_admin" ||
         data.role === "organization_publisher" ||
         data.role === "individual_publisher" ||
         data.role === "transport_dispatcher" ||
@@ -1123,6 +1126,7 @@ export async function getDoctorDetailForContext(
           email: roleDocument.id,
           role:
             data.role === "full_admin" ||
+            data.role === "2pq_admin" ||
             data.role === "organization_publisher" ||
             data.role === "individual_publisher" ||
             data.role === "transport_dispatcher" ||

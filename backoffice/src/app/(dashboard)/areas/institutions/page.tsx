@@ -3,7 +3,10 @@ import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { InstitutionBrowser } from "@/components/areas/institution-browser";
 import { PageHero } from "@/components/page-hero";
 import { getAdminContextServer } from "@/lib/admin-context-server";
-import type { InstitutionListItem } from "@/lib/admin-areas";
+import {
+  isGlobalAdminRole,
+  type InstitutionListItem,
+} from "@/lib/admin-areas";
 import { canCreateInstitutionUi } from "@/lib/areas-ui";
 import { appText } from "@/lib/language";
 import { getServerAppLanguage } from "@/lib/server-language";
@@ -24,7 +27,7 @@ export default async function InstitutionsPage() {
             eyebrow={t("Areas")}
             title={t("Institutions")}
             description={
-              adminContext.role === "full_admin"
+              isGlobalAdminRole(adminContext.role)
                 ? t("Global institution index with editable descriptors, doctor counts, patient totals, and local admin coverage.")
                 : t("Your institution scope starts here. Review the institution record first, then move into doctors, patients, and local role assignments.")
             }

@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 const ROLE_TABS: AdminRole[] = [
   "full_admin",
+  "2pq_admin",
   "transport_dispatcher",
   "institution_admin",
   "institution_operator",
@@ -58,6 +59,7 @@ const roleBadgeVariants: Record<
   ComponentProps<typeof Badge>["variant"]
 > = {
   full_admin: "destructive",
+  "2pq_admin": "success",
   organization_publisher: "secondary",
   individual_publisher: "secondary",
   transport_dispatcher: "violet",
@@ -173,46 +175,48 @@ const capabilityMeta: Record<
   },
 };
 
-const ROLE_ASSIGNMENT_ITEMS: Record<
-  AdminRole,
-  Array<{
-    tone: "allow" | "limit";
-    title: string;
-    description: string;
-  }>
-> = {
-  full_admin: [
-    {
-      tone: "allow",
-      title: "Can assign every role type",
-      description:
-        "Full admins can create and update full admin, Discover publisher, institution admin, institution operator, institution laboratory staff, institution doctor, and patient role assignments.",
-    },
-    {
-      tone: "allow",
-      title: "Can operate across every lane",
-      description:
-        "They can review and adjust role assignments across all institutions, doctors, and patient-linked records.",
-    },
-    {
-      tone: "allow",
-      title: "Can unblock broader admin work",
-      description:
-        "When a scope link changes, they can follow through into the institution, doctor, or patient surfaces that support that assignment.",
-    },
-    {
-      tone: "limit",
-      title: "Cannot rewrite bootstrap access",
-      description:
-        "Bootstrap permissions stay protected, so only non-bootstrap role assignments should be edited from the normal workflow.",
-    },
-    {
-      tone: "limit",
-      title: "Cannot ignore scope links",
-      description:
-        "Even with global reach, each role assignment still needs the right institution, doctor, and patient references.",
-    },
-  ],
+type RoleAssignmentItem = {
+  tone: "allow" | "limit";
+  title: string;
+  description: string;
+};
+
+const GLOBAL_ADMIN_ROLE_ASSIGNMENT_ITEMS: RoleAssignmentItem[] = [
+  {
+    tone: "allow",
+    title: "Can assign every role type",
+    description:
+      "Global admins can create and update full admin, 2PQ admin, Discover publisher, institution admin, institution operator, institution laboratory staff, institution doctor, and patient role assignments.",
+  },
+  {
+    tone: "allow",
+    title: "Can operate across every lane",
+    description:
+      "They can review and adjust role assignments across all institutions, doctors, and patient-linked records.",
+  },
+  {
+    tone: "allow",
+    title: "Can unblock broader admin work",
+    description:
+      "When a scope link changes, they can follow through into the institution, doctor, or patient surfaces that support that assignment.",
+  },
+  {
+    tone: "limit",
+    title: "Cannot rewrite bootstrap access",
+    description:
+      "Bootstrap permissions stay protected, so only non-bootstrap role assignments should be edited from the normal workflow.",
+  },
+  {
+    tone: "limit",
+    title: "Cannot ignore scope links",
+    description:
+      "Even with global reach, each role assignment still needs the right institution, doctor, and patient references.",
+  },
+];
+
+const ROLE_ASSIGNMENT_ITEMS: Record<AdminRole, RoleAssignmentItem[]> = {
+  full_admin: GLOBAL_ADMIN_ROLE_ASSIGNMENT_ITEMS,
+  "2pq_admin": GLOBAL_ADMIN_ROLE_ASSIGNMENT_ITEMS,
   organization_publisher: [
     {
       tone: "allow",

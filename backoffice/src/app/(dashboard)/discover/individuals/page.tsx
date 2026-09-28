@@ -3,6 +3,7 @@ import { DiscoverIndividualBrowser } from "@/components/discover/organization-br
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { requireDiscoverAccess } from "@/lib/discover-server";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 import type { DiscoverIndividualsPage } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
@@ -34,8 +35,8 @@ export default async function DiscoverIndividualsPage() {
         <DiscoverIndividualBrowser
           initialIndividuals={page.individuals}
           initialNextCursor={page.nextCursor}
-          canCreateIndividuals={adminContext.role === "full_admin"}
-          canManageIndividualStatus={adminContext.role === "full_admin"}
+          canCreateIndividuals={isGlobalAdminRole(adminContext.role)}
+          canManageIndividualStatus={isGlobalAdminRole(adminContext.role)}
         />
       </HeaderUnclutterScope>
     </div>

@@ -25,6 +25,7 @@ import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 import {
   PGFlexRoutePreview,
   PGFlexRouteSnapshot,
@@ -400,7 +401,7 @@ export function PGFlexLogisticsForm({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const router = useRouter();
-  const isFullAdmin = adminContext.role === "full_admin";
+  const isFullAdmin = isGlobalAdminRole(adminContext.role);
   const isTransportDispatcher = adminContext.role === "transport_dispatcher";
   const canUpdate = mode === "create" ? isFullAdmin : Boolean(item?.canUpdate);
   const canEditAllFields = isFullAdmin;

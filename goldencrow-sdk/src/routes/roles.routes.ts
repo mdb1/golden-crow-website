@@ -12,6 +12,7 @@ import {
 
 const RoleSchema = z.enum([
   "full_admin",
+  "2pq_admin",
   "organization_publisher",
   "individual_publisher",
   "transport_dispatcher",

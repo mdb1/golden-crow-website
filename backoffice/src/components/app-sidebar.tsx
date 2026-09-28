@@ -37,6 +37,13 @@ function canSeeDiscoverSection(adminContext: AdminContextRecord) {
   );
 }
 
+const TWO_PQ_ADMIN_HIDDEN_SECTIONS = new Set([
+  "accounts",
+  "community",
+  "reports",
+  "learning",
+]);
+
 function PGFlexSectionLabel({ label }: { label: string }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
@@ -61,12 +68,24 @@ export function AppSidebar({
   const navRole = adminContext.isBootstrap ? "full_admin" : adminContext.role;
   const baseVisibleSections = getProjectSections(adminContext.project, navRole);
   const baseVisibleNav = getProjectNav(adminContext.project, navRole);
-  const visibleSections = canShowDiscoverSection
+  const discoverVisibleSections = canShowDiscoverSection
     ? baseVisibleSections
     : baseVisibleSections.filter((section) => section.key !== "discover");
-  const visibleNav = canShowDiscoverSection
+  const discoverVisibleNav = canShowDiscoverSection
     ? baseVisibleNav
     : baseVisibleNav.filter((item) => item.section !== "discover");
+  const visibleSections =
+    adminContext.role === "2pq_admin"
+      ? discoverVisibleSections.filter(
+          (section) => !TWO_PQ_ADMIN_HIDDEN_SECTIONS.has(section.key),
+        )
+      : discoverVisibleSections;
+  const visibleNav =
+    adminContext.role === "2pq_admin"
+      ? discoverVisibleNav.filter(
+          (item) => !TWO_PQ_ADMIN_HIDDEN_SECTIONS.has(item.section),
+        )
+      : discoverVisibleNav;
   const productTitle =
     adminContext.project === "pocket-gyms"
       ? appText(language, "Pocket Gyms")

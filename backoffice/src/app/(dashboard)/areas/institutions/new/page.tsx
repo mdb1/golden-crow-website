@@ -3,12 +3,13 @@ import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { InstitutionWorkbench } from "@/components/areas/institution-workbench";
 import { PageHero } from "@/components/page-hero";
 import { getAdminContextServer } from "@/lib/admin-context-server";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 import { appText } from "@/lib/language";
 import { getServerAppLanguage } from "@/lib/server-language";
 
 export default async function NewInstitutionPage() {
   const adminContext = await getAdminContextServer();
-  if (adminContext.role !== "full_admin") {
+  if (!isGlobalAdminRole(adminContext.role)) {
     redirect("/areas/institutions");
   }
   const language = await getServerAppLanguage();

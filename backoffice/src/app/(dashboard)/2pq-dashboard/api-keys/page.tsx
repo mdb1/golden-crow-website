@@ -4,11 +4,12 @@ import { Repeat2, ShieldCheck } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 import { ReportingIntegrationClientPanel } from "@/components/reporting-integration-client-panel";
 import { getAdminContextServer } from "@/lib/admin-context-server";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 
 export default async function ReportingApiKeysPage() {
   const { role, isBootstrap } = await getAdminContextServer();
 
-  if (role !== "full_admin" && !isBootstrap) {
+  if (!isGlobalAdminRole(role) && !isBootstrap) {
     redirect("/2pq-dashboard");
   }
 

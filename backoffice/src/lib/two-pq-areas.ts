@@ -175,6 +175,12 @@ const ASSIGNED_SCOPE_ACCESS: RoleAccessSpec[] = [
     note: "Full admins can create, replace, update, and delete records across every institution.",
   },
   {
+    role: "2pq_admin",
+    scope: "global",
+    capabilities: ["create", "read", "update", "delete"],
+    note: "2PQ admins can create, replace, update, and delete records across every institution.",
+  },
+  {
     role: "institution_admin",
     scope: "institution",
     capabilities: ["create", "read", "update", "delete"],

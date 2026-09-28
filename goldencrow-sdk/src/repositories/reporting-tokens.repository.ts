@@ -7,6 +7,7 @@ import {
 import { FieldValue, type Query } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import { AdminRepositoryError } from "./admin-errors.js";
+import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import type { AdminContext } from "../types/sdk.types.js";
 
 const adminDb = adminDbFor("mydnamap");
@@ -625,7 +626,7 @@ function readAccessTokenRecord(snapshot: SnapshotLike): AccessTokenRecord {
 }
 
 function assertCanManageIntegrationClients(context: AdminContext) {
-  if (context.role !== "full_admin" && !context.isBootstrap) {
+  if (!isGlobalAdminRole(context.role) && !context.isBootstrap) {
     throw new AdminRepositoryError(
       "Only full admins can manage reporting integration clients.",
       403,

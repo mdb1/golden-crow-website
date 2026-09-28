@@ -2,6 +2,7 @@ import { FastifyInstance, type FastifyReply } from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
+import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import {
   PGFLEX_LOGISTICS_LIST_SCOPES,
   PGFLEX_LOGISTICS_SHIPMENT_TYPES,
@@ -69,7 +70,7 @@ export async function pgflexLogisticsRoutes(
     }
 
     if (
-      request.adminContext.role !== "full_admin" &&
+      !isGlobalAdminRole(request.adminContext.role) &&
       request.adminContext.role !== "transport_dispatcher"
     ) {
       return reply

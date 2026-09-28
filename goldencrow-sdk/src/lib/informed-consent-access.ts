@@ -1,4 +1,5 @@
 import type { AdminContext, PatientRecord } from "../types/sdk.types.js";
+import { isGlobalAdminRole } from "./admin-roles.js";
 
 type ConsentOwner = Pick<
   PatientRecord,
@@ -12,7 +13,7 @@ export function canAccessInformedConsentPatient(
   >,
   owner: ConsentOwner,
 ) {
-  if (context.role === "full_admin") {
+  if (isGlobalAdminRole(context.role)) {
     return true;
   }
 

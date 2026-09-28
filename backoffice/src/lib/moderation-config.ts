@@ -25,7 +25,11 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import type { AdminRole, ProjectKey } from "./admin-areas";
+import {
+  isGlobalAdminRole,
+  type AdminRole,
+  type ProjectKey,
+} from "./admin-areas";
 import type {
   AdminNavItem,
   ChromeMetadata,
@@ -116,6 +120,17 @@ const INDIVIDUAL_PUBLISHER_NAV_HREFS = new Set([
   "/my-account",
 ]);
 const PUBLISHER_SECTION_KEYS = new Set(["mission", "discover", "access"]);
+
+function isVisibleToRole(
+  visibleRoles: AdminRole[] | undefined,
+  role: AdminRole,
+) {
+  return (
+    !visibleRoles ||
+    visibleRoles.includes(role) ||
+    (isGlobalAdminRole(role) && visibleRoles.includes("full_admin"))
+  );
+}
 
 export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
   {
@@ -1135,18 +1150,18 @@ export const GYM_NAV: AdminNavItem[] = [
 ];
 
 export function getVisibleSections(role: AdminRole) {
-  return SECTION_DESCRIPTORS.filter(
-    (section) => !section.visibleRoles || section.visibleRoles.includes(role)
+  return SECTION_DESCRIPTORS.filter((section) =>
+    isVisibleToRole(section.visibleRoles, role),
   );
 }
 
 export function getVisibleAdminNav(role: AdminRole) {
-  return ADMIN_NAV.filter((item) => !item.visibleRoles || item.visibleRoles.includes(role));
+  return ADMIN_NAV.filter((item) => isVisibleToRole(item.visibleRoles, role));
 }
 
 function getMyDnaMapNav(role: AdminRole) {
-  const visibleNav = ADMIN_NAV.filter(
-    (item) => !item.visibleRoles || item.visibleRoles.includes(role)
+  const visibleNav = ADMIN_NAV.filter((item) =>
+    isVisibleToRole(item.visibleRoles, role),
   );
 
   if (role === "organization_publisher") {
@@ -1184,8 +1199,8 @@ function getMyDnaMapNav(role: AdminRole) {
 }
 
 function getMyDnaMapSections(role: AdminRole) {
-  const visibleSections = SECTION_DESCRIPTORS.filter(
-    (section) => !section.visibleRoles || section.visibleRoles.includes(role)
+  const visibleSections = SECTION_DESCRIPTORS.filter((section) =>
+    isVisibleToRole(section.visibleRoles, role),
   );
 
   if (role === "organization_publisher" || role === "individual_publisher") {
@@ -1203,25 +1218,25 @@ function getMyDnaMapSections(role: AdminRole) {
 
 export function getProjectNav(project: ProjectKey, role: AdminRole): AdminNavItem[] {
   if (project === "gc-fitness") {
-    return GC_FITNESS_NAV.filter(
-      (item) => !item.visibleRoles || item.visibleRoles.includes(role)
+    return GC_FITNESS_NAV.filter((item) =>
+      isVisibleToRole(item.visibleRoles, role),
     );
   }
   if (project === "pocket-gyms") {
-    return GYM_NAV.filter((item) => !item.visibleRoles || item.visibleRoles.includes(role));
+    return GYM_NAV.filter((item) => isVisibleToRole(item.visibleRoles, role));
   }
   return getMyDnaMapNav(role);
 }
 
 export function getProjectSections(project: ProjectKey, role: AdminRole): SectionDescriptor[] {
   if (project === "gc-fitness") {
-    return GC_FITNESS_SECTIONS.filter(
-      (section) => !section.visibleRoles || section.visibleRoles.includes(role)
+    return GC_FITNESS_SECTIONS.filter((section) =>
+      isVisibleToRole(section.visibleRoles, role),
     );
   }
   if (project === "pocket-gyms") {
-    return GYM_SECTIONS.filter(
-      (section) => !section.visibleRoles || section.visibleRoles.includes(role)
+    return GYM_SECTIONS.filter((section) =>
+      isVisibleToRole(section.visibleRoles, role),
     );
   }
   return getMyDnaMapSections(role);

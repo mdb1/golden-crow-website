@@ -3,6 +3,7 @@ import { DiscoverIndividualWorkbench } from "@/components/discover/organization-
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { requireDiscoverAccess } from "@/lib/discover-server";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 import type { DiscoverIndividualRecord } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
@@ -36,7 +37,7 @@ export default async function DiscoverIndividualDetailPage({
     adminContext.role === "individual_publisher" &&
     adminContext.individualId === individual.id;
   const canDeletePublisher =
-    (adminContext.role === "full_admin" && adminContext.isBootstrap) ||
+    (isGlobalAdminRole(adminContext.role) && adminContext.isBootstrap) ||
     canDeleteOwnPublisher;
 
   return (
@@ -52,7 +53,7 @@ export default async function DiscoverIndividualDetailPage({
       >
         <DiscoverIndividualWorkbench
           individual={individual}
-          canManageSystemFields={adminContext.role === "full_admin"}
+          canManageSystemFields={isGlobalAdminRole(adminContext.role)}
           canDeletePublisher={canDeletePublisher}
           deleteSuccessAction={
             canDeleteOwnPublisher ? "publisher-login" : "list"

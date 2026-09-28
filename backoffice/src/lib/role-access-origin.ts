@@ -29,6 +29,7 @@ export function selectedRoleForRoleAccess({
 function isRoleAccessRole(value: string | undefined): value is AdminRole {
   return (
     value === "full_admin" ||
+    value === "2pq_admin" ||
     value === "organization_publisher" ||
     value === "individual_publisher" ||
     value === "transport_dispatcher" ||

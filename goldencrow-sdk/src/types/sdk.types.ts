@@ -15,6 +15,7 @@ export type AdminUserSex =
   "male" | "female" | "other" | "prefer_not_to_say" | string;
 export type AdminRole =
   | "full_admin"
+  | "2pq_admin"
   | "organization_publisher"
   | "individual_publisher"
   | "transport_dispatcher"

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ADMIN_ROLE_LABELS,
+  isGlobalAdminRole,
   isInstitutionManagerRole,
   type AdminContextRecord,
   type AdminRole,
@@ -88,6 +89,7 @@ const capabilityClasses: Record<CrudCapability, string> = {
 
 const roleBadgeVariants: Record<AdminRole, ComponentProps<typeof Badge>["variant"]> = {
   full_admin: "destructive",
+  "2pq_admin": "success",
   organization_publisher: "secondary",
   individual_publisher: "secondary",
   transport_dispatcher: "violet",
@@ -108,11 +110,17 @@ interface TwoPQDashboardMetrics {
 }
 
 function getRoleAccess(area: { roleAccess: RoleAccessSpec[] }, role: AdminRole) {
-  return area.roleAccess.find((entry) => entry.role === role) ?? area.roleAccess[0];
+  return (
+    area.roleAccess.find((entry) => entry.role === role) ??
+    (isGlobalAdminRole(role)
+      ? area.roleAccess.find((entry) => entry.role === "full_admin")
+      : undefined) ??
+    area.roleAccess[0]
+  );
 }
 
 function getRoleScopeSummary(adminContext: AdminContextRecord) {
-  if (adminContext.role === "full_admin") {
+  if (isGlobalAdminRole(adminContext.role)) {
     return "Global lane";
   }
 

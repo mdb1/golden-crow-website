@@ -3,6 +3,7 @@ import { DiscoverOrganizationBrowser } from "@/components/discover/organization-
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { requireDiscoverAccess } from "@/lib/discover-server";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 import type { DiscoverOrganizationsPage } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
@@ -34,8 +35,8 @@ export default async function DiscoverOrganizationsPage() {
         <DiscoverOrganizationBrowser
           initialOrganizations={page.organizations}
           initialNextCursor={page.nextCursor}
-          canCreateOrganizations={adminContext.role === "full_admin"}
-          canManageOrganizationStatus={adminContext.role === "full_admin"}
+          canCreateOrganizations={isGlobalAdminRole(adminContext.role)}
+          canManageOrganizationStatus={isGlobalAdminRole(adminContext.role)}
         />
       </HeaderUnclutterScope>
     </div>

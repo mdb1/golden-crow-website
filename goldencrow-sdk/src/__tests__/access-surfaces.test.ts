@@ -7,6 +7,20 @@ import {
 } from "../lib/access-surfaces.js";
 
 describe("access surfaces", () => {
+  it("grants 2PQ admins the same backoffice surface as full admins", () => {
+    const twoPQAdminRole = {
+      role: "2pq_admin" as const,
+      isActive: true,
+      canAccessPatientPortal: false,
+    };
+
+    expect(canAccessBackoffice(twoPQAdminRole)).toBe(true);
+    expect(canAccessPatientPortal(twoPQAdminRole)).toBe(false);
+    expect(canAccessPGFlex(twoPQAdminRole)).toBe(false);
+    expect(canAccessPublisherPortal(twoPQAdminRole)).toBe(false);
+    expect(canAccessSurface("backoffice", twoPQAdminRole)).toBe(true);
+  });
+
   it("keeps patient roles out of both surfaces by default", () => {
     const patientRole = {
       role: "patient" as const,
