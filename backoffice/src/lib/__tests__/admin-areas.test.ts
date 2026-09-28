@@ -1,9 +1,53 @@
 import {
+  canDeleteRoleRecord,
   getAssignableRoleOptionsForContext,
   getVisibleRoleRecordsForContext,
   isGlobalAdminRole,
   type RoleManagementRecord,
 } from "../admin-areas";
+
+describe("canDeleteRoleRecord", () => {
+  const target = {
+    email: "target@example.com",
+    bootstrap: false,
+  };
+
+  it("allows full admins and 2PQ admins to delete another non-bootstrap role", () => {
+    expect(
+      canDeleteRoleRecord(
+        { email: "admin@example.com", role: "full_admin" },
+        target,
+      ),
+    ).toBe(true);
+    expect(
+      canDeleteRoleRecord(
+        { email: "2pq@example.com", role: "2pq_admin" },
+        target,
+      ),
+    ).toBe(true);
+  });
+
+  it("protects self-deletion, bootstrap roles, and non-global admins", () => {
+    expect(
+      canDeleteRoleRecord(
+        { email: "target@example.com", role: "full_admin" },
+        target,
+      ),
+    ).toBe(false);
+    expect(
+      canDeleteRoleRecord(
+        { email: "admin@example.com", role: "full_admin" },
+        { ...target, bootstrap: true },
+      ),
+    ).toBe(false);
+    expect(
+      canDeleteRoleRecord(
+        { email: "doctor@example.com", role: "institution_doctor" },
+        target,
+      ),
+    ).toBe(false);
+  });
+});
 
 function roleValues(
   options: ReturnType<typeof getAssignableRoleOptionsForContext>,

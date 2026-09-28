@@ -69,6 +69,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Transport dispatchers cannot create or modify role assignments.":
     "Los transportistas no pueden crear ni modificar asignaciones de rol.",
   "Delete user": "Eliminar usuario",
+  "Delete access": "Eliminar acceso",
+  "Choose whether to remove only this role assignment or clean up the full linked account and its associated records.":
+    "Elegí si querés eliminar solamente esta asignación de rol o limpiar la cuenta vinculada completa y sus registros asociados.",
   "Delete role user?": "¿Eliminar este usuario?",
   "Role user deleted.": "Usuario eliminado.",
   "Unable to delete the role user.": "No se pudo eliminar el usuario.",

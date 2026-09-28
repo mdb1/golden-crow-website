@@ -386,6 +386,17 @@ export function isStandaloneRole(role: AdminRole) {
   return isGlobalAdminRole(role) || role === "transport_dispatcher";
 }
 
+export function canDeleteRoleRecord(
+  context: Pick<AdminContextRecord, "email" | "role">,
+  record: Pick<RoleManagementRecord, "email" | "bootstrap">,
+) {
+  return (
+    isGlobalAdminRole(context.role) &&
+    !record.bootstrap &&
+    record.email.toLowerCase() !== context.email.toLowerCase()
+  );
+}
+
 export function getVisibleRoleRecordsForContext(
   records: RoleManagementRecord[],
   context: Pick<AdminContextRecord, "role" | "isBootstrap">,

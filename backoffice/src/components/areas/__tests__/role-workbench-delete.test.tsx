@@ -70,46 +70,62 @@ function renderRoleWorkbench(
   );
 }
 
-describe("RoleWorkbench destructive user deletion", () => {
+describe("RoleWorkbench role deletion", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("lets god mode delete a role user from the detail screen", async () => {
+  it("lets a full admin delete only the role from the detail screen", async () => {
     const user = userEvent.setup();
     (sdkFetch as jest.Mock).mockResolvedValue({
-      deleted: true,
-      roleDeleted: true,
-      authDeleted: true,
+      step: "role",
+      status: "deleted",
+      deletedCount: 1,
+      message: "Deleted the role assignment.",
     });
 
     renderRoleWorkbench();
 
-    await user.click(screen.getByRole("button", { name: "Delete user" }));
-    const confirmButtons = await screen.findAllByRole("button", {
-      name: "Delete user",
-    });
-    await user.click(confirmButtons.at(-1)!);
+    await user.click(screen.getByRole("button", { name: "Delete access" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Delete role" }),
+    );
 
     await waitFor(() => {
-      expect(sdkFetch).toHaveBeenCalledWith("/roles/driver%40example.com", {
-        method: "DELETE",
-      });
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/roles/driver%40example.com/deletion/role",
+        { method: "DELETE" },
+      );
     });
+    const closeButtons = await screen.findAllByRole("button", {
+      name: "Close",
+    });
+    await user.click(closeButtons[0]!);
     expect(mockPush).toHaveBeenCalledWith("/roles");
     expect(mockRefresh).toHaveBeenCalled();
   });
 
-  it("does not expose the delete action to normal full admins", () => {
+  it("exposes the delete action to normal full admins", () => {
     renderRoleWorkbench({ isBootstrap: false });
 
-    expect(screen.queryByRole("button", { name: "Delete user" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Delete access" })).toBeTruthy();
+  });
+
+  it("exposes the delete action to 2PQ admins", () => {
+    renderRoleWorkbench({
+      email: "2pq-admin@example.com",
+      uid: "2pq-admin-uid",
+      role: "2pq_admin",
+      isBootstrap: false,
+    });
+
+    expect(screen.getByRole("button", { name: "Delete access" })).toBeTruthy();
   });
 
   it("does not expose the delete action for bootstrap records", () => {
     renderRoleWorkbench(undefined, { bootstrap: true });
 
-    expect(screen.queryByRole("button", { name: "Delete user" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete access" })).toBeNull();
   });
 });
 

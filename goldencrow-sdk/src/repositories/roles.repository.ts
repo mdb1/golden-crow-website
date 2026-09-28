@@ -1,4 +1,5 @@
 import { adminAuthFor, adminDbFor } from "../config/firebase.js";
+import type { DocumentReference } from "firebase-admin/firestore";
 
 // Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
 // downstream `adminDb.collection(...)` call below uses the named-app
@@ -36,6 +37,29 @@ const USER_ROLES_COLLECTION = "user_roles";
 const FEED_ORGANIZATIONS_COLLECTION = "feed_organizations";
 const FEED_INDIVIDUALS_COLLECTION = "feed_individuals";
 const BOOTSTRAP_TIMESTAMP = "1970-01-01T00:00:00.000Z";
+
+export const ROLE_ACCOUNT_DELETION_STEPS = [
+  "linked_entity",
+  "private_profile",
+  "public_profile",
+  "community",
+  "reports",
+  "objects",
+  "stored_files",
+  "learning",
+  "firebase_auth",
+  "role",
+] as const;
+
+export type RoleAccountDeletionStep =
+  (typeof ROLE_ACCOUNT_DELETION_STEPS)[number];
+
+export interface RoleAccountDeletionStepResult {
+  step: RoleAccountDeletionStep;
+  status: "deleted" | "not_found";
+  deletedCount: number;
+  message: string;
+}
 
 const GLOBAL_ADMIN_ASSIGNABLE_ROLES: AdminRole[] = [
   "full_admin",
@@ -305,9 +329,20 @@ export async function deleteRoleUserForContext(
   context: AdminContext,
   email: string,
 ) {
-  if (!isGlobalAdminRole(context.role) || !context.isBootstrap) {
+  const target = await getRoleDeletionTarget(context, email);
+  await target.roleRef.delete();
+
+  return {
+    deleted: true,
+    email: target.normalizedEmail,
+    roleDeleted: true,
+  };
+}
+
+async function getRoleDeletionTarget(context: AdminContext, email: string) {
+  if (!isGlobalAdminRole(context.role)) {
     throw new AdminRepositoryError(
-      "God mode is required to delete role users.",
+      "Only full admins and 2PQ admins can delete role assignments.",
       403,
     );
   }
@@ -350,28 +385,342 @@ export async function deleteRoleUserForContext(
     );
   }
 
-  const authUid = await resolveFirebaseUidForRoleUser(normalizedEmail, record);
-  let authDeleted = false;
-  if (authUid) {
-    try {
-      await adminAuthFor("mydnamap").deleteUser(authUid);
-      authDeleted = true;
-    } catch (error) {
-      if (getFirebaseAuthErrorCode(error) !== "auth/user-not-found") {
-        throw error;
+  return {
+    normalizedEmail,
+    record,
+    roleRef,
+  };
+}
+
+function deletionStepResult(
+  step: RoleAccountDeletionStep,
+  deletedCount: number,
+  deletedMessage: string,
+  notFoundMessage: string,
+): RoleAccountDeletionStepResult {
+  return deletedCount > 0
+    ? {
+        step,
+        status: "deleted",
+        deletedCount,
+        message: deletedMessage,
       }
-    }
+    : {
+        step,
+        status: "not_found",
+        deletedCount: 0,
+        message: notFoundMessage,
+      };
+}
+
+async function deleteRoleAccountDocumentRefs(refs: DocumentReference[]) {
+  const uniqueRefs = [...new Map(refs.map((ref) => [ref.path, ref])).values()];
+
+  for (let index = 0; index < uniqueRefs.length; index += 450) {
+    const batch = adminDb.batch();
+    uniqueRefs.slice(index, index + 450).forEach((ref) => batch.delete(ref));
+    await batch.commit();
   }
 
-  await roleRef.delete();
+  return uniqueRefs.length;
+}
 
+async function existingDocumentRefs(collection: string, ids: string[]) {
+  const refs = await Promise.all(
+    [...new Set(ids.filter(Boolean))].map(async (id) => {
+      const ref = adminDb.collection(collection).doc(id);
+      const snapshot = await ref.get();
+      return snapshot.exists ? ref : null;
+    }),
+  );
+
+  return refs.filter((ref) => ref !== null);
+}
+
+async function queryDocumentRefs(
+  collection: string,
+  field: string,
+  values: string[],
+) {
+  const snapshots = await Promise.all(
+    [...new Set(values.filter(Boolean))].map((value) =>
+      adminDb.collection(collection).where(field, "==", value).get(),
+    ),
+  );
+  return snapshots.flatMap((snapshot) => snapshot.docs.map((doc) => doc.ref));
+}
+
+async function resolveDeletionIdentityIds(
+  normalizedEmail: string,
+  record: UserRoleRecord,
+) {
+  const authUid = await resolveFirebaseUidForRoleUser(normalizedEmail, record);
   return {
-    deleted: true,
-    email: normalizedEmail,
-    roleDeleted: true,
-    authDeleted,
     authUid,
+    ownerIds: [
+      authUid,
+      record.patientId,
+      record.doctorId,
+      record.individualId,
+    ].filter((value): value is string => Boolean(value)),
   };
+}
+
+async function deleteLinkedPersonalEntity(
+  normalizedEmail: string,
+  record: UserRoleRecord,
+): Promise<RoleAccountDeletionStepResult> {
+  const refs = [
+    ...(await queryDocumentRefs("2pq_client", "clientEmail", [
+      normalizedEmail,
+    ])),
+    ...(await queryDocumentRefs("2pq_client", "roleEmail", [normalizedEmail])),
+  ];
+
+  if (record.patientId) {
+    refs.push(...(await existingDocumentRefs("patients", [record.patientId])));
+  } else if (record.doctorId) {
+    const linkedPatients = await adminDb
+      .collection("patients")
+      .where("doctorId", "==", record.doctorId)
+      .get();
+    if (!linkedPatients.empty) {
+      throw new AdminRepositoryError(
+        `The linked doctor still has ${linkedPatients.size} patient record(s). Reassign or delete those patients before removing the doctor entity.`,
+        409,
+      );
+    }
+    refs.push(...(await existingDocumentRefs("doctors", [record.doctorId])));
+  } else if (record.individualId) {
+    refs.push(
+      ...(await queryDocumentRefs("feed_items", "publisherIndividualId", [
+        record.individualId,
+      ])),
+      ...(await existingDocumentRefs(FEED_INDIVIDUALS_COLLECTION, [
+        record.individualId,
+      ])),
+    );
+  }
+
+  const deletedCount = await deleteRoleAccountDocumentRefs(refs);
+  return deletionStepResult(
+    "linked_entity",
+    deletedCount,
+    `Deleted ${deletedCount} linked personal or professional record(s).`,
+    record.organizationId
+      ? "No personal entity was deleted because organization publisher records are shared entities."
+      : "No linked patient, doctor, or professional individual record was available.",
+  );
+}
+
+async function deleteCommunityAccountData(uid: string | undefined) {
+  if (!uid) {
+    return deletionStepResult(
+      "community",
+      0,
+      "",
+      "No Firebase user id was available for community cleanup.",
+    );
+  }
+
+  const refs = [];
+  const communityUserRefs = await existingDocumentRefs("community_users", [
+    uid,
+  ]);
+  refs.push(...communityUserRefs);
+  for (const communityUserRef of communityUserRefs) {
+    const events = await communityUserRef.collection("events").get();
+    refs.push(...events.docs.map((doc) => doc.ref));
+  }
+
+  const posts = await adminDb
+    .collection("community_posts")
+    .where("authorId", "==", uid)
+    .get();
+  for (const post of posts.docs) {
+    const comments = await post.ref.collection("comments").get();
+    refs.push(...comments.docs.map((doc) => doc.ref), post.ref);
+  }
+
+  refs.push(
+    ...(await queryDocumentRefs("community_comments", "authorId", [uid])),
+  );
+  const nestedComments = await adminDb
+    .collectionGroup("comments")
+    .where("authorId", "==", uid)
+    .get();
+  refs.push(...nestedComments.docs.map((doc) => doc.ref));
+
+  const deletedCount = await deleteRoleAccountDocumentRefs(refs);
+  return deletionStepResult(
+    "community",
+    deletedCount,
+    `Deleted ${deletedCount} community account and content record(s).`,
+    "No community account or authored content was available.",
+  );
+}
+
+async function deleteReportAccountData(ownerIds: string[]) {
+  const refs = [
+    ...(await existingDocumentRefs("report_owners", ownerIds)),
+    ...(await queryDocumentRefs("report_codes", "owner_id", ownerIds)),
+    ...(await queryDocumentRefs(
+      "uploaded_reports",
+      "report_owner_id",
+      ownerIds,
+    )),
+    ...(await queryDocumentRefs(
+      "uploaded_reports",
+      "owner_community_user_id",
+      ownerIds,
+    )),
+  ];
+  const deletedCount = await deleteRoleAccountDocumentRefs(refs);
+  return deletionStepResult(
+    "reports",
+    deletedCount,
+    `Deleted ${deletedCount} report owner, code, or upload record(s).`,
+    "No report owner, report code, or uploaded report was available.",
+  );
+}
+
+async function deleteObjectAccountData(ownerIds: string[]) {
+  const refs = [
+    ...(await existingDocumentRefs("object_owners", ownerIds)),
+    ...(await queryDocumentRefs("object_codes", "owner_id", ownerIds)),
+    ...(await queryDocumentRefs(
+      "uploaded_objects",
+      "object_owner_id",
+      ownerIds,
+    )),
+    ...(await queryDocumentRefs(
+      "uploaded_objects",
+      "owner_community_user_id",
+      ownerIds,
+    )),
+  ];
+  const deletedCount = await deleteRoleAccountDocumentRefs(refs);
+  return deletionStepResult(
+    "objects",
+    deletedCount,
+    `Deleted ${deletedCount} object owner, code, or upload record(s).`,
+    "No object owner, object code, or uploaded object was available.",
+  );
+}
+
+export async function deleteRoleAccountStepForContext(
+  context: AdminContext,
+  email: string,
+  step: RoleAccountDeletionStep,
+): Promise<RoleAccountDeletionStepResult> {
+  const target = await getRoleDeletionTarget(context, email);
+
+  if (step === "role") {
+    await target.roleRef.delete();
+    return deletionStepResult(
+      step,
+      1,
+      "Deleted the role assignment.",
+      "The role assignment was not available.",
+    );
+  }
+
+  if (step === "linked_entity") {
+    return deleteLinkedPersonalEntity(target.normalizedEmail, target.record);
+  }
+
+  const { authUid, ownerIds } = await resolveDeletionIdentityIds(
+    target.normalizedEmail,
+    target.record,
+  );
+
+  if (step === "private_profile" || step === "public_profile") {
+    const collection =
+      step === "private_profile" ? "profiles" : "public_profiles";
+    const refs = authUid
+      ? await existingDocumentRefs(collection, [authUid])
+      : [];
+    const deletedCount = await deleteRoleAccountDocumentRefs(refs);
+    return deletionStepResult(
+      step,
+      deletedCount,
+      `Deleted the ${step === "private_profile" ? "private" : "public"} profile.`,
+      authUid
+        ? `No ${step === "private_profile" ? "private" : "public"} profile was available.`
+        : "No Firebase user id was available for profile cleanup.",
+    );
+  }
+
+  if (step === "community") {
+    return deleteCommunityAccountData(authUid);
+  }
+
+  if (step === "reports") {
+    return deleteReportAccountData(ownerIds);
+  }
+
+  if (step === "objects") {
+    return deleteObjectAccountData(ownerIds);
+  }
+
+  if (step === "stored_files") {
+    const refs = await queryDocumentRefs(
+      "file_storage",
+      "owner_community_user_id",
+      ownerIds,
+    );
+    const deletedCount = await deleteRoleAccountDocumentRefs(refs);
+    return deletionStepResult(
+      step,
+      deletedCount,
+      `Deleted ${deletedCount} stored file metadata record(s).`,
+      "No stored file metadata was available.",
+    );
+  }
+
+  if (step === "learning") {
+    const refs = authUid
+      ? await existingDocumentRefs("user_progress", [authUid])
+      : [];
+    const deletedCount = await deleteRoleAccountDocumentRefs(refs);
+    return deletionStepResult(
+      step,
+      deletedCount,
+      "Deleted the learning progress record.",
+      authUid
+        ? "No learning progress record was available."
+        : "No Firebase user id was available for learning cleanup.",
+    );
+  }
+
+  if (!authUid) {
+    return deletionStepResult(
+      "firebase_auth",
+      0,
+      "",
+      "No Firebase Auth account was available.",
+    );
+  }
+
+  try {
+    await adminAuthFor("mydnamap").deleteUser(authUid);
+    return deletionStepResult(
+      "firebase_auth",
+      1,
+      "Deleted the Firebase Auth account.",
+      "",
+    );
+  } catch (error) {
+    if (getFirebaseAuthErrorCode(error) === "auth/user-not-found") {
+      return deletionStepResult(
+        "firebase_auth",
+        0,
+        "",
+        "No Firebase Auth account was available.",
+      );
+    }
+    throw error;
+  }
 }
 
 export async function deletePublisherPortalRolesForPublisher(input: {

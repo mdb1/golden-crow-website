@@ -3,11 +3,13 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
+  deleteRoleAccountStepForContext,
   deleteRoleUserForContext,
   getUserRoleForContext,
   listTransportDispatchersForContext,
   listUserRolesForContext,
   upsertUserRoleForContext,
+  ROLE_ACCOUNT_DELETION_STEPS,
 } from "../repositories/roles.repository.js";
 
 const RoleSchema = z.enum([
@@ -122,6 +124,40 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
         );
 
         return reply.send({ role });
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  f.delete(
+    "/roles/:emailKey/deletion/:step",
+    {
+      schema: {
+        params: z.object({
+          emailKey: z.string().min(1),
+          step: z.enum(ROLE_ACCOUNT_DELETION_STEPS),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await deleteRoleAccountStepForContext(
+          request.adminContext,
+          request.params.emailKey,
+          request.params.step,
+        );
+        return reply.send(result);
       } catch (error) {
         if (isAdminRepositoryError(error)) {
           return reply.status(error.statusCode).send({ error: error.message });

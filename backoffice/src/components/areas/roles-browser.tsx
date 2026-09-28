@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
+import { RoleDeleteDialog } from "@/components/areas/role-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -277,13 +278,17 @@ export function RolesBrowser({
                 {formatDateTime(record.updatedAt) ?? t("No timestamp")}
               </div>
 
-              <div className="flex lg:justify-end">
+              <div className="flex items-center gap-2 lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/roles/${encodeURIComponent(record.email)}`}>
                     {t("Open")}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
+                <RoleDeleteDialog
+                  roleRecord={record}
+                  onFinished={() => void refetch()}
+                />
               </div>
             </div>
           ))

@@ -3,6 +3,7 @@ export {};
 type MockDocData = Record<string, unknown>;
 type MockDocumentRef = {
   id: string;
+  path: string;
   collectionName: string;
   get: jest.Mock;
   set: jest.Mock;
@@ -40,6 +41,17 @@ const mockCollection = jest.fn((collectionName: string) => ({
     })),
   }),
 }));
+const mockBatch = jest.fn(() => {
+  const refs: MockDocumentRef[] = [];
+  return {
+    delete: jest.fn((ref: MockDocumentRef) => refs.push(ref)),
+    commit: jest.fn(async () => {
+      for (const ref of refs) {
+        await ref.delete();
+      }
+    }),
+  };
+});
 
 function docKey(ref: MockDocumentRef) {
   return `${ref.collectionName}/${ref.id}`;
@@ -48,6 +60,7 @@ function docKey(ref: MockDocumentRef) {
 function makeDocRef(collectionName: string, id: string): MockDocumentRef {
   const ref: MockDocumentRef = {
     id,
+    path: `${collectionName}/${id}`,
     collectionName,
     get: jest.fn(async () => {
       const data = mockDocs.get(docKey(ref));
@@ -77,6 +90,7 @@ jest.mock("../config/firebase.js", () => ({
   })),
   adminDbFor: jest.fn(() => ({
     collection: mockCollection,
+    batch: mockBatch,
   })),
 }));
 
@@ -115,6 +129,7 @@ describe("role user deletion", () => {
     jest.resetModules();
     mockDocs.clear();
     mockCollection.mockClear();
+    mockBatch.mockClear();
     mockDeleteUser.mockReset();
     mockGetUserByEmail.mockReset();
     mockGeneratePatientTemporaryPassword.mockClear();
@@ -122,7 +137,7 @@ describe("role user deletion", () => {
     mockSendPublisherPortalInviteEmail.mockReset();
   });
 
-  it("deletes the role document and Firebase Auth account in god mode", async () => {
+  it("deletes only the role document for a full admin", async () => {
     const { deleteRoleUserForContext } =
       await import("../repositories/roles.repository");
 
@@ -136,7 +151,7 @@ describe("role user deletion", () => {
     });
 
     const result = await deleteRoleUserForContext(
-      godModeContext,
+      { ...godModeContext, isBootstrap: false },
       " DRIVER@example.com ",
     );
 
@@ -144,38 +159,181 @@ describe("role user deletion", () => {
       deleted: true,
       email: "driver@example.com",
       roleDeleted: true,
-      authDeleted: true,
-      authUid: "driver-uid",
     });
-    expect(mockDeleteUser).toHaveBeenCalledWith("driver-uid");
+    expect(mockDeleteUser).not.toHaveBeenCalled();
     expect(mockDocs.has("user_roles/driver@example.com")).toBe(false);
   });
 
-  it("resolves the Firebase Auth account by email when firebaseUid is missing", async () => {
-    const { deleteRoleUserForContext } =
+  it("deletes the Firebase Auth account only during that cleanup step", async () => {
+    const { deleteRoleAccountStepForContext } =
       await import("../repositories/roles.repository");
 
     mockDocs.set("user_roles/driver@example.com", {
       role: "transport_dispatcher",
+      firebaseUid: "driver-uid",
       isActive: true,
       displayName: "Transportista Ejemplo",
       createdAt: "2026-08-31T12:00:00.000Z",
       updatedAt: "2026-08-31T12:00:00.000Z",
     });
-    mockGetUserByEmail.mockResolvedValue({ uid: "resolved-driver-uid" });
-
-    const result = await deleteRoleUserForContext(
-      godModeContext,
+    const result = await deleteRoleAccountStepForContext(
+      { ...godModeContext, isBootstrap: false },
       "driver@example.com",
+      "firebase_auth",
     );
 
-    expect(mockGetUserByEmail).toHaveBeenCalledWith("driver@example.com");
-    expect(mockDeleteUser).toHaveBeenCalledWith("resolved-driver-uid");
-    expect(result.authUid).toBe("resolved-driver-uid");
-    expect(mockDocs.has("user_roles/driver@example.com")).toBe(false);
+    expect(mockDeleteUser).toHaveBeenCalledWith("driver-uid");
+    expect(result).toEqual({
+      step: "firebase_auth",
+      status: "deleted",
+      deletedCount: 1,
+      message: "Deleted the Firebase Auth account.",
+    });
+    expect(mockDocs.has("user_roles/driver@example.com")).toBe(true);
   });
 
-  it("rejects deletion outside god mode", async () => {
+  it("deletes the linked patient entity without removing the role early", async () => {
+    const { deleteRoleAccountStepForContext } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("user_roles/patient@example.com", {
+      role: "patient",
+      firebaseUid: "patient-uid",
+      patientId: "PAT-00001",
+      doctorId: "DOC-00001",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockDocs.set("patients/PAT-00001", {
+      email: "patient@example.com",
+      doctorId: "DOC-00001",
+    });
+    mockDocs.set("2pq_client/CLNT-00001", {
+      clientEmail: "patient@example.com",
+      roleEmail: "patient@example.com",
+    });
+
+    await expect(
+      deleteRoleAccountStepForContext(
+        { ...godModeContext, isBootstrap: false },
+        "patient@example.com",
+        "linked_entity",
+      ),
+    ).resolves.toMatchObject({
+      step: "linked_entity",
+      status: "deleted",
+      deletedCount: 2,
+    });
+    expect(mockDocs.has("patients/PAT-00001")).toBe(false);
+    expect(mockDocs.has("2pq_client/CLNT-00001")).toBe(false);
+    expect(mockDocs.has("user_roles/patient@example.com")).toBe(true);
+  });
+
+  it("deduplicates 2PQ client matches found through both email fields", async () => {
+    const { deleteRoleAccountStepForContext } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("user_roles/operator@example.com", {
+      role: "institution_operator",
+      firebaseUid: "operator-uid",
+      institutionId: "INST-00001",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockDocs.set("2pq_client/CLNT-00002", {
+      clientEmail: "operator@example.com",
+      roleEmail: "operator@example.com",
+    });
+
+    await expect(
+      deleteRoleAccountStepForContext(
+        { ...godModeContext, isBootstrap: false },
+        "operator@example.com",
+        "linked_entity",
+      ),
+    ).resolves.toMatchObject({
+      step: "linked_entity",
+      status: "deleted",
+      deletedCount: 1,
+    });
+    expect(mockDocs.has("2pq_client/CLNT-00002")).toBe(false);
+  });
+
+  it("cleans profile, ownership, upload, file, and learning records by account identity", async () => {
+    const { deleteRoleAccountStepForContext } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("user_roles/patient@example.com", {
+      role: "patient",
+      firebaseUid: "patient-uid",
+      patientId: "PAT-00001",
+      doctorId: "DOC-00001",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockDocs.set("profiles/patient-uid", { displayName: "Patient" });
+    mockDocs.set("public_profiles/patient-uid", { fullName: "Patient" });
+    mockDocs.set("report_owners/PAT-00001", { owner_name: "Patient" });
+    mockDocs.set("report_codes/RPT001", { owner_id: "PAT-00001" });
+    mockDocs.set("uploaded_reports/report-1", {
+      report_owner_id: "PAT-00001",
+      owner_community_user_id: "PAT-00001",
+    });
+    mockDocs.set("object_owners/PAT-00001", { owner_name: "Patient" });
+    mockDocs.set("object_codes/OBJ001", { owner_id: "PAT-00001" });
+    mockDocs.set("uploaded_objects/object-1", {
+      object_owner_id: "PAT-00001",
+      owner_community_user_id: "PAT-00001",
+    });
+    mockDocs.set("file_storage/file-1", {
+      owner_community_user_id: "PAT-00001",
+    });
+    mockDocs.set("user_progress/patient-uid", { completed: 3 });
+
+    const runStep = (
+      step: Parameters<typeof deleteRoleAccountStepForContext>[2],
+    ) =>
+      deleteRoleAccountStepForContext(
+        { ...godModeContext, isBootstrap: false },
+        "patient@example.com",
+        step,
+      );
+
+    await expect(runStep("private_profile")).resolves.toMatchObject({
+      status: "deleted",
+      deletedCount: 1,
+    });
+    await expect(runStep("public_profile")).resolves.toMatchObject({
+      status: "deleted",
+      deletedCount: 1,
+    });
+    await expect(runStep("reports")).resolves.toMatchObject({
+      status: "deleted",
+      deletedCount: 3,
+    });
+    await expect(runStep("objects")).resolves.toMatchObject({
+      status: "deleted",
+      deletedCount: 3,
+    });
+    await expect(runStep("stored_files")).resolves.toMatchObject({
+      status: "deleted",
+      deletedCount: 1,
+    });
+    await expect(runStep("learning")).resolves.toMatchObject({
+      status: "deleted",
+      deletedCount: 1,
+    });
+
+    expect(mockDocs.has("user_roles/patient@example.com")).toBe(true);
+    expect(
+      [...mockDocs.keys()].filter((key) => !key.startsWith("user_roles/")),
+    ).toEqual([]);
+  });
+
+  it("lets 2PQ admins delete role assignments", async () => {
     const { deleteRoleUserForContext } =
       await import("../repositories/roles.repository");
 
@@ -189,16 +347,39 @@ describe("role user deletion", () => {
 
     await expect(
       deleteRoleUserForContext(
-        { ...godModeContext, isBootstrap: false },
+        {
+          ...godModeContext,
+          email: "2pq-admin@example.com",
+          uid: "2pq-admin-uid",
+          role: "2pq_admin",
+          isBootstrap: false,
+        },
+        "driver@example.com",
+      ),
+    ).resolves.toMatchObject({ roleDeleted: true });
+
+    expect(mockDeleteUser).not.toHaveBeenCalled();
+    expect(mockDocs.has("user_roles/driver@example.com")).toBe(false);
+  });
+
+  it("rejects role deletion for non-global administrators", async () => {
+    const { deleteRoleUserForContext } =
+      await import("../repositories/roles.repository");
+
+    await expect(
+      deleteRoleUserForContext(
+        {
+          ...godModeContext,
+          role: "institution_admin",
+          isBootstrap: false,
+          institutionId: "INST-00001",
+        },
         "driver@example.com",
       ),
     ).rejects.toMatchObject({
-      message: "God mode is required to delete role users.",
+      message: "Only full admins and 2PQ admins can delete role assignments.",
       statusCode: 403,
     });
-
-    expect(mockDeleteUser).not.toHaveBeenCalled();
-    expect(mockDocs.has("user_roles/driver@example.com")).toBe(true);
   });
 
   it("rejects self-deletion and bootstrap role users", async () => {
@@ -303,6 +484,7 @@ describe("transport dispatcher role metadata", () => {
     jest.resetModules();
     mockDocs.clear();
     mockCollection.mockClear();
+    mockBatch.mockClear();
     mockDeleteUser.mockReset();
     mockGetUserByEmail.mockReset();
     mockGeneratePatientTemporaryPassword.mockClear();

@@ -3,31 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  RotateCcw,
-  Save,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { OptionSelectField } from "@/components/constrained-fields";
+import { RoleDeleteDialog } from "@/components/areas/role-delete-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogMedia,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ADMIN_ROLE_LABELS,
+  canDeleteRoleRecord,
   getAssignableRoleOptions,
   getAssignableRoleOptionsForContext,
   isGlobalAdminRole,
@@ -164,9 +148,7 @@ export function RoleWorkbench({
     ...toRoleFormState(roleRecord, defaults),
     role: initialRole,
   }));
-  const [pendingAction, setPendingAction] = useState<"save" | "delete" | null>(
-    null,
-  );
+  const [pendingAction, setPendingAction] = useState<"save" | null>(null);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const pending = pendingAction !== null;
 
@@ -195,10 +177,7 @@ export function RoleWorkbench({
         : null;
   const canDeleteRoleUser =
     mode === "edit" && roleRecord
-      ? isGlobalAdminRole(adminContext.role) &&
-        adminContext.isBootstrap &&
-        !roleRecord.bootstrap &&
-        roleRecord.email.toLowerCase() !== adminContext.email.toLowerCase()
+      ? canDeleteRoleRecord(adminContext, roleRecord)
       : false;
   const institutionOptions = institutions.map((institution) => ({
     value: institution.id,
@@ -491,34 +470,6 @@ export function RoleWorkbench({
       });
     } finally {
       setPendingAction(null);
-    }
-  }
-
-  async function handleDeleteRoleUser() {
-    if (!roleRecord || !canDeleteRoleUser || pending) {
-      return;
-    }
-
-    setPendingAction("delete");
-
-    try {
-      await sdkFetch(`/roles/${encodeURIComponent(roleRecord.email)}`, {
-        method: "DELETE",
-      });
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message: t("Role user deleted."),
-      });
-      router.push("/roles");
-      router.refresh();
-    } catch {
-      setPendingAction(null);
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: t("Unable to delete the role user."),
-      });
     }
   }
 
@@ -992,43 +943,23 @@ export function RoleWorkbench({
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 {t(
-                  "This deletes the role assignment and the Firebase Auth user if one exists. This cannot be undone.",
+                  "Choose whether to remove only this role assignment or clean up the full linked account and its associated records.",
                 )}
               </p>
             </div>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <RoleDeleteDialog
+              roleRecord={roleRecord!}
+              onFinished={() => {
+                router.push("/roles");
+                router.refresh();
+              }}
+              trigger={
                 <Button variant="destructive" size="sm" disabled={pending}>
                   <Trash2 className="h-3.5 w-3.5" />
-                  {t("Delete user")}
+                  {t("Delete access")}
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogMedia className="bg-destructive/12 text-destructive">
-                    <AlertTriangle className="h-5 w-5" />
-                  </AlertDialogMedia>
-                  <AlertDialogTitle>{t("Delete role user?")}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t(
-                      "This deletes the role assignment and the Firebase Auth user if one exists. This cannot be undone.",
-                    )}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
-                  <AlertDialogAction
-                    variant="destructive"
-                    disabled={pendingAction === "delete"}
-                    onClick={() => void handleDeleteRoleUser()}
-                  >
-                    {pendingAction === "delete"
-                      ? t("Deleting...")
-                      : t("Delete user")}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+            />
           </div>
         </section>
       ) : null}

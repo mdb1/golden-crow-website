@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AdminContextProvider } from "@/components/admin-context-provider";
@@ -73,7 +73,7 @@ const roles: RoleManagementRecord[] = [
   },
 ];
 
-function renderRolesBrowser() {
+function renderRolesBrowser(contextOverride?: Partial<AdminContextRecord>) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
@@ -82,7 +82,7 @@ function renderRolesBrowser() {
   return render(
     <QueryClientProvider client={queryClient}>
       <AppLanguageProvider initialLanguage="en">
-        <AdminContextProvider value={context}>
+        <AdminContextProvider value={{ ...context, ...contextOverride }}>
           <RolesBrowser initialRoles={roles} />
         </AdminContextProvider>
       </AppLanguageProvider>
@@ -129,5 +129,39 @@ describe("RolesBrowser access surfaces", () => {
     expect(screen.getByText("PGFlex access")).toBeTruthy();
     expect(screen.getByText("Priority")).toBeTruthy();
     expect(screen.getByText("driver-uid")).toBeTruthy();
+  });
+
+  it("shows the trash action next to Open for full admins and 2PQ admins", () => {
+    const { unmount } = renderRolesBrowser();
+    const fullAdminRow = screen
+      .getByText("operator@example.com")
+      .closest("[class*='grid-cols']");
+
+    expect(fullAdminRow).toBeTruthy();
+    expect(
+      within(fullAdminRow as HTMLElement).getByRole("link", { name: /Open/ }),
+    ).toBeTruthy();
+    expect(
+      within(fullAdminRow as HTMLElement).getByRole("button", {
+        name: "Delete role",
+      }),
+    ).toBeTruthy();
+
+    unmount();
+    renderRolesBrowser({
+      email: "2pq-admin@example.com",
+      uid: "2pq-admin-uid",
+      role: "2pq_admin",
+      isBootstrap: false,
+    });
+    const twoPQAdminRow = screen
+      .getByText("operator@example.com")
+      .closest("[class*='grid-cols']");
+
+    expect(
+      within(twoPQAdminRow as HTMLElement).getByRole("button", {
+        name: "Delete role",
+      }),
+    ).toBeTruthy();
   });
 });
