@@ -6,6 +6,11 @@ import { adminDbFor } from "../config/firebase.js";
 // Firestore handle for "mydnamap" (no default-app slot is touched).
 const adminDb = adminDbFor("mydnamap");
 import type { DnaReport, SourceKey } from "../types/sdk.types.js";
+import {
+  TWO_PQ_REPORT_OWNER_EMAIL,
+  TWO_PQ_REPORT_OWNER_ID,
+  TWO_PQ_REPORT_OWNER_NAME,
+} from "../lib/two-pq-report-owner.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 
 interface ReportCodeDoc {
@@ -29,6 +34,11 @@ interface UploadedReportDoc {
   upload_version_count?: unknown;
   date_created?: unknown;
   date_modified?: unknown;
+}
+
+interface ReportOwnerDoc {
+  owner_name?: string | null;
+  owner_contact_email?: string | null;
 }
 
 interface StoredFileDoc {
@@ -156,8 +166,6 @@ function resolveLinkedReportCode(storedFile?: StoredFileDoc) {
 function validatePublishAsReportCodeInputs(input: {
   fileId: string;
   reportCode: string;
-  ownerId: string;
-  ownerEmail: string;
 }) {
   const fileId = normalizeString(input.fileId);
   if (!fileId) {
@@ -172,21 +180,9 @@ function validatePublishAsReportCodeInputs(input: {
     );
   }
 
-  const ownerId = normalizeString(input.ownerId);
-  if (!ownerId) {
-    throw new AdminRepositoryError("Report owner id is required.", 400);
-  }
-
-  const ownerEmail = normalizeString(input.ownerEmail)?.toLowerCase();
-  if (!ownerEmail) {
-    throw new AdminRepositoryError("Report owner email is required.", 400);
-  }
-
   return {
     fileId,
     reportCode,
-    ownerId,
-    ownerEmail,
   };
 }
 
@@ -197,8 +193,14 @@ function buildUploadedReportPayload(options: {
   reportCode: string;
   ownerId: string;
   ownerEmail: string;
+  ownerName: string;
+  preserveExistingOwnerFields: boolean;
 }) {
   const existingData = options.existingData ?? {};
+  const existingOwnerField = (value: unknown, fallback: string) =>
+    options.preserveExistingOwnerFields
+      ? normalizeString(value) ?? fallback
+      : fallback;
 
   return {
     file_name: options.fileName,
@@ -206,15 +208,29 @@ function buildUploadedReportPayload(options: {
     linked_file_id: options.fileId,
     upload_version_count: normalizeUploadVersionCount(existingData.upload_version_count),
     provider_format: "2pq",
-    provider_name: options.ownerEmail,
+    provider_name: options.preserveExistingOwnerFields
+      ? normalizeString(existingData.provider_name) ?? TWO_PQ_REPORT_OWNER_NAME
+      : TWO_PQ_REPORT_OWNER_NAME,
     tracking_progress_status:
       normalizeString(existingData.tracking_progress_status) ?? "document_ready",
     report_code: options.reportCode,
-    report_owner_id: options.ownerId,
-    owner_name: options.ownerEmail,
-    owner_email: options.ownerEmail,
-    owner_community_user_id: options.ownerId,
-    owner_public_profile_id: options.ownerId,
+    report_owner_id: existingOwnerField(
+      existingData.report_owner_id,
+      options.ownerId,
+    ),
+    owner_name: existingOwnerField(existingData.owner_name, options.ownerName),
+    owner_email: existingOwnerField(
+      existingData.owner_email,
+      options.ownerEmail,
+    ),
+    owner_community_user_id: existingOwnerField(
+      existingData.owner_community_user_id,
+      options.ownerId,
+    ),
+    owner_public_profile_id: existingOwnerField(
+      existingData.owner_public_profile_id,
+      options.ownerId,
+    ),
     date_created: existingData.date_created ?? FieldValue.serverTimestamp(),
     date_modified: FieldValue.serverTimestamp(),
   } satisfies UploadedReportDoc;
@@ -223,13 +239,28 @@ function buildUploadedReportPayload(options: {
 function toDnaReport(
   reportId: string,
   reportCode: ReportCodeDoc,
-  uploadedReport?: UploadedReportDoc
+  uploadedReport?: UploadedReportDoc,
+  reportOwner?: ReportOwnerDoc,
 ): DnaReport {
+  const ownerId = resolveReportOwnerId(reportCode, uploadedReport);
+  const ownerName =
+    ownerId === TWO_PQ_REPORT_OWNER_ID
+      ? TWO_PQ_REPORT_OWNER_NAME
+      : normalizeString(reportOwner?.owner_name) ??
+        normalizeString(uploadedReport?.owner_name) ??
+        null;
+  const ownerEmail =
+    ownerId === TWO_PQ_REPORT_OWNER_ID
+      ? TWO_PQ_REPORT_OWNER_EMAIL
+      : normalizeString(reportOwner?.owner_contact_email)?.toLowerCase() ??
+        normalizeString(uploadedReport?.owner_email)?.toLowerCase() ??
+        null;
+
   return {
     id: reportId,
     code: normalizeString(uploadedReport?.report_code) ?? reportId,
     source: normalizeSource(uploadedReport),
-    userId: resolveReportOwnerId(reportCode, uploadedReport),
+    userId: ownerId,
     downloadUrl: uploadedReport?.download_url ?? null,
     createdAt:
       normalizeDateValue(uploadedReport?.date_modified) ??
@@ -240,8 +271,8 @@ function toDnaReport(
     providerFormat: normalizeString(uploadedReport?.provider_format) ?? null,
     providerName: normalizeString(uploadedReport?.provider_name) ?? null,
     trackingStatus: normalizeString(uploadedReport?.tracking_progress_status) ?? null,
-    ownerName: normalizeString(uploadedReport?.owner_name) ?? null,
-    ownerEmail: normalizeString(uploadedReport?.owner_email) ?? null,
+    ownerName,
+    ownerEmail,
     ownerCommunityUserId: normalizeString(uploadedReport?.owner_community_user_id) ?? null,
     ownerPublicProfileId: normalizeString(uploadedReport?.owner_public_profile_id) ?? null,
     uploadVersionCount: normalizeUploadVersionCount(uploadedReport?.upload_version_count),
@@ -372,8 +403,15 @@ export async function getReportById(reportId: string): Promise<DnaReport | null>
     : null;
   const uploadedReport =
     uploadedReportSnap?.exists ? (uploadedReportSnap.data() as UploadedReportDoc) : undefined;
+  const ownerId = resolveReportOwnerId(reportCode, uploadedReport);
+  const reportOwnerSnap = ownerId
+    ? await adminDb.collection("report_owners").doc(ownerId).get()
+    : null;
+  const reportOwner = reportOwnerSnap?.exists
+    ? (reportOwnerSnap.data() as ReportOwnerDoc)
+    : undefined;
 
-  return toDnaReport(reportCodeSnap.id, reportCode, uploadedReport);
+  return toDnaReport(reportCodeSnap.id, reportCode, uploadedReport, reportOwner);
 }
 
 /**
@@ -430,20 +468,20 @@ export async function deleteReport(
 export async function publishStoredFileAsReportCode(input: {
   fileId: string;
   reportCode: string;
-  ownerId: string;
-  ownerEmail: string;
 }): Promise<{
   reportCode: string;
   uploadedReportId: string;
   fileId: string;
   created: boolean;
+  ownerId: string;
+  ownerEmail: string;
+  preservedExistingOwner: boolean;
 }> {
   const normalizedInput = validatePublishAsReportCodeInputs(input);
   const timestamp = new Date().toISOString();
 
   const fileRef = adminDb.collection("file_storage").doc(normalizedInput.fileId);
   const reportCodeRef = adminDb.collection("report_codes").doc(normalizedInput.reportCode);
-  const communityUserRef = adminDb.collection("community_users").doc(normalizedInput.ownerId);
   const uploadedReportsCollection = adminDb.collection("uploaded_reports");
 
   return adminDb.runTransaction(async (transaction) => {
@@ -485,12 +523,6 @@ export async function publishStoredFileAsReportCode(input: {
       ? (reportCodeSnapshot.data() as ReportCodeDoc)
       : null;
     const existingOwnerId = normalizeString(existingReportCode?.owner_id);
-    if (existingOwnerId && existingOwnerId !== normalizedInput.ownerId) {
-      throw new AdminRepositoryError(
-        `Report code ${normalizedInput.reportCode} already belongs to another owner.`,
-        409
-      );
-    }
 
     let uploadedReportRef = uploadedReportsCollection.doc();
     let uploadedReportData: UploadedReportDoc | undefined;
@@ -511,20 +543,34 @@ export async function publishStoredFileAsReportCode(input: {
           );
         }
 
-        const uploadedOwnerId =
-          normalizeString(uploadedReportData.report_owner_id) ??
-          normalizeString(uploadedReportData.owner_community_user_id) ??
-          normalizeString(uploadedReportData.owner_public_profile_id);
-        if (uploadedOwnerId && uploadedOwnerId !== normalizedInput.ownerId) {
-          throw new AdminRepositoryError(
-            `Uploaded report for ${normalizedInput.reportCode} belongs to another owner.`,
-            409
-          );
-        }
-
         created = false;
       }
     }
+
+    const uploadedOwnerId =
+      normalizeString(uploadedReportData?.report_owner_id) ??
+      normalizeString(uploadedReportData?.owner_community_user_id) ??
+      normalizeString(uploadedReportData?.owner_public_profile_id);
+    const ownerId = existingOwnerId ?? uploadedOwnerId ?? TWO_PQ_REPORT_OWNER_ID;
+    const reportOwnerRef = adminDb.collection("report_owners").doc(ownerId);
+    const communityUserRef = adminDb.collection("community_users").doc(ownerId);
+    const [reportOwnerSnapshot, communityUserSnapshot] = await Promise.all([
+      transaction.get(reportOwnerRef),
+      transaction.get(communityUserRef),
+    ]);
+    const reportOwnerData = reportOwnerSnapshot.data() ?? {};
+    const ownerEmail =
+      ownerId === TWO_PQ_REPORT_OWNER_ID
+        ? TWO_PQ_REPORT_OWNER_EMAIL
+        : normalizeString(uploadedReportData?.owner_email)?.toLowerCase() ??
+          normalizeString(reportOwnerData.owner_contact_email)?.toLowerCase() ??
+          "";
+    const ownerName =
+      ownerId === TWO_PQ_REPORT_OWNER_ID
+        ? TWO_PQ_REPORT_OWNER_NAME
+        : normalizeString(uploadedReportData?.owner_name) ??
+          normalizeString(reportOwnerData.owner_name) ??
+          (ownerEmail || ownerId);
 
     const fileName =
       normalizeString(storedFile.file_name) ?? normalizedInput.reportCode;
@@ -533,16 +579,19 @@ export async function publishStoredFileAsReportCode(input: {
       fileId: normalizedInput.fileId,
       fileName,
       reportCode: normalizedInput.reportCode,
-      ownerId: normalizedInput.ownerId,
-      ownerEmail: normalizedInput.ownerEmail,
+      ownerId,
+      ownerEmail,
+      ownerName,
+      preserveExistingOwnerFields:
+        ownerId !== TWO_PQ_REPORT_OWNER_ID &&
+        Boolean(existingOwnerId || uploadedOwnerId),
     });
-    const communityUserSnapshot = await transaction.get(communityUserRef);
 
     transaction.set(uploadedReportRef, uploadedReportPayload, { merge: false });
     transaction.set(
       reportCodeRef,
       {
-        owner_id: normalizedInput.ownerId,
+        owner_id: ownerId,
         uploaded_report_id: uploadedReportRef.id,
       },
       { merge: false }
@@ -569,6 +618,9 @@ export async function publishStoredFileAsReportCode(input: {
       uploadedReportId: uploadedReportRef.id,
       fileId: normalizedInput.fileId,
       created,
+      ownerId,
+      ownerEmail,
+      preservedExistingOwner: Boolean(existingOwnerId || uploadedOwnerId),
     };
   });
 }

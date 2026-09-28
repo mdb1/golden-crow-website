@@ -1,6 +1,11 @@
 import { FieldValue, type Transaction } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import { AdminRepositoryError } from "./admin-errors.js";
+import {
+  TWO_PQ_REPORT_OWNER_EMAIL,
+  TWO_PQ_REPORT_OWNER_ID,
+  TWO_PQ_REPORT_OWNER_NAME,
+} from "../lib/two-pq-report-owner.js";
 
 const adminDb = adminDbFor("mydnamap");
 
@@ -728,11 +733,11 @@ function uploadedReportPayload(
     provider_name: normalizeString(input.providerName) ?? "aws-s3",
     tracking_progress_status: "document_ready",
     report_code: reportCode,
-    report_owner_id: patient.id,
-    owner_name: patient.fullName,
-    owner_email: patient.email,
-    owner_community_user_id: patient.id,
-    owner_public_profile_id: patient.id,
+    report_owner_id: TWO_PQ_REPORT_OWNER_ID,
+    owner_name: TWO_PQ_REPORT_OWNER_NAME,
+    owner_email: TWO_PQ_REPORT_OWNER_EMAIL,
+    owner_community_user_id: TWO_PQ_REPORT_OWNER_ID,
+    owner_public_profile_id: TWO_PQ_REPORT_OWNER_ID,
     patient_id: patient.id,
     institution_id: patient.institutionId,
     doctor_id: patient.doctorId,
@@ -750,9 +755,9 @@ function uploadedReportPayload(
   });
 }
 
-function reportCodePayload(patient: ReportingPatientRecord, reportId: string) {
+function reportCodePayload(reportId: string) {
   return {
-    owner_id: patient.id,
+    owner_id: TWO_PQ_REPORT_OWNER_ID,
     uploaded_report_id: reportId,
     source: "aws_s3",
     updated_at: FieldValue.serverTimestamp(),
@@ -846,7 +851,7 @@ export async function recordUploadedReportNotification(
       ),
       { merge: true },
     );
-    transaction.set(reportCodeRef, reportCodePayload(patient, reportId), {
+    transaction.set(reportCodeRef, reportCodePayload(reportId), {
       merge: true,
     });
     if (twoPQCaseRef) {

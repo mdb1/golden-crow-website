@@ -1,5 +1,6 @@
 import {
   DocumentReference,
+  FieldPath,
   GeoPoint,
   Query,
   Timestamp,
@@ -11,10 +12,15 @@ import { adminDbFor } from "../config/firebase.js";
 // Firestore handle for "mydnamap" (no default-app slot is touched).
 const adminDb = adminDbFor("mydnamap");
 import type {
+  AdminContext,
   ModerationCollectionKey,
   ModerationDocumentRecord,
   ModerationSubcollectionKey,
 } from "../types/sdk.types.js";
+import {
+  canViewReportOwnerDocument,
+  TWO_PQ_REPORT_OWNER_ID,
+} from "../lib/two-pq-report-owner.js";
 
 type CollectionConfig = {
   path: ModerationCollectionKey;
@@ -324,6 +330,70 @@ export async function listModerationDocuments(
 
   return snapshot.docs.map((doc) =>
     toRecord(config.path, `${config.path}/${doc.id}`, doc.id, doc.data())
+  );
+}
+
+export async function listReportOwnerDocumentsForContext(
+  context: AdminContext,
+  options: { cursor?: string; limit?: number } = {},
+): Promise<{
+  documents: ModerationDocumentRecord[];
+  nextCursor: string | null;
+}> {
+  if (context.role !== "full_admin") {
+    const snapshot = await adminDb
+      .collection("report_owners")
+      .doc(TWO_PQ_REPORT_OWNER_ID)
+      .get();
+    return {
+      documents: snapshot.exists
+        ? [
+            toRecord(
+              "report_owners",
+              `report_owners/${snapshot.id}`,
+              snapshot.id,
+              snapshot.data() ?? {},
+            ),
+          ]
+        : [],
+      nextCursor: null,
+    };
+  }
+
+  const pageSize = Math.min(50, Math.max(1, Math.trunc(options.limit ?? 20)));
+  let query = adminDb
+    .collection("report_owners")
+    .orderBy(FieldPath.documentId(), "asc");
+  if (options.cursor) {
+    query = query.startAfter(options.cursor);
+  }
+  const snapshot = await query.limit(pageSize + 1).get();
+  const pageDocs = snapshot.docs.slice(0, pageSize);
+
+  return {
+    documents: pageDocs.map((doc) =>
+      toRecord(
+        "report_owners",
+        `report_owners/${doc.id}`,
+        doc.id,
+        doc.data(),
+      ),
+    ),
+    nextCursor:
+      snapshot.docs.length > pageSize
+        ? (pageDocs[pageDocs.length - 1]?.id ?? null)
+        : null,
+  };
+}
+
+export function assertCanAccessReportOwnerDocument(
+  context: AdminContext,
+  collectionKey: ModerationCollectionKey,
+  documentId: string,
+) {
+  return (
+    collectionKey !== "report_owners" ||
+    canViewReportOwnerDocument(context, documentId)
   );
 }
 

@@ -87,6 +87,7 @@ import {
   translateTwoPQAreaConfig,
 } from "@/lib/two-pq-areas";
 import { appText } from "@/lib/language";
+import { resolveReportCodePublishingPreflight } from "@/lib/two-pq-report-publishing";
 import {
   Table,
   TableBody,
@@ -244,6 +245,9 @@ type PublishReportCodeResult = {
   uploadedReportId: string;
   fileId: string;
   created: boolean;
+  ownerId: string;
+  ownerEmail: string;
+  preservedExistingOwner: boolean;
 };
 const MULTI_SAMPLING_EDITABLE_FIELD_SET =
   new Set<MultiSamplingEditableFieldKey>(MULTI_SAMPLING_EDITABLE_FIELD_KEYS);
@@ -1640,34 +1644,33 @@ export function TwoPQRecordWorkbench({
     hasFileStorageAccess &&
     storedFileDocumentQuery.isSuccess &&
     !storedFileDocument;
-  const hasStoredFileReportCodeConflict =
-    Boolean(storedFileLinkedReportCode) &&
-    storedFileLinkedReportCode !== expectedCaseLabelFromThreeLetterCode;
-  const hasReportCodeFileConflict =
-    Boolean(reportCodeLinkedFileId) && reportCodeLinkedFileId !== storedFileId;
   const reportCodeOwnerId = reportCodeStatus?.userId?.trim() ?? "";
-  const hasReportCodeOwnershipConflict =
-    Boolean(reportCodeOwnerId) && reportCodeOwnerId !== adminContext.uid;
-  const reportCodePublishConflictMessage = hasStoredFileReportCodeConflict
-    ? `This stored file is already linked to report code ${storedFileLinkedReportCode}.`
-    : hasReportCodeFileConflict
-      ? `Report code ${expectedCaseLabelFromThreeLetterCode} already points to stored file ${reportCodeLinkedFileId}.`
-      : hasReportCodeOwnershipConflict
-        ? `Report code ${expectedCaseLabelFromThreeLetterCode} already belongs to another owner (${reportCodeOwnerId}).`
-        : null;
-  const reportCodePublishConflictResolution = hasStoredFileReportCodeConflict
-    ? `Inspect report code ${storedFileLinkedReportCode} and correct the stored-file linkage before publishing a different code.`
-    : hasReportCodeFileConflict
-      ? `Inspect report code ${expectedCaseLabelFromThreeLetterCode} and stored file ${reportCodeLinkedFileId}; this screen will not repoint an existing code automatically.`
-      : hasReportCodeOwnershipConflict
-        ? `Open report code ${expectedCaseLabelFromThreeLetterCode} and resolve its owner before publishing it as the signed-in admin.`
-        : null;
-  const reportCodePublishConflictLog = reportCodePublishConflictMessage
+  const reportCodePublishingPreflight = resolveReportCodePublishingPreflight({
+    expectedReportCode: expectedCaseLabelFromThreeLetterCode,
+    storedFileId,
+    storedFileLinkedReportCode,
+    reportCodeLinkedFileId,
+    existingOwnerId: reportCodeOwnerId,
+    existingOwnerEmail: reportCodeStatus?.ownerEmail,
+    existingOwnerName: reportCodeStatus?.ownerName,
+  });
+  const reportCodePublishConflictMessage =
+    reportCodePublishingPreflight.blockingConflictMessage;
+  const reportCodePublishConflictResolution =
+    reportCodePublishingPreflight.blockingConflictResolution;
+  const reportCodePublishWarningMessage =
+    reportCodePublishingPreflight.ownerWarningMessage;
+  const reportCodePublishPreflightLog =
+    reportCodePublishConflictMessage || reportCodePublishWarningMessage
     ? [
         "Report-code publishing preflight",
         "",
-        "Result: Conflict",
-        "Decision: Publishing was blocked locally before the POST request because an existing linkage cannot be overwritten safely.",
+        reportCodePublishConflictMessage
+          ? "Result: Conflict"
+          : "Result: Warning",
+        reportCodePublishConflictMessage
+          ? "Decision: Publishing was blocked locally before the POST request because an existing linkage cannot be overwritten safely."
+          : "Decision: Publishing remains available. The existing report owner will be preserved while the report content and linkage metadata are updated.",
         "",
         `Case: ${detail?.record.id ?? "<unknown>"}`,
         `Derived report code: ${expectedCaseLabelFromThreeLetterCode || "<missing>"}`,
@@ -1683,11 +1686,15 @@ export function TwoPQRecordWorkbench({
         `Report code linked stored file: ${reportCodeLinkedFileId || "<none>"}`,
         `Report code owner: ${reportCodeOwnerId || "<none>"}`,
         "",
-        `Conflict reason: ${reportCodePublishConflictMessage}`,
-        `Suggested resolution: ${reportCodePublishConflictResolution}`,
+        reportCodePublishConflictMessage
+          ? `Conflict reason: ${reportCodePublishConflictMessage}`
+          : `Warning: ${reportCodePublishWarningMessage}`,
+        reportCodePublishConflictMessage
+          ? `Suggested resolution: ${reportCodePublishConflictResolution}`
+          : "Owner handling: Keep the existing owner unchanged. No owner reassignment is required.",
         "",
-        "Blocked request: POST /reports/publish-from-file-storage",
-        `Blocked request body:\n${JSON.stringify(
+        `${reportCodePublishConflictMessage ? "Blocked" : "Planned"} request: POST /reports/publish-from-file-storage`,
+        `Request body:\n${JSON.stringify(
           {
             fileId: storedFileId,
             reportCode: expectedCaseLabelFromThreeLetterCode,
@@ -1701,8 +1708,7 @@ export function TwoPQRecordWorkbench({
     storedFileDocumentQuery.isLoading || reportCodeStatusQuery.isLoading;
   const isPublishedAsReportCode =
     Boolean(reportCodeStatus) &&
-    reportCodeLinkedFileId === storedFileId &&
-    !hasReportCodeOwnershipConflict;
+    reportCodeLinkedFileId === storedFileId;
   const canPublishAsReportCode =
     canOpenPublishReportCodeModal &&
     hasFileStorageAccess &&
@@ -1712,8 +1718,7 @@ export function TwoPQRecordWorkbench({
     !isReportCodeStatusLoading &&
     !storedFileDocumentQuery.isError &&
     !reportCodeStatusQuery.isError &&
-    !reportCodePublishConflictMessage &&
-    !isPublishedAsReportCode;
+    !reportCodePublishConflictMessage;
   const formattedCaseLastUpdatedDate =
     formatDateTimeWithSeconds(caseLastUpdatedDate) ?? t("Not available");
   const formattedStoredFileLastModifiedDate = formatDateTimeWithSeconds(
@@ -1936,17 +1941,21 @@ export function TwoPQRecordWorkbench({
     setIsErrorLogOpen(true);
   }
 
-  function openReportCodeConflictLog() {
-    if (!reportCodePublishConflictLog) {
+  function openReportCodePreflightLog() {
+    if (!reportCodePublishPreflightLog) {
       return;
     }
 
     setLatestErrorLog({
-      title: t("Report code conflict log"),
-      description: t(
-        "The publish checks found an existing linkage that cannot be overwritten safely.",
-      ),
-      details: reportCodePublishConflictLog,
+      title: t("Report code preflight log"),
+      description: reportCodePublishConflictMessage
+        ? t(
+            "The publish checks found an existing linkage that cannot be overwritten safely.",
+          )
+        : t(
+            "The publish checks found an existing owner that will remain unchanged.",
+          ),
+      details: reportCodePublishPreflightLog,
     });
     setCopiedErrorLog(false);
     setIsErrorLogOpen(true);
@@ -2424,8 +2433,8 @@ export function TwoPQRecordWorkbench({
       pushToast(
         "success",
         response.created
-          ? `Report code ${response.reportCode} is now linked to the stored file.`
-          : `Report code ${response.reportCode} was synchronized to the stored file.`,
+          ? `Report code ${response.reportCode} is now linked to the stored file with owner ${response.ownerEmail || response.ownerId}.`
+          : `Report code ${response.reportCode} was synchronized without changing its owner.`,
       );
       await Promise.all([
         storedFileDocumentQuery.refetch(),
@@ -4070,7 +4079,9 @@ export function TwoPQRecordWorkbench({
               <span className="font-mono">
                 {expectedCaseLabelFromThreeLetterCode}
               </span>{" "}
-              {t("and will use the signed-in admin as the report owner.")}
+              {t(
+                "and will use the fixed 2PQ publisher as owner for new reports while preserving the owner of existing reports.",
+              )}
             </DialogDescription>
             <Button
               type="button"
@@ -4122,11 +4133,18 @@ export function TwoPQRecordWorkbench({
                   {t("Report owner")}
                 </p>
                 <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
-                  {adminContext.email}
+                  {reportCodePublishingPreflight.ownerName}
+                </p>
+                <p className="mt-1 font-mono text-xs text-indigo-950/72 dark:text-indigo-50/72">
+                  {reportCodePublishingPreflight.ownerEmail || t("Email unavailable")}
+                  {" · "}
+                  {reportCodePublishingPreflight.ownerId}
                 </p>
                 <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
                   {t(
-                    "The current admin user will be written into the report-code ownership fields and the uploaded-report owner metadata.",
+                    reportCodePublishingPreflight.preservesExistingOwner
+                      ? "The existing report owner will remain unchanged during this update."
+                      : "New 2PQ reports always use the fixed 2PQ publisher account as owner.",
                   )}
                 </p>
               </div>
@@ -4139,19 +4157,21 @@ export function TwoPQRecordWorkbench({
                     ? t("The stored file document can no longer be found.")
                     : isReportCodeStatusLoading
                       ? t("Checking the current report-code linkage...")
-                      : isPublishedAsReportCode
-                        ? t(
-                            "This report code already resolves to the current stored file.",
-                          )
-                        : reportCodePublishConflictMessage
-                          ? reportCodePublishConflictMessage
-                          : reportCodeStatus
+                      : reportCodePublishConflictMessage
+                        ? reportCodePublishConflictMessage
+                        : reportCodePublishWarningMessage
+                          ? reportCodePublishWarningMessage
+                          : isPublishedAsReportCode
                             ? t(
-                                "An existing report record will be synchronized to this stored file.",
+                                "This report code already resolves to the current stored file.",
                               )
-                            : t(
-                                "A fresh report code and uploaded-report link will be created.",
-                              )}
+                            : reportCodeStatus
+                              ? t(
+                                  "An existing report record will be synchronized to this stored file.",
+                                )
+                              : t(
+                                  "A fresh report code and uploaded-report link will be created.",
+                                )}
                 </p>
                 <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
                   {t("linked report on file_storage:")}{" "}
@@ -4162,7 +4182,9 @@ export function TwoPQRecordWorkbench({
               </div>
             </div>
 
-            {reportCodePublishConflictMessage || isStoredFileDocumentMissing ? (
+            {reportCodePublishConflictMessage ||
+            reportCodePublishWarningMessage ||
+            isStoredFileDocumentMissing ? (
               <div className="rounded-[1.25rem] border border-amber-300/90 bg-amber-50/90 px-4 py-4 text-sm text-amber-950 shadow-[0_10px_22px_rgba(251,191,36,0.16)] dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
@@ -4171,7 +4193,8 @@ export function TwoPQRecordWorkbench({
                       ? t(
                           "The case points to a stored_file_id that no longer exists, so report-code publishing is blocked until the file is republished.",
                         )
-                      : reportCodePublishConflictMessage}
+                      : reportCodePublishConflictMessage ??
+                        reportCodePublishWarningMessage}
                   </p>
                 </div>
               </div>
@@ -4198,7 +4221,7 @@ export function TwoPQRecordWorkbench({
               ) : (
                 <Link2 className="h-4 w-4" />
               )}
-              {t("Publish")}
+              {t(reportCodeStatus ? "Update report code" : "Publish")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -6788,6 +6811,7 @@ export function TwoPQRecordWorkbench({
                         variant="outline"
                         className={
                           reportCodePublishConflictMessage ||
+                          reportCodePublishWarningMessage ||
                           isStoredFileDocumentMissing
                             ? "border-amber-300 bg-amber-50/90 text-amber-950 dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50"
                             : "border-indigo-200 bg-white/72 text-indigo-950 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50"
@@ -6799,11 +6823,13 @@ export function TwoPQRecordWorkbench({
                             ? t("Missing file")
                             : isReportCodeStatusLoading
                               ? t("Checking")
-                              : isPublishedAsReportCode
-                                ? t("Published")
-                                : reportCodePublishConflictMessage
+                              : reportCodePublishConflictMessage
                                   ? t("Conflict")
-                                  : t("Not published")}
+                                  : reportCodePublishWarningMessage
+                                    ? t("Owner preserved")
+                                    : isPublishedAsReportCode
+                                      ? t("Published")
+                                      : t("Not published")}
                       </Badge>
                       <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200/80 bg-white/72 text-indigo-950 transition-transform duration-200 group-hover:bg-white/90 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50 dark:group-hover:bg-indigo-400/16">
                         {isReportCodeSectionExpanded ? (
@@ -6816,17 +6842,18 @@ export function TwoPQRecordWorkbench({
                     <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/74">
                       {t("Promote the current")} <code>file_storage</code>{" "}
                       {t(
-                        "snapshot into a reusable 2PQ report code using the current signed-in admin as the report owner. The report code for this case is derived from the three-letter code as",
+                        "snapshot into a reusable 2PQ report code. New reports use the fixed 2PQ publisher account, and updates preserve the existing report owner. The report code for this case is derived from the three-letter code as",
                       )}{" "}
                       <code>{expectedCaseLabelFromThreeLetterCode}</code>.
                     </p>
                   </button>
-                  {reportCodePublishConflictMessage ? (
+                  {reportCodePublishConflictMessage ||
+                  reportCodePublishWarningMessage ? (
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={openReportCodeConflictLog}
+                      onClick={openReportCodePreflightLog}
                       className="h-9 shrink-0 border-amber-300/90 bg-white/90 px-3 text-amber-950 hover:bg-amber-100 dark:border-amber-300/30 dark:bg-amber-950/30 dark:text-amber-50 dark:hover:bg-amber-900/30"
                     >
                       <ScrollText className="h-4 w-4" />
@@ -6877,7 +6904,7 @@ export function TwoPQRecordWorkbench({
                     className={FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME}
                   >
                     <Link2 className="h-3.5 w-3.5" />
-                    {t("Publish as report code")}
+                    {t(reportCodeStatus ? "Update report code" : "Publish as report code")}
                   </Button>
                 </div>
               </div>
@@ -6904,11 +6931,19 @@ export function TwoPQRecordWorkbench({
                         {t("Owner and source")}
                       </p>
                       <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
-                        {adminContext.email}
+                        {reportCodePublishingPreflight.ownerName}
+                      </p>
+                      <p className="mt-1 font-mono text-xs text-indigo-950/72 dark:text-indigo-50/72">
+                        {reportCodePublishingPreflight.ownerEmail ||
+                          t("Email unavailable")}
+                        {" · "}
+                        {reportCodePublishingPreflight.ownerId}
                       </p>
                       <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
                         {t(
-                          "The new report code will use the current admin user as owner, with provider format",
+                          reportCodePublishingPreflight.preservesExistingOwner
+                            ? "The existing report owner stays unchanged. This update uses provider format"
+                            : "The fixed 2PQ publisher account will own this new report, with provider format",
                         )}{" "}
                         <span className="font-mono">2pq</span>{" "}
                         {t("and stored file")}{" "}
@@ -6928,13 +6963,15 @@ export function TwoPQRecordWorkbench({
                               )
                             : isReportCodeStatusLoading
                               ? t("Checking current publish state...")
-                              : isPublishedAsReportCode
-                                ? t(
-                                    "Report code already resolves back to this stored file.",
-                                  )
-                                : reportCodePublishConflictMessage
-                                  ? reportCodePublishConflictMessage
-                                  : t("No report code has been linked yet.")}
+                              : reportCodePublishConflictMessage
+                                ? reportCodePublishConflictMessage
+                                : reportCodePublishWarningMessage
+                                  ? reportCodePublishWarningMessage
+                                  : isPublishedAsReportCode
+                                    ? t(
+                                        "Report code already resolves back to this stored file.",
+                                      )
+                                    : t("No report code has been linked yet.")}
                       </p>
                       <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
                         {t("file_storage linked code:")}{" "}

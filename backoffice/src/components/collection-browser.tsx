@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
 import { AdminBadge } from "@/components/admin-badge";
 import { VerifiedUserBadge } from "@/components/verified-user-badge";
@@ -73,12 +73,31 @@ export function CollectionBrowser({
   const collection = COLLECTIONS[collectionKey];
   const [query, setQuery] = useState("");
 
-  const { data, error, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ["moderation", collectionKey],
-    queryFn: () =>
-      sdkFetch<{ documents: ModerationDocumentRecord[] }>(
-        `/moderation/${collectionKey}`
-      ),
+  const {
+    data,
+    error,
+    isLoading,
+    isFetching,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["moderation-collection-pages", collectionKey],
+    initialPageParam: "",
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams();
+      if (collectionKey === "report_owners") {
+        params.set("limit", "20");
+        if (pageParam) params.set("cursor", pageParam);
+      }
+      const queryString = params.toString();
+      return sdkFetch<{
+        documents: ModerationDocumentRecord[];
+        nextCursor?: string | null;
+      }>(`/moderation/${collectionKey}${queryString ? `?${queryString}` : ""}`);
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
   });
   const { data: communityUsersData } = useQuery({
     queryKey: ["moderation", "community_users"],
@@ -95,7 +114,7 @@ export function CollectionBrowser({
     [communityUsersData?.documents]
   );
   const documentsForBrowse = useMemo(() => {
-    const documents = data?.documents ?? [];
+    const documents = data?.pages.flatMap((page) => page.documents) ?? [];
 
     if (collectionKey !== "report_owners") {
       return documents;
@@ -104,7 +123,7 @@ export function CollectionBrowser({
     return documents.map((document) =>
       augmentReportOwnerDocument(document, communityUsersById.get(document.id))
     );
-  }, [collectionKey, communityUsersById, data?.documents]);
+  }, [collectionKey, communityUsersById, data?.pages]);
   const identityDocumentIds = useMemo(
     () =>
       isIdentityCollectionKey(collectionKey)
@@ -177,7 +196,7 @@ export function CollectionBrowser({
         </label>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>
-            Showing {filteredDocuments.length} of {data?.documents.length ?? 0}
+            Showing {filteredDocuments.length} of {documentsForBrowse.length}
           </span>
           <Button
             variant="outline"
@@ -261,6 +280,17 @@ export function CollectionBrowser({
           })
         )}
       </div>
+      {hasNextPage ? (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => void fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? "Loading..." : "Load more"}
+          </Button>
+        </div>
+      ) : null}
     </section>
   );
 }

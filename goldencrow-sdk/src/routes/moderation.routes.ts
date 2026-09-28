@@ -5,9 +5,11 @@ import { canManageLegacyModeration } from "../repositories/roles.repository.js";
 import {
   deleteModerationDocument,
   deleteModerationSubdocument,
+  assertCanAccessReportOwnerDocument,
   getModerationDocument,
   getModerationSubdocument,
   listModerationDocuments,
+  listReportOwnerDocumentsForContext,
   listModerationSubdocuments,
   updateModerationDocument,
   updateModerationSubdocument,
@@ -47,11 +49,22 @@ export async function moderationRoutes(fastify: FastifyInstance): Promise<void> 
         params: z.object({
           collectionKey: CollectionKeySchema,
         }),
+        querystring: z.object({
+          cursor: z.string().min(1).optional(),
+          limit: z.coerce.number().int().min(1).max(50).optional(),
+        }),
       },
     },
     async (request, reply) => {
+      if (request.params.collectionKey === "report_owners") {
+        const page = await listReportOwnerDocumentsForContext(
+          request.adminContext!,
+          request.query,
+        );
+        return reply.send(page);
+      }
       const documents = await listModerationDocuments(request.params.collectionKey);
-      return reply.send({ documents });
+      return reply.send({ documents, nextCursor: null });
     }
   );
 
@@ -66,6 +79,15 @@ export async function moderationRoutes(fastify: FastifyInstance): Promise<void> 
       },
     },
     async (request, reply) => {
+      if (
+        !assertCanAccessReportOwnerDocument(
+          request.adminContext!,
+          request.params.collectionKey,
+          request.params.documentId,
+        )
+      ) {
+        return reply.status(404).send({ error: "Document not found" });
+      }
       const document = await getModerationDocument(
         request.params.collectionKey,
         request.params.documentId
@@ -90,6 +112,15 @@ export async function moderationRoutes(fastify: FastifyInstance): Promise<void> 
       },
     },
     async (request, reply) => {
+      if (
+        !assertCanAccessReportOwnerDocument(
+          request.adminContext!,
+          request.params.collectionKey,
+          request.params.documentId,
+        )
+      ) {
+        return reply.status(404).send({ error: "Document not found" });
+      }
       const document = await updateModerationDocument(
         request.params.collectionKey,
         request.params.documentId,
@@ -115,6 +146,15 @@ export async function moderationRoutes(fastify: FastifyInstance): Promise<void> 
       },
     },
     async (request, reply) => {
+      if (
+        !assertCanAccessReportOwnerDocument(
+          request.adminContext!,
+          request.params.collectionKey,
+          request.params.documentId,
+        )
+      ) {
+        return reply.status(404).send({ error: "Document not found" });
+      }
       const deleted = await deleteModerationDocument(
         request.params.collectionKey,
         request.params.documentId

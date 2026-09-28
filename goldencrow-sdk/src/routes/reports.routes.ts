@@ -63,8 +63,6 @@ export async function reportRoutes(fastify: FastifyInstance): Promise<void> {
         const result = await publishStoredFileAsReportCode({
           fileId: request.body.fileId,
           reportCode: request.body.reportCode,
-          ownerId: request.adminContext?.uid ?? "",
-          ownerEmail: request.adminContext?.email ?? "",
         });
         return reply.send(result);
       } catch (error) {

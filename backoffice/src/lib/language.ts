@@ -3859,6 +3859,24 @@ const SPANISH_TEXT: Record<string, string> = {
     "Perfiles públicos, usuarios de comunidad, publicaciones, comentarios y eventos.",
   Publish: "Publicar",
   "Publish as report code": "Publicar como código de reporte",
+  "Update report code": "Actualizar código de reporte",
+  "Owner preserved": "Responsable preservado",
+  "Email unavailable": "Email no disponible",
+  "Report code preflight log": "Log de preflight del código de reporte",
+  "The publish checks found an existing owner that will remain unchanged.":
+    "Las verificaciones encontraron un responsable existente que permanecerá sin cambios.",
+  "and will use the fixed 2PQ publisher as owner for new reports while preserving the owner of existing reports.":
+    "y usará al publicador fijo de 2PQ como responsable de los reportes nuevos, preservando el responsable de los reportes existentes.",
+  "The existing report owner will remain unchanged during this update.":
+    "El responsable existente del reporte permanecerá sin cambios durante esta actualización.",
+  "New 2PQ reports always use the fixed 2PQ publisher account as owner.":
+    "Los reportes 2PQ nuevos siempre usan la cuenta publicadora fija de 2PQ como responsable.",
+  "snapshot into a reusable 2PQ report code. New reports use the fixed 2PQ publisher account, and updates preserve the existing report owner. The report code for this case is derived from the three-letter code as":
+    "snapshot en un código de reporte 2PQ reutilizable. Los reportes nuevos usan la cuenta publicadora fija de 2PQ y las actualizaciones preservan al responsable existente. El código de reporte de este caso se deriva del código de tres letras como",
+  "The existing report owner stays unchanged. This update uses provider format":
+    "El responsable existente permanece sin cambios. Esta actualización usa el formato de prestador",
+  "The fixed 2PQ publisher account will own this new report, with provider format":
+    "La cuenta publicadora fija de 2PQ será responsable de este nuevo reporte, con formato de prestador",
   "Publish to File Storage": "Publicar en archivos",
   Published: "Publicado",
   "Publishing will create a new file and save its document id on this case as stored_file_id.":
@@ -4096,8 +4114,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "Show report code": "Ver código de reporte",
   "Show uploaded report": "Ver reporte subido",
   Showing: "Mostrando",
-  "snapshot into a reusable 2PQ report code using the current signed-in admin as the report owner. The report code for this case is derived from the three-letter code as":
-    "captura en un código de reporte 2PQ reutilizable usando al administrador actual como responsable del reporte. El código de reporte para este caso deriva del código de tres letras como",
   "Some linked option lists could not be loaded.":
     "No se pudieron cargar algunas listas de opciones vinculadas.",
   "Stage a unique three-letter shorthand for this new 2PQ case before it is created. The code will be written into Firebase as part of the initial case document.":
@@ -4137,8 +4153,6 @@ const SPANISH_TEXT: Record<string, string> = {
     "El código está guardado en el documento del caso como",
   "The code will be stored on the new case document as":
     "El código se guardará en el nuevo documento del caso como",
-  "The current admin user will be written into the report-code ownership fields and the uploaded-report owner metadata.":
-    "El usuario administrador actual se escribirá en los campos de titularidad del código de reporte y en la metadata de responsable del reporte subido.",
   "The deletion stopped. Open the error log to inspect the backend response.":
     "La eliminación se detuvo. Abrí el log de error para inspeccionar la respuesta del backend.",
   "The current role cannot create role assignments.":
@@ -4169,8 +4183,6 @@ const SPANISH_TEXT: Record<string, string> = {
     "La lista combina acciones permitidas y bloqueadas para que el carril se lea regla por regla.",
   "The list below separates allowed operational work from blocked role-administration actions.":
     "La lista separa el trabajo operativo permitido de las acciones bloqueadas de administración de roles.",
-  "The new report code will use the current admin user as owner, with provider format":
-    "El nuevo código de reporte usará al usuario administrador actual como responsable, con formato de prestador",
   "The patient sheet is informative, but it always resolves back to one institution and one doctor.":
     "La ficha de paciente es informativa, pero siempre resuelve a una institución y un médico.",
   "The permission tree must stay explicit.":
@@ -4367,8 +4379,6 @@ const SPANISH_TEXT: Record<string, string> = {
     "XP, niveles, rachas e IDs de lecciones completadas.",
   "Your institution scope starts here. Review the institution record first, then move into doctors, patients, and local role assignments.":
     "Tu alcance institucional empieza acá. Revisá primero el registro de institución y luego avanzá a médicos, pacientes y asignaciones de rol locales.",
-  "and will use the signed-in admin as the report owner.":
-    "y usará al administrador autenticado como responsable del reporte.",
   "Auto sampling creation modal": "Modal de creación automática de muestreos",
   "Auto sampling validation": "Validación de muestreos automáticos",
   batch: "lote",
