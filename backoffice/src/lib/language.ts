@@ -3901,6 +3901,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Report code": "Código de reporte",
   "Report code already resolves back to this stored file.":
     "El código de reporte ya apunta a este archivo almacenado.",
+  "Report code conflict log": "Log de conflicto del código de reporte",
+  "The publish checks found an existing linkage that cannot be overwritten safely.":
+    "Las verificaciones de publicación encontraron un vínculo existente que no puede sobrescribirse de forma segura.",
   "Report codes, uploaded reports, stored files, and owner administration.":
     "Códigos de reporte, reportes subidos, archivos almacenados y administración de responsables.",
   "Report delivery": "Entrega de reporte",

@@ -20,6 +20,7 @@ import {
   Plus,
   RotateCcw,
   Save,
+  ScrollText,
   Sparkles,
   Trash2,
   Copy,
@@ -106,6 +107,7 @@ type RelationDialogKey =
   | "case-child-sampling";
 type ErrorLogState = {
   title: string;
+  description?: string;
   details: string;
 };
 type ThreeLetterCodeModalMode = "manual" | "random" | "remove";
@@ -1650,6 +1652,48 @@ export function TwoPQRecordWorkbench({
       : hasReportCodeOwnershipConflict
         ? `Report code ${expectedCaseLabelFromThreeLetterCode} already belongs to another owner (${reportCodeOwnerId}).`
         : null;
+  const reportCodePublishConflictResolution = hasStoredFileReportCodeConflict
+    ? `Inspect report code ${storedFileLinkedReportCode} and correct the stored-file linkage before publishing a different code.`
+    : hasReportCodeFileConflict
+      ? `Inspect report code ${expectedCaseLabelFromThreeLetterCode} and stored file ${reportCodeLinkedFileId}; this screen will not repoint an existing code automatically.`
+      : hasReportCodeOwnershipConflict
+        ? `Open report code ${expectedCaseLabelFromThreeLetterCode} and resolve its owner before publishing it as the signed-in admin.`
+        : null;
+  const reportCodePublishConflictLog = reportCodePublishConflictMessage
+    ? [
+        "Report-code publishing preflight",
+        "",
+        "Result: Conflict",
+        "Decision: Publishing was blocked locally before the POST request because an existing linkage cannot be overwritten safely.",
+        "",
+        `Case: ${detail?.record.id ?? "<unknown>"}`,
+        `Derived report code: ${expectedCaseLabelFromThreeLetterCode || "<missing>"}`,
+        `Current stored file: ${storedFileId || "<missing>"}`,
+        `Signed-in admin: ${adminContext.email} (${adminContext.uid})`,
+        "",
+        `Check 1 request: GET /file-storage/${storedFileId}`,
+        `Check 1 result: ${storedFileDocument ? "200 · stored file loaded" : "404 · stored file missing"}`,
+        `file_storage linked report code: ${storedFileLinkedReportCode || "<none>"}`,
+        "",
+        `Check 2 request: GET /reports/${expectedCaseLabelFromThreeLetterCode}`,
+        `Check 2 result: ${reportCodeStatus ? "200 · report code loaded" : "404 · report code not found"}`,
+        `Report code linked stored file: ${reportCodeLinkedFileId || "<none>"}`,
+        `Report code owner: ${reportCodeOwnerId || "<none>"}`,
+        "",
+        `Conflict reason: ${reportCodePublishConflictMessage}`,
+        `Suggested resolution: ${reportCodePublishConflictResolution}`,
+        "",
+        "Blocked request: POST /reports/publish-from-file-storage",
+        `Blocked request body:\n${JSON.stringify(
+          {
+            fileId: storedFileId,
+            reportCode: expectedCaseLabelFromThreeLetterCode,
+          },
+          null,
+          2,
+        )}`,
+      ].join("\n")
+    : null;
   const isReportCodeStatusLoading =
     storedFileDocumentQuery.isLoading || reportCodeStatusQuery.isLoading;
   const isPublishedAsReportCode =
@@ -1886,6 +1930,22 @@ export function TwoPQRecordWorkbench({
     setLatestErrorLog(
       (current) => current ?? { title: t("Request log"), details },
     );
+    setIsErrorLogOpen(true);
+  }
+
+  function openReportCodeConflictLog() {
+    if (!reportCodePublishConflictLog) {
+      return;
+    }
+
+    setLatestErrorLog({
+      title: t("Report code conflict log"),
+      description: t(
+        "The publish checks found an existing linkage that cannot be overwritten safely.",
+      ),
+      details: reportCodePublishConflictLog,
+    });
+    setCopiedErrorLog(false);
     setIsErrorLogOpen(true);
   }
 
@@ -3543,9 +3603,10 @@ export function TwoPQRecordWorkbench({
               {latestErrorLog?.title ?? t("Request log")}
             </DialogTitle>
             <DialogDescription className="text-emerald-900/65">
-              {t(
-                "Full request error log. You can copy this message for debugging.",
-              )}
+              {latestErrorLog?.description ??
+                t(
+                  "Full request error log. You can copy this message for debugging.",
+                )}
             </DialogDescription>
             <DialogClose asChild>
               <Button
@@ -6707,55 +6768,69 @@ export function TwoPQRecordWorkbench({
                     : ""
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setIsReportCodeSectionExpanded((current) => !current)
-                  }
-                  aria-expanded={isReportCodeSectionExpanded}
-                  className="group max-w-3xl text-left"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
-                      {t("Publish as report code")}
-                    </h3>
-                    <Badge
+                <div className="flex max-w-3xl flex-wrap items-start gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIsReportCodeSectionExpanded((current) => !current)
+                    }
+                    aria-expanded={isReportCodeSectionExpanded}
+                    className="group min-w-0 flex-1 text-left"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
+                        {t("Publish as report code")}
+                      </h3>
+                      <Badge
+                        variant="outline"
+                        className={
+                          reportCodePublishConflictMessage ||
+                          isStoredFileDocumentMissing
+                            ? "border-amber-300 bg-amber-50/90 text-amber-950 dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50"
+                            : "border-indigo-200 bg-white/72 text-indigo-950 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50"
+                        }
+                      >
+                        {!hasFileStorageAccess
+                          ? t("Restricted")
+                          : isStoredFileDocumentMissing
+                            ? t("Missing file")
+                            : isReportCodeStatusLoading
+                              ? t("Checking")
+                              : isPublishedAsReportCode
+                                ? t("Published")
+                                : reportCodePublishConflictMessage
+                                  ? t("Conflict")
+                                  : t("Not published")}
+                      </Badge>
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200/80 bg-white/72 text-indigo-950 transition-transform duration-200 group-hover:bg-white/90 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50 dark:group-hover:bg-indigo-400/16">
+                        {isReportCodeSectionExpanded ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/74">
+                      {t("Promote the current")} <code>file_storage</code>{" "}
+                      {t(
+                        "snapshot into a reusable 2PQ report code using the current signed-in admin as the report owner. The report code for this case is derived from the three-letter code as",
+                      )}{" "}
+                      <code>{expectedCaseLabelFromThreeLetterCode}</code>.
+                    </p>
+                  </button>
+                  {reportCodePublishConflictMessage ? (
+                    <Button
+                      type="button"
+                      size="sm"
                       variant="outline"
-                      className={
-                        reportCodePublishConflictMessage ||
-                        isStoredFileDocumentMissing
-                          ? "border-amber-300 bg-amber-50/90 text-amber-950 dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50"
-                          : "border-indigo-200 bg-white/72 text-indigo-950 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50"
-                      }
+                      onClick={openReportCodeConflictLog}
+                      className="h-9 shrink-0 border-amber-300/90 bg-white/90 px-3 text-amber-950 hover:bg-amber-100 dark:border-amber-300/30 dark:bg-amber-950/30 dark:text-amber-50 dark:hover:bg-amber-900/30"
                     >
-                      {!hasFileStorageAccess
-                        ? t("Restricted")
-                        : isStoredFileDocumentMissing
-                          ? t("Missing file")
-                          : isReportCodeStatusLoading
-                            ? t("Checking")
-                            : isPublishedAsReportCode
-                              ? t("Published")
-                              : reportCodePublishConflictMessage
-                                ? t("Conflict")
-                                : t("Not published")}
-                    </Badge>
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200/80 bg-white/72 text-indigo-950 transition-transform duration-200 group-hover:bg-white/90 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50 dark:group-hover:bg-indigo-400/16">
-                      {isReportCodeSectionExpanded ? (
-                        <ChevronUp className="h-3.5 w-3.5" />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      )}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/74">
-                    {t("Promote the current")} <code>file_storage</code>{" "}
-                    {t(
-                      "snapshot into a reusable 2PQ report code using the current signed-in admin as the report owner. The report code for this case is derived from the three-letter code as",
-                    )}{" "}
-                    <code>{expectedCaseLabelFromThreeLetterCode}</code>.
-                  </p>
-                </button>
+                      <ScrollText className="h-4 w-4" />
+                      {t("Show log")}
+                    </Button>
+                  ) : null}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {isPublishedAsReportCode && hasFileStorageAccess ? (
                     <Button
