@@ -398,9 +398,9 @@ const THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME =
 const THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME =
   "rounded-[1.35rem] border border-dashed border-fuchsia-200/90 [background:linear-gradient(180deg,rgba(255,255,255,0.74),rgba(252,231,243,0.74))] px-4 py-5 text-sm text-fuchsia-950/72 dark:border-fuchsia-300/20 dark:[background:linear-gradient(180deg,rgba(48,20,56,0.92),rgba(88,28,135,0.36))] dark:text-fuchsia-50/76";
 const CASE_STATUS_TRACK_SECTION_CLASSNAME =
-  "col-span-full overflow-hidden rounded-[1.75rem] border border-rose-100 [background:linear-gradient(155deg,rgba(255,251,250,0.98),rgba(255,241,242,0.98)_42%,rgba(254,226,226,0.92))] shadow-[0_18px_56px_rgba(244,63,94,0.14)] dark:border-rose-400/28 dark:[background:linear-gradient(145deg,rgba(45,18,22,0.98),rgba(66,24,30,0.96)_48%,rgba(244,63,94,0.22))] dark:shadow-[0_24px_80px_-52px_rgba(244,63,94,0.82)]";
+  "col-span-full overflow-hidden rounded-[1.75rem] border border-emerald-100 [background:linear-gradient(155deg,rgba(250,255,252,0.98),rgba(240,253,244,0.98)_42%,rgba(209,250,229,0.92))] shadow-[0_18px_56px_rgba(16,185,129,0.14)] dark:border-emerald-400/28 dark:[background:linear-gradient(145deg,rgba(6,35,24,0.98),rgba(10,54,38,0.96)_48%,rgba(16,185,129,0.22))] dark:shadow-[0_24px_80px_-52px_rgba(16,185,129,0.82)]";
 const CASE_STATUS_TRACK_PRIMARY_BUTTON_CLASSNAME =
-  "border border-rose-100 bg-[linear-gradient(180deg,rgba(255,228,230,0.98),rgba(254,205,211,0.98))] text-rose-950 shadow-[0_14px_34px_rgba(244,63,94,0.2)] hover:brightness-[1.02] dark:border-rose-200/18 dark:bg-[linear-gradient(180deg,rgba(127,29,29,0.98),rgba(159,18,57,0.94))] dark:text-rose-50 dark:shadow-none dark:hover:brightness-[1.06]";
+  "border border-emerald-100 bg-[linear-gradient(180deg,rgba(220,252,231,0.98),rgba(167,243,208,0.98))] text-emerald-950 shadow-[0_14px_34px_rgba(16,185,129,0.2)] hover:brightness-[1.02] dark:border-emerald-200/18 dark:bg-[linear-gradient(180deg,rgba(6,78,59,0.98),rgba(5,150,105,0.94))] dark:text-emerald-50 dark:shadow-none dark:hover:brightness-[1.06]";
 const FILE_STORAGE_SECTION_CLASSNAME =
   "order-[10000] col-span-full overflow-hidden rounded-[1.9rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(246,248,255,0.98),rgba(238,242,255,0.98)_44%,rgba(224,231,255,0.94))] shadow-[0_24px_72px_rgba(99,102,241,0.16)] dark:border-indigo-400/28 dark:[background:linear-gradient(145deg,rgba(18,22,48,0.98),rgba(27,33,70,0.96)_46%,rgba(79,70,229,0.24))] dark:shadow-[0_24px_80px_-52px_rgba(99,102,241,0.88)]";
 const REPORT_CODE_PUBLISH_SECTION_CLASSNAME =
@@ -6240,9 +6240,9 @@ export function TwoPQRecordWorkbench({
           mode !== "create" &&
           caseStatusOptions.length > 0 ? (
             <section className={CASE_STATUS_TRACK_SECTION_CLASSNAME}>
-              <div className="flex flex-col gap-4 border-b border-rose-200/70 px-5 py-5 dark:border-rose-300/16 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-4 border-b border-emerald-200/70 px-5 py-5 dark:border-emerald-300/16 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-heading text-lg font-semibold text-rose-950 dark:text-rose-50">
+                  <h3 className="font-heading text-lg font-semibold text-emerald-950 dark:text-emerald-50">
                     {t("Case status")}
                   </h3>
                 </div>
@@ -6285,10 +6285,10 @@ export function TwoPQRecordWorkbench({
                             aria-current={isActive ? "step" : undefined}
                             className={
                               isCompleted
-                                ? "flex h-12 w-12 items-center justify-center rounded-full border border-rose-500 bg-rose-500 text-white shadow-[0_14px_32px_rgba(244,63,94,0.25)] dark:border-rose-300 dark:bg-rose-400 dark:text-rose-950"
+                                ? "flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500 bg-emerald-500 text-white shadow-[0_14px_32px_rgba(16,185,129,0.25)] dark:border-emerald-300 dark:bg-emerald-400 dark:text-emerald-950"
                                 : isActive
-                                  ? "flex h-12 w-12 items-center justify-center rounded-full border-2 border-rose-500 bg-white text-rose-700 shadow-[0_16px_36px_rgba(244,63,94,0.24)] dark:border-rose-300 dark:bg-rose-950/72 dark:text-rose-100"
-                                  : "flex h-12 w-12 items-center justify-center rounded-full border border-rose-100 bg-white/82 text-rose-950/42 shadow-[0_10px_26px_rgba(254,226,226,0.62)] dark:border-rose-300/16 dark:bg-rose-950/24 dark:text-rose-50/42"
+                                  ? "flex h-12 w-12 items-center justify-center rounded-full border-2 border-emerald-500 bg-white text-emerald-700 shadow-[0_16px_36px_rgba(16,185,129,0.24)] dark:border-emerald-300 dark:bg-emerald-950/72 dark:text-emerald-100"
+                                  : "flex h-12 w-12 items-center justify-center rounded-full border border-emerald-100 bg-white/82 text-emerald-950/42 shadow-[0_10px_26px_rgba(209,250,229,0.62)] dark:border-emerald-300/16 dark:bg-emerald-950/24 dark:text-emerald-50/42"
                             }
                           >
                             {isCompleted ? (
@@ -6306,10 +6306,10 @@ export function TwoPQRecordWorkbench({
                           <span
                             className={
                               isActive
-                                ? "text-sm font-semibold text-rose-950 dark:text-rose-50"
+                                ? "text-sm font-semibold text-emerald-950 dark:text-emerald-50"
                                 : isCompleted
-                                  ? "text-sm font-medium text-rose-800 dark:text-rose-100"
-                                  : "text-sm text-rose-950/58 dark:text-rose-50/58"
+                                  ? "text-sm font-medium text-emerald-800 dark:text-emerald-100"
+                                  : "text-sm text-emerald-950/58 dark:text-emerald-50/58"
                             }
                           >
                             {option.label}
@@ -6319,8 +6319,8 @@ export function TwoPQRecordWorkbench({
                           <div
                             className={
                               connectorIsCompleted
-                                ? "mt-5 h-2 w-12 shrink-0 rounded-full bg-rose-500 shadow-[0_10px_26px_rgba(244,63,94,0.2)] dark:bg-rose-400 sm:w-16"
-                                : "mt-5 h-2 w-12 shrink-0 rounded-full bg-rose-100/82 dark:bg-rose-300/18 sm:w-16"
+                                ? "mt-5 h-2 w-12 shrink-0 rounded-full bg-emerald-500 shadow-[0_10px_26px_rgba(16,185,129,0.2)] dark:bg-emerald-400 sm:w-16"
+                                : "mt-5 h-2 w-12 shrink-0 rounded-full bg-emerald-100/82 dark:bg-emerald-300/18 sm:w-16"
                             }
                             aria-hidden
                           />
@@ -6331,7 +6331,7 @@ export function TwoPQRecordWorkbench({
                 </ol>
               </div>
               <div className="px-5 pb-5">
-                <div className="rounded-[1.35rem] border border-rose-100 bg-white/72 px-4 py-4 text-rose-950 shadow-[0_12px_30px_rgba(254,226,226,0.62)] dark:border-rose-300/16 dark:bg-rose-950/24 dark:text-rose-50 dark:shadow-none">
+                <div className="rounded-[1.35rem] border border-emerald-100 bg-white/72 px-4 py-4 text-emerald-950 shadow-[0_12px_30px_rgba(209,250,229,0.62)] dark:border-emerald-300/16 dark:bg-emerald-950/24 dark:text-emerald-50 dark:shadow-none">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold">
                       {currentCaseStatusOption?.label || t("Select status")}
@@ -6339,13 +6339,13 @@ export function TwoPQRecordWorkbench({
                     {isFinalCaseStatus ? (
                       <Badge
                         variant="outline"
-                        className="border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-300/18 dark:bg-rose-300/10 dark:text-rose-50"
+                        className="border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-300/18 dark:bg-emerald-300/10 dark:text-emerald-50"
                       >
                         {t("Final status")}
                       </Badge>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-sm text-rose-950/70 dark:text-rose-50/72">
+                  <p className="mt-1 text-sm text-emerald-950/70 dark:text-emerald-50/72">
                     {currentCaseStatusDescription}
                   </p>
                 </div>
