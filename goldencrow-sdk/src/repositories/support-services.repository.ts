@@ -26,6 +26,8 @@ const FEED_INDIVIDUALS_COLLECTION = "feed_individuals";
 const SERVICE_OFFERS_COLLECTION = "service_offers";
 const SERVICE_OFFER_ID_CLAIMS_COLLECTION = "service_offer_id_claims";
 const SERVICE_TRANSACTIONS_COLLECTION = "service_transactions";
+const DEFERRED_SERVICE_TRANSACTIONS_COLLECTION =
+  "deferred_service_transactions";
 const SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION =
   "service_transaction_idempotency";
 const OBJECT_CODES_COLLECTION = "object_codes";
@@ -44,6 +46,7 @@ const OUTPUT_OBJECT_DOWNLOAD_MAX_BYTES = 5 * 1024 * 1024;
 const OUTPUT_OBJECT_DOWNLOAD_TIMEOUT_MS = 10_000;
 const OUTPUT_OBJECT_CODE_CANDIDATE_COUNT = 12;
 const MAX_OBJECT_REVISION_HISTORY_RECORDS = 100;
+const MAX_DEFERRED_SERVICE_TRANSACTIONS_PER_EMAIL = 5;
 
 export const SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH =
   900_000;
@@ -53,6 +56,7 @@ const GENERATED_SERVICE_ID_PATTERN =
   /^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]{5}$/;
 const HISTORICAL_SERVICE_ID_PATTERN =
   /^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]+$/;
+const REQUESTER_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function encodedSupportServiceDocumentBytes(value: unknown) {
   const encoded = JSON.stringify(value);
@@ -349,7 +353,7 @@ export interface SupportServiceTransactionRecord {
   providerId: string;
   providerKind: SupportServiceProviderKind;
   status: SupportServiceTransactionStatus;
-  requestedByUserId: string;
+  requestedByUserId?: string;
   requestedByUserEmail?: string;
   requestedAt?: string;
   requestedAtClient?: string;
@@ -1631,7 +1635,7 @@ function transactionDocument(input: SupportServiceTransactionInput) {
     providerId,
     providerKind: normalizeProviderKind(input.providerKind, true),
     status: normalizeTransactionStatus(input.status, true),
-    requestedByUserId,
+    requestedByUserId: requestedByUserId || undefined,
     requestedByUserEmail: requestedByUserEmail || undefined,
     requestedAt,
     requestedAtClient,
@@ -2680,8 +2684,21 @@ function validateTransactionDocument(
   if (!document.providerId || !PROVIDER_KIND_SET.has(document.providerKind)) {
     throw new AdminRepositoryError("Provider identity is required.", 400);
   }
-  if (!document.requestedByUserId) {
-    throw new AdminRepositoryError("Requester user ID is required.", 400);
+  if (!document.requestedByUserId && !document.requestedByUserEmail) {
+    throw new AdminRepositoryError(
+      "Requester user ID or requester email is required.",
+      400,
+    );
+  }
+  if (
+    document.requestedByUserEmail &&
+    (document.requestedByUserEmail.length > 254 ||
+      !REQUESTER_EMAIL_PATTERN.test(document.requestedByUserEmail))
+  ) {
+    throw new AdminRepositoryError(
+      "Requester email must be a valid email address.",
+      400,
+    );
   }
   if (!document.requestedAtClient) {
     throw new AdminRepositoryError("Client request timestamp is required.", 400);
@@ -3381,7 +3398,10 @@ function validateTransactionInputSnapshot(
   if (slot.objectType !== FORM_OBJECT_TYPE) {
     return;
   }
-  if (snapshot.createdBy !== transaction.requestedByUserId) {
+  if (
+    transaction.requestedByUserId &&
+    snapshot.createdBy !== transaction.requestedByUserId
+  ) {
     throw new AdminRepositoryError(
       "The request form snapshot must be created by the requester.",
       400,
@@ -4803,7 +4823,7 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
     providerId: cleanString(data.providerId),
     providerKind: normalizeProviderKind(data.providerKind, true),
     status: normalizeTransactionStatus(data.status, true),
-    requestedByUserId,
+    requestedByUserId: requestedByUserId || undefined,
     requestedByUserEmail: requestedByUserEmail || undefined,
     requestedAt: timestampToIso(data.requestedAt),
     requestedAtClient: timestampToIso(data.requestedAtClient),
@@ -4873,13 +4893,17 @@ function toTransactionAdminRecord(
     ["offerId", "offerId"],
     ["serviceId", "serviceId"],
     ["providerId", "providerId"],
-    ["requestedByUserId", "requestedByUserId"],
     ["idempotencyKey", "idempotencyKey"],
     ["contractSource", "contractSource"],
   ] as const) {
     if (!cleanString(data[key])) {
       complianceWarnings.push(`${label} is missing.`);
     }
+  }
+  if (!requestedByUserId && !requestedByUserEmail) {
+    complianceWarnings.push(
+      "Requester identity is missing; requestedByUserId or requestedByUserEmail is required.",
+    );
   }
   if (!PROVIDER_KIND_SET.has(normalizeKey(cleanString(data.providerKind)))) {
     complianceWarnings.push(
@@ -4948,7 +4972,7 @@ function toTransactionAdminRecord(
     providerId: cleanString(data.providerId),
     providerKind: normalizeProviderKind(data.providerKind),
     status: normalizeTransactionStatus(data.status),
-    requestedByUserId,
+    requestedByUserId: requestedByUserId || undefined,
     requestedByUserEmail: requestedByUserEmail || undefined,
     requestedAt: timestampToIso(data.requestedAt),
     requestedAtClient: timestampToIso(data.requestedAtClient),
@@ -5328,7 +5352,7 @@ function attemptedCreationFingerprint(
         : versionNumber(input.serviceVersion),
     providerId: cleanString(input.providerId) || offer.providerId,
     providerKind: input.providerKind ?? offer.providerKind,
-    requestedByUserId: cleanString(input.requestedByUserId),
+    requestedByUserId: cleanString(input.requestedByUserId) || undefined,
     requestedByUserEmail:
       cleanString(input.requestedByUserEmail).toLowerCase() || undefined,
     requestedAtClient: dateFromUnknown(
@@ -5363,6 +5387,41 @@ function idempotencyClaimId(idempotencyKey: string) {
   return createHash("sha256").update(idempotencyKey, "utf8").digest("hex");
 }
 
+function deferredServiceTransactionIndexId(normalizedEmail: string) {
+  return Buffer.from(normalizedEmail, "utf8").toString("base64url");
+}
+
+function deferredTransactionIdsFromData(
+  data: Record<string, unknown>,
+  normalizedEmail: string,
+) {
+  if (cleanString(data.email).toLowerCase() !== normalizedEmail) {
+    throw new AdminRepositoryError(
+      "Deferred service transaction index email does not match the requester email.",
+      409,
+    );
+  }
+  if (!Array.isArray(data.deferred_transaction_ids)) {
+    throw new AdminRepositoryError(
+      "Deferred service transaction index is malformed.",
+      409,
+    );
+  }
+  const transactionIds = data.deferred_transaction_ids.map((value) =>
+    cleanString(value),
+  );
+  if (
+    transactionIds.some((value) => !/^pgr_[a-z0-9_]+$/.test(value)) ||
+    new Set(transactionIds).size !== transactionIds.length
+  ) {
+    throw new AdminRepositoryError(
+      "Deferred service transaction index contains invalid transaction IDs.",
+      409,
+    );
+  }
+  return transactionIds;
+}
+
 function policyInteger(
   value: unknown,
   fallback: number,
@@ -5389,9 +5448,12 @@ function aggregateCount(snapshot: unknown) {
 
 async function assertServiceTransactionAdmission(
   firestoreTransaction: Transaction,
-  requestedByUserId: string,
+  requester: {
+    field: "requestedByUserId" | "requestedByUserEmail";
+    value: string;
+  },
   now: Date,
-  userData: Record<string, unknown>,
+  userData: Record<string, unknown> = {},
 ) {
   const tokenStatus = optionalRecord(userData.token_status);
   const totalLimit = policyInteger(
@@ -5416,7 +5478,7 @@ async function assertServiceTransactionAdmission(
     SERVICE_TRANSACTIONS_COLLECTION,
   );
   const requesterTransactions = rootTransactions
-    .where("requestedByUserId", "==", requestedByUserId)
+    .where(requester.field, "==", requester.value)
     .where("requestedAt", "<=", now);
   const [totalSnapshot, dailySnapshot, latestSnapshot] = await Promise.all([
     firestoreTransaction.get(requesterTransactions.count()),
@@ -5512,7 +5574,7 @@ function rejectImmutableTransactionChanges(
   input: SupportServiceTransactionInput,
   previous: SupportServiceTransactionRecord,
 ) {
-  const stringChecks: Array<[unknown, string, string]> = [
+  const stringChecks: Array<[unknown, unknown, string]> = [
     [input.requestId, previous.requestId, "requestId"],
     [input.offerId, previous.offerId, "offerId"],
     [input.serviceId, previous.serviceId, "serviceId"],
@@ -5522,7 +5584,10 @@ function rejectImmutableTransactionChanges(
     [input.contractSource, previous.contractSource, "contractSource"],
   ];
   for (const [supplied, expected, label] of stringChecks) {
-    if (supplied !== undefined && cleanString(supplied) !== expected) {
+    if (
+      supplied !== undefined &&
+      cleanString(supplied) !== cleanString(expected)
+    ) {
       throw new AdminRepositoryError(
         `${label} is immutable after transaction creation.`,
         409,
@@ -6275,9 +6340,17 @@ export async function createSupportServiceTransaction(
   const ref = adminDb
     .collection(SERVICE_TRANSACTIONS_COLLECTION)
     .doc(document.requestId);
-  const userRef = adminDb
-    .collection(COMMUNITY_USERS_COLLECTION)
-    .doc(document.requestedByUserId);
+  const userRef = document.requestedByUserId
+    ? adminDb
+        .collection(COMMUNITY_USERS_COLLECTION)
+        .doc(document.requestedByUserId)
+    : undefined;
+  const deferredIndexRef = !document.requestedByUserId
+    ? adminDb
+        .collection(DEFERRED_SERVICE_TRANSACTIONS_COLLECTION)
+        .doc(deferredServiceTransactionIndexId(document.requestedByUserEmail!))
+    : undefined;
+  const requesterIndexRef = userRef ?? deferredIndexRef!;
   const providerRef = adminDb
     .collection(
       document.providerKind === "individual"
@@ -6298,7 +6371,7 @@ export async function createSupportServiceTransaction(
   await adminDb.runTransaction(async (firestoreTransaction) => {
     const [
       existingRoot,
-      userSnapshot,
+      requesterIndexSnapshot,
       latestOfferSnapshot,
       providerDocumentSnapshot,
       idempotencySnapshot,
@@ -6306,7 +6379,7 @@ export async function createSupportServiceTransaction(
     ] =
       await Promise.all([
         firestoreTransaction.get(ref),
-        firestoreTransaction.get(userRef),
+        firestoreTransaction.get(requesterIndexRef),
         firestoreTransaction.get(offerRef),
         firestoreTransaction.get(providerRef),
         firestoreTransaction.get(idempotencyRef),
@@ -6361,7 +6434,7 @@ export async function createSupportServiceTransaction(
       }
       return;
     }
-    if (!userSnapshot.exists) {
+    if (userRef && !requesterIndexSnapshot.exists) {
       throw new AdminRepositoryError(
         "Requester must reference an existing community user.",
         400,
@@ -6413,10 +6486,39 @@ export async function createSupportServiceTransaction(
         409,
       );
     }
-    const userData = userSnapshot.data() ?? {};
+    const userData = userRef ? requesterIndexSnapshot.data() ?? {} : {};
+    const deferredTransactionIds = deferredIndexRef
+      ? requesterIndexSnapshot.exists
+        ? deferredTransactionIdsFromData(
+            requesterIndexSnapshot.data() ?? {},
+            document.requestedByUserEmail!,
+          )
+        : []
+      : [];
+    if (
+      deferredIndexRef &&
+      deferredTransactionIds.length >=
+        MAX_DEFERRED_SERVICE_TRANSACTIONS_PER_EMAIL
+    ) {
+      throw new AdminRepositoryError(
+        "deferred_transaction_limit_reached: requester must sign in before creating another service transaction.",
+        429,
+      );
+    }
+    if (deferredTransactionIds.includes(document.requestId)) {
+      throw new AdminRepositoryError(
+        "Deferred requester index already contains this service transaction.",
+        409,
+      );
+    }
     await assertServiceTransactionAdmission(
       firestoreTransaction,
-      document.requestedByUserId,
+      document.requestedByUserId
+        ? { field: "requestedByUserId", value: document.requestedByUserId }
+        : {
+            field: "requestedByUserEmail",
+            value: document.requestedByUserEmail!,
+          },
       now,
       userData,
     );
@@ -6429,6 +6531,7 @@ export async function createSupportServiceTransaction(
       ? (userData[REQUESTED_TRANSACTIONS_FIELD] as unknown[])
       : [];
     if (
+      userRef &&
       summaries.some(
         (summary) =>
           cleanString(optionalRecord(summary).serviceTransactionId) ===
@@ -6481,14 +6584,24 @@ export async function createSupportServiceTransaction(
         updatedByEmail: context.email,
       }),
     );
-    firestoreTransaction.set(
-      userRef,
-      {
-        [REQUESTED_TRANSACTIONS_FIELD]: [...summaries, summary],
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
+    if (userRef) {
+      firestoreTransaction.set(
+        userRef,
+        {
+          [REQUESTED_TRANSACTIONS_FIELD]: [...summaries, summary],
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } else {
+      firestoreTransaction.set(deferredIndexRef!, {
+        email: document.requestedByUserEmail!,
+        deferred_transaction_ids: [
+          ...deferredTransactionIds,
+          document.requestId,
+        ],
+      });
+    }
     firestoreTransaction.set(
       providerRef,
       {
@@ -7162,9 +7275,11 @@ async function persistSupportServiceTransactionUpdate(
       ? await downloadAttachedOutputObjects(document)
       : new Map<string, DownloadedPgoObject>();
 
-  const userRef = adminDb
-    .collection(COMMUNITY_USERS_COLLECTION)
-    .doc(previous.requestedByUserId);
+  const userRef = previous.requestedByUserId
+    ? adminDb
+        .collection(COMMUNITY_USERS_COLLECTION)
+        .doc(previous.requestedByUserId)
+    : undefined;
   const providerRef = adminDb
     .collection(
       previous.providerKind === "individual"
@@ -7176,7 +7291,9 @@ async function persistSupportServiceTransactionUpdate(
     const [latestSnapshot, userSnapshot, providerDocumentSnapshot] =
       await Promise.all([
         firestoreTransaction.get(snapshot.ref),
-        firestoreTransaction.get(userRef),
+        userRef
+          ? firestoreTransaction.get(userRef)
+          : Promise.resolve(undefined),
         firestoreTransaction.get(providerRef),
       ]);
     if (!latestSnapshot.exists) {
@@ -7194,6 +7311,15 @@ async function persistSupportServiceTransactionUpdate(
         409,
       );
     }
+    if (
+      latest.requestedByUserId !== previous.requestedByUserId ||
+      latest.requestedByUserEmail !== previous.requestedByUserEmail
+    ) {
+      throw new AdminRepositoryError(
+        "Requester identity changed while the service transaction was being updated.",
+        409,
+      );
+    }
     if (options.allowDelivery && latest.status !== "running") {
       throw new AdminRepositoryError(
         "Only running service transactions can be marked delivered.",
@@ -7201,7 +7327,7 @@ async function persistSupportServiceTransactionUpdate(
       );
     }
     assertTransactionStatusTransition(latest.status, document);
-    if (!userSnapshot.exists) {
+    if (userRef && !userSnapshot?.exists) {
       throw new AdminRepositoryError(
         "Requester summary document no longer exists.",
         400,
@@ -7229,7 +7355,7 @@ async function persistSupportServiceTransactionUpdate(
       providerOwnerId,
       downloadedObjects,
     );
-    const userData = userSnapshot.data() ?? {};
+    const userData = userSnapshot?.data() ?? {};
     const summaries = Array.isArray(userData[REQUESTED_TRANSACTIONS_FIELD])
       ? (userData[REQUESTED_TRANSACTIONS_FIELD] as unknown[])
       : [];
@@ -7264,24 +7390,26 @@ async function persistSupportServiceTransactionUpdate(
         updatedByEmail: context.email,
       }),
     );
-    firestoreTransaction.set(
-      userRef,
-      {
-        [REQUESTED_TRANSACTIONS_FIELD]: summaryUpdate.found
-          ? summaryUpdate.updated
-          : [
-              ...summaries,
-              transactionSummary(
-                document,
-                offer,
-                previous.providerSnapshot,
-                requestedAt,
-              ),
-            ],
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
+    if (userRef) {
+      firestoreTransaction.set(
+        userRef,
+        {
+          [REQUESTED_TRANSACTIONS_FIELD]: summaryUpdate.found
+            ? summaryUpdate.updated
+            : [
+                ...summaries,
+                transactionSummary(
+                  document,
+                  offer,
+                  previous.providerSnapshot,
+                  requestedAt,
+                ),
+              ],
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
     const fallbackSummary = transactionSummary(
       document,
       offer,
@@ -7360,6 +7488,9 @@ export async function deleteSupportServiceTransaction(
     [snapshot.id, requestId, cleanString(transactionId)].filter(Boolean),
   );
   const requestedByUserId = cleanString(transactionData.requestedByUserId);
+  const requestedByUserEmail = cleanString(
+    transactionData.requestedByUserEmail,
+  ).toLowerCase();
   const storedProviderSnapshot = optionalRecord(
     transactionData.providerSnapshot,
   );
@@ -7417,6 +7548,40 @@ export async function deleteSupportServiceTransaction(
       adminDb.collection(COMMUNITY_USERS_COLLECTION).doc(requestedByUserId),
       "Requester reference",
     );
+  }
+  if (!requestedByUserId && requestedByUserEmail) {
+    try {
+      const deferredIndexRef = adminDb
+        .collection(DEFERRED_SERVICE_TRANSACTIONS_COLLECTION)
+        .doc(deferredServiceTransactionIndexId(requestedByUserEmail));
+      await adminDb.runTransaction(async (firestoreTransaction) => {
+        const deferredIndexSnapshot = await firestoreTransaction.get(
+          deferredIndexRef,
+        );
+        if (!deferredIndexSnapshot.exists) {
+          return;
+        }
+        const deferredTransactionIds = deferredTransactionIdsFromData(
+          deferredIndexSnapshot.data() ?? {},
+          requestedByUserEmail,
+        );
+        const remainingTransactionIds = deferredTransactionIds.filter(
+          (id) => !transactionIds.has(id),
+        );
+        if (remainingTransactionIds.length === 0) {
+          firestoreTransaction.delete(deferredIndexRef);
+          return;
+        }
+        firestoreTransaction.set(deferredIndexRef, {
+          email: requestedByUserEmail,
+          deferred_transaction_ids: remainingTransactionIds,
+        });
+      });
+    } catch (error) {
+      cleanupWarnings.push(
+        `Deferred requester reference cleanup failed: ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+    }
   }
   if (providerId && PROVIDER_KIND_SET.has(providerKind)) {
     await cleanupSummaryReference(

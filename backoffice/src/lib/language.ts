@@ -4936,6 +4936,31 @@ const SPANISH_TEXT: Record<string, string> = {
   "Request revision": "Revisión de la solicitud",
   "Requester email": "Email solicitante",
   "Requester user ID": "ID de usuario solicitante",
+  "Requester identity": "Identidad del solicitante",
+  "Linked community user": "Usuario de comunidad vinculado",
+  "Email-only deferred requester": "Solicitante diferido por email",
+  "Remove linked user": "Quitar usuario vinculado",
+  "Pick a user": "Elegir usuario",
+  "No user selected": "Sin usuario seleccionado",
+  "Enter an email when no user is linked":
+    "Ingresá un email cuando no haya un usuario vinculado",
+  "Choose requester": "Elegí al solicitante",
+  "Search community users and select exactly one requester. Applying the selection fills both the user ID and email.":
+    "Buscá entre los usuarios de comunidad y seleccioná un único solicitante. Al aplicar la selección se completan el ID de usuario y el email.",
+  "Search community users by name, email, or ID":
+    "Buscar usuarios de comunidad por nombre, email o ID",
+  "Community users could not be loaded.":
+    "No se pudieron cargar los usuarios de comunidad.",
+  "No community users match this search.":
+    "Ningún usuario de comunidad coincide con esta búsqueda.",
+  "No email available": "Sin email disponible",
+  Disabled: "Deshabilitado",
+  Selection: "Selección",
+  "Apply user": "Aplicar usuario",
+  "Choose a requester or enter a requester email.":
+    "Elegí un solicitante o ingresá un email del solicitante.",
+  "Requester email must be valid.":
+    "El email del solicitante debe ser válido.",
   "Requested at": "Solicitado el",
   Required: "Obligatorio",
   Revision: "Revisión",

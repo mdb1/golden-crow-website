@@ -289,7 +289,7 @@ export interface SupportServiceTransactionInput {
   serviceVersion?: number;
   providerId: string;
   providerKind: SupportServiceProviderKind;
-  requestedByUserId: string;
+  requestedByUserId?: string;
   requestedByUserEmail?: string;
   requestedAt?: string;
   requestedAtClient: string;

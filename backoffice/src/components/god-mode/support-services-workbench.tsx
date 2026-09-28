@@ -164,9 +164,17 @@ import {
   storedFileContentByteLength,
   validateStoredFileJson,
 } from "@/lib/file-storage";
-import type { ModerationDocumentRecord } from "@/lib/moderation-types";
+import type {
+  AdminUserRecord,
+  ModerationDocumentRecord,
+} from "@/lib/moderation-types";
 
 type WorkbenchKind = "offers" | "transactions";
+
+type CommunityUsersPage = {
+  users: AdminUserRecord[];
+  nextPageToken?: string;
+};
 
 type ServiceFilters = {
   query: string;
@@ -1926,8 +1934,16 @@ function transactionPayloadFromForm(
   if (!form.providerId.trim()) {
     throw new Error("Provider ID is required.");
   }
-  if (!form.requestedByUserId.trim()) {
-    throw new Error("Requester user ID is required.");
+  const requestedByUserId = form.requestedByUserId.trim();
+  const requestedByUserEmail = form.requestedByUserEmail.trim().toLowerCase();
+  if (!requestedByUserId && !requestedByUserEmail) {
+    throw new Error("Choose a requester or enter a requester email.");
+  }
+  if (
+    requestedByUserEmail &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requestedByUserEmail)
+  ) {
+    throw new Error("Requester email must be valid.");
   }
   if (!form.requestedAtClient.trim()) {
     throw new Error("Client request timestamp is required.");
@@ -2089,8 +2105,8 @@ function transactionPayloadFromForm(
     serviceVersion: form.serviceVersion || 1,
     providerId: form.providerId.trim(),
     providerKind: form.providerKind,
-    requestedByUserId: form.requestedByUserId.trim(),
-    requestedByUserEmail: form.requestedByUserEmail.trim() || undefined,
+    requestedByUserId: requestedByUserId || undefined,
+    requestedByUserEmail: requestedByUserEmail || undefined,
     requestedAt: form.requestedAt.trim() || undefined,
     requestedAtClient: form.requestedAtClient.trim(),
     status: form.status,
@@ -5439,6 +5455,311 @@ function ProviderPicker({
   );
 }
 
+function TransactionRequesterIdentity({
+  isEditing,
+  requestedByUserId,
+  requestedByUserEmail,
+  onChange,
+}: {
+  isEditing: boolean;
+  requestedByUserId: string;
+  requestedByUserEmail: string;
+  onChange: (identity: { userId: string; email: string }) => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [draftUserId, setDraftUserId] = useState(requestedByUserId);
+
+  const usersQuery = useInfiniteQuery({
+    queryKey: ["support-service-requester-picker"],
+    queryFn: ({ pageParam }) =>
+      sdkFetch<CommunityUsersPage>(
+        typeof pageParam === "string" && pageParam
+          ? `/users?pageToken=${encodeURIComponent(pageParam)}`
+          : "/users",
+      ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextPageToken,
+    enabled: open,
+  });
+
+  const communityUsers = useMemo(
+    () =>
+      (usersQuery.data?.pages.flatMap((page) => page.users) ?? []).filter(
+        (user) => user.linkedRecords?.communityUser,
+      ),
+    [usersQuery.data?.pages],
+  );
+  const filteredUsers = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return communityUsers;
+    }
+    return communityUsers.filter((user) =>
+      [user.uid, user.email, user.displayName, user.country, user.patientID]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [communityUsers, query]);
+  const draftUser = communityUsers.find((user) => user.uid === draftUserId);
+
+  function openPicker() {
+    setDraftUserId(requestedByUserId);
+    setOpen(true);
+  }
+
+  function applyUser() {
+    if (!draftUser?.email || draftUser.disabled) {
+      return;
+    }
+    onChange({ userId: draftUser.uid, email: draftUser.email.toLowerCase() });
+    setOpen(false);
+  }
+
+  return (
+    <article className="grid gap-4 rounded-2xl border border-violet-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.88))] p-5 shadow-[0_18px_52px_-42px_rgba(109,40,217,0.58)] dark:border-violet-400/20 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.84))] lg:col-span-2">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/16 dark:text-violet-100">
+            <UserRound className="h-4 w-4" />
+          </span>
+          <div>
+            <h4 className="font-heading text-base font-semibold text-foreground">
+              {t("Requester identity")}
+            </h4>
+            <p className="text-xs leading-5 text-muted-foreground">
+              {requestedByUserId
+                ? t("Linked community user")
+                : t("Email-only deferred requester")}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DisplayField label="Requester user ID">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1">
+              <GeneratedValue
+                value={requestedByUserId || t("No user selected")}
+              />
+            </div>
+            {!isEditing ? (
+              <div className="flex flex-wrap gap-2">
+                {requestedByUserId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onChange({ userId: "", email: "" })}
+                    className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+                  >
+                    <XCircle className="h-4 w-4" />
+                    {t("Remove linked user")}
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={openPicker}
+                  className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+                >
+                  <Search className="h-4 w-4" />
+                  {t("Pick a user")}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </DisplayField>
+        <Field label="Requester email">
+          {isEditing ? (
+            <GeneratedValue value={requestedByUserEmail || "-"} />
+          ) : (
+            <Input
+              value={requestedByUserEmail}
+              onChange={(event) =>
+                onChange({ userId: "", email: event.target.value })
+              }
+              type="email"
+              maxLength={254}
+              required={!requestedByUserId}
+              disabled={Boolean(requestedByUserId)}
+              placeholder={t("Enter an email when no user is linked")}
+            />
+          )}
+        </Field>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="flex max-h-[88vh] w-[min(calc(100vw-2rem),86rem)] max-w-none flex-col overflow-hidden sm:max-w-none">
+          <DialogHeader>
+            <DialogTitle>{t("Choose requester")}</DialogTitle>
+            <DialogDescription>
+              {t(
+                "Search community users and select exactly one requester. Applying the selection fills both the user ID and email.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid min-h-0 flex-1 gap-4 overflow-hidden">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("Search community users by name, email, or ID")}
+                className="pl-9"
+              />
+            </label>
+            <div className="min-h-0 overflow-y-auto rounded-2xl border border-violet-100/80 bg-white/80 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("Community user")}</TableHead>
+                    <TableHead>{t("Email")}</TableHead>
+                    <TableHead>{t("Status")}</TableHead>
+                    <TableHead className="text-right">{t("Selection")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {usersQuery.isLoading ? (
+                    Array.from({ length: 5 }).map((_, index) => (
+                      <TableRow key={index}>
+                        <TableCell colSpan={4}>
+                          <Skeleton className="h-12 w-full" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : usersQuery.isError ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-10 text-center">
+                        <p className="text-sm text-destructive">
+                          {t("Community users could not be loaded.")}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => usersQuery.refetch()}
+                          className={cn(
+                            SUPPORT_SERVICE_SOFT_BUTTON_CLASS,
+                            "mt-3",
+                          )}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          {t("Try again")}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="py-10 text-center text-sm text-muted-foreground"
+                      >
+                        {t("No community users match this search.")}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredUsers.map((user) => {
+                      const selected = user.uid === draftUserId;
+                      const selectable = Boolean(user.email) && !user.disabled;
+                      return (
+                        <TableRow
+                          key={user.uid}
+                          role="radio"
+                          aria-checked={selected}
+                          aria-disabled={!selectable}
+                          onClick={() => selectable && setDraftUserId(user.uid)}
+                          className={cn(
+                            selectable && "cursor-pointer",
+                            selected && "bg-violet-50 dark:bg-violet-500/12",
+                            !selectable && "opacity-55",
+                          )}
+                        >
+                          <TableCell className="min-w-[18rem]">
+                            <div className="font-medium text-foreground">
+                              {user.displayName || user.email || user.uid}
+                            </div>
+                            <div className="font-mono text-xs text-muted-foreground">
+                              {user.uid}
+                            </div>
+                          </TableCell>
+                          <TableCell className="min-w-[16rem] text-sm">
+                            {user.email || t("No email available")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge variant={user.disabled ? "destructive" : "secondary"}>
+                                {user.disabled ? t("Disabled") : t("Active")}
+                              </Badge>
+                              {user.emailVerified ? (
+                                <Badge variant="outline">{t("Verified")}</Badge>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span
+                              className={cn(
+                                "inline-flex h-7 w-7 items-center justify-center rounded-full border",
+                                selected
+                                  ? "border-violet-600 bg-violet-600 text-white"
+                                  : "border-violet-200 text-transparent dark:border-violet-400/28",
+                              )}
+                            >
+                              <Check className="h-4 w-4" />
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          <DialogFooter className="shrink-0 gap-3 border-t border-violet-100 pt-4 dark:border-violet-300/16">
+            {usersQuery.hasNextPage ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => usersQuery.fetchNextPage()}
+                disabled={usersQuery.isFetchingNextPage}
+                className={cn(SUPPORT_SERVICE_SOFT_BUTTON_CLASS, "mr-auto")}
+              >
+                {usersQuery.isFetchingNextPage
+                  ? t("Loading...")
+                  : t("Load more")}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+            >
+              {t("Cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={applyUser}
+              disabled={!draftUser?.email || Boolean(draftUser.disabled)}
+              className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+            >
+              <Check className="h-4 w-4" />
+              {t("Apply user")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </article>
+  );
+}
+
 function FormShapeEditor({
   form,
   setForm,
@@ -7336,38 +7657,18 @@ export function SupportServiceTransactionWorkbench({
             <Field label="Provider kind">
               <GeneratedValue value={t(form.providerKind)} />
             </Field>
-            <Field label="Requester user ID">
-              {isEditing ? (
-                <GeneratedValue value={form.requestedByUserId || "-"} />
-              ) : (
-                <Input
-                  value={form.requestedByUserId}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      requestedByUserId: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              )}
-            </Field>
-            <Field label="Requester email">
-              {isEditing ? (
-                <GeneratedValue value={form.requestedByUserEmail || "-"} />
-              ) : (
-                <Input
-                  value={form.requestedByUserEmail}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      requestedByUserEmail: event.target.value,
-                    }))
-                  }
-                  type="email"
-                />
-              )}
-            </Field>
+            <TransactionRequesterIdentity
+              isEditing={isEditing}
+              requestedByUserId={form.requestedByUserId}
+              requestedByUserEmail={form.requestedByUserEmail}
+              onChange={({ userId, email }) =>
+                setForm((current) => ({
+                  ...current,
+                  requestedByUserId: userId,
+                  requestedByUserEmail: email,
+                }))
+              }
+            />
             <Field label="Idempotency key">
               <GeneratedValue value={form.idempotencyKey || "-"} />
             </Field>

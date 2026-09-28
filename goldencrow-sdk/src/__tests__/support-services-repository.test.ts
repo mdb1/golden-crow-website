@@ -4003,6 +4003,104 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
+  it("creates, updates, and deletes an email-only transaction through its deferred index", async () => {
+    const {
+      createSupportServiceTransaction,
+      deleteSupportServiceTransaction,
+      updateSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+    const {
+      requestedByUserId: _requestedByUserId,
+      ...emailOnlyInput
+    } = creationInput("pgr_email_only_1");
+    emailOnlyInput.requestedByUserEmail = "Future.User@Example.com";
+
+    const created = await createSupportServiceTransaction(
+      context,
+      emailOnlyInput,
+    );
+
+    expect(created.requestedByUserId).toBeUndefined();
+    expect(created.requestedByUserEmail).toBe("future.user@example.com");
+    expect(
+      collectionStore("service_transactions").get("pgr_email_only_1"),
+    ).not.toHaveProperty("requestedByUserId");
+    const deferredIndexId = Buffer.from(
+      "future.user@example.com",
+      "utf8",
+    ).toString("base64url");
+    expect(
+      collectionStore("deferred_service_transactions").get(deferredIndexId),
+    ).toEqual({
+      email: "future.user@example.com",
+      deferred_transaction_ids: ["pgr_email_only_1"],
+    });
+    expect(
+      collectionStore("community_users").get("new-user")
+        ?.requestedServiceTransactions,
+    ).toEqual([]);
+
+    const updated = await updateSupportServiceTransaction(
+      context,
+      created.id,
+      { status: "validating" },
+    );
+    expect(updated.status).toBe("validating");
+    expect(
+      collectionStore("feed_organizations").get("feed-org-1")
+        ?.requestedServiceTransactions,
+    ).toEqual([
+      expect.objectContaining({
+        serviceTransactionId: "pgr_email_only_1",
+        status: "validating",
+      }),
+    ]);
+
+    await deleteSupportServiceTransaction(context, created.id);
+    expect(
+      collectionStore("deferred_service_transactions").has(deferredIndexId),
+    ).toBe(false);
+  });
+
+  it("requires a user ID or email and enforces the deferred index limit", async () => {
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const {
+      requestedByUserId: _requestedByUserId,
+      requestedByUserEmail: _requestedByUserEmail,
+      ...identitylessInput
+    } = creationInput("pgr_identityless_1");
+
+    await expect(
+      createSupportServiceTransaction(context, identitylessInput),
+    ).rejects.toThrow("Requester user ID or requester email is required.");
+
+    const normalizedEmail = "limited@example.com";
+    const deferredIndexId = Buffer.from(normalizedEmail, "utf8").toString(
+      "base64url",
+    );
+    seedDoc("deferred_service_transactions", deferredIndexId, {
+      email: normalizedEmail,
+      deferred_transaction_ids: Array.from(
+        { length: 5 },
+        (_, index) => `pgr_existing_${index + 1}`,
+      ),
+    });
+    const {
+      requestedByUserId: _ignoredUserId,
+      ...limitedInput
+    } = creationInput("pgr_deferred_limit_1");
+    limitedInput.requestedByUserEmail = normalizedEmail;
+
+    await expect(
+      createSupportServiceTransaction(context, limitedInput),
+    ).rejects.toThrow("deferred_transaction_limit_reached");
+    expect(
+      collectionStore("service_transactions").has("pgr_deferred_limit_1"),
+    ).toBe(false);
+  });
+
   it.each([
     {
       name: "uploaded banner data",

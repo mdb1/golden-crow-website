@@ -56,6 +56,7 @@
 | --- | --- | --- |
 | `service_offers` | lower camel case | `serviceId`, `isHiddenFromSearch`, `isHighlightedOffer`, `isProfessionalOffer`, `promotionalBannerImageUrl`, `promotionalBannerImageUploadDataUrl`, `changeLogHistoryByVersion`, `changeLogFormShapeByVersion`, `outputSlots` |
 | `service_transactions` | lower camel case | `outputObjects`, `outputReports`, `objectType`, `objectCode`, `reportCode` |
+| `deferred_service_transactions` | snake case | `email`, `deferred_transaction_ids` |
 | `uploaded_objects` | snake case | `object_type`, `object_code`, `object_owner_id`, `upload_version_count` |
 | `uploaded_reports` | snake case | `report_code`, `report_owner_id`, `upload_version_count` |
 | `file_storage` | snake case | `file_name`, `linked_object_code`, `linked_report_code` |
@@ -65,6 +66,7 @@
 | `report_codes` | snake case | `uploaded_report_id`, `owner_id` |
 
 - The same semantic value intentionally uses different spellings at different collection boundaries. For example, a `service_transactions.outputObjects[]` item uses `objectType` and `objectCode`, while the corresponding `uploaded_objects` document uses `object_type` and `object_code`.
+- `service_transactions.requestedByUserId` is optional only when a normalized `requestedByUserEmail` is present. Email-only transactions must be indexed by deterministic normalized-email document ID in `deferred_service_transactions`, whose payload contains only `email` and unique `deferred_transaction_ids`.
 - `service_offers.changeLogHistoryByVersion` and `service_offers.changeLogFormShapeByVersion` are the declared nested-map key exceptions. The field names and each entry's `en` / `es` fields remain lower camel case, but their server-generated transition keys use the exact snake-case pattern `v<from>_to_v<to>` such as `v1_to_v2`, where `to` is exactly `from + 1`. These are immutable version-transition identifiers, not compatibility aliases or client-authored field names.
 - The backend must append exactly one bilingual `{ en, es }` change-log entry for every successful existing-offer save, including saves that only change status or no editable contract field. Clients must never submit, replace, or remove `changeLogHistoryByVersion`.
 - The backend must append one bilingual `{ en, es }` entry to `changeLogFormShapeByVersion` only when the normalized request form changes. Form-shape versions start at `1`, increase by exactly one per form change regardless of offer publication state, and remain unchanged for offer-only saves. Clients never control the form-shape version or its history.

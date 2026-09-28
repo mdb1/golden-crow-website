@@ -895,6 +895,61 @@ describe("support service admin routes", () => {
     expect(transactionBody).not.toHaveProperty("formRef");
   });
 
+  it("accepts an email-only service transaction without a requester user ID", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions",
+      payload: {
+        requestId: "pgr_email_only_report",
+        offerId: "offer-1",
+        serviceId: "pgs_pocket_genes_report_studio_1",
+        providerId: "feed-org-1",
+        providerKind: "organization",
+        requestedByUserEmail: "future.user@example.com",
+        requestedAtClient: "2026-09-16T12:00:00.000Z",
+        status: "received",
+        idempotencyKey: "pgr_email_only_report:backoffice",
+        contractSource: "service_offer",
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateSupportServiceTransaction).toHaveBeenCalledWith(
+      bootstrapContext,
+      expect.objectContaining({
+        requestedByUserEmail: "future.user@example.com",
+      }),
+    );
+    const [, transactionBody] =
+      mockCreateSupportServiceTransaction.mock.calls.at(-1) ?? [];
+    expect(transactionBody).not.toHaveProperty("requestedByUserId");
+  });
+
+  it("rejects a service transaction without any requester identity", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions",
+      payload: {
+        requestId: "pgr_missing_requester",
+        offerId: "offer-1",
+        serviceId: "pgs_pocket_genes_report_studio_1",
+        providerId: "feed-org-1",
+        providerKind: "organization",
+        requestedAtClient: "2026-09-16T12:00:00.000Z",
+        status: "received",
+        idempotencyKey: "pgr_missing_requester:backoffice",
+        contractSource: "service_offer",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateSupportServiceTransaction).not.toHaveBeenCalled();
+  });
+
   it("attaches an output object from a strict download URL command", async () => {
     const fastify = await buildTestServer();
 

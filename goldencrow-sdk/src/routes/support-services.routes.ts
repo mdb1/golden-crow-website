@@ -145,7 +145,7 @@ const OptionalEmailSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .max(180)
+  .max(254)
   .refine(
     (value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
     "Requester email must be blank or a valid email.",
@@ -390,7 +390,7 @@ const TransactionBodySchema = z.object({
   providerId: ProviderIdSchema,
   providerKind: ProviderKindSchema,
   status: TransactionStatusSchema.optional(),
-  requestedByUserId: z.string().trim().min(1).max(180),
+  requestedByUserId: z.string().trim().min(1).max(180).optional(),
   requestedByUserEmail: OptionalEmailSchema,
   requestedAt: z.string().trim().datetime().optional(),
   requestedAtClient: z.string().trim().datetime(),
@@ -405,7 +405,15 @@ const TransactionBodySchema = z.object({
   providerSnapshot: z.record(z.string(), z.unknown()).optional(),
   contractSource: z.string().trim().min(1).max(180),
   attachmentsPending: z.boolean().optional(),
-}).strict();
+}).strict().superRefine((transaction, ctx) => {
+  if (!transaction.requestedByUserId && !transaction.requestedByUserEmail) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Provide a requester user ID or requester email.",
+      path: ["requestedByUserId"],
+    });
+  }
+});
 const OfferParamsSchema = z.object({
   offerId: z.string().trim().min(1),
 });

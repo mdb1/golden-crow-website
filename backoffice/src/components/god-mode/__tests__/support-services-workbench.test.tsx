@@ -1887,6 +1887,154 @@ describe("support services workbenches", () => {
     ).not.toHaveLength(0);
   });
 
+  it("picks one community user and locks the requester email to that account", async () => {
+    let postedPayload: Record<string, unknown> | undefined;
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (value.startsWith("/admin/support-services/offers?")) {
+        return { offers: [hiddenOffer], nextCursor: undefined };
+      }
+      if (value === "/users") {
+        return {
+          users: [
+            {
+              uid: "auth-only-user",
+              email: "auth-only@example.org",
+              displayName: "Auth only",
+              emailVerified: true,
+              disabled: false,
+              createdAt: "",
+              lastSignInAt: "",
+              photoURL: null,
+              conditions: [],
+              onboardingCompleted: true,
+              hiddenFields: [],
+              iconName: "person.crop.circle.fill",
+              iconColorHex: "#5A4FCF",
+              linkedRecords: {
+                profile: true,
+                publicProfile: false,
+                communityUser: false,
+                reportOwner: false,
+                userProgress: false,
+              },
+            },
+            {
+              uid: "community-user-1",
+              email: "requester@example.org",
+              displayName: "Ada Requester",
+              emailVerified: true,
+              disabled: false,
+              createdAt: "",
+              lastSignInAt: "",
+              photoURL: null,
+              conditions: [],
+              onboardingCompleted: true,
+              hiddenFields: [],
+              iconName: "person.crop.circle.fill",
+              iconColorHex: "#5A4FCF",
+              linkedRecords: {
+                profile: true,
+                publicProfile: true,
+                communityUser: true,
+                reportOwner: false,
+                userProgress: false,
+              },
+            },
+          ],
+        };
+      }
+      if (
+        value === "/admin/support-services/transactions" &&
+        init?.method === "POST"
+      ) {
+        postedPayload = JSON.parse(String(init.body));
+        return {
+          transaction: {
+            requestId: String(postedPayload?.requestId),
+          },
+        };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(<SupportServiceTransactionWorkbench mode="create" />);
+
+    await screen.findByText(hiddenOffer.name);
+    expect(screen.queryByText("Auth only")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Pick a user" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Choose requester",
+    });
+    expect(dialog.className).toContain("86rem");
+    expect(within(dialog).queryByText("Auth only")).toBeNull();
+    const communityUserRow = await within(dialog).findByRole("radio", {
+      name: /Ada Requester/,
+    });
+    fireEvent.click(communityUserRow);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Apply user" }));
+
+    expect(await screen.findByText("community-user-1")).toBeTruthy();
+    const emailInput = screen.getByPlaceholderText(
+      "Enter an email when no user is linked",
+    ) as HTMLInputElement;
+    expect(emailInput.value).toBe("requester@example.org");
+    expect(emailInput.disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(postedPayload).toEqual(
+        expect.objectContaining({
+          requestedByUserId: "community-user-1",
+          requestedByUserEmail: "requester@example.org",
+        }),
+      );
+    });
+  });
+
+  it("creates an email-only requester payload when no community user is linked", async () => {
+    let postedPayload: Record<string, unknown> | undefined;
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (value.startsWith("/admin/support-services/offers?")) {
+        return { offers: [hiddenOffer], nextCursor: undefined };
+      }
+      if (
+        value === "/admin/support-services/transactions" &&
+        init?.method === "POST"
+      ) {
+        postedPayload = JSON.parse(String(init.body));
+        return {
+          transaction: {
+            requestId: String(postedPayload?.requestId),
+          },
+        };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(<SupportServiceTransactionWorkbench mode="create" />);
+
+    await screen.findByText(hiddenOffer.name);
+    const emailInput = screen.getByPlaceholderText(
+      "Enter an email when no user is linked",
+    ) as HTMLInputElement;
+    expect(emailInput.disabled).toBe(false);
+    fireEvent.change(emailInput, {
+      target: { value: "Future.User@Example.org" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(postedPayload).toEqual(
+        expect.objectContaining({
+          requestedByUserEmail: "future.user@example.org",
+        }),
+      );
+    });
+    expect(postedPayload).not.toHaveProperty("requestedByUserId");
+  });
+
   it("exports the persisted service transaction record as raw JSON", async () => {
     sdkFetchMock.mockImplementation(async (path) => {
       if (
