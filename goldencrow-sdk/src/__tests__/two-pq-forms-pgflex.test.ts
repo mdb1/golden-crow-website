@@ -26,6 +26,7 @@ const mockGetUser = jest.fn();
 const mockGetUserByEmail = jest.fn();
 const mockSendPGFlexLogisticsAssignmentEmail = jest.fn();
 const mockSynchronizeTwoPQCasesFilesAndCodes = jest.fn();
+const mockCascadeTwoPQCaseStatusToSamplingChildren = jest.fn();
 
 function docKey(ref: MockDocumentRef) {
   return `${ref.collectionName}/${ref.id}`;
@@ -245,6 +246,11 @@ jest.mock("../repositories/two-pq-auto-sync.repository.js", () => ({
     mockSynchronizeTwoPQCasesFilesAndCodes,
 }));
 
+jest.mock("../repositories/two-pq-sampling-status.repository.js", () => ({
+  cascadeTwoPQCaseStatusToSamplingChildren:
+    mockCascadeTwoPQCaseStatusToSamplingChildren,
+}));
+
 const fullAdminContext = {
   email: " admin@example.com ",
   uid: "admin-uid",
@@ -267,6 +273,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     mockGetUserByEmail.mockReset();
     mockSendPGFlexLogisticsAssignmentEmail.mockReset();
     mockSynchronizeTwoPQCasesFilesAndCodes.mockClear();
+    mockCascadeTwoPQCaseStatusToSamplingChildren.mockClear();
 
     mockDocs.set("admin_sequences/2pq_forms", { current: 40 });
     mockDocs.set("institutions/inst-1", {
@@ -384,6 +391,29 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     expect(mockSynchronizeTwoPQCasesFilesAndCodes).toHaveBeenCalledWith(
       ["case-a", "case-b"],
       "admin@example.com",
+    );
+    expect(mockCascadeTwoPQCaseStatusToSamplingChildren).toHaveBeenNthCalledWith(
+      1,
+      {
+        caseId: "case-a",
+        previousCaseStatus: "processing",
+        nextCaseStatus: "awaiting_pick_up",
+        actorEmail: "admin@example.com",
+      },
+    );
+    expect(mockCascadeTwoPQCaseStatusToSamplingChildren).toHaveBeenNthCalledWith(
+      2,
+      {
+        caseId: "case-b",
+        previousCaseStatus: "processing",
+        nextCaseStatus: "awaiting_pick_up",
+        actorEmail: "admin@example.com",
+      },
+    );
+    expect(
+      mockCascadeTwoPQCaseStatusToSamplingChildren.mock.invocationCallOrder[1]!,
+    ).toBeLessThan(
+      mockSynchronizeTwoPQCasesFilesAndCodes.mock.invocationCallOrder[0]!,
     );
     expect(mockSendPGFlexLogisticsAssignmentEmail).toHaveBeenCalledWith(
       {

@@ -8,6 +8,7 @@ import { FieldValue, type Transaction } from "firebase-admin/firestore";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { normalizeRoleEmail } from "./roles.repository.js";
 import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
+import { cascadeTwoPQCaseStatusToSamplingChildren } from "./two-pq-sampling-status.repository.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import type {
   AdminContext,
@@ -1992,6 +1993,15 @@ export async function replaceTwoPQRecordForContext(
     await recordRef.set(buildStoredRecordDocument(nextRecord));
   }
 
+  if (areaKey === "cases") {
+    await cascadeTwoPQCaseStatusToSamplingChildren({
+      caseId: recordId,
+      previousCaseStatus: existing.caseStatus,
+      nextCaseStatus: nextRecord.caseStatus,
+      actorEmail: context.email,
+    });
+  }
+
   const affectedCaseIds =
     areaKey === "cases"
       ? [recordId]
@@ -2098,6 +2108,15 @@ export async function updateTwoPQRecordForContext(
   } else {
     await recordRef.set(writeDocument, {
       merge: true,
+    });
+  }
+
+  if (areaKey === "cases") {
+    await cascadeTwoPQCaseStatusToSamplingChildren({
+      caseId: recordId,
+      previousCaseStatus: existing.caseStatus,
+      nextCaseStatus: nextRecord.caseStatus,
+      actorEmail: context.email,
     });
   }
 

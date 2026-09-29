@@ -26,6 +26,7 @@ import {
   getTwoPQDetailForContext,
 } from "./two-pq.repository.js";
 import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
+import { cascadeTwoPQCaseStatusToSamplingChildren } from "./two-pq-sampling-status.repository.js";
 import type {
   AdminContext,
   DoctorRecord,
@@ -2205,6 +2206,14 @@ export async function createTwoPQFormForContext(
     });
     batch.delete(adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid));
     await batch.commit();
+    for (const caseRecord of withdrawalCases) {
+      await cascadeTwoPQCaseStatusToSamplingChildren({
+        caseId: String(caseRecord.id),
+        previousCaseStatus: caseRecord.previousCaseStatus,
+        nextCaseStatus: "awaiting_pick_up",
+        actorEmail: authorEmail,
+      });
+    }
     await synchronizeTwoPQCasesFilesAndCodes(linkedCaseIds, authorEmail);
     await sendWithdrawalPGFlexAssignmentEmail(
       pgflexEventId,

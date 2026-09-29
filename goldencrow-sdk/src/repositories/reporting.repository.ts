@@ -6,6 +6,7 @@ import {
   TWO_PQ_REPORT_OWNER_ID,
   TWO_PQ_REPORT_OWNER_NAME,
 } from "../lib/two-pq-report-owner.js";
+import { cascadeTwoPQCaseStatusToSamplingChildren } from "./two-pq-sampling-status.repository.js";
 
 const adminDb = adminDbFor("mydnamap");
 
@@ -824,6 +825,7 @@ export async function recordUploadedReportNotification(
     ? adminDb.collection(TWO_PQ_CASES_COLLECTION).doc(twoPQCaseId)
     : null;
   const now = new Date().toISOString();
+  let previousTwoPQCaseStatus: unknown;
 
   await adminDb.runTransaction(async (transaction: Transaction) => {
     const existingUploadedReport = await transaction.get(uploadedReportRef);
@@ -832,6 +834,7 @@ export async function recordUploadedReportNotification(
       if (!twoPQCaseSnapshot.exists) {
         throw new AdminRepositoryError("2PQ case not found.", 404);
       }
+      previousTwoPQCaseStatus = twoPQCaseSnapshot.data()?.caseStatus;
     }
 
     transaction.set(
@@ -869,6 +872,12 @@ export async function recordUploadedReportNotification(
   });
 
   if (twoPQCaseId) {
+    await cascadeTwoPQCaseStatusToSamplingChildren({
+      caseId: twoPQCaseId,
+      previousCaseStatus: previousTwoPQCaseStatus,
+      nextCaseStatus: TWO_PQ_REPORT_READY_STATUS,
+      actorEmail: "open-api",
+    });
     const { synchronizeTwoPQCaseFilesAndCodes } = await import(
       "./two-pq-auto-sync.repository.js"
     );

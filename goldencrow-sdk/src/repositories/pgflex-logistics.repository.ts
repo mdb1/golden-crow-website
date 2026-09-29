@@ -19,6 +19,7 @@ import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { getUserRoleByEmail, normalizeRoleEmail } from "./roles.repository.js";
 import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
+import { cascadeTwoPQCaseStatusToSamplingChildren } from "./two-pq-sampling-status.repository.js";
 
 const adminDb = adminDbFor("mydnamap");
 const USER_ROLES_COLLECTION = "user_roles";
@@ -368,18 +369,27 @@ async function syncTwoPQCasesForPGFlexStatusChange({
         return null;
       }
 
-      await adminDb
+      const caseRef = adminDb
         .collection(TWO_PQ_CASES_COLLECTION)
-        .doc(caseId)
-        .set(
-          {
-            caseStatus: nextCaseStatus,
-            last_updated_date: now,
-            updatedAt: now,
-            updatedByEmail: normalizeRoleEmail(context.email),
-          },
-          { merge: true },
-        );
+        .doc(caseId);
+      const caseSnapshot = await caseRef.get();
+      const previousCaseStatus = caseSnapshot.data()?.caseStatus;
+      const actorEmail = normalizeRoleEmail(context.email);
+      await caseRef.set(
+        {
+          caseStatus: nextCaseStatus,
+          last_updated_date: now,
+          updatedAt: now,
+          updatedByEmail: actorEmail,
+        },
+        { merge: true },
+      );
+      await cascadeTwoPQCaseStatusToSamplingChildren({
+        caseId,
+        previousCaseStatus,
+        nextCaseStatus,
+        actorEmail,
+      });
       return caseId;
     }),
   );

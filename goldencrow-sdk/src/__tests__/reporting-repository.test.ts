@@ -18,6 +18,7 @@ const mockServerTimestamp = jest.fn(() => ({
   __op: "serverTimestamp",
 }));
 const mockSynchronizeTwoPQCaseFilesAndCodes = jest.fn();
+const mockCascadeTwoPQCaseStatusToSamplingChildren = jest.fn();
 
 function sourceForCollection(collectionName: string) {
   if (collectionName === "patients") {
@@ -120,6 +121,11 @@ jest.mock("../repositories/two-pq-auto-sync.repository.js", () => ({
     mockSynchronizeTwoPQCaseFilesAndCodes,
 }));
 
+jest.mock("../repositories/two-pq-sampling-status.repository.js", () => ({
+  cascadeTwoPQCaseStatusToSamplingChildren:
+    mockCascadeTwoPQCaseStatusToSamplingChildren,
+}));
+
 describe("reporting repository", () => {
   beforeEach(() => {
     jest.resetModules();
@@ -135,6 +141,7 @@ describe("reporting repository", () => {
     mockFieldValueIncrement.mockClear();
     mockServerTimestamp.mockClear();
     mockSynchronizeTwoPQCaseFilesAndCodes.mockClear();
+    mockCascadeTwoPQCaseStatusToSamplingChildren.mockClear();
 
     mockPatients.set("PAT-00001", {
       institutionId: "INST-00001",
@@ -386,6 +393,19 @@ describe("reporting repository", () => {
     expect(mockSynchronizeTwoPQCaseFilesAndCodes).toHaveBeenCalledWith(
       "CASE-00001",
       "open-api",
+    );
+    expect(
+      mockCascadeTwoPQCaseStatusToSamplingChildren,
+    ).toHaveBeenCalledWith({
+      caseId: "CASE-00001",
+      previousCaseStatus: "processing",
+      nextCaseStatus: "report_ready",
+      actorEmail: "open-api",
+    });
+    expect(
+      mockCascadeTwoPQCaseStatusToSamplingChildren.mock.invocationCallOrder[0]!,
+    ).toBeLessThan(
+      mockSynchronizeTwoPQCaseFilesAndCodes.mock.invocationCallOrder[0]!,
     );
   });
 

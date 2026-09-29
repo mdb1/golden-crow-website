@@ -32,6 +32,7 @@ const mockCollection = jest.fn((collectionName: string) =>
 const mockSendPGFlexLogisticsAssignmentEmail = jest.fn();
 const mockGetUserRoleByEmail = jest.fn();
 const mockSynchronizeTwoPQCasesFilesAndCodes = jest.fn();
+const mockCascadeTwoPQCaseStatusToSamplingChildren = jest.fn();
 
 function docKey(ref: MockDocumentRef) {
   return `${ref.collectionName}/${ref.id}`;
@@ -269,6 +270,11 @@ jest.mock("../repositories/two-pq-auto-sync.repository.js", () => ({
     mockSynchronizeTwoPQCasesFilesAndCodes,
 }));
 
+jest.mock("../repositories/two-pq-sampling-status.repository.js", () => ({
+  cascadeTwoPQCaseStatusToSamplingChildren:
+    mockCascadeTwoPQCaseStatusToSamplingChildren,
+}));
+
 const fullAdminContext = {
   email: " ADMIN@example.com ",
   uid: "admin-1",
@@ -301,6 +307,7 @@ describe("PGFlex logistics repository", () => {
     mockCollection.mockClear();
     mockGetUserRoleByEmail.mockReset();
     mockSynchronizeTwoPQCasesFilesAndCodes.mockClear();
+    mockCascadeTwoPQCaseStatusToSamplingChildren.mockClear();
     mockSendPGFlexLogisticsAssignmentEmail.mockReset();
   });
 
@@ -540,6 +547,19 @@ describe("PGFlex logistics repository", () => {
     expect(mockSynchronizeTwoPQCasesFilesAndCodes).toHaveBeenCalledWith(
       ["case-a"],
       "admin@example.com",
+    );
+    expect(
+      mockCascadeTwoPQCaseStatusToSamplingChildren,
+    ).toHaveBeenCalledWith({
+      caseId: "case-a",
+      previousCaseStatus: "awaiting_pick_up",
+      nextCaseStatus: "in_transit",
+      actorEmail: "admin@example.com",
+    });
+    expect(
+      mockCascadeTwoPQCaseStatusToSamplingChildren.mock.invocationCallOrder[0]!,
+    ).toBeLessThan(
+      mockSynchronizeTwoPQCasesFilesAndCodes.mock.invocationCallOrder[0]!,
     );
   });
 
