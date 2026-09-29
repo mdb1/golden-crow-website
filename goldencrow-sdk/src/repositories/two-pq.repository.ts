@@ -9,6 +9,7 @@ import { AdminRepositoryError } from "./admin-errors.js";
 import { normalizeRoleEmail } from "./roles.repository.js";
 import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
 import { cascadeTwoPQCaseStatusToSamplingChildren } from "./two-pq-sampling-status.repository.js";
+import type { TwoPQCaseStatusProgressReporter } from "./two-pq-case-status-operation.repository.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import type {
   AdminContext,
@@ -2030,7 +2031,10 @@ export async function updateTwoPQRecordForContext(
   context: AdminContext,
   areaKey: TwoPQAreaKey,
   recordId: string,
-  payload: TwoPQMutationInput
+  payload: TwoPQMutationInput,
+  options?: {
+    reportCaseStatusProgress?: TwoPQCaseStatusProgressReporter;
+  },
 ): Promise<TwoPQRecord> {
   validateAreaSpecificPayload(areaKey, payload);
   const existing = await getTwoPQRecord(areaKey, recordId);
@@ -2112,11 +2116,34 @@ export async function updateTwoPQRecordForContext(
   }
 
   if (areaKey === "cases") {
-    await cascadeTwoPQCaseStatusToSamplingChildren({
+    await options?.reportCaseStatusProgress?.({
+      step: "case",
+      status: "success",
+      detail: `Case ${recordId} was saved with status ${nextRecord.caseStatus ?? "unknown"}.`,
+    });
+    await options?.reportCaseStatusProgress?.({
+      step: "samplings",
+      status: "running",
+      detail: "Updating sampling children sequentially.",
+    });
+    const cascadeResult = await cascadeTwoPQCaseStatusToSamplingChildren({
       caseId: recordId,
       previousCaseStatus: existing.caseStatus,
       nextCaseStatus: nextRecord.caseStatus,
       actorEmail: context.email,
+    });
+    const samplingCount =
+      cascadeResult.updatedSamplingIds.length +
+      cascadeResult.unchangedSamplingIds.length;
+    await options?.reportCaseStatusProgress?.({
+      step: "samplings",
+      status:
+        cascadeResult.changed && cascadeResult.processingStatus
+          ? "success"
+          : "skipped",
+      detail: cascadeResult.processingStatus
+        ? `${samplingCount} sampling children were checked; ${cascadeResult.updatedSamplingIds.length} were updated to ${cascadeResult.processingStatus}.`
+        : "The case status did not require a sampling-status change.",
     });
   }
 
@@ -2131,6 +2158,7 @@ export async function updateTwoPQRecordForContext(
   const autoSyncResults = await synchronizeTwoPQCasesFilesAndCodes(
     affectedCaseIds,
     context.email,
+    areaKey === "cases" ? options?.reportCaseStatusProgress : undefined,
   );
   if (areaKey === "cases") {
     const synchronized = autoSyncResults.find(

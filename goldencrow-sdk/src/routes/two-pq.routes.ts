@@ -25,6 +25,16 @@ import {
   updateTwoPQRecordForContext,
 } from "../repositories/two-pq.repository.js";
 import { buildTwoPQCaseFileStorageSnapshot } from "../repositories/two-pq-auto-sync.repository.js";
+import {
+  beginTwoPQCaseStatusOperation,
+  completeTwoPQCaseStatusOperation,
+  failTwoPQCaseStatusOperation,
+  getTwoPQCaseStatusOperation,
+  updateTwoPQCaseStatusOperation,
+} from "../repositories/two-pq-case-status-operation.repository.js";
+
+const CASE_STATUS_OPERATION_HEADER = "x-two-pq-status-operation-id";
+const CASE_STATUS_OPERATION_ID_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
 const TwoPQAreaKeySchema = z.enum([
   "cases",
@@ -295,6 +305,12 @@ const TwoPQFormsQuerySchema = z.object({
 
 function parseBooleanQueryFlag(value: string | undefined) {
   return value === "1" || value === "true" || value === "yes";
+}
+
+function caseStatusOperationIdFromRequest(request: FastifyRequest) {
+  const header = request.headers[CASE_STATUS_OPERATION_HEADER];
+  const value = Array.isArray(header) ? header[0] : header;
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function parseQueryLimit(value: string | undefined) {
@@ -644,6 +660,43 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
   );
 
   f.get(
+    "/2pq/cases/:recordId/status-operations/:operationId",
+    {
+      schema: {
+        params: z.object({
+          recordId: z.string().min(1),
+          operationId: z.string().regex(CASE_STATUS_OPERATION_ID_PATTERN),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const operation = await getTwoPQCaseStatusOperation(
+          request.params.operationId,
+        );
+        if (!operation || operation.caseId !== request.params.recordId) {
+          return reply.status(404).send({ error: "Operation not found." });
+        }
+        if (
+          operation.actorEmail !==
+          request.adminContext.email.trim().toLowerCase()
+        ) {
+          return reply.status(403).send({
+            error: "You cannot inspect this case-status operation.",
+          });
+        }
+        return reply.send({ operation });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    },
+  );
+
+  f.get(
     "/2pq/:areaKey/:recordId",
     {
       schema: {
@@ -717,15 +770,61 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.status(401).send({ error: "No authenticated admin context" });
       }
 
+      const requestedOperationId = caseStatusOperationIdFromRequest(request);
+      if (
+        requestedOperationId &&
+        !CASE_STATUS_OPERATION_ID_PATTERN.test(requestedOperationId)
+      ) {
+        return reply.status(400).send({
+          error: "Invalid 2PQ case-status operation ID.",
+        });
+      }
+      const operationId =
+        request.params.areaKey === "cases" &&
+        typeof request.body.caseStatus === "string"
+          ? requestedOperationId
+          : undefined;
+      let operationStarted = false;
+
       try {
+        if (operationId) {
+          await beginTwoPQCaseStatusOperation({
+            operationId,
+            caseId: request.params.recordId,
+            targetCaseStatus: request.body.caseStatus!,
+            actorEmail: request.adminContext.email,
+          });
+          operationStarted = true;
+        }
         const record = await updateTwoPQRecordForContext(
           request.adminContext,
           request.params.areaKey,
           request.params.recordId,
-          request.body
+          request.body,
+          operationId
+            ? {
+                reportCaseStatusProgress: (event) =>
+                  updateTwoPQCaseStatusOperation(operationId, event).then(
+                    () => undefined,
+                  ),
+              }
+            : undefined,
         );
-        return reply.send({ record });
+        const operation = operationId
+          ? await completeTwoPQCaseStatusOperation(operationId)
+          : undefined;
+        return reply.send({ record, ...(operation ? { operation } : {}) });
       } catch (error) {
+        if (operationId && operationStarted) {
+          try {
+            await failTwoPQCaseStatusOperation(operationId, error);
+          } catch (progressError) {
+            request.log.error(
+              { err: progressError, operationId },
+              "Unable to mark 2PQ case-status operation as failed",
+            );
+          }
+        }
         return sendTwoPQRouteError(request, reply, error);
       }
     }

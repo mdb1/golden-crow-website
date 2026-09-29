@@ -39,6 +39,14 @@
 - `main_case` must not expose sibling case IDs. The parent batch ID and the current case's sampling IDs remain valid direct references.
 - Enforce the bounds in the authoritative `.pgi3.json` schema: `batches` has `maxItems: 1`, while `cases` has `minItems: 1` and `maxItems: 1`.
 
+## 2PQ Case Status Progress
+
+- Advancing a 2PQ case status is one ordered backend operation: update the case, update its sampling children sequentially, update File Storage when applicable, then update the report code when applicable.
+- The `Next status` action must open a blocking progress modal and display persisted backend progress for all four stages. Do not simulate stage completion with timers.
+- File Storage and report-code stages must be marked `skipped` / `Not applicable` when automatic synchronization is disabled or the case lacks the required code; they must not remain pending.
+- Keep the modal open after success or failure. Never call `router.refresh()` automatically when the mutation resolves; only the modal's final `Finish` action may close the process and refresh the detail screen.
+- A failure must mark the currently running stage as failed, preserve completed stages, expose the request error log, and still let the operator finish and refresh so partial backend state is represented honestly.
+
 ## Backoffice Firestore Pagination
 
 - Any backoffice surface that reads potentially unbounded Firestore data must paginate instead of loading full collections.

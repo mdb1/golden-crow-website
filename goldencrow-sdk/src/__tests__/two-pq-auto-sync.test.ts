@@ -201,9 +201,11 @@ describe("2PQ case automatic file and code synchronization", () => {
     const { synchronizeTwoPQCaseFilesAndCodes } = await import(
       "../repositories/two-pq-auto-sync.repository.js"
     );
+    const reportProgress = jest.fn().mockResolvedValue(undefined);
     const result = await synchronizeTwoPQCaseFilesAndCodes(
       "CASE-00001",
       "admin@example.com",
+      reportProgress,
     );
 
     expect(result).toMatchObject({
@@ -243,6 +245,17 @@ describe("2PQ case automatic file and code synchronization", () => {
       fileId: "existing-file",
       reportCode: "ABCXXX",
     });
+    expect(
+      reportProgress.mock.calls.map(([event]) => ({
+        step: event.step,
+        status: event.status,
+      })),
+    ).toEqual([
+      { step: "file_storage", status: "running" },
+      { step: "file_storage", status: "success" },
+      { step: "report_code", status: "running" },
+      { step: "report_code", status: "success" },
+    ]);
   });
 
   it("creates and links a missing stored file before publishing the report code", async () => {
@@ -301,8 +314,13 @@ describe("2PQ case automatic file and code synchronization", () => {
     const { synchronizeTwoPQCaseFilesAndCodes } = await import(
       "../repositories/two-pq-auto-sync.repository.js"
     );
+    const reportProgress = jest.fn().mockResolvedValue(undefined);
     await expect(
-      synchronizeTwoPQCaseFilesAndCodes("CASE-00003", "admin@example.com"),
+      synchronizeTwoPQCaseFilesAndCodes(
+        "CASE-00003",
+        "admin@example.com",
+        reportProgress,
+      ),
     ).resolves.toEqual({
       status: "skipped",
       caseId: "CASE-00003",
@@ -311,6 +329,15 @@ describe("2PQ case automatic file and code synchronization", () => {
     expect(mockCreateStoredFileDocument).not.toHaveBeenCalled();
     expect(mockUpdateStoredFileDocument).not.toHaveBeenCalled();
     expect(mockPublishStoredFileAsReportCode).not.toHaveBeenCalled();
+    expect(
+      reportProgress.mock.calls.map(([event]) => ({
+        step: event.step,
+        status: event.status,
+      })),
+    ).toEqual([
+      { step: "file_storage", status: "skipped" },
+      { step: "report_code", status: "skipped" },
+    ]);
   });
 
   it("repairs a stale case link from the file already owned by its report code", async () => {

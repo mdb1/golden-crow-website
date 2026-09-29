@@ -2989,6 +2989,33 @@ const SPANISH_TEXT: Record<string, string> = {
   "Case status update": "Actualización de estado del caso",
   "Case status updated.": "Estado del caso actualizado.",
   "Unable to update case status.": "No se pudo actualizar el estado del caso.",
+  "Update case status": "Actualizar estado del caso",
+  "Saving the new status on the current 2PQ case.":
+    "Guardando el nuevo estado en el caso 2PQ actual.",
+  "Update sampling children": "Actualizar samplings hijos",
+  "Applying the mapped processing status to every linked sampling, one by one.":
+    "Aplicando el estado de procesamiento correspondiente a cada sampling vinculado, uno por uno.",
+  "Update File Storage": "Actualizar File Storage",
+  "Rebuilding the current-case JSON and saving it when automatic synchronization applies.":
+    "Reconstruyendo el JSON del caso actual y guardándolo cuando corresponde la sincronización automática.",
+  "Publishing the updated stored file through the case report code when applicable.":
+    "Publicando el archivo actualizado mediante el código de reporte del caso cuando corresponde.",
+  "Case status update failed": "Falló la actualización del estado del caso",
+  "Case update completed": "Actualización del caso completada",
+  "Case update finished with an error":
+    "La actualización del caso terminó con un error",
+  "Updating case status": "Actualizando estado del caso",
+  "The case, its sampling children, File Storage, and report code are processed in this exact order.":
+    "El caso, sus samplings hijos, File Storage y el código de reporte se procesan en ese orden exacto.",
+  "Everything is up to date": "Todo está actualizado",
+  "The full status-change sequence completed successfully.":
+    "La secuencia completa del cambio de estado finalizó correctamente.",
+  "The sequence could not be completed":
+    "No se pudo completar la secuencia",
+  "Not applicable": "No aplica",
+  "Please wait while every dependent record is updated.":
+    "Esperá mientras se actualizan todos los registros dependientes.",
+  Finish: "Finalizar",
   "The clinic completed the biopsy form and the case entered the workflow.":
     "La clínica completó el form de biopsias; el caso quedó ingresado.",
   "The clinic completed the pick-up form; the case is waiting for collection.":

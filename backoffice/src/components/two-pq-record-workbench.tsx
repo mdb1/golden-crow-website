@@ -211,6 +211,40 @@ type CaseDeleteProcessState = {
   errorTitle?: string;
   errorDetails?: string;
 };
+const CASE_STATUS_UPDATE_STEP_KEYS = [
+  "case",
+  "samplings",
+  "file_storage",
+  "report_code",
+] as const;
+type CaseStatusUpdateStepKey =
+  (typeof CASE_STATUS_UPDATE_STEP_KEYS)[number];
+type CaseStatusUpdateStepStatus =
+  | "pending"
+  | "running"
+  | "success"
+  | "skipped"
+  | "error";
+type CaseStatusUpdateStep = {
+  key: CaseStatusUpdateStepKey;
+  status: CaseStatusUpdateStepStatus;
+  detail?: string;
+  updatedAt: string;
+};
+type CaseStatusUpdateProcessState = {
+  id: string;
+  caseId: string;
+  targetCaseStatus: string;
+  actorEmail: string;
+  status: "running" | "success" | "error";
+  steps: CaseStatusUpdateStep[];
+  startedAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  expiresAt: string;
+  errorMessage?: string;
+  errorDetails?: string;
+};
 type TwoPQFileStorageSnapshot = {
   main_case: {
     id: string;
@@ -342,6 +376,37 @@ function buildInitialCaseDeleteProcess(
       status: index === 0 ? "running" : "pending",
     })),
   };
+}
+
+function buildInitialCaseStatusUpdateProcess(
+  operationId: string,
+  caseId: string,
+  targetCaseStatus: string,
+): CaseStatusUpdateProcessState {
+  const now = new Date().toISOString();
+  return {
+    id: operationId,
+    caseId,
+    targetCaseStatus,
+    actorEmail: "",
+    status: "running",
+    steps: CASE_STATUS_UPDATE_STEP_KEYS.map((key, index) => ({
+      key,
+      status: index === 0 ? "running" : "pending",
+      updatedAt: now,
+    })),
+    startedAt: now,
+    updatedAt: now,
+    expiresAt: now,
+  };
+}
+
+function createCaseStatusOperationId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `case_status_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
 }
 
 function pauseForProcessStep(durationMs: number) {
@@ -1008,6 +1073,8 @@ export function TwoPQRecordWorkbench({
     useState(false);
   const [pendingCaseStatusAdvance, setPendingCaseStatusAdvance] =
     useState(false);
+  const [caseStatusUpdateProcess, setCaseStatusUpdateProcess] =
+    useState<CaseStatusUpdateProcessState | null>(null);
   const [pendingCaseLabelCorrection, setPendingCaseLabelCorrection] =
     useState(false);
   const [isAutoSamplingSetupOpen, setIsAutoSamplingSetupOpen] = useState(false);
@@ -1053,6 +1120,7 @@ export function TwoPQRecordWorkbench({
   );
   const [pendingAutomaticSync, setPendingAutomaticSync] = useState(false);
   const publishFileStorageRequestIdRef = useRef(0);
+  const caseStatusOperationRequestIdRef = useRef(0);
 
   useEffect(() => {
     setThreeLetterCode(detail?.record.three_letter_code ?? "");
@@ -1392,6 +1460,31 @@ export function TwoPQRecordWorkbench({
           ),
         )
     : 0;
+  const completedCaseStatusUpdateStepCount =
+    caseStatusUpdateProcess?.steps.filter(
+      (step) => step.status === "success" || step.status === "skipped",
+    ).length ?? 0;
+  const hasRunningCaseStatusUpdateStep =
+    caseStatusUpdateProcess?.steps.some((step) => step.status === "running") ??
+    false;
+  const caseStatusUpdateProgressPercent = caseStatusUpdateProcess
+    ? caseStatusUpdateProcess.status === "success"
+      ? 100
+      : Math.min(
+          96,
+          Math.round(
+            (completedCaseStatusUpdateStepCount /
+              caseStatusUpdateProcess.steps.length) *
+              100 +
+              (hasRunningCaseStatusUpdateStep ? 12 : 0),
+          ),
+        )
+    : 0;
+  const caseStatusUpdateTargetLabel = caseStatusUpdateProcess
+    ? (caseStatusOptions.find(
+        (option) => option.value === caseStatusUpdateProcess.targetCaseStatus,
+      )?.label ?? caseStatusUpdateProcess.targetCaseStatus)
+    : "";
   const storedFileId = detail?.record.stored_file_id?.trim() ?? "";
   const hasStoredFileId = Boolean(storedFileId);
   const hasFileStorageAccess = isGlobalAdminRole(adminContext.role);
@@ -1954,6 +2047,103 @@ export function TwoPQRecordWorkbench({
   function handleCaseDeleteProcessExit() {
     setCaseDeleteProcess(null);
     router.push(area.route);
+    router.refresh();
+  }
+
+  function getCaseStatusUpdateStepCopy(stepKey: CaseStatusUpdateStepKey) {
+    switch (stepKey) {
+      case "case":
+        return {
+          title: t("Update case status"),
+          description: t("Saving the new status on the current 2PQ case."),
+        };
+      case "samplings":
+        return {
+          title: t("Update sampling children"),
+          description: t(
+            "Applying the mapped processing status to every linked sampling, one by one.",
+          ),
+        };
+      case "file_storage":
+        return {
+          title: t("Update File Storage"),
+          description: t(
+            "Rebuilding the current-case JSON and saving it when automatic synchronization applies.",
+          ),
+        };
+      case "report_code":
+        return {
+          title: t("Update report code"),
+          description: t(
+            "Publishing the updated stored file through the case report code when applicable.",
+          ),
+        };
+    }
+  }
+
+  async function pollCaseStatusUpdateOperation(
+    caseId: string,
+    operationId: string,
+    requestId: number,
+  ) {
+    while (caseStatusOperationRequestIdRef.current === requestId) {
+      await pauseForProcessStep(450);
+      if (caseStatusOperationRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      try {
+        const { operation } = await sdkFetch<{
+          operation: CaseStatusUpdateProcessState;
+        }>(
+          `/2pq/cases/${encodeURIComponent(caseId)}/status-operations/${encodeURIComponent(operationId)}`,
+        );
+        if (caseStatusOperationRequestIdRef.current !== requestId) {
+          return;
+        }
+        setCaseStatusUpdateProcess((current) =>
+          current?.id === operationId
+            ? { ...operation, errorDetails: current.errorDetails }
+            : current,
+        );
+        if (operation.status !== "running") {
+          return;
+        }
+      } catch {
+        // The mutation response remains authoritative. A poll can race operation creation.
+      }
+    }
+  }
+
+  function openCaseStatusUpdateErrorLog() {
+    if (!caseStatusUpdateProcess?.errorDetails) {
+      return;
+    }
+
+    setLatestErrorLog({
+      title: t("Case status update failed"),
+      details: caseStatusUpdateProcess.errorDetails,
+    });
+    setCopiedErrorLog(false);
+    setIsErrorLogOpen(true);
+  }
+
+  function handleCaseStatusUpdateFinish() {
+    if (
+      !caseStatusUpdateProcess ||
+      caseStatusUpdateProcess.status === "running"
+    ) {
+      return;
+    }
+
+    caseStatusOperationRequestIdRef.current += 1;
+    if (caseStatusUpdateProcess.status === "success") {
+      setState((current) => ({
+        ...current,
+        caseStatus: caseStatusUpdateProcess.targetCaseStatus,
+      }));
+    }
+    setCaseStatusUpdateProcess(null);
     router.refresh();
   }
 
@@ -3374,28 +3564,91 @@ export function TwoPQRecordWorkbench({
       return;
     }
 
+    const caseId = detail.record.id;
+    const targetCaseStatus = nextCaseStatusOption.value;
+    const operationId = createCaseStatusOperationId();
+    const requestId = caseStatusOperationRequestIdRef.current + 1;
+    caseStatusOperationRequestIdRef.current = requestId;
+    setCaseStatusUpdateProcess(
+      buildInitialCaseStatusUpdateProcess(
+        operationId,
+        caseId,
+        targetCaseStatus,
+      ),
+    );
     setPendingCaseStatusAdvance(true);
     setPendingAction("update");
+    void pollCaseStatusUpdateOperation(caseId, operationId, requestId);
     try {
-      await sdkFetch<{ record: TwoPQRecord }>(
-        `/2pq/${area.key}/${detail.record.id}`,
+      const result = await sdkFetch<{
+        record: TwoPQRecord;
+        operation?: CaseStatusUpdateProcessState;
+      }>(
+        `/2pq/${area.key}/${caseId}`,
         {
           method: "PATCH",
-          body: JSON.stringify({ caseStatus: nextCaseStatusOption.value }),
+          headers: {
+            "x-two-pq-status-operation-id": operationId,
+          },
+          body: JSON.stringify({ caseStatus: targetCaseStatus }),
         },
       );
-      setState((current) => ({
-        ...current,
-        caseStatus: nextCaseStatusOption.value,
-      }));
-      pushToast("success", t("Case status updated."));
-      router.refresh();
+      if (caseStatusOperationRequestIdRef.current === requestId) {
+        caseStatusOperationRequestIdRef.current += 1;
+        setCaseStatusUpdateProcess((current) =>
+          result.operation
+            ? { ...result.operation, errorDetails: current?.errorDetails }
+            : current
+              ? {
+                  ...current,
+                  status: "success",
+                  targetCaseStatus,
+                  steps: current.steps.map((step) => ({
+                    ...step,
+                    status:
+                      step.status === "pending" ? "skipped" : "success",
+                  })),
+                  updatedAt: new Date().toISOString(),
+                  completedAt: new Date().toISOString(),
+                }
+              : current,
+        );
+      }
     } catch (error) {
-      pushErrorToast(
+      if (caseStatusOperationRequestIdRef.current !== requestId) {
+        return;
+      }
+      caseStatusOperationRequestIdRef.current += 1;
+      const presentation = getErrorPresentation(
         error,
         t("Unable to update case status."),
-        t("Case status update"),
       );
+      setCaseStatusUpdateProcess((current) =>
+        current
+          ? {
+              ...current,
+              status: "error",
+              errorMessage: presentation.message,
+              errorDetails: presentation.details,
+              completedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              steps: current.steps.map((step) =>
+                step.status === "running"
+                  ? {
+                      ...step,
+                      status: "error",
+                      detail: presentation.message,
+                    }
+                  : step,
+              ),
+            }
+          : current,
+      );
+      setLatestErrorLog({
+        title: t("Case status update failed"),
+        details: presentation.details,
+      });
+      setCopiedErrorLog(false);
     } finally {
       setPendingCaseStatusAdvance(false);
       setPendingAction(null);
@@ -5328,6 +5581,196 @@ export function TwoPQRecordWorkbench({
         noteByRecordId={samplingNotes}
         translate={t}
       />
+      <Dialog open={Boolean(caseStatusUpdateProcess)}>
+        <DialogContent
+          showCloseButton={false}
+          className="h-[min(46rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.99),rgba(255,255,255,0.98)_54%,rgba(236,253,245,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(126,34,206,0.2)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.99),rgba(39,29,52,0.97)_48%,rgba(6,78,59,0.24))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.34)]"
+        >
+          <DialogHeader className="relative border-b border-fuchsia-100 px-6 py-5 dark:border-fuchsia-300/16">
+            <DialogTitle className="font-heading text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+              {caseStatusUpdateProcess?.status === "success"
+                ? t("Case update completed")
+                : caseStatusUpdateProcess?.status === "error"
+                  ? t("Case update finished with an error")
+                  : t("Updating case status")}
+            </DialogTitle>
+            <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
+              {t(
+                "The case, its sampling children, File Storage, and report code are processed in this exact order.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 space-y-5 overflow-y-auto px-6 py-5">
+            {caseStatusUpdateProcess?.status === "success" ? (
+              <div className="relative overflow-hidden rounded-[1.5rem] border border-emerald-200/80 bg-emerald-50/82 px-5 py-6 text-center dark:border-emerald-300/20 dark:bg-emerald-400/10">
+                {CREATION_CONFETTI.map((particle, index) => (
+                  <span
+                    key={`case-status-success-${particle.left}-${particle.delay}-${index}`}
+                    className="two-pq-confetti absolute h-3 w-3 rounded-[5px]"
+                    style={{
+                      left: particle.left,
+                      top: particle.top,
+                      background: particle.color,
+                      animationDelay: particle.delay,
+                      animationDuration: particle.duration,
+                    }}
+                  />
+                ))}
+                <div className="relative flex flex-col items-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_0_0_10px_rgba(16,185,129,0.12)]">
+                    <CheckCircle2 className="h-8 w-8" />
+                  </div>
+                  <h3 className="mt-4 font-heading text-2xl font-semibold text-emerald-950 dark:text-emerald-50">
+                    {t("Everything is up to date")}
+                  </h3>
+                  <p className="mt-2 text-sm text-emerald-950/70 dark:text-emerald-50/72">
+                    {t("The full status-change sequence completed successfully.")}
+                  </p>
+                </div>
+              </div>
+            ) : caseStatusUpdateProcess?.status === "error" ? (
+              <div className="rounded-[1.5rem] border border-destructive/30 bg-destructive/8 px-5 py-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-lg font-semibold text-destructive">
+                      {t("The sequence could not be completed")}
+                    </h3>
+                    <p className="mt-1 text-sm text-destructive/82">
+                      {caseStatusUpdateProcess.errorMessage ??
+                        t("Unable to update case status.")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="rounded-[1.5rem] border border-fuchsia-100 bg-white/78 px-5 py-5 shadow-[0_14px_36px_rgba(250,232,255,0.58)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                    {t("Process progress")}
+                  </p>
+                  <p className="mt-2 text-sm text-fuchsia-950/72 dark:text-fuchsia-50/72">
+                    <span className="font-mono">
+                      {caseStatusUpdateProcess?.caseId}
+                    </span>{" "}
+                    · {t("New status")}: {caseStatusUpdateTargetLabel}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="border-fuchsia-200 bg-white/80 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
+                >
+                  {caseStatusUpdateProgressPercent}%
+                </Badge>
+              </div>
+              <div className="mt-4 h-3 overflow-hidden rounded-full bg-fuchsia-100/90 dark:bg-fuchsia-950/50">
+                <div
+                  className={`h-full rounded-full transition-[width] duration-300 ${
+                    caseStatusUpdateProcess?.status === "error"
+                      ? "bg-destructive"
+                      : "bg-[linear-gradient(90deg,rgba(192,38,211,0.94),rgba(16,185,129,0.96))]"
+                  }`}
+                  style={{ width: `${caseStatusUpdateProgressPercent}%` }}
+                />
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                {caseStatusUpdateProcess?.steps.map((step) => {
+                  const copy = getCaseStatusUpdateStepCopy(step.key);
+                  return (
+                    <div
+                      key={`case-status-update-${step.key}`}
+                      className="rounded-[1.25rem] border border-fuchsia-100 bg-white/82 px-4 py-4 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/28"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={
+                            step.status === "success"
+                              ? "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
+                              : step.status === "error"
+                                ? "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+                                : step.status === "running"
+                                  ? "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fuchsia-600 text-white"
+                                  : step.status === "skipped"
+                                    ? "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-300/12 dark:text-amber-200"
+                                    : "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-fuchsia-200 bg-white text-fuchsia-500 dark:border-fuchsia-300/20 dark:bg-fuchsia-950/30"
+                          }
+                        >
+                          {step.status === "success" ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : step.status === "error" ? (
+                            <AlertTriangle className="h-4 w-4" />
+                          ) : step.status === "running" ? (
+                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CircleDot className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                              {copy.title}
+                            </p>
+                            <Badge variant="outline" className="text-[10px]">
+                              {step.status === "pending"
+                                ? t("Pending")
+                                : step.status === "running"
+                                  ? t("In progress")
+                                  : step.status === "success"
+                                    ? t("Completed")
+                                    : step.status === "skipped"
+                                      ? t("Not applicable")
+                                      : t("Failed")}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-fuchsia-950/62 dark:text-fuchsia-50/68">
+                            {step.detail ?? copy.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-3 border-fuchsia-100/90 bg-white/62 px-6 py-5 dark:border-fuchsia-300/14 dark:bg-fuchsia-950/16">
+            {caseStatusUpdateProcess?.status === "error" ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openCaseStatusUpdateErrorLog}
+                disabled={!caseStatusUpdateProcess.errorDetails}
+                className={`${THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME} h-11 px-6`}
+              >
+                <ScrollText className="h-4 w-4" />
+                {t("Show log")}
+              </Button>
+            ) : null}
+            {caseStatusUpdateProcess?.status === "running" ? (
+              <div className="flex items-center gap-2 text-sm text-fuchsia-950/64 dark:text-fuchsia-50/68">
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+                {t("Please wait while every dependent record is updated.")}
+              </div>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleCaseStatusUpdateFinish}
+                className={`${THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {t("Finish")}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={Boolean(caseDeleteProcess)}
         onOpenChange={(open) => {

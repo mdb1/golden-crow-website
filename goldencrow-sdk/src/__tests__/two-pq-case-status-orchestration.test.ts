@@ -118,7 +118,27 @@ describe("2PQ case status update orchestration", () => {
       updatedSamplingIds: ["SAMP-00001"],
       unchangedSamplingIds: [],
     });
-    mockSynchronizeTwoPQCasesFilesAndCodes.mockResolvedValue([]);
+    mockSynchronizeTwoPQCasesFilesAndCodes.mockImplementation(
+      async (_caseIds, _actorEmail, reportProgress) => {
+        await reportProgress?.({
+          step: "file_storage",
+          status: "running",
+        });
+        await reportProgress?.({
+          step: "file_storage",
+          status: "success",
+        });
+        await reportProgress?.({
+          step: "report_code",
+          status: "running",
+        });
+        await reportProgress?.({
+          step: "report_code",
+          status: "success",
+        });
+        return [];
+      },
+    );
 
     collectionStore("institutions").set("INST-00001", {
       code: "INST",
@@ -158,6 +178,11 @@ describe("2PQ case status update orchestration", () => {
       "../repositories/two-pq.repository.js"
     );
 
+    const progressEvents: Array<Record<string, unknown>> = [];
+    const reportCaseStatusProgress = jest.fn(async (event) => {
+      progressEvents.push(event);
+    });
+
     await updateTwoPQRecordForContext(
       {
         email: "admin@example.com",
@@ -172,6 +197,7 @@ describe("2PQ case status update orchestration", () => {
       "cases",
       "CASE-00001",
       { caseStatus: "lab_processing" },
+      { reportCaseStatusProgress },
     );
 
     expect(
@@ -185,6 +211,18 @@ describe("2PQ case status update orchestration", () => {
     expect(mockSynchronizeTwoPQCasesFilesAndCodes).toHaveBeenCalledWith(
       ["CASE-00001"],
       "admin@example.com",
+      reportCaseStatusProgress,
+    );
+    expect(progressEvents.map(({ step, status }) => ({ step, status }))).toEqual(
+      [
+        { step: "case", status: "success" },
+        { step: "samplings", status: "running" },
+        { step: "samplings", status: "success" },
+        { step: "file_storage", status: "running" },
+        { step: "file_storage", status: "success" },
+        { step: "report_code", status: "running" },
+        { step: "report_code", status: "success" },
+      ],
     );
     expect(
       mockCascadeTwoPQCaseStatusToSamplingChildren.mock.invocationCallOrder[0]!,

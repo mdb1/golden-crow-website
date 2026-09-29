@@ -5,6 +5,7 @@ import {
   updateStoredFileDocument,
 } from "./file-storage.repository.js";
 import { publishStoredFileAsReportCode } from "./reports.repository.js";
+import type { TwoPQCaseStatusProgressReporter } from "./two-pq-case-status-operation.repository.js";
 
 const adminDb = adminDbFor("mydnamap");
 
@@ -345,13 +346,34 @@ function isValidEmail(value: string | undefined) {
 export async function synchronizeTwoPQCaseFilesAndCodes(
   caseId: string,
   actorEmail?: string,
+  reportProgress?: TwoPQCaseStatusProgressReporter,
 ): Promise<TwoPQCaseAutoSyncResult> {
   const caseRecord = await getRecord(CASES_COLLECTION, caseId);
   if (!caseRecord) {
+    await reportProgress?.({
+      step: "file_storage",
+      status: "skipped",
+      detail: "Case not found; File Storage was not synchronized.",
+    });
+    await reportProgress?.({
+      step: "report_code",
+      status: "skipped",
+      detail: "Case not found; the report code was not synchronized.",
+    });
     return { status: "skipped", caseId, reason: "case_not_found" };
   }
 
   if (caseRecord.data.should_automatically_sync_files_and_codes === false) {
+    await reportProgress?.({
+      step: "file_storage",
+      status: "skipped",
+      detail: "Automatic file and report-code synchronization is disabled.",
+    });
+    await reportProgress?.({
+      step: "report_code",
+      status: "skipped",
+      detail: "Automatic file and report-code synchronization is disabled.",
+    });
     return { status: "skipped", caseId, reason: "disabled" };
   }
 
@@ -359,11 +381,36 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
     caseRecord.data.three_letter_code,
   )?.toUpperCase();
   if (!threeLetterCode || !/^[A-Z]{3}$/.test(threeLetterCode)) {
+    await reportProgress?.({
+      step: "file_storage",
+      status: "skipped",
+      detail: "The case has no valid three-letter code.",
+    });
+    await reportProgress?.({
+      step: "report_code",
+      status: "skipped",
+      detail: "The case has no valid three-letter code.",
+    });
     return { status: "skipped", caseId, reason: "missing_three_letter_code" };
   }
 
+  await reportProgress?.({
+    step: "file_storage",
+    status: "running",
+    detail: "Building and saving the current case snapshot.",
+  });
   const snapshot = await buildTwoPQCaseFileStorageSnapshot(caseId);
   if (!snapshot) {
+    await reportProgress?.({
+      step: "file_storage",
+      status: "skipped",
+      detail: "Case not found; File Storage was not synchronized.",
+    });
+    await reportProgress?.({
+      step: "report_code",
+      status: "skipped",
+      detail: "Case not found; the report code was not synchronized.",
+    });
     return { status: "skipped", caseId, reason: "case_not_found" };
   }
 
@@ -421,9 +468,24 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
     );
   }
 
+  await reportProgress?.({
+    step: "file_storage",
+    status: "success",
+    detail: `File Storage ${storedFileId} is up to date.`,
+  });
+  await reportProgress?.({
+    step: "report_code",
+    status: "running",
+    detail: `Publishing ${reportCode} from the updated stored file.`,
+  });
   await publishStoredFileAsReportCode({
     fileId: storedFileId,
     reportCode,
+  });
+  await reportProgress?.({
+    step: "report_code",
+    status: "success",
+    detail: `Report code ${reportCode} is up to date.`,
   });
 
   return {
@@ -438,10 +500,18 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
 export async function synchronizeTwoPQCasesFilesAndCodes(
   caseIds: Array<string | null | undefined>,
   actorEmail?: string,
+  reportProgress?: TwoPQCaseStatusProgressReporter,
 ) {
   const results: TwoPQCaseAutoSyncResult[] = [];
-  for (const caseId of uniqueStrings(caseIds)) {
-    results.push(await synchronizeTwoPQCaseFilesAndCodes(caseId, actorEmail));
+  const uniqueCaseIds = uniqueStrings(caseIds);
+  for (const caseId of uniqueCaseIds) {
+    results.push(
+      await synchronizeTwoPQCaseFilesAndCodes(
+        caseId,
+        actorEmail,
+        uniqueCaseIds.length === 1 ? reportProgress : undefined,
+      ),
+    );
   }
   return results;
 }
