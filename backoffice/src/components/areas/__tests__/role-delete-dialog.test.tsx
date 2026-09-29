@@ -30,14 +30,13 @@ const adminContext: AdminContextRecord = {
 };
 
 const roleRecord: RoleManagementRecord = {
-  email: "patient@example.com",
-  role: "patient",
-  firebaseUid: "patient-uid",
-  patientId: "PAT-00001",
+  email: "doctor@example.com",
+  role: "institution_doctor",
+  firebaseUid: "doctor-uid",
   doctorId: "DOC-00001",
   institutionId: "INST-00001",
   isActive: true,
-  canAccessPatientPortal: true,
+  canAccessPatientPortal: false,
   createdAt: "2026-09-28T12:00:00.000Z",
   updatedAt: "2026-09-28T12:00:00.000Z",
 };
@@ -91,10 +90,21 @@ describe("RoleDeleteDialog", () => {
         return {
           items: [
             {
+              collection: "patients",
+              id: "PAT-00001",
+              entityKind: "doctor",
+              entityId: "DOC-00001",
+              institutionId: "INST-00001",
+              doctorId: "DOC-00001",
+              fullName: "Orphaned patient",
+              email: "patient@example.com",
+              status: "active",
+            },
+            {
               collection: "2pq_case",
               id: "CASE-00020",
-              entityKind: "patient",
-              entityId: "PAT-00001",
+              entityKind: "doctor",
+              entityId: "DOC-00001",
               institutionId: "INST-00001",
               doctorId: "DOC-00001",
               patientId: "PAT-00001",
@@ -104,8 +114,8 @@ describe("RoleDeleteDialog", () => {
             {
               collection: "2pq_sequencing",
               id: "SEQ-00007",
-              entityKind: "patient",
-              entityId: "PAT-00001",
+              entityKind: "doctor",
+              entityId: "DOC-00001",
               institutionId: "INST-00001",
               doctorId: "DOC-00001",
               patientId: "PAT-00001",
@@ -114,7 +124,7 @@ describe("RoleDeleteDialog", () => {
               analysisStatus: "pending",
             },
           ],
-          nextCursors: { cases: null, batches: null },
+          nextCursors: { patients: null, cases: null, batches: null },
         };
       }
       const step = path.split("/").at(-1);
@@ -124,13 +134,14 @@ describe("RoleDeleteDialog", () => {
           status: "deleted",
           deletedCount: 1,
           message:
-            "Deleted 1 linked personal or professional record(s). Preserved 1 2PQ case(s) and 1 sequencing batch(es); none were deleted or reassigned.",
+            "Deleted 1 linked personal or professional record(s). Preserved 1 linked patient(s), 1 2PQ case(s), and 1 sequencing batch(es); none were deleted or reassigned.",
           orphanedTwoPQAssignments: {
-            entityKind: "patient",
-            entityId: "PAT-00001",
+            entityKind: "doctor",
+            entityId: "DOC-00001",
+            patientCount: 1,
             caseCount: 1,
             batchCount: 1,
-            totalCount: 2,
+            totalCount: 3,
           },
         };
       }
@@ -192,15 +203,15 @@ describe("RoleDeleteDialog", () => {
     await screen.findByText("Cleanup completed with pending items");
     expect(sdkFetch).toHaveBeenCalledTimes(9);
     expect((sdkFetch as jest.Mock).mock.calls.map((call) => call[0])).toEqual([
-      "/roles/patient%40example.com/deletion/linked_entity",
-      "/roles/patient%40example.com/deletion/private_profile",
-      "/roles/patient%40example.com/deletion/public_profile",
-      "/roles/patient%40example.com/deletion/community",
-      "/roles/patient%40example.com/deletion/reports",
-      "/roles/patient%40example.com/deletion/objects",
-      "/roles/patient%40example.com/deletion/learning",
-      "/roles/patient%40example.com/deletion/firebase_auth",
-      "/roles/patient%40example.com/deletion/role",
+      "/roles/doctor%40example.com/deletion/linked_entity",
+      "/roles/doctor%40example.com/deletion/private_profile",
+      "/roles/doctor%40example.com/deletion/public_profile",
+      "/roles/doctor%40example.com/deletion/community",
+      "/roles/doctor%40example.com/deletion/reports",
+      "/roles/doctor%40example.com/deletion/objects",
+      "/roles/doctor%40example.com/deletion/learning",
+      "/roles/doctor%40example.com/deletion/firebase_auth",
+      "/roles/doctor%40example.com/deletion/role",
     ]);
     expect(screen.getAllByText("Failed")).toHaveLength(1);
     expect(screen.getAllByText("Not available")).toHaveLength(1);
@@ -227,16 +238,25 @@ describe("RoleDeleteDialog", () => {
     await user.click(screen.getByRole("button", { name: "Close review" }));
 
     expect(
-      screen.getByText("Third step: review orphaned 2PQ assignments"),
+      screen.getByText("Third step: review orphaned relationships"),
     ).toBeInTheDocument();
     await user.click(
-      screen.getByRole("button", { name: /Review 2PQ cases and batches/ }),
+      screen.getByRole("button", { name: /Review patients and 2PQ records/ }),
     );
     expect(
       await screen.findByRole("heading", {
-        name: "Orphaned 2PQ cases and batches",
+        name: "Orphaned patients and 2PQ records",
       }),
     ).toBeInTheDocument();
+    expect(await screen.findByText("Orphaned patient")).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link", { name: /^Open$/ })
+        .some(
+          (link) =>
+            link.getAttribute("href") === "/areas/patients/PAT-00001",
+        ),
+    ).toBe(true);
     expect(await screen.findByText("PGT case")).toBeInTheDocument();
     expect(await screen.findByText("RUN-7")).toBeInTheDocument();
     expect(
@@ -262,7 +282,7 @@ describe("RoleDeleteDialog", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        /Request: DELETE \/roles\/patient%40example\.com\/deletion\/community/,
+        /Request: DELETE \/roles\/doctor%40example\.com\/deletion\/community/,
       ),
     ).toBeTruthy();
     expect(screen.getByText(/FAILED_PRECONDITION: missing index/)).toBeTruthy();

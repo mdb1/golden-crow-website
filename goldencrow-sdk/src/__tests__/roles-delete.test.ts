@@ -288,13 +288,14 @@ describe("role user deletion", () => {
       orphanedTwoPQAssignments: {
         entityKind: "patient",
         entityId: "PAT-00001",
+        patientCount: 0,
         caseCount: 1,
         batchCount: 1,
         totalCount: 2,
       },
     });
     expect(result.message).toContain(
-      "Preserved 1 2PQ case(s) and 1 sequencing batch(es)",
+      "Preserved 0 linked patient(s), 1 2PQ case(s), and 1 sequencing batch(es)",
     );
     expect(mockDocs.has("patients/PAT-00001")).toBe(false);
     expect(mockDocs.has("2pq_client/CLNT-00001")).toBe(false);
@@ -347,6 +348,7 @@ describe("role user deletion", () => {
         }),
       ],
       nextCursors: {
+        patients: null,
         cases: "CASE-00002",
         batches: null,
       },
@@ -368,6 +370,7 @@ describe("role user deletion", () => {
         }),
       ],
       nextCursors: {
+        patients: null,
         cases: null,
         batches: null,
       },
@@ -392,6 +395,128 @@ describe("role user deletion", () => {
         },
       ),
     ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("deletes a doctor while preserving and listing orphaned patients", async () => {
+    const {
+      deleteRoleAccountStepForContext,
+      listOrphanedTwoPQAssignmentsForContext,
+    } = await import("../repositories/roles.repository");
+
+    mockDocs.set("user_roles/doctor@example.com", {
+      role: "institution_doctor",
+      firebaseUid: "doctor-uid",
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockDocs.set("doctors/DOC-00001", {
+      institutionId: "INST-00001",
+      authEmail: "doctor@example.com",
+      fullName: "Doctor Removed",
+    });
+    for (const patientId of ["PAT-00001", "PAT-00002", "PAT-00003"]) {
+      mockDocs.set(`patients/${patientId}`, {
+        institutionId: "INST-00001",
+        doctorId: "DOC-00001",
+        fullName: patientId,
+        email: `${patientId.toLowerCase()}@example.com`,
+        status: "active",
+      });
+    }
+    mockDocs.set("2pq_case/CASE-DOCTOR", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      caseLabel: "Doctor case",
+    });
+    mockDocs.set("2pq_sequencing/SEQ-DOCTOR", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      runId: "RUN-DOCTOR",
+    });
+
+    const result = await deleteRoleAccountStepForContext(
+      { ...godModeContext, isBootstrap: false },
+      "doctor@example.com",
+      "linked_entity",
+    );
+
+    expect(result).toMatchObject({
+      step: "linked_entity",
+      status: "deleted",
+      deletedCount: 1,
+      orphanedTwoPQAssignments: {
+        entityKind: "doctor",
+        entityId: "DOC-00001",
+        patientCount: 3,
+        caseCount: 1,
+        batchCount: 1,
+        totalCount: 5,
+      },
+    });
+    expect(result.message).toContain("Preserved 3 linked patient(s)");
+    expect(mockDocs.has("doctors/DOC-00001")).toBe(false);
+    expect(mockDocs.has("patients/PAT-00001")).toBe(true);
+    expect(mockDocs.has("patients/PAT-00002")).toBe(true);
+    expect(mockDocs.has("patients/PAT-00003")).toBe(true);
+
+    await expect(
+      listOrphanedTwoPQAssignmentsForContext(godModeContext, {
+        entityKind: "doctor",
+        entityId: "DOC-00001",
+        limit: 2,
+      }),
+    ).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          collection: "patients",
+          id: "PAT-00001",
+          fullName: "PAT-00001",
+        }),
+        expect.objectContaining({
+          collection: "patients",
+          id: "PAT-00002",
+        }),
+        expect.objectContaining({
+          collection: "2pq_case",
+          id: "CASE-DOCTOR",
+        }),
+        expect.objectContaining({
+          collection: "2pq_sequencing",
+          id: "SEQ-DOCTOR",
+        }),
+      ],
+      nextCursors: {
+        patients: "PAT-00002",
+        cases: null,
+        batches: null,
+      },
+    });
+
+    await expect(
+      listOrphanedTwoPQAssignmentsForContext(godModeContext, {
+        entityKind: "doctor",
+        entityId: "DOC-00001",
+        limit: 2,
+        patientCursor: "PAT-00002",
+        casesDone: true,
+        batchesDone: true,
+      }),
+    ).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          collection: "patients",
+          id: "PAT-00003",
+        }),
+      ],
+      nextCursors: {
+        patients: null,
+        cases: null,
+        batches: null,
+      },
+    });
   });
 
   it("reviews professional assignments stored through the canonical doctorId field", async () => {
@@ -427,6 +552,7 @@ describe("role user deletion", () => {
       orphanedTwoPQAssignments: {
         entityKind: "professional",
         entityId: "IND-00001",
+        patientCount: 0,
         caseCount: 1,
         batchCount: 0,
         totalCount: 1,
@@ -466,6 +592,7 @@ describe("role user deletion", () => {
       orphanedTwoPQAssignments: {
         entityKind: "patient",
         entityId: "PAT-EMPTY",
+        patientCount: 0,
         totalCount: 0,
       },
     });

@@ -196,6 +196,18 @@ export function PatientWorkbench({
     (institution) => institution.id === state.institutionId
   );
   const selectedDoctor = doctors.find((doctor) => doctor.id === state.doctorId);
+  const missingDoctorId =
+    detail?.patient.doctorId && !detail.doctor
+      ? detail.patient.doctorId
+      : undefined;
+  const missingDoctorTitle =
+    language === "es"
+      ? "El médico asignado fue eliminado"
+      : "The assigned doctor was removed";
+  const missingDoctorBody =
+    language === "es"
+      ? `El paciente permanece disponible, pero el vínculo con ${missingDoctorId ?? "el médico anterior"} quedó huérfano. Seleccioná un nuevo médico y guardá el paciente para completar la reasignación.`
+      : `The patient remains available, but the link to ${missingDoctorId ?? "the previous doctor"} is now orphaned. Select a new doctor and save the patient to complete reassignment.`;
 
   async function handleSave() {
     if (!state.institutionId.trim()) {
@@ -461,6 +473,25 @@ export function PatientWorkbench({
           </span>
         ) : null}
       </div>
+
+      {missingDoctorId ? (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-md border border-amber-300/70 bg-amber-50 px-4 py-3 text-amber-950 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div className="min-w-0">
+            <p className="font-semibold">{missingDoctorTitle}</p>
+            <p className="mt-1 text-sm leading-6">{missingDoctorBody}</p>
+            <Badge
+              variant="outline"
+              className="mt-3 border-amber-400/60 bg-white/70 font-mono text-amber-950 dark:bg-background/45 dark:text-amber-100"
+            >
+              doctorId: {missingDoctorId}
+            </Badge>
+          </div>
+        </div>
+      ) : null}
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -854,11 +885,17 @@ export function PatientWorkbench({
           <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-medium text-foreground">
-                {selectedDoctor?.fullName ?? detail?.doctor?.fullName ?? t("No doctor")}
+                {selectedDoctor?.fullName ??
+                  detail?.doctor?.fullName ??
+                  (missingDoctorId
+                    ? language === "es"
+                      ? "Médico eliminado"
+                      : "Removed doctor"
+                    : t("No doctor"))}
               </p>
-              {selectedDoctor || detail?.doctor ? (
+              {selectedDoctor || detail?.doctor || missingDoctorId ? (
                 <span className="font-mono text-xs text-muted-foreground">
-                  {selectedDoctor?.id ?? detail?.doctor?.id}
+                  {selectedDoctor?.id ?? detail?.doctor?.id ?? missingDoctorId}
                 </span>
               ) : null}
               {detail ? (
@@ -871,7 +908,10 @@ export function PatientWorkbench({
               {compactList([
                 selectedDoctor?.authEmail ?? detail?.doctor?.authEmail,
                 selectedDoctor?.specialty ?? detail?.doctor?.specialty,
-              ]) || t("Doctor link")}
+              ]) ||
+                (missingDoctorId
+                  ? missingDoctorTitle
+                  : t("Doctor link"))}
             </p>
             {(selectedDoctor || detail?.doctor) ? (
               <Button variant="link" size="sm" className="px-0" asChild>

@@ -106,13 +106,14 @@ export type RoleAccountTwoPQEntityKind =
 export interface RoleAccountOrphanedTwoPQSummary {
   entityKind: RoleAccountTwoPQEntityKind;
   entityId: string;
+  patientCount: number;
   caseCount: number;
   batchCount: number;
   totalCount: number;
 }
 
 export interface RoleAccountOrphanedTwoPQAssignment {
-  collection: "2pq_case" | "2pq_sequencing";
+  collection: "patients" | "2pq_case" | "2pq_sequencing";
   id: string;
   entityKind: RoleAccountTwoPQEntityKind;
   entityId: string;
@@ -125,11 +126,15 @@ export interface RoleAccountOrphanedTwoPQAssignment {
   runId?: string;
   platform?: string;
   analysisStatus?: string;
+  fullName?: string;
+  email?: string;
+  status?: string;
 }
 
 export interface RoleAccountOrphanedTwoPQPage {
   items: RoleAccountOrphanedTwoPQAssignment[];
   nextCursors: {
+    patients: string | null;
     cases: string | null;
     batches: string | null;
   };
@@ -878,8 +883,8 @@ function twoPQAssignmentScope(record: UserRoleRecord): {
   return null;
 }
 
-async function countTwoPQAssignments(
-  collection: "2pq_case" | "2pq_sequencing",
+async function countLinkedAssignments(
+  collection: "patients" | "2pq_case" | "2pq_sequencing",
   field: "doctorId" | "patientId",
   entityId: string,
 ) {
@@ -897,16 +902,20 @@ async function orphanedTwoPQAssignmentSummary(record: UserRoleRecord) {
     return undefined;
   }
 
-  const [caseCount, batchCount] = await Promise.all([
-    countTwoPQAssignments("2pq_case", scope.field, scope.entityId),
-    countTwoPQAssignments("2pq_sequencing", scope.field, scope.entityId),
+  const [patientCount, caseCount, batchCount] = await Promise.all([
+    scope.field === "doctorId"
+      ? countLinkedAssignments("patients", "doctorId", scope.entityId)
+      : Promise.resolve(0),
+    countLinkedAssignments("2pq_case", scope.field, scope.entityId),
+    countLinkedAssignments("2pq_sequencing", scope.field, scope.entityId),
   ]);
   return {
     entityKind: scope.entityKind,
     entityId: scope.entityId,
+    patientCount,
     caseCount,
     batchCount,
-    totalCount: caseCount + batchCount,
+    totalCount: patientCount + caseCount + batchCount,
   } satisfies RoleAccountOrphanedTwoPQSummary;
 }
 
@@ -931,11 +940,15 @@ function orphanedTwoPQAssignmentFromSnapshot(
     runId: normalizeOptionalString(data.runId),
     platform: normalizeOptionalString(data.platform),
     analysisStatus: normalizeOptionalString(data.analysisStatus),
+    fullName: normalizeOptionalString(data.fullName),
+    email: normalizeOptionalString(data.email),
+    status: normalizeOptionalString(data.status),
   };
 }
 
-async function listTwoPQAssignmentPage(input: {
+async function listLinkedAssignmentPage(input: {
   collection: RoleAccountOrphanedTwoPQAssignment["collection"];
+  field: "doctorId" | "patientId";
   entityKind: RoleAccountTwoPQEntityKind;
   entityId: string;
   cursor?: string;
@@ -946,10 +959,9 @@ async function listTwoPQAssignmentPage(input: {
     return { items: [], nextCursor: null as string | null };
   }
 
-  const field = input.entityKind === "patient" ? "patientId" : "doctorId";
   let query: Query = adminDb
     .collection(input.collection)
-    .where(field, "==", input.entityId)
+    .where(input.field, "==", input.entityId)
     .orderBy(FieldPath.documentId());
   if (input.cursor) {
     query = query.startAfter(input.cursor);
@@ -980,8 +992,10 @@ export async function listOrphanedTwoPQAssignmentsForContext(
     entityKind: RoleAccountTwoPQEntityKind;
     entityId: string;
     limit?: number;
+    patientCursor?: string;
     caseCursor?: string;
     batchCursor?: string;
+    patientsDone?: boolean;
     casesDone?: boolean;
     batchesDone?: boolean;
   },
@@ -999,17 +1013,30 @@ export async function listOrphanedTwoPQAssignmentsForContext(
   }
 
   const limit = Math.min(Math.max(Math.trunc(input.limit ?? 20), 1), 20);
-  const [cases, batches] = await Promise.all([
-    listTwoPQAssignmentPage({
+  const assignmentField =
+    input.entityKind === "patient" ? "patientId" : "doctorId";
+  const [patients, cases, batches] = await Promise.all([
+    listLinkedAssignmentPage({
+      collection: "patients",
+      field: "doctorId",
+      entityKind: input.entityKind,
+      entityId,
+      cursor: input.patientCursor,
+      limit,
+      done: input.patientsDone || input.entityKind === "patient",
+    }),
+    listLinkedAssignmentPage({
       collection: "2pq_case",
+      field: assignmentField,
       entityKind: input.entityKind,
       entityId,
       cursor: input.caseCursor,
       limit,
       done: input.casesDone,
     }),
-    listTwoPQAssignmentPage({
+    listLinkedAssignmentPage({
       collection: "2pq_sequencing",
+      field: assignmentField,
       entityKind: input.entityKind,
       entityId,
       cursor: input.batchCursor,
@@ -1019,8 +1046,9 @@ export async function listOrphanedTwoPQAssignmentsForContext(
   ]);
 
   return {
-    items: [...cases.items, ...batches.items],
+    items: [...patients.items, ...cases.items, ...batches.items],
     nextCursors: {
+      patients: patients.nextCursor,
       cases: cases.nextCursor,
       batches: batches.nextCursor,
     },
@@ -1058,16 +1086,6 @@ async function deleteLinkedPersonalEntity(
   if (record.patientId) {
     refs.push(...(await existingDocumentRefs("patients", [record.patientId])));
   } else if (record.doctorId) {
-    const linkedPatients = await adminDb
-      .collection("patients")
-      .where("doctorId", "==", record.doctorId)
-      .get();
-    if (!linkedPatients.empty) {
-      throw new AdminRepositoryError(
-        `The linked doctor still has ${linkedPatients.size} patient record(s). Reassign or delete those patients before removing the doctor entity.`,
-        409,
-      );
-    }
     refs.push(...(await existingDocumentRefs("doctors", [record.doctorId])));
   } else if (record.individualId) {
     refs.push(
@@ -1093,7 +1111,7 @@ async function deleteLinkedPersonalEntity(
 
   return {
     ...result,
-    message: `${result.message} Preserved ${twoPQSummary.caseCount} 2PQ case(s) and ${twoPQSummary.batchCount} sequencing batch(es); none were deleted or reassigned.`,
+    message: `${result.message} Preserved ${twoPQSummary.patientCount} linked patient(s), ${twoPQSummary.caseCount} 2PQ case(s), and ${twoPQSummary.batchCount} sequencing batch(es); none were deleted or reassigned.`,
     orphanedTwoPQAssignments: twoPQSummary,
   };
 }

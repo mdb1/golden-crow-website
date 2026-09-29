@@ -100,12 +100,13 @@ type OrphanedArtifactPage = {
 type OrphanedTwoPQSummary = {
   entityKind: "doctor" | "patient" | "professional";
   entityId: string;
+  patientCount: number;
   caseCount: number;
   batchCount: number;
   totalCount: number;
 };
 type OrphanedTwoPQItem = {
-  collection: "2pq_case" | "2pq_sequencing";
+  collection: "patients" | "2pq_case" | "2pq_sequencing";
   id: string;
   entityKind: "doctor" | "patient" | "professional";
   entityId: string;
@@ -118,10 +119,14 @@ type OrphanedTwoPQItem = {
   runId?: string;
   platform?: string;
   analysisStatus?: string;
+  fullName?: string;
+  email?: string;
+  status?: string;
 };
 type OrphanedTwoPQPage = {
   items: OrphanedTwoPQItem[];
   nextCursors: {
+    patients: string | null;
     cases: string | null;
     batches: string | null;
   };
@@ -206,13 +211,14 @@ function roleDeleteCopy(language: "en" | "es") {
         ownedRecords: "registros",
         openRecord: "Abrir",
         reviewFailed: "No se pudo cargar la lista de registros sin propietario.",
-        twoPQStepTitle: "Tercer paso: revisar asignaciones 2PQ huérfanas",
+        twoPQStepTitle: "Tercer paso: revisar relaciones huérfanas",
         twoPQStepBody:
-          "Los casos y lotes permanecen intactos, pero todavía apuntan a la entidad eliminada. Revisalos para decidir su reasignación.",
-        reviewTwoPQ: "Revisar casos y lotes 2PQ",
-        orphanedTwoPQTitle: "Casos y lotes 2PQ huérfanos",
+          "Los pacientes, casos y lotes permanecen intactos, pero todavía apuntan a la entidad eliminada. Revisalos para decidir su reasignación.",
+        reviewTwoPQ: "Revisar pacientes y registros 2PQ",
+        orphanedTwoPQTitle: "Pacientes y registros 2PQ huérfanos",
         orphanedTwoPQDescription:
           "Estos registros no se eliminaron ni se reasignaron. Conservan la referencia a la entidad que ya no existe.",
+        patients: "pacientes",
         cases: "casos",
         batches: "lotes",
         assignedEntity: "Entidad asignada",
@@ -277,13 +283,14 @@ function roleDeleteCopy(language: "en" | "es") {
         ownedRecords: "records",
         openRecord: "Open",
         reviewFailed: "Unable to load the ownerless record list.",
-        twoPQStepTitle: "Third step: review orphaned 2PQ assignments",
+        twoPQStepTitle: "Third step: review orphaned relationships",
         twoPQStepBody:
-          "Cases and batches remain intact, but still point to the deleted entity. Review them to decide their reassignment.",
-        reviewTwoPQ: "Review 2PQ cases and batches",
-        orphanedTwoPQTitle: "Orphaned 2PQ cases and batches",
+          "Patients, cases, and batches remain intact, but still point to the deleted entity. Review them to decide their reassignment.",
+        reviewTwoPQ: "Review patients and 2PQ records",
+        orphanedTwoPQTitle: "Orphaned patients and 2PQ records",
         orphanedTwoPQDescription:
           "These records were not deleted or reassigned. They retain a reference to the entity that no longer exists.",
+        patients: "patients",
         cases: "cases",
         batches: "batches",
         assignedEntity: "Assigned entity",
@@ -381,7 +388,9 @@ export function RoleDeleteDialog({
     [results],
   );
   const orphanedTwoPQHasMore = Boolean(
-    orphanedTwoPQNextCursors?.cases || orphanedTwoPQNextCursors?.batches,
+    orphanedTwoPQNextCursors?.patients ||
+      orphanedTwoPQNextCursors?.cases ||
+      orphanedTwoPQNextCursors?.batches,
   );
 
   if (!canDelete) {
@@ -547,6 +556,11 @@ export function RoleDeleteDialog({
         limit: "20",
       });
       if (append && orphanedTwoPQNextCursors) {
+        if (orphanedTwoPQNextCursors.patients) {
+          query.set("patientCursor", orphanedTwoPQNextCursors.patients);
+        } else {
+          query.set("patientsDone", "1");
+        }
         if (orphanedTwoPQNextCursors.cases) {
           query.set("caseCursor", orphanedTwoPQNextCursors.cases);
         } else {
@@ -1084,6 +1098,9 @@ export function RoleDeleteDialog({
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">
+                  {selectedTwoPQSummary.patientCount} {copy.patients}
+                </Badge>
+                <Badge variant="secondary">
                   {selectedTwoPQSummary.caseCount} {copy.cases}
                 </Badge>
                 <Badge variant="secondary">
@@ -1106,18 +1123,24 @@ export function RoleDeleteDialog({
                 {orphanedTwoPQItems.length > 0 ? (
                   <div className="divide-y divide-border">
                     {orphanedTwoPQItems.map((item) => {
+                      const isPatient = item.collection === "patients";
                       const isCase = item.collection === "2pq_case";
-                      const href = isCase
-                        ? `/2pq-dashboard/cases/${encodeURIComponent(item.id)}`
-                        : `/2pq-dashboard/sequencing/${encodeURIComponent(item.id)}`;
+                      const href = isPatient
+                        ? `/areas/patients/${encodeURIComponent(item.id)}`
+                        : isCase
+                          ? `/2pq-dashboard/cases/${encodeURIComponent(item.id)}`
+                          : `/2pq-dashboard/sequencing/${encodeURIComponent(item.id)}`;
                       const title =
+                        item.fullName ??
                         item.caseLabel ??
                         item.runId ??
                         item.threeLetterCode ??
                         item.id;
-                      const status = isCase
-                        ? item.caseStatus
-                        : item.analysisStatus;
+                      const status = isPatient
+                        ? item.status
+                        : isCase
+                          ? item.caseStatus
+                          : item.analysisStatus;
                       return (
                         <div
                           key={`${item.collection}/${item.id}`}
@@ -1136,6 +1159,11 @@ export function RoleDeleteDialog({
                             <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
                               {item.id}
                             </p>
+                            {item.email ? (
+                              <p className="mt-1 break-all text-xs text-muted-foreground">
+                                {item.email}
+                              </p>
+                            ) : null}
                           </div>
                           <dl className="grid gap-1 text-xs text-muted-foreground">
                             <div className="flex gap-2">

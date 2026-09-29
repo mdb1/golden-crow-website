@@ -66,7 +66,7 @@ describe("role deletion routes", () => {
     });
     mockListOrphanedTwoPQAssignmentsForContext.mockResolvedValue({
       items: [],
-      nextCursors: { cases: null, batches: null },
+      nextCursors: { patients: null, cases: null, batches: null },
     });
   });
 
@@ -74,18 +74,20 @@ describe("role deletion routes", () => {
     const fastify = await buildTestServer();
     const response = await fastify.inject({
       method: "GET",
-      url: "/roles/deletion/orphaned-two-pq-assignments?entityKind=patient&entityId=PAT-00001&limit=20&caseCursor=CASE-00020&batchesDone=1",
+      url: "/roles/deletion/orphaned-two-pq-assignments?entityKind=doctor&entityId=DOC-00001&limit=20&patientCursor=PAT-00020&caseCursor=CASE-00020&batchesDone=1",
     });
 
     expect(response.statusCode).toBe(200);
     expect(mockListOrphanedTwoPQAssignmentsForContext).toHaveBeenCalledWith(
       adminContext,
       {
-        entityKind: "patient",
-        entityId: "PAT-00001",
+        entityKind: "doctor",
+        entityId: "DOC-00001",
         limit: 20,
+        patientCursor: "PAT-00020",
         caseCursor: "CASE-00020",
         batchCursor: undefined,
+        patientsDone: false,
         casesDone: false,
         batchesDone: true,
       },

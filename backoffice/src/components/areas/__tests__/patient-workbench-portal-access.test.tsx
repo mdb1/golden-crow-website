@@ -1,5 +1,6 @@
 /** @jest-environment jsdom */
 
+import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AdminContextProvider } from "@/components/admin-context-provider";
@@ -109,6 +110,7 @@ function detail(options: {
 function renderWorkbench(
   patientDetail: PatientDetailRecord,
   contextOverride?: Partial<AdminContextRecord>,
+  availableDoctors: DoctorListItem[] = [doctor],
 ) {
   return render(
     <AppLanguageProvider initialLanguage="en">
@@ -116,7 +118,7 @@ function renderWorkbench(
         <PatientWorkbench
           detail={patientDetail}
           institutions={[institution]}
-          doctors={[doctor]}
+          doctors={availableDoctors}
         />
       </AdminContextProvider>
     </AppLanguageProvider>,
@@ -126,6 +128,30 @@ function renderWorkbench(
 describe("PatientWorkbench portal credentials", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("keeps a removed doctor id visible and asks for reassignment", () => {
+    const patientDetail = detail({
+      accessGranted: false,
+      credentialAvailable: false,
+    });
+    patientDetail.doctor = null;
+    patientDetail.patient.doctorName = undefined;
+
+    renderWorkbench(patientDetail, undefined, []);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The assigned doctor was removed",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("DOC-00001");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Select a new doctor and save the patient",
+    );
+    expect(screen.getByText("Removed doctor")).toBeTruthy();
+    expect(screen.getAllByText("DOC-00001").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("link", { name: "Open doctor" }),
+    ).toBeNull();
   });
 
   it("reveals an existing temporary password only after the scoped request", async () => {
