@@ -569,7 +569,7 @@ export function TwoPQFormsList({
                       {t("Delete")}
                     </Button>
                   ) : null}
-                  {allowMutations && !canDeleteForms && canArchiveForms && !isArchived ? (
+                  {allowMutations && canArchiveForms && !isArchived ? (
                     <Button
                       type="button"
                       variant="outline"
