@@ -1,4 +1,8 @@
-import { FastifyInstance } from "fastify";
+import {
+  FastifyInstance,
+  type FastifyReply,
+  type FastifyRequest,
+} from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
@@ -21,8 +25,52 @@ import {
   updateInstitutionForContext,
   updatePatientForContext,
 } from "../repositories/areas.repository.js";
+import {
+  DOCTOR_DELETION_STEPS,
+  deleteDoctorStepForContext,
+} from "../repositories/doctor-deletion.repository.js";
 
 const ActiveStatusSchema = z.enum(["active", "inactive"]);
+
+function sendDoctorDeletionStepError(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  error: unknown,
+) {
+  const baseError =
+    error instanceof Error
+      ? error
+      : new Error(typeof error === "string" ? error : "Unexpected error");
+  const statusCode = isAdminRepositoryError(error) ? error.statusCode : 500;
+  const requestContext = {
+    id: request.id,
+    method: request.method,
+    url: request.url,
+    params: request.params,
+    query: request.query,
+  };
+
+  if (statusCode === 500) {
+    request.log.error(
+      { err: error, request: requestContext },
+      "Doctor cleanup step failed",
+    );
+  }
+
+  return reply.status(statusCode).send({
+    error:
+      statusCode === 500 ? "Doctor cleanup step failed." : baseError.message,
+    message: baseError.message,
+    errorName: baseError.name || "Error",
+    statusCode,
+    hint:
+      statusCode === 500
+        ? "Use the doctor cleanup stage log, request id, and server trace to diagnose the failed request."
+        : "The doctor cleanup request was rejected by a validation or permission rule.",
+    request: requestContext,
+    stack: statusCode === 500 ? baseError.stack : undefined,
+  });
+}
 
 export async function areasRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
@@ -301,6 +349,38 @@ export async function areasRoutes(fastify: FastifyInstance): Promise<void> {
         throw error;
       }
     }
+  );
+
+  f.delete(
+    "/areas/doctors/:doctorId/deletion/:step",
+    {
+      schema: {
+        params: z.object({
+          doctorId: z.string().min(1),
+          step: z.enum(DOCTOR_DELETION_STEPS),
+        }),
+        querystring: z.object({
+          scope: z.enum(["doctor", "full"]),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await deleteDoctorStepForContext(
+          request.adminContext,
+          request.params.doctorId,
+          request.query.scope,
+          request.params.step,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendDoctorDeletionStepError(request, reply, error);
+      }
+    },
   );
 
   f.delete(

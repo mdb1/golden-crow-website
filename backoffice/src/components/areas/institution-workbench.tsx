@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowRight, RotateCcw, Save } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
-import { AreaDeleteDialog } from "@/components/areas/area-delete-dialog";
+import { DoctorDeleteDialog } from "@/components/areas/doctor-delete-dialog";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -424,14 +424,11 @@ export function InstitutionWorkbench({
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Link>
                     </Button>
-                    <AreaDeleteDialog
-                      kind="doctor"
-                      id={doctor.id}
-                      name={doctor.fullName}
-                      endpoint={`/areas/doctors/${doctor.id}`}
+                    <DoctorDeleteDialog
+                      doctor={doctor}
                       disabled={!canDeleteDoctorUi(adminContext, doctor)}
                       disabledReason={t("Only full admins and institution admins can delete doctors in scope.")}
-                      onDeleted={() => router.refresh()}
+                      onFinished={() => router.refresh()}
                     />
                   </div>
                 </div>

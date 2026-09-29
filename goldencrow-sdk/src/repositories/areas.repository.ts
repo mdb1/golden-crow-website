@@ -1253,29 +1253,14 @@ export async function deleteDoctorForContext(
     throw new AdminRepositoryError("You cannot delete this doctor.", 403);
   }
 
-  const [patientSnapshot, roleSnapshot] = await Promise.all([
-    adminDb
-      .collection(PATIENTS_COLLECTION)
-      .where("doctorId", "==", doctor.id)
-      .get(),
-    adminDb
-      .collection(USER_ROLES_COLLECTION)
-      .where("doctorId", "==", doctor.id)
-      .get(),
-  ]);
-
-  await deleteDocumentRefs([
-    adminDb.collection(DOCTORS_COLLECTION).doc(doctor.id),
-    ...patientSnapshot.docs.map((doc) => doc.ref),
-    ...roleSnapshot.docs.map((doc) => doc.ref),
-  ]);
+  await adminDb.collection(DOCTORS_COLLECTION).doc(doctor.id).delete();
 
   return {
     success: true,
     deleted: {
       doctors: 1,
-      patients: patientSnapshot.size,
-      roles: roleSnapshot.size,
+      patients: 0,
+      roles: 0,
     },
   };
 }

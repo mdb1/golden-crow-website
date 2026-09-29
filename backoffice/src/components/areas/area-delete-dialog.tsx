@@ -33,7 +33,7 @@ const DELETE_DESCRIPTIONS: Record<AreaEntityKind, string> = {
   institution:
     "This removes the institution, all attached doctors and patients, and any linked local role assignments.",
   doctor:
-    "This removes the doctor, all patients tied to this doctor, and any linked doctor or patient role assignments.",
+    "This removes only the doctor entity. Linked patients, cases, owner accounts, and role assignments remain available for review and reassignment.",
   patient:
     "This removes the patient record and any linked patient role assignment.",
 };

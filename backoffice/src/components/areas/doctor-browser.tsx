@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
-import { AreaDeleteDialog } from "@/components/areas/area-delete-dialog";
+import { DoctorDeleteDialog } from "@/components/areas/doctor-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,14 +171,11 @@ export function DoctorBrowser({
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
-                <AreaDeleteDialog
-                  kind="doctor"
-                  id={doctor.id}
-                  name={doctor.fullName}
-                  endpoint={`/areas/doctors/${doctor.id}`}
+                <DoctorDeleteDialog
+                  doctor={doctor}
                   disabled={!canDeleteDoctorUi(adminContext, doctor)}
                   disabledReason={t("Only full admins and institution admins can delete doctors in scope.")}
-                  onDeleted={() => void refetch()}
+                  onFinished={() => void refetch()}
                 />
               </div>
             </div>
