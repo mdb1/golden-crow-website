@@ -19,6 +19,7 @@ import {
   APPLE_TEAM_ID,
   APP_BUNDLE_ID,
   SOCIAL_LINK_HOST,
+  profileAppSchemeUrl,
   profileShareUrl,
   routineAppSchemeUrl,
   routineShareUrl,
@@ -30,6 +31,8 @@ describe("social share link", () => {
     expect(routineShareUrl("tpl-123")).toBe("https://fit.goldencrowvs.com/f/r/tpl-123");
     expect(profileShareUrl("uid-9")).toBe("https://fit.goldencrowvs.com/f/u/uid-9");
     expect(routineAppSchemeUrl("tpl-123")).toBe("gcfitness://routine/tpl-123");
+    // #1184 — la cabeza `profile` es la que rutean `DeepLinkRouting.swift` / `.kt`.
+    expect(profileAppSchemeUrl("uid-9")).toBe("gcfitness://profile/uid-9");
   });
 
   it("un id vacío no produce link", () => {
@@ -37,6 +40,7 @@ describe("social share link", () => {
     expect(routineShareUrl("")).toBeNull();
     expect(profileShareUrl("")).toBeNull();
     expect(routineAppSchemeUrl("")).toBeNull();
+    expect(profileAppSchemeUrl("")).toBeNull();
   });
 
   it("un id con barra se escapa, no se pega crudo", () => {
@@ -63,6 +67,24 @@ describe("/.well-known/apple-app-site-association", () => {
     ]);
     // La forma vieja, para iOS 12 y anteriores.
     expect(details[1]).toEqual({ appID, paths: ["/f/*"] });
+  });
+
+  it("cubre las DOS landings: /f/r/{id} y /f/u/{uid} (#1184)", async () => {
+    // Si alguien "acota" el patrón a `/f/r/*`, el link de perfil abre Safari con la
+    // app instalada — lo mismo que se ve sin la app, o sea: nadie se entera.
+    const body = await appleAppSiteAssociation().json();
+    const details = body.applinks.details;
+    const patterns: string[] = [
+      ...details[0].components.map((c: { "/": string }) => c["/"]),
+      ...details[1].paths,
+    ];
+    const matches = (pattern: string, path: string) =>
+      new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`).test(path);
+    for (const pattern of patterns) {
+      expect(matches(pattern, "/f/r/tpl-123")).toBe(true);
+      expect(matches(pattern, "/f/u/uid-9")).toBe(true);
+      expect(matches(pattern, "/gc-fitness/login")).toBe(false);
+    }
   });
 
   it("el team id y el bundle son los de la app, no unos cualquiera", () => {

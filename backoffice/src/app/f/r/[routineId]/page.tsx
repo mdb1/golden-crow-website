@@ -28,9 +28,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
-import { routineShareUrl } from "@/lib/gc-fitness/social-share-link";
+import {
+  routineAppSchemeUrl,
+  routineShareUrl,
+} from "@/lib/gc-fitness/social-share-link";
 
-import { SharedRoutineActions } from "./shared-routine-actions";
+import { SharedLinkActions } from "../../shared-link-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -200,7 +203,10 @@ export default async function SharedRoutinePage({ params }: PageProps) {
         </p>
       </header>
 
-      <SharedRoutineActions templateId={card.templateId} />
+      <SharedLinkActions
+        appUrl={routineAppSchemeUrl(card.templateId)}
+        webUrl={routineShareUrl(card.templateId)}
+      />
 
       <section className="flex flex-col gap-2">
         {exercises.map((exercise, index) => (
