@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
   onAuthStateChanged,
+  sendPasswordResetEmail,
   sendEmailVerification,
   type User as FirebaseUser,
 } from "firebase/auth";
@@ -66,6 +67,7 @@ type InlineMessage = {
 } | null;
 type EmailChangeStep = "form" | "running" | "complete" | "failed";
 type EmailVerificationStep = "intro" | "complete";
+type PasswordResetStep = "intro" | "complete" | "failed";
 
 const DISPLAY_NAME_MAX_LENGTH = 100;
 const CONTACT_PHONE_MAX_LENGTH = 30;
@@ -492,9 +494,16 @@ export function MyAccountWorkbench({
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [verificationStep, setVerificationStep] =
     useState<EmailVerificationStep>("intro");
+  const [passwordResetOpen, setPasswordResetOpen] = useState(false);
+  const [passwordResetStep, setPasswordResetStep] =
+    useState<PasswordResetStep>("intro");
+  const [passwordResetError, setPasswordResetError] = useState<string | null>(
+    null,
+  );
   const [pendingRoleSave, setPendingRoleSave] = useState(false);
   const [pendingEmailSave, setPendingEmailSave] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
+  const [pendingPasswordReset, setPendingPasswordReset] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
 
   const sourceRoleState = useMemo(() => toRoleProfileState(account), [account]);
@@ -541,6 +550,12 @@ export function MyAccountWorkbench({
   function openVerificationDialog() {
     setVerificationStep("intro");
     setVerificationOpen(true);
+  }
+
+  function openPasswordResetDialog() {
+    setPasswordResetStep("intro");
+    setPasswordResetError(null);
+    setPasswordResetOpen(true);
   }
 
   function validateEmailCandidate(showSuccess = true) {
@@ -749,6 +764,53 @@ export function MyAccountWorkbench({
       return false;
     } finally {
       setPendingVerification(false);
+    }
+  }
+
+  async function handleSendPasswordReset() {
+    const knownProviderIds = account.auth.providerData.map(
+      (provider) => provider.providerId,
+    );
+    if (
+      knownProviderIds.length > 0 &&
+      !knownProviderIds.includes("password")
+    ) {
+      setPasswordResetError(
+        t(
+          "This account does not have an email/password sign-in method. Use its connected provider to manage access.",
+        ),
+      );
+      setPasswordResetStep("failed");
+      return;
+    }
+
+    setPendingPasswordReset(true);
+    setPasswordResetError(null);
+    try {
+      await sendPasswordResetEmail(auth, normalizedAuthEmail);
+      setPasswordResetStep("complete");
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: isPortalAccountView
+          ? `Firebase envió un link para cambiar la contraseña a ${account.auth.email}.`
+          : `Firebase sent a password reset link to ${account.auth.email}.`,
+        durationMs: 6500,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? t(error.message)
+          : t("Unable to send the password reset email.");
+      setPasswordResetError(message);
+      setPasswordResetStep("failed");
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message,
+      });
+    } finally {
+      setPendingPasswordReset(false);
     }
   }
 
@@ -999,7 +1061,7 @@ export function MyAccountWorkbench({
             </p>
           </div>
 
-          <div className="grid gap-3 border-t border-border/80 pt-4 md:grid-cols-2">
+          <div className="grid gap-3 border-t border-border/80 pt-4 md:grid-cols-3">
             <Button
               type="button"
               variant="outline"
@@ -1024,6 +1086,19 @@ export function MyAccountWorkbench({
             >
               <Save className="h-4 w-4" />
               {pendingEmailSave ? t("Changing...") : t("Change email")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-11 w-full"
+              onClick={openPasswordResetDialog}
+              disabled={pendingPasswordReset}
+            >
+              <KeyRound className="h-4 w-4" />
+              {pendingPasswordReset
+                ? t("Sending...")
+                : t("Change password")}
             </Button>
           </div>
         </SectionShell>
@@ -1097,6 +1172,131 @@ export function MyAccountWorkbench({
                 >
                   <MailCheck className="h-4 w-4" />
                   {pendingVerification ? t("Sending...") : t("Send verification email")}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={passwordResetOpen}
+        onOpenChange={(open) => {
+          if (!open && pendingPasswordReset) {
+            return;
+          }
+          setPasswordResetOpen(open);
+          if (!open) {
+            setPasswordResetStep("intro");
+            setPasswordResetError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          {passwordResetStep === "complete" ? (
+            <>
+              <DialogHeader>
+                <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-200">
+                  <MailCheck className="h-5 w-5" />
+                </div>
+                <DialogTitle>{t("Password reset email sent")}</DialogTitle>
+                <DialogDescription>
+                  {t(
+                    "Open the email and follow the secure link to choose a new password. Your current session remains active.",
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  {t("Sent to")}
+                </p>
+                <p className="mt-1 break-words text-sm font-semibold text-foreground">
+                  {account.auth.email}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  onClick={() => setPasswordResetOpen(false)}
+                >
+                  {t("Done")}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : passwordResetStep === "failed" ? (
+            <>
+              <DialogHeader>
+                <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                  <XCircle className="h-5 w-5" />
+                </div>
+                <DialogTitle>{t("Password reset unavailable")}</DialogTitle>
+                <DialogDescription>
+                  {passwordResetError ??
+                    t("Unable to send the password reset email.")}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPasswordResetOpen(false)}
+                >
+                  {t("Close")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setPasswordResetError(null);
+                    setPasswordResetStep("intro");
+                  }}
+                >
+                  {t("Try again")}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <KeyRound className="h-5 w-5" />
+                </div>
+                <DialogTitle>{t("Change password")}</DialogTitle>
+                <DialogDescription>
+                  {t(
+                    "Firebase will send a secure password reset link to the current account email.",
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  {t("Current email")}
+                </p>
+                <p className="mt-1 break-words text-sm font-semibold text-foreground">
+                  {account.auth.email}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPasswordResetOpen(false)}
+                  disabled={pendingPasswordReset}
+                >
+                  {t("Cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void handleSendPasswordReset()}
+                  disabled={pendingPasswordReset}
+                >
+                  {pendingPasswordReset ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MailCheck className="h-4 w-4" />
+                  )}
+                  {pendingPasswordReset
+                    ? t("Sending...")
+                    : t("Send reset link")}
                 </Button>
               </DialogFooter>
             </>

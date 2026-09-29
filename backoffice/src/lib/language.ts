@@ -1517,6 +1517,19 @@ const SPANISH_TEXT: Record<string, string> = {
   "Validate email": "Validar email",
   "Change Email": "Cambiar email",
   "Change email": "Cambiar email",
+  "Change password": "Cambiar contraseña",
+  "Password reset email sent": "Email de recuperación enviado",
+  "Password reset unavailable": "No se pudo restablecer la contraseña",
+  "Send reset link": "Enviar link de recuperación",
+  "Sent to": "Enviado a",
+  "Firebase will send a secure password reset link to the current account email.":
+    "Firebase enviará un link seguro para cambiar la contraseña al email actual de la cuenta.",
+  "Open the email and follow the secure link to choose a new password. Your current session remains active.":
+    "Abrí el email y seguí el link seguro para elegir una nueva contraseña. Tu sesión actual seguirá activa.",
+  "This account does not have an email/password sign-in method. Use its connected provider to manage access.":
+    "Esta cuenta no tiene un método de acceso con email y contraseña. Usá su proveedor conectado para administrar el acceso.",
+  "Unable to send the password reset email.":
+    "No se pudo enviar el email para restablecer la contraseña.",
   "Current email": "Email actual",
   "New email": "Nuevo email",
   "Send verification email": "Enviar email de verificación",

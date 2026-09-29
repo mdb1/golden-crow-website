@@ -1,12 +1,14 @@
 /** @jest-environment jsdom */
 
 import { fireEvent, render, screen } from "@testing-library/react";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { MyAccountWorkbench } from "@/components/my-account-workbench";
 import type { MyAccountRecord } from "@/lib/admin-areas";
 import { sdkFetch } from "@/lib/sdk-client";
 
 jest.mock("firebase/auth", () => ({
   onAuthStateChanged: jest.fn(),
+  sendPasswordResetEmail: jest.fn(),
   sendEmailVerification: jest.fn(),
 }));
 
@@ -123,6 +125,9 @@ describe("MyAccountWorkbench diagnostics", () => {
       screen.getByRole("button", { name: "Email verificado" }),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Cambiar email" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Cambiar contraseña" }),
+    ).toBeTruthy();
     expect(screen.queryByLabelText("Email de la cuenta")).toBeNull();
     expect(screen.queryByText("Current project")).toBeNull();
     expect(screen.queryByText("Notes")).toBeNull();
@@ -165,6 +170,45 @@ describe("MyAccountWorkbench diagnostics", () => {
     expect(screen.getByRole("heading", { name: "Cambiar email" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Nuevo email" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Siguiente" })).toBeTruthy();
+  });
+
+  it("opens the password reset flow and sends the link to the current email", async () => {
+    jest.mocked(sendPasswordResetEmail).mockResolvedValue();
+    const passwordAccount: MyAccountRecord = {
+      ...account,
+      auth: {
+        ...account.auth,
+        providerData: [
+          {
+            providerId: "password",
+            uid: account.auth.email,
+            email: account.auth.email,
+          },
+        ],
+      },
+    };
+    render(<MyAccountWorkbench initialAccount={passwordAccount} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Change password" }),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByText(passwordAccount.auth.email).length,
+    ).toBeGreaterThan(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Send reset link" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Password reset email sent",
+      }),
+    ).toBeTruthy();
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ currentUser: null }),
+      passwordAccount.auth.email,
+    );
   });
 
   it("shows the account synchronization results after changing email", async () => {
