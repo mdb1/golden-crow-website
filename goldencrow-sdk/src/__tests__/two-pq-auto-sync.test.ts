@@ -129,7 +129,17 @@ describe("2PQ case automatic file and code synchronization", () => {
       children_sampling: ["SAMPLING-1"],
       caseLabel: "Current case",
       caseStatus: "lab_processing",
+      download_url: "https://reports.example.com/current-case.pdf",
       updatedAt: "2026-09-28T12:00:00.000Z",
+    });
+    collectionStore("institutions").set("institution-1", {
+      name: "Clinica de Fertilidad",
+    });
+    collectionStore("doctors").set("doctor-1", {
+      fullName: "Dra. Ada Lovelace",
+    });
+    collectionStore("patients").set("patient-1", {
+      fullName: "Grace Hopper",
     });
     collectionStore("2pq_case").set("CASE-SIBLING", {
       parent_batch: "BATCH-1",
@@ -164,6 +174,7 @@ describe("2PQ case automatic file and code synchronization", () => {
 
     expect(result?.main_case).toEqual({
       id: "CASE-CURRENT",
+      download_url: "https://reports.example.com/current-case.pdf",
       parent_batch_id: "BATCH-1",
       children_sampling_ids: ["SAMPLING-1"],
       last_updated: "2026-09-28T12:00:00.000Z",
@@ -171,6 +182,15 @@ describe("2PQ case automatic file and code synchronization", () => {
     expect(result?.entities.cases).toHaveLength(1);
     expect(result?.entities.cases[0]).toMatchObject({
       id: "CASE-CURRENT",
+      download_url: "https://reports.example.com/current-case.pdf",
+      scope: {
+        institutionId: "institution-1",
+        institutionName: "Clinica de Fertilidad",
+        doctorId: "doctor-1",
+        doctorName: "Dra. Ada Lovelace",
+        patientId: "patient-1",
+        patientName: "Grace Hopper",
+      },
       relations: {
         batchId: "BATCH-1",
         samplingIds: ["SAMPLING-1"],
@@ -191,6 +211,13 @@ describe("2PQ case automatic file and code synchronization", () => {
       },
     ]);
     expect(result?.entities.samplings).toHaveLength(1);
+    expect(result?.entities.samplings[0]).toMatchObject({
+      scope: {
+        institutionName: "Clinica de Fertilidad",
+        doctorName: "Dra. Ada Lovelace",
+        patientName: "Grace Hopper",
+      },
+    });
     expect(identifyPgiNativeModel(result)).toEqual({
       ok: true,
       model: "2pq",
@@ -242,6 +269,7 @@ describe("2PQ case automatic file and code synchronization", () => {
     expect(JSON.parse(fileContent)).toMatchObject({
       main_case: {
         id: "CASE-00001",
+        download_url: null,
         parent_batch_id: null,
       },
       entities: {
@@ -249,6 +277,12 @@ describe("2PQ case automatic file and code synchronization", () => {
         cases: [
           expect.objectContaining({
             id: "CASE-00001",
+            download_url: null,
+            scope: expect.objectContaining({
+              institutionName: null,
+              doctorName: null,
+              patientName: null,
+            }),
             status: expect.objectContaining({ caseStatus: "in_transit" }),
           }),
         ],

@@ -1550,6 +1550,16 @@ export const PGI_NATIVE_SCHEMAS = {
           "id": {
             "type": "string"
           },
+          "download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "parent_batch_id": {
             "anyOf": [
               {
@@ -1735,6 +1745,16 @@ export const PGI_NATIVE_SCHEMAS = {
               }
             ]
           },
+          "institutionName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "doctorId": {
             "anyOf": [
               {
@@ -1745,7 +1765,27 @@ export const PGI_NATIVE_SCHEMAS = {
               }
             ]
           },
+          "doctorName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "patientId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "patientName": {
             "anyOf": [
               {
                 "type": "string"
@@ -1935,6 +1975,16 @@ export const PGI_NATIVE_SCHEMAS = {
           },
           "kind": {
             "const": "case"
+          },
+          "download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "scope": {
             "$ref": "#/$defs/TwoPQScope"

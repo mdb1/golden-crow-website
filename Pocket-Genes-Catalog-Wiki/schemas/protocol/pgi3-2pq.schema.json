@@ -27,6 +27,16 @@
         "id": {
           "type": "string"
         },
+        "download_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "parent_batch_id": {
           "anyOf": [
             {
@@ -212,6 +222,16 @@
             }
           ]
         },
+        "institutionName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "doctorId": {
           "anyOf": [
             {
@@ -222,7 +242,27 @@
             }
           ]
         },
+        "doctorName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "patientId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "patientName": {
           "anyOf": [
             {
               "type": "string"
@@ -412,6 +452,16 @@
         },
         "kind": {
           "const": "case"
+        },
+        "download_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "scope": {
           "$ref": "#/$defs/TwoPQScope"

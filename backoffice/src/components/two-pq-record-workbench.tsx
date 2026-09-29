@@ -249,6 +249,7 @@ type CaseStatusUpdateProcessState = {
 type TwoPQFileStorageSnapshot = {
   main_case: {
     id: string;
+    download_url: string | null;
     parent_batch_id: string | null;
     children_sampling_ids: string[];
     last_updated: string | null;

@@ -18,7 +18,9 @@ const adminDb = adminDbFor("mydnamap");
 const CASES_COLLECTION = "2pq_case";
 const BATCHES_COLLECTION = "2pq_sequencing";
 const SAMPLINGS_COLLECTION = "2pq_sampling";
+const INSTITUTIONS_COLLECTION = "institutions";
 const DOCTORS_COLLECTION = "doctors";
+const PATIENTS_COLLECTION = "patients";
 const REPORT_CODES_COLLECTION = "report_codes";
 const UPLOADED_REPORTS_COLLECTION = "uploaded_reports";
 const REPORT_OWNERS_COLLECTION = "report_owners";
@@ -28,9 +30,16 @@ type FirestoreRecord = {
   data: Record<string, unknown>;
 };
 
+type TwoPQScopeNames = {
+  institutionName: string | null;
+  doctorName: string | null;
+  patientName: string | null;
+};
+
 export interface TwoPQFileStorageSnapshot {
   main_case: {
     id: string;
+    download_url: string | null;
     parent_batch_id: string | null;
     children_sampling_ids: string[];
     last_updated: string | null;
@@ -119,11 +128,14 @@ function normalizeCaseStatus(value: unknown) {
   return aliases[normalized] ?? normalized;
 }
 
-function scope(record: FirestoreRecord) {
+function scope(record: FirestoreRecord, names: TwoPQScopeNames) {
   return {
     institutionId: normalizeString(record.data.institutionId) ?? "",
+    institutionName: names.institutionName,
     doctorId: normalizeString(record.data.doctorId) ?? "",
+    doctorName: names.doctorName,
     patientId: nullableString(record.data.patientId),
+    patientName: names.patientName,
   };
 }
 
@@ -141,11 +153,16 @@ function audit(record: FirestoreRecord) {
   };
 }
 
-function caseSnapshot(record: FirestoreRecord, samplingIds: string[]) {
+function caseSnapshot(
+  record: FirestoreRecord,
+  samplingIds: string[],
+  scopeNames: TwoPQScopeNames,
+) {
   return {
     id: record.id,
     kind: "case",
-    scope: scope(record),
+    download_url: nullableString(record.data.download_url),
+    scope: scope(record, scopeNames),
     identity: {
       caseLabel: nullableString(record.data.caseLabel),
     },
@@ -189,11 +206,14 @@ function batchSnapshot(record: FirestoreRecord) {
   };
 }
 
-function samplingSnapshot(record: FirestoreRecord) {
+function samplingSnapshot(
+  record: FirestoreRecord,
+  scopeNames: TwoPQScopeNames,
+) {
   return {
     id: record.id,
     kind: "sampling",
-    scope: scope(record),
+    scope: scope(record, scopeNames),
     identity: {
       sampleId: nullableString(record.data.sampleId),
       caseLabelSnapshot: nullableString(record.data.caseLabel),
@@ -229,6 +249,27 @@ async function getRecord(collectionName: string, id: string) {
     id: snapshot.id,
     data: (snapshot.data() ?? {}) as Record<string, unknown>,
   } satisfies FirestoreRecord;
+}
+
+async function getCaseScopeNames(record: FirestoreRecord) {
+  const institutionId = normalizeString(record.data.institutionId);
+  const doctorId = normalizeString(record.data.doctorId);
+  const patientId = normalizeString(record.data.patientId);
+  const [institution, doctor, patient] = await Promise.all([
+    institutionId
+      ? getRecord(INSTITUTIONS_COLLECTION, institutionId)
+      : Promise.resolve(null),
+    doctorId ? getRecord(DOCTORS_COLLECTION, doctorId) : Promise.resolve(null),
+    patientId
+      ? getRecord(PATIENTS_COLLECTION, patientId)
+      : Promise.resolve(null),
+  ]);
+
+  return {
+    institutionName: nullableString(institution?.data.name),
+    doctorName: nullableString(doctor?.data.fullName),
+    patientName: nullableString(patient?.data.fullName),
+  } satisfies TwoPQScopeNames;
 }
 
 async function getStoredFileIdLinkedToReportCode(reportCode: string) {
@@ -320,11 +361,13 @@ export async function buildTwoPQCaseFileStorageSnapshot(
     ...normalizeStringArray(currentCase.data.linkedSamplingIds),
   ]);
 
-  const [linkedBatch, samplingsById, samplingsByParent] = await Promise.all([
-    batchId ? getRecord(BATCHES_COLLECTION, batchId) : Promise.resolve(null),
-    getRecordsByIds(SAMPLINGS_COLLECTION, samplingIds),
-    getRecordsByParent(SAMPLINGS_COLLECTION, "parent_case", currentCase.id),
-  ]);
+  const [linkedBatch, samplingsById, samplingsByParent, scopeNames] =
+    await Promise.all([
+      batchId ? getRecord(BATCHES_COLLECTION, batchId) : Promise.resolve(null),
+      getRecordsByIds(SAMPLINGS_COLLECTION, samplingIds),
+      getRecordsByParent(SAMPLINGS_COLLECTION, "parent_case", currentCase.id),
+      getCaseScopeNames(currentCase),
+    ]);
   const linkedSamplings = mergeRecords([
     ...samplingsById,
     ...samplingsByParent,
@@ -337,14 +380,17 @@ export async function buildTwoPQCaseFileStorageSnapshot(
   return {
     main_case: {
       id: currentCase.id,
+      download_url: nullableString(currentCase.data.download_url),
       parent_batch_id: batchId ?? null,
       children_sampling_ids: linkedSamplingIds,
       last_updated: normalizeDateValue(currentCase.data.updatedAt),
     },
     entities: {
       batches: linkedBatch ? [batchSnapshot(linkedBatch)] : [],
-      cases: [caseSnapshot(currentCase, linkedSamplingIds)],
-      samplings: linkedSamplings.map(samplingSnapshot),
+      cases: [caseSnapshot(currentCase, linkedSamplingIds, scopeNames)],
+      samplings: linkedSamplings.map((record) =>
+        samplingSnapshot(record, scopeNames),
+      ),
     },
   };
 }
