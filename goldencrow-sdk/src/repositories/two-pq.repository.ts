@@ -10,6 +10,7 @@ import { normalizeRoleEmail } from "./roles.repository.js";
 import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
 import { cascadeTwoPQCaseStatusToSamplingChildren } from "./two-pq-sampling-status.repository.js";
 import type { TwoPQCaseStatusProgressReporter } from "./two-pq-case-status-operation.repository.js";
+import { createTwoPQCaseServiceTransaction } from "./support-services.repository.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import type {
   AdminContext,
@@ -1751,11 +1752,20 @@ export async function createTwoPQRecordForContext(
     throw new AdminRepositoryError("You cannot create records in this scope.", 403);
   }
 
-  await validateLinkedEntities({
+  const linkedEntities = await validateLinkedEntities({
     institutionId: scopedIds.institutionId,
     doctorId: scopedIds.doctorId,
     patientId: normalizeOptionalString(payload.patientId),
   });
+  if (
+    areaKey === "cases" &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(linkedEntities.doctor.authEmail)
+  ) {
+    throw new AdminRepositoryError(
+      "The selected 2PQ doctor must have a valid email before creating a case.",
+      400,
+    );
+  }
 
   const recordId = await getNextTwoPQId(areaKey);
   const now = new Date().toISOString();
@@ -1832,6 +1842,34 @@ export async function createTwoPQRecordForContext(
     });
   } else {
     await recordRef.set(writeDocument);
+  }
+
+  if (areaKey === "cases") {
+    try {
+      await createTwoPQCaseServiceTransaction(context, {
+        caseId: recordId,
+        doctorEmail: linkedEntities.doctor.authEmail,
+        requestedAtClient: now,
+      });
+    } catch (error) {
+      try {
+        await deleteTwoPQRecordForContext(context, "cases", recordId, {
+          deleteLinkedSamplings: true,
+        });
+      } catch (rollbackError) {
+        const creationMessage =
+          error instanceof Error ? error.message : "Unknown transaction error";
+        const rollbackMessage =
+          rollbackError instanceof Error
+            ? rollbackError.message
+            : "Unknown rollback error";
+        throw new AdminRepositoryError(
+          `The 2PQ case service transaction failed and the new case could not be rolled back. Transaction: ${creationMessage}. Rollback: ${rollbackMessage}.`,
+          500,
+        );
+      }
+      throw error;
+    }
   }
 
   const autoSyncResults = await synchronizeTwoPQCasesFilesAndCodes(

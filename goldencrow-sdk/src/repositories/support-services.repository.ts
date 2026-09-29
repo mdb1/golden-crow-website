@@ -47,6 +47,9 @@ const OUTPUT_OBJECT_DOWNLOAD_TIMEOUT_MS = 10_000;
 const OUTPUT_OBJECT_CODE_CANDIDATE_COUNT = 12;
 const MAX_OBJECT_REVISION_HISTORY_RECORDS = 100;
 const MAX_DEFERRED_SERVICE_TRANSACTIONS_PER_EMAIL = 5;
+export const TWO_PQ_CASE_SERVICE_OFFER_ID = "rhTE3dfB8Ovhf86lY3Z5";
+export const TWO_PQ_CASE_SERVICE_ID = "pgs_2pq_74399";
+export const TWO_PQ_CASE_SERVICE_PROVIDER_ID = "kfFtJlLuyW6deXW2Im3S";
 
 export const SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH =
   900_000;
@@ -6154,6 +6157,10 @@ export async function getSupportServiceTransaction(
   transactionId: string,
 ) {
   requireGodMode(context);
+  return getSupportServiceTransactionRecord(transactionId);
+}
+
+async function getSupportServiceTransactionRecord(transactionId: string) {
   const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service transaction not found.", 404);
@@ -6162,11 +6169,22 @@ export async function getSupportServiceTransaction(
   return toTransactionAdminRecord(snapshot.id, snapshot.data() ?? {});
 }
 
-export async function createSupportServiceTransaction(
+type SupportServiceTransactionCreationPolicy = {
+  requireGodModeAccess: boolean;
+  enforceRequesterAdmission: boolean;
+  expectedServiceId?: string;
+  expectedProviderId?: string;
+  expectedProviderKind?: SupportServiceProviderKind;
+};
+
+async function createSupportServiceTransactionWithPolicy(
   context: AdminContext,
   input: SupportServiceTransactionInput,
+  policy: SupportServiceTransactionCreationPolicy,
 ) {
-  requireGodMode(context);
+  if (policy.requireGodModeAccess) {
+    requireGodMode(context);
+  }
   const idempotencyKey = cleanString(input.idempotencyKey);
   if (!idempotencyKey) {
     throw new AdminRepositoryError("Idempotency key is required.", 400);
@@ -6247,7 +6265,7 @@ export async function createSupportServiceTransaction(
         createdAt: FieldValue.serverTimestamp(),
       });
     });
-    return getSupportServiceTransaction(context, existing.id);
+    return getSupportServiceTransactionRecord(existing.id);
   }
 
   const offerSnapshot = await getOfferSnapshot(offerId);
@@ -6264,6 +6282,33 @@ export async function createSupportServiceTransaction(
     throw new AdminRepositoryError(
       "Only active service offers are selectable for new transactions.",
       400,
+    );
+  }
+  if (
+    policy.expectedServiceId &&
+    offer.serviceId !== policy.expectedServiceId
+  ) {
+    throw new AdminRepositoryError(
+      `Configured service offer must use serviceId ${policy.expectedServiceId}.`,
+      409,
+    );
+  }
+  if (
+    policy.expectedProviderId &&
+    offer.providerId !== policy.expectedProviderId
+  ) {
+    throw new AdminRepositoryError(
+      `Configured service offer must use providerId ${policy.expectedProviderId}.`,
+      409,
+    );
+  }
+  if (
+    policy.expectedProviderKind &&
+    offer.providerKind !== policy.expectedProviderKind
+  ) {
+    throw new AdminRepositoryError(
+      `Configured service offer must use providerKind ${policy.expectedProviderKind}.`,
+      409,
     );
   }
   for (const [supplied, expected, label] of [
@@ -6496,6 +6541,7 @@ export async function createSupportServiceTransaction(
         : []
       : [];
     if (
+      policy.enforceRequesterAdmission &&
       deferredIndexRef &&
       deferredTransactionIds.length >=
         MAX_DEFERRED_SERVICE_TRANSACTIONS_PER_EMAIL
@@ -6511,17 +6557,19 @@ export async function createSupportServiceTransaction(
         409,
       );
     }
-    await assertServiceTransactionAdmission(
-      firestoreTransaction,
-      document.requestedByUserId
-        ? { field: "requestedByUserId", value: document.requestedByUserId }
-        : {
-            field: "requestedByUserEmail",
-            value: document.requestedByUserEmail!,
-          },
-      now,
-      userData,
-    );
+    if (policy.enforceRequesterAdmission) {
+      await assertServiceTransactionAdmission(
+        firestoreTransaction,
+        document.requestedByUserId
+          ? { field: "requestedByUserId", value: document.requestedByUserId }
+          : {
+              field: "requestedByUserEmail",
+              value: document.requestedByUserEmail!,
+            },
+        now,
+        userData,
+      );
+    }
     await assertProvisionedFormInputsAvailable(
       document,
       (reference) => firestoreTransaction.get(reference),
@@ -6612,7 +6660,82 @@ export async function createSupportServiceTransaction(
     );
   });
 
-  return getSupportServiceTransaction(context, document.requestId);
+  return getSupportServiceTransactionRecord(document.requestId);
+}
+
+export async function createSupportServiceTransaction(
+  context: AdminContext,
+  input: SupportServiceTransactionInput,
+) {
+  return createSupportServiceTransactionWithPolicy(context, input, {
+    requireGodModeAccess: true,
+    enforceRequesterAdmission: true,
+  });
+}
+
+function twoPQCaseServiceTransactionRequestId(caseId: string) {
+  const normalizedCaseId = cleanString(caseId)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (!normalizedCaseId) {
+    throw new AdminRepositoryError(
+      "A valid 2PQ case ID is required to create its service transaction.",
+      400,
+    );
+  }
+  return `pgr_2pq_${normalizedCaseId}`;
+}
+
+export async function createTwoPQCaseServiceTransaction(
+  context: AdminContext,
+  input: {
+    caseId: string;
+    doctorEmail: string;
+    requestedAtClient: string;
+  },
+) {
+  const requestedByUserEmail = cleanString(input.doctorEmail).toLowerCase();
+  if (
+    !requestedByUserEmail ||
+    requestedByUserEmail.length > 254 ||
+    !REQUESTER_EMAIL_PATTERN.test(requestedByUserEmail)
+  ) {
+    throw new AdminRepositoryError(
+      "The selected 2PQ doctor must have a valid email before creating a case.",
+      400,
+    );
+  }
+
+  const requestId = twoPQCaseServiceTransactionRequestId(input.caseId);
+  return createSupportServiceTransactionWithPolicy(
+    context,
+    {
+      requestId,
+      offerId: TWO_PQ_CASE_SERVICE_OFFER_ID,
+      status: "received",
+      requestedByUserEmail,
+      requestedAtClient: input.requestedAtClient,
+      requestRevision: 1,
+      idempotencyKey: `2pq-case:${cleanString(input.caseId)}:${TWO_PQ_CASE_SERVICE_OFFER_ID}`,
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      missingRequiredInputRoles: [],
+      issues: [],
+      offerSnapshot: {},
+      providerSnapshot: {},
+      contractSource: "2pq_case_creation",
+      attachmentsPending: false,
+    },
+    {
+      requireGodModeAccess: false,
+      enforceRequesterAdmission: false,
+      expectedServiceId: TWO_PQ_CASE_SERVICE_ID,
+      expectedProviderId: TWO_PQ_CASE_SERVICE_PROVIDER_ID,
+      expectedProviderKind: "organization",
+    },
+  );
 }
 
 export async function attachSupportServiceTransactionOutputObject(

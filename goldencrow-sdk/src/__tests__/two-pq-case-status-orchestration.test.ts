@@ -6,11 +6,13 @@ type MockDocumentReference = {
   collectionName: string;
   get: () => Promise<ReturnType<typeof snapshot>>;
   set: (data: MockData, options?: { merge?: boolean }) => Promise<void>;
+  delete: () => Promise<void>;
 };
 
 const collections = new Map<string, Map<string, MockData>>();
 const mockCascadeTwoPQCaseStatusToSamplingChildren = jest.fn();
 const mockSynchronizeTwoPQCasesFilesAndCodes = jest.fn();
+const mockCreateTwoPQCaseServiceTransaction = jest.fn();
 
 function collectionStore(name: string) {
   let store = collections.get(name);
@@ -45,6 +47,9 @@ function documentReference(
         options?.merge ? { ...existing, ...data } : { ...data },
       );
     },
+    delete: async () => {
+      collectionStore(collectionName).delete(id);
+    },
   };
 }
 
@@ -66,6 +71,26 @@ function collectionReference(name: string) {
 
 const mockDb = {
   collection: (name: string) => collectionReference(name),
+  batch: () => {
+    const operations: Array<() => Promise<void>> = [];
+    return {
+      set: (
+        reference: MockDocumentReference,
+        data: MockData,
+        options?: { merge?: boolean },
+      ) => {
+        operations.push(() => reference.set(data, options));
+      },
+      delete: (reference: MockDocumentReference) => {
+        operations.push(() => reference.delete());
+      },
+      commit: async () => {
+        for (const operation of operations) {
+          await operation();
+        }
+      },
+    };
+  },
   runTransaction: async (
     callback: (transaction: {
       get: (reference: MockDocumentReference) => Promise<ReturnType<typeof snapshot>>;
@@ -74,12 +99,16 @@ const mockDb = {
         data: MockData,
         options?: { merge?: boolean },
       ) => void;
+      delete: (reference: MockDocumentReference) => void;
     }) => Promise<unknown>,
   ) =>
     callback({
       get: (reference) => reference.get(),
       set: (reference, data, options) => {
         void reference.set(data, options);
+      },
+      delete: (reference) => {
+        void reference.delete();
       },
     }),
 };
@@ -106,10 +135,18 @@ jest.mock("../repositories/two-pq-sampling-status.repository.js", () => ({
     mockCascadeTwoPQCaseStatusToSamplingChildren,
 }));
 
+jest.mock("../repositories/support-services.repository.js", () => ({
+  createTwoPQCaseServiceTransaction:
+    mockCreateTwoPQCaseServiceTransaction,
+}));
+
 describe("2PQ case status update orchestration", () => {
   beforeEach(() => {
     collections.clear();
     jest.clearAllMocks();
+    mockCreateTwoPQCaseServiceTransaction.mockResolvedValue({
+      id: "pgr_2pq_case_00002",
+    });
     mockCascadeTwoPQCaseStatusToSamplingChildren.mockResolvedValue({
       caseId: "CASE-00001",
       caseStatus: "lab_processing",
@@ -229,5 +266,84 @@ describe("2PQ case status update orchestration", () => {
     ).toBeLessThan(
       mockSynchronizeTwoPQCasesFilesAndCodes.mock.invocationCallOrder[0]!,
     );
+  });
+
+  it("creates the deferred service transaction before auto-syncing a new case", async () => {
+    collectionStore("admin_sequences").set("2pq_case", { current: 1 });
+    const { createTwoPQRecordForContext } = await import(
+      "../repositories/two-pq.repository.js"
+    );
+    const context = {
+      email: "lab@example.com",
+      uid: "lab-1",
+      role: "institution_laboratory_staff" as const,
+      isBootstrap: false,
+      canAccessBackoffice: true,
+      canAccessPatientPortal: false,
+      canAccessPGFlex: false,
+      projectAccess: ["mydnamap" as const],
+      institutionId: "INST-00001",
+    };
+
+    const created = await createTwoPQRecordForContext(context, "cases", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      caseLabel: "ABCXXX",
+      caseStatus: "intake",
+    });
+
+    expect(created.id).toBe("CASE-00002");
+    expect(mockCreateTwoPQCaseServiceTransaction).toHaveBeenCalledWith(
+      context,
+      {
+        caseId: "CASE-00002",
+        doctorEmail: "doctor@example.com",
+        requestedAtClient: expect.any(String),
+      },
+    );
+    expect(
+      mockCreateTwoPQCaseServiceTransaction.mock.invocationCallOrder[0]!,
+    ).toBeLessThan(
+      mockSynchronizeTwoPQCasesFilesAndCodes.mock.invocationCallOrder[0]!,
+    );
+    expect(collectionStore("2pq_case").get("CASE-00002")).toMatchObject({
+      doctorId: "DOC-00001",
+      institutionId: "INST-00001",
+      should_automatically_sync_files_and_codes: true,
+    });
+  });
+
+  it("rolls a new case back when its mandatory service transaction fails", async () => {
+    collectionStore("admin_sequences").set("2pq_case", { current: 1 });
+    mockCreateTwoPQCaseServiceTransaction.mockRejectedValueOnce(
+      new Error("Configured 2PQ offer is unavailable"),
+    );
+    const { createTwoPQRecordForContext } = await import(
+      "../repositories/two-pq.repository.js"
+    );
+
+    await expect(
+      createTwoPQRecordForContext(
+        {
+          email: "admin@example.com",
+          uid: "admin-1",
+          role: "full_admin",
+          isBootstrap: false,
+          canAccessBackoffice: true,
+          canAccessPatientPortal: false,
+          canAccessPGFlex: false,
+          projectAccess: ["mydnamap"],
+        },
+        "cases",
+        {
+          institutionId: "INST-00001",
+          doctorId: "DOC-00001",
+          caseLabel: "ABCXXX",
+          caseStatus: "intake",
+        },
+      ),
+    ).rejects.toThrow("Configured 2PQ offer is unavailable");
+    expect(collectionStore("2pq_case").has("CASE-00002")).toBe(false);
+    expect(mockSynchronizeTwoPQCasesFilesAndCodes).not.toHaveBeenCalled();
   });
 });

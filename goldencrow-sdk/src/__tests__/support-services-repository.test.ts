@@ -3897,6 +3897,121 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
+  it("creates one deferred transaction from the canonical 2PQ offer for the doctor email", async () => {
+    const providerId = "kfFtJlLuyW6deXW2Im3S";
+    const offerId = "rhTE3dfB8Ovhf86lY3Z5";
+    const doctorEmail = "doctor@clinic.example";
+    const existingDeferredIds = Array.from(
+      { length: 5 },
+      (_, index) => `pgr_existing_2pq_${index + 1}`,
+    );
+    seedDoc("feed_organizations", providerId, {
+      name: "2pq",
+      status: "active",
+      ownerCommunityUserId: providerId,
+      requestedServiceTransactions: [],
+    });
+    seedDoc("object_owners", providerId, {
+      owner_name: "2pq",
+      owner_contact_email: "info@2pq.life",
+      status: "active",
+    });
+    seedDoc("community_users", providerId, {
+      status: "active",
+    });
+    seedDoc("service_offers", offerId, {
+      ...baseOffer,
+      serviceId: "pgs_2pq_74399",
+      serviceVersion: 3,
+      name: "Solicitud de PGT",
+      providerId,
+      providerName: "2pq",
+      isHiddenFromSearch: true,
+      isHighlightedOffer: false,
+      isProfessionalOffer: false,
+      description: "Solicitud gestionada a traves del sistema 2pq sync.",
+      shortContract: "none -> pdf_report:pdf_report",
+      providerWork: "Procesar la muestra biologica y generar un informe de PGT.",
+      formShape: undefined,
+      inputSlots: [],
+      outputSlots: [
+        {
+          role: "pdf_report",
+          objectType: "pgo_pdf_report",
+          mutationMode: "new_object",
+        },
+      ],
+      acceptedConditions: ["Consentimiento informado completado."],
+      stages: ["test_planning", "wet_lab", "bioinformatics"],
+    });
+    const deferredIndexId = Buffer.from(doctorEmail, "utf8").toString(
+      "base64url",
+    );
+    seedDoc("deferred_service_transactions", deferredIndexId, {
+      email: doctorEmail,
+      deferred_transaction_ids: existingDeferredIds,
+    });
+    const { createTwoPQCaseServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const institutionalContext: AdminContext = {
+      ...context,
+      email: "lab@clinic.example",
+      uid: "lab-1",
+      role: "institution_laboratory_staff",
+      isBootstrap: false,
+      institutionId: "INST-00001",
+    };
+    const transactionInput = {
+      caseId: "CASE-00022",
+      doctorEmail: " Doctor@Clinic.Example ",
+      requestedAtClient: "2026-09-28T22:00:00.000Z",
+    };
+
+    const created = await createTwoPQCaseServiceTransaction(
+      institutionalContext,
+      transactionInput,
+    );
+    const retried = await createTwoPQCaseServiceTransaction(
+      institutionalContext,
+      transactionInput,
+    );
+
+    expect(created).toMatchObject({
+      id: "pgr_2pq_case_00022",
+      requestId: "pgr_2pq_case_00022",
+      offerId,
+      serviceId: "pgs_2pq_74399",
+      serviceVersion: 3,
+      providerId,
+      providerKind: "organization",
+      status: "received",
+      requestedByUserEmail: doctorEmail,
+      contractSource: "2pq_case_creation",
+    });
+    expect(created).not.toHaveProperty("requestedByUserId");
+    expect(retried.id).toBe(created.id);
+    expect(collectionStore("service_transactions").size).toBe(1);
+    expect(
+      collectionStore("deferred_service_transactions").get(deferredIndexId),
+    ).toEqual({
+      email: doctorEmail,
+      deferred_transaction_ids: [
+        ...existingDeferredIds,
+        "pgr_2pq_case_00022",
+      ],
+    });
+    expect(collectionStore("feed_organizations").get(providerId)).toMatchObject({
+      requestedServiceTransactions: [
+        expect.objectContaining({
+          serviceTransactionId: "pgr_2pq_case_00022",
+          offerId,
+          status: "received",
+        }),
+      ],
+    });
+  });
+
   it.each(["isHighlightedOffer", "isProfessionalOffer"])(
     "rejects a new transaction when the live offer is missing %s",
     async (missingField) => {

@@ -30,6 +30,15 @@
 - When a 2PQ `Observaciones` value is blank, normalize it to the exact text `Sin observaciones` before preview, draft persistence, final submission, and SDK storage.
 - Keep user-entered observations by trimming surrounding whitespace only. Do not replace non-empty observations.
 
+## 2PQ Case Service Transactions
+
+- Every newly created `2pq_case`, regardless of whether it originates in the backoffice case form or the 2PQ form workflow, must create exactly one service transaction before File Storage and report-code auto-sync begins.
+- The canonical offer is the `service_offers` document `rhTE3dfB8Ovhf86lY3Z5`. Its identity must remain `serviceId: pgs_2pq_74399`, `providerKind: organization`, and `providerId: kfFtJlLuyW6deXW2Im3S`. Read the current offer version and frozen contract from that live document; do not hardcode a service version or reconstruct its snapshots.
+- The generated transaction uses a deterministic `pgr_2pq_<normalized_case_id>` request ID and deterministic idempotency key so retries resolve to the same transaction.
+- A 2PQ-generated service transaction must never set `requestedByUserId`. Set only `requestedByUserEmail`, using the normalized `authEmail` of the doctor assigned to the case, and index the request in `deferred_service_transactions` under that email.
+- This trusted system workflow is not subject to consumer token cooldown, daily limits, total limits, or the ordinary five-item deferred cap. Those limits must continue to apply to regular manually created service transactions.
+- The selected doctor must have a valid email. If the mandatory service transaction cannot be created, case creation must fail and the just-created case and batch linkage must be rolled back instead of leaving a case without its service transaction.
+
 ## 2PQ File Storage Snapshot Contract
 
 - A 2PQ File Storage JSON snapshot is scoped to one current case. `entities.cases` must contain exactly that case and must never include sibling cases from its sequencing batch.
