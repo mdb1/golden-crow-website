@@ -7,6 +7,7 @@ import { ArrowRight, RefreshCcw, Search } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { TwoPQCaseDeleteDialog } from "@/components/two-pq-case-delete-dialog";
+import { TwoPQRecordDeleteDialog } from "@/components/two-pq-record-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -254,6 +255,16 @@ export function TwoPQAreaBrowser({
                   <TwoPQCaseDeleteDialog
                     caseId={record.id}
                     caseLabel={record.caseLabel}
+                    onFinished={() => void refetch()}
+                  />
+                ) : null}
+                {(area.key === "sampling" || area.key === "sequencing") &&
+                record.canDelete &&
+                isGlobalAdminRole(adminContext.role) ? (
+                  <TwoPQRecordDeleteDialog
+                    areaKey={area.key}
+                    recordId={record.id}
+                    recordLabel={getTwoPQRecordTitle(area, record)}
                     onFinished={() => void refetch()}
                   />
                 ) : null}
