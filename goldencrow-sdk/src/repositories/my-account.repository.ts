@@ -1,5 +1,9 @@
 import type { UserInfo, UserRecord } from "firebase-admin/auth";
-import { adminAuthFor } from "../config/firebase.js";
+import type {
+  DocumentReference,
+  WriteBatch,
+} from "firebase-admin/firestore";
+import { adminAuthFor, adminDbFor } from "../config/firebase.js";
 import {
   AdminRepositoryError,
   isAdminRepositoryError,
@@ -11,8 +15,9 @@ import {
 import {
   getAdminCapabilities,
   getOwnRoleForContext,
-  moveOwnRoleEmailForContext,
+  getRoleCollectionName,
   normalizeRoleEmail,
+  resolveLinkedCommunityUserForRole,
   updateOwnRoleProfileForContext,
 } from "./roles.repository.js";
 import {
@@ -33,6 +38,7 @@ import type {
 // Pitfall 16 — My Account belongs to the legacy PocketGenes auth surface, so
 // every Firebase Auth operation here uses the MyDNAMap named Admin handle.
 const adminAuth = adminAuthFor("mydnamap");
+const adminDb = adminDbFor("mydnamap");
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -41,7 +47,31 @@ export interface ChangeMyAccountEmailResult {
   previousEmail: string;
   newEmail: string;
   requiresSignIn: boolean;
+  syncSteps: AccountEmailSyncStepResult[];
 }
+
+export type AccountEmailSyncStep =
+  | "firebase_auth"
+  | "role_assignment"
+  | "private_profile"
+  | "public_profile"
+  | "community_user"
+  | "report_owners"
+  | "object_owners"
+  | "linked_entity"
+  | "two_pq_clients";
+
+export interface AccountEmailSyncStepResult {
+  step: AccountEmailSyncStep;
+  status: "updated" | "unchanged" | "not_found";
+  updatedCount: number;
+  message: string;
+}
+
+type ExistingDocument = {
+  ref: DocumentReference;
+  data: Record<string, unknown>;
+};
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -75,6 +105,107 @@ function mapFirebaseAuthError(error: unknown): AdminRepositoryError | null {
   }
 
   return null;
+}
+
+function optionalString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+async function existingDocuments(collection: string, ids: string[]) {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  const snapshots = await Promise.all(
+    uniqueIds.map((id) => adminDb.collection(collection).doc(id).get()),
+  );
+  return snapshots
+    .filter((snapshot) => snapshot.exists)
+    .map((snapshot) => ({
+      ref: snapshot.ref,
+      data: (snapshot.data() ?? {}) as Record<string, unknown>,
+    }));
+}
+
+async function documentsMatchingEmails(
+  collection: string,
+  field: string,
+  emails: string[],
+) {
+  const normalizedEmails = [...
+    new Set(emails.map(normalizeRoleEmail).filter(Boolean)),
+  ];
+  const snapshots = await Promise.all(
+    normalizedEmails.map((email) =>
+      adminDb
+        .collection(collection)
+        .where(field, "==", email)
+        .limit(20)
+        .get(),
+    ),
+  );
+  const documents = new Map<string, ExistingDocument>();
+  for (const snapshot of snapshots) {
+    for (const document of snapshot.docs) {
+      documents.set(document.ref.path, {
+        ref: document.ref,
+        data: document.data() as Record<string, unknown>,
+      });
+    }
+  }
+  return [...documents.values()];
+}
+
+function emailSyncStep(
+  step: AccountEmailSyncStep,
+  documents: ExistingDocument[],
+  nextEmail: string,
+  field: string,
+  label: string,
+): AccountEmailSyncStepResult {
+  if (documents.length === 0) {
+    return {
+      step,
+      status: "not_found",
+      updatedCount: 0,
+      message: `No ${label} record was available.`,
+    };
+  }
+
+  const updatedCount = documents.filter(
+    (document) =>
+      normalizeRoleEmail(optionalString(document.data[field]) ?? "") !==
+      nextEmail,
+  ).length;
+  return {
+    step,
+    status: updatedCount > 0 ? "updated" : "unchanged",
+    updatedCount,
+    message:
+      updatedCount > 0
+        ? `Updated ${updatedCount} ${label} record(s).`
+        : `The ${label} email was already current.`,
+  };
+}
+
+function mergeEmailUpdates(
+  batch: WriteBatch,
+  documents: ExistingDocument[],
+  nextEmail: string,
+  field: string,
+  timestampField: string,
+  now: string,
+) {
+  for (const document of documents) {
+    if (
+      normalizeRoleEmail(optionalString(document.data[field]) ?? "") ===
+      nextEmail
+    ) {
+      continue;
+    }
+    batch.set(
+      document.ref,
+      { [field]: nextEmail, [timestampField]: now },
+      { merge: true },
+    );
+  }
 }
 
 function toProviderInfo(provider: UserInfo) {
@@ -212,6 +343,20 @@ export async function changeMyAccountEmailForContext(
       previousEmail: currentEmail,
       newEmail: normalizedNextEmail,
       requiresSignIn: false,
+      syncSteps: [
+        {
+          step: "firebase_auth",
+          status: "unchanged",
+          updatedCount: 0,
+          message: "The Firebase Auth email was already current.",
+        },
+        {
+          step: "role_assignment",
+          status: "unchanged",
+          updatedCount: 0,
+          message: "The role assignment email was already current.",
+        },
+      ],
     };
   }
 
@@ -225,28 +370,325 @@ export async function changeMyAccountEmailForContext(
     );
   }
 
+  const role = await getOwnRoleForContext(context);
+  if (!role || role.bootstrap) {
+    throw new AdminRepositoryError(
+      "Role assignment not found for the current user.",
+      404,
+    );
+  }
+
+  const roleCollection = adminDb.collection(getRoleCollectionName());
+  const currentRoleRef = roleCollection.doc(currentEmail);
+  const nextRoleRef = roleCollection.doc(normalizedNextEmail);
+  const [currentRoleSnapshot, nextRoleSnapshot, linkedCommunityUser] =
+    await Promise.all([
+      currentRoleRef.get(),
+      nextRoleRef.get(),
+      resolveLinkedCommunityUserForRole(role, context.uid),
+    ]);
+
+  if (!currentRoleSnapshot.exists) {
+    throw new AdminRepositoryError(
+      "Role assignment not found for the current user.",
+      404,
+    );
+  }
+  if (nextRoleSnapshot.exists) {
+    throw new AdminRepositoryError(
+      "A role assignment already exists for the requested email.",
+      409,
+    );
+  }
+
+  const ownerIds = [
+    context.uid,
+    linkedCommunityUser?.id,
+    role.patientId,
+    role.doctorId,
+    role.individualId,
+  ].filter((value): value is string => Boolean(value));
+  const oldEmails = [
+    currentEmail,
+    previousFirebaseEmail,
+    role.communityUserOriginalEmail,
+    linkedCommunityUser?.email,
+  ].filter((value): value is string => Boolean(value));
+
+  const linkedEntityCollection = role.patientId
+    ? "patients"
+    : role.doctorId
+      ? "doctors"
+      : role.individualId
+        ? "feed_individuals"
+        : null;
+  const linkedEntityId =
+    role.patientId ?? role.doctorId ?? role.individualId ?? null;
+  const linkedEntityEmailField = role.patientId
+    ? "email"
+    : role.doctorId
+      ? "authEmail"
+      : role.individualId
+        ? "contactEmail"
+        : "email";
+
+  const [
+    privateProfiles,
+    publicProfiles,
+    communityUsers,
+    reportOwners,
+    objectOwners,
+    linkedEntities,
+    clientsByClientEmail,
+    clientsByRoleEmail,
+  ] = await Promise.all([
+    existingDocuments("profiles", [context.uid]),
+    existingDocuments("public_profiles", [context.uid]),
+    linkedCommunityUser
+      ? existingDocuments("community_users", [linkedCommunityUser.id])
+      : Promise.resolve([]),
+    existingDocuments("report_owners", ownerIds),
+    existingDocuments("object_owners", ownerIds),
+    linkedEntityCollection && linkedEntityId
+      ? existingDocuments(linkedEntityCollection, [linkedEntityId])
+      : Promise.resolve([]),
+    documentsMatchingEmails("2pq_client", "clientEmail", oldEmails),
+    documentsMatchingEmails("2pq_client", "roleEmail", oldEmails),
+  ]);
+
+  const twoPQClients = [
+    ...new Map(
+      [...clientsByClientEmail, ...clientsByRoleEmail].map((document) => [
+        document.ref.path,
+        document,
+      ]),
+    ).values(),
+  ];
+  const normalizedOldEmails = new Set(oldEmails.map(normalizeRoleEmail));
+  const now = new Date().toISOString();
+  const batch = adminDb.batch();
+
+  mergeEmailUpdates(
+    batch,
+    privateProfiles,
+    normalizedNextEmail,
+    "email",
+    "updatedAt",
+    now,
+  );
+  mergeEmailUpdates(
+    batch,
+    publicProfiles,
+    normalizedNextEmail,
+    "email",
+    "updatedAt",
+    now,
+  );
+  for (const profile of publicProfiles) {
+    if (
+      normalizeRoleEmail(optionalString(profile.data.email) ?? "") !==
+      normalizedNextEmail
+    ) {
+      batch.set(profile.ref, { date_modified: now }, { merge: true });
+    }
+  }
+  mergeEmailUpdates(
+    batch,
+    communityUsers,
+    normalizedNextEmail,
+    "email",
+    "updatedAt",
+    now,
+  );
+  mergeEmailUpdates(
+    batch,
+    reportOwners,
+    normalizedNextEmail,
+    "owner_contact_email",
+    "updated_at",
+    now,
+  );
+  mergeEmailUpdates(
+    batch,
+    objectOwners,
+    normalizedNextEmail,
+    "owner_contact_email",
+    "updated_at",
+    now,
+  );
+  mergeEmailUpdates(
+    batch,
+    linkedEntities,
+    normalizedNextEmail,
+    linkedEntityEmailField,
+    "updatedAt",
+    now,
+  );
+
+  let updatedTwoPQClientCount = 0;
+  for (const client of twoPQClients) {
+    const update: Record<string, unknown> = {};
+    for (const field of ["clientEmail", "roleEmail"] as const) {
+      const storedEmail = normalizeRoleEmail(
+        optionalString(client.data[field]) ?? "",
+      );
+      if (
+        storedEmail !== normalizedNextEmail &&
+        normalizedOldEmails.has(storedEmail)
+      ) {
+        update[field] = normalizedNextEmail;
+      }
+    }
+    if (Object.keys(update).length > 0) {
+      batch.set(client.ref, { ...update, updatedAt: now }, { merge: true });
+      updatedTwoPQClientCount += 1;
+    }
+  }
+
+  const currentRoleData = (currentRoleSnapshot.data() ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const communityUserOriginalEmail =
+    role.communityUserOriginalEmail ??
+    linkedCommunityUser?.email ??
+    previousFirebaseEmail;
+  const communityUserOriginalUsername =
+    role.communityUserOriginalUsername ?? linkedCommunityUser?.username;
+  const nextRoleData: Record<string, unknown> = {
+    ...currentRoleData,
+    email: normalizedNextEmail,
+    firebaseUid: context.uid,
+    updatedAt: now,
+  };
+  if (linkedCommunityUser?.id) {
+    nextRoleData.communityUserId = linkedCommunityUser.id;
+  }
+  if (communityUserOriginalEmail) {
+    nextRoleData.communityUserOriginalEmail = communityUserOriginalEmail;
+  }
+  if (communityUserOriginalUsername) {
+    nextRoleData.communityUserOriginalUsername =
+      communityUserOriginalUsername;
+  }
+  batch.set(nextRoleRef, nextRoleData);
+  batch.delete(currentRoleRef);
+
   let authEmailChanged = false;
+  let firestoreCommitted = false;
+  let updatedAuthUser: UserRecord | null = null;
 
   try {
-    await adminAuth.updateUser(context.uid, {
+    updatedAuthUser = await adminAuth.updateUser(context.uid, {
       email: normalizedNextEmail,
       emailVerified: false,
     });
     authEmailChanged = true;
 
-    const movedRole = await moveOwnRoleEmailForContext(
-      context,
-      normalizedNextEmail,
-    );
+    await batch.commit();
+    firestoreCommitted = true;
+
+    const movedRole: RoleManagementRecord = {
+      ...role,
+      email: normalizedNextEmail,
+      firebaseUid: context.uid,
+      communityUserId:
+        linkedCommunityUser?.id ?? role.communityUserId,
+      communityUserOriginalEmail,
+      communityUserOriginalUsername,
+      updatedAt: now,
+    };
     const nextContext = contextFromRole(context, movedRole);
+    const account = await getMyAccountForContext(nextContext).catch(() => ({
+      context: nextContext,
+      role: movedRole,
+      capabilities: getAdminCapabilities(nextContext),
+      auth: toAuthRecord(updatedAuthUser as UserRecord),
+      profile: null,
+    }));
+    const twoPQStep: AccountEmailSyncStepResult =
+      twoPQClients.length === 0
+        ? {
+            step: "two_pq_clients",
+            status: "not_found",
+            updatedCount: 0,
+            message: "No linked 2PQ client record was available.",
+          }
+        : {
+            step: "two_pq_clients",
+            status:
+              updatedTwoPQClientCount > 0 ? "updated" : "unchanged",
+            updatedCount: updatedTwoPQClientCount,
+            message:
+              updatedTwoPQClientCount > 0
+                ? `Updated ${updatedTwoPQClientCount} linked 2PQ client record(s).`
+                : "The linked 2PQ client email was already current.",
+          };
     return {
-      account: await getMyAccountForContext(nextContext),
+      account,
       previousEmail: currentEmail,
       newEmail: normalizedNextEmail,
       requiresSignIn: true,
+      syncSteps: [
+        {
+          step: "firebase_auth",
+          status: "updated",
+          updatedCount: 1,
+          message: "Updated the Firebase Auth email.",
+        },
+        {
+          step: "role_assignment",
+          status: "updated",
+          updatedCount: 1,
+          message: "Moved the role assignment to the new email.",
+        },
+        emailSyncStep(
+          "community_user",
+          communityUsers,
+          normalizedNextEmail,
+          "email",
+          "community account",
+        ),
+        emailSyncStep(
+          "private_profile",
+          privateProfiles,
+          normalizedNextEmail,
+          "email",
+          "private profile",
+        ),
+        emailSyncStep(
+          "public_profile",
+          publicProfiles,
+          normalizedNextEmail,
+          "email",
+          "public profile",
+        ),
+        emailSyncStep(
+          "report_owners",
+          reportOwners,
+          normalizedNextEmail,
+          "owner_contact_email",
+          "report owner account",
+        ),
+        emailSyncStep(
+          "object_owners",
+          objectOwners,
+          normalizedNextEmail,
+          "owner_contact_email",
+          "object owner account",
+        ),
+        emailSyncStep(
+          "linked_entity",
+          linkedEntities,
+          normalizedNextEmail,
+          linkedEntityEmailField,
+          "linked patient, doctor, or professional",
+        ),
+        twoPQStep,
+      ],
     };
   } catch (error) {
-    if (authEmailChanged) {
+    if (authEmailChanged && !firestoreCommitted) {
       await adminAuth
         .updateUser(context.uid, {
           email: previousFirebaseEmail,

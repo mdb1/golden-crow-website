@@ -798,6 +798,28 @@ export function RoleWorkbench({
         </div>
 
         <div className="grid gap-3 lg:grid-cols-3">
+          {roleRecord?.communityUserId ? (
+            <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
+              <p className="font-medium text-foreground">
+                {roleRecord.communityUserOriginalUsername ??
+                  t("Community account")}
+              </p>
+              <p className="mt-1 break-all text-sm text-muted-foreground">
+                {compactList([
+                  roleRecord.communityUserOriginalEmail,
+                  roleRecord.communityUserId,
+                ])}
+              </p>
+              <Button variant="link" size="sm" className="px-0" asChild>
+                <Link
+                  href={`/collections/community_users/${roleRecord.communityUserId}`}
+                >
+                  {t("Open community account")}
+                </Link>
+              </Button>
+            </div>
+          ) : null}
+
           {state.role === "organization_publisher" ? (
             <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
               <p className="font-medium text-foreground">

@@ -11,9 +11,11 @@ import {
   BadgeCheck,
   Braces,
   CheckCircle2,
+  CircleMinus,
   FileCheck2,
   Fingerprint,
   KeyRound,
+  LoaderCircle,
   MailCheck,
   RotateCcw,
   Save,
@@ -35,10 +37,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ADMIN_ROLE_DESCRIPTIONS,
   ADMIN_ROLE_LABELS,
+  type AccountEmailSyncStep,
+  type AccountEmailSyncStepResult,
   type ChangeMyAccountEmailResponse,
   type MyAccountRecord,
 } from "@/lib/admin-areas";
@@ -59,7 +64,7 @@ type InlineMessage = {
   tone: "success" | "error" | "info";
   message: string;
 } | null;
-type EmailChangeStep = "form" | "complete";
+type EmailChangeStep = "form" | "running" | "complete" | "failed";
 type EmailVerificationStep = "intro" | "complete";
 
 const DISPLAY_NAME_MAX_LENGTH = 100;
@@ -67,6 +72,18 @@ const CONTACT_PHONE_MAX_LENGTH = 30;
 const NOTES_MAX_LENGTH = 600;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^[0-9+()\-\s.]{1,30}$/;
+
+const EMAIL_SYNC_STEP_LABELS: Record<AccountEmailSyncStep, string> = {
+  firebase_auth: "Firebase Auth account",
+  role_assignment: "Role assignment",
+  private_profile: "Private profile",
+  public_profile: "Public profile",
+  community_user: "Community account",
+  report_owners: "Report owner accounts",
+  object_owners: "Object owner accounts",
+  linked_entity: "Linked patient, doctor, or professional",
+  two_pq_clients: "Linked 2PQ client",
+};
 
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
@@ -468,6 +485,10 @@ export function MyAccountWorkbench({
     useState<EmailChangeStep>("form");
   const [emailChangeRequiresSignIn, setEmailChangeRequiresSignIn] =
     useState(false);
+  const [emailSyncResults, setEmailSyncResults] = useState<
+    AccountEmailSyncStepResult[]
+  >([]);
+  const [emailSyncError, setEmailSyncError] = useState<string | null>(null);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [verificationStep, setVerificationStep] =
     useState<EmailVerificationStep>("intro");
@@ -511,6 +532,8 @@ export function MyAccountWorkbench({
     setNewEmail(account.auth.email);
     setEmailMessage(null);
     setEmailChangeRequiresSignIn(false);
+    setEmailSyncResults([]);
+    setEmailSyncError(null);
     setEmailChangeStep("form");
     setEmailChangeOpen(true);
   }
@@ -628,6 +651,9 @@ export function MyAccountWorkbench({
       return false;
     }
 
+    setEmailSyncResults([]);
+    setEmailSyncError(null);
+    setEmailChangeStep("running");
     setPendingEmailSave(true);
     try {
       const result = await sdkFetch<ChangeMyAccountEmailResponse>(
@@ -641,10 +667,12 @@ export function MyAccountWorkbench({
       setRoleState(toRoleProfileState(result.account));
       setNewEmail(result.account.auth.email);
       setEmailChangeRequiresSignIn(result.requiresSignIn);
+      setEmailSyncResults(result.syncSteps);
       setEmailMessage({
         tone: "success",
         message: t("Email change saved."),
       });
+      setEmailChangeStep("complete");
       setToast({
         id: Date.now(),
         tone: "success",
@@ -657,20 +685,20 @@ export function MyAccountWorkbench({
       });
       return true;
     } catch (error) {
+      const message =
+        error instanceof Error
+          ? t(error.message)
+          : t("Unable to change your email.");
       setEmailMessage({
         tone: "error",
-        message:
-          error instanceof Error
-            ? t(error.message)
-            : t("Unable to change your email."),
+        message,
       });
+      setEmailSyncError(message);
+      setEmailChangeStep("failed");
       setToast({
         id: Date.now(),
         tone: "error",
-        message:
-          error instanceof Error
-            ? t(error.message)
-            : t("Unable to change your email."),
+        message,
       });
       return false;
     } finally {
@@ -1079,15 +1107,66 @@ export function MyAccountWorkbench({
       <Dialog
         open={emailChangeOpen}
         onOpenChange={(open) => {
+          if (!open && emailChangeStep === "running") {
+            return;
+          }
           setEmailChangeOpen(open);
           if (!open) {
             setEmailMessage(null);
+            setEmailSyncResults([]);
+            setEmailSyncError(null);
             setEmailChangeStep("form");
           }
         }}
       >
-        <DialogContent className="sm:max-w-lg">
-          {emailChangeStep === "complete" ? (
+        <DialogContent
+          className="sm:max-w-2xl"
+          showCloseButton={emailChangeStep !== "running"}
+          onInteractOutside={(event) => {
+            if (emailChangeStep === "running") event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (emailChangeStep === "running") event.preventDefault();
+          }}
+        >
+          {emailChangeStep === "running" ? (
+            <>
+              <DialogHeader>
+                <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <LoaderCircle className="h-5 w-5 animate-spin" />
+                </div>
+                <DialogTitle>{t("Synchronizing account email")}</DialogTitle>
+                <DialogDescription>
+                  {t(
+                    "Firebase Auth, the role assignment, and linked account identities are being aligned. Keep this window open until the process finishes.",
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <Progress
+                value={35}
+                className="[&>div]:animate-pulse"
+                aria-label={t("Email synchronization progress")}
+              />
+              <div className="grid gap-3 rounded-lg border border-border/80 bg-muted/30 px-4 py-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("Current email")}
+                  </p>
+                  <p className="mt-1 break-all font-mono text-xs text-foreground">
+                    {account.auth.email}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("New email")}
+                  </p>
+                  <p className="mt-1 break-all font-mono text-xs text-foreground">
+                    {normalizedNewEmail}
+                  </p>
+                </div>
+              </div>
+            </>
+          ) : emailChangeStep === "complete" ? (
             <>
               <DialogHeader>
                 <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-200">
@@ -1102,6 +1181,10 @@ export function MyAccountWorkbench({
                     : t("The requested email is already active on this account.")}
                 </DialogDescription>
               </DialogHeader>
+              <Progress
+                value={100}
+                aria-label={t("Email synchronization complete")}
+              />
               <div className="rounded-lg border border-border/80 bg-muted/35 px-3 py-3">
                 <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   {t("Account email")}
@@ -1110,9 +1193,84 @@ export function MyAccountWorkbench({
                   {account.auth.email}
                 </p>
               </div>
+              <div className="max-h-[42vh] space-y-2 overflow-y-auto pr-1">
+                {emailSyncResults.map((result) => (
+                  <div
+                    key={result.step}
+                    className="flex items-start gap-3 rounded-lg border border-border/75 bg-background/80 px-3 py-3"
+                  >
+                    {result.status === "updated" ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    ) : (
+                      <CircleMinus className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-foreground">
+                          {t(EMAIL_SYNC_STEP_LABELS[result.step])}
+                        </p>
+                        <Badge
+                          variant={
+                            result.status === "updated" ? "default" : "outline"
+                          }
+                        >
+                          {result.status === "updated"
+                            ? t("Updated")
+                            : result.status === "unchanged"
+                              ? t("No changes")
+                              : t("Not available")}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {result.status === "updated"
+                          ? `${result.updatedCount} ${t("account record(s) updated")}`
+                          : result.status === "unchanged"
+                            ? t("This account record already used the new email.")
+                            : t("No linked account record was found for this step.")}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
               <DialogFooter>
                 <Button type="button" onClick={() => setEmailChangeOpen(false)}>
                   {t("Done")}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : emailChangeStep === "failed" ? (
+            <>
+              <DialogHeader>
+                <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                  <XCircle className="h-5 w-5" />
+                </div>
+                <DialogTitle>{t("Email synchronization failed")}</DialogTitle>
+                <DialogDescription>
+                  {t(
+                    "The account email was not fully changed. Firebase Auth is restored automatically when the linked account update cannot be committed.",
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                {emailSyncError ?? t("Unable to change your email.")}
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEmailChangeOpen(false)}
+                >
+                  {t("Cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setEmailMessage(null);
+                    setEmailSyncError(null);
+                    setEmailChangeStep("form");
+                  }}
+                >
+                  {t("Try again")}
                 </Button>
               </DialogFooter>
             </>
@@ -1158,12 +1316,7 @@ export function MyAccountWorkbench({
                 </Button>
                 <Button
                   type="button"
-                  onClick={async () => {
-                    const saved = await handleEmailSave();
-                    if (saved) {
-                      setEmailChangeStep("complete");
-                    }
-                  }}
+                  onClick={handleEmailSave}
                   disabled={!canChangeEmail || pendingEmailSave}
                 >
                   {pendingEmailSave ? t("Changing...") : t("Next")}

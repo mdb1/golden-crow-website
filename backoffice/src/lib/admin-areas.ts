@@ -125,6 +125,9 @@ export interface RoleManagementRecord {
   email: string;
   role: AdminRole;
   firebaseUid?: string;
+  communityUserId?: string;
+  communityUserOriginalEmail?: string;
+  communityUserOriginalUsername?: string;
   organizationId?: string;
   individualId?: string;
   institutionId?: string;
@@ -266,6 +269,25 @@ export interface ChangeMyAccountEmailResponse {
   previousEmail: string;
   newEmail: string;
   requiresSignIn: boolean;
+  syncSteps: AccountEmailSyncStepResult[];
+}
+
+export type AccountEmailSyncStep =
+  | "firebase_auth"
+  | "role_assignment"
+  | "private_profile"
+  | "public_profile"
+  | "community_user"
+  | "report_owners"
+  | "object_owners"
+  | "linked_entity"
+  | "two_pq_clients";
+
+export interface AccountEmailSyncStepResult {
+  step: AccountEmailSyncStep;
+  status: "updated" | "unchanged" | "not_found";
+  updatedCount: number;
+  message: string;
 }
 
 export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {

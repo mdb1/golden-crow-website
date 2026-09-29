@@ -312,6 +312,101 @@ describe("role user deletion", () => {
     expect(mockCollection).not.toHaveBeenCalledWith("community_comments");
   });
 
+  it("uses the persisted community user id when auth and record emails differ", async () => {
+    const { deleteRoleAccountStepForContext } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("user_roles/dopazoh+director@gmail.com", {
+      role: "full_admin",
+      firebaseUid: "auth-uid-with-a-different-community-record",
+      communityUserId: "Oo24Zh3A37YOrwIIGXOOE4lKSq62",
+      communityUserOriginalEmail: "hdopazo+director@gmail.com",
+      communityUserOriginalUsername: "hdopazo-director",
+      isActive: true,
+      createdAt: "2026-06-05T19:53:24.125Z",
+      updatedAt: "2026-06-05T19:53:24.125Z",
+    });
+    mockDocs.set(
+      "community_users/Oo24Zh3A37YOrwIIGXOOE4lKSq62",
+      {
+        email: "hdopazo+director@gmail.com",
+        username: "hdopazo-director",
+      },
+    );
+
+    await expect(
+      deleteRoleAccountStepForContext(
+        { ...godModeContext, isBootstrap: false },
+        "dopazoh+director@gmail.com",
+        "community",
+      ),
+    ).resolves.toMatchObject({ status: "deleted", deletedCount: 1 });
+
+    expect(
+      mockDocs.has("community_users/Oo24Zh3A37YOrwIIGXOOE4lKSq62"),
+    ).toBe(false);
+  });
+
+  it("falls back to the community username for legacy roles", async () => {
+    const { deleteRoleAccountStepForContext } =
+      await import("../repositories/roles.repository");
+    const authNotFound = Object.assign(new Error("not found"), {
+      code: "auth/user-not-found",
+    });
+    mockGetUserByEmail.mockRejectedValue(authNotFound);
+
+    mockDocs.set("user_roles/current@example.com", {
+      role: "patient",
+      communityUserOriginalEmail: "missing-original@example.com",
+      communityUserOriginalUsername: "stable-community-name",
+      isActive: true,
+      createdAt: "2026-06-05T19:53:24.125Z",
+      updatedAt: "2026-06-05T19:53:24.125Z",
+    });
+    mockDocs.set("community_users/legacy-community-id", {
+      email: "older-record@example.com",
+      username: "stable-community-name",
+    });
+
+    await expect(
+      deleteRoleAccountStepForContext(
+        { ...godModeContext, isBootstrap: false },
+        "current@example.com",
+        "community",
+      ),
+    ).resolves.toMatchObject({ status: "deleted", deletedCount: 1 });
+
+    expect(mockDocs.has("community_users/legacy-community-id")).toBe(false);
+  });
+
+  it("resolves a legacy community account by its persisted original email", async () => {
+    const { deleteRoleAccountStepForContext } =
+      await import("../repositories/roles.repository");
+    mockGetUserByEmail.mockRejectedValue(
+      Object.assign(new Error("not found"), { code: "auth/user-not-found" }),
+    );
+    mockDocs.set("user_roles/new@example.com", {
+      role: "patient",
+      communityUserOriginalEmail: "original@example.com",
+      isActive: true,
+      createdAt: "2026-06-05T19:53:24.125Z",
+      updatedAt: "2026-06-05T19:53:24.125Z",
+    });
+    mockDocs.set("community_users/original-email-id", {
+      email: "original@example.com",
+      username: "original-name",
+    });
+
+    await expect(
+      deleteRoleAccountStepForContext(
+        { ...godModeContext, isBootstrap: false },
+        "new@example.com",
+        "community",
+      ),
+    ).resolves.toMatchObject({ status: "deleted", deletedCount: 1 });
+    expect(mockDocs.has("community_users/original-email-id")).toBe(false);
+  });
+
   it("deletes owner accounts while preserving every linked artifact", async () => {
     const { deleteRoleAccountStepForContext } =
       await import("../repositories/roles.repository");

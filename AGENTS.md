@@ -72,7 +72,11 @@
 
 ## Community Account Deletion
 
-- Deleting a user account or running full role cleanup removes only the matching `community_users` identity document. Resolve the role-cleanup record by normalized email with a direct UID fallback for legacy data.
+- `user_roles` persists the server-managed community identity link as `communityUserId`, `communityUserOriginalEmail`, and `communityUserOriginalUsername`. Clients must not author or edit these fields.
+- Completing any primary profile setup must link the role to the newly created or updated `community_users` record in the same operation. Preserve `communityUserOriginalEmail` once established so later email changes cannot erase the recovery key.
+- Deleting a user account or running full role cleanup removes only the matching `community_users` identity document. Resolve it in this order: persisted `communityUserId`, role `firebaseUid`, resolved Firebase Auth UID, `communityUserOriginalEmail`, current role email, then `communityUserOriginalUsername`. Stop after the first unique match; never gather authored content.
+- Changing an account email must synchronize Firebase Auth, the email-keyed role, private/public profiles, the linked community account, report/object owner identities, and directly linked patient, doctor, professional, or 2PQ client account records. Firestore identity updates and the role move belong in one batch, and a failed batch must roll Firebase Auth back.
+- Email synchronization is identity maintenance only. It must not query or rewrite publications, posts, comments, notes, events, reports, objects, files, service offers, or service transactions.
 - Never delete community posts, comments, replies, or nested event records as a consequence of account deletion. Authored community content intentionally remains orphaned because clients preserve and render that conversation history.
 - Community account deletion must not query `community_posts`, `community_comments`, collection-group `comments`, or the `community_users/{uid}/events` subcollection.
 - Apply the same non-cascading rule to every account or owner identity. Deleting `report_owners`, `object_owners`, or `feed_individuals` records must not delete or query their report codes, uploaded reports, object codes, uploaded objects, stored files, Discover publications, notes, events, service offers, or service transactions.

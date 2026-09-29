@@ -3,6 +3,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MyAccountWorkbench } from "@/components/my-account-workbench";
 import type { MyAccountRecord } from "@/lib/admin-areas";
+import { sdkFetch } from "@/lib/sdk-client";
 
 jest.mock("firebase/auth", () => ({
   onAuthStateChanged: jest.fn(),
@@ -90,6 +91,10 @@ const diagnosticSections = [
 ];
 
 describe("MyAccountWorkbench diagnostics", () => {
+  beforeEach(() => {
+    jest.mocked(sdkFetch).mockReset();
+  });
+
   it("omits administrative diagnostics for the patient portal", () => {
     render(
       <MyAccountWorkbench initialAccount={account} showDiagnostics={false} />,
@@ -158,5 +163,58 @@ describe("MyAccountWorkbench diagnostics", () => {
     expect(screen.getByRole("heading", { name: "Cambiar email" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Nuevo email" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Siguiente" })).toBeTruthy();
+  });
+
+  it("shows the account synchronization results after changing email", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({
+      account: {
+        ...account,
+        context: { ...account.context, email: "new@example.com" },
+        role: account.role
+          ? { ...account.role, email: "new@example.com" }
+          : null,
+        auth: {
+          ...account.auth,
+          email: "new@example.com",
+          emailVerified: false,
+        },
+      },
+      previousEmail: "patient@example.com",
+      newEmail: "new@example.com",
+      requiresSignIn: true,
+      syncSteps: [
+        {
+          step: "firebase_auth",
+          status: "updated",
+          updatedCount: 1,
+          message: "Updated the Firebase Auth email.",
+        },
+        {
+          step: "community_user",
+          status: "updated",
+          updatedCount: 1,
+          message: "Updated the community account.",
+        },
+      ],
+    });
+
+    render(
+      <MyAccountWorkbench initialAccount={account} showDiagnostics={false} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar email" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Nuevo email" }), {
+      target: { value: "new@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Email modificado" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Cuenta de Firebase Auth")).toBeTruthy();
+    expect(screen.getByText("Cuenta de comunidad")).toBeTruthy();
+    expect(screen.getAllByText("Actualizado")).toHaveLength(2);
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe(
+      "100",
+    );
   });
 });

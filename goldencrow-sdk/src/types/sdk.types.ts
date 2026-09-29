@@ -69,6 +69,9 @@ export interface UserRoleRecord {
   email: string;
   role: AdminRole;
   firebaseUid?: string;
+  communityUserId?: string;
+  communityUserOriginalEmail?: string;
+  communityUserOriginalUsername?: string;
   organizationId?: string;
   individualId?: string;
   institutionId?: string;

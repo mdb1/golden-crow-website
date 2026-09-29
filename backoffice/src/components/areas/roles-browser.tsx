@@ -76,6 +76,9 @@ export function RolesBrowser({
         record.doctorName,
         record.patientName,
         record.firebaseUid,
+        record.communityUserId,
+        record.communityUserOriginalEmail,
+        record.communityUserOriginalUsername,
         ADMIN_ROLE_LABELS[record.role],
       ]
         .filter(Boolean)

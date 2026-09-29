@@ -227,6 +227,13 @@ function toUserRoleRecord(
     email,
     role: resolvedRole,
     firebaseUid: normalizeOptionalString(data.firebaseUid),
+    communityUserId: normalizeOptionalString(data.communityUserId),
+    communityUserOriginalEmail: normalizeOptionalString(
+      data.communityUserOriginalEmail,
+    ),
+    communityUserOriginalUsername: normalizeOptionalString(
+      data.communityUserOriginalUsername,
+    ),
     organizationId: normalizeOptionalString(data.organizationId),
     individualId: normalizeOptionalString(data.individualId),
     institutionId: normalizeOptionalString(data.institutionId),
@@ -322,6 +329,96 @@ async function resolveFirebaseUidForRoleUser(
 
     throw error;
   }
+}
+
+export interface LinkedCommunityUser {
+  id: string;
+  email?: string;
+  username?: string;
+}
+
+function linkedCommunityUserFromSnapshot(snapshot: {
+  id: string;
+  data(): Record<string, unknown> | undefined;
+}): LinkedCommunityUser {
+  const data = snapshot.data() ?? {};
+  return {
+    id: snapshot.id,
+    email: normalizeOptionalString(data.email),
+    username: normalizeOptionalString(data.username),
+  };
+}
+
+async function findUniqueCommunityUserByField(
+  field: "email" | "username",
+  value: string,
+) {
+  const snapshot = await adminDb
+    .collection("community_users")
+    .where(field, "==", value)
+    .limit(2)
+    .get();
+
+  if (snapshot.docs.length > 1) {
+    throw new AdminRepositoryError(
+      `Multiple community accounts use this ${field}. Resolve the duplicate records before continuing.`,
+      409,
+    );
+  }
+
+  const match = snapshot.docs[0];
+  return match ? linkedCommunityUserFromSnapshot(match) : null;
+}
+
+export async function resolveLinkedCommunityUserForRole(
+  record: UserRoleRecord,
+  authUid?: string,
+): Promise<LinkedCommunityUser | null> {
+  const directIds = [
+    record.communityUserId,
+    record.firebaseUid,
+    authUid,
+  ].filter(
+    (value, index, values): value is string =>
+      Boolean(value) && values.indexOf(value) === index,
+  );
+
+  for (const id of directIds) {
+    const snapshot = await adminDb.collection("community_users").doc(id).get();
+    if (snapshot.exists) {
+      return linkedCommunityUserFromSnapshot({
+        id: snapshot.id,
+        data: () => snapshot.data() as Record<string, unknown> | undefined,
+      });
+    }
+  }
+
+  const emailCandidates = [
+    record.communityUserOriginalEmail,
+    record.email,
+  ].flatMap((value) => {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      return [];
+    }
+    return [trimmed, normalizeRoleEmail(trimmed)];
+  });
+
+  for (const email of [...new Set(emailCandidates)]) {
+    const match = await findUniqueCommunityUserByField("email", email);
+    if (match) {
+      return match;
+    }
+  }
+
+  if (record.communityUserOriginalUsername) {
+    return findUniqueCommunityUserByField(
+      "username",
+      record.communityUserOriginalUsername,
+    );
+  }
+
+  return null;
 }
 
 export async function deleteRoleUserForContext(
@@ -510,34 +607,17 @@ async function deleteLinkedPersonalEntity(
 }
 
 async function deleteCommunityAccountData(
-  normalizedEmail: string,
   uid: string | undefined,
+  record: UserRoleRecord,
 ) {
-  const emailMatches = await adminDb
-    .collection("community_users")
-    .where("email", "==", normalizedEmail)
-    .limit(2)
-    .get();
-  if (emailMatches.docs.length > 1) {
-    throw new AdminRepositoryError(
-      "Multiple community accounts use this email. Resolve the duplicate records before deleting the account.",
-      409,
-    );
-  }
-
-  const emailMatch = emailMatches.docs[0]?.ref;
-  const directUidMatch =
-    !emailMatch && uid
-      ? (await existingDocumentRefs("community_users", [uid]))[0]
-      : undefined;
-  const communityUserRef = emailMatch ?? directUidMatch;
-  if (communityUserRef) {
-    await communityUserRef.delete();
+  const communityUser = await resolveLinkedCommunityUserForRole(record, uid);
+  if (communityUser) {
+    await adminDb.collection("community_users").doc(communityUser.id).delete();
   }
 
   return deletionStepResult(
     "community",
-    communityUserRef ? 1 : 0,
+    communityUser ? 1 : 0,
     "Deleted the community account.",
     "No community account was available.",
   );
@@ -609,7 +689,10 @@ export async function deleteRoleAccountStepForContext(
   }
 
   if (step === "community") {
-    return deleteCommunityAccountData(target.normalizedEmail, authUid);
+    return deleteCommunityAccountData(
+      authUid,
+      target.record,
+    );
   }
 
   if (step === "reports") {
@@ -2020,6 +2103,11 @@ export async function upsertUserRoleForContext(
       payload.role === "individual_publisher"
         ? (existing?.firebaseUid ?? null)
         : null,
+    communityUserId: existing?.communityUserId ?? null,
+    communityUserOriginalEmail:
+      existing?.communityUserOriginalEmail ?? null,
+    communityUserOriginalUsername:
+      existing?.communityUserOriginalUsername ?? null,
     organizationId:
       payload.role === "organization_publisher"
         ? (payload.organizationId ?? null)

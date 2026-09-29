@@ -711,6 +711,12 @@ export async function completeProfileSetup(
     throw new ProfileSetupError("Authenticated user not found.", 404);
   }
 
+  const normalizedRoleEmail = normalizeRoleEmail(authUser.email);
+  const roleRef = adminDb
+    .collection(getRoleCollectionName())
+    .doc(normalizedRoleEmail);
+  const roleSnap = await roleRef.get();
+
   const profileData = getRecord(profileSnap.data());
   const publicProfileData = getRecord(publicProfileSnap.data());
   const communityUserData = getRecord(communityUserSnap.data());
@@ -739,6 +745,7 @@ export async function completeProfileSetup(
     adminDb.collection("profiles").doc(uid),
     {
       displayName: fullName,
+      email: authUser.email,
       iconName,
       iconColorHex,
       conditions: condition ? [condition] : [],
@@ -804,6 +811,26 @@ export async function completeProfileSetup(
     },
     { merge: true },
   );
+
+  if (roleSnap.exists) {
+    const roleData = getRecord(roleSnap.data());
+    batch.set(
+      roleRef,
+      {
+        firebaseUid: uid,
+        communityUserId: uid,
+        communityUserOriginalEmail:
+          pickFirstString(roleData, ["communityUserOriginalEmail"]) ||
+          pickFirstString(communityUserData, ["email"]) ||
+          authUser.email,
+        communityUserOriginalUsername:
+          pickFirstString(roleData, ["communityUserOriginalUsername"]) ||
+          username,
+        updatedAt: now,
+      },
+      { merge: true },
+    );
+  }
 
   await batch.commit();
   await adminAuth.updateUser(uid, { displayName: fullName });

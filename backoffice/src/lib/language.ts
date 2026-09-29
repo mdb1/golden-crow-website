@@ -1526,6 +1526,29 @@ const SPANISH_TEXT: Record<string, string> = {
   "Enter the new email for this account. The role assignment will move to that email, and verification will be required again.":
     "Ingresá el nuevo email para esta cuenta. El perfil se moverá a ese email y la verificación será requerida nuevamente.",
   "Email changed": "Email modificado",
+  "Synchronizing account email": "Sincronizando email de la cuenta",
+  "Firebase Auth, the role assignment, and linked account identities are being aligned. Keep this window open until the process finishes.":
+    "Se están alineando Firebase Auth, la asignación de rol y las identidades de cuenta vinculadas. Mantené esta ventana abierta hasta que finalice el proceso.",
+  "Email synchronization progress": "Progreso de sincronización del email",
+  "Email synchronization complete": "Sincronización del email completada",
+  "Email synchronization failed": "Falló la sincronización del email",
+  "The account email was not fully changed. Firebase Auth is restored automatically when the linked account update cannot be committed.":
+    "El email de la cuenta no se cambió por completo. Firebase Auth se restaura automáticamente cuando no se puede confirmar la actualización de las cuentas vinculadas.",
+  "Firebase Auth account": "Cuenta de Firebase Auth",
+  "Role assignment": "Asignación de rol",
+  "Community account": "Cuenta de comunidad",
+  "Open community account": "Abrir cuenta de comunidad",
+  "Report owner accounts": "Cuentas de propietario de reportes",
+  "Object owner accounts": "Cuentas de propietario de objetos",
+  "Linked patient, doctor, or professional":
+    "Paciente, médico o profesional vinculado",
+  "Linked 2PQ client": "Cliente 2PQ vinculado",
+  "No changes": "Sin cambios",
+  "account record(s) updated": "registro(s) de cuenta actualizado(s)",
+  "This account record already used the new email.":
+    "Este registro de cuenta ya utilizaba el email nuevo.",
+  "No linked account record was found for this step.":
+    "No se encontró un registro de cuenta vinculado para este paso.",
   Next: "Siguiente",
   "Changing...": "Cambiando...",
   "Bootstrap account emails are read only here.":
