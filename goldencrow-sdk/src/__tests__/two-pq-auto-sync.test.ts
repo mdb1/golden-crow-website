@@ -4,8 +4,10 @@ type MockData = Record<string, unknown>;
 
 const collections = new Map<string, Map<string, MockData>>();
 const mockCreateStoredFileDocument = jest.fn();
+const mockCreateIdempotentStoredFileDocument = jest.fn();
 const mockUpdateStoredFileDocument = jest.fn();
 const mockPublishStoredFileAsReportCode = jest.fn();
+const mockCompleteTwoPQCaseServiceTransactionOutput = jest.fn();
 const firestoreReads: Array<{
   type: "document" | "query";
   collection: string;
@@ -73,12 +75,19 @@ jest.mock("../config/firebase.js", () => ({
 }));
 
 jest.mock("../repositories/file-storage.repository.js", () => ({
+  createIdempotentStoredFileDocument:
+    mockCreateIdempotentStoredFileDocument,
   createStoredFileDocument: mockCreateStoredFileDocument,
   updateStoredFileDocument: mockUpdateStoredFileDocument,
 }));
 
 jest.mock("../repositories/reports.repository.js", () => ({
   publishStoredFileAsReportCode: mockPublishStoredFileAsReportCode,
+}));
+
+jest.mock("../repositories/support-services.repository.js", () => ({
+  completeTwoPQCaseServiceTransactionOutput:
+    mockCompleteTwoPQCaseServiceTransactionOutput,
 }));
 
 describe("2PQ case automatic file and code synchronization", () => {
@@ -88,6 +97,9 @@ describe("2PQ case automatic file and code synchronization", () => {
     jest.clearAllMocks();
     mockCreateStoredFileDocument.mockResolvedValue({
       document: { id: "created-file", data: {} },
+    });
+    mockCreateIdempotentStoredFileDocument.mockResolvedValue({
+      document: { id: "pgo-2pq-output", data: {} },
     });
     mockUpdateStoredFileDocument.mockResolvedValue({
       document: { id: "existing-file", data: {} },
@@ -101,6 +113,10 @@ describe("2PQ case automatic file and code synchronization", () => {
       ownerId: "owner-1",
       ownerEmail: "owner@example.com",
       preservedExistingOwner: true,
+    });
+    mockCompleteTwoPQCaseServiceTransactionOutput.mockResolvedValue({
+      status: "completed",
+      transaction: { requestId: "pgr_2pq_case_00001" },
     });
   });
 
@@ -329,6 +345,10 @@ describe("2PQ case automatic file and code synchronization", () => {
     expect(mockCreateStoredFileDocument).not.toHaveBeenCalled();
     expect(mockUpdateStoredFileDocument).not.toHaveBeenCalled();
     expect(mockPublishStoredFileAsReportCode).not.toHaveBeenCalled();
+    expect(mockCreateIdempotentStoredFileDocument).not.toHaveBeenCalled();
+    expect(
+      mockCompleteTwoPQCaseServiceTransactionOutput,
+    ).not.toHaveBeenCalled();
     expect(
       reportProgress.mock.calls.map(([event]) => ({
         step: event.step,
@@ -338,6 +358,73 @@ describe("2PQ case automatic file and code synchronization", () => {
       { step: "file_storage", status: "skipped" },
       { step: "report_code", status: "skipped" },
     ]);
+  });
+
+  it("creates and delivers the final PDF object after publishing the case report code", async () => {
+    const reportOwnerId = "c3x313CE2oZwIXVRxDHBQR31RlR2";
+    collectionStore("2pq_case").set("CASE-00022", {
+      institutionId: "institution-1",
+      doctorId: "doctor-1",
+      three_letter_code: "abc",
+      stored_file_id: "existing-file",
+      caseLabel: "ABCXXX",
+      caseStatus: "report_ready",
+      download_url: "https://reports.example.com/ABCXXX.pdf",
+      createdAt: "2026-09-28T10:00:00.000Z",
+      updatedAt: "2026-09-28T11:00:00.000Z",
+    });
+    collectionStore("doctors").set("doctor-1", {
+      authEmail: "Doctor@Clinic.Example",
+    });
+    collectionStore("report_codes").set("ABCXXX", {
+      owner_id: reportOwnerId,
+      uploaded_report_id: "uploaded-report-abc",
+    });
+    collectionStore("uploaded_reports").set("uploaded-report-abc", {
+      report_owner_id: reportOwnerId,
+    });
+    collectionStore("report_owners").set(reportOwnerId, {
+      owner_contact_email: "info@2pq.life",
+    });
+    mockCompleteTwoPQCaseServiceTransactionOutput.mockResolvedValueOnce({
+      status: "completed",
+      transaction: { requestId: "pgr_2pq_case_00022" },
+    });
+
+    const { synchronizeTwoPQCaseFilesAndCodes } = await import(
+      "../repositories/two-pq-auto-sync.repository.js"
+    );
+    await synchronizeTwoPQCaseFilesAndCodes("CASE-00022", "open-api");
+
+    expect(mockCreateIdempotentStoredFileDocument).toHaveBeenCalledWith(
+      "pgo_2pq_case_00022_pdf_report",
+      {
+        file_name: "Informe PGT ABCXXX",
+        creator_email: "info@2pq.life",
+        file_type: "pgo_pdf_report",
+        file_content: JSON.stringify({
+          title: "Informe PGT ABCXXX",
+          download_url: "https://reports.example.com/ABCXXX.pdf",
+        }),
+      },
+    );
+    expect(mockCompleteTwoPQCaseServiceTransactionOutput).toHaveBeenCalledWith({
+      caseId: "CASE-00022",
+      doctorEmail: "doctor@clinic.example",
+      fileStorageId: "pgo_2pq_case_00022_pdf_report",
+      reportOwnerId,
+      actorEmail: "open-api",
+    });
+    expect(
+      mockPublishStoredFileAsReportCode.mock.invocationCallOrder[0]!,
+    ).toBeLessThan(
+      mockCreateIdempotentStoredFileDocument.mock.invocationCallOrder[0]!,
+    );
+    expect(
+      mockCreateIdempotentStoredFileDocument.mock.invocationCallOrder[0]!,
+    ).toBeLessThan(
+      mockCompleteTwoPQCaseServiceTransactionOutput.mock.invocationCallOrder[0]!,
+    );
   });
 
   it("repairs a stale case link from the file already owned by its report code", async () => {

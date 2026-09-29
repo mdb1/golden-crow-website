@@ -1,17 +1,27 @@
 import { adminDbFor } from "../config/firebase.js";
-import { TWO_PQ_REPORT_OWNER_EMAIL } from "../lib/two-pq-report-owner.js";
 import {
+  TWO_PQ_REPORT_OWNER_EMAIL,
+  TWO_PQ_REPORT_OWNER_ID,
+} from "../lib/two-pq-report-owner.js";
+import {
+  createIdempotentStoredFileDocument,
   createStoredFileDocument,
   updateStoredFileDocument,
 } from "./file-storage.repository.js";
 import { publishStoredFileAsReportCode } from "./reports.repository.js";
 import type { TwoPQCaseStatusProgressReporter } from "./two-pq-case-status-operation.repository.js";
+import { AdminRepositoryError } from "./admin-errors.js";
+import { completeTwoPQCaseServiceTransactionOutput } from "./support-services.repository.js";
 
 const adminDb = adminDbFor("mydnamap");
 
 const CASES_COLLECTION = "2pq_case";
 const BATCHES_COLLECTION = "2pq_sequencing";
 const SAMPLINGS_COLLECTION = "2pq_sampling";
+const DOCTORS_COLLECTION = "doctors";
+const REPORT_CODES_COLLECTION = "report_codes";
+const UPLOADED_REPORTS_COLLECTION = "uploaded_reports";
+const REPORT_OWNERS_COLLECTION = "report_owners";
 
 type FirestoreRecord = {
   id: string;
@@ -343,6 +353,148 @@ function isValidEmail(value: string | undefined) {
   return Boolean(value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
 }
 
+async function reportOwnerForCode(reportCode: string) {
+  const reportCodeSnapshot = await adminDb
+    .collection(REPORT_CODES_COLLECTION)
+    .doc(reportCode)
+    .get();
+  if (!reportCodeSnapshot.exists) {
+    throw new AdminRepositoryError(
+      `2PQ report code ${reportCode} must exist before delivering its PDF service output.`,
+      409,
+    );
+  }
+  const reportCodeData = reportCodeSnapshot.data() ?? {};
+  const directOwnerId = normalizeString(reportCodeData.owner_id);
+  const uploadedReportId = normalizeString(reportCodeData.uploaded_report_id);
+  const uploadedReportSnapshot = uploadedReportId
+    ? await adminDb
+        .collection(UPLOADED_REPORTS_COLLECTION)
+        .doc(uploadedReportId)
+        .get()
+    : null;
+  const uploadedOwnerId = uploadedReportSnapshot?.exists
+    ? normalizeString(uploadedReportSnapshot.data()?.report_owner_id)
+    : undefined;
+  if (
+    directOwnerId &&
+    uploadedOwnerId &&
+    directOwnerId !== uploadedOwnerId
+  ) {
+    throw new AdminRepositoryError(
+      `2PQ report code ${reportCode} has conflicting owner references.`,
+      409,
+    );
+  }
+  const ownerId = directOwnerId ?? uploadedOwnerId;
+  if (!ownerId) {
+    throw new AdminRepositoryError(
+      `2PQ report code ${reportCode} has no report owner.`,
+      409,
+    );
+  }
+  if (ownerId !== TWO_PQ_REPORT_OWNER_ID) {
+    throw new AdminRepositoryError(
+      `2PQ report code ${reportCode} must belong to the canonical 2PQ publisher ${TWO_PQ_REPORT_OWNER_ID}.`,
+      409,
+    );
+  }
+  const reportOwnerSnapshot = await adminDb
+    .collection(REPORT_OWNERS_COLLECTION)
+    .doc(ownerId)
+    .get();
+  const ownerEmail =
+    normalizeString(reportOwnerSnapshot.data()?.owner_contact_email)?.toLowerCase() ??
+    TWO_PQ_REPORT_OWNER_EMAIL;
+  if (!isValidEmail(ownerEmail)) {
+    throw new AdminRepositoryError(
+      `2PQ report owner ${ownerId} must have a valid contact email.`,
+      409,
+    );
+  }
+  return { ownerId, ownerEmail };
+}
+
+function twoPQPdfOutputFileId(caseId: string) {
+  const normalizedCaseId = caseId
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return `pgo_2pq_${normalizedCaseId}_pdf_report`;
+}
+
+async function completeTwoPQCaseServiceOutputIfReady(
+  caseRecord: FirestoreRecord,
+  reportCode: string,
+  actorEmail?: string,
+) {
+  const caseStatus = normalizeCaseStatus(caseRecord.data.caseStatus);
+  const downloadUrl = normalizeString(caseRecord.data.download_url);
+  if (caseStatus !== "report_ready" || !downloadUrl) {
+    return { status: "not_ready" as const };
+  }
+  let parsedDownloadUrl: URL;
+  try {
+    parsedDownloadUrl = new URL(downloadUrl);
+  } catch {
+    throw new AdminRepositoryError(
+      "The completed 2PQ case must contain a valid report download URL.",
+      400,
+    );
+  }
+  if (parsedDownloadUrl.protocol !== "https:") {
+    throw new AdminRepositoryError(
+      "The completed 2PQ case report download URL must use HTTPS.",
+      400,
+    );
+  }
+  const doctorId = normalizeString(caseRecord.data.doctorId);
+  if (!doctorId) {
+    throw new AdminRepositoryError(
+      "The completed 2PQ case must reference its requesting doctor.",
+      409,
+    );
+  }
+  const doctorSnapshot = await adminDb
+    .collection(DOCTORS_COLLECTION)
+    .doc(doctorId)
+    .get();
+  const doctorEmail = normalizeString(
+    doctorSnapshot.data()?.authEmail,
+  )?.toLowerCase();
+  if (!doctorSnapshot.exists || !isValidEmail(doctorEmail)) {
+    throw new AdminRepositoryError(
+      "The completed 2PQ case doctor must have a valid email.",
+      409,
+    );
+  }
+
+  const reportOwner = await reportOwnerForCode(reportCode);
+  const title = `Informe PGT ${reportCode}`;
+  const fileStorageId = twoPQPdfOutputFileId(caseRecord.id);
+  await createIdempotentStoredFileDocument(fileStorageId, {
+    file_name: title,
+    creator_email: reportOwner.ownerEmail,
+    file_type: "pgo_pdf_report",
+    file_content: JSON.stringify({
+      title,
+      download_url: downloadUrl,
+    }),
+  });
+  const completion = await completeTwoPQCaseServiceTransactionOutput({
+    caseId: caseRecord.id,
+    doctorEmail: doctorEmail!,
+    fileStorageId,
+    reportOwnerId: reportOwner.ownerId,
+    actorEmail: actorEmail ?? reportOwner.ownerEmail,
+  });
+  return {
+    status: completion.status,
+    fileStorageId,
+    serviceTransactionId: completion.transaction.requestId,
+  };
+}
+
 export async function synchronizeTwoPQCaseFilesAndCodes(
   caseId: string,
   actorEmail?: string,
@@ -363,20 +515,6 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
     return { status: "skipped", caseId, reason: "case_not_found" };
   }
 
-  if (caseRecord.data.should_automatically_sync_files_and_codes === false) {
-    await reportProgress?.({
-      step: "file_storage",
-      status: "skipped",
-      detail: "Automatic file and report-code synchronization is disabled.",
-    });
-    await reportProgress?.({
-      step: "report_code",
-      status: "skipped",
-      detail: "Automatic file and report-code synchronization is disabled.",
-    });
-    return { status: "skipped", caseId, reason: "disabled" };
-  }
-
   const threeLetterCode = normalizeString(
     caseRecord.data.three_letter_code,
   )?.toUpperCase();
@@ -392,6 +530,26 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
       detail: "The case has no valid three-letter code.",
     });
     return { status: "skipped", caseId, reason: "missing_three_letter_code" };
+  }
+
+  const reportCode = `${threeLetterCode}XXX`;
+  if (caseRecord.data.should_automatically_sync_files_and_codes === false) {
+    await reportProgress?.({
+      step: "file_storage",
+      status: "skipped",
+      detail: "Automatic file and report-code synchronization is disabled.",
+    });
+    await reportProgress?.({
+      step: "report_code",
+      status: "skipped",
+      detail: "Automatic file and report-code synchronization is disabled.",
+    });
+    await completeTwoPQCaseServiceOutputIfReady(
+      caseRecord,
+      reportCode,
+      actorEmail,
+    );
+    return { status: "skipped", caseId, reason: "disabled" };
   }
 
   await reportProgress?.({
@@ -414,7 +572,6 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
     return { status: "skipped", caseId, reason: "case_not_found" };
   }
 
-  const reportCode = `${threeLetterCode}XXX`;
   const fileContent = JSON.stringify(snapshot, null, 2);
   const previousStoredFileId = normalizeString(caseRecord.data.stored_file_id);
   const reportLinkedStoredFileId = await getStoredFileIdLinkedToReportCode(
@@ -482,10 +639,15 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
     fileId: storedFileId,
     reportCode,
   });
+  await completeTwoPQCaseServiceOutputIfReady(
+    caseRecord,
+    reportCode,
+    actorEmail,
+  );
   await reportProgress?.({
     step: "report_code",
     status: "success",
-    detail: `Report code ${reportCode} is up to date.`,
+    detail: `Report code ${reportCode} and any ready PDF service output are up to date.`,
   });
 
   return {

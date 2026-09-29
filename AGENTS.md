@@ -38,6 +38,11 @@
 - A 2PQ-generated service transaction must never set `requestedByUserId`. Set only `requestedByUserEmail`, using the normalized `authEmail` of the doctor assigned to the case, and index the request in `deferred_service_transactions` under that email.
 - This trusted system workflow is not subject to consumer token cooldown, daily limits, total limits, or the ordinary five-item deferred cap. Those limits must continue to apply to regular manually created service transactions.
 - The selected doctor must have a valid email. If the mandatory service transaction cannot be created, case creation must fail and the just-created case and batch linkage must be rolled back instead of leaving a case without its service transaction.
+- When a case is in canonical `report_ready` status and has a valid HTTPS `download_url`, finalize the service output after sampling synchronization and after the case File Storage/report-code synchronization. This invariant applies to manual saves, next-status actions, and Open API report notifications.
+- Resolve the existing `<THREE_LETTER_CODE>XXX` report code and require its owner to be the canonical 2PQ publisher. The service provider's authoritative object owner must match that report owner before any output can be delivered.
+- Create or reuse the deterministic File Storage document `pgo_2pq_<normalized_case_id>_pdf_report` with `file_type: pgo_pdf_report` and exact content `{ title, download_url }`. A retry may reuse it only when the canonical name, creator, type, and content are unchanged.
+- Use the frozen offer's single PDF output role, create the canonical `uploaded_objects` / `object_codes` records through the dedicated service-output command, and link the File Storage file, object, provider owner, and service transaction atomically. Never write a camel-case alias into `file_storage`, `uploaded_objects`, or `object_codes`.
+- Keep `requestedByUserId` absent and require `requestedByUserEmail` to remain the normalized assigned-doctor email. Advance the service transaction through valid statuses to `running`, attach the PDF object, then mark it `delivered`. Replays must validate and reuse the same file/object/transaction rather than create duplicates.
 
 ## 2PQ File Storage Snapshot Contract
 

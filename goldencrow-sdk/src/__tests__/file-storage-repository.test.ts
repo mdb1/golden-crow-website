@@ -301,6 +301,51 @@ describe("file storage JSON contracts", () => {
     expect(result.document.data).not.toHaveProperty("linked_report_id");
   });
 
+  it("reuses a deterministic PGO file only when its canonical content matches", async () => {
+    const { createIdempotentStoredFileDocument } = await import(
+      "../repositories/file-storage.repository.js"
+    );
+    const input = {
+      file_name: "Informe PGT ABCXXX",
+      creator_email: "info@2pq.life",
+      file_type: "pgo_pdf_report",
+      file_content: JSON.stringify({
+        title: "Informe PGT ABCXXX",
+        download_url: "https://example.com/ABCXXX.pdf",
+      }),
+    };
+
+    const created = await createIdempotentStoredFileDocument(
+      "pgo_2pq_case_00022_pdf_report",
+      input,
+    );
+    const replayed = await createIdempotentStoredFileDocument(
+      "pgo_2pq_case_00022_pdf_report",
+      input,
+    );
+
+    expect(created.document.id).toBe("pgo_2pq_case_00022_pdf_report");
+    expect(replayed.document.data).toMatchObject({
+      file_name: "Informe PGT ABCXXX",
+      creator_email: "info@2pq.life",
+      file_type: "pgo_pdf_report",
+      linked_object_code: null,
+    });
+    expect(collectionStore("file_storage").size).toBe(1);
+    await expect(
+      createIdempotentStoredFileDocument(
+        "pgo_2pq_case_00022_pdf_report",
+        {
+          ...input,
+          file_content: JSON.stringify({
+            title: "Informe PGT ABCXXX",
+            download_url: "https://example.com/replacement.pdf",
+          }),
+        },
+      ),
+    ).rejects.toThrow("already exists with different file_content");
+  });
+
   it("rejects mismatched and spurious PGO JSON before writing", async () => {
     const { createStoredFileDocument } = await import(
       "../repositories/file-storage.repository.js"

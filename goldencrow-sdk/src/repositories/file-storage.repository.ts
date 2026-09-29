@@ -509,6 +509,68 @@ export async function createStoredFileDocument(
   };
 }
 
+export async function createIdempotentStoredFileDocument(
+  fileId: string,
+  data: Record<string, unknown>,
+): Promise<{ document: ModerationDocumentRecord }> {
+  if (!/^[A-Za-z0-9_-]{1,240}$/.test(fileId)) {
+    throw new StoredFileValidationError(
+      "Idempotent file_storage ID must contain only letters, numbers, underscores, or hyphens.",
+    );
+  }
+  for (const key of Object.keys(data)) {
+    if (!CREATE_STORED_FILE_KEYS.has(key)) {
+      throw new StoredFileValidationError(
+        `Unsupported file_storage create key ${key}. Use only file_name, creator_email, file_type, and file_content; links and timestamps are server-owned.`,
+      );
+    }
+  }
+  const payload = buildStoredFilePayload(
+    {
+      ...(data as StoredFileDoc),
+      linked_object_code: null,
+      linked_report_code: null,
+    },
+    { requireCreatorEmail: true },
+  );
+  delete payload.linked_report_id;
+
+  const storedFileRef = adminDb.collection("file_storage").doc(fileId);
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(storedFileRef);
+    if (snapshot.exists) {
+      const existing = (snapshot.data() ?? {}) as StoredFileDoc;
+      for (const field of [
+        "file_name",
+        "creator_email",
+        "file_type",
+        "file_content",
+      ] as const) {
+        if (existing[field] !== payload[field]) {
+          throw new StoredFileValidationError(
+            `Stored file ${fileId} already exists with different ${field}.`,
+          );
+        }
+      }
+      return;
+    }
+    transaction.set(storedFileRef, payload as DocumentData, { merge: false });
+  });
+
+  const snapshot = await storedFileRef.get();
+  if (!snapshot.exists) {
+    throw new StoredFileValidationError(
+      `Stored file ${fileId} could not be created.`,
+    );
+  }
+  return {
+    document: toRecord(
+      snapshot.id,
+      (snapshot.data() ?? {}) as Record<string, unknown>,
+    ),
+  };
+}
+
 export async function updateStoredFileDocument(
   fileId: string,
   data: Record<string, unknown>

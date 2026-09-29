@@ -17,6 +17,7 @@ import {
 } from "../lib/favicon.js";
 import { identifyPgiNativeModel } from "../lib/pgi-native-schema.js";
 import { serializedPgoObjectSchemaError } from "../lib/pgo-object-schema.js";
+import { TWO_PQ_REPORT_OWNER_EMAIL } from "../lib/two-pq-report-owner.js";
 import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 
@@ -6738,15 +6739,26 @@ export async function createTwoPQCaseServiceTransaction(
   );
 }
 
-export async function attachSupportServiceTransactionOutputObject(
+type SupportServiceOutputAttachmentPolicy = {
+  requireGodModeAccess: boolean;
+  expectedOfferId?: string;
+  expectedProviderId?: string;
+  expectedOwnerId?: string;
+  expectedRequesterEmail?: string;
+};
+
+async function attachSupportServiceTransactionOutputObjectWithPolicy(
   context: AdminContext,
   transactionId: string,
   input: SupportServiceOutputObjectUploadInput,
+  policy: SupportServiceOutputAttachmentPolicy,
 ): Promise<{
   transaction: SupportServiceTransactionRecord;
   object: SupportServiceOutputObjectUploadRecord;
 }> {
-  requireGodMode(context);
+  if (policy.requireGodModeAccess) {
+    requireGodMode(context);
+  }
   const role = cleanString(input.role);
   const downloadUrl =
     "downloadUrl" in input ? cleanString(input.downloadUrl) : "";
@@ -6779,6 +6791,34 @@ export async function attachSupportServiceTransactionOutputObject(
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
   const previous = toTransactionRecord(snapshot.id, snapshot.data() ?? {});
+  if (
+    policy.expectedOfferId &&
+    previous.offerId !== policy.expectedOfferId
+  ) {
+    throw new AdminRepositoryError(
+      `2PQ service transaction must reference offer ${policy.expectedOfferId}.`,
+      409,
+    );
+  }
+  if (
+    policy.expectedProviderId &&
+    previous.providerId !== policy.expectedProviderId
+  ) {
+    throw new AdminRepositoryError(
+      `2PQ service transaction must reference provider ${policy.expectedProviderId}.`,
+      409,
+    );
+  }
+  if (
+    policy.expectedRequesterEmail &&
+    (previous.requestedByUserId ||
+      previous.requestedByUserEmail !== policy.expectedRequesterEmail)
+  ) {
+    throw new AdminRepositoryError(
+      "2PQ service transaction requester must remain the assigned doctor email only.",
+      409,
+    );
+  }
   if (TERMINAL_TRANSACTION_STATUSES.has(previous.status)) {
     throw new AdminRepositoryError(
       "Terminal service transactions cannot accept output objects.",
@@ -6934,6 +6974,15 @@ export async function attachSupportServiceTransactionOutputObject(
       (reference) => firestoreTransaction.get(reference),
       false,
     );
+    if (
+      policy.expectedOwnerId &&
+      providerOwnerId !== policy.expectedOwnerId
+    ) {
+      throw new AdminRepositoryError(
+        `2PQ report owner ${policy.expectedOwnerId} does not match service provider owner ${providerOwnerId}.`,
+        409,
+      );
+    }
     if (sourceFileRef) {
       if (!sourceFileSnapshot?.exists) {
         throw new AdminRepositoryError(
@@ -7304,18 +7353,33 @@ export async function attachSupportServiceTransactionOutputObject(
     throw new AdminRepositoryError("Output object was not created.", 500);
   }
   return {
-    transaction: await getSupportServiceTransaction(context, snapshot.id),
+    transaction: await getSupportServiceTransactionRecord(snapshot.id),
     object: uploadedObject,
   };
+}
+
+export async function attachSupportServiceTransactionOutputObject(
+  context: AdminContext,
+  transactionId: string,
+  input: SupportServiceOutputObjectUploadInput,
+) {
+  return attachSupportServiceTransactionOutputObjectWithPolicy(
+    context,
+    transactionId,
+    input,
+    { requireGodModeAccess: true },
+  );
 }
 
 async function persistSupportServiceTransactionUpdate(
   context: AdminContext,
   transactionId: string,
   input: SupportServiceTransactionInput,
-  options: { allowDelivery: boolean },
+  options: { allowDelivery: boolean; requireGodModeAccess: boolean },
 ) {
-  requireGodMode(context);
+  if (options.requireGodModeAccess) {
+    requireGodMode(context);
+  }
   const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service transaction not found.", 404);
@@ -7551,7 +7615,7 @@ async function persistSupportServiceTransactionUpdate(
     );
   });
 
-  return getSupportServiceTransaction(context, snapshot.id);
+  return getSupportServiceTransactionRecord(snapshot.id);
 }
 
 export async function updateSupportServiceTransaction(
@@ -7561,6 +7625,7 @@ export async function updateSupportServiceTransaction(
 ) {
   return persistSupportServiceTransactionUpdate(context, transactionId, input, {
     allowDelivery: false,
+    requireGodModeAccess: true,
   });
 }
 
@@ -7572,8 +7637,222 @@ export async function deliverSupportServiceTransaction(
     context,
     transactionId,
     { status: "delivered" },
-    { allowDelivery: true },
+    { allowDelivery: true, requireGodModeAccess: true },
   );
+}
+
+function twoPQServiceOutputContext(actorEmail: string): AdminContext {
+  const normalizedActorEmail = cleanString(actorEmail).toLowerCase();
+  return {
+    email: REQUESTER_EMAIL_PATTERN.test(normalizedActorEmail)
+      ? normalizedActorEmail
+      : TWO_PQ_REPORT_OWNER_EMAIL,
+    uid: "system-2pq-service-output",
+    role: "2pq_admin",
+    isBootstrap: false,
+    canAccessBackoffice: true,
+    canAccessPatientPortal: false,
+    canAccessPGFlex: false,
+    projectAccess: ["mydnamap"],
+  };
+}
+
+async function assertTwoPQServiceOutputOwnership(input: {
+  objectCode: string;
+  fileStorageId: string;
+  ownerId: string;
+}) {
+  const codeSnapshot = await adminDb
+    .collection(OBJECT_CODES_COLLECTION)
+    .doc(input.objectCode)
+    .get();
+  if (!codeSnapshot.exists) {
+    throw new AdminRepositoryError(
+      `2PQ output object code ${input.objectCode} does not exist.`,
+      409,
+    );
+  }
+  const codeData = codeSnapshot.data() ?? {};
+  const uploadedObjectId = cleanString(codeData.uploaded_object_id);
+  if (
+    cleanString(codeData.owner_id) !== input.ownerId ||
+    !uploadedObjectId
+  ) {
+    throw new AdminRepositoryError(
+      "2PQ output object code is not owned by the report publisher.",
+      409,
+    );
+  }
+  const [objectSnapshot, fileSnapshot] = await Promise.all([
+    adminDb
+      .collection(UPLOADED_OBJECTS_COLLECTION)
+      .doc(uploadedObjectId)
+      .get(),
+    adminDb.collection(FILE_STORAGE_COLLECTION).doc(input.fileStorageId).get(),
+  ]);
+  const objectData = objectSnapshot.data() ?? {};
+  const fileData = fileSnapshot.data() ?? {};
+  if (
+    !objectSnapshot.exists ||
+    cleanString(objectData.object_type) !== "pgo_pdf_report" ||
+    cleanString(objectData.object_owner_id) !== input.ownerId ||
+    cleanString(objectData.owner_community_user_id) !== input.ownerId ||
+    cleanString(objectData.linked_file_id) !== input.fileStorageId ||
+    !fileSnapshot.exists ||
+    cleanString(fileData.file_type) !== "pgo_pdf_report" ||
+    cleanString(fileData.owner_community_user_id) !== input.ownerId ||
+    cleanString(fileData.linked_object_code) !== input.objectCode
+  ) {
+    throw new AdminRepositoryError(
+      "2PQ PDF output ownership or File Storage linkage is inconsistent.",
+      409,
+    );
+  }
+}
+
+export async function completeTwoPQCaseServiceTransactionOutput(input: {
+  caseId: string;
+  doctorEmail: string;
+  fileStorageId: string;
+  reportOwnerId: string;
+  actorEmail: string;
+}) {
+  const requestedByUserEmail = cleanString(input.doctorEmail).toLowerCase();
+  if (!REQUESTER_EMAIL_PATTERN.test(requestedByUserEmail)) {
+    throw new AdminRepositoryError(
+      "The selected 2PQ doctor must have a valid email before delivering the service output.",
+      400,
+    );
+  }
+  const reportOwnerId = cleanString(input.reportOwnerId);
+  if (!reportOwnerId) {
+    throw new AdminRepositoryError(
+      "The 2PQ report code must have an owner before delivering the service output.",
+      409,
+    );
+  }
+
+  const context = twoPQServiceOutputContext(input.actorEmail);
+  const transactionId = twoPQCaseServiceTransactionRequestId(input.caseId);
+  let transaction = await getSupportServiceTransactionRecord(transactionId);
+  if (
+    transaction.offerId !== TWO_PQ_CASE_SERVICE_OFFER_ID ||
+    transaction.serviceId !== TWO_PQ_CASE_SERVICE_ID ||
+    transaction.providerId !== TWO_PQ_CASE_SERVICE_PROVIDER_ID ||
+    transaction.providerKind !== "organization"
+  ) {
+    throw new AdminRepositoryError(
+      "2PQ case service transaction does not match the canonical offer and provider.",
+      409,
+    );
+  }
+  if (
+    transaction.requestedByUserId ||
+    transaction.requestedByUserEmail !== requestedByUserEmail
+  ) {
+    throw new AdminRepositoryError(
+      "2PQ service transaction requester must remain the assigned doctor email only.",
+      409,
+    );
+  }
+
+  const offer = offerFromFrozenTransaction(transaction);
+  const pdfSlots = offer.outputSlots.filter(
+    (slot) => resolvedOutputObjectType(slot, offer) === "pgo_pdf_report",
+  );
+  if (pdfSlots.length !== 1) {
+    throw new AdminRepositoryError(
+      "The frozen 2PQ service offer must declare exactly one PDF report output slot.",
+      409,
+    );
+  }
+  const role = cleanString(pdfSlots[0]?.role);
+  const existingOutput = transaction.outputObjects.find(
+    (output) => output.role === role,
+  );
+  if (
+    existingOutput &&
+    existingOutput.objectType !== "pgo_pdf_report"
+  ) {
+    throw new AdminRepositoryError(
+      `2PQ output role ${role} is already linked to another object type.`,
+      409,
+    );
+  }
+
+  if (transaction.status === "delivered") {
+    if (!existingOutput) {
+      throw new AdminRepositoryError(
+        "Delivered 2PQ service transaction has no PDF output object.",
+        409,
+      );
+    }
+    await assertTwoPQServiceOutputOwnership({
+      objectCode: existingOutput.objectCode,
+      fileStorageId: input.fileStorageId,
+      ownerId: reportOwnerId,
+    });
+    return { status: "already_completed" as const, transaction };
+  }
+  if (TERMINAL_TRANSACTION_STATUSES.has(transaction.status)) {
+    throw new AdminRepositoryError(
+      `2PQ service transaction cannot deliver output from terminal status ${transaction.status}.`,
+      409,
+    );
+  }
+
+  while (transaction.status !== "running") {
+    const nextStatus: SupportServiceTransactionStatus =
+      transaction.status === "received" ||
+      transaction.status === "validating" ||
+      transaction.status === "awaiting_input"
+        ? "accepted"
+        : transaction.status === "accepted" || transaction.status === "queued"
+          ? "running"
+          : "running";
+    transaction = await persistSupportServiceTransactionUpdate(
+      context,
+      transaction.id,
+      { status: nextStatus },
+      { allowDelivery: false, requireGodModeAccess: false },
+    );
+  }
+
+  let output = existingOutput;
+  if (!output) {
+    const attached = await attachSupportServiceTransactionOutputObjectWithPolicy(
+      context,
+      transaction.id,
+      { role, fileStorageId: input.fileStorageId },
+      {
+        requireGodModeAccess: false,
+        expectedOfferId: TWO_PQ_CASE_SERVICE_OFFER_ID,
+        expectedProviderId: TWO_PQ_CASE_SERVICE_PROVIDER_ID,
+        expectedOwnerId: reportOwnerId,
+        expectedRequesterEmail: requestedByUserEmail,
+      },
+    );
+    transaction = attached.transaction;
+    output = transaction.outputObjects.find((candidate) => candidate.role === role);
+  }
+  if (!output) {
+    throw new AdminRepositoryError(
+      "2PQ PDF output object was not attached to its service transaction.",
+      500,
+    );
+  }
+  await assertTwoPQServiceOutputOwnership({
+    objectCode: output.objectCode,
+    fileStorageId: input.fileStorageId,
+    ownerId: reportOwnerId,
+  });
+  transaction = await persistSupportServiceTransactionUpdate(
+    context,
+    transaction.id,
+    { status: "delivered" },
+    { allowDelivery: true, requireGodModeAccess: false },
+  );
+  return { status: "completed" as const, transaction };
 }
 
 function requestedTransactionSummariesAfterRemoval(

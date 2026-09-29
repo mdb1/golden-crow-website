@@ -2162,6 +2162,150 @@ describe("support service delivered transactions", () => {
     return { ...repository, attached, fileContent, fileStorageId };
   }
 
+  it("delivers the canonical 2PQ PDF output with the report publisher owner and doctor email", async () => {
+    const providerId = "kfFtJlLuyW6deXW2Im3S";
+    const ownerId = "c3x313CE2oZwIXVRxDHBQR31RlR2";
+    const offerId = "rhTE3dfB8Ovhf86lY3Z5";
+    const fileStorageId = "pgo_2pq_case_00022_pdf_report";
+    const doctorEmail = "doctor@clinic.example";
+    const canonicalOffer = {
+      ...baseOffer,
+      serviceId: "pgs_2pq_74399",
+      serviceVersion: 3,
+      name: "Solicitud de PGT",
+      providerId,
+      providerName: "2pq",
+      isHiddenFromSearch: true,
+      isHighlightedOffer: false,
+      isProfessionalOffer: false,
+      description: "Solicitud gestionada por 2pq.",
+      providerWork: "Procesar la muestra y generar el informe.",
+      formShape: undefined,
+      inputSlots: [],
+      outputSlots: [
+        {
+          role: "pdf_report",
+          objectType: "pgo_pdf_report",
+          mutationMode: "new_object",
+        },
+      ],
+      shortContract: "none -> pdf_report:pdf_report",
+    };
+    seedDoc("feed_organizations", providerId, {
+      name: "2pq",
+      status: "active",
+      ownerCommunityUserId: ownerId,
+      requestedServiceTransactions: [
+        {
+          serviceTransactionId: "pgr_2pq_case_00022",
+          status: "received",
+        },
+      ],
+    });
+    seedDoc("object_owners", ownerId, {
+      owner_name: "2pq",
+      owner_contact_email: "info@2pq.life",
+    });
+    seedDoc("community_users", ownerId, {
+      email: "info@2pq.life",
+      owned_objects: [],
+    });
+    seedDoc("service_transactions", "pgr_2pq_case_00022", {
+      ...transaction,
+      requestId: "pgr_2pq_case_00022",
+      offerId,
+      serviceId: "pgs_2pq_74399",
+      serviceVersion: 3,
+      providerId,
+      status: "received",
+      requestedByUserId: undefined,
+      requestedByUserEmail: doctorEmail,
+      idempotencyKey: `2pq-case:CASE-00022:${offerId}`,
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      offerSnapshot: { ...canonicalOffer, offerId },
+      providerSnapshot: {
+        id: providerId,
+        kind: "organization",
+        name: "2pq",
+      },
+      contractSource: "2pq_case_creation",
+      normalizedName: "pgr 2pq case 00022 pgs 2pq 74399 doctor clinic example",
+    });
+    seedDoc("file_storage", fileStorageId, {
+      file_name: "Informe PGT ABCXXX",
+      creator_email: "info@2pq.life",
+      file_type: "pgo_pdf_report",
+      file_content: JSON.stringify({
+        title: "Informe PGT ABCXXX",
+        download_url: "https://reports.example.com/ABCXXX.pdf",
+      }),
+      tracking_progress_status: "document_ready",
+      linked_object_code: null,
+      linked_report_code: null,
+    });
+    const { completeTwoPQCaseServiceTransactionOutput } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const input = {
+      caseId: "CASE-00022",
+      doctorEmail,
+      fileStorageId,
+      reportOwnerId: ownerId,
+      actorEmail: "open-api",
+    };
+
+    const completed = await completeTwoPQCaseServiceTransactionOutput(input);
+    const replayed = await completeTwoPQCaseServiceTransactionOutput(input);
+
+    expect(completed.status).toBe("completed");
+    expect(completed.transaction).toMatchObject({
+      requestId: "pgr_2pq_case_00022",
+      requestedByUserEmail: doctorEmail,
+      status: "delivered",
+      outputObjects: [
+        {
+          role: "pdf_report",
+          objectType: "pgo_pdf_report",
+          objectCode: expect.stringMatching(/^\d{9}$/),
+        },
+      ],
+    });
+    expect(completed.transaction).not.toHaveProperty("requestedByUserId");
+    expect(replayed.status).toBe("already_completed");
+    const output = completed.transaction.outputObjects[0]!;
+    const objectCode = collectionStore("object_codes").get(output.objectCode);
+    expect(objectCode).toEqual({
+      uploaded_object_id: `pgo_output_${output.objectCode}`,
+      owner_id: ownerId,
+    });
+    expect(
+      collectionStore("uploaded_objects").get(
+        `pgo_output_${output.objectCode}`,
+      ),
+    ).toMatchObject({
+      object_type: "pgo_pdf_report",
+      linked_file_id: fileStorageId,
+      object_owner_id: ownerId,
+      owner_community_user_id: ownerId,
+      provider_id: providerId,
+      service_transaction_id: "pgr_2pq_case_00022",
+    });
+    expect(collectionStore("file_storage").get(fileStorageId)).toMatchObject({
+      linked_object_code: output.objectCode,
+      file_name: "Informe PGT ABCXXX",
+      file_type: "pgo_pdf_report",
+      owner_community_user_id: ownerId,
+      provider_id: providerId,
+    });
+    expect(
+      [...collectionStore("uploaded_objects").values()].filter(
+        (object) => object.service_transaction_id === "pgr_2pq_case_00022",
+      ),
+    ).toHaveLength(1);
+  });
+
   it("attaches an exact two-field PDF content object and delivers after revalidation", async () => {
     seedDoc("service_transactions", "transaction-1", transaction);
     seedDoc("community_users", "feed-org-1", {
