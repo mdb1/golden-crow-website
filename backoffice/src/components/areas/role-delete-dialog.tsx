@@ -797,39 +797,6 @@ export function RoleDeleteDialog({
               })}
             </div>
 
-            {finished && orphanedSummaries.length > 0 ? (
-              <div className="rounded-md border border-violet-300/70 bg-violet-50/80 p-4 text-violet-950 dark:border-violet-400/25 dark:bg-violet-400/10 dark:text-violet-100">
-                <div className="flex items-start gap-3">
-                  <ArchiveRestore className="mt-0.5 h-5 w-5 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{copy.nextStepTitle}</p>
-                    <p className="mt-1 text-sm leading-6 text-violet-900/80 dark:text-violet-100/75">
-                      {copy.nextStepBody}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {orphanedSummaries.map((summary) => (
-                        <Button
-                          key={summary.kind}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openOrphanedArtifacts(summary)}
-                        >
-                          <ArchiveRestore className="h-4 w-4" />
-                          {summary.kind === "reports"
-                            ? copy.reviewReports
-                            : copy.reviewObjects}
-                          <Badge variant="secondary">
-                            {summary.totalCount}
-                          </Badge>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
             {finished && orphanedTwoPQSummaries.length > 0 ? (
               <div className="rounded-md border border-amber-300/70 bg-amber-50/80 p-4 text-amber-950 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
                 <div className="flex items-start gap-3">
@@ -865,11 +832,47 @@ export function RoleDeleteDialog({
           </div>
         ) : null}
 
-        <DialogFooter>
+        <DialogFooter
+          className={cn(
+            finished && orphanedSummaries.length > 0 &&
+              "sm:flex-col sm:items-stretch",
+          )}
+        >
           {finished ? (
-            <Button onClick={() => handleOpenChange(false)}>
-              {copy.close}
-            </Button>
+            orphanedSummaries.length > 0 ? (
+              <div className="flex items-start gap-3 rounded-md border border-violet-300/70 bg-violet-50/80 p-4 text-left text-violet-950 dark:border-violet-400/25 dark:bg-violet-400/10 dark:text-violet-100">
+                <ArchiveRestore className="mt-0.5 h-5 w-5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">{copy.nextStepTitle}</p>
+                  <p className="mt-1 text-sm leading-6 text-violet-900/80 dark:text-violet-100/75">
+                    {copy.nextStepBody}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {orphanedSummaries.map((summary) => (
+                      <Button
+                        key={summary.kind}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openOrphanedArtifacts(summary)}
+                      >
+                        <ArchiveRestore className="h-4 w-4" />
+                        {summary.kind === "reports"
+                          ? copy.reviewReports
+                          : copy.reviewObjects}
+                        <Badge variant="secondary">
+                          {summary.totalCount}
+                        </Badge>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Button onClick={() => handleOpenChange(false)}>
+                {copy.close}
+              </Button>
+            )
           ) : (
             <>
               <Button

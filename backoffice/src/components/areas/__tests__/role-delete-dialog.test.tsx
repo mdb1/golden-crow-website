@@ -215,6 +215,15 @@ describe("RoleDeleteDialog", () => {
     ]);
     expect(screen.getAllByText("Failed")).toHaveLength(1);
     expect(screen.getAllByText("Not available")).toHaveLength(1);
+    const ownerlessNextStep = screen.getByText(
+      "Next step: review ownerless records",
+    );
+    expect(
+      ownerlessNextStep.closest('[data-slot="dialog-footer"]'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Close" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Stored file metadata")).not.toBeInTheDocument();
     expect(screen.getByText("100%")).toBeTruthy();
     expect(
@@ -288,7 +297,7 @@ describe("RoleDeleteDialog", () => {
     expect(screen.getByText(/FAILED_PRECONDITION: missing index/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Close log" }));
 
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.keyboard("{Escape}");
     await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1));
   });
 });
