@@ -81,6 +81,7 @@
 - Community account deletion must not query `community_posts`, `community_comments`, collection-group `comments`, or the `community_users/{uid}/events` subcollection.
 - Apply the same non-cascading rule to every account or owner identity. Deleting `report_owners`, `object_owners`, or `feed_individuals` records must not delete or query their report codes, uploaded reports, object codes, uploaded objects, stored files, Discover publications, notes, events, service offers, or service transactions.
 - Full role cleanup has no stored-file deletion stage. Linked artifacts remain intentionally orphaned and clients are responsible for rendering missing-owner state.
+- The SDK may accept the deprecated role-cleanup step `stored_files` only as a compatibility no-op for stale backoffice bundles. It must return a successful `not_found` result without reading or deleting `file_storage`; never restore that step to the canonical cleanup list or UI.
 
 ## Discover Field Naming
 

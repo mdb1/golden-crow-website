@@ -116,6 +116,7 @@ describe("RoleDeleteDialog", () => {
     ]);
     expect(screen.getAllByText("Failed")).toHaveLength(1);
     expect(screen.getAllByText("Not available")).toHaveLength(1);
+    expect(screen.queryByText("Stored file metadata")).not.toBeInTheDocument();
     expect(screen.getByText("100%")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Show log" }));

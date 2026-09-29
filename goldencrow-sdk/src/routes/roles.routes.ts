@@ -25,6 +25,11 @@ const RoleSchema = z.enum([
   "patient",
 ]);
 
+const ROLE_ACCOUNT_DELETION_ROUTE_STEPS = [
+  ...ROLE_ACCOUNT_DELETION_STEPS,
+  "stored_files",
+] as const;
+
 function sendRoleDeletionStepError(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -181,7 +186,7 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
       schema: {
         params: z.object({
           emailKey: z.string().min(1),
-          step: z.enum(ROLE_ACCOUNT_DELETION_STEPS),
+          step: z.enum(ROLE_ACCOUNT_DELETION_ROUTE_STEPS),
         }),
       },
     },
@@ -190,6 +195,18 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
         return reply
           .status(401)
           .send({ error: "No authenticated admin context" });
+      }
+
+      // Compatibility for backoffice bundles older than v3.255. Stored files
+      // intentionally survive account deletion and this is not a cleanup step.
+      if (request.params.step === "stored_files") {
+        return reply.send({
+          step: "stored_files",
+          status: "not_found",
+          deletedCount: 0,
+          message:
+            "No stored file metadata was deleted. Stored files are intentionally preserved during account cleanup.",
+        });
       }
 
       try {
