@@ -49,6 +49,16 @@ export function routineAppSchemeUrl(templateId: string): string | null {
   return `gcfitness://routine/${encodeURIComponent(templateId)}`;
 }
 
+/**
+ * `gcfitness://profile/{uid}` — el "Abrir en la app" de la landing de perfil
+ * (#1184 / SV2-4). Las dos apps rutean la cabeza `profile` a la pantalla del perfil
+ * social desde S6 (`DeepLinkRouting.swift` / `DeepLinkRouting.kt`).
+ */
+export function profileAppSchemeUrl(uid: string): string | null {
+  if (!uid) return null;
+  return `gcfitness://profile/${encodeURIComponent(uid)}`;
+}
+
 export const APP_STORE_URL = "https://apps.apple.com/us/app/gc-fitness/id6771836254";
 export const PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=com.goldencrow.fitness";

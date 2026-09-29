@@ -1,7 +1,11 @@
 "use client";
 
 /**
- * Los botones de la landing compartida (#1037 / S6, gc-fitness#1046).
+ * Los botones de las landings compartidas (#1037 / S6, gc-fitness#1046) — la de
+ * rutina (`/f/r/[routineId]`) y, desde #1184 / SV2-4, la de perfil (`/f/u/[uid]`).
+ * Los dos links viven en el mismo lugar por la misma razón: el WebView de Instagram
+ * les pega igual a los dos, y una copia de este archivo es una copia de la lección
+ * de #782 que tarde o temprano se desincroniza.
  *
  * ## Por qué esto es un componente de cliente y no tres links
  *
@@ -30,12 +34,7 @@
 
 import { useEffect, useState } from "react";
 
-import {
-  APP_STORE_URL,
-  PLAY_STORE_URL,
-  routineAppSchemeUrl,
-  routineShareUrl,
-} from "@/lib/gc-fitness/social-share-link";
+import { APP_STORE_URL, PLAY_STORE_URL } from "@/lib/gc-fitness/social-share-link";
 
 type Platform = "ios" | "android" | "other";
 
@@ -63,7 +62,14 @@ function detect(): Environment {
   return { platform, inAppBrowser };
 }
 
-export function SharedRoutineActions({ templateId }: { templateId: string }) {
+interface SharedLinkActionsProps {
+  /** `gcfitness://…` — "Abrir en GC Fitness". `null` esconde el botón. */
+  appUrl: string | null;
+  /** El link `https://fit.goldencrowvs.com/f/…` que copia el botón del WebView. */
+  webUrl: string | null;
+}
+
+export function SharedLinkActions({ appUrl, webUrl }: SharedLinkActionsProps) {
   const [environment, setEnvironment] = useState<Environment>({
     platform: "other",
     inAppBrowser: false,
@@ -74,8 +80,6 @@ export function SharedRoutineActions({ templateId }: { templateId: string }) {
   // neutro y la detección ocurre en el cliente.
   useEffect(() => setEnvironment(detect()), []);
 
-  const appUrl = routineAppSchemeUrl(templateId);
-  const webUrl = routineShareUrl(templateId);
   const storeUrl = environment.platform === "android" ? PLAY_STORE_URL : APP_STORE_URL;
 
   async function copyLink() {
