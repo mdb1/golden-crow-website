@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ExternalLink, FileCheck2, Loader2 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
+import { useAdminContext } from "@/components/admin-context-provider";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import {
   SingleFileUpload,
@@ -10,6 +11,7 @@ import {
 } from "@/components/single-file-upload";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { TwoPQRecordDeleteDialog } from "@/components/two-pq-record-delete-dialog";
 import {
   Select,
   SelectContent,
@@ -23,6 +25,7 @@ import type {
   InformedConsentPatientPage,
   InformedConsentRecord,
 } from "@/lib/informed-consents";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 import { appText } from "@/lib/language";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 
@@ -47,6 +50,26 @@ function mergePatients(
   const patients = new Map(current.map((patient) => [patient.id, patient]));
   incoming.forEach((patient) => patients.set(patient.id, patient));
   return [...patients.values()];
+}
+
+function BackofficeConsentDeleteAction({
+  record,
+  onFinished,
+}: {
+  record: InformedConsentRecord;
+  onFinished: () => void;
+}) {
+  const adminContext = useAdminContext();
+  if (!isGlobalAdminRole(adminContext.role)) return null;
+
+  return (
+    <TwoPQRecordDeleteDialog
+      areaKey="informed-consents"
+      recordId={record.id}
+      recordLabel={record.file.name}
+      onFinished={onFinished}
+    />
+  );
 }
 
 export function InformedConsentsWorkbench({
@@ -142,6 +165,18 @@ export function InformedConsentsWorkbench({
       reportError(error, t("Unable to load more consents."));
     } finally {
       setLoadingMore(false);
+    }
+  }
+
+  async function reloadRecords() {
+    try {
+      const page = await sdkFetch<InformedConsentPage>(
+        "/2pq/informed-consents",
+      );
+      setRecords(page.records);
+      setNextCursor(page.nextCursor);
+    } catch (error) {
+      reportError(error, t("Unable to reload consents."));
     }
   }
 
@@ -274,16 +309,24 @@ export function InformedConsentsWorkbench({
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" asChild>
-                    <a
-                      href={`/api/sdk/2pq/informed-consents/${encodeURIComponent(record.id)}/file`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <ExternalLink className="size-4" />
-                      {t("Open file")}
-                    </a>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <a
+                        href={`/api/sdk/2pq/informed-consents/${encodeURIComponent(record.id)}/file`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <ExternalLink className="size-4" />
+                        {t("Open file")}
+                      </a>
+                    </Button>
+                    {!isPatientPortal ? (
+                      <BackofficeConsentDeleteAction
+                        record={record}
+                        onFinished={() => void reloadRecords()}
+                      />
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>

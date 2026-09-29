@@ -13,15 +13,27 @@ jest.mock("@/lib/sdk-client", () => ({
 }));
 
 function renderDialog(
-  areaKey: "sampling" | "sequencing",
+  areaKey: "sampling" | "sequencing" | "informed-consents",
   onFinished = jest.fn(),
 ) {
   render(
     <AppLanguageProvider initialLanguage="en">
       <TwoPQRecordDeleteDialog
         areaKey={areaKey}
-        recordId={areaKey === "sampling" ? "SAM-00001" : "SEQ-00001"}
-        recordLabel={areaKey === "sampling" ? "Blood sample" : "Run 01"}
+        recordId={
+          areaKey === "sampling"
+            ? "SAM-00001"
+            : areaKey === "sequencing"
+              ? "SEQ-00001"
+              : "CONS-00001"
+        }
+        recordLabel={
+          areaKey === "sampling"
+            ? "Blood sample"
+            : areaKey === "sequencing"
+              ? "Run 01"
+              : "consent.pdf"
+        }
         onFinished={onFinished}
       />
     </AppLanguageProvider>,
@@ -78,6 +90,32 @@ describe("TwoPQRecordDeleteDialog", () => {
       await screen.findByRole("heading", { name: "Deletion complete" }),
     ).toBeInTheDocument();
     expect(sdkFetch).toHaveBeenCalledWith("/2pq/sequencing/SEQ-00001", {
+      method: "DELETE",
+    });
+  });
+
+  it("deletes a consent and explains that linked clinical records remain", async () => {
+    const user = userEvent.setup();
+    renderDialog("informed-consents");
+    (sdkFetch as jest.Mock).mockResolvedValue({
+      success: true,
+      consentId: "CONS-00001",
+    });
+
+    await user.click(screen.getByRole("button", { name: "Delete consent" }));
+    expect(screen.getByText("Consent and file")).toBeInTheDocument();
+    expect(
+      screen.getByText("Patient and responsible parties"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/no cascading deletions are performed/i),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete consent" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Deletion complete" }),
+    ).toBeInTheDocument();
+    expect(sdkFetch).toHaveBeenCalledWith("/2pq/informed-consents/CONS-00001", {
       method: "DELETE",
     });
   });

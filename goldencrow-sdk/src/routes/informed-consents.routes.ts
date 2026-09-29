@@ -5,6 +5,7 @@ import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   INFORMED_CONSENT_FILE_MAX_BYTES,
   createInformedConsentForContext,
+  deleteInformedConsentForContext,
   getInformedConsentFileForContext,
   listInformedConsentPatientsForContext,
   listInformedConsentsForContext,
@@ -140,6 +141,28 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
           )
           .type(file.type)
           .send(file.bytes);
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
+  f.delete(
+    "/2pq/informed-consents/:consentId",
+    {
+      schema: {
+        params: z.object({ consentId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        return await deleteInformedConsentForContext(
+          request.adminContext,
+          request.params.consentId,
+        );
       } catch (error) {
         return sendError(reply, error);
       }

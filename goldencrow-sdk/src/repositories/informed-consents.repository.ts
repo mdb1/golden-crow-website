@@ -584,3 +584,25 @@ export async function getInformedConsentFileForContext(
     bytes: Buffer.from(encoded, "base64"),
   };
 }
+
+export async function deleteInformedConsentForContext(
+  context: AdminContext,
+  consentId: string,
+) {
+  assertCanUseInformedConsents(context);
+  if (!isGlobalAdminRole(context.role)) {
+    throw new AdminRepositoryError(
+      "Only full or 2PQ admins can delete informed consents.",
+      403,
+    );
+  }
+
+  const reference = adminDb.collection(CONSENTS_COLLECTION).doc(consentId);
+  const snapshot = await reference.get();
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError("Consent not found.", 404);
+  }
+
+  await reference.delete();
+  return { success: true as const, consentId };
+}

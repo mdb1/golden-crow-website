@@ -24,43 +24,78 @@ import {
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
-type DeletableAreaKey = "sampling" | "sequencing";
+type DeletableAreaKey = "sampling" | "sequencing" | "informed-consents";
 type DeletionState = "confirm" | "running" | "success" | "failed";
 
-function deletionCopy(
-  language: "en" | "es",
-  areaKey: DeletableAreaKey,
-) {
+function deletionCopy(language: "en" | "es", areaKey: DeletableAreaKey) {
   const isSampling = areaKey === "sampling";
+  const isConsent = areaKey === "informed-consents";
   if (language === "es") {
     return {
-      trigger: isSampling ? "Eliminar sampling" : "Eliminar lote",
-      title: isSampling ? "Eliminar sampling 2PQ" : "Eliminar lote de secuenciación",
-      description: isSampling
-        ? "Revisá qué ocurrirá con este sampling y su caso antes de continuar."
-        : "Revisá qué ocurrirá con el lote y sus casos antes de continuar.",
-      recordTitle: isSampling ? "Registro de sampling" : "Lote de secuenciación",
-      recordBody: isSampling
-        ? "El sampling se eliminará de forma permanente."
-        : "El lote se eliminará de forma permanente.",
-      relationTitle: isSampling ? "Caso vinculado" : "Casos vinculados",
-      relationBody: isSampling
-        ? "El caso se conserva, se elimina la referencia a este sampling y se resincronizan sus archivos y códigos cuando corresponda."
-        : "Los casos se conservan, quedan sin lote padre y se resincronizan sus archivos y códigos cuando corresponda.",
-      historicalTitle: "Registros históricos",
-      historicalBody:
-        "Los formularios clínicos y demás registros históricos permanecen intactos.",
-      warning:
-        "Esta acción no se puede deshacer. Si una sincronización posterior falla, el log mostrará el detalle y la lista se actualizará al finalizar.",
+      trigger: isConsent
+        ? "Eliminar consentimiento"
+        : isSampling
+          ? "Eliminar sampling"
+          : "Eliminar lote",
+      title: isConsent
+        ? "Eliminar consentimiento informado"
+        : isSampling
+          ? "Eliminar sampling 2PQ"
+          : "Eliminar lote de secuenciación",
+      description: isConsent
+        ? "Revisá qué se eliminará y qué registros vinculados se conservarán antes de continuar."
+        : isSampling
+          ? "Revisá qué ocurrirá con este sampling y su caso antes de continuar."
+          : "Revisá qué ocurrirá con el lote y sus casos antes de continuar.",
+      recordTitle: isConsent
+        ? "Consentimiento y archivo"
+        : isSampling
+          ? "Registro de sampling"
+          : "Lote de secuenciación",
+      recordBody: isConsent
+        ? "El consentimiento y el PDF o imagen guardado dentro de su registro se eliminarán de forma permanente."
+        : isSampling
+          ? "El sampling se eliminará de forma permanente."
+          : "El lote se eliminará de forma permanente.",
+      relationTitle: isConsent
+        ? "Paciente y responsables"
+        : isSampling
+          ? "Caso vinculado"
+          : "Casos vinculados",
+      relationBody: isConsent
+        ? "El paciente, el médico y la institución vinculados se conservan sin cambios."
+        : isSampling
+          ? "El caso se conserva, se elimina la referencia a este sampling y se resincronizan sus archivos y códigos cuando corresponda."
+          : "Los casos se conservan, quedan sin lote padre y se resincronizan sus archivos y códigos cuando corresponda.",
+      historicalTitle: isConsent
+        ? "Otros registros clínicos"
+        : "Registros históricos",
+      historicalBody: isConsent
+        ? "Casos, formularios, muestras y los demás registros clínicos permanecen intactos."
+        : "Los formularios clínicos y demás registros históricos permanecen intactos.",
+      warning: isConsent
+        ? "Esta acción no se puede deshacer. El archivo está embebido en el consentimiento y se elimina junto con él; no se ejecutan eliminaciones en cascada."
+        : "Esta acción no se puede deshacer. Si una sincronización posterior falla, el log mostrará el detalle y la lista se actualizará al finalizar.",
       cancel: "Cancelar",
-      delete: isSampling ? "Eliminar sampling" : "Eliminar lote",
-      runningTitle: isSampling ? "Eliminando sampling" : "Eliminando lote",
-      runningBody:
-        "El backend está actualizando las relaciones y las copias sincronizadas. No cierres esta ventana.",
+      delete: isConsent
+        ? "Eliminar consentimiento"
+        : isSampling
+          ? "Eliminar sampling"
+          : "Eliminar lote",
+      runningTitle: isConsent
+        ? "Eliminando consentimiento"
+        : isSampling
+          ? "Eliminando sampling"
+          : "Eliminando lote",
+      runningBody: isConsent
+        ? "El backend está eliminando el consentimiento y su archivo embebido. No cierres esta ventana."
+        : "El backend está actualizando las relaciones y las copias sincronizadas. No cierres esta ventana.",
       successTitle: "Eliminación completada",
-      successBody: isSampling
-        ? "El sampling fue eliminado y su caso vinculado quedó actualizado."
-        : "El lote fue eliminado y sus casos vinculados quedaron preservados y actualizados.",
+      successBody: isConsent
+        ? "El consentimiento y su archivo fueron eliminados. Los registros vinculados permanecen intactos."
+        : isSampling
+          ? "El sampling fue eliminado y su caso vinculado quedó actualizado."
+          : "El lote fue eliminado y sus casos vinculados quedaron preservados y actualizados.",
       failedTitle: "La eliminación informó un error",
       failedBody:
         "La operación puede haber completado algunos cambios antes del error. Revisá el log y finalizá para recargar el estado real de la lista.",
@@ -74,33 +109,70 @@ function deletionCopy(
   }
 
   return {
-    trigger: isSampling ? "Delete sampling" : "Delete batch",
-    title: isSampling ? "Delete 2PQ sampling" : "Delete sequencing batch",
-    description: isSampling
-      ? "Review what will happen to this sampling and its case before continuing."
-      : "Review what will happen to this batch and its cases before continuing.",
-    recordTitle: isSampling ? "Sampling record" : "Sequencing batch",
-    recordBody: isSampling
-      ? "The sampling will be permanently deleted."
-      : "The batch will be permanently deleted.",
-    relationTitle: isSampling ? "Linked case" : "Linked cases",
-    relationBody: isSampling
-      ? "The case is preserved, its sampling reference is removed, and its files and codes are synchronized when applicable."
-      : "Cases are preserved, their parent batch is removed, and their files and codes are synchronized when applicable.",
-    historicalTitle: "Historical records",
-    historicalBody:
-      "Clinical forms and all other historical records remain intact.",
-    warning:
-      "This action cannot be undone. If a later synchronization fails, the log will show the details and the list will refresh when you finish.",
+    trigger: isConsent
+      ? "Delete consent"
+      : isSampling
+        ? "Delete sampling"
+        : "Delete batch",
+    title: isConsent
+      ? "Delete informed consent"
+      : isSampling
+        ? "Delete 2PQ sampling"
+        : "Delete sequencing batch",
+    description: isConsent
+      ? "Review what will be deleted and which linked records will be preserved before continuing."
+      : isSampling
+        ? "Review what will happen to this sampling and its case before continuing."
+        : "Review what will happen to this batch and its cases before continuing.",
+    recordTitle: isConsent
+      ? "Consent and file"
+      : isSampling
+        ? "Sampling record"
+        : "Sequencing batch",
+    recordBody: isConsent
+      ? "The consent and the PDF or image stored inside its record will be permanently deleted."
+      : isSampling
+        ? "The sampling will be permanently deleted."
+        : "The batch will be permanently deleted.",
+    relationTitle: isConsent
+      ? "Patient and responsible parties"
+      : isSampling
+        ? "Linked case"
+        : "Linked cases",
+    relationBody: isConsent
+      ? "The linked patient, doctor, and institution are preserved without changes."
+      : isSampling
+        ? "The case is preserved, its sampling reference is removed, and its files and codes are synchronized when applicable."
+        : "Cases are preserved, their parent batch is removed, and their files and codes are synchronized when applicable.",
+    historicalTitle: isConsent
+      ? "Other clinical records"
+      : "Historical records",
+    historicalBody: isConsent
+      ? "Cases, forms, samples, and all other clinical records remain intact."
+      : "Clinical forms and all other historical records remain intact.",
+    warning: isConsent
+      ? "This action cannot be undone. The file is embedded in the consent and is deleted with it; no cascading deletions are performed."
+      : "This action cannot be undone. If a later synchronization fails, the log will show the details and the list will refresh when you finish.",
     cancel: "Cancel",
-    delete: isSampling ? "Delete sampling" : "Delete batch",
-    runningTitle: isSampling ? "Deleting sampling" : "Deleting batch",
-    runningBody:
-      "The backend is updating relationships and synchronized snapshots. Keep this window open.",
+    delete: isConsent
+      ? "Delete consent"
+      : isSampling
+        ? "Delete sampling"
+        : "Delete batch",
+    runningTitle: isConsent
+      ? "Deleting consent"
+      : isSampling
+        ? "Deleting sampling"
+        : "Deleting batch",
+    runningBody: isConsent
+      ? "The backend is deleting the consent and its embedded file. Keep this window open."
+      : "The backend is updating relationships and synchronized snapshots. Keep this window open.",
     successTitle: "Deletion complete",
-    successBody: isSampling
-      ? "The sampling was deleted and its linked case was updated."
-      : "The batch was deleted and its linked cases were preserved and updated.",
+    successBody: isConsent
+      ? "The consent and its file were deleted. Linked records remain intact."
+      : isSampling
+        ? "The sampling was deleted and its linked case was updated."
+        : "The batch was deleted and its linked cases were preserved and updated.",
     failedTitle: "Deletion reported an error",
     failedBody:
       "The operation may have completed some changes before the error. Review the log and finish to reload the list's real state.",

@@ -75,6 +75,7 @@ function docsForCollection(name: string) {
 const queryStubs: QueryStub[] = [];
 const failOrderedCollections = new Set<string>();
 const setDocMock = jest.fn(async (_document: unknown) => undefined);
+const deleteDocMock = jest.fn(async () => undefined);
 const transactionSetMock = jest.fn();
 const sendGmailMessageMock = jest.fn(async (_message: unknown) => undefined);
 
@@ -140,6 +141,7 @@ class QueryStub {
         data: () => doc?.data,
       })),
       set: setDocMock,
+      delete: deleteDocMock,
     };
   }
 }
@@ -190,6 +192,7 @@ describe("informed consent repository scoping", () => {
     failOrderedCollections.add("2pq-informed-consent");
     failOrderedCollections.add("patients");
     setDocMock.mockClear();
+    deleteDocMock.mockClear();
     transactionSetMock.mockClear();
     sendGmailMessageMock.mockClear();
   });
@@ -341,6 +344,53 @@ describe("informed consent repository scoping", () => {
         },
       }),
     );
+  });
+
+  it("lets global admins delete only the consent document", async () => {
+    const { deleteInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      deleteInformedConsentForContext(
+        { ...baseContext, role: "2pq_admin" },
+        "CONS-00001",
+      ),
+    ).resolves.toEqual({ success: true, consentId: "CONS-00001" });
+
+    expect(deleteDocMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects consent deletion by non-global roles", async () => {
+    const { deleteInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      deleteInformedConsentForContext(
+        {
+          ...baseContext,
+          role: "institution_admin",
+          institutionId: "INST-00001",
+        },
+        "CONS-00001",
+      ),
+    ).rejects.toMatchObject({
+      message: "Only full or 2PQ admins can delete informed consents.",
+      statusCode: 403,
+    });
+    expect(deleteDocMock).not.toHaveBeenCalled();
+  });
+
+  it("returns not found when deleting a missing consent", async () => {
+    const { deleteInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      deleteInformedConsentForContext(
+        { ...baseContext, role: "full_admin" },
+        "CONS-99999",
+      ),
+    ).rejects.toMatchObject({ message: "Consent not found.", statusCode: 404 });
+    expect(deleteDocMock).not.toHaveBeenCalled();
   });
 
   it("sends a consent request email to a scoped patient", async () => {
