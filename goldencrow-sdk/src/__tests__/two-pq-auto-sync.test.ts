@@ -175,6 +175,7 @@ describe("2PQ case automatic file and code synchronization", () => {
     expect(result?.main_case).toEqual({
       id: "CASE-CURRENT",
       download_url: "https://reports.example.com/current-case.pdf",
+      sibling_case_ids: [],
       parent_batch_id: "BATCH-1",
       children_sampling_ids: ["SAMPLING-1"],
       last_updated: "2026-09-28T12:00:00.000Z",
@@ -270,6 +271,7 @@ describe("2PQ case automatic file and code synchronization", () => {
       main_case: {
         id: "CASE-00001",
         download_url: null,
+        sibling_case_ids: [],
         parent_batch_id: null,
       },
       entities: {

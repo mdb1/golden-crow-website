@@ -37,6 +37,14 @@
             }
           ]
         },
+        "sibling_case_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0,
+          "maxItems": 0
+        },
         "parent_batch_id": {
           "anyOf": [
             {
@@ -67,6 +75,7 @@
       },
       "required": [
         "id",
+        "sibling_case_ids",
         "children_sampling_ids"
       ],
       "additionalProperties": false

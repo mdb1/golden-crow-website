@@ -1560,6 +1560,14 @@ export const PGI_NATIVE_SCHEMAS = {
               }
             ]
           },
+          "sibling_case_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 0,
+            "maxItems": 0
+          },
           "parent_batch_id": {
             "anyOf": [
               {
@@ -1590,6 +1598,7 @@ export const PGI_NATIVE_SCHEMAS = {
         },
         "required": [
           "id",
+          "sibling_case_ids",
           "children_sampling_ids"
         ],
         "additionalProperties": false

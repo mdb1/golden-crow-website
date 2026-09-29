@@ -50,7 +50,7 @@
 - `entities.batches` must contain either zero items when the case has no resolvable parent batch or exactly one compact snapshot of the directly linked batch. It must never contain more than one batch.
 - The compact batch snapshot contains only scalar identity, scope, status, execution, and update fields. Do not include child case IDs, nested case records, relationship arrays, arbitrary maps, or other expandable batch-tree data.
 - Building a case snapshot must not query or load the parent batch's `children_cases`, `linkedCaseIds`, or cases selected by `parent_batch`. Fetch the current case, its directly referenced batch, and samplings belonging to the current case only.
-- `main_case` must not expose sibling case IDs. The parent batch ID and the current case's sampling IDs remain valid direct references.
+- `main_case.sibling_case_ids` is retained for format compatibility but must always be an empty array. The snapshot must not query or expose sibling case IDs; the parent batch ID and the current case's sampling IDs remain valid direct references.
 - `main_case.download_url` and the root `download_url` on the sole `entities.cases[0]` item must always be emitted from the current case's canonical `download_url`, using `null` when it is absent.
 - Every emitted 2PQ `scope` must include `institutionName`, `doctorName`, and `patientName` next to the corresponding IDs. Resolve those names through direct document reads using the current case's `institutionId`, `doctorId`, and optional `patientId`; do not infer names from batch or sampling text.
 - Enforce the bounds in the authoritative `.pgi3.json` schema: `batches` has `maxItems: 1`, while `cases` has `minItems: 1` and `maxItems: 1`.

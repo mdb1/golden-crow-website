@@ -40,6 +40,7 @@ export interface TwoPQFileStorageSnapshot {
   main_case: {
     id: string;
     download_url: string | null;
+    sibling_case_ids: string[];
     parent_batch_id: string | null;
     children_sampling_ids: string[];
     last_updated: string | null;
@@ -381,6 +382,7 @@ export async function buildTwoPQCaseFileStorageSnapshot(
     main_case: {
       id: currentCase.id,
       download_url: nullableString(currentCase.data.download_url),
+      sibling_case_ids: [],
       parent_batch_id: batchId ?? null,
       children_sampling_ids: linkedSamplingIds,
       last_updated: normalizeDateValue(currentCase.data.updatedAt),

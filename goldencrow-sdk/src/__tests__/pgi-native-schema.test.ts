@@ -134,10 +134,18 @@ describe("native PGI schema identification", () => {
     const batchProperties = record(batch.properties);
     const mainCase = record(definitions.TwoPQMainCaseReference);
     const mainCaseProperties = record(mainCase.properties);
+    const mainCaseRequired = Array.isArray(mainCase.required)
+      ? mainCase.required
+      : [];
 
     expect(batches).toMatchObject({ minItems: 0, maxItems: 1 });
     expect(cases).toMatchObject({ minItems: 1, maxItems: 1 });
-    expect(mainCaseProperties).not.toHaveProperty("sibling_case_ids");
+    expect(mainCaseProperties.sibling_case_ids).toMatchObject({
+      type: "array",
+      minItems: 0,
+      maxItems: 0,
+    });
+    expect(mainCaseRequired).toContain("sibling_case_ids");
     expect(batchProperties).not.toHaveProperty("relations");
     expect(batchProperties).not.toHaveProperty("scope");
     expect(batchProperties).not.toHaveProperty("identity");
