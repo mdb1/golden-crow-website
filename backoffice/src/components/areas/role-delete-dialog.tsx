@@ -97,6 +97,16 @@ type OrphanedArtifactPage = {
     record: string | null;
   };
 };
+type OrphanedReportCodeDeletionResponse = {
+  codeId: string;
+  status: "deleted" | "not_found";
+  message: string;
+};
+type OrphanedReportCodeCleanupItem = {
+  codeId: string;
+  status: "pending" | "deleting" | "deleted" | "not_found" | "failed";
+  message?: string;
+};
 type OrphanedTwoPQSummary = {
   entityKind: "doctor" | "patient" | "professional";
   entityId: string;
@@ -211,6 +221,19 @@ function roleDeleteCopy(language: "en" | "es") {
         ownedRecords: "registros",
         openRecord: "Abrir",
         reviewFailed: "No se pudo cargar la lista de registros sin propietario.",
+        deleteAllCodes: "Eliminar todos",
+        deletingCodesTitle: "Eliminando códigos de reporte huérfanos",
+        deletingCodesBody:
+          "Los códigos se eliminan uno por uno. Los reportes subidos vinculados permanecen intactos.",
+        gatheringCodes: "Preparando la lista completa de códigos...",
+        codesDeletedTitle: "Códigos de reporte eliminados",
+        codesDeletedBody:
+          "La eliminación secuencial terminó correctamente. Los reportes subidos no fueron eliminados.",
+        codesPartialTitle: "Eliminación completada con pendientes",
+        codesPartialBody:
+          "Uno o más códigos no pudieron eliminarse. Revisá cada resultado antes de finalizar.",
+        finishCodeCleanup: "Finalizar",
+        noCodesToDelete: "No quedan códigos de reporte para eliminar.",
         twoPQStepTitle: "Tercer paso: revisar relaciones huérfanas",
         twoPQStepBody:
           "Los pacientes, casos y lotes permanecen intactos, pero todavía apuntan a la entidad eliminada. Revisalos para decidir su reasignación.",
@@ -283,6 +306,19 @@ function roleDeleteCopy(language: "en" | "es") {
         ownedRecords: "records",
         openRecord: "Open",
         reviewFailed: "Unable to load the ownerless record list.",
+        deleteAllCodes: "Delete all",
+        deletingCodesTitle: "Deleting orphaned report codes",
+        deletingCodesBody:
+          "Codes are deleted one at a time. Linked uploaded reports remain intact.",
+        gatheringCodes: "Preparing the complete code list...",
+        codesDeletedTitle: "Report codes deleted",
+        codesDeletedBody:
+          "Sequential deletion completed successfully. Uploaded reports were not deleted.",
+        codesPartialTitle: "Deletion completed with pending items",
+        codesPartialBody:
+          "One or more codes could not be deleted. Review each result before finishing.",
+        finishCodeCleanup: "Finish",
+        noCodesToDelete: "No report codes remain to delete.",
         twoPQStepTitle: "Third step: review orphaned relationships",
         twoPQStepBody:
           "Patients, cases, and batches remain intact, but still point to the deleted entity. Review them to decide their reassignment.",
@@ -341,6 +377,17 @@ export function RoleDeleteDialog({
   >(null);
   const [orphanedPending, setOrphanedPending] = useState(false);
   const [orphanedError, setOrphanedError] = useState<string | null>(null);
+  const [reportCodeCleanupOpen, setReportCodeCleanupOpen] = useState(false);
+  const [reportCodeCleanupRunning, setReportCodeCleanupRunning] =
+    useState(false);
+  const [reportCodeCleanupPreparing, setReportCodeCleanupPreparing] =
+    useState(false);
+  const [reportCodeCleanupItems, setReportCodeCleanupItems] = useState<
+    OrphanedReportCodeCleanupItem[]
+  >([]);
+  const [reportCodeCleanupError, setReportCodeCleanupError] = useState<
+    string | null
+  >(null);
   const [selectedTwoPQSummary, setSelectedTwoPQSummary] =
     useState<OrphanedTwoPQSummary | null>(null);
   const [orphanedTwoPQItems, setOrphanedTwoPQItems] = useState<
@@ -376,6 +423,18 @@ export function RoleDeleteDialog({
   const orphanedHasMore = Boolean(
     orphanedNextCursors?.code || orphanedNextCursors?.record,
   );
+  const completedReportCodeCleanupItems = reportCodeCleanupItems.filter(
+    (item) =>
+      item.status === "deleted" ||
+      item.status === "not_found" ||
+      item.status === "failed",
+  ).length;
+  const failedReportCodeCleanupItems = reportCodeCleanupItems.filter(
+    (item) => item.status === "failed",
+  ).length;
+  const reportCodeCleanupProgress = reportCodeCleanupItems.length
+    ? (completedReportCodeCleanupItems / reportCodeCleanupItems.length) * 100
+    : 0;
   const orphanedTwoPQSummaries = useMemo(
     () =>
       results.flatMap((result) =>
@@ -409,6 +468,11 @@ export function RoleDeleteDialog({
     setOrphanedNextCursors(null);
     setOrphanedPending(false);
     setOrphanedError(null);
+    setReportCodeCleanupOpen(false);
+    setReportCodeCleanupRunning(false);
+    setReportCodeCleanupPreparing(false);
+    setReportCodeCleanupItems([]);
+    setReportCodeCleanupError(null);
     setSelectedTwoPQSummary(null);
     setOrphanedTwoPQItems([]);
     setOrphanedTwoPQNextCursors(null);
@@ -540,6 +604,150 @@ export function RoleDeleteDialog({
     setOrphanedNextCursors(null);
     setOrphanedError(null);
     void loadOrphanedArtifacts(summary, false);
+  }
+
+  async function listAllOrphanedReportCodes(
+    summary: OrphanedArtifactSummary,
+  ) {
+    const codes = new Map<string, OrphanedArtifactItem>();
+    let codeCursor: string | null = null;
+
+    do {
+      const query = new URLSearchParams({
+        kind: "reports",
+        ownerIds: summary.ownerIds.join(","),
+        limit: "20",
+        recordDone: "1",
+      });
+      if (codeCursor) {
+        query.set("codeCursor", codeCursor);
+      }
+
+      const page = await sdkFetch<OrphanedArtifactPage>(
+        `/roles/deletion/orphaned-artifacts?${query.toString()}`,
+      );
+      page.items
+        .filter((item) => item.collection === "report_codes")
+        .forEach((item) => codes.set(item.id, item));
+      codeCursor = page.nextCursors.code;
+    } while (codeCursor);
+
+    return [...codes.values()];
+  }
+
+  function updateOrphanedReportCodeCount(
+    summary: OrphanedArtifactSummary,
+    resolvedCount: number,
+  ) {
+    const nextCodeCount = Math.max(0, summary.codeCount - resolvedCount);
+    const nextSummary = {
+      ...summary,
+      codeCount: nextCodeCount,
+      totalCount: nextCodeCount + summary.recordCount,
+    };
+    setSelectedOrphanSummary(nextSummary);
+    setResults((current) =>
+      current.map((result) => {
+        if (
+          result.status === "failed" ||
+          result.orphanedArtifacts?.kind !== "reports"
+        ) {
+          return result;
+        }
+        return { ...result, orphanedArtifacts: nextSummary };
+      }),
+    );
+    return nextSummary;
+  }
+
+  async function runOrphanedReportCodeCleanup(
+    summary: OrphanedArtifactSummary,
+  ) {
+    setReportCodeCleanupOpen(true);
+    setReportCodeCleanupRunning(true);
+    setReportCodeCleanupPreparing(true);
+    setReportCodeCleanupItems([]);
+    setReportCodeCleanupError(null);
+
+    let codes: OrphanedArtifactItem[];
+    try {
+      codes = await listAllOrphanedReportCodes(summary);
+    } catch (error) {
+      setReportCodeCleanupError(
+        error instanceof Error ? error.message : copy.reviewFailed,
+      );
+      setReportCodeCleanupPreparing(false);
+      setReportCodeCleanupRunning(false);
+      return;
+    }
+
+    setReportCodeCleanupPreparing(false);
+    setReportCodeCleanupItems(
+      codes.map((item) => ({ codeId: item.id, status: "pending" })),
+    );
+
+    const resolvedCodeIds: string[] = [];
+    for (const code of codes) {
+      setReportCodeCleanupItems((current) =>
+        current.map((item) =>
+          item.codeId === code.id ? { ...item, status: "deleting" } : item,
+        ),
+      );
+
+      const query = new URLSearchParams({
+        ownerIds: summary.ownerIds.join(","),
+      });
+      const requestPath = `/roles/deletion/orphaned-report-codes/${encodeURIComponent(code.id)}?${query.toString()}`;
+      try {
+        const result = await sdkFetch<OrphanedReportCodeDeletionResponse>(
+          requestPath,
+          { method: "DELETE" },
+        );
+        resolvedCodeIds.push(code.id);
+        setReportCodeCleanupItems((current) =>
+          current.map((item) =>
+            item.codeId === code.id
+              ? {
+                  ...item,
+                  status: result.status,
+                  message: result.message,
+                }
+              : item,
+          ),
+        );
+      } catch (error) {
+        const message =
+          error instanceof SdkRequestError
+            ? error.details
+            : error instanceof Error
+              ? error.message
+              : copy.reviewFailed;
+        setReportCodeCleanupItems((current) =>
+          current.map((item) =>
+            item.codeId === code.id
+              ? { ...item, status: "failed", message }
+              : item,
+          ),
+        );
+      }
+    }
+
+    setOrphanedItems((current) =>
+      current.filter(
+        (item) =>
+          item.collection !== "report_codes" ||
+          !resolvedCodeIds.includes(item.id),
+      ),
+    );
+    updateOrphanedReportCodeCount(summary, resolvedCodeIds.length);
+    setReportCodeCleanupRunning(false);
+  }
+
+  function finishOrphanedReportCodeCleanup() {
+    setReportCodeCleanupOpen(false);
+    if (selectedOrphanSummary) {
+      void loadOrphanedArtifacts(selectedOrphanSummary, false);
+    }
   }
 
   async function loadOrphanedTwoPQAssignments(
@@ -1071,11 +1279,162 @@ export function RoleDeleteDialog({
           ) : null}
 
           <DialogFooter>
+            {selectedOrphanSummary?.kind === "reports" &&
+            selectedOrphanSummary.codeCount > 0 ? (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={orphanedPending}
+                onClick={() =>
+                  void runOrphanedReportCodeCleanup(selectedOrphanSummary)
+                }
+              >
+                <Trash2 className="h-4 w-4" />
+                {copy.deleteAllCodes}
+                <Badge variant="secondary">
+                  {selectedOrphanSummary.codeCount}
+                </Badge>
+              </Button>
+            ) : null}
             <Button
               type="button"
               onClick={() => setSelectedOrphanSummary(null)}
             >
               {copy.closeReview}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={reportCodeCleanupOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !reportCodeCleanupRunning) {
+            setReportCodeCleanupOpen(false);
+          }
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-4xl"
+          showCloseButton={false}
+          onInteractOutside={(event) => {
+            if (reportCodeCleanupRunning) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (reportCodeCleanupRunning) event.preventDefault();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl">
+              {reportCodeCleanupRunning
+                ? copy.deletingCodesTitle
+                : reportCodeCleanupError || failedReportCodeCleanupItems > 0
+                  ? copy.codesPartialTitle
+                  : copy.codesDeletedTitle}
+            </DialogTitle>
+            <DialogDescription>
+              {reportCodeCleanupRunning
+                ? copy.deletingCodesBody
+                : reportCodeCleanupError || failedReportCodeCleanupItems > 0
+                  ? copy.codesPartialBody
+                  : copy.codesDeletedBody}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                <span>
+                  {reportCodeCleanupPreparing
+                    ? copy.gatheringCodes
+                    : `${completedReportCodeCleanupItems}/${reportCodeCleanupItems.length}`}
+                </span>
+                <span>{Math.round(reportCodeCleanupProgress)}%</span>
+              </div>
+              <Progress value={reportCodeCleanupProgress} className="h-2" />
+            </div>
+
+            {reportCodeCleanupError ? (
+              <div className="rounded-md border border-destructive/40 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+                {reportCodeCleanupError}
+              </div>
+            ) : null}
+
+            <div className="max-h-[48vh] overflow-auto rounded-md border border-border">
+              {reportCodeCleanupPreparing ? (
+                <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  {copy.gatheringCodes}
+                </div>
+              ) : reportCodeCleanupItems.length > 0 ? (
+                <div className="divide-y divide-border">
+                  {reportCodeCleanupItems.map((item) => (
+                    <div
+                      key={item.codeId}
+                      className="flex items-start gap-3 px-4 py-3"
+                    >
+                      {item.status === "deleting" ? (
+                        <LoaderCircle className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" />
+                      ) : item.status === "deleted" ? (
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      ) : item.status === "not_found" ? (
+                        <CircleMinus className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                      ) : item.status === "failed" ? (
+                        <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                      ) : (
+                        <Checkbox disabled className="mt-0.5" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="break-all font-mono font-medium text-foreground">
+                            {item.codeId}
+                          </p>
+                          {item.status !== "pending" ? (
+                            <Badge
+                              variant={
+                                item.status === "deleted"
+                                  ? "success"
+                                  : item.status === "not_found"
+                                    ? "warning"
+                                    : item.status === "failed"
+                                      ? "destructive"
+                                      : "secondary"
+                              }
+                            >
+                              {item.status === "deleted"
+                                ? copy.deleted
+                                : item.status === "not_found"
+                                  ? copy.notFound
+                                  : item.status === "failed"
+                                    ? copy.failed
+                                    : copy.processing}
+                            </Badge>
+                          ) : null}
+                        </div>
+                        {item.message ? (
+                          <p className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">
+                            {item.message}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
+                  {copy.noCodesToDelete}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              disabled={reportCodeCleanupRunning}
+              onClick={finishOrphanedReportCodeCleanup}
+            >
+              {copy.finishCodeCleanup}
             </Button>
           </DialogFooter>
         </DialogContent>

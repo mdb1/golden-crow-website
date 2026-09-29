@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
+  deleteOrphanedReportCodeForContext,
   deleteRoleAccountStepForContext,
   deleteRoleUserForContext,
   getUserRoleForContext,
@@ -150,6 +151,36 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
         }
 
         throw error;
+      }
+    },
+  );
+
+  f.delete(
+    "/roles/deletion/orphaned-report-codes/:codeId",
+    {
+      schema: {
+        params: z.object({ codeId: z.string().min(1) }),
+        querystring: z.object({ ownerIds: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await deleteOrphanedReportCodeForContext(
+          request.adminContext,
+          {
+            codeId: request.params.codeId,
+            ownerIds: request.query.ownerIds.split(","),
+          },
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRoleDeletionStepError(request, reply, error);
       }
     },
   );

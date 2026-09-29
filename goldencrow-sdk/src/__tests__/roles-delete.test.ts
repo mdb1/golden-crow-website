@@ -944,6 +944,63 @@ describe("role user deletion", () => {
     expect(secondPage.nextCursors).toEqual({ code: null, record: null });
   });
 
+  it("deletes an orphaned report code without deleting its uploaded report", async () => {
+    const { deleteOrphanedReportCodeForContext } = await import(
+      "../repositories/roles.repository"
+    );
+
+    mockDocs.set("report_codes/RPT001", {
+      owner_id: "owner-1",
+      uploaded_report_id: "upload-1",
+    });
+    mockDocs.set("uploaded_reports/upload-1", {
+      report_owner_id: "owner-1",
+      report_code: "RPT001",
+    });
+
+    await expect(
+      deleteOrphanedReportCodeForContext(godModeContext, {
+        codeId: "RPT001",
+        ownerIds: ["owner-1"],
+      }),
+    ).resolves.toEqual({
+      codeId: "RPT001",
+      status: "deleted",
+      message:
+        "Deleted orphaned report code RPT001. The linked uploaded report was preserved.",
+    });
+    expect(mockDocs.has("report_codes/RPT001")).toBe(false);
+    expect(mockDocs.has("uploaded_reports/upload-1")).toBe(true);
+
+    await expect(
+      deleteOrphanedReportCodeForContext(godModeContext, {
+        codeId: "RPT001",
+        ownerIds: ["owner-1"],
+      }),
+    ).resolves.toEqual({
+      codeId: "RPT001",
+      status: "not_found",
+      message: "Report code RPT001 was already absent.",
+    });
+  });
+
+  it("refuses orphan cleanup while the report owner still exists", async () => {
+    const { deleteOrphanedReportCodeForContext } = await import(
+      "../repositories/roles.repository"
+    );
+
+    mockDocs.set("report_codes/RPT-ACTIVE", { owner_id: "owner-1" });
+    mockDocs.set("report_owners/owner-1", { owner_name: "Active owner" });
+
+    await expect(
+      deleteOrphanedReportCodeForContext(godModeContext, {
+        codeId: "RPT-ACTIVE",
+        ownerIds: ["owner-1"],
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockDocs.has("report_codes/RPT-ACTIVE")).toBe(true);
+  });
+
   it("lists preserved object codes and uploaded objects without mutating them", async () => {
     const { listOrphanedOwnerArtifactsForContext } =
       await import("../repositories/roles.repository");

@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import "@testing-library/jest-dom";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AdminContextProvider } from "@/components/admin-context-provider";
 import { AppLanguageProvider } from "@/components/app-language-provider";
@@ -60,17 +60,60 @@ describe("RoleDeleteDialog", () => {
   it("runs the complete account cleanup sequentially and reports every outcome", async () => {
     const user = userEvent.setup();
     const onFinished = renderDialog();
+    const deletedReportCodes = new Set<string>();
     (sdkFetch as jest.Mock).mockImplementation(async (path: string) => {
+      if (path.startsWith("/roles/deletion/orphaned-report-codes/")) {
+        const codeId = decodeURIComponent(path.split("/").at(-1)!.split("?")[0]);
+        deletedReportCodes.add(codeId);
+        return {
+          codeId,
+          status: "deleted",
+          message: `Deleted orphaned report code ${codeId}. The linked uploaded report was preserved.`,
+        };
+      }
       if (path.startsWith("/roles/deletion/orphaned-artifacts?")) {
+        const query = new URLSearchParams(path.split("?")[1]);
+        if (query.get("recordDone") === "1") {
+          const availableCodes = ["RPT001", "RPT002"].filter(
+            (codeId) => !deletedReportCodes.has(codeId),
+          );
+          const cursor = query.get("codeCursor");
+          const startIndex = cursor
+            ? availableCodes.findIndex((codeId) => codeId === cursor) + 1
+            : 0;
+          const codeId = availableCodes[startIndex];
+          const hasMore = startIndex + 1 < availableCodes.length;
+          return {
+            items: codeId
+              ? [
+                  {
+                    collection: "report_codes",
+                    id: codeId,
+                    ownerId: "patient-uid",
+                    code: codeId,
+                    linkedRecordId: `uploaded-${codeId.toLowerCase()}`,
+                  },
+                ]
+              : [],
+            nextCursors: {
+              code: hasMore ? codeId : null,
+              record: null,
+            },
+          };
+        }
         return {
           items: [
-            {
-              collection: "report_codes",
-              id: "RPT001",
-              ownerId: "patient-uid",
-              code: "RPT001",
-              linkedRecordId: "uploaded-report-1",
-            },
+            ...(!deletedReportCodes.has("RPT001")
+              ? [
+                  {
+                    collection: "report_codes",
+                    id: "RPT001",
+                    ownerId: "patient-uid",
+                    code: "RPT001",
+                    linkedRecordId: "uploaded-report-1",
+                  },
+                ]
+              : []),
             {
               collection: "uploaded_reports",
               id: "uploaded-report-1",
@@ -169,9 +212,9 @@ describe("RoleDeleteDialog", () => {
           orphanedArtifacts: {
             kind: "reports",
             ownerIds: ["patient-uid"],
-            codeCount: 1,
+            codeCount: 2,
             recordCount: 1,
-            totalCount: 2,
+            totalCount: 3,
           },
         };
       }
@@ -244,6 +287,35 @@ describe("RoleDeleteDialog", () => {
         String(path).startsWith("/roles/deletion/orphaned-artifacts?"),
       ),
     ).toBe(true);
+
+    await user.click(
+      screen.getByRole("button", { name: /Delete all 2/ }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Report codes deleted" }),
+    ).toBeInTheDocument();
+    const codeCleanupDialog = screen.getByRole("dialog", {
+      name: "Report codes deleted",
+    });
+    expect(within(codeCleanupDialog).getByText("2/2")).toBeInTheDocument();
+    expect(within(codeCleanupDialog).getByText("100%")).toBeInTheDocument();
+    expect(
+      (sdkFetch as jest.Mock).mock.calls
+        .map(([path]) => String(path))
+        .filter((path) =>
+          path.startsWith("/roles/deletion/orphaned-report-codes/"),
+        ),
+    ).toEqual([
+      "/roles/deletion/orphaned-report-codes/RPT001?ownerIds=patient-uid",
+      "/roles/deletion/orphaned-report-codes/RPT002?ownerIds=patient-uid",
+    ]);
+    await user.click(screen.getByRole("button", { name: "Finish" }));
+    await screen.findByRole("heading", {
+      name: "Ownerless reports and codes",
+    });
+    expect(
+      screen.queryByRole("button", { name: /Delete all/ }),
+    ).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Close review" }));
 
     expect(

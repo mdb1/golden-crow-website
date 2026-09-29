@@ -98,6 +98,12 @@ export interface RoleAccountOrphanedArtifactPage {
   };
 }
 
+export interface RoleAccountOrphanedReportCodeDeletionResult {
+  codeId: string;
+  status: "deleted" | "not_found";
+  message: string;
+}
+
 export type RoleAccountTwoPQEntityKind =
   | "doctor"
   | "patient"
@@ -851,6 +857,77 @@ export async function listOrphanedOwnerArtifactsForContext(
       code: codes.nextCursor,
       record: records.nextCursor,
     },
+  };
+}
+
+export async function deleteOrphanedReportCodeForContext(
+  context: AdminContext,
+  input: {
+    codeId: string;
+    ownerIds: string[];
+  },
+): Promise<RoleAccountOrphanedReportCodeDeletionResult> {
+  if (!isGlobalAdminRole(context.role)) {
+    throw new AdminRepositoryError(
+      "Only full admins and 2PQ admins can delete orphaned report codes.",
+      403,
+    );
+  }
+
+  const codeId = input.codeId.trim();
+  if (!codeId) {
+    throw new AdminRepositoryError("A report code id is required.", 400);
+  }
+
+  const ownerIds = normalizedOwnerIds(input.ownerIds);
+  if (ownerIds.length === 0) {
+    throw new AdminRepositoryError(
+      "At least one deleted owner id is required.",
+      400,
+    );
+  }
+  if (ownerIds.length > 10) {
+    throw new AdminRepositoryError(
+      "At most 10 deleted owner ids can be checked at once.",
+      400,
+    );
+  }
+
+  const codeRef = adminDb.collection("report_codes").doc(codeId);
+  const codeSnapshot = await codeRef.get();
+  if (!codeSnapshot.exists) {
+    return {
+      codeId,
+      status: "not_found",
+      message: `Report code ${codeId} was already absent.`,
+    };
+  }
+
+  const codeData = codeSnapshot.data() as Record<string, unknown>;
+  const ownerId = normalizeOptionalString(codeData.owner_id);
+  if (!ownerId || !ownerIds.includes(ownerId)) {
+    throw new AdminRepositoryError(
+      `Report code ${codeId} is not linked to the deleted owner selected for this cleanup.`,
+      409,
+    );
+  }
+
+  const ownerSnapshot = await adminDb
+    .collection("report_owners")
+    .doc(ownerId)
+    .get();
+  if (ownerSnapshot.exists) {
+    throw new AdminRepositoryError(
+      `Report code ${codeId} still belongs to an existing report owner and cannot be deleted as orphaned.`,
+      409,
+    );
+  }
+
+  await codeRef.delete();
+  return {
+    codeId,
+    status: "deleted",
+    message: `Deleted orphaned report code ${codeId}. The linked uploaded report was preserved.`,
   };
 }
 

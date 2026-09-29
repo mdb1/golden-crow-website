@@ -6,10 +6,13 @@ import {
 import type { AdminContext } from "../types/sdk.types.js";
 
 const mockDeleteRoleAccountStepForContext = jest.fn();
+const mockDeleteOrphanedReportCodeForContext = jest.fn();
 const mockListOrphanedOwnerArtifactsForContext = jest.fn();
 const mockListOrphanedTwoPQAssignmentsForContext = jest.fn();
 
 jest.mock("../repositories/roles.repository.js", () => ({
+  deleteOrphanedReportCodeForContext:
+    mockDeleteOrphanedReportCodeForContext,
   deleteRoleAccountStepForContext: mockDeleteRoleAccountStepForContext,
   deleteRoleUserForContext: jest.fn(),
   getUserRoleForContext: jest.fn(),
@@ -68,6 +71,33 @@ describe("role deletion routes", () => {
       items: [],
       nextCursors: { patients: null, cases: null, batches: null },
     });
+    mockDeleteOrphanedReportCodeForContext.mockResolvedValue({
+      codeId: "RPT001",
+      status: "deleted",
+      message: "Deleted orphaned report code RPT001.",
+    });
+  });
+
+  it("passes one orphaned report-code deletion to the repository", async () => {
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/roles/deletion/orphaned-report-codes/RPT001?ownerIds=owner-1%2Cowner-2",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockDeleteOrphanedReportCodeForContext).toHaveBeenCalledWith(
+      adminContext,
+      {
+        codeId: "RPT001",
+        ownerIds: ["owner-1", "owner-2"],
+      },
+    );
+    expect(response.json()).toMatchObject({
+      codeId: "RPT001",
+      status: "deleted",
+    });
+    await fastify.close();
   });
 
   it("passes bounded 2PQ orphan-review pagination to the repository", async () => {
