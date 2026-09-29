@@ -439,6 +439,11 @@ export interface TwoPQLinkedServiceTransactionSnapshot {
   updatedAt?: string;
 }
 
+export interface TwoPQMissingAssignedEntity {
+  kind: "institution" | "doctor" | "patient";
+  id: string;
+}
+
 export interface TwoPQDetailRecord {
   record: TwoPQListItem;
   institution: InstitutionRecord | null;
@@ -449,6 +454,7 @@ export interface TwoPQDetailRecord {
   linkedCases: TwoPQListItem[];
   linkedSamplings: TwoPQListItem[];
   linkedServiceTransaction: TwoPQLinkedServiceTransactionSnapshot | null;
+  missingAssignedEntities: TwoPQMissingAssignedEntity[];
 }
 
 export type TwoPQFormType = "study_request" | "sample" | "withdrawal_request";

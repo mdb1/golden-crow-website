@@ -83,7 +83,57 @@ describe("RoleDeleteDialog", () => {
           nextCursors: { code: null, record: null },
         };
       }
+      if (
+        path.startsWith(
+          "/roles/deletion/orphaned-two-pq-assignments?",
+        )
+      ) {
+        return {
+          items: [
+            {
+              collection: "2pq_case",
+              id: "CASE-00020",
+              entityKind: "patient",
+              entityId: "PAT-00001",
+              institutionId: "INST-00001",
+              doctorId: "DOC-00001",
+              patientId: "PAT-00001",
+              caseLabel: "PGT case",
+              caseStatus: "entered",
+            },
+            {
+              collection: "2pq_sequencing",
+              id: "SEQ-00007",
+              entityKind: "patient",
+              entityId: "PAT-00001",
+              institutionId: "INST-00001",
+              doctorId: "DOC-00001",
+              patientId: "PAT-00001",
+              runId: "RUN-7",
+              platform: "NovaSeq",
+              analysisStatus: "pending",
+            },
+          ],
+          nextCursors: { cases: null, batches: null },
+        };
+      }
       const step = path.split("/").at(-1);
+      if (step === "linked_entity") {
+        return {
+          step,
+          status: "deleted",
+          deletedCount: 1,
+          message:
+            "Deleted 1 linked personal or professional record(s). Preserved 1 2PQ case(s) and 1 sequencing batch(es); none were deleted or reassigned.",
+          orphanedTwoPQAssignments: {
+            entityKind: "patient",
+            entityId: "PAT-00001",
+            caseCount: 1,
+            batchCount: 1,
+            totalCount: 2,
+          },
+        };
+      }
       if (step === "community") {
         throw new SdkRequestError({
           status: 500,
@@ -172,6 +222,36 @@ describe("RoleDeleteDialog", () => {
     expect(
       (sdkFetch as jest.Mock).mock.calls.some(([path]) =>
         String(path).startsWith("/roles/deletion/orphaned-artifacts?"),
+      ),
+    ).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Close review" }));
+
+    expect(
+      screen.getByText("Third step: review orphaned 2PQ assignments"),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /Review 2PQ cases and batches/ }),
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "Orphaned 2PQ cases and batches",
+      }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("PGT case")).toBeInTheDocument();
+    expect(await screen.findByText("RUN-7")).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link", { name: /^Open$/ })
+        .some(
+          (link) =>
+            link.getAttribute("href") === "/2pq-dashboard/cases/CASE-00020",
+        ),
+    ).toBe(true);
+    expect(
+      (sdkFetch as jest.Mock).mock.calls.some(([path]) =>
+        String(path).startsWith(
+          "/roles/deletion/orphaned-two-pq-assignments?",
+        ),
       ),
     ).toBe(true);
     await user.click(screen.getByRole("button", { name: "Close review" }));

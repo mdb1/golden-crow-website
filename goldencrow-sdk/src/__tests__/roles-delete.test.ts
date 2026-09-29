@@ -259,21 +259,216 @@ describe("role user deletion", () => {
       clientEmail: "patient@example.com",
       roleEmail: "patient@example.com",
     });
+    mockDocs.set("2pq_case/CASE-00001", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      patientId: "PAT-00001",
+      caseLabel: "Patient case",
+      caseStatus: "entered",
+    });
+    mockDocs.set("2pq_sequencing/SEQ-00001", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      patientId: "PAT-00001",
+      caseLabel: "Patient batch",
+      runId: "RUN-1",
+      analysisStatus: "pending",
+    });
+
+    const result = await deleteRoleAccountStepForContext(
+      { ...godModeContext, isBootstrap: false },
+      "patient@example.com",
+      "linked_entity",
+    );
+
+    expect(result).toMatchObject({
+      step: "linked_entity",
+      status: "deleted",
+      deletedCount: 2,
+      orphanedTwoPQAssignments: {
+        entityKind: "patient",
+        entityId: "PAT-00001",
+        caseCount: 1,
+        batchCount: 1,
+        totalCount: 2,
+      },
+    });
+    expect(result.message).toContain(
+      "Preserved 1 2PQ case(s) and 1 sequencing batch(es)",
+    );
+    expect(mockDocs.has("patients/PAT-00001")).toBe(false);
+    expect(mockDocs.has("2pq_client/CLNT-00001")).toBe(false);
+    expect(mockDocs.has("2pq_case/CASE-00001")).toBe(true);
+    expect(mockDocs.has("2pq_sequencing/SEQ-00001")).toBe(true);
+    expect(mockDocs.has("user_roles/patient@example.com")).toBe(true);
+  });
+
+  it("lists orphaned 2PQ assignments with independent bounded cursors", async () => {
+    const { listOrphanedTwoPQAssignmentsForContext } = await import(
+      "../repositories/roles.repository"
+    );
+
+    for (const caseId of ["CASE-00001", "CASE-00002", "CASE-00003"]) {
+      mockDocs.set(`2pq_case/${caseId}`, {
+        institutionId: "INST-00001",
+        doctorId: "DOC-00001",
+        patientId: "PAT-00001",
+        caseLabel: caseId,
+      });
+    }
+    mockDocs.set("2pq_sequencing/SEQ-00001", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      patientId: "PAT-00001",
+      runId: "RUN-1",
+    });
+
+    await expect(
+      listOrphanedTwoPQAssignmentsForContext(godModeContext, {
+        entityKind: "patient",
+        entityId: "PAT-00001",
+        limit: 2,
+      }),
+    ).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          collection: "2pq_case",
+          id: "CASE-00001",
+          entityKind: "patient",
+          entityId: "PAT-00001",
+        }),
+        expect.objectContaining({
+          collection: "2pq_case",
+          id: "CASE-00002",
+        }),
+        expect.objectContaining({
+          collection: "2pq_sequencing",
+          id: "SEQ-00001",
+        }),
+      ],
+      nextCursors: {
+        cases: "CASE-00002",
+        batches: null,
+      },
+    });
+
+    await expect(
+      listOrphanedTwoPQAssignmentsForContext(godModeContext, {
+        entityKind: "patient",
+        entityId: "PAT-00001",
+        limit: 2,
+        caseCursor: "CASE-00002",
+        batchesDone: true,
+      }),
+    ).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          collection: "2pq_case",
+          id: "CASE-00003",
+        }),
+      ],
+      nextCursors: {
+        cases: null,
+        batches: null,
+      },
+    });
+  });
+
+  it("does not expose 2PQ assignment review to non-global admins", async () => {
+    const { listOrphanedTwoPQAssignmentsForContext } = await import(
+      "../repositories/roles.repository"
+    );
+
+    await expect(
+      listOrphanedTwoPQAssignmentsForContext(
+        {
+          ...godModeContext,
+          role: "institution_admin",
+          institutionId: "INST-00001",
+        },
+        {
+          entityKind: "doctor",
+          entityId: "DOC-00001",
+        },
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("reviews professional assignments stored through the canonical doctorId field", async () => {
+    const { deleteRoleAccountStepForContext } = await import(
+      "../repositories/roles.repository"
+    );
+
+    mockDocs.set("user_roles/professional@example.com", {
+      role: "individual_publisher",
+      firebaseUid: "professional-uid",
+      individualId: "IND-00001",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockDocs.set("feed_individuals/IND-00001", {
+      name: "Professional",
+    });
+    mockDocs.set("2pq_case/CASE-PRO", {
+      institutionId: "INST-00001",
+      doctorId: "IND-00001",
+      caseLabel: "Professional case",
+    });
 
     await expect(
       deleteRoleAccountStepForContext(
         { ...godModeContext, isBootstrap: false },
-        "patient@example.com",
+        "professional@example.com",
+        "linked_entity",
+      ),
+    ).resolves.toMatchObject({
+      status: "deleted",
+      orphanedTwoPQAssignments: {
+        entityKind: "professional",
+        entityId: "IND-00001",
+        caseCount: 1,
+        batchCount: 0,
+        totalCount: 1,
+      },
+    });
+    expect(mockDocs.has("2pq_case/CASE-PRO")).toBe(true);
+  });
+
+  it("deletes the linked patient entity without removing the role early when no 2PQ assignments exist", async () => {
+    const { deleteRoleAccountStepForContext } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("user_roles/patient-empty@example.com", {
+      role: "patient",
+      firebaseUid: "patient-empty-uid",
+      patientId: "PAT-EMPTY",
+      doctorId: "DOC-00001",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockDocs.set("patients/PAT-EMPTY", {
+      email: "patient-empty@example.com",
+      doctorId: "DOC-00001",
+    });
+
+    await expect(
+      deleteRoleAccountStepForContext(
+        { ...godModeContext, isBootstrap: false },
+        "patient-empty@example.com",
         "linked_entity",
       ),
     ).resolves.toMatchObject({
       step: "linked_entity",
       status: "deleted",
-      deletedCount: 2,
+      deletedCount: 1,
+      orphanedTwoPQAssignments: {
+        entityKind: "patient",
+        entityId: "PAT-EMPTY",
+        totalCount: 0,
+      },
     });
-    expect(mockDocs.has("patients/PAT-00001")).toBe(false);
-    expect(mockDocs.has("2pq_client/CLNT-00001")).toBe(false);
-    expect(mockDocs.has("user_roles/patient@example.com")).toBe(true);
   });
 
   it("deduplicates 2PQ client matches found through both email fields", async () => {

@@ -32,6 +32,7 @@ import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { OptionSelectField } from "@/components/constrained-fields";
 import { FormRequestedWarningDialog } from "@/components/form-requested-warning-dialog";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { TwoPQOrphanedAssignmentWarning } from "@/components/two-pq-orphaned-assignment-warning";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -6043,6 +6044,14 @@ export function TwoPQRecordWorkbench({
         ) : null}
         <Badge variant="outline">{area.collectionKey}</Badge>
       </div>
+
+      {detail ? (
+        <TwoPQOrphanedAssignmentWarning
+          areaKey={area.key}
+          missingAssignedEntities={detail.missingAssignedEntities ?? []}
+          language={language}
+        />
+      ) : null}
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">

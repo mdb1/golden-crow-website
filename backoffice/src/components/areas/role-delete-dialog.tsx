@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import {
   ArchiveRestore,
   CheckCircle2,
+  ClipboardList,
   CircleMinus,
   CircleX,
   ExternalLink,
@@ -58,6 +59,7 @@ type ServerStepResult = {
   deletedCount: number;
   message: string;
   orphanedArtifacts?: OrphanedArtifactSummary;
+  orphanedTwoPQAssignments?: OrphanedTwoPQSummary;
 };
 type FailedStepResult = {
   step: DeletionStep;
@@ -93,6 +95,35 @@ type OrphanedArtifactPage = {
   nextCursors: {
     code: string | null;
     record: string | null;
+  };
+};
+type OrphanedTwoPQSummary = {
+  entityKind: "doctor" | "patient" | "professional";
+  entityId: string;
+  caseCount: number;
+  batchCount: number;
+  totalCount: number;
+};
+type OrphanedTwoPQItem = {
+  collection: "2pq_case" | "2pq_sequencing";
+  id: string;
+  entityKind: "doctor" | "patient" | "professional";
+  entityId: string;
+  institutionId?: string;
+  doctorId?: string;
+  patientId?: string;
+  caseLabel?: string;
+  caseStatus?: string;
+  threeLetterCode?: string;
+  runId?: string;
+  platform?: string;
+  analysisStatus?: string;
+};
+type OrphanedTwoPQPage = {
+  items: OrphanedTwoPQItem[];
+  nextCursors: {
+    cases: string | null;
+    batches: string | null;
   };
 };
 
@@ -175,6 +206,23 @@ function roleDeleteCopy(language: "en" | "es") {
         ownedRecords: "registros",
         openRecord: "Abrir",
         reviewFailed: "No se pudo cargar la lista de registros sin propietario.",
+        twoPQStepTitle: "Tercer paso: revisar asignaciones 2PQ huérfanas",
+        twoPQStepBody:
+          "Los casos y lotes permanecen intactos, pero todavía apuntan a la entidad eliminada. Revisalos para decidir su reasignación.",
+        reviewTwoPQ: "Revisar casos y lotes 2PQ",
+        orphanedTwoPQTitle: "Casos y lotes 2PQ huérfanos",
+        orphanedTwoPQDescription:
+          "Estos registros no se eliminaron ni se reasignaron. Conservan la referencia a la entidad que ya no existe.",
+        cases: "casos",
+        batches: "lotes",
+        assignedEntity: "Entidad asignada",
+        institution: "Institución",
+        doctor: "Médico",
+        patient: "Paciente",
+        professional: "Profesional",
+        run: "Corrida",
+        twoPQReviewFailed:
+          "No se pudo cargar la lista de asignaciones 2PQ huérfanas.",
       }
     : {
         trigger: "Delete role",
@@ -229,6 +277,23 @@ function roleDeleteCopy(language: "en" | "es") {
         ownedRecords: "records",
         openRecord: "Open",
         reviewFailed: "Unable to load the ownerless record list.",
+        twoPQStepTitle: "Third step: review orphaned 2PQ assignments",
+        twoPQStepBody:
+          "Cases and batches remain intact, but still point to the deleted entity. Review them to decide their reassignment.",
+        reviewTwoPQ: "Review 2PQ cases and batches",
+        orphanedTwoPQTitle: "Orphaned 2PQ cases and batches",
+        orphanedTwoPQDescription:
+          "These records were not deleted or reassigned. They retain a reference to the entity that no longer exists.",
+        cases: "cases",
+        batches: "batches",
+        assignedEntity: "Assigned entity",
+        institution: "Institution",
+        doctor: "Doctor",
+        patient: "Patient",
+        professional: "Professional",
+        run: "Run",
+        twoPQReviewFailed:
+          "Unable to load the orphaned 2PQ assignment list.",
       };
 }
 
@@ -269,6 +334,18 @@ export function RoleDeleteDialog({
   >(null);
   const [orphanedPending, setOrphanedPending] = useState(false);
   const [orphanedError, setOrphanedError] = useState<string | null>(null);
+  const [selectedTwoPQSummary, setSelectedTwoPQSummary] =
+    useState<OrphanedTwoPQSummary | null>(null);
+  const [orphanedTwoPQItems, setOrphanedTwoPQItems] = useState<
+    OrphanedTwoPQItem[]
+  >([]);
+  const [orphanedTwoPQNextCursors, setOrphanedTwoPQNextCursors] = useState<
+    OrphanedTwoPQPage["nextCursors"] | null
+  >(null);
+  const [orphanedTwoPQPending, setOrphanedTwoPQPending] = useState(false);
+  const [orphanedTwoPQError, setOrphanedTwoPQError] = useState<string | null>(
+    null,
+  );
   const canDelete = canDeleteRoleRecord(adminContext, roleRecord);
   const steps =
     scope === "account" ? ACCOUNT_DELETION_STEPS : (["role"] as const);
@@ -292,6 +369,20 @@ export function RoleDeleteDialog({
   const orphanedHasMore = Boolean(
     orphanedNextCursors?.code || orphanedNextCursors?.record,
   );
+  const orphanedTwoPQSummaries = useMemo(
+    () =>
+      results.flatMap((result) =>
+        result.status !== "failed" &&
+        result.orphanedTwoPQAssignments &&
+        result.orphanedTwoPQAssignments.totalCount > 0
+          ? [result.orphanedTwoPQAssignments]
+          : [],
+      ),
+    [results],
+  );
+  const orphanedTwoPQHasMore = Boolean(
+    orphanedTwoPQNextCursors?.cases || orphanedTwoPQNextCursors?.batches,
+  );
 
   if (!canDelete) {
     return null;
@@ -309,6 +400,11 @@ export function RoleDeleteDialog({
     setOrphanedNextCursors(null);
     setOrphanedPending(false);
     setOrphanedError(null);
+    setSelectedTwoPQSummary(null);
+    setOrphanedTwoPQItems([]);
+    setOrphanedTwoPQNextCursors(null);
+    setOrphanedTwoPQPending(false);
+    setOrphanedTwoPQError(null);
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -435,6 +531,59 @@ export function RoleDeleteDialog({
     setOrphanedNextCursors(null);
     setOrphanedError(null);
     void loadOrphanedArtifacts(summary, false);
+  }
+
+  async function loadOrphanedTwoPQAssignments(
+    summary: OrphanedTwoPQSummary,
+    append: boolean,
+  ) {
+    setOrphanedTwoPQPending(true);
+    setOrphanedTwoPQError(null);
+
+    try {
+      const query = new URLSearchParams({
+        entityKind: summary.entityKind,
+        entityId: summary.entityId,
+        limit: "20",
+      });
+      if (append && orphanedTwoPQNextCursors) {
+        if (orphanedTwoPQNextCursors.cases) {
+          query.set("caseCursor", orphanedTwoPQNextCursors.cases);
+        } else {
+          query.set("casesDone", "1");
+        }
+        if (orphanedTwoPQNextCursors.batches) {
+          query.set("batchCursor", orphanedTwoPQNextCursors.batches);
+        } else {
+          query.set("batchesDone", "1");
+        }
+      }
+
+      const page = await sdkFetch<OrphanedTwoPQPage>(
+        `/roles/deletion/orphaned-two-pq-assignments?${query.toString()}`,
+      );
+      setOrphanedTwoPQItems((current) => {
+        const combined = append ? [...current, ...page.items] : page.items;
+        return [
+          ...new Map(
+            combined.map((item) => [`${item.collection}/${item.id}`, item]),
+          ).values(),
+        ];
+      });
+      setOrphanedTwoPQNextCursors(page.nextCursors);
+    } catch {
+      setOrphanedTwoPQError(copy.twoPQReviewFailed);
+    } finally {
+      setOrphanedTwoPQPending(false);
+    }
+  }
+
+  function openOrphanedTwoPQAssignments(summary: OrphanedTwoPQSummary) {
+    setSelectedTwoPQSummary(summary);
+    setOrphanedTwoPQItems([]);
+    setOrphanedTwoPQNextCursors(null);
+    setOrphanedTwoPQError(null);
+    void loadOrphanedTwoPQAssignments(summary, false);
   }
 
   return (
@@ -666,6 +815,39 @@ export function RoleDeleteDialog({
                 </div>
               </div>
             ) : null}
+
+            {finished && orphanedTwoPQSummaries.length > 0 ? (
+              <div className="rounded-md border border-amber-300/70 bg-amber-50/80 p-4 text-amber-950 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+                <div className="flex items-start gap-3">
+                  <ClipboardList className="mt-0.5 h-5 w-5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">{copy.twoPQStepTitle}</p>
+                    <p className="mt-1 text-sm leading-6 text-amber-900/80 dark:text-amber-100/75">
+                      {copy.twoPQStepBody}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {orphanedTwoPQSummaries.map((summary) => (
+                        <Button
+                          key={`${summary.entityKind}/${summary.entityId}`}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            openOrphanedTwoPQAssignments(summary)
+                          }
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                          {copy.reviewTwoPQ}
+                          <Badge variant="secondary">
+                            {summary.totalCount}
+                          </Badge>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -875,6 +1057,179 @@ export function RoleDeleteDialog({
             <Button
               type="button"
               onClick={() => setSelectedOrphanSummary(null)}
+            >
+              {copy.closeReview}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={selectedTwoPQSummary !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setSelectedTwoPQSummary(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-6xl">
+          <DialogHeader className="pr-10">
+            <DialogTitle className="font-heading text-xl">
+              {copy.orphanedTwoPQTitle}
+            </DialogTitle>
+            <DialogDescription>
+              {copy.orphanedTwoPQDescription}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTwoPQSummary ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">
+                  {selectedTwoPQSummary.caseCount} {copy.cases}
+                </Badge>
+                <Badge variant="secondary">
+                  {selectedTwoPQSummary.batchCount} {copy.batches}
+                </Badge>
+                <Badge variant="outline">
+                  {copy.assignedEntity}:{" "}
+                  {copy[selectedTwoPQSummary.entityKind]} /{" "}
+                  {selectedTwoPQSummary.entityId}
+                </Badge>
+              </div>
+
+              {orphanedTwoPQError ? (
+                <div className="rounded-md border border-destructive/40 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+                  {orphanedTwoPQError}
+                </div>
+              ) : null}
+
+              <div className="max-h-[58vh] overflow-auto rounded-md border border-border">
+                {orphanedTwoPQItems.length > 0 ? (
+                  <div className="divide-y divide-border">
+                    {orphanedTwoPQItems.map((item) => {
+                      const isCase = item.collection === "2pq_case";
+                      const href = isCase
+                        ? `/2pq-dashboard/cases/${encodeURIComponent(item.id)}`
+                        : `/2pq-dashboard/sequencing/${encodeURIComponent(item.id)}`;
+                      const title =
+                        item.caseLabel ??
+                        item.runId ??
+                        item.threeLetterCode ??
+                        item.id;
+                      const status = isCase
+                        ? item.caseStatus
+                        : item.analysisStatus;
+                      return (
+                        <div
+                          key={`${item.collection}/${item.id}`}
+                          className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] md:items-center"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline">{item.collection}</Badge>
+                              {status ? (
+                                <Badge variant="warning">{status}</Badge>
+                              ) : null}
+                            </div>
+                            <p className="mt-2 break-words text-sm font-medium text-foreground">
+                              {title}
+                            </p>
+                            <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                              {item.id}
+                            </p>
+                          </div>
+                          <dl className="grid gap-1 text-xs text-muted-foreground">
+                            <div className="flex gap-2">
+                              <dt>{copy.assignedEntity}:</dt>
+                              <dd className="break-all font-mono">
+                                {copy[item.entityKind]} / {item.entityId}
+                              </dd>
+                            </div>
+                            {item.institutionId ? (
+                              <div className="flex gap-2">
+                                <dt>{copy.institution}:</dt>
+                                <dd className="break-all font-mono">
+                                  {item.institutionId}
+                                </dd>
+                              </div>
+                            ) : null}
+                            {item.doctorId ? (
+                              <div className="flex gap-2">
+                                <dt>{copy.doctor}:</dt>
+                                <dd className="break-all font-mono">
+                                  {item.doctorId}
+                                </dd>
+                              </div>
+                            ) : null}
+                            {item.patientId ? (
+                              <div className="flex gap-2">
+                                <dt>{copy.patient}:</dt>
+                                <dd className="break-all font-mono">
+                                  {item.patientId}
+                                </dd>
+                              </div>
+                            ) : null}
+                            {item.platform ? (
+                              <div className="flex gap-2">
+                                <dt>{copy.run}:</dt>
+                                <dd>
+                                  {[item.runId, item.platform]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </dd>
+                              </div>
+                            ) : null}
+                          </dl>
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={href}>
+                              <ExternalLink className="h-4 w-4" />
+                              {copy.openRecord}
+                            </Link>
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : orphanedTwoPQPending ? (
+                  <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    {copy.loadingArtifacts}
+                  </div>
+                ) : (
+                  <div className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
+                    {copy.noArtifacts}
+                  </div>
+                )}
+              </div>
+
+              {orphanedTwoPQHasMore ? (
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={orphanedTwoPQPending}
+                    onClick={() =>
+                      void loadOrphanedTwoPQAssignments(
+                        selectedTwoPQSummary,
+                        true,
+                      )
+                    }
+                  >
+                    {orphanedTwoPQPending ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ClipboardList className="h-4 w-4" />
+                    )}
+                    {copy.loadMore}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => setSelectedTwoPQSummary(null)}
             >
               {copy.closeReview}
             </Button>

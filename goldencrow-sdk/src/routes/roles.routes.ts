@@ -7,6 +7,7 @@ import {
   deleteRoleUserForContext,
   getUserRoleForContext,
   listOrphanedOwnerArtifactsForContext,
+  listOrphanedTwoPQAssignmentsForContext,
   listTransportDispatchersForContext,
   listUserRolesForContext,
   upsertUserRoleForContext,
@@ -140,6 +141,52 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
             recordCursor: request.query.recordCursor,
             codeDone: request.query.codeDone === "1",
             recordDone: request.query.recordDone === "1",
+          },
+        );
+        return reply.send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  f.get(
+    "/roles/deletion/orphaned-two-pq-assignments",
+    {
+      schema: {
+        querystring: z.object({
+          entityKind: z.enum(["doctor", "patient", "professional"]),
+          entityId: z.string().min(1),
+          limit: z.coerce.number().int().min(1).max(20).default(20),
+          caseCursor: z.string().min(1).optional(),
+          batchCursor: z.string().min(1).optional(),
+          casesDone: z.literal("1").optional(),
+          batchesDone: z.literal("1").optional(),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await listOrphanedTwoPQAssignmentsForContext(
+          request.adminContext,
+          {
+            entityKind: request.query.entityKind,
+            entityId: request.query.entityId,
+            limit: request.query.limit,
+            caseCursor: request.query.caseCursor,
+            batchCursor: request.query.batchCursor,
+            casesDone: request.query.casesDone === "1",
+            batchesDone: request.query.batchesDone === "1",
           },
         );
         return reply.send(result);

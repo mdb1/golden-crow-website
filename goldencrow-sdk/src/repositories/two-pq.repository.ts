@@ -15,6 +15,7 @@ import {
   getTwoPQCaseLinkedServiceTransactionSnapshot,
 } from "./support-services.repository.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
+import { resolveMissingTwoPQAssignedEntities } from "../lib/two-pq-assignment-integrity.js";
 import type {
   AdminContext,
   DoctorListItem,
@@ -1963,6 +1964,11 @@ export async function getTwoPQDetailForContext(
     linkedCases,
     linkedSamplings,
     linkedServiceTransaction,
+    missingAssignedEntities: resolveMissingTwoPQAssignedEntities(record, {
+      institutionExists: Boolean(institution),
+      doctorExists: Boolean(doctor),
+      patientExists: Boolean(patient),
+    }),
   };
 }
 

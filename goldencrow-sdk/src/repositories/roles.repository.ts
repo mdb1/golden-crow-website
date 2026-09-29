@@ -87,6 +87,7 @@ export interface RoleAccountDeletionStepResult {
   deletedCount: number;
   message: string;
   orphanedArtifacts?: RoleAccountOrphanedArtifactSummary;
+  orphanedTwoPQAssignments?: RoleAccountOrphanedTwoPQSummary;
 }
 
 export interface RoleAccountOrphanedArtifactPage {
@@ -94,6 +95,43 @@ export interface RoleAccountOrphanedArtifactPage {
   nextCursors: {
     code: string | null;
     record: string | null;
+  };
+}
+
+export type RoleAccountTwoPQEntityKind =
+  | "doctor"
+  | "patient"
+  | "professional";
+
+export interface RoleAccountOrphanedTwoPQSummary {
+  entityKind: RoleAccountTwoPQEntityKind;
+  entityId: string;
+  caseCount: number;
+  batchCount: number;
+  totalCount: number;
+}
+
+export interface RoleAccountOrphanedTwoPQAssignment {
+  collection: "2pq_case" | "2pq_sequencing";
+  id: string;
+  entityKind: RoleAccountTwoPQEntityKind;
+  entityId: string;
+  institutionId?: string;
+  doctorId?: string;
+  patientId?: string;
+  caseLabel?: string;
+  caseStatus?: string;
+  threeLetterCode?: string;
+  runId?: string;
+  platform?: string;
+  analysisStatus?: string;
+}
+
+export interface RoleAccountOrphanedTwoPQPage {
+  items: RoleAccountOrphanedTwoPQAssignment[];
+  nextCursors: {
+    cases: string | null;
+    batches: string | null;
   };
 }
 
@@ -811,6 +849,184 @@ export async function listOrphanedOwnerArtifactsForContext(
   };
 }
 
+function twoPQAssignmentScope(record: UserRoleRecord): {
+  entityKind: RoleAccountTwoPQEntityKind;
+  entityId: string;
+  field: "doctorId" | "patientId";
+} | null {
+  if (record.patientId) {
+    return {
+      entityKind: "patient",
+      entityId: record.patientId,
+      field: "patientId",
+    };
+  }
+  if (record.doctorId) {
+    return {
+      entityKind: "doctor",
+      entityId: record.doctorId,
+      field: "doctorId",
+    };
+  }
+  if (record.individualId) {
+    return {
+      entityKind: "professional",
+      entityId: record.individualId,
+      field: "doctorId",
+    };
+  }
+  return null;
+}
+
+async function countTwoPQAssignments(
+  collection: "2pq_case" | "2pq_sequencing",
+  field: "doctorId" | "patientId",
+  entityId: string,
+) {
+  const snapshot = await adminDb
+    .collection(collection)
+    .where(field, "==", entityId)
+    .count()
+    .get();
+  return snapshot.data().count;
+}
+
+async function orphanedTwoPQAssignmentSummary(record: UserRoleRecord) {
+  const scope = twoPQAssignmentScope(record);
+  if (!scope) {
+    return undefined;
+  }
+
+  const [caseCount, batchCount] = await Promise.all([
+    countTwoPQAssignments("2pq_case", scope.field, scope.entityId),
+    countTwoPQAssignments("2pq_sequencing", scope.field, scope.entityId),
+  ]);
+  return {
+    entityKind: scope.entityKind,
+    entityId: scope.entityId,
+    caseCount,
+    batchCount,
+    totalCount: caseCount + batchCount,
+  } satisfies RoleAccountOrphanedTwoPQSummary;
+}
+
+function orphanedTwoPQAssignmentFromSnapshot(
+  collection: RoleAccountOrphanedTwoPQAssignment["collection"],
+  entityKind: RoleAccountTwoPQEntityKind,
+  entityId: string,
+  snapshot: { id: string; data(): Record<string, unknown> },
+): RoleAccountOrphanedTwoPQAssignment {
+  const data = snapshot.data();
+  return {
+    collection,
+    id: snapshot.id,
+    entityKind,
+    entityId,
+    institutionId: normalizeOptionalString(data.institutionId),
+    doctorId: normalizeOptionalString(data.doctorId),
+    patientId: normalizeOptionalString(data.patientId),
+    caseLabel: normalizeOptionalString(data.caseLabel),
+    caseStatus: normalizeOptionalString(data.caseStatus),
+    threeLetterCode: normalizeOptionalString(data.three_letter_code),
+    runId: normalizeOptionalString(data.runId),
+    platform: normalizeOptionalString(data.platform),
+    analysisStatus: normalizeOptionalString(data.analysisStatus),
+  };
+}
+
+async function listTwoPQAssignmentPage(input: {
+  collection: RoleAccountOrphanedTwoPQAssignment["collection"];
+  entityKind: RoleAccountTwoPQEntityKind;
+  entityId: string;
+  cursor?: string;
+  limit: number;
+  done?: boolean;
+}) {
+  if (input.done) {
+    return { items: [], nextCursor: null as string | null };
+  }
+
+  const field = input.entityKind === "patient" ? "patientId" : "doctorId";
+  let query: Query = adminDb
+    .collection(input.collection)
+    .where(field, "==", input.entityId)
+    .orderBy(FieldPath.documentId());
+  if (input.cursor) {
+    query = query.startAfter(input.cursor);
+  }
+  const snapshot = await query.limit(input.limit + 1).get();
+  const hasMore = snapshot.docs.length > input.limit;
+  const visibleDocs = snapshot.docs.slice(0, input.limit);
+
+  return {
+    items: visibleDocs.map((document) =>
+      orphanedTwoPQAssignmentFromSnapshot(
+        input.collection,
+        input.entityKind,
+        input.entityId,
+        {
+          id: document.id,
+          data: () => document.data() as Record<string, unknown>,
+        },
+      ),
+    ),
+    nextCursor: hasMore ? (visibleDocs.at(-1)?.id ?? null) : null,
+  };
+}
+
+export async function listOrphanedTwoPQAssignmentsForContext(
+  context: AdminContext,
+  input: {
+    entityKind: RoleAccountTwoPQEntityKind;
+    entityId: string;
+    limit?: number;
+    caseCursor?: string;
+    batchCursor?: string;
+    casesDone?: boolean;
+    batchesDone?: boolean;
+  },
+): Promise<RoleAccountOrphanedTwoPQPage> {
+  if (!isGlobalAdminRole(context.role)) {
+    throw new AdminRepositoryError(
+      "Only full admins and 2PQ admins can review orphaned 2PQ assignments.",
+      403,
+    );
+  }
+
+  const entityId = input.entityId.trim();
+  if (!entityId) {
+    throw new AdminRepositoryError("A linked entity id is required.", 400);
+  }
+
+  const limit = Math.min(Math.max(Math.trunc(input.limit ?? 20), 1), 20);
+  const [cases, batches] = await Promise.all([
+    listTwoPQAssignmentPage({
+      collection: "2pq_case",
+      entityKind: input.entityKind,
+      entityId,
+      cursor: input.caseCursor,
+      limit,
+      done: input.casesDone,
+    }),
+    listTwoPQAssignmentPage({
+      collection: "2pq_sequencing",
+      entityKind: input.entityKind,
+      entityId,
+      cursor: input.batchCursor,
+      limit,
+      done: input.batchesDone,
+    }),
+  ]);
+
+  return {
+    items: [...cases.items, ...batches.items],
+    nextCursors: {
+      cases: cases.nextCursor,
+      batches: batches.nextCursor,
+    },
+  };
+}
+
 async function resolveDeletionIdentityIds(
   normalizedEmail: string,
   record: UserRoleRecord,
@@ -861,8 +1077,9 @@ async function deleteLinkedPersonalEntity(
     );
   }
 
+  const twoPQSummary = await orphanedTwoPQAssignmentSummary(record);
   const deletedCount = await deleteRoleAccountDocumentRefs(refs);
-  return deletionStepResult(
+  const result = deletionStepResult(
     "linked_entity",
     deletedCount,
     `Deleted ${deletedCount} linked personal or professional record(s).`,
@@ -870,6 +1087,15 @@ async function deleteLinkedPersonalEntity(
       ? "No personal entity was deleted because organization publisher records are shared entities."
       : "No linked patient, doctor, or professional individual record was available.",
   );
+  if (!twoPQSummary) {
+    return result;
+  }
+
+  return {
+    ...result,
+    message: `${result.message} Preserved ${twoPQSummary.caseCount} 2PQ case(s) and ${twoPQSummary.batchCount} sequencing batch(es); none were deleted or reassigned.`,
+    orphanedTwoPQAssignments: twoPQSummary,
+  };
 }
 
 async function deleteCommunityAccountData(

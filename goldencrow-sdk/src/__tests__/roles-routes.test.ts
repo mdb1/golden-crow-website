@@ -7,6 +7,7 @@ import type { AdminContext } from "../types/sdk.types.js";
 
 const mockDeleteRoleAccountStepForContext = jest.fn();
 const mockListOrphanedOwnerArtifactsForContext = jest.fn();
+const mockListOrphanedTwoPQAssignmentsForContext = jest.fn();
 
 jest.mock("../repositories/roles.repository.js", () => ({
   deleteRoleAccountStepForContext: mockDeleteRoleAccountStepForContext,
@@ -14,6 +15,8 @@ jest.mock("../repositories/roles.repository.js", () => ({
   getUserRoleForContext: jest.fn(),
   listOrphanedOwnerArtifactsForContext:
     mockListOrphanedOwnerArtifactsForContext,
+  listOrphanedTwoPQAssignmentsForContext:
+    mockListOrphanedTwoPQAssignmentsForContext,
   listTransportDispatchersForContext: jest.fn(),
   listUserRolesForContext: jest.fn(),
   upsertUserRoleForContext: jest.fn(),
@@ -61,6 +64,33 @@ describe("role deletion routes", () => {
       items: [],
       nextCursors: { code: null, record: null },
     });
+    mockListOrphanedTwoPQAssignmentsForContext.mockResolvedValue({
+      items: [],
+      nextCursors: { cases: null, batches: null },
+    });
+  });
+
+  it("passes bounded 2PQ orphan-review pagination to the repository", async () => {
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/roles/deletion/orphaned-two-pq-assignments?entityKind=patient&entityId=PAT-00001&limit=20&caseCursor=CASE-00020&batchesDone=1",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockListOrphanedTwoPQAssignmentsForContext).toHaveBeenCalledWith(
+      adminContext,
+      {
+        entityKind: "patient",
+        entityId: "PAT-00001",
+        limit: 20,
+        caseCursor: "CASE-00020",
+        batchCursor: undefined,
+        casesDone: false,
+        batchesDone: true,
+      },
+    );
+    await fastify.close();
   });
 
   it("passes bounded orphan-review pagination to the repository", async () => {

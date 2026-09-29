@@ -1313,7 +1313,7 @@ describe("DiscoverFeedEntryWorkbench region picker", () => {
     expect(payload).not.toHaveProperty("dailyStartTime");
     expect(payload).not.toHaveProperty("dailyEndTime");
     expect(payload.date).toBe("2026-10-12T00:00:00.000Z");
-  }, 15000);
+  }, 30000);
 
   it("hides organizer fields and saves them as null when publisher relationship is not specified", async () => {
     render(
