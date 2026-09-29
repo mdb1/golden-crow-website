@@ -238,6 +238,45 @@ describe("2PQ report-code owner persistence", () => {
       userId: "legacy-owner",
       ownerName: "Existing report owner",
       ownerEmail: "owner@example.com",
+      ownerExists: true,
+    });
+  });
+
+  it("marks a report as orphaned when its linked report owner is missing", async () => {
+    const { getReportById } =
+      await import("../repositories/reports.repository");
+    mockDocs.set("report_codes/CANXXX", {
+      owner_id: "deleted-owner",
+      uploaded_report_id: "uploaded-1",
+    });
+    mockDocs.set("uploaded_reports/uploaded-1", {
+      report_owner_id: "deleted-owner",
+      owner_name: "Historical owner snapshot",
+      owner_email: "historical@example.com",
+    });
+
+    await expect(getReportById("CANXXX")).resolves.toMatchObject({
+      userId: "deleted-owner",
+      ownerName: "Historical owner snapshot",
+      ownerEmail: "historical@example.com",
+      ownerExists: false,
+    });
+  });
+
+  it("checks report owner existence without relying on moderation visibility", async () => {
+    const { getReportOwnerExistence } =
+      await import("../repositories/reports.repository");
+    mockDocs.set("report_owners/owner-1", {
+      owner_name: "Organization owner",
+    });
+
+    await expect(getReportOwnerExistence("owner-1")).resolves.toEqual({
+      ownerId: "owner-1",
+      exists: true,
+    });
+    await expect(getReportOwnerExistence("deleted-owner")).resolves.toEqual({
+      ownerId: "deleted-owner",
+      exists: false,
     });
   });
 

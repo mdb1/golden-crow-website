@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import {
+  ArchiveRestore,
   CheckCircle2,
   CircleMinus,
   CircleX,
+  ExternalLink,
   FileText,
   LoaderCircle,
   PartyPopper,
@@ -54,6 +57,7 @@ type ServerStepResult = {
   status: "deleted" | "not_found";
   deletedCount: number;
   message: string;
+  orphanedArtifacts?: OrphanedArtifactSummary;
 };
 type FailedStepResult = {
   step: DeletionStep;
@@ -63,6 +67,34 @@ type FailedStepResult = {
   log: string;
 };
 type StepResult = ServerStepResult | FailedStepResult;
+type OrphanedArtifactKind = "reports" | "objects";
+type OrphanedArtifactSummary = {
+  kind: OrphanedArtifactKind;
+  ownerIds: string[];
+  codeCount: number;
+  recordCount: number;
+  totalCount: number;
+};
+type OrphanedArtifactItem = {
+  collection:
+    | "report_codes"
+    | "uploaded_reports"
+    | "object_codes"
+    | "uploaded_objects";
+  id: string;
+  ownerId: string;
+  code?: string;
+  linkedRecordId?: string;
+  fileName?: string;
+  objectType?: string;
+};
+type OrphanedArtifactPage = {
+  items: OrphanedArtifactItem[];
+  nextCursors: {
+    code: string | null;
+    record: string | null;
+  };
+};
 
 const STEP_LABELS: Record<DeletionStep, { en: string; es: string }> = {
   linked_entity: {
@@ -126,6 +158,23 @@ function roleDeleteCopy(language: "en" | "es") {
         closeLog: "Cerrar log",
         records: "registros",
         processing: "Procesando",
+        nextStepTitle: "Siguiente paso: revisar registros sin propietario",
+        nextStepBody:
+          "Los códigos y registros asociados permanecen intactos. Revisalos ahora para decidir cuáles deberán reasignarse más adelante.",
+        reviewReports: "Revisar reportes sin propietario",
+        reviewObjects: "Revisar objetos sin propietario",
+        orphanedReportsTitle: "Reportes y códigos sin propietario",
+        orphanedObjectsTitle: "Objetos y códigos sin propietario",
+        orphanedDescription:
+          "Estos registros no se eliminaron ni se reasignaron. Siguen vinculados al identificador del propietario eliminado.",
+        loadMore: "Cargar más",
+        loadingArtifacts: "Cargando registros...",
+        noArtifacts: "No se encontraron registros vinculados.",
+        closeReview: "Cerrar revisión",
+        codeRecords: "códigos",
+        ownedRecords: "registros",
+        openRecord: "Abrir",
+        reviewFailed: "No se pudo cargar la lista de registros sin propietario.",
       }
     : {
         trigger: "Delete role",
@@ -163,7 +212,34 @@ function roleDeleteCopy(language: "en" | "es") {
         closeLog: "Close log",
         records: "records",
         processing: "Processing",
+        nextStepTitle: "Next step: review ownerless records",
+        nextStepBody:
+          "Associated codes and records remain intact. Review them now to decide which ones should be reassigned later.",
+        reviewReports: "Review ownerless reports",
+        reviewObjects: "Review ownerless objects",
+        orphanedReportsTitle: "Ownerless reports and codes",
+        orphanedObjectsTitle: "Ownerless objects and codes",
+        orphanedDescription:
+          "These records were not deleted or reassigned. They still reference the deleted owner id.",
+        loadMore: "Load more",
+        loadingArtifacts: "Loading records...",
+        noArtifacts: "No linked records were found.",
+        closeReview: "Close review",
+        codeRecords: "codes",
+        ownedRecords: "records",
+        openRecord: "Open",
+        reviewFailed: "Unable to load the ownerless record list.",
       };
+}
+
+function orphanedArtifactHref(item: OrphanedArtifactItem) {
+  if (item.collection === "report_codes") {
+    return `/reports/${encodeURIComponent(item.id)}?from=report-codes`;
+  }
+  if (item.collection === "uploaded_reports") {
+    return `/reports/uploads/${encodeURIComponent(item.id)}`;
+  }
+  return null;
 }
 
 export function RoleDeleteDialog({
@@ -185,6 +261,14 @@ export function RoleDeleteDialog({
   const [currentStep, setCurrentStep] = useState<DeletionStep | null>(null);
   const [results, setResults] = useState<StepResult[]>([]);
   const [selectedLog, setSelectedLog] = useState<FailedStepResult | null>(null);
+  const [selectedOrphanSummary, setSelectedOrphanSummary] =
+    useState<OrphanedArtifactSummary | null>(null);
+  const [orphanedItems, setOrphanedItems] = useState<OrphanedArtifactItem[]>([]);
+  const [orphanedNextCursors, setOrphanedNextCursors] = useState<
+    OrphanedArtifactPage["nextCursors"] | null
+  >(null);
+  const [orphanedPending, setOrphanedPending] = useState(false);
+  const [orphanedError, setOrphanedError] = useState<string | null>(null);
   const canDelete = canDeleteRoleRecord(adminContext, roleRecord);
   const steps =
     scope === "account" ? ACCOUNT_DELETION_STEPS : (["role"] as const);
@@ -193,6 +277,20 @@ export function RoleDeleteDialog({
   const resultByStep = useMemo(
     () => new Map(results.map((result) => [result.step, result])),
     [results],
+  );
+  const orphanedSummaries = useMemo(
+    () =>
+      results.flatMap((result) =>
+        result.status !== "failed" &&
+        result.orphanedArtifacts &&
+        result.orphanedArtifacts.totalCount > 0
+          ? [result.orphanedArtifacts]
+          : [],
+      ),
+    [results],
+  );
+  const orphanedHasMore = Boolean(
+    orphanedNextCursors?.code || orphanedNextCursors?.record,
   );
 
   if (!canDelete) {
@@ -206,6 +304,11 @@ export function RoleDeleteDialog({
     setCurrentStep(null);
     setResults([]);
     setSelectedLog(null);
+    setSelectedOrphanSummary(null);
+    setOrphanedItems([]);
+    setOrphanedNextCursors(null);
+    setOrphanedPending(false);
+    setOrphanedError(null);
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -279,6 +382,59 @@ export function RoleDeleteDialog({
     setCurrentStep(null);
     setRunning(false);
     setFinished(true);
+  }
+
+  async function loadOrphanedArtifacts(
+    summary: OrphanedArtifactSummary,
+    append: boolean,
+  ) {
+    setOrphanedPending(true);
+    setOrphanedError(null);
+
+    try {
+      const query = new URLSearchParams({
+        kind: summary.kind,
+        ownerIds: summary.ownerIds.join(","),
+        limit: "20",
+      });
+      if (append && orphanedNextCursors) {
+        if (orphanedNextCursors.code) {
+          query.set("codeCursor", orphanedNextCursors.code);
+        } else {
+          query.set("codeDone", "1");
+        }
+        if (orphanedNextCursors.record) {
+          query.set("recordCursor", orphanedNextCursors.record);
+        } else {
+          query.set("recordDone", "1");
+        }
+      }
+
+      const page = await sdkFetch<OrphanedArtifactPage>(
+        `/roles/deletion/orphaned-artifacts?${query.toString()}`,
+      );
+      setOrphanedItems((current) => {
+        const combined = append ? [...current, ...page.items] : page.items;
+        return [
+          ...new Map(
+            combined.map((item) => [`${item.collection}/${item.id}`, item]),
+          ).values(),
+        ];
+      });
+      setOrphanedNextCursors(page.nextCursors);
+    } catch {
+      setOrphanedError(copy.reviewFailed);
+    } finally {
+      setOrphanedPending(false);
+    }
+  }
+
+  function openOrphanedArtifacts(summary: OrphanedArtifactSummary) {
+    setSelectedOrphanSummary(summary);
+    setOrphanedItems([]);
+    setOrphanedNextCursors(null);
+    setOrphanedError(null);
+    void loadOrphanedArtifacts(summary, false);
   }
 
   return (
@@ -477,6 +633,39 @@ export function RoleDeleteDialog({
                 );
               })}
             </div>
+
+            {finished && orphanedSummaries.length > 0 ? (
+              <div className="rounded-md border border-violet-300/70 bg-violet-50/80 p-4 text-violet-950 dark:border-violet-400/25 dark:bg-violet-400/10 dark:text-violet-100">
+                <div className="flex items-start gap-3">
+                  <ArchiveRestore className="mt-0.5 h-5 w-5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">{copy.nextStepTitle}</p>
+                    <p className="mt-1 text-sm leading-6 text-violet-900/80 dark:text-violet-100/75">
+                      {copy.nextStepBody}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {orphanedSummaries.map((summary) => (
+                        <Button
+                          key={summary.kind}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openOrphanedArtifacts(summary)}
+                        >
+                          <ArchiveRestore className="h-4 w-4" />
+                          {summary.kind === "reports"
+                            ? copy.reviewReports
+                            : copy.reviewObjects}
+                          <Badge variant="secondary">
+                            {summary.totalCount}
+                          </Badge>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -545,6 +734,149 @@ export function RoleDeleteDialog({
           <DialogFooter>
             <Button type="button" onClick={() => setSelectedLog(null)}>
               {copy.closeLog}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={selectedOrphanSummary !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setSelectedOrphanSummary(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-6xl">
+          <DialogHeader className="pr-10">
+            <DialogTitle className="font-heading text-xl">
+              {selectedOrphanSummary?.kind === "objects"
+                ? copy.orphanedObjectsTitle
+                : copy.orphanedReportsTitle}
+            </DialogTitle>
+            <DialogDescription>{copy.orphanedDescription}</DialogDescription>
+          </DialogHeader>
+
+          {selectedOrphanSummary ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">
+                  {selectedOrphanSummary.codeCount} {copy.codeRecords}
+                </Badge>
+                <Badge variant="secondary">
+                  {selectedOrphanSummary.recordCount} {copy.ownedRecords}
+                </Badge>
+                {selectedOrphanSummary.ownerIds.map((ownerId) => (
+                  <Badge key={ownerId} variant="outline">
+                    {ownerId}
+                  </Badge>
+                ))}
+              </div>
+
+              {orphanedError ? (
+                <div className="rounded-md border border-destructive/40 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+                  {orphanedError}
+                </div>
+              ) : null}
+
+              <div className="max-h-[58vh] overflow-auto rounded-md border border-border">
+                {orphanedItems.length > 0 ? (
+                  <div className="divide-y divide-border">
+                    {orphanedItems.map((item) => {
+                      const href = orphanedArtifactHref(item);
+                      return (
+                        <div
+                          key={`${item.collection}/${item.id}`}
+                          className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline">{item.collection}</Badge>
+                              {item.objectType ? (
+                                <Badge variant="secondary">
+                                  {item.objectType}
+                                </Badge>
+                              ) : null}
+                            </div>
+                            <p className="mt-2 break-all font-mono text-sm font-medium text-foreground">
+                              {item.code ?? item.id}
+                            </p>
+                            {item.fileName ? (
+                              <p className="mt-1 break-words text-xs text-muted-foreground">
+                                {item.fileName}
+                              </p>
+                            ) : null}
+                          </div>
+                          <dl className="grid gap-1 text-xs text-muted-foreground">
+                            <div className="flex gap-2">
+                              <dt>Document:</dt>
+                              <dd className="break-all font-mono">{item.id}</dd>
+                            </div>
+                            <div className="flex gap-2">
+                              <dt>Owner:</dt>
+                              <dd className="break-all font-mono">
+                                {item.ownerId}
+                              </dd>
+                            </div>
+                            {item.linkedRecordId ? (
+                              <div className="flex gap-2">
+                                <dt>Linked:</dt>
+                                <dd className="break-all font-mono">
+                                  {item.linkedRecordId}
+                                </dd>
+                              </div>
+                            ) : null}
+                          </dl>
+                          {href ? (
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={href}>
+                                <ExternalLink className="h-4 w-4" />
+                                {copy.openRecord}
+                              </Link>
+                            </Button>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : orphanedPending ? (
+                  <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    {copy.loadingArtifacts}
+                  </div>
+                ) : (
+                  <div className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
+                    {copy.noArtifacts}
+                  </div>
+                )}
+              </div>
+
+              {orphanedHasMore ? (
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={orphanedPending}
+                    onClick={() =>
+                      void loadOrphanedArtifacts(selectedOrphanSummary, true)
+                    }
+                  >
+                    {orphanedPending ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ArchiveRestore className="h-4 w-4" />
+                    )}
+                    {copy.loadMore}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => setSelectedOrphanSummary(null)}
+            >
+              {copy.closeReview}
             </Button>
           </DialogFooter>
         </DialogContent>

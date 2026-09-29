@@ -1,5 +1,9 @@
 import { adminAuthFor, adminDbFor } from "../config/firebase.js";
-import type { DocumentReference } from "firebase-admin/firestore";
+import {
+  FieldPath,
+  type DocumentReference,
+  type Query,
+} from "firebase-admin/firestore";
 
 // Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
 // downstream `adminDb.collection(...)` call below uses the named-app
@@ -53,12 +57,60 @@ export const ROLE_ACCOUNT_DELETION_STEPS = [
 export type RoleAccountDeletionStep =
   (typeof ROLE_ACCOUNT_DELETION_STEPS)[number];
 
+export type RoleAccountOrphanedArtifactKind = "reports" | "objects";
+
+export interface RoleAccountOrphanedArtifactSummary {
+  kind: RoleAccountOrphanedArtifactKind;
+  ownerIds: string[];
+  codeCount: number;
+  recordCount: number;
+  totalCount: number;
+}
+
+export interface RoleAccountOrphanedArtifact {
+  collection:
+    | "report_codes"
+    | "uploaded_reports"
+    | "object_codes"
+    | "uploaded_objects";
+  id: string;
+  ownerId: string;
+  code?: string;
+  linkedRecordId?: string;
+  fileName?: string;
+  objectType?: string;
+}
+
 export interface RoleAccountDeletionStepResult {
   step: RoleAccountDeletionStep;
   status: "deleted" | "not_found";
   deletedCount: number;
   message: string;
+  orphanedArtifacts?: RoleAccountOrphanedArtifactSummary;
 }
+
+export interface RoleAccountOrphanedArtifactPage {
+  items: RoleAccountOrphanedArtifact[];
+  nextCursors: {
+    code: string | null;
+    record: string | null;
+  };
+}
+
+const ORPHANED_ARTIFACT_CONFIG = {
+  reports: {
+    codeCollection: "report_codes",
+    codeOwnerField: "owner_id",
+    recordCollection: "uploaded_reports",
+    recordOwnerField: "report_owner_id",
+  },
+  objects: {
+    codeCollection: "object_codes",
+    codeOwnerField: "owner_id",
+    recordCollection: "uploaded_objects",
+    recordOwnerField: "object_owner_id",
+  },
+} as const;
 
 const GLOBAL_ADMIN_ASSIGNABLE_ROLES: AdminRole[] = [
   "full_admin",
@@ -546,6 +598,219 @@ async function queryDocumentRefs(
   return snapshots.flatMap((snapshot) => snapshot.docs.map((doc) => doc.ref));
 }
 
+function normalizedOwnerIds(ownerIds: string[]) {
+  return [...new Set(ownerIds.map((ownerId) => ownerId.trim()).filter(Boolean))];
+}
+
+function ownedArtifactQuery(
+  collection: string,
+  ownerField: string,
+  ownerIds: string[],
+) {
+  const normalizedIds = normalizedOwnerIds(ownerIds);
+  if (normalizedIds.length === 0) {
+    return null;
+  }
+
+  if (normalizedIds.length > 10) {
+    throw new AdminRepositoryError(
+      "At most 10 owner ids can be reviewed at once.",
+      400,
+    );
+  }
+
+  return adminDb
+    .collection(collection)
+    .where(
+      ownerField,
+      normalizedIds.length === 1 ? "==" : "in",
+      normalizedIds.length === 1 ? normalizedIds[0] : normalizedIds,
+    );
+}
+
+async function countOwnedArtifacts(
+  collection: string,
+  ownerField: string,
+  ownerIds: string[],
+) {
+  const query = ownedArtifactQuery(collection, ownerField, ownerIds);
+  if (!query) {
+    return 0;
+  }
+
+  const snapshot = await query.count().get();
+  return snapshot.data().count;
+}
+
+async function orphanedArtifactSummary(
+  kind: RoleAccountOrphanedArtifactKind,
+  ownerIds: string[],
+): Promise<RoleAccountOrphanedArtifactSummary> {
+  const normalizedIds = normalizedOwnerIds(ownerIds);
+  const config = ORPHANED_ARTIFACT_CONFIG[kind];
+  const [codeCount, recordCount] = await Promise.all([
+    countOwnedArtifacts(
+      config.codeCollection,
+      config.codeOwnerField,
+      normalizedIds,
+    ),
+    countOwnedArtifacts(
+      config.recordCollection,
+      config.recordOwnerField,
+      normalizedIds,
+    ),
+  ]);
+
+  return {
+    kind,
+    ownerIds: normalizedIds,
+    codeCount,
+    recordCount,
+    totalCount: codeCount + recordCount,
+  };
+}
+
+function orphanedArtifactFromSnapshot(
+  kind: RoleAccountOrphanedArtifactKind,
+  collection: RoleAccountOrphanedArtifact["collection"],
+  ownerField: string,
+  snapshot: { id: string; data(): Record<string, unknown> },
+): RoleAccountOrphanedArtifact {
+  const data = snapshot.data();
+  const isCode = collection === "report_codes" || collection === "object_codes";
+  const code =
+    collection === "report_codes"
+      ? snapshot.id
+      : normalizeOptionalString(data.object_code) ??
+        (collection === "object_codes" ? snapshot.id : undefined);
+  const linkedRecordId = isCode
+    ? normalizeOptionalString(
+        data[
+          collection === "report_codes"
+            ? "uploaded_report_id"
+            : "uploaded_object_id"
+        ],
+      )
+    : undefined;
+
+  return {
+    collection,
+    id: snapshot.id,
+    ownerId: normalizeOptionalString(data[ownerField]) ?? "",
+    code:
+      code ??
+      normalizeOptionalString(
+        data[kind === "reports" ? "report_code" : "object_code"],
+      ),
+    linkedRecordId,
+    fileName: normalizeOptionalString(data.file_name),
+    objectType:
+      kind === "objects" ? normalizeOptionalString(data.object_type) : undefined,
+  };
+}
+
+async function listOwnedArtifactPage(input: {
+  kind: RoleAccountOrphanedArtifactKind;
+  collection: RoleAccountOrphanedArtifact["collection"];
+  ownerField: string;
+  ownerIds: string[];
+  cursor?: string;
+  limit: number;
+  done?: boolean;
+}) {
+  if (input.done) {
+    return { items: [], nextCursor: null as string | null };
+  }
+
+  const baseQuery = ownedArtifactQuery(
+    input.collection,
+    input.ownerField,
+    input.ownerIds,
+  );
+  if (!baseQuery) {
+    return { items: [], nextCursor: null as string | null };
+  }
+
+  let query: Query = baseQuery.orderBy(FieldPath.documentId());
+  if (input.cursor) {
+    query = query.startAfter(input.cursor);
+  }
+  const snapshot = await query.limit(input.limit + 1).get();
+  const hasMore = snapshot.docs.length > input.limit;
+  const visibleDocs = snapshot.docs.slice(0, input.limit);
+
+  return {
+    items: visibleDocs.map((document) =>
+      orphanedArtifactFromSnapshot(
+        input.kind,
+        input.collection,
+        input.ownerField,
+        {
+          id: document.id,
+          data: () => document.data() as Record<string, unknown>,
+        },
+      ),
+    ),
+    nextCursor: hasMore ? (visibleDocs.at(-1)?.id ?? null) : null,
+  };
+}
+
+export async function listOrphanedOwnerArtifactsForContext(
+  context: AdminContext,
+  input: {
+    kind: RoleAccountOrphanedArtifactKind;
+    ownerIds: string[];
+    limit?: number;
+    codeCursor?: string;
+    recordCursor?: string;
+    codeDone?: boolean;
+    recordDone?: boolean;
+  },
+): Promise<RoleAccountOrphanedArtifactPage> {
+  if (!isGlobalAdminRole(context.role)) {
+    throw new AdminRepositoryError(
+      "Only full admins and 2PQ admins can review orphaned owner artifacts.",
+      403,
+    );
+  }
+
+  const ownerIds = normalizedOwnerIds(input.ownerIds);
+  if (ownerIds.length === 0) {
+    throw new AdminRepositoryError("At least one owner id is required.", 400);
+  }
+
+  const limit = Math.min(Math.max(Math.trunc(input.limit ?? 20), 1), 20);
+  const config = ORPHANED_ARTIFACT_CONFIG[input.kind];
+  const [codes, records] = await Promise.all([
+    listOwnedArtifactPage({
+      kind: input.kind,
+      collection: config.codeCollection,
+      ownerField: config.codeOwnerField,
+      ownerIds,
+      cursor: input.codeCursor,
+      limit,
+      done: input.codeDone,
+    }),
+    listOwnedArtifactPage({
+      kind: input.kind,
+      collection: config.recordCollection,
+      ownerField: config.recordOwnerField,
+      ownerIds,
+      cursor: input.recordCursor,
+      limit,
+      done: input.recordDone,
+    }),
+  ]);
+
+  return {
+    items: [...codes.items, ...records.items],
+    nextCursors: {
+      code: codes.nextCursor,
+      record: records.nextCursor,
+    },
+  };
+}
+
 async function resolveDeletionIdentityIds(
   normalizedEmail: string,
   record: UserRoleRecord,
@@ -555,6 +820,7 @@ async function resolveDeletionIdentityIds(
     authUid,
     ownerIds: [
       authUid,
+      record.communityUserId,
       record.patientId,
       record.doctorId,
       record.individualId,
@@ -624,25 +890,37 @@ async function deleteCommunityAccountData(
 }
 
 async function deleteReportAccountData(ownerIds: string[]) {
+  const summary = await orphanedArtifactSummary("reports", ownerIds);
   const refs = await existingDocumentRefs("report_owners", ownerIds);
   const deletedCount = await deleteRoleAccountDocumentRefs(refs);
-  return deletionStepResult(
+  const result = deletionStepResult(
     "reports",
     deletedCount,
     `Deleted ${deletedCount} report owner account(s).`,
     "No report owner account was available.",
   );
+  return {
+    ...result,
+    message: `${result.message} Preserved ${summary.codeCount} report code(s) and ${summary.recordCount} uploaded report(s); none were deleted or reassigned.`,
+    orphanedArtifacts: summary,
+  };
 }
 
 async function deleteObjectAccountData(ownerIds: string[]) {
+  const summary = await orphanedArtifactSummary("objects", ownerIds);
   const refs = await existingDocumentRefs("object_owners", ownerIds);
   const deletedCount = await deleteRoleAccountDocumentRefs(refs);
-  return deletionStepResult(
+  const result = deletionStepResult(
     "objects",
     deletedCount,
     `Deleted ${deletedCount} object owner account(s).`,
     "No object owner account was available.",
   );
+  return {
+    ...result,
+    message: `${result.message} Preserved ${summary.codeCount} object code(s) and ${summary.recordCount} uploaded object(s); none were deleted or reassigned.`,
+    orphanedArtifacts: summary,
+  };
 }
 
 export async function deleteRoleAccountStepForContext(

@@ -241,6 +241,7 @@ function toDnaReport(
   reportCode: ReportCodeDoc,
   uploadedReport?: UploadedReportDoc,
   reportOwner?: ReportOwnerDoc,
+  ownerExists?: boolean,
 ): DnaReport {
   const ownerId = resolveReportOwnerId(reportCode, uploadedReport);
   const ownerName =
@@ -273,6 +274,7 @@ function toDnaReport(
     trackingStatus: normalizeString(uploadedReport?.tracking_progress_status) ?? null,
     ownerName,
     ownerEmail,
+    ownerExists,
     ownerCommunityUserId: normalizeString(uploadedReport?.owner_community_user_id) ?? null,
     ownerPublicProfileId: normalizeString(uploadedReport?.owner_public_profile_id) ?? null,
     uploadVersionCount: normalizeUploadVersionCount(uploadedReport?.upload_version_count),
@@ -411,7 +413,26 @@ export async function getReportById(reportId: string): Promise<DnaReport | null>
     ? (reportOwnerSnap.data() as ReportOwnerDoc)
     : undefined;
 
-  return toDnaReport(reportCodeSnap.id, reportCode, uploadedReport, reportOwner);
+  return toDnaReport(
+    reportCodeSnap.id,
+    reportCode,
+    uploadedReport,
+    reportOwner,
+    ownerId ? Boolean(reportOwnerSnap?.exists) : undefined,
+  );
+}
+
+export async function getReportOwnerExistence(ownerId: string) {
+  const normalizedOwnerId = normalizeString(ownerId);
+  if (!normalizedOwnerId) {
+    throw new AdminRepositoryError("Report owner id is required.", 400);
+  }
+
+  const snapshot = await adminDb
+    .collection("report_owners")
+    .doc(normalizedOwnerId)
+    .get();
+  return { ownerId: normalizedOwnerId, exists: snapshot.exists };
 }
 
 /**

@@ -16,38 +16,77 @@ const mockGetUserByEmail = jest.fn();
 const mockGeneratePatientTemporaryPassword = jest.fn(() => "ABCDEFGH");
 const mockProvisionPatientFirebaseAccount = jest.fn();
 const mockSendPublisherPortalInviteEmail = jest.fn();
-const mockCollection = jest.fn((collectionName: string) => ({
-  doc: (id: string) => makeDocRef(collectionName, id),
-  where: (field: string, operator: string, value: unknown) => {
-    const matchingDocs = () =>
-      Array.from(mockDocs.entries())
-        .filter(([key, data]) => {
-          if (!key.startsWith(`${collectionName}/`)) {
-            return false;
-          }
-          if (operator !== "==") {
-            return false;
-          }
-          return data[field] === value;
-        })
-        .map(([key, data]) => {
-          const id = key.slice(`${collectionName}/`.length);
-          return {
-            id,
-            data: () => data,
-            ref: makeDocRef(collectionName, id),
-          };
-        });
-    const get = jest.fn(async () => ({ docs: matchingDocs() }));
 
-    return {
-      get,
-      limit: (limit: number) => ({
-        get: jest.fn(async () => ({ docs: matchingDocs().slice(0, limit) })),
-      }),
-    };
-  },
-}));
+type MockQueryState = {
+  field?: string;
+  operator?: string;
+  value?: unknown;
+  cursor?: string;
+  limit?: number;
+  ordered?: boolean;
+};
+
+function makeQuery(collectionName: string, state: MockQueryState = {}) {
+  const matchingDocs = () => {
+    const entries = Array.from(mockDocs.entries())
+      .filter(([key, data]) => {
+        if (!key.startsWith(`${collectionName}/`)) {
+          return false;
+        }
+        if (!state.field) {
+          return true;
+        }
+        if (state.operator === "==") {
+          return data[state.field] === state.value;
+        }
+        if (state.operator === "in" && Array.isArray(state.value)) {
+          return state.value.includes(data[state.field]);
+        }
+        return false;
+      })
+      .map(([key, data]) => {
+        const id = key.slice(`${collectionName}/`.length);
+        return {
+          id,
+          data: () => data,
+          ref: makeDocRef(collectionName, id),
+        };
+      });
+    if (state.ordered) {
+      entries.sort((left, right) => left.id.localeCompare(right.id));
+    }
+    const afterCursor = state.cursor
+      ? entries.filter((entry) => entry.id > state.cursor!)
+      : entries;
+    return state.limit === undefined
+      ? afterCursor
+      : afterCursor.slice(0, state.limit);
+  };
+
+  return {
+    doc: (id: string) => makeDocRef(collectionName, id),
+    where: (field: string, operator: string, value: unknown) =>
+      makeQuery(collectionName, { ...state, field, operator, value }),
+    orderBy: () => makeQuery(collectionName, { ...state, ordered: true }),
+    startAfter: (cursor: string) =>
+      makeQuery(collectionName, { ...state, cursor }),
+    limit: (limit: number) =>
+      makeQuery(collectionName, { ...state, limit }),
+    count: () => ({
+      get: jest.fn(async () => ({
+        data: () => ({ count: matchingDocs().length }),
+      })),
+    }),
+    get: jest.fn(async () => {
+      const docs = matchingDocs();
+      return { docs, empty: docs.length === 0, size: docs.length };
+    }),
+  };
+}
+
+const mockCollection = jest.fn((collectionName: string) =>
+  makeQuery(collectionName),
+);
 const mockBatch = jest.fn(() => {
   const refs: MockDocumentRef[] = [];
   return {
@@ -468,10 +507,22 @@ describe("role user deletion", () => {
     await expect(runStep("reports")).resolves.toMatchObject({
       status: "deleted",
       deletedCount: 1,
+      orphanedArtifacts: {
+        kind: "reports",
+        codeCount: 1,
+        recordCount: 1,
+        totalCount: 2,
+      },
     });
     await expect(runStep("objects")).resolves.toMatchObject({
       status: "deleted",
       deletedCount: 1,
+      orphanedArtifacts: {
+        kind: "objects",
+        codeCount: 1,
+        recordCount: 1,
+        totalCount: 2,
+      },
     });
     await expect(runStep("learning")).resolves.toMatchObject({
       status: "deleted",
@@ -497,6 +548,115 @@ describe("role user deletion", () => {
         "report_codes/RPT001",
       ].sort(),
     );
+  });
+
+  it("paginates preserved report artifacts for post-cleanup review", async () => {
+    const { listOrphanedOwnerArtifactsForContext } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("report_codes/RPT001", {
+      owner_id: "owner-1",
+      uploaded_report_id: "upload-1",
+    });
+    mockDocs.set("report_codes/RPT002", {
+      owner_id: "owner-1",
+      uploaded_report_id: "upload-2",
+    });
+    mockDocs.set("uploaded_reports/upload-1", {
+      report_owner_id: "owner-1",
+      report_code: "RPT001",
+      file_name: "first.pdf",
+    });
+
+    const firstPage = await listOrphanedOwnerArtifactsForContext(
+      { ...godModeContext, isBootstrap: false },
+      {
+        kind: "reports",
+        ownerIds: ["owner-1"],
+        limit: 1,
+      },
+    );
+
+    expect(firstPage).toEqual({
+      items: [
+        {
+          collection: "report_codes",
+          id: "RPT001",
+          ownerId: "owner-1",
+          code: "RPT001",
+          linkedRecordId: "upload-1",
+          fileName: undefined,
+          objectType: undefined,
+        },
+        {
+          collection: "uploaded_reports",
+          id: "upload-1",
+          ownerId: "owner-1",
+          code: "RPT001",
+          linkedRecordId: undefined,
+          fileName: "first.pdf",
+          objectType: undefined,
+        },
+      ],
+      nextCursors: { code: "RPT001", record: null },
+    });
+
+    const secondPage = await listOrphanedOwnerArtifactsForContext(
+      { ...godModeContext, isBootstrap: false },
+      {
+        kind: "reports",
+        ownerIds: ["owner-1"],
+        limit: 1,
+        codeCursor: firstPage.nextCursors.code ?? undefined,
+        recordDone: true,
+      },
+    );
+
+    expect(secondPage.items).toEqual([
+      expect.objectContaining({
+        collection: "report_codes",
+        id: "RPT002",
+        ownerId: "owner-1",
+      }),
+    ]);
+    expect(secondPage.nextCursors).toEqual({ code: null, record: null });
+  });
+
+  it("lists preserved object codes and uploaded objects without mutating them", async () => {
+    const { listOrphanedOwnerArtifactsForContext } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("object_codes/OBJ001", {
+      owner_id: "owner-1",
+      uploaded_object_id: "uploaded-object-1",
+    });
+    mockDocs.set("uploaded_objects/uploaded-object-1", {
+      object_owner_id: "owner-1",
+      object_code: "OBJ001",
+      object_type: "pgo_pdf_report",
+      file_name: "result.pdf",
+    });
+
+    const page = await listOrphanedOwnerArtifactsForContext(
+      { ...godModeContext, isBootstrap: false },
+      { kind: "objects", ownerIds: ["owner-1"] },
+    );
+
+    expect(page.items).toEqual([
+      expect.objectContaining({
+        collection: "object_codes",
+        id: "OBJ001",
+        linkedRecordId: "uploaded-object-1",
+      }),
+      expect.objectContaining({
+        collection: "uploaded_objects",
+        id: "uploaded-object-1",
+        code: "OBJ001",
+        objectType: "pgo_pdf_report",
+      }),
+    ]);
+    expect(mockDocs.has("object_codes/OBJ001")).toBe(true);
+    expect(mockDocs.has("uploaded_objects/uploaded-object-1")).toBe(true);
   });
 
   it("deletes an individual publisher account without deleting publications", async () => {

@@ -62,6 +62,27 @@ describe("RoleDeleteDialog", () => {
     const user = userEvent.setup();
     const onFinished = renderDialog();
     (sdkFetch as jest.Mock).mockImplementation(async (path: string) => {
+      if (path.startsWith("/roles/deletion/orphaned-artifacts?")) {
+        return {
+          items: [
+            {
+              collection: "report_codes",
+              id: "RPT001",
+              ownerId: "patient-uid",
+              code: "RPT001",
+              linkedRecordId: "uploaded-report-1",
+            },
+            {
+              collection: "uploaded_reports",
+              id: "uploaded-report-1",
+              ownerId: "patient-uid",
+              code: "RPT001",
+              fileName: "report.pdf",
+            },
+          ],
+          nextCursors: { code: null, record: null },
+        };
+      }
       const step = path.split("/").at(-1);
       if (step === "community") {
         throw new SdkRequestError({
@@ -80,9 +101,26 @@ describe("RoleDeleteDialog", () => {
       if (step === "reports") {
         return {
           step,
+          status: "deleted",
+          deletedCount: 1,
+          message:
+            "Deleted 1 report owner account(s). Preserved 1 report code(s) and 1 uploaded report(s); none were deleted or reassigned.",
+          orphanedArtifacts: {
+            kind: "reports",
+            ownerIds: ["patient-uid"],
+            codeCount: 1,
+            recordCount: 1,
+            totalCount: 2,
+          },
+        };
+      }
+      if (step === "objects") {
+        return {
+          step,
           status: "not_found",
           deletedCount: 0,
-          message: "No report data was available.",
+          message:
+            "No object owner account was available. Preserved 0 object code(s) and 0 uploaded object(s); none were deleted or reassigned.",
         };
       }
       return {
@@ -118,6 +156,25 @@ describe("RoleDeleteDialog", () => {
     expect(screen.getAllByText("Not available")).toHaveLength(1);
     expect(screen.queryByText("Stored file metadata")).not.toBeInTheDocument();
     expect(screen.getByText("100%")).toBeTruthy();
+    expect(
+      screen.getByText("Next step: review ownerless records"),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /Review ownerless reports/ }),
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "Ownerless reports and codes",
+      }),
+    ).toBeInTheDocument();
+    expect(await screen.findAllByText("RPT001")).toHaveLength(3);
+    expect(
+      (sdkFetch as jest.Mock).mock.calls.some(([path]) =>
+        String(path).startsWith("/roles/deletion/orphaned-artifacts?"),
+      ),
+    ).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Close review" }));
 
     await user.click(screen.getByRole("button", { name: "Show log" }));
     expect(

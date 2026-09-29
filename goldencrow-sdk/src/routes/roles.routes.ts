@@ -6,6 +6,7 @@ import {
   deleteRoleAccountStepForContext,
   deleteRoleUserForContext,
   getUserRoleForContext,
+  listOrphanedOwnerArtifactsForContext,
   listTransportDispatchersForContext,
   listUserRolesForContext,
   upsertUserRoleForContext,
@@ -105,6 +106,52 @@ export async function rolesRoutes(fastify: FastifyInstance): Promise<void> {
       throw error;
     }
   });
+
+  f.get(
+    "/roles/deletion/orphaned-artifacts",
+    {
+      schema: {
+        querystring: z.object({
+          kind: z.enum(["reports", "objects"]),
+          ownerIds: z.string().min(1),
+          limit: z.coerce.number().int().min(1).max(20).default(20),
+          codeCursor: z.string().min(1).optional(),
+          recordCursor: z.string().min(1).optional(),
+          codeDone: z.literal("1").optional(),
+          recordDone: z.literal("1").optional(),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await listOrphanedOwnerArtifactsForContext(
+          request.adminContext,
+          {
+            kind: request.query.kind,
+            ownerIds: request.query.ownerIds.split(","),
+            limit: request.query.limit,
+            codeCursor: request.query.codeCursor,
+            recordCursor: request.query.recordCursor,
+            codeDone: request.query.codeDone === "1",
+            recordDone: request.query.recordDone === "1",
+          },
+        );
+        return reply.send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    },
+  );
 
   f.get(
     "/roles/:emailKey",

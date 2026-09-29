@@ -613,6 +613,7 @@ export interface DnaReport {
   trackingStatus?: string | null;
   ownerName?: string | null;
   ownerEmail?: string | null;
+  ownerExists?: boolean;
   ownerCommunityUserId?: string | null;
   ownerPublicProfileId?: string | null;
   uploadVersionCount?: number;

@@ -6,11 +6,14 @@ import {
 import type { AdminContext } from "../types/sdk.types.js";
 
 const mockDeleteRoleAccountStepForContext = jest.fn();
+const mockListOrphanedOwnerArtifactsForContext = jest.fn();
 
 jest.mock("../repositories/roles.repository.js", () => ({
   deleteRoleAccountStepForContext: mockDeleteRoleAccountStepForContext,
   deleteRoleUserForContext: jest.fn(),
   getUserRoleForContext: jest.fn(),
+  listOrphanedOwnerArtifactsForContext:
+    mockListOrphanedOwnerArtifactsForContext,
   listTransportDispatchersForContext: jest.fn(),
   listUserRolesForContext: jest.fn(),
   upsertUserRoleForContext: jest.fn(),
@@ -54,6 +57,33 @@ async function buildTestServer() {
 describe("role deletion routes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockListOrphanedOwnerArtifactsForContext.mockResolvedValue({
+      items: [],
+      nextCursors: { code: null, record: null },
+    });
+  });
+
+  it("passes bounded orphan-review pagination to the repository", async () => {
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/roles/deletion/orphaned-artifacts?kind=reports&ownerIds=owner-1%2Cowner-2&limit=20&codeCursor=RPT001&recordDone=1",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockListOrphanedOwnerArtifactsForContext).toHaveBeenCalledWith(
+      adminContext,
+      {
+        kind: "reports",
+        ownerIds: ["owner-1", "owner-2"],
+        limit: 20,
+        codeCursor: "RPT001",
+        recordCursor: undefined,
+        codeDone: false,
+        recordDone: true,
+      },
+    );
+    await fastify.close();
   });
 
   it("treats the deprecated stored_files cleanup request as a preserving no-op", async () => {

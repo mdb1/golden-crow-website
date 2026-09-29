@@ -36,6 +36,17 @@ export default async function UploadedReportDetailPage({
 
   const report = parseUploadedReportRecord(document);
   const ownerId = resolveEditableReportOwnerId(report);
+  let ownerExists: boolean | undefined;
+  if (ownerId) {
+    try {
+      const result = await sdkFetchServer<{ exists: boolean }>(
+        `/reports/owners/${ownerId}/exists`,
+      );
+      ownerExists = result.exists;
+    } catch {
+      ownerExists = undefined;
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
@@ -70,14 +81,14 @@ export default async function UploadedReportDetailPage({
             </Link>
           </Button>
         ) : null}
-        {ownerId ? (
+        {ownerId && ownerExists !== false ? (
           <Button variant="outline" size="sm" asChild>
             <Link href={`/users/${ownerId}`}>Open owner account</Link>
           </Button>
         ) : null}
       </div>
 
-      <UploadedReportWorkbench document={document} />
+      <UploadedReportWorkbench document={document} ownerExists={ownerExists} />
     </div>
   );
 }

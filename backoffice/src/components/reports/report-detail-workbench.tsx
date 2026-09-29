@@ -7,6 +7,7 @@ import { RotateCcw, Save } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { DeveloperRawEditor } from "@/components/developer-raw-editor";
 import { ReportPill } from "@/components/reports/report-pill";
+import { ReportOwnerWarning } from "@/components/reports/report-owner-warning";
 import { UploadedReportWorkbench } from "@/components/reports/uploaded-report-workbench";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,16 +104,18 @@ export function ReportDetailWorkbench({
         href: `/reports/users/${effectiveOwnerId}`,
         description: "Stay inside the selected-user report flow.",
       });
-      links.push({
-        label: "Account workbench",
-        href: `/users/${effectiveOwnerId}`,
-        description: "Edit Firebase Auth and private profile state for this user.",
-      });
-      links.push({
-        label: "Community user",
-        href: `/collections/community_users/${effectiveOwnerId}`,
-        description: "Inspect the linked community user document.",
-      });
+      if (report.ownerExists !== false) {
+        links.push({
+          label: "Account workbench",
+          href: `/users/${effectiveOwnerId}`,
+          description: "Edit Firebase Auth and private profile state for this user.",
+        });
+        links.push({
+          label: "Community user",
+          href: `/collections/community_users/${effectiveOwnerId}`,
+          description: "Inspect the linked community user document.",
+        });
+      }
     }
 
     if (effectiveUploadedReportId) {
@@ -144,6 +147,7 @@ export function ReportDetailWorkbench({
     effectiveOwnerId,
     effectiveUploadedReportId,
     report.linkedFileId,
+    report.ownerExists,
     report.ownerPublicProfileId,
   ]);
 
@@ -237,6 +241,11 @@ export function ReportDetailWorkbench({
             color={effectiveUploadedReportId ? "#5FAE6A" : "#FF9E2C"}
           />
         </div>
+
+        <ReportOwnerWarning
+          ownerId={report.userId}
+          ownerExists={report.ownerExists}
+        />
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_320px]">
           <div className="grid gap-4 md:grid-cols-2">
@@ -393,7 +402,7 @@ export function ReportDetailWorkbench({
                     </p>
                   </Link>
                 ) : null}
-                {report.ownerPublicProfileId ? (
+                {report.ownerPublicProfileId && report.ownerExists !== false ? (
                   <Link
                     href={`/collections/public_profiles/${report.ownerPublicProfileId}`}
                     className="rounded-xl border border-border/70 bg-card/50 px-3 py-3 transition-colors hover:border-primary/35"
@@ -411,7 +420,11 @@ export function ReportDetailWorkbench({
       </section>
 
       {uploadedReportDocument ? (
-        <UploadedReportWorkbench document={uploadedReportDocument} mode="embedded" />
+        <UploadedReportWorkbench
+          document={uploadedReportDocument}
+          mode="embedded"
+          ownerExists={report.ownerExists}
+        />
       ) : (
         <section className="glass-panel flex flex-col gap-3 px-5 py-4">
           <p className="section-eyebrow">Reports</p>

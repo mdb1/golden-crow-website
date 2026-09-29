@@ -7,6 +7,7 @@ import { RotateCcw, Save } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { DeveloperRawEditor } from "@/components/developer-raw-editor";
 import { ReportPill } from "@/components/reports/report-pill";
+import { ReportOwnerWarning } from "@/components/reports/report-owner-warning";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -143,9 +144,11 @@ function getValidationErrors(
 export function UploadedReportWorkbench({
   document,
   mode = "standalone",
+  ownerExists,
 }: {
   document: ModerationDocumentRecord;
   mode?: "standalone" | "embedded";
+  ownerExists?: boolean;
 }) {
   const router = useRouter();
   const [sourceDocument, setSourceDocument] = useState(document);
@@ -317,6 +320,10 @@ export function UploadedReportWorkbench({
   return (
     <div className="flex flex-col gap-5">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+
+      {mode === "standalone" ? (
+        <ReportOwnerWarning ownerId={ownerId} ownerExists={ownerExists} />
+      ) : null}
 
       {mode === "standalone" ? (
         <div className="flex flex-wrap items-center gap-2">
@@ -640,7 +647,7 @@ export function UploadedReportWorkbench({
                   </Link>
                   ) : null
                 ) : null}
-                {ownerId ? (
+                {ownerId && ownerExists !== false ? (
                   <>
                     <Link
                       href={`/reports/users/${ownerId}`}
@@ -662,7 +669,7 @@ export function UploadedReportWorkbench({
                     </Link>
                   </>
                 ) : null}
-                {report.reportOwnerId ? (
+                {report.reportOwnerId && ownerExists !== false ? (
                   <Link
                     href={`/collections/report_owners/${report.reportOwnerId}`}
                     className="rounded-xl border border-border/70 bg-card/50 px-3 py-3 transition-colors hover:border-primary/35"
@@ -673,7 +680,7 @@ export function UploadedReportWorkbench({
                     </p>
                   </Link>
                 ) : null}
-                {report.ownerPublicProfileId ? (
+                {report.ownerPublicProfileId && ownerExists !== false ? (
                   <Link
                     href={`/collections/public_profiles/${report.ownerPublicProfileId}`}
                     className="rounded-xl border border-border/70 bg-card/50 px-3 py-3 transition-colors hover:border-primary/35"
@@ -684,7 +691,7 @@ export function UploadedReportWorkbench({
                     </p>
                   </Link>
                 ) : null}
-                {report.ownerCommunityUserId ? (
+                {report.ownerCommunityUserId && ownerExists !== false ? (
                   <Link
                     href={`/collections/community_users/${report.ownerCommunityUserId}`}
                     className="rounded-xl border border-border/70 bg-card/50 px-3 py-3 transition-colors hover:border-primary/35"

@@ -6,6 +6,7 @@ import { canManageLegacyModeration } from "../repositories/roles.repository.js";
 import {
   listReports,
   getReportById,
+  getReportOwnerExistence,
   deleteReport,
   publishStoredFileAsReportCode,
 } from "../repositories/reports.repository.js";
@@ -77,6 +78,20 @@ export async function reportRoutes(fastify: FastifyInstance): Promise<void> {
         throw error;
       }
     }
+  );
+
+  // Resolve owner existence independently from report-owner collection visibility.
+  f.get(
+    "/reports/owners/:ownerId/exists",
+    {
+      schema: {
+        params: z.object({ ownerId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      const result = await getReportOwnerExistence(request.params.ownerId);
+      return reply.send(result);
+    },
   );
 
   // GET /reports/:reportId — fetch a single report by Firestore document ID
