@@ -513,50 +513,37 @@ async function deleteLinkedPersonalEntity(
   );
 }
 
-async function deleteCommunityAccountData(uid: string | undefined) {
-  if (!uid) {
-    return deletionStepResult(
-      "community",
-      0,
-      "",
-      "No Firebase user id was available for community cleanup.",
+async function deleteCommunityAccountData(
+  normalizedEmail: string,
+  uid: string | undefined,
+) {
+  const emailMatches = await adminDb
+    .collection("community_users")
+    .where("email", "==", normalizedEmail)
+    .limit(2)
+    .get();
+  if (emailMatches.docs.length > 1) {
+    throw new AdminRepositoryError(
+      "Multiple community accounts use this email. Resolve the duplicate records before deleting the account.",
+      409,
     );
   }
 
-  const refs = [];
-  const communityUserRefs = await existingDocumentRefs("community_users", [
-    uid,
-  ]);
-  refs.push(...communityUserRefs);
-  for (const communityUserRef of communityUserRefs) {
-    const events = await communityUserRef.collection("events").get();
-    refs.push(...events.docs.map((doc) => doc.ref));
+  const emailMatch = emailMatches.docs[0]?.ref;
+  const directUidMatch =
+    !emailMatch && uid
+      ? (await existingDocumentRefs("community_users", [uid]))[0]
+      : undefined;
+  const communityUserRef = emailMatch ?? directUidMatch;
+  if (communityUserRef) {
+    await communityUserRef.delete();
   }
 
-  const posts = await adminDb
-    .collection("community_posts")
-    .where("authorId", "==", uid)
-    .get();
-  for (const post of posts.docs) {
-    const comments = await post.ref.collection("comments").get();
-    refs.push(...comments.docs.map((doc) => doc.ref), post.ref);
-  }
-
-  refs.push(
-    ...(await queryDocumentRefs("community_comments", "authorId", [uid])),
-  );
-  const nestedComments = await adminDb
-    .collectionGroup("comments")
-    .where("authorId", "==", uid)
-    .get();
-  refs.push(...nestedComments.docs.map((doc) => doc.ref));
-
-  const deletedCount = await deleteRoleAccountDocumentRefs(refs);
   return deletionStepResult(
     "community",
-    deletedCount,
-    `Deleted ${deletedCount} community account and content record(s).`,
-    "No community account or authored content was available.",
+    communityUserRef ? 1 : 0,
+    "Deleted the community account.",
+    "No community account was available.",
   );
 }
 
@@ -652,7 +639,7 @@ export async function deleteRoleAccountStepForContext(
   }
 
   if (step === "community") {
-    return deleteCommunityAccountData(authUid);
+    return deleteCommunityAccountData(target.normalizedEmail, authUid);
   }
 
   if (step === "reports") {

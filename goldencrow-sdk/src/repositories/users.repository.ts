@@ -1,6 +1,3 @@
-// Known limitation: posts/comments with authorId='anonymous' (from web app fallback)
-// will not be found by this cascade delete.
-
 import { adminDbFor, adminAuthFor } from "../config/firebase.js";
 
 // Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
@@ -507,7 +504,7 @@ export async function updateUserProfile(
 }
 
 /**
- * Cascade-delete a user and all associated data across Firestore collections.
+ * Delete a user and account-scoped data while preserving community history.
  * Returns { success, errors } — always resolves (never throws).
  */
 export async function deleteUserCascade(uid: string): Promise<CascadeDeleteResult> {
@@ -534,61 +531,12 @@ export async function deleteUserCascade(uid: string): Promise<CascadeDeleteResul
   }
 
   try {
-    const eventsSnap = await adminDb
-      .collection("community_users")
-      .doc(uid)
-      .collection("events")
-      .get();
-
-    if (!eventsSnap.empty) {
-      const batch = adminDb.batch();
-      eventsSnap.docs.slice(0, 500).forEach((doc) => batch.delete(doc.ref));
-      await batch.commit();
-    }
-
     await adminDb.collection("community_users").doc(uid).delete();
   } catch (err) {
     errors.push(`Community user delete failed: ${String(err)}`);
   }
 
-  // Step 3: Delete posts where authorId == uid
-  try {
-    const postSnap = await adminDb.collection("community_posts").where("authorId", "==", uid).get();
-    if (postSnap.docs.length > 500) {
-      console.warn(`[deleteUserCascade] User ${uid} has ${postSnap.docs.length} posts; only deleting first 500.`);
-    }
-    if (!postSnap.empty) {
-      const batch = adminDb.batch();
-      for (const doc of postSnap.docs.slice(0, 500)) {
-        const commentsSnap = await doc.ref.collection("comments").get();
-        commentsSnap.docs.slice(0, 500).forEach((commentDoc) => batch.delete(commentDoc.ref));
-        batch.delete(doc.ref);
-      }
-      await batch.commit();
-    }
-  } catch (err) {
-    errors.push(`Posts delete failed: ${String(err)}`);
-  }
-
-  // Step 4: Delete comments where authorId == uid
-  try {
-    const commentSnap = await adminDb
-      .collectionGroup("comments")
-      .where("authorId", "==", uid)
-      .get();
-    if (commentSnap.docs.length > 500) {
-      console.warn(`[deleteUserCascade] User ${uid} has ${commentSnap.docs.length} comments; only deleting first 500.`);
-    }
-    if (!commentSnap.empty) {
-      const batch = adminDb.batch();
-      commentSnap.docs.slice(0, 500).forEach((doc) => batch.delete(doc.ref));
-      await batch.commit();
-    }
-  } catch (err) {
-    errors.push(`Comments delete failed: ${String(err)}`);
-  }
-
-  // Step 5: Delete report_codes where owner_id == uid
+  // Step 3: Delete report_codes where owner_id == uid
   try {
     const reportSnap = await adminDb.collection("report_codes").where("owner_id", "==", uid).get();
     if (reportSnap.docs.length > 500) {
@@ -603,7 +551,7 @@ export async function deleteUserCascade(uid: string): Promise<CascadeDeleteResul
     errors.push(`Report codes delete failed: ${String(err)}`);
   }
 
-  // Step 6: Delete user_progress document
+  // Step 4: Delete user_progress document
   try {
     await adminDb.collection("user_progress").doc(uid).delete();
   } catch (err) {

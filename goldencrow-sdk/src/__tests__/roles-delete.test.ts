@@ -18,9 +18,9 @@ const mockProvisionPatientFirebaseAccount = jest.fn();
 const mockSendPublisherPortalInviteEmail = jest.fn();
 const mockCollection = jest.fn((collectionName: string) => ({
   doc: (id: string) => makeDocRef(collectionName, id),
-  where: (field: string, operator: string, value: unknown) => ({
-    get: jest.fn(async () => ({
-      docs: Array.from(mockDocs.entries())
+  where: (field: string, operator: string, value: unknown) => {
+    const matchingDocs = () =>
+      Array.from(mockDocs.entries())
         .filter(([key, data]) => {
           if (!key.startsWith(`${collectionName}/`)) {
             return false;
@@ -37,9 +37,16 @@ const mockCollection = jest.fn((collectionName: string) => ({
             data: () => data,
             ref: makeDocRef(collectionName, id),
           };
-        }),
-    })),
-  }),
+        });
+    const get = jest.fn(async () => ({ docs: matchingDocs() }));
+
+    return {
+      get,
+      limit: (limit: number) => ({
+        get: jest.fn(async () => ({ docs: matchingDocs().slice(0, limit) })),
+      }),
+    };
+  },
 }));
 const mockBatch = jest.fn(() => {
   const refs: MockDocumentRef[] = [];
@@ -259,6 +266,50 @@ describe("role user deletion", () => {
       deletedCount: 1,
     });
     expect(mockDocs.has("2pq_client/CLNT-00002")).toBe(false);
+  });
+
+  it("deletes only the community account and preserves authored content", async () => {
+    const { deleteRoleAccountStepForContext } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("user_roles/member@example.com", {
+      role: "patient",
+      firebaseUid: "member-uid",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockDocs.set("community_users/member-uid", {
+      email: "member@example.com",
+      username: "member",
+    });
+    mockDocs.set("community_posts/post-1", {
+      authorId: "member-uid",
+      body: "This conversation must remain.",
+    });
+    mockDocs.set("community_comments/comment-1", {
+      authorId: "member-uid",
+      body: "This reply must remain.",
+    });
+
+    await expect(
+      deleteRoleAccountStepForContext(
+        { ...godModeContext, isBootstrap: false },
+        "member@example.com",
+        "community",
+      ),
+    ).resolves.toEqual({
+      step: "community",
+      status: "deleted",
+      deletedCount: 1,
+      message: "Deleted the community account.",
+    });
+
+    expect(mockDocs.has("community_users/member-uid")).toBe(false);
+    expect(mockDocs.has("community_posts/post-1")).toBe(true);
+    expect(mockDocs.has("community_comments/comment-1")).toBe(true);
+    expect(mockCollection).not.toHaveBeenCalledWith("community_posts");
+    expect(mockCollection).not.toHaveBeenCalledWith("community_comments");
   });
 
   it("cleans profile, ownership, upload, file, and learning records by account identity", async () => {

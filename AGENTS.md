@@ -70,6 +70,12 @@
 - Prefer cursor-based Server Action pagination. For merged activity feeds, bound each Firestore source with a small `limit(...)`, merge those bounded results, and return a cursor for the next page.
 - Avoid fan-out reads across every client/thread when a scoped indexed query or collection-group query can fetch the same page.
 
+## Community Account Deletion
+
+- Deleting a user account or running full role cleanup removes only the matching `community_users` identity document. Resolve the role-cleanup record by normalized email with a direct UID fallback for legacy data.
+- Never delete community posts, comments, replies, or nested event records as a consequence of account deletion. Authored community content intentionally remains orphaned because clients preserve and render that conversation history.
+- Community account deletion must not query `community_posts`, `community_comments`, collection-group `comments`, or the `community_users/{uid}/events` subcollection.
+
 ## Discover Field Naming
 
 - Discover publisher and feed item document/API keys must be camelCase only for `feed_organizations`, `feed_individuals`, and `feed_items`.

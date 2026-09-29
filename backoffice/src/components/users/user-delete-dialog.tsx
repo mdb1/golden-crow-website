@@ -57,8 +57,8 @@ export function UserDeleteDialog({ user }: UserDeleteDialogProps) {
           </AlertDialogTitle>
           <AlertDialogDescription>
             This will permanently delete the user account, Firestore profile,
-            community posts, comments, and learning progress. This action
-            cannot be undone.
+            community account, and learning progress. Existing posts, comments,
+            and conversations will remain intact. This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {mutation.error && (

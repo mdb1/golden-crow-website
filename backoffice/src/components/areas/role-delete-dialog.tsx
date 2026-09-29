@@ -73,8 +73,8 @@ const STEP_LABELS: Record<DeletionStep, { en: string; es: string }> = {
   private_profile: { en: "Private profile", es: "Perfil privado" },
   public_profile: { en: "Public profile", es: "Perfil público" },
   community: {
-    en: "Community account and authored content",
-    es: "Cuenta de comunidad y contenido creado",
+    en: "Community account",
+    es: "Cuenta de comunidad",
   },
   reports: {
     en: "Report owner, codes, and uploads",
@@ -105,7 +105,7 @@ function roleDeleteCopy(language: "en" | "es") {
           "Quita la asignación de acceso del backoffice. La cuenta, los perfiles y sus datos permanecen intactos.",
         fullAccount: "Eliminar también toda la cuenta",
         fullAccountBody:
-          "Limpia la entidad personal vinculada, perfiles, comunidad, reportes, objetos, archivos almacenados, aprendizaje, Firebase Auth y finalmente el rol.",
+          "Limpia la entidad personal vinculada, la cuenta de comunidad, perfiles, reportes, objetos, archivos almacenados, aprendizaje, Firebase Auth y finalmente el rol. Las publicaciones y conversaciones permanecen intactas.",
         sharedOrganization:
           "Las organizaciones publicadoras son entidades compartidas y no se eliminan como parte de una cuenta personal.",
         cancel: "Cancelar",
@@ -142,7 +142,7 @@ function roleDeleteCopy(language: "en" | "es") {
           "Removes the backoffice access assignment. The account, profiles, and data remain intact.",
         fullAccount: "Delete the whole account too",
         fullAccountBody:
-          "Cleans the linked personal entity, profiles, community, reports, objects, stored files, learning, Firebase Auth, and finally the role.",
+          "Cleans the linked personal entity, community account, profiles, reports, objects, stored files, learning, Firebase Auth, and finally the role. Posts and conversations remain intact.",
         sharedOrganization:
           "Publisher organizations are shared entities and are not deleted as part of a personal account.",
         cancel: "Cancel",
