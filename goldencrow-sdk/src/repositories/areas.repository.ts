@@ -32,6 +32,7 @@ import {
   getBackofficeEmailAccess,
   getUserRoleByEmail,
   normalizeRoleEmail,
+  upsertUserRoleForContext,
 } from "./roles.repository.js";
 import type {
   AdminContext,
@@ -1074,7 +1075,28 @@ export async function createDoctorForContext(
     updatedAt: now,
   };
 
-  await adminDb.collection(DOCTORS_COLLECTION).doc(doctorId).set(document);
+  const doctorReference = adminDb.collection(DOCTORS_COLLECTION).doc(doctorId);
+  await doctorReference.set(document);
+
+  try {
+    await upsertUserRoleForContext(context, document.authEmail, {
+      role: "institution_doctor",
+      institutionId,
+      doctorId,
+      isActive: true,
+      displayName: document.fullName,
+    });
+  } catch (error) {
+    try {
+      await doctorReference.delete();
+    } catch {
+      throw new AdminRepositoryError(
+        `Doctor ${doctorId} was created, but its institution doctor role could not be created and the doctor rollback also failed.`,
+        500,
+      );
+    }
+    throw error;
+  }
 
   return toDoctorRecord(doctorId, document);
 }
