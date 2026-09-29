@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
+import { RoleDeleteDialog } from "@/components/areas/role-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,12 +30,14 @@ export function InstitutionStaffRoleBrowser({
   emptyLabel,
   searchPlaceholder,
   resultLabel,
+  showDeleteAction = false,
 }: {
   initialRoles: RoleManagementRecord[];
   role: StaffRole;
   emptyLabel: string;
   searchPlaceholder: string;
   resultLabel: string;
+  showDeleteAction?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -201,13 +204,19 @@ export function InstitutionStaffRoleBrowser({
                 {formatDateTime(record.updatedAt) ?? t("No timestamp")}
               </div>
 
-              <div className="flex lg:justify-end">
+              <div className="flex items-center gap-2 lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/roles/${encodeURIComponent(record.email)}`}>
                     {t("Open")}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
+                {showDeleteAction ? (
+                  <RoleDeleteDialog
+                    roleRecord={record}
+                    onFinished={() => void refetch()}
+                  />
+                ) : null}
               </div>
             </div>
           ))

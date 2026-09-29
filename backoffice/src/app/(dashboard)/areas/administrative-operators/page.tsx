@@ -62,6 +62,7 @@ export default async function AdministrativeOperatorsPage() {
           emptyLabel="No administrative operators match the current filter."
           searchPlaceholder="Search administrative operators by email, name, or institution..."
           resultLabel="administrative operators"
+          showDeleteAction
         />
       </HeaderUnclutterScope>
     </div>
