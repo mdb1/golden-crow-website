@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
+import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
+import { TwoPQCaseDeleteDialog } from "@/components/two-pq-case-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +24,7 @@ import {
 import { appText } from "@/lib/language";
 import { formatDateTime } from "@/lib/moderation-utils";
 import { cn } from "@/lib/utils";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 
 export function TwoPQAreaBrowser({
   areaKey,
@@ -32,6 +35,7 @@ export function TwoPQAreaBrowser({
   initialRecords: TwoPQListItem[];
   createdId?: string;
 }) {
+  const adminContext = useAdminContext();
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const area = translateTwoPQAreaConfig(getTwoPQAreaConfig(areaKey)!, language);
@@ -237,13 +241,22 @@ export function TwoPQAreaBrowser({
                 {formatDateTime(record.updatedAt) ?? t("No timestamp")}
               </div>
 
-              <div className="flex lg:justify-end">
+              <div className="flex items-center gap-2 lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`${area.route}/${record.id}`}>
                     {t("Open")}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
+                {area.key === "cases" &&
+                record.canDelete &&
+                isGlobalAdminRole(adminContext.role) ? (
+                  <TwoPQCaseDeleteDialog
+                    caseId={record.id}
+                    caseLabel={record.caseLabel}
+                    onFinished={() => void refetch()}
+                  />
+                ) : null}
               </div>
             </div>
           ))

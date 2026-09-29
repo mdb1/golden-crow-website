@@ -18,6 +18,7 @@ import {
 import { identifyPgiNativeModel } from "../lib/pgi-native-schema.js";
 import { serializedPgoObjectSchemaError } from "../lib/pgo-object-schema.js";
 import { TWO_PQ_REPORT_OWNER_EMAIL } from "../lib/two-pq-report-owner.js";
+import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import type {
   AdminContext,
   TwoPQLinkedServiceTransactionSnapshot,
@@ -7922,11 +7923,9 @@ function requestedTransactionSummariesAfterRemoval(
   return { summaries, remainingSummaries };
 }
 
-export async function deleteSupportServiceTransaction(
-  context: AdminContext,
+async function deleteSupportServiceTransactionRecord(
   transactionId: string,
 ) {
-  requireGodMode(context);
   const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service transaction not found.", 404);
@@ -8072,4 +8071,55 @@ export async function deleteSupportServiceTransaction(
   }
 
   return { cleanupWarnings };
+}
+
+export async function deleteSupportServiceTransaction(
+  context: AdminContext,
+  transactionId: string,
+) {
+  requireGodMode(context);
+  return deleteSupportServiceTransactionRecord(transactionId);
+}
+
+export async function deleteTwoPQCaseServiceTransactionForCleanup(
+  context: AdminContext,
+  caseId: string,
+) {
+  if (!isGlobalAdminRole(context.role)) {
+    throw new AdminRepositoryError(
+      "Only full admins and 2PQ admins can delete a case service transaction.",
+      403,
+    );
+  }
+
+  const transactionId = twoPQCaseServiceTransactionRequestId(caseId);
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
+  if (!snapshot) {
+    return {
+      status: "not_found" as const,
+      transactionId,
+      cleanupWarnings: [] as string[],
+    };
+  }
+
+  const transaction = toTransactionRecord(snapshot.id, snapshot.data() ?? {});
+  if (
+    transaction.requestId !== transactionId ||
+    transaction.offerId !== TWO_PQ_CASE_SERVICE_OFFER_ID ||
+    transaction.serviceId !== TWO_PQ_CASE_SERVICE_ID ||
+    transaction.providerId !== TWO_PQ_CASE_SERVICE_PROVIDER_ID ||
+    transaction.contractSource !== "2pq_case_creation"
+  ) {
+    throw new AdminRepositoryError(
+      `Service transaction ${snapshot.id} is not the canonical transaction for 2PQ case ${caseId}.`,
+      409,
+    );
+  }
+
+  const result = await deleteSupportServiceTransactionRecord(snapshot.id);
+  return {
+    status: "deleted" as const,
+    transactionId,
+    cleanupWarnings: result.cleanupWarnings,
+  };
 }

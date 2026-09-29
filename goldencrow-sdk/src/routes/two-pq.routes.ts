@@ -26,6 +26,10 @@ import {
 } from "../repositories/two-pq.repository.js";
 import { buildTwoPQCaseFileStorageSnapshot } from "../repositories/two-pq-auto-sync.repository.js";
 import {
+  TWO_PQ_CASE_DELETION_STEPS,
+  deleteTwoPQCaseStepForContext,
+} from "../repositories/two-pq-case-deletion.repository.js";
+import {
   beginTwoPQCaseStatusOperation,
   completeTwoPQCaseStatusOperation,
   failTwoPQCaseStatusOperation,
@@ -828,6 +832,38 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         return sendTwoPQRouteError(request, reply, error);
       }
     }
+  );
+
+  f.delete(
+    "/2pq/cases/:caseId/deletion/:step",
+    {
+      schema: {
+        params: z.object({
+          caseId: z.string().min(1),
+          step: z.enum(TWO_PQ_CASE_DELETION_STEPS),
+        }),
+        querystring: z.object({
+          scope: z.enum(["case", "related"]),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await deleteTwoPQCaseStepForContext(
+          request.adminContext,
+          request.params.caseId,
+          request.query.scope,
+          request.params.step,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    },
   );
 
   f.delete(

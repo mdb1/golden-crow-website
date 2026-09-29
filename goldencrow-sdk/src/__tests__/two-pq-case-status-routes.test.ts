@@ -11,6 +11,7 @@ const mockUpdateOperation = jest.fn();
 const mockCompleteOperation = jest.fn();
 const mockFailOperation = jest.fn();
 const mockGetOperation = jest.fn();
+const mockDeleteTwoPQCaseStepForContext = jest.fn();
 
 jest.mock("../repositories/two-pq.repository.js", () => ({
   createTwoPQRecordForContext: jest.fn(),
@@ -38,6 +39,17 @@ jest.mock("../repositories/two-pq-forms.repository.js", () => ({
 
 jest.mock("../repositories/two-pq-auto-sync.repository.js", () => ({
   buildTwoPQCaseFileStorageSnapshot: jest.fn(),
+}));
+
+jest.mock("../repositories/two-pq-case-deletion.repository.js", () => ({
+  TWO_PQ_CASE_DELETION_STEPS: [
+    "form_links",
+    "samplings",
+    "service_transaction",
+    "files_and_codes",
+    "case",
+  ],
+  deleteTwoPQCaseStepForContext: mockDeleteTwoPQCaseStepForContext,
 }));
 
 jest.mock(
@@ -96,6 +108,12 @@ describe("2PQ case-status progress routes", () => {
     mockCompleteOperation.mockResolvedValue(operation("success"));
     mockFailOperation.mockResolvedValue(operation("error"));
     mockGetOperation.mockResolvedValue(operation("running"));
+    mockDeleteTwoPQCaseStepForContext.mockResolvedValue({
+      step: "samplings",
+      status: "deleted",
+      deletedCount: 2,
+      message: "Deleted 2 linked samplings.",
+    });
   });
 
   it("tracks a PATCH operation and returns its completed progress", async () => {
@@ -171,6 +189,41 @@ describe("2PQ case-status progress routes", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ operation: operation("running") });
+    await fastify.close();
+  });
+
+  it("dispatches a staged full case cleanup with the selected scope", async () => {
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/2pq/cases/CASE-00022/deletion/samplings?scope=related",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockDeleteTwoPQCaseStepForContext).toHaveBeenCalledWith(
+      adminContext,
+      "CASE-00022",
+      "related",
+      "samplings",
+    );
+    expect(response.json()).toEqual({
+      step: "samplings",
+      status: "deleted",
+      deletedCount: 2,
+      message: "Deleted 2 linked samplings.",
+    });
+    await fastify.close();
+  });
+
+  it("rejects an unknown staged cleanup scope before repository execution", async () => {
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/2pq/cases/CASE-00022/deletion/case?scope=everything",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockDeleteTwoPQCaseStepForContext).not.toHaveBeenCalled();
     await fastify.close();
   });
 });
