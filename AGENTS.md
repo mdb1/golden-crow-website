@@ -75,6 +75,8 @@
 - Deleting a user account or running full role cleanup removes only the matching `community_users` identity document. Resolve the role-cleanup record by normalized email with a direct UID fallback for legacy data.
 - Never delete community posts, comments, replies, or nested event records as a consequence of account deletion. Authored community content intentionally remains orphaned because clients preserve and render that conversation history.
 - Community account deletion must not query `community_posts`, `community_comments`, collection-group `comments`, or the `community_users/{uid}/events` subcollection.
+- Apply the same non-cascading rule to every account or owner identity. Deleting `report_owners`, `object_owners`, or `feed_individuals` records must not delete or query their report codes, uploaded reports, object codes, uploaded objects, stored files, Discover publications, notes, events, service offers, or service transactions.
+- Full role cleanup has no stored-file deletion stage. Linked artifacts remain intentionally orphaned and clients are responsible for rendering missing-owner state.
 
 ## Discover Field Naming
 

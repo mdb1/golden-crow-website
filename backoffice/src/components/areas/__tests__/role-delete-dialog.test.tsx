@@ -102,7 +102,7 @@ describe("RoleDeleteDialog", () => {
     );
 
     await screen.findByText("Cleanup completed with pending items");
-    expect(sdkFetch).toHaveBeenCalledTimes(10);
+    expect(sdkFetch).toHaveBeenCalledTimes(9);
     expect((sdkFetch as jest.Mock).mock.calls.map((call) => call[0])).toEqual([
       "/roles/patient%40example.com/deletion/linked_entity",
       "/roles/patient%40example.com/deletion/private_profile",
@@ -110,7 +110,6 @@ describe("RoleDeleteDialog", () => {
       "/roles/patient%40example.com/deletion/community",
       "/roles/patient%40example.com/deletion/reports",
       "/roles/patient%40example.com/deletion/objects",
-      "/roles/patient%40example.com/deletion/stored_files",
       "/roles/patient%40example.com/deletion/learning",
       "/roles/patient%40example.com/deletion/firebase_auth",
       "/roles/patient%40example.com/deletion/role",

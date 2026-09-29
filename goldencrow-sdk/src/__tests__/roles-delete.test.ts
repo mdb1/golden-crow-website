@@ -312,7 +312,7 @@ describe("role user deletion", () => {
     expect(mockCollection).not.toHaveBeenCalledWith("community_comments");
   });
 
-  it("cleans profile, ownership, upload, file, and learning records by account identity", async () => {
+  it("deletes owner accounts while preserving every linked artifact", async () => {
     const { deleteRoleAccountStepForContext } =
       await import("../repositories/roles.repository");
 
@@ -342,6 +342,15 @@ describe("role user deletion", () => {
     mockDocs.set("file_storage/file-1", {
       owner_community_user_id: "PAT-00001",
     });
+    mockDocs.set("feed_items/publication-1", {
+      publisherIndividualId: "PAT-00001",
+    });
+    mockDocs.set("partnership_notes/note-1", { ownerId: "PAT-00001" });
+    mockDocs.set("community_events/event-1", { ownerId: "PAT-00001" });
+    mockDocs.set("service_offers/offer-1", { providerId: "PAT-00001" });
+    mockDocs.set("service_transactions/transaction-1", {
+      providerId: "PAT-00001",
+    });
     mockDocs.set("user_progress/patient-uid", { completed: 3 });
 
     const runStep = (
@@ -363,13 +372,9 @@ describe("role user deletion", () => {
     });
     await expect(runStep("reports")).resolves.toMatchObject({
       status: "deleted",
-      deletedCount: 3,
+      deletedCount: 1,
     });
     await expect(runStep("objects")).resolves.toMatchObject({
-      status: "deleted",
-      deletedCount: 3,
-    });
-    await expect(runStep("stored_files")).resolves.toMatchObject({
       status: "deleted",
       deletedCount: 1,
     });
@@ -380,8 +385,53 @@ describe("role user deletion", () => {
 
     expect(mockDocs.has("user_roles/patient@example.com")).toBe(true);
     expect(
-      [...mockDocs.keys()].filter((key) => !key.startsWith("user_roles/")),
-    ).toEqual([]);
+      [...mockDocs.keys()]
+        .filter((key) => !key.startsWith("user_roles/"))
+        .sort(),
+    ).toEqual(
+      [
+        "community_events/event-1",
+        "feed_items/publication-1",
+        "file_storage/file-1",
+        "object_codes/OBJ001",
+        "partnership_notes/note-1",
+        "service_offers/offer-1",
+        "service_transactions/transaction-1",
+        "uploaded_objects/object-1",
+        "uploaded_reports/report-1",
+        "report_codes/RPT001",
+      ].sort(),
+    );
+  });
+
+  it("deletes an individual publisher account without deleting publications", async () => {
+    const { deleteRoleAccountStepForContext } =
+      await import("../repositories/roles.repository");
+
+    mockDocs.set("user_roles/publisher@example.com", {
+      role: "individual_publisher",
+      firebaseUid: "publisher-uid",
+      individualId: "person-1",
+      isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z",
+      updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    mockDocs.set("feed_individuals/person-1", { name: "Publisher" });
+    mockDocs.set("feed_items/publication-1", {
+      publisherIndividualId: "person-1",
+    });
+
+    await expect(
+      deleteRoleAccountStepForContext(
+        { ...godModeContext, isBootstrap: false },
+        "publisher@example.com",
+        "linked_entity",
+      ),
+    ).resolves.toMatchObject({ status: "deleted", deletedCount: 1 });
+
+    expect(mockDocs.has("feed_individuals/person-1")).toBe(false);
+    expect(mockDocs.has("feed_items/publication-1")).toBe(true);
+    expect(mockCollection).not.toHaveBeenCalledWith("feed_items");
   });
 
   it("lets 2PQ admins delete role assignments", async () => {

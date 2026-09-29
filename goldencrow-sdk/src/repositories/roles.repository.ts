@@ -45,7 +45,6 @@ export const ROLE_ACCOUNT_DELETION_STEPS = [
   "community",
   "reports",
   "objects",
-  "stored_files",
   "learning",
   "firebase_auth",
   "role",
@@ -493,9 +492,6 @@ async function deleteLinkedPersonalEntity(
     refs.push(...(await existingDocumentRefs("doctors", [record.doctorId])));
   } else if (record.individualId) {
     refs.push(
-      ...(await queryDocumentRefs("feed_items", "publisherIndividualId", [
-        record.individualId,
-      ])),
       ...(await existingDocumentRefs(FEED_INDIVIDUALS_COLLECTION, [
         record.individualId,
       ])),
@@ -548,50 +544,24 @@ async function deleteCommunityAccountData(
 }
 
 async function deleteReportAccountData(ownerIds: string[]) {
-  const refs = [
-    ...(await existingDocumentRefs("report_owners", ownerIds)),
-    ...(await queryDocumentRefs("report_codes", "owner_id", ownerIds)),
-    ...(await queryDocumentRefs(
-      "uploaded_reports",
-      "report_owner_id",
-      ownerIds,
-    )),
-    ...(await queryDocumentRefs(
-      "uploaded_reports",
-      "owner_community_user_id",
-      ownerIds,
-    )),
-  ];
+  const refs = await existingDocumentRefs("report_owners", ownerIds);
   const deletedCount = await deleteRoleAccountDocumentRefs(refs);
   return deletionStepResult(
     "reports",
     deletedCount,
-    `Deleted ${deletedCount} report owner, code, or upload record(s).`,
-    "No report owner, report code, or uploaded report was available.",
+    `Deleted ${deletedCount} report owner account(s).`,
+    "No report owner account was available.",
   );
 }
 
 async function deleteObjectAccountData(ownerIds: string[]) {
-  const refs = [
-    ...(await existingDocumentRefs("object_owners", ownerIds)),
-    ...(await queryDocumentRefs("object_codes", "owner_id", ownerIds)),
-    ...(await queryDocumentRefs(
-      "uploaded_objects",
-      "object_owner_id",
-      ownerIds,
-    )),
-    ...(await queryDocumentRefs(
-      "uploaded_objects",
-      "owner_community_user_id",
-      ownerIds,
-    )),
-  ];
+  const refs = await existingDocumentRefs("object_owners", ownerIds);
   const deletedCount = await deleteRoleAccountDocumentRefs(refs);
   return deletionStepResult(
     "objects",
     deletedCount,
-    `Deleted ${deletedCount} object owner, code, or upload record(s).`,
-    "No object owner, object code, or uploaded object was available.",
+    `Deleted ${deletedCount} object owner account(s).`,
+    "No object owner account was available.",
   );
 }
 
@@ -648,21 +618,6 @@ export async function deleteRoleAccountStepForContext(
 
   if (step === "objects") {
     return deleteObjectAccountData(ownerIds);
-  }
-
-  if (step === "stored_files") {
-    const refs = await queryDocumentRefs(
-      "file_storage",
-      "owner_community_user_id",
-      ownerIds,
-    );
-    const deletedCount = await deleteRoleAccountDocumentRefs(refs);
-    return deletionStepResult(
-      step,
-      deletedCount,
-      `Deleted ${deletedCount} stored file metadata record(s).`,
-      "No stored file metadata was available.",
-    );
   }
 
   if (step === "learning") {

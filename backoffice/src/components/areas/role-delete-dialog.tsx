@@ -42,7 +42,6 @@ const ACCOUNT_DELETION_STEPS = [
   "community",
   "reports",
   "objects",
-  "stored_files",
   "learning",
   "firebase_auth",
   "role",
@@ -77,16 +76,12 @@ const STEP_LABELS: Record<DeletionStep, { en: string; es: string }> = {
     es: "Cuenta de comunidad",
   },
   reports: {
-    en: "Report owner, codes, and uploads",
-    es: "Propietario, códigos y cargas de reportes",
+    en: "Report owner account",
+    es: "Cuenta de propietario de reportes",
   },
   objects: {
-    en: "Object owner, codes, and uploads",
-    es: "Propietario, códigos y cargas de objetos",
-  },
-  stored_files: {
-    en: "Stored file metadata",
-    es: "Metadatos de archivos almacenados",
+    en: "Object owner account",
+    es: "Cuenta de propietario de objetos",
   },
   learning: { en: "Learning progress", es: "Progreso de aprendizaje" },
   firebase_auth: { en: "Firebase Auth account", es: "Cuenta de Firebase Auth" },
@@ -105,7 +100,7 @@ function roleDeleteCopy(language: "en" | "es") {
           "Quita la asignación de acceso del backoffice. La cuenta, los perfiles y sus datos permanecen intactos.",
         fullAccount: "Eliminar también toda la cuenta",
         fullAccountBody:
-          "Limpia la entidad personal vinculada, la cuenta de comunidad, perfiles, reportes, objetos, archivos almacenados, aprendizaje, Firebase Auth y finalmente el rol. Las publicaciones y conversaciones permanecen intactas.",
+          "Elimina las identidades de cuenta vinculadas, los perfiles, el progreso, Firebase Auth y finalmente el rol. Publicaciones, notas, eventos, reportes, objetos, archivos, ofertas y transacciones permanecen intactos.",
         sharedOrganization:
           "Las organizaciones publicadoras son entidades compartidas y no se eliminan como parte de una cuenta personal.",
         cancel: "Cancelar",
@@ -142,7 +137,7 @@ function roleDeleteCopy(language: "en" | "es") {
           "Removes the backoffice access assignment. The account, profiles, and data remain intact.",
         fullAccount: "Delete the whole account too",
         fullAccountBody:
-          "Cleans the linked personal entity, community account, profiles, reports, objects, stored files, learning, Firebase Auth, and finally the role. Posts and conversations remain intact.",
+          "Deletes linked account identities, profiles, progress, Firebase Auth, and finally the role. Posts, notes, events, reports, objects, files, offers, and transactions remain intact.",
         sharedOrganization:
           "Publisher organizations are shared entities and are not deleted as part of a personal account.",
         cancel: "Cancel",

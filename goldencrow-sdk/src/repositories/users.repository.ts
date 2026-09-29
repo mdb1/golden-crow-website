@@ -536,22 +536,7 @@ export async function deleteUserCascade(uid: string): Promise<CascadeDeleteResul
     errors.push(`Community user delete failed: ${String(err)}`);
   }
 
-  // Step 3: Delete report_codes where owner_id == uid
-  try {
-    const reportSnap = await adminDb.collection("report_codes").where("owner_id", "==", uid).get();
-    if (reportSnap.docs.length > 500) {
-      console.warn(`[deleteUserCascade] User ${uid} has ${reportSnap.docs.length} report_codes; only deleting first 500.`);
-    }
-    if (!reportSnap.empty) {
-      const batch = adminDb.batch();
-      reportSnap.docs.slice(0, 500).forEach((doc) => batch.delete(doc.ref));
-      await batch.commit();
-    }
-  } catch (err) {
-    errors.push(`Report codes delete failed: ${String(err)}`);
-  }
-
-  // Step 4: Delete user_progress document
+  // Step 3: Delete user_progress document
   try {
     await adminDb.collection("user_progress").doc(uid).delete();
   } catch (err) {
@@ -565,25 +550,9 @@ export async function deleteUserCascade(uid: string): Promise<CascadeDeleteResul
   }
 
   try {
-    const [uploadedOwnerSnap, uploadedCommunitySnap] = await Promise.all([
-      adminDb.collection("uploaded_reports").where("report_owner_id", "==", uid).get(),
-      adminDb.collection("uploaded_reports").where("owner_community_user_id", "==", uid).get(),
-    ]);
-
-    const uploadDocs = [
-      ...uploadedOwnerSnap.docs,
-      ...uploadedCommunitySnap.docs.filter(
-        (doc) => !uploadedOwnerSnap.docs.some((ownerDoc) => ownerDoc.id === doc.id)
-      ),
-    ];
-
-    if (uploadDocs.length > 0) {
-      const batch = adminDb.batch();
-      uploadDocs.slice(0, 500).forEach((doc) => batch.delete(doc.ref));
-      await batch.commit();
-    }
+    await adminDb.collection("object_owners").doc(uid).delete();
   } catch (err) {
-    errors.push(`Uploaded reports delete failed: ${String(err)}`);
+    errors.push(`Object owner delete failed: ${String(err)}`);
   }
 
   return { success: errors.length === 0, errors };
