@@ -78,6 +78,7 @@ const account: MyAccountRecord = {
       publicProfile: true,
       communityUser: true,
       reportOwner: true,
+      objectOwner: true,
     },
   },
 };
@@ -149,6 +150,7 @@ describe("MyAccountWorkbench diagnostics", () => {
     for (const section of diagnosticSections) {
       expect(screen.getByRole("heading", { name: section })).toBeTruthy();
     }
+    expect(screen.getByText("object_owners/{uid}")).toBeTruthy();
   });
 
   it("opens email changes in a modal instead of editing the account email inline", () => {

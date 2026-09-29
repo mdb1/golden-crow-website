@@ -29,6 +29,7 @@ function profileSetupState() {
       publicProfile: false,
       communityUser: false,
       reportOwner: false,
+      objectOwner: false,
     },
     defaults: {
       fullName: "Dra. Jane Doe",

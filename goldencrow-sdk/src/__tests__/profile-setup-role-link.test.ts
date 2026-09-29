@@ -114,7 +114,7 @@ describe("profile setup role linkage", () => {
     });
   });
 
-  it("links the role to the community account created by complete profile", async () => {
+  it("creates both owner identities and links the role to the community account", async () => {
     const { completeProfileSetup } =
       await import("../repositories/profile-setup.repository");
 
@@ -125,10 +125,26 @@ describe("profile setup role linkage", () => {
     });
 
     const communityUser = documents.get("community_users/member-uid");
+    const reportOwner = documents.get("report_owners/member-uid");
+    const objectOwner = documents.get("object_owners/member-uid");
     const role = documents.get("user_roles/member@example.com");
     expect(communityUser).toMatchObject({
       email: "member@example.com",
       username: expect.any(String),
+    });
+    expect(reportOwner).toMatchObject({
+      accepted_terms: false,
+      owner_name: "Member Example",
+      owner_contact_email: "member@example.com",
+      owner_profession: null,
+      owner_company: null,
+    });
+    expect(objectOwner).toMatchObject({
+      accepted_terms: false,
+      owner_name: "Member Example",
+      owner_contact_email: "member@example.com",
+      owner_profession: null,
+      owner_company: null,
     });
     expect(role).toMatchObject({
       firebaseUid: "member-uid",
@@ -136,5 +152,63 @@ describe("profile setup role linkage", () => {
       communityUserOriginalEmail: "member@example.com",
       communityUserOriginalUsername: communityUser?.username,
     });
+  });
+
+  it("preserves each owner identity metadata while syncing profile fields", async () => {
+    documents.set("report_owners/member-uid", {
+      accepted_terms: true,
+      accepted_terms_at: "2026-08-01T00:00:00.000Z",
+      created_at: "2026-07-01T00:00:00.000Z",
+    });
+    documents.set("object_owners/member-uid", {
+      accepted_terms: false,
+      accepted_terms_at: null,
+      created_at: "2026-07-02T00:00:00.000Z",
+    });
+
+    const { completeProfileSetup } =
+      await import("../repositories/profile-setup.repository");
+
+    await completeProfileSetup("member-uid", "full_admin", {
+      fullName: "Member Example",
+      iconName: "person.crop.circle.fill",
+      iconColorHex: "#5A4FCF",
+      ownerProfession: "Genetic counselor",
+      ownerCompany: "Pocket Genes",
+      ownerContactNumber: "+54 11 5555 0000",
+      ownerBio: "Clinical genetics specialist.",
+    });
+
+    expect(documents.get("report_owners/member-uid")).toMatchObject({
+      accepted_terms: true,
+      accepted_terms_at: "2026-08-01T00:00:00.000Z",
+      created_at: "2026-07-01T00:00:00.000Z",
+      owner_profession: "Genetic counselor",
+      owner_company: "Pocket Genes",
+    });
+    expect(documents.get("object_owners/member-uid")).toMatchObject({
+      accepted_terms: false,
+      accepted_terms_at: null,
+      created_at: "2026-07-02T00:00:00.000Z",
+      owner_profession: "Genetic counselor",
+      owner_company: "Pocket Genes",
+    });
+  });
+
+  it("keeps profile setup incomplete while the object owner is missing", async () => {
+    documents.set("profiles/member-uid", { onboardingCompleted: true });
+    documents.set("public_profiles/member-uid", { fullName: "Member Example" });
+    documents.set("community_users/member-uid", { username: "member-example" });
+    documents.set("report_owners/member-uid", {
+      owner_name: "Member Example",
+    });
+
+    const { getProfileSetupState } =
+      await import("../repositories/profile-setup.repository");
+
+    const state = await getProfileSetupState("member-uid");
+
+    expect(state.needsCompletion).toBe(true);
+    expect(state.docs.objectOwner).toBe(false);
   });
 });

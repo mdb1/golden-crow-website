@@ -280,6 +280,7 @@ export interface MyAccountProfileSummary {
     publicProfile: boolean;
     communityUser: boolean;
     reportOwner: boolean;
+    objectOwner: boolean;
   };
 }
 

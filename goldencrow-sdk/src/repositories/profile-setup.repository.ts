@@ -56,6 +56,7 @@ export interface ProfileSetupState {
     publicProfile: boolean;
     communityUser: boolean;
     reportOwner: boolean;
+    objectOwner: boolean;
   };
   defaults: {
     fullName: string;
@@ -150,6 +151,32 @@ function getStatsRecord(data: RecordData) {
       "aminoacids_collected",
     ),
     lessons_learned: readValue("stats.lessons_learned", "lessons_learned"),
+  };
+}
+
+function buildOwnerIdentityDocument(
+  existingData: RecordData,
+  input: {
+    fullName: string;
+    email: string;
+    ownerProfession: string;
+    ownerCompany: string;
+    ownerContactNumber: string;
+    ownerBio: string;
+    now: string;
+  },
+) {
+  return {
+    accepted_terms: getBoolean(existingData.accepted_terms) ?? false,
+    accepted_terms_at: existingData.accepted_terms_at ?? null,
+    owner_name: input.fullName,
+    owner_contact_email: input.email,
+    owner_profession: input.ownerProfession || null,
+    owner_company: input.ownerCompany || null,
+    owner_contact_number: input.ownerContactNumber || null,
+    owner_bio: input.ownerBio || null,
+    created_at: pickFirstString(existingData, ["created_at"]) || input.now,
+    updated_at: input.now,
   };
 }
 
@@ -468,12 +495,14 @@ export async function getProfileSetupState(
     publicProfileSnap,
     communityUserSnap,
     reportOwnerSnap,
+    objectOwnerSnap,
   ] = await Promise.all([
     adminAuth.getUser(uid).catch(() => null),
     adminDb.collection("profiles").doc(uid).get(),
     adminDb.collection("public_profiles").doc(uid).get(),
     adminDb.collection("community_users").doc(uid).get(),
     adminDb.collection("report_owners").doc(uid).get(),
+    adminDb.collection("object_owners").doc(uid).get(),
   ]);
 
   if (!authUser) {
@@ -484,12 +513,14 @@ export async function getProfileSetupState(
   const publicProfileData = getRecord(publicProfileSnap.data());
   const communityUserData = getRecord(communityUserSnap.data());
   const reportOwnerData = getRecord(reportOwnerSnap.data());
+  const objectOwnerData = getRecord(objectOwnerSnap.data());
 
   const onboardingCompleted =
     getBoolean(profileData.onboardingCompleted) ?? false;
   const fullName =
     pickFirstString(publicProfileData, ["fullName", "full_name"]) ||
     pickFirstString(reportOwnerData, ["owner_name"]) ||
+    pickFirstString(objectOwnerData, ["owner_name"]) ||
     pickFirstString(profileData, ["displayName"]) ||
     getString(authUser.displayName);
   const username =
@@ -512,6 +543,7 @@ export async function getProfileSetupState(
     publicProfile: publicProfileSnap.exists,
     communityUser: communityUserSnap.exists,
     reportOwner: reportOwnerSnap.exists,
+    objectOwner: objectOwnerSnap.exists,
   };
 
   return {
@@ -524,26 +556,32 @@ export async function getProfileSetupState(
       !docs.profile ||
       !docs.publicProfile ||
       !docs.communityUser ||
-      !docs.reportOwner,
+      !docs.reportOwner ||
+      !docs.objectOwner,
     docs,
     defaults: {
       fullName,
       username,
       iconName,
       iconColorHex,
-      ownerProfession: pickFirstString(reportOwnerData, [
-        "owner_profession",
-        "ownerProfession",
-      ]),
-      ownerCompany: pickFirstString(reportOwnerData, [
-        "owner_company",
-        "ownerCompany",
-      ]),
-      ownerContactNumber: pickFirstString(reportOwnerData, [
-        "owner_contact_number",
-        "ownerContactNumber",
-      ]),
-      ownerBio: pickFirstString(reportOwnerData, ["owner_bio", "ownerBio"]),
+      ownerProfession:
+        pickFirstString(reportOwnerData, [
+          "owner_profession",
+          "ownerProfession",
+        ]) || pickFirstString(objectOwnerData, ["owner_profession"]),
+      ownerCompany:
+        pickFirstString(reportOwnerData, [
+          "owner_company",
+          "ownerCompany",
+        ]) || pickFirstString(objectOwnerData, ["owner_company"]),
+      ownerContactNumber:
+        pickFirstString(reportOwnerData, [
+          "owner_contact_number",
+          "ownerContactNumber",
+        ]) || pickFirstString(objectOwnerData, ["owner_contact_number"]),
+      ownerBio:
+        pickFirstString(reportOwnerData, ["owner_bio", "ownerBio"]) ||
+        pickFirstString(objectOwnerData, ["owner_bio"]),
       gender: pickFirstString(publicProfileData, ["gender"]),
       condition: pickFirstString(publicProfileData, ["condition"]),
     },
@@ -699,12 +737,14 @@ export async function completeProfileSetup(
     publicProfileSnap,
     communityUserSnap,
     reportOwnerSnap,
+    objectOwnerSnap,
   ] = await Promise.all([
     adminAuth.getUser(uid).catch(() => null),
     adminDb.collection("profiles").doc(uid).get(),
     adminDb.collection("public_profiles").doc(uid).get(),
     adminDb.collection("community_users").doc(uid).get(),
     adminDb.collection("report_owners").doc(uid).get(),
+    adminDb.collection("object_owners").doc(uid).get(),
   ]);
 
   if (!authUser || !authUser.email) {
@@ -721,6 +761,7 @@ export async function completeProfileSetup(
   const publicProfileData = getRecord(publicProfileSnap.data());
   const communityUserData = getRecord(communityUserSnap.data());
   const reportOwnerData = getRecord(reportOwnerSnap.data());
+  const objectOwnerData = getRecord(objectOwnerSnap.data());
 
   const now = new Date().toISOString();
   const fullName = input.fullName.trim();
@@ -797,18 +838,29 @@ export async function completeProfileSetup(
 
   batch.set(
     adminDb.collection("report_owners").doc(uid),
-    {
-      accepted_terms: getBoolean(reportOwnerData.accepted_terms) ?? false,
-      accepted_terms_at: reportOwnerData.accepted_terms_at ?? null,
-      owner_name: fullName,
-      owner_contact_email: authUser.email,
-      owner_profession: ownerProfession || null,
-      owner_company: ownerCompany || null,
-      owner_contact_number: ownerContactNumber || null,
-      owner_bio: ownerBio || null,
-      created_at: pickFirstString(reportOwnerData, ["created_at"]) || now,
-      updated_at: now,
-    },
+    buildOwnerIdentityDocument(reportOwnerData, {
+      fullName,
+      email: authUser.email,
+      ownerProfession,
+      ownerCompany,
+      ownerContactNumber,
+      ownerBio,
+      now,
+    }),
+    { merge: true },
+  );
+
+  batch.set(
+    adminDb.collection("object_owners").doc(uid),
+    buildOwnerIdentityDocument(objectOwnerData, {
+      fullName,
+      email: authUser.email,
+      ownerProfession,
+      ownerCompany,
+      ownerContactNumber,
+      ownerBio,
+      now,
+    }),
     { merge: true },
   );
 

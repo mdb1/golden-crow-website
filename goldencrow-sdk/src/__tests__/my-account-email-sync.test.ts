@@ -137,6 +137,7 @@ jest.mock("../repositories/profile-setup.repository.js", () => ({
       publicProfile: true,
       communityUser: true,
       reportOwner: true,
+      objectOwner: true,
     },
   })),
   isProfileSetupError: jest.fn(() => false),

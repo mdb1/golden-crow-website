@@ -30,6 +30,7 @@ type ProfileSetupState = {
     publicProfile: boolean;
     communityUser: boolean;
     reportOwner: boolean;
+    objectOwner: boolean;
   };
   defaults: ProfileSetupDefaults;
 };

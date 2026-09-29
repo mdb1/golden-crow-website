@@ -1587,6 +1587,15 @@ export function MyAccountWorkbench({
                       : "Document not found"
                   }
                 />
+                <StatusItem
+                  ok={Boolean(account.profile?.docs.objectOwner)}
+                  label="object_owners/{uid}"
+                  value={
+                    account.profile?.docs.objectOwner
+                      ? "Document exists"
+                      : "Document not found"
+                  }
+                />
               </div>
             </SectionShell>
           </div>
