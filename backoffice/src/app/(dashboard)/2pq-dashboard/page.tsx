@@ -1,11 +1,12 @@
 import { cookies } from "next/headers";
 import { TwoPQDashboardHome } from "@/components/two-pq-dashboard-home";
 import { getAdminContextServer } from "@/lib/admin-context-server";
-import type {
-  DoctorListItem,
-  InstitutionListItem,
-  PatientListItem,
-  RoleManagementRecord,
+import {
+  getVisibleRoleRecordsForContext,
+  type DoctorListItem,
+  type InstitutionListItem,
+  type PatientListItem,
+  type RoleManagementRecord,
 } from "@/lib/admin-areas";
 import { sdkFetchServer } from "@/lib/sdk-server";
 import { getTwoPQFormDraft } from "@/lib/two-pq-server";
@@ -32,6 +33,10 @@ export default async function TwoPQDashboardPage() {
       sdkFetchServer<{ roles: RoleManagementRecord[] }>("/roles"),
       getTwoPQFormDraft(),
     ]);
+  const visibleRoles = getVisibleRoleRecordsForContext(
+    rolesPayload.roles,
+    adminContext,
+  );
 
   return (
     <TwoPQDashboardHome
@@ -41,16 +46,16 @@ export default async function TwoPQDashboardPage() {
         institutions: institutionsPayload.institutions.length,
         doctors: doctorsPayload.doctors.length,
         patients: patientsPayload.patients.length,
-        administrativeOperators: rolesPayload.roles.filter(
+        administrativeOperators: visibleRoles.filter(
           (role) => role.role === "institution_operator",
         ).length,
-        laboratoryStaff: rolesPayload.roles.filter(
+        laboratoryStaff: visibleRoles.filter(
           (role) => role.role === "institution_laboratory_staff",
         ).length,
-        transportDispatchers: rolesPayload.roles.filter(
+        transportDispatchers: visibleRoles.filter(
           (role) => role.role === "transport_dispatcher",
         ).length,
-        roles: rolesPayload.roles.length,
+        roles: visibleRoles.length,
       }}
       formDraft={formDraft}
     />
