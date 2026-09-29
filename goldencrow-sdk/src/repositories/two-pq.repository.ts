@@ -10,7 +10,10 @@ import { normalizeRoleEmail } from "./roles.repository.js";
 import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
 import { cascadeTwoPQCaseStatusToSamplingChildren } from "./two-pq-sampling-status.repository.js";
 import type { TwoPQCaseStatusProgressReporter } from "./two-pq-case-status-operation.repository.js";
-import { createTwoPQCaseServiceTransaction } from "./support-services.repository.js";
+import {
+  createTwoPQCaseServiceTransaction,
+  getTwoPQCaseLinkedServiceTransactionSnapshot,
+} from "./support-services.repository.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import type {
   AdminContext,
@@ -1906,8 +1909,16 @@ export async function getTwoPQDetailForContext(
     throw new AdminRepositoryError("You cannot view this record.", 403);
   }
 
-  const [institution, doctor, patient, linkedBatch, linkedCase, linkedCases, linkedSamplings] =
-    await Promise.all([
+  const [
+    institution,
+    doctor,
+    patient,
+    linkedBatch,
+    linkedCase,
+    linkedCases,
+    linkedSamplings,
+    linkedServiceTransaction,
+  ] = await Promise.all([
     getInstitutionById(record.institutionId),
     getDoctorById(record.doctorId),
     record.patientId ? getPatientById(record.patientId) : Promise.resolve(null),
@@ -1923,6 +1934,9 @@ export async function getTwoPQDetailForContext(
       areaKey === "cases"
         ? loadLinkedSamplingsForCase(record).then((records) => buildListItemsForRecords(context, records))
         : Promise.resolve([]),
+      areaKey === "cases"
+        ? getTwoPQCaseLinkedServiceTransactionSnapshot(record.id)
+        : Promise.resolve(null),
     ]);
 
   return {
@@ -1948,6 +1962,7 @@ export async function getTwoPQDetailForContext(
     linkedCase,
     linkedCases,
     linkedSamplings,
+    linkedServiceTransaction,
   };
 }
 

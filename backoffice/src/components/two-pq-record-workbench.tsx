@@ -97,6 +97,7 @@ import {
   hasFileStoragePublicationChanges,
   hasReportCodePublicationChanges,
 } from "@/lib/two-pq-publication-diff";
+import { transactionStatusLabel } from "@/lib/support-services";
 import {
   Table,
   TableBody,
@@ -496,6 +497,8 @@ const FILE_STORAGE_SECTION_CLASSNAME =
   "order-[10000] col-span-full overflow-hidden rounded-[1.9rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(246,248,255,0.98),rgba(238,242,255,0.98)_44%,rgba(224,231,255,0.94))] shadow-[0_24px_72px_rgba(99,102,241,0.16)] dark:border-indigo-400/28 dark:[background:linear-gradient(145deg,rgba(18,22,48,0.98),rgba(27,33,70,0.96)_46%,rgba(79,70,229,0.24))] dark:shadow-[0_24px_80px_-52px_rgba(99,102,241,0.88)]";
 const REPORT_CODE_PUBLISH_SECTION_CLASSNAME =
   "order-[10001] col-span-full overflow-hidden rounded-[1.9rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(241,245,255,0.99),rgba(232,239,255,0.98)_44%,rgba(218,228,255,0.94))] shadow-[0_24px_72px_rgba(79,70,229,0.18)] dark:border-indigo-400/28 dark:[background:linear-gradient(145deg,rgba(17,20,56,0.98),rgba(29,36,84,0.96)_46%,rgba(99,102,241,0.28))] dark:shadow-[0_24px_80px_-52px_rgba(99,102,241,0.9)]";
+const LINKED_SERVICE_TRANSACTION_SECTION_CLASSNAME =
+  "order-[10002] col-span-full overflow-hidden rounded-[1.9rem] border border-violet-100 [background:linear-gradient(155deg,rgba(251,247,255,0.99),rgba(245,243,255,0.98)_44%,rgba(237,233,254,0.94))] shadow-[0_24px_72px_rgba(124,58,237,0.15)] dark:border-violet-400/28 dark:[background:linear-gradient(145deg,rgba(32,20,58,0.98),rgba(49,30,88,0.96)_46%,rgba(124,58,237,0.26))] dark:shadow-[0_24px_80px_-52px_rgba(124,58,237,0.86)]";
 const FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME =
   "border border-indigo-100 bg-[linear-gradient(180deg,rgba(224,231,255,0.98),rgba(199,210,254,0.98))] text-indigo-950 shadow-[0_14px_34px_rgba(99,102,241,0.18)] hover:brightness-[1.02] dark:border-indigo-200/18 dark:bg-[linear-gradient(180deg,rgba(49,46,129,0.98),rgba(67,56,202,0.94))] dark:text-indigo-50 dark:shadow-none dark:hover:brightness-[1.06]";
 const FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME =
@@ -1728,6 +1731,10 @@ export function TwoPQRecordWorkbench({
     formatDateTimeWithSeconds(caseLastUpdatedDate) ?? t("Not available");
   const formattedStoredFileLastModifiedDate = formatDateTimeWithSeconds(
     storedFileLastModifiedDate,
+  );
+  const linkedServiceTransaction = detail?.linkedServiceTransaction ?? null;
+  const formattedLinkedServiceTransactionUpdatedAt = formatDateTimeWithSeconds(
+    linkedServiceTransaction?.updatedAt ?? linkedServiceTransaction?.createdAt,
   );
   const fileStoragePrimaryActionLabel = hasStoredFileId
     ? t("Update in File Storage")
@@ -7543,6 +7550,148 @@ export function TwoPQRecordWorkbench({
                   ) : null}
                 </>
               ) : null}
+            </section>
+          ) : null}
+
+          {areaKey === "cases" && mode !== "create" ? (
+            <section className={LINKED_SERVICE_TRANSACTION_SECTION_CLASSNAME}>
+              <div className="flex flex-col gap-4 border-b border-violet-200/70 px-5 py-5 lg:flex-row lg:items-start lg:justify-between dark:border-violet-300/16">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-200 bg-white/82 text-violet-700 shadow-sm dark:border-violet-300/20 dark:bg-violet-950/36 dark:text-violet-200">
+                    <Link2 className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-heading text-lg font-semibold text-violet-950 dark:text-violet-50">
+                        {t("Linked service transaction")}
+                      </h3>
+                      <Badge
+                        variant="outline"
+                        className={
+                          linkedServiceTransaction
+                            ? "border-violet-200 bg-white/76 text-violet-950 dark:border-violet-300/20 dark:bg-violet-400/10 dark:text-violet-50"
+                            : "border-violet-200/80 bg-violet-50/72 text-violet-900/72 dark:border-violet-300/16 dark:bg-violet-400/8 dark:text-violet-50/72"
+                        }
+                      >
+                        {linkedServiceTransaction
+                          ? t("Linked")
+                          : t("Not linked")}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 max-w-3xl text-sm text-violet-950/70 dark:text-violet-50/72">
+                      {t(
+                        "Snapshot of the service request created automatically with this 2PQ case.",
+                      )}
+                    </p>
+                  </div>
+                </div>
+                {linkedServiceTransaction && adminContext.isBootstrap ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="shrink-0 border-violet-200 bg-white/82 text-violet-950 shadow-sm hover:bg-violet-50 dark:border-violet-300/20 dark:bg-violet-950/30 dark:text-violet-50 dark:hover:bg-violet-900/38"
+                  >
+                    <Link
+                      href={`/god-mode/service-transactions/${encodeURIComponent(
+                        linkedServiceTransaction.requestId,
+                      )}`}
+                    >
+                      {t("Open transaction")}
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
+
+              {linkedServiceTransaction ? (
+                <div className="grid divide-y divide-violet-100/80 lg:grid-cols-4 lg:divide-x lg:divide-y-0 dark:divide-violet-300/14">
+                  <div className="min-w-0 px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-950/48 dark:text-violet-50/56">
+                      {t("Transaction")}
+                    </p>
+                    <p className="mt-2 break-all font-mono text-sm font-medium text-violet-950 dark:text-violet-50">
+                      {linkedServiceTransaction.requestId}
+                    </p>
+                    <Badge
+                      variant="outline"
+                      className={`mt-3 ${
+                        linkedServiceTransaction.status === "delivered"
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-300/28 dark:bg-emerald-500/12 dark:text-emerald-100"
+                          : ["failed", "rejected", "cancelled"].includes(
+                                linkedServiceTransaction.status,
+                              )
+                            ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-300/28 dark:bg-rose-500/12 dark:text-rose-100"
+                            : "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-300/28 dark:bg-sky-500/12 dark:text-sky-100"
+                      }`}
+                    >
+                      {t(
+                        transactionStatusLabel(linkedServiceTransaction.status),
+                      )}
+                    </Badge>
+                  </div>
+                  <div className="min-w-0 px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-950/48 dark:text-violet-50/56">
+                      {t("Service offer")}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-violet-950 dark:text-violet-50">
+                      {linkedServiceTransaction.offerName ||
+                        linkedServiceTransaction.serviceId}
+                    </p>
+                    <p className="mt-1 break-all font-mono text-xs text-violet-950/62 dark:text-violet-50/66">
+                      {linkedServiceTransaction.serviceId}
+                      {" · v"}
+                      {linkedServiceTransaction.serviceVersion}
+                    </p>
+                  </div>
+                  <div className="min-w-0 px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-950/48 dark:text-violet-50/56">
+                      {t("Provider and requester")}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-violet-950 dark:text-violet-50">
+                      {linkedServiceTransaction.providerName ||
+                        linkedServiceTransaction.providerId}
+                    </p>
+                    <p className="mt-1 break-all text-xs text-violet-950/62 dark:text-violet-50/66">
+                      {linkedServiceTransaction.requestedByUserEmail ||
+                        t("Requester email unavailable")}
+                    </p>
+                  </div>
+                  <div className="min-w-0 px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-950/48 dark:text-violet-50/56">
+                      {t("Output and activity")}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-violet-950 dark:text-violet-50">
+                      {linkedServiceTransaction.outputObjectCount}{" "}
+                      {t("output objects")}
+                    </p>
+                    <p className="mt-1 text-xs text-violet-950/62 dark:text-violet-50/66">
+                      {t("Last transaction update:")}{" "}
+                      <span className="font-medium">
+                        {formattedLinkedServiceTransactionUpdatedAt ??
+                          t("Not available")}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-5 py-5">
+                  <div className="flex items-start gap-3 rounded-[1.25rem] border border-dashed border-violet-200/90 bg-white/64 px-4 py-4 text-violet-950/72 dark:border-violet-300/18 dark:bg-violet-950/24 dark:text-violet-50/72">
+                    <CircleDot className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-violet-950 dark:text-violet-50">
+                        {t("No linked service transaction")}
+                      </p>
+                      <p className="mt-1 text-xs leading-5">
+                        {t(
+                          "No compatible service transaction was found for this case. The case remains available without this optional relationship.",
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
           ) : null}
         </div>

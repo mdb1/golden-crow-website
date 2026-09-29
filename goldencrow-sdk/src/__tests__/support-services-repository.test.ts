@@ -4095,9 +4095,10 @@ describe("support service canonical transaction creation", () => {
       email: doctorEmail,
       deferred_transaction_ids: existingDeferredIds,
     });
-    const { createTwoPQCaseServiceTransaction } = await import(
-      "../repositories/support-services.repository.js"
-    );
+    const {
+      createTwoPQCaseServiceTransaction,
+      getTwoPQCaseLinkedServiceTransactionSnapshot,
+    } = await import("../repositories/support-services.repository.js");
     const institutionalContext: AdminContext = {
       ...context,
       email: "lab@clinic.example",
@@ -4120,6 +4121,8 @@ describe("support service canonical transaction creation", () => {
       institutionalContext,
       transactionInput,
     );
+    const linkedSnapshot =
+      await getTwoPQCaseLinkedServiceTransactionSnapshot("CASE-00022");
 
     expect(created).toMatchObject({
       id: "pgr_2pq_case_00022",
@@ -4135,6 +4138,21 @@ describe("support service canonical transaction creation", () => {
     });
     expect(created).not.toHaveProperty("requestedByUserId");
     expect(retried.id).toBe(created.id);
+    expect(linkedSnapshot).toEqual({
+      id: "pgr_2pq_case_00022",
+      requestId: "pgr_2pq_case_00022",
+      offerId,
+      offerName: "Solicitud de PGT",
+      serviceId: "pgs_2pq_74399",
+      serviceVersion: 3,
+      providerId,
+      providerName: "2pq",
+      status: "received",
+      requestedByUserEmail: doctorEmail,
+      outputObjectCount: 0,
+      createdAt: "2026-09-16T12:00:00.000Z",
+      updatedAt: "2026-09-16T12:00:00.000Z",
+    });
     expect(collectionStore("service_transactions").size).toBe(1);
     expect(
       collectionStore("deferred_service_transactions").get(deferredIndexId),
@@ -4154,6 +4172,16 @@ describe("support service canonical transaction creation", () => {
         }),
       ],
     });
+  });
+
+  it("returns no linked 2PQ service transaction snapshot for a historical case without one", async () => {
+    const { getTwoPQCaseLinkedServiceTransactionSnapshot } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      getTwoPQCaseLinkedServiceTransactionSnapshot("CASE-00020"),
+    ).resolves.toBeNull();
   });
 
   it.each(["isHighlightedOffer", "isProfessionalOffer"])(

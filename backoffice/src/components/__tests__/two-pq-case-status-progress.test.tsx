@@ -47,6 +47,7 @@ const detail: TwoPQDetailRecord = {
   linkedCase: null,
   linkedCases: [],
   linkedSamplings: [],
+  linkedServiceTransaction: null,
 };
 
 function deferred<T>() {
@@ -59,7 +60,10 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function renderWorkbench() {
+function renderWorkbench(
+  workbenchDetail: TwoPQDetailRecord = detail,
+  isBootstrap = false,
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -71,7 +75,7 @@ function renderWorkbench() {
             email: "admin@example.com",
             uid: "admin-1",
             role: "full_admin",
-            isBootstrap: false,
+            isBootstrap,
             canAccessBackoffice: true,
             canAccessPatientPortal: false,
             canAccessPGFlex: false,
@@ -81,7 +85,7 @@ function renderWorkbench() {
         >
           <TwoPQRecordWorkbench
             areaKey="cases"
-            detail={detail}
+            detail={workbenchDetail}
             institutions={[]}
             doctors={[]}
             patients={[]}
@@ -95,6 +99,51 @@ function renderWorkbench() {
 describe("2PQ case-status progress modal", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("shows an optional empty state when the case has no linked service transaction", () => {
+    renderWorkbench();
+
+    expect(
+      screen.getByRole("heading", { name: "Linked service transaction" }),
+    ).toBeTruthy();
+    expect(screen.getByText("No linked service transaction")).toBeTruthy();
+    expect(
+      screen.queryByRole("link", { name: "Open transaction" }),
+    ).toBeNull();
+  });
+
+  it("shows the linked transaction snapshot and GOD MODE detail link", () => {
+    renderWorkbench(
+      {
+        ...detail,
+        linkedServiceTransaction: {
+          id: "pgr_2pq_case_00022",
+          requestId: "pgr_2pq_case_00022",
+          offerId: "rhTE3dfB8Ovhf86lY3Z5",
+          offerName: "Solicitud de PGT",
+          serviceId: "pgs_2pq_74399",
+          serviceVersion: 3,
+          providerId: "kfFtJlLuyW6deXW2Im3S",
+          providerName: "2pq",
+          status: "received",
+          requestedByUserEmail: "doctor@clinic.example",
+          outputObjectCount: 0,
+          updatedAt: "2026-09-29T10:00:00.000Z",
+        },
+      },
+      true,
+    );
+
+    expect(screen.getByText("pgr_2pq_case_00022")).toBeTruthy();
+    expect(screen.getByText("Solicitud de PGT")).toBeTruthy();
+    expect(screen.getByText("doctor@clinic.example")).toBeTruthy();
+    expect(screen.getByText("Received")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: "Open transaction" })
+        .getAttribute("href"),
+    ).toBe("/god-mode/service-transactions/pgr_2pq_case_00022");
   });
 
   it("opens immediately and refreshes only after the operator finishes", async () => {

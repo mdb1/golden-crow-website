@@ -18,7 +18,10 @@ import {
 import { identifyPgiNativeModel } from "../lib/pgi-native-schema.js";
 import { serializedPgoObjectSchemaError } from "../lib/pgo-object-schema.js";
 import { TWO_PQ_REPORT_OWNER_EMAIL } from "../lib/two-pq-report-owner.js";
-import type { AdminContext } from "../types/sdk.types.js";
+import type {
+  AdminContext,
+  TwoPQLinkedServiceTransactionSnapshot,
+} from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 
 const adminDb = adminDbFor("mydnamap");
@@ -6686,6 +6689,51 @@ function twoPQCaseServiceTransactionRequestId(caseId: string) {
     );
   }
   return `pgr_2pq_${normalizedCaseId}`;
+}
+
+export async function getTwoPQCaseLinkedServiceTransactionSnapshot(
+  caseId: string,
+): Promise<TwoPQLinkedServiceTransactionSnapshot | null> {
+  const transactionId = twoPQCaseServiceTransactionRequestId(caseId);
+  const snapshot = await adminDb
+    .collection(SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(transactionId)
+    .get();
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  let transaction: SupportServiceTransactionRecord;
+  try {
+    transaction = toTransactionRecord(snapshot.id, snapshot.data() ?? {});
+  } catch {
+    return null;
+  }
+  if (
+    transaction.requestId !== transactionId ||
+    transaction.offerId !== TWO_PQ_CASE_SERVICE_OFFER_ID ||
+    transaction.serviceId !== TWO_PQ_CASE_SERVICE_ID ||
+    transaction.providerId !== TWO_PQ_CASE_SERVICE_PROVIDER_ID ||
+    transaction.contractSource !== "2pq_case_creation"
+  ) {
+    return null;
+  }
+
+  return {
+    id: transaction.id,
+    requestId: transaction.requestId,
+    offerId: transaction.offerId,
+    offerName: cleanString(transaction.offerSnapshot.name),
+    serviceId: transaction.serviceId,
+    serviceVersion: transaction.serviceVersion,
+    providerId: transaction.providerId,
+    providerName: cleanString(transaction.providerSnapshot.name),
+    status: transaction.status,
+    requestedByUserEmail: transaction.requestedByUserEmail,
+    outputObjectCount: transaction.outputObjects.length,
+    createdAt: transaction.createdAt,
+    updatedAt: transaction.updatedAt,
+  };
 }
 
 export async function createTwoPQCaseServiceTransaction(

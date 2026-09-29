@@ -115,6 +115,22 @@ export interface TwoPQListItem extends TwoPQRecord {
   canDelete: boolean;
 }
 
+export interface TwoPQLinkedServiceTransactionSnapshot {
+  id: string;
+  requestId: string;
+  offerId: string;
+  offerName: string;
+  serviceId: string;
+  serviceVersion: number;
+  providerId: string;
+  providerName: string;
+  status: string;
+  requestedByUserEmail?: string;
+  outputObjectCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface TwoPQDetailRecord {
   record: TwoPQListItem;
   institution: InstitutionRecord | null;
@@ -124,6 +140,7 @@ export interface TwoPQDetailRecord {
   linkedCase: TwoPQListItem | null;
   linkedCases: TwoPQListItem[];
   linkedSamplings: TwoPQListItem[];
+  linkedServiceTransaction: TwoPQLinkedServiceTransactionSnapshot | null;
 }
 
 type TwoPQDisplayRecord = TwoPQRecord &
