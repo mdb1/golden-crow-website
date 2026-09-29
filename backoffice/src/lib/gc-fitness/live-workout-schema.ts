@@ -31,6 +31,8 @@ export const sessionSetLogSchema = z.object({
   // quick-260714-m57 (#403) — optional richer set type. Writers keep
   // isWarmup === (setType === "warmup") in sync (see live-workout-types).
   setType: z.enum(SET_TYPES).nullish(),
+  // #1197 — stamped server-side at finalize; accepted (and kept) when present.
+  bodyweightKg: z.number().positive().max(1000).nullish(),
 });
 
 export const startSessionSchema = z.object({

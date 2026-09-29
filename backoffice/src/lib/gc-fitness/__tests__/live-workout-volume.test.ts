@@ -4,6 +4,8 @@ import {
   computeDurationSeconds,
   computeTotalVolumeKg,
   countWorkingSets,
+  isBodyweightEquipment,
+  stampingBodyweight,
 } from "../live-workout-volume";
 import type { SessionSetLog } from "../live-workout-types";
 
@@ -127,5 +129,39 @@ describe("set-type aware volume (#565 — all types count)", () => {
         set({ setType: "warmup", isWarmup: true }),
       ]),
     ).toBe(3);
+  });
+});
+
+// #1197 — twin of the iOS / Android `WorkoutVolume` body-weight cases.
+describe("body weight in volume (#1197)", () => {
+  it("a stamped bodyweight set loads weight + body weight", () => {
+    expect(computeTotalVolumeKg([set({ reps: 10, bodyweightKg: 80 })])).toBe(800);
+    expect(
+      computeTotalVolumeKg([set({ weightKg: 10, reps: 5, bodyweightKg: 80 })]),
+    ).toBe(450);
+    expect(
+      computeTotalVolumeKg([set({ durationSeconds: 90, bodyweightKg: 80 })]),
+    ).toBe(120);
+    expect(computeTotalVolumeKg([set({ reps: 10 })])).toBe(0);
+  });
+
+  it("stamps only bodyweight exercises, only with a known weight, never re-stamps", () => {
+    const sets = [
+      set({ exerciseId: "pullup", reps: 10 }),
+      set({ exerciseId: "bench", weightKg: 60, reps: 8 }),
+      set({ exerciseId: "dip", reps: 12, bodyweightKg: 70 }),
+    ];
+    const stamped = stampingBodyweight(sets, 80, new Set(["pullup", "dip"]));
+    expect(stamped.map((s) => s.bodyweightKg ?? null)).toEqual([80, null, 70]);
+    expect(computeTotalVolumeKg(stamped)).toBe(800 + 480 + 840);
+    expect(stampingBodyweight(sets, null, new Set(["pullup"]))).toBe(sets);
+    expect(stampingBodyweight(sets, 0, new Set(["pullup"]))).toBe(sets);
+  });
+
+  it("recognises bodyweight equipment like Exercise.isBodyweight", () => {
+    expect(isBodyweightEquipment(["bodyweight"])).toBe(true);
+    expect(isBodyweightEquipment([" None "])).toBe(true);
+    expect(isBodyweightEquipment(["barbell"])).toBe(false);
+    expect(isBodyweightEquipment(undefined)).toBe(false);
   });
 });
