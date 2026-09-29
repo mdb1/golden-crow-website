@@ -10,7 +10,7 @@ import type {
   AdminContextRecord,
   RoleManagementRecord,
 } from "@/lib/admin-areas";
-import { sdkFetch } from "@/lib/sdk-client";
+import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 
 jest.mock("@/lib/sdk-client", () => ({
   ...jest.requireActual("@/lib/sdk-client"),
@@ -64,7 +64,18 @@ describe("RoleDeleteDialog", () => {
     (sdkFetch as jest.Mock).mockImplementation(async (path: string) => {
       const step = path.split("/").at(-1);
       if (step === "community") {
-        throw new Error("Community cleanup unavailable");
+        throw new SdkRequestError({
+          status: 500,
+          method: "DELETE",
+          path,
+          message: "Role account cleanup step failed.",
+          details: [
+            `Request: DELETE ${path}`,
+            "Status: 500 Internal Server Error",
+            "Vercel request id: iad1::cleanup-request-id",
+            'Response JSON:\n{"message":"9 FAILED_PRECONDITION: missing index"}',
+          ].join("\n\n"),
+        });
       }
       if (step === "reports") {
         return {
@@ -107,6 +118,18 @@ describe("RoleDeleteDialog", () => {
     expect(screen.getAllByText("Failed")).toHaveLength(1);
     expect(screen.getAllByText("Not available")).toHaveLength(1);
     expect(screen.getByText("100%")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Show log" }));
+    expect(
+      screen.getByRole("heading", { name: "Cleanup stage log" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Request: DELETE \/roles\/patient%40example\.com\/deletion\/community/,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/FAILED_PRECONDITION: missing index/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Close log" }));
 
     await user.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1));

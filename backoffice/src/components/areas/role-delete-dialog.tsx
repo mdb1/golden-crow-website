@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CircleMinus,
   CircleX,
+  FileText,
   LoaderCircle,
   PartyPopper,
   ShieldAlert,
@@ -55,14 +56,14 @@ type ServerStepResult = {
   deletedCount: number;
   message: string;
 };
-type StepResult =
-  | ServerStepResult
-  | {
-      step: DeletionStep;
-      status: "failed";
-      deletedCount: 0;
-      message: string;
-    };
+type FailedStepResult = {
+  step: DeletionStep;
+  status: "failed";
+  deletedCount: 0;
+  message: string;
+  log: string;
+};
+type StepResult = ServerStepResult | FailedStepResult;
 
 const STEP_LABELS: Record<DeletionStep, { en: string; es: string }> = {
   linked_entity: {
@@ -123,6 +124,11 @@ function roleDeleteCopy(language: "en" | "es") {
         deleted: "Eliminado",
         notFound: "No disponible",
         failed: "Falló",
+        showLog: "Ver log",
+        logTitle: "Log de etapa de limpieza",
+        logDescription:
+          "Request, respuesta y detalle técnico capturados para esta etapa fallida.",
+        closeLog: "Cerrar log",
         records: "registros",
         processing: "Procesando",
       }
@@ -155,6 +161,11 @@ function roleDeleteCopy(language: "en" | "es") {
         deleted: "Deleted",
         notFound: "Not available",
         failed: "Failed",
+        showLog: "Show log",
+        logTitle: "Cleanup stage log",
+        logDescription:
+          "Captured request, response, and technical details for this failed stage.",
+        closeLog: "Close log",
         records: "records",
         processing: "Processing",
       };
@@ -178,6 +189,7 @@ export function RoleDeleteDialog({
   const [finished, setFinished] = useState(false);
   const [currentStep, setCurrentStep] = useState<DeletionStep | null>(null);
   const [results, setResults] = useState<StepResult[]>([]);
+  const [selectedLog, setSelectedLog] = useState<FailedStepResult | null>(null);
   const canDelete = canDeleteRoleRecord(adminContext, roleRecord);
   const steps =
     scope === "account" ? ACCOUNT_DELETION_STEPS : (["role"] as const);
@@ -198,6 +210,7 @@ export function RoleDeleteDialog({
     setFinished(false);
     setCurrentStep(null);
     setResults([]);
+    setSelectedLog(null);
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -221,25 +234,48 @@ export function RoleDeleteDialog({
 
     for (const step of steps) {
       setCurrentStep(step);
+      const requestPath = `/roles/${encodeURIComponent(roleRecord.email)}/deletion/${step}`;
       try {
         const result = await sdkFetch<ServerStepResult>(
-          `/roles/${encodeURIComponent(roleRecord.email)}/deletion/${step}`,
+          requestPath,
           { method: "DELETE" },
         );
         setResults((current) => [...current, result]);
       } catch (error) {
+        const fallbackMessage =
+          language === "es"
+            ? "La etapa no pudo completarse."
+            : "The cleanup stage could not be completed.";
+        const message =
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : fallbackMessage;
+        const technicalDetails =
+          error instanceof SdkRequestError
+            ? error.details
+            : [
+                `Request: DELETE ${requestPath}`,
+                `Error name: ${error instanceof Error ? error.name : typeof error}`,
+                `Message: ${message}`,
+                error instanceof Error && error.stack
+                  ? `Client stack:\n${error.stack}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join("\n\n");
         setResults((current) => [
           ...current,
           {
             step,
             status: "failed",
             deletedCount: 0,
-            message:
-              error instanceof SdkRequestError
-                ? error.message
-                : language === "es"
-                  ? "La etapa no pudo completarse."
-                  : "The cleanup stage could not be completed.",
+            message,
+            log: [
+              `Captured at: ${new Date().toISOString()}`,
+              `Cleanup step: ${step}`,
+              `Role email: ${roleRecord.email}`,
+              technicalDetails,
+            ].join("\n\n"),
           },
         ]);
       }
@@ -251,7 +287,8 @@ export function RoleDeleteDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger ?? (
           <Button
@@ -419,12 +456,26 @@ export function RoleDeleteDialog({
                         ) : null}
                       </div>
                       {result ? (
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                          {result.message}
-                          {result.deletedCount > 1
-                            ? ` · ${result.deletedCount} ${copy.records}`
-                            : ""}
-                        </p>
+                        <>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                            {result.message}
+                            {result.deletedCount > 1
+                              ? ` · ${result.deletedCount} ${copy.records}`
+                              : ""}
+                          </p>
+                          {result.status === "failed" ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => setSelectedLog(result)}
+                            >
+                              <FileText className="h-4 w-4" />
+                              {copy.showLog}
+                            </Button>
+                          ) : null}
+                        </>
                       ) : null}
                     </div>
                   </div>
@@ -464,6 +515,45 @@ export function RoleDeleteDialog({
           )}
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+
+      <Dialog
+        open={selectedLog !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setSelectedLog(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-5xl">
+          <DialogHeader className="pr-10">
+            <DialogTitle className="font-heading text-xl">
+              {copy.logTitle}
+            </DialogTitle>
+            <DialogDescription>{copy.logDescription}</DialogDescription>
+          </DialogHeader>
+
+          {selectedLog ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="destructive">
+                  {STEP_LABELS[selectedLog.step][language]}
+                </Badge>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {roleRecord.email}
+                </span>
+              </div>
+              <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/45 p-4 font-mono text-xs leading-5 text-foreground">
+                {selectedLog.log}
+              </pre>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" onClick={() => setSelectedLog(null)}>
+              {copy.closeLog}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
