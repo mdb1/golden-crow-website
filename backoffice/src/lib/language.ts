@@ -3877,6 +3877,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "El responsable existente permanece sin cambios. Esta actualización usa el formato de prestador",
   "The fixed 2PQ publisher account will own this new report, with provider format":
     "La cuenta publicadora fija de 2PQ será responsable de este nuevo reporte, con formato de prestador",
+  "There is nothing to update. File Storage already matches the current case snapshot.":
+    "No hay nada para actualizar. File Storage ya coincide con el snapshot actual del caso.",
+  "There is nothing to update. The report code already matches the stored file and publication metadata.":
+    "No hay nada para actualizar. El código de reporte ya coincide con el archivo almacenado y la metadata de publicación.",
   "Publish to File Storage": "Publicar en archivos",
   Published: "Publicado",
   "Publishing will create a new file and save its document id on this case as stored_file_id.":

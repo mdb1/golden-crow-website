@@ -1619,13 +1619,20 @@ export async function listTwoPQRecordsForContext(
     institutionId?: string;
     doctorId?: string;
     patientId?: string;
+    parentBatchId?: string;
     query?: string;
   }
 ): Promise<TwoPQListItem[]> {
   const config = AREA_CONFIG[areaKey];
+  const normalizedParentBatchId = normalizeOptionalString(filters?.parentBatchId);
   const [recordSnapshot, institutions, doctors, patients] = await Promise.all([
-    isGlobalAdminRole(context.role)
-      ? adminDb.collection(config.collectionKey).get()
+    isGlobalAdminRole(context.role) && areaKey === "cases" && normalizedParentBatchId
+      ? adminDb
+          .collection(config.collectionKey)
+          .where("parent_batch", "==", normalizedParentBatchId)
+          .get()
+      : isGlobalAdminRole(context.role)
+        ? adminDb.collection(config.collectionKey).get()
       : adminDb
           .collection(config.collectionKey)
           .where("institutionId", "==", context.institutionId ?? "__none__")
@@ -1646,6 +1653,13 @@ export async function listTwoPQRecordsForContext(
     .map((doc) => toTwoPQRecord(doc.id, areaKey, doc.data() as Record<string, unknown>))
     .filter((record) => canViewTwoPQRecord(context, record))
     .filter((record) => {
+      if (
+        normalizedParentBatchId &&
+        (areaKey !== "cases" || record.parent_batch !== normalizedParentBatchId)
+      ) {
+        return false;
+      }
+
       if (filters?.institutionId && record.institutionId !== filters.institutionId) {
         return false;
       }

@@ -87,7 +87,16 @@ import {
   translateTwoPQAreaConfig,
 } from "@/lib/two-pq-areas";
 import { appText } from "@/lib/language";
-import { resolveReportCodePublishingPreflight } from "@/lib/two-pq-report-publishing";
+import {
+  TWO_PQ_REPORT_OWNER_EMAIL,
+  TWO_PQ_REPORT_OWNER_ID,
+  TWO_PQ_REPORT_OWNER_NAME,
+  resolveReportCodePublishingPreflight,
+} from "@/lib/two-pq-report-publishing";
+import {
+  hasFileStoragePublicationChanges,
+  hasReportCodePublicationChanges,
+} from "@/lib/two-pq-publication-diff";
 import {
   Table,
   TableBody,
@@ -223,7 +232,12 @@ type PublishFileStorageModalState = {
   fileName: string;
   snapshot: TwoPQFileStorageSnapshot | null;
   preview: string;
+  hasChanges: boolean;
   autoSubmit: boolean;
+};
+type FileStorageSnapshotPreview = {
+  snapshot: TwoPQFileStorageSnapshot;
+  preview: string;
 };
 type StoredFileDocumentRecord = {
   id: string;
@@ -239,6 +253,10 @@ type ReportCodeStatusRecord = {
   ownerName?: string | null;
   ownerEmail?: string | null;
   providerFormat?: string | null;
+  providerName?: string | null;
+  trackingStatus?: string | null;
+  ownerCommunityUserId?: string | null;
+  ownerPublicProfileId?: string | null;
 };
 type PublishReportCodeResult = {
   reportCode: string;
@@ -1564,10 +1582,28 @@ export function TwoPQRecordWorkbench({
     hasThreeLetterCode &&
     hasStoredFileId &&
     Boolean(detail);
-  const canPublishCaseToFileStorage =
+  const canManageCaseFileStorage =
     canOpenPublishFileStorageModal &&
     hasFileStorageAccess &&
     Boolean(detail?.record.canUpdate);
+  const fileStorageSnapshotQuery = useQuery<FileStorageSnapshotPreview>({
+    queryKey: [
+      "2pq-case-file-storage-snapshot",
+      detail?.record.id,
+      detail?.record.updatedAt,
+      linkedBatch?.id,
+      linkedBatch?.updatedAt,
+      linkedSamplings
+        .map((record) => `${record.id}:${record.updatedAt}`)
+        .join("|"),
+    ],
+    queryFn: loadCurrentFileStorageSnapshotPreview,
+    enabled:
+      canOpenPublishFileStorageModal &&
+      hasStoredFileId &&
+      hasFileStorageAccess,
+    staleTime: 30_000,
+  });
   const storedFileDocumentQuery = useQuery({
     queryKey: ["2pq-case-stored-file", storedFileId],
     queryFn: async () => {
@@ -1615,6 +1651,31 @@ export function TwoPQRecordWorkbench({
     staleTime: 30_000,
   });
   const storedFileDocument = storedFileDocumentQuery.data ?? null;
+  const storedFileName =
+    getTrimmedUnknownString(storedFileDocument?.data.file_name) ?? "";
+  const fileStorageUpdateHasChanges =
+    hasStoredFileId &&
+    Boolean(storedFileDocument) &&
+    Boolean(fileStorageSnapshotQuery.data) &&
+    hasFileStoragePublicationChanges({
+      existingData: storedFileDocument?.data ?? {},
+      nextFileName: fileStorageSnapshotFileName,
+      nextCreatorEmail: adminContext.email,
+      nextFileType: "2pq",
+      nextFileContent: fileStorageSnapshotQuery.data?.preview ?? "",
+    });
+  const fileStorageUpdateIsCurrent =
+    hasStoredFileId &&
+    storedFileDocumentQuery.isSuccess &&
+    Boolean(storedFileDocument) &&
+    fileStorageSnapshotQuery.isSuccess &&
+    !fileStorageUpdateHasChanges;
+  const canPublishCaseToFileStorage =
+    canManageCaseFileStorage &&
+    (!hasStoredFileId ||
+      (storedFileDocumentQuery.isSuccess &&
+        fileStorageSnapshotQuery.isSuccess &&
+        fileStorageUpdateHasChanges));
   const storedFileLinkedReportCode =
     resolveStoredFileLinkedReportCode(storedFileDocument);
   const storedFileLastModifiedDate =
@@ -1654,6 +1715,32 @@ export function TwoPQRecordWorkbench({
     existingOwnerEmail: reportCodeStatus?.ownerEmail,
     existingOwnerName: reportCodeStatus?.ownerName,
   });
+  const reportCodePublicationHasChanges = hasReportCodePublicationChanges({
+    reportExists: Boolean(reportCodeStatus),
+    expectedReportCode: expectedCaseLabelFromThreeLetterCode,
+    storedFileId,
+    storedFileName,
+    storedFileLinkedReportCode,
+    reportCodeLinkedFileId,
+    uploadedReportId: reportCodeStatus?.uploadedReportId,
+    reportFileName: reportCodeStatus?.fileName,
+    providerFormat: reportCodeStatus?.providerFormat,
+    providerName: reportCodeStatus?.providerName,
+    trackingStatus: reportCodeStatus?.trackingStatus,
+    ownerId: reportCodePublishingPreflight.ownerId,
+    ownerEmail: reportCodePublishingPreflight.ownerEmail,
+    ownerName: reportCodePublishingPreflight.ownerName,
+    ownerCommunityUserId: reportCodeStatus?.ownerCommunityUserId,
+    ownerPublicProfileId: reportCodeStatus?.ownerPublicProfileId,
+    canonicalOwnerId: TWO_PQ_REPORT_OWNER_ID,
+    canonicalOwnerEmail: TWO_PQ_REPORT_OWNER_EMAIL,
+    canonicalOwnerName: TWO_PQ_REPORT_OWNER_NAME,
+  });
+  const reportCodePublicationIsCurrent =
+    Boolean(reportCodeStatus) &&
+    storedFileDocumentQuery.isSuccess &&
+    reportCodeStatusQuery.isSuccess &&
+    !reportCodePublicationHasChanges;
   const reportCodePublishConflictMessage =
     reportCodePublishingPreflight.blockingConflictMessage;
   const reportCodePublishConflictResolution =
@@ -1718,7 +1805,8 @@ export function TwoPQRecordWorkbench({
     !isReportCodeStatusLoading &&
     !storedFileDocumentQuery.isError &&
     !reportCodeStatusQuery.isError &&
-    !reportCodePublishConflictMessage;
+    !reportCodePublishConflictMessage &&
+    reportCodePublicationHasChanges;
   const formattedCaseLastUpdatedDate =
     formatDateTimeWithSeconds(caseLastUpdatedDate) ?? t("Not available");
   const formattedStoredFileLastModifiedDate = formatDateTimeWithSeconds(
@@ -2228,6 +2316,33 @@ export function TwoPQRecordWorkbench({
     setIsPublishReportCodeModalOpen(false);
   }
 
+  async function loadCurrentFileStorageSnapshotPreview(): Promise<FileStorageSnapshotPreview> {
+    if (!detail) {
+      throw new Error("Case detail is required to build the snapshot.");
+    }
+
+    const parentBatchId =
+      detail.record.parent_batch?.trim() || linkedBatch?.id.trim() || "";
+    const siblingCases = parentBatchId
+      ? (
+          await sdkFetch<{ records: TwoPQListItem[] }>(
+            `/2pq/cases?parentBatchId=${encodeURIComponent(parentBatchId)}`,
+          )
+        ).records.filter((record) => record.id !== detail.record.id)
+      : [];
+    const snapshot = buildTwoPQFileStorageSnapshot({
+      currentCase: detail.record,
+      linkedBatch,
+      linkedSamplings,
+      siblingCases,
+    });
+
+    return {
+      snapshot,
+      preview: JSON.stringify(snapshot, null, 2),
+    };
+  }
+
   async function openPublishFileStorageModal(options?: {
     mode?: FileStorageModalMode;
     autoSubmit?: boolean;
@@ -2251,28 +2366,35 @@ export function TwoPQRecordWorkbench({
       fileName: fileStorageSnapshotFileName,
       snapshot: null,
       preview: "",
+      hasChanges: mode === "publish",
       autoSubmit,
     });
 
     try {
-      const siblingCases =
-        detail.record.parent_batch || linkedBatch?.id
-          ? (
-              await sdkFetch<{ records: TwoPQListItem[] }>("/2pq/cases")
-            ).records.filter(
-              (record) =>
-                record.parent_batch ===
-                  (detail.record.parent_batch ?? linkedBatch?.id) &&
-                record.id !== detail.record.id,
-            )
-          : [];
-      const snapshot = buildTwoPQFileStorageSnapshot({
-        currentCase: detail.record,
-        linkedBatch,
-        linkedSamplings,
-        siblingCases,
-      });
-      const preview = JSON.stringify(snapshot, null, 2);
+      const [snapshotResult, storedFileResult] =
+        mode === "update"
+          ? await Promise.all([
+              fileStorageSnapshotQuery.refetch(),
+              storedFileDocumentQuery.refetch(),
+            ])
+          : [
+              { data: await loadCurrentFileStorageSnapshotPreview() },
+              { data: null },
+            ];
+      if (!snapshotResult.data) {
+        throw new Error("Snapshot preview is unavailable.");
+      }
+      const { snapshot, preview } = snapshotResult.data;
+      const hasChanges =
+        mode === "publish" ||
+        !storedFileResult.data ||
+        hasFileStoragePublicationChanges({
+          existingData: storedFileResult.data.data,
+          nextFileName: fileStorageSnapshotFileName,
+          nextCreatorEmail: adminContext.email,
+          nextFileType: "2pq",
+          nextFileContent: preview,
+        });
 
       if (publishFileStorageRequestIdRef.current !== requestId) {
         return;
@@ -2284,7 +2406,8 @@ export function TwoPQRecordWorkbench({
         fileName: fileStorageSnapshotFileName,
         snapshot,
         preview,
-        autoSubmit,
+        hasChanges,
+        autoSubmit: autoSubmit && hasChanges,
       });
     } catch (error) {
       if (publishFileStorageRequestIdRef.current !== requestId) {
@@ -2303,7 +2426,12 @@ export function TwoPQRecordWorkbench({
     modalStateOverride?: PublishFileStorageModalState,
   ) {
     const modalState = modalStateOverride ?? publishFileStorageModal;
-    if (!detail || !modalState?.snapshot || !modalState.preview) {
+    if (
+      !detail ||
+      !modalState?.snapshot ||
+      !modalState.preview ||
+      (modalState.mode === "update" && !modalState.hasChanges)
+    ) {
       return;
     }
 
@@ -2394,7 +2522,8 @@ export function TwoPQRecordWorkbench({
     if (
       !publishFileStorageModal ||
       publishFileStorageModal.status !== "ready" ||
-      !publishFileStorageModal.autoSubmit
+      !publishFileStorageModal.autoSubmit ||
+      !publishFileStorageModal.hasChanges
     ) {
       return;
     }
@@ -2411,7 +2540,12 @@ export function TwoPQRecordWorkbench({
   }, [publishFileStorageModal]);
 
   async function handlePublishAsReportCode() {
-    if (!detail || !storedFileId || !expectedCaseLabelFromThreeLetterCode) {
+    if (
+      !detail ||
+      !storedFileId ||
+      !expectedCaseLabelFromThreeLetterCode ||
+      !reportCodePublicationHasChanges
+    ) {
       return;
     }
 
@@ -4020,6 +4154,17 @@ export function TwoPQRecordWorkbench({
                     </>
                   )}
                 </div>
+                {publishFileStorageModal.mode === "update" &&
+                !publishFileStorageModal.hasChanges ? (
+                  <div className="flex items-start gap-2 rounded-[1.25rem] border border-emerald-200/90 bg-emerald-50/88 px-4 py-4 text-sm text-emerald-950 dark:border-emerald-300/24 dark:bg-emerald-500/12 dark:text-emerald-50">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" />
+                    <p>
+                      {t(
+                        "There is nothing to update. File Storage already matches the current case snapshot.",
+                      )}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -4040,7 +4185,9 @@ export function TwoPQRecordWorkbench({
               disabled={
                 !publishFileStorageModal?.snapshot ||
                 publishFileStorageModal.status === "loading" ||
-                publishFileStorageModal.status === "publishing"
+                publishFileStorageModal.status === "publishing" ||
+                (publishFileStorageModal.mode === "update" &&
+                  !publishFileStorageModal.hasChanges)
               }
               className={`${FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
             >
@@ -4197,6 +4344,16 @@ export function TwoPQRecordWorkbench({
                         reportCodePublishWarningMessage}
                   </p>
                 </div>
+              </div>
+            ) : null}
+            {reportCodePublicationIsCurrent ? (
+              <div className="flex items-start gap-2 rounded-[1.25rem] border border-emerald-200/90 bg-emerald-50/88 px-4 py-4 text-sm text-emerald-950 dark:border-emerald-300/24 dark:bg-emerald-500/12 dark:text-emerald-50">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" />
+                <p>
+                  {t(
+                    "There is nothing to update. The report code already matches the stored file and publication metadata.",
+                  )}
+                </p>
               </div>
             ) : null}
           </div>
@@ -6637,35 +6794,44 @@ export function TwoPQRecordWorkbench({
                       : ` ${t("collection.")}`}
                   </p>
                 </button>
-                <div className="flex flex-wrap gap-2">
-                  {hasStoredFileId && hasFileStorageAccess ? (
+                <div className="flex flex-col items-start gap-2 lg:items-end">
+                  <div className="flex flex-wrap gap-2">
+                    {hasStoredFileId && hasFileStorageAccess ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
+                      >
+                        <Link href={`/collections/file_storage/${storedFileId}`}>
+                          <FolderOpen className="h-3.5 w-3.5" />
+                          {t("Show in File Storage")}
+                        </Link>
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
-                      variant="outline"
                       size="sm"
-                      asChild
-                      className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
+                      onClick={() =>
+                        void openPublishFileStorageModal({
+                          mode: hasStoredFileId ? "update" : "publish",
+                        })
+                      }
+                      disabled={!canPublishCaseToFileStorage}
+                      className={FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME}
                     >
-                      <Link href={`/collections/file_storage/${storedFileId}`}>
-                        <FolderOpen className="h-3.5 w-3.5" />
-                        {t("Show in File Storage")}
-                      </Link>
+                      <FileCode2 className="h-3.5 w-3.5" />
+                      {fileStoragePrimaryActionLabel}
                     </Button>
+                  </div>
+                  {fileStorageUpdateIsCurrent ? (
+                    <p className="max-w-sm text-xs text-indigo-950/58 dark:text-indigo-50/62 lg:text-right">
+                      {t(
+                        "There is nothing to update. File Storage already matches the current case snapshot.",
+                      )}
+                    </p>
                   ) : null}
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() =>
-                      void openPublishFileStorageModal({
-                        mode: hasStoredFileId ? "update" : "publish",
-                      })
-                    }
-                    disabled={!canPublishCaseToFileStorage}
-                    className={FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME}
-                  >
-                    <FileCode2 className="h-3.5 w-3.5" />
-                    {fileStoragePrimaryActionLabel}
-                  </Button>
                 </div>
               </div>
 
@@ -6861,51 +7027,60 @@ export function TwoPQRecordWorkbench({
                     </Button>
                   ) : null}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {isPublishedAsReportCode && hasFileStorageAccess ? (
+                <div className="flex flex-col items-start gap-2 lg:items-end">
+                  <div className="flex flex-wrap gap-2">
+                    {isPublishedAsReportCode && hasFileStorageAccess ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
+                      >
+                        <Link
+                          href={`/reports/${expectedCaseLabelFromThreeLetterCode}`}
+                        >
+                          <Link2 className="h-3.5 w-3.5" />
+                          {t("Show report code")}
+                        </Link>
+                      </Button>
+                    ) : null}
+                    {isPublishedAsReportCode &&
+                    hasFileStorageAccess &&
+                    reportCodeStatus?.uploadedReportId ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
+                      >
+                        <Link
+                          href={`/reports/uploads/${reportCodeStatus.uploadedReportId}`}
+                        >
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                          {t("Show uploaded report")}
+                        </Link>
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
-                      variant="outline"
                       size="sm"
-                      asChild
-                      className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
+                      onClick={() => openPublishReportCodeModal()}
+                      disabled={!canPublishAsReportCode}
+                      className={FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME}
                     >
-                      <Link
-                        href={`/reports/${expectedCaseLabelFromThreeLetterCode}`}
-                      >
-                        <Link2 className="h-3.5 w-3.5" />
-                        {t("Show report code")}
-                      </Link>
+                      <Link2 className="h-3.5 w-3.5" />
+                      {t(reportCodeStatus ? "Update report code" : "Publish as report code")}
                     </Button>
+                  </div>
+                  {reportCodePublicationIsCurrent ? (
+                    <p className="max-w-sm text-xs text-indigo-950/58 dark:text-indigo-50/62 lg:text-right">
+                      {t(
+                        "There is nothing to update. The report code already matches the stored file and publication metadata.",
+                      )}
+                    </p>
                   ) : null}
-                  {isPublishedAsReportCode &&
-                  hasFileStorageAccess &&
-                  reportCodeStatus?.uploadedReportId ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      asChild
-                      className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
-                    >
-                      <Link
-                        href={`/reports/uploads/${reportCodeStatus.uploadedReportId}`}
-                      >
-                        <ArrowUpRight className="h-3.5 w-3.5" />
-                        {t("Show uploaded report")}
-                      </Link>
-                    </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => openPublishReportCodeModal()}
-                    disabled={!canPublishAsReportCode}
-                    className={FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME}
-                  >
-                    <Link2 className="h-3.5 w-3.5" />
-                    {t(reportCodeStatus ? "Update report code" : "Publish as report code")}
-                  </Button>
                 </div>
               </div>
 

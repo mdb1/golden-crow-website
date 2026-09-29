@@ -558,6 +558,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           institutionId: z.string().optional(),
           doctorId: z.string().optional(),
           patientId: z.string().optional(),
+          parentBatchId: z.string().optional(),
           query: z.string().optional(),
         }),
       },
