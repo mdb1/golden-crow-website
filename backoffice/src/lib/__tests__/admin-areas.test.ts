@@ -165,12 +165,12 @@ describe("getVisibleRoleRecordsForContext", () => {
     ]);
   });
 
-  it("applies the normal full-admin visibility boundary to 2PQ admins", () => {
+  it("hides full-admin, publisher, and bootstrap records from 2PQ admins", () => {
     const values = getVisibleRoleRecordsForContext(records, {
       role: "2pq_admin",
       isBootstrap: false,
     }).map((record) => record.email);
 
-    expect(values).toEqual(["admin@example.com", "institution@example.com"]);
+    expect(values).toEqual(["institution@example.com"]);
   });
 });

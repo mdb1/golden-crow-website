@@ -409,6 +409,16 @@ export function isStandaloneRole(role: AdminRole) {
   return isGlobalAdminRole(role) || role === "transport_dispatcher";
 }
 
+const TWO_PQ_ADMIN_VISIBLE_ROLES = new Set<AdminRole>([
+  "2pq_admin",
+  "transport_dispatcher",
+  "institution_admin",
+  "institution_operator",
+  "institution_laboratory_staff",
+  "institution_doctor",
+  "patient",
+]);
+
 export function canDeleteRoleRecord(
   context: Pick<AdminContextRecord, "email" | "role">,
   record: Pick<RoleManagementRecord, "email" | "bootstrap">,
@@ -424,6 +434,13 @@ export function getVisibleRoleRecordsForContext(
   records: RoleManagementRecord[],
   context: Pick<AdminContextRecord, "role" | "isBootstrap">,
 ) {
+  if (context.role === "2pq_admin") {
+    return records.filter(
+      (record) =>
+        !record.bootstrap && TWO_PQ_ADMIN_VISIBLE_ROLES.has(record.role),
+    );
+  }
+
   if (context.isBootstrap) {
     return records;
   }

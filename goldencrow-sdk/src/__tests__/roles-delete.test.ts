@@ -210,6 +210,74 @@ describe("role user deletion", () => {
     expect(mockDocs.has("user_roles/driver@example.com")).toBe(false);
   });
 
+  it("limits 2PQ role listings to operational non-bootstrap roles", async () => {
+    const { listUserRolesForContext } = await import(
+      "../repositories/roles.repository"
+    );
+    const roleRecord = (
+      role: string,
+      createdAt = "2026-08-31T12:00:00.000Z",
+    ) => ({
+      role,
+      isActive: true,
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    mockDocs.set(
+      "user_roles/full-admin@example.com",
+      roleRecord("full_admin"),
+    );
+    mockDocs.set(
+      "user_roles/organization@example.com",
+      roleRecord("organization_publisher"),
+    );
+    mockDocs.set(
+      "user_roles/individual@example.com",
+      roleRecord("individual_publisher"),
+    );
+    mockDocs.set(
+      "user_roles/bootstrap@example.com",
+      roleRecord("institution_operator"),
+    );
+    mockDocs.set(
+      "user_roles/synthetic-god@example.com",
+      roleRecord("institution_operator", "1970-01-01T00:00:00.000Z"),
+    );
+    mockDocs.set(
+      "user_roles/2pq-admin@example.com",
+      roleRecord("2pq_admin"),
+    );
+    mockDocs.set(
+      "user_roles/operator@example.com",
+      roleRecord("institution_operator"),
+    );
+    mockDocs.set(
+      "user_roles/doctor@example.com",
+      roleRecord("institution_doctor"),
+    );
+    mockDocs.set("user_roles/patient@example.com", roleRecord("patient"));
+    mockDocs.set(
+      "user_roles/dispatcher@example.com",
+      roleRecord("transport_dispatcher"),
+    );
+
+    const records = await listUserRolesForContext({
+      ...godModeContext,
+      email: "viewer-2pq@example.com",
+      role: "2pq_admin",
+      isBootstrap: false,
+    });
+
+    expect(records.map((record) => record.email)).toEqual([
+      "2pq-admin@example.com",
+      "dispatcher@example.com",
+      "doctor@example.com",
+      "operator@example.com",
+      "patient@example.com",
+    ]);
+  });
+
   it("deletes the Firebase Auth account only during that cleanup step", async () => {
     const { deleteRoleAccountStepForContext } =
       await import("../repositories/roles.repository");

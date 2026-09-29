@@ -174,6 +174,16 @@ const GLOBAL_ADMIN_ASSIGNABLE_ROLES: AdminRole[] = [
   "patient",
 ];
 
+const TWO_PQ_ADMIN_VISIBLE_ROLES = new Set<AdminRole>([
+  "2pq_admin",
+  "transport_dispatcher",
+  "institution_admin",
+  "institution_operator",
+  "institution_laboratory_staff",
+  "institution_doctor",
+  "patient",
+]);
+
 const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
   full_admin: GLOBAL_ADMIN_ASSIGNABLE_ROLES,
   "2pq_admin": GLOBAL_ADMIN_ASSIGNABLE_ROLES,
@@ -2002,7 +2012,15 @@ export function canViewRoleRecord(
   context: AdminContext,
   record: UserRoleRecord,
 ) {
-  if (isGlobalAdminRole(context.role)) {
+  if (context.role === "2pq_admin") {
+    return (
+      TWO_PQ_ADMIN_VISIBLE_ROLES.has(record.role) &&
+      record.createdAt !== BOOTSTRAP_TIMESTAMP &&
+      !TEAM_ALLOWLIST.has(normalizeRoleEmail(record.email))
+    );
+  }
+
+  if (context.role === "full_admin") {
     return true;
   }
 
@@ -2133,7 +2151,7 @@ export async function listUserRolesForContext(
     )
     .filter((record) => canViewRoleRecord(context, record));
 
-  if (isGlobalAdminRole(context.role)) {
+  if (context.role === "full_admin") {
     const recordedEmails = new Set(records.map((record) => record.email));
     TEAM_ALLOWLIST.forEach((email) => {
       const normalizedEmail = normalizeRoleEmail(email);
