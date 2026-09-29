@@ -3859,6 +3859,23 @@ const SPANISH_TEXT: Record<string, string> = {
     "Perfiles públicos, usuarios de comunidad, publicaciones, comentarios y eventos.",
   Publish: "Publicar",
   "Publish as report code": "Publicar como código de reporte",
+  "Automatic file and code synchronization":
+    "Sincronización automática de archivos y códigos",
+  "Automatically synchronize": "Sincronizar automáticamente",
+  "Automatically synchronize files and codes":
+    "Sincronizar archivos y códigos automáticamente",
+  "Automatic synchronization": "Sincronización automática",
+  "Automatic synchronization is active. File Storage and the report code are up to date.":
+    "La sincronización automática está activa. File Storage y el código de reporte están actualizados.",
+  "Automatic synchronization is off. File Storage and report-code updates are now manual.":
+    "La sincronización automática está desactivada. Las actualizaciones de File Storage y del código de reporte ahora son manuales.",
+  "Every saved or externally received case change updates File Storage first and then synchronizes the report code.":
+    "Cada cambio guardado o recibido externamente actualiza primero File Storage y luego sincroniza el código de reporte.",
+  "Automatic updates are disabled. Use the File Storage and report-code buttons below whenever you want to synchronize them.":
+    "Las actualizaciones automáticas están desactivadas. Usá los botones de File Storage y código de reporte cuando quieras sincronizarlos.",
+  "Unable to update the automatic synchronization preference.":
+    "No se pudo actualizar la preferencia de sincronización automática.",
+  Manual: "Manual",
   "Update report code": "Actualizar código de reporte",
   "Owner preserved": "Responsable preservado",
   "Email unavailable": "Email no disponible",

@@ -354,6 +354,7 @@ export interface TwoPQRecord {
   children_sampling?: string[];
   three_letter_code?: string;
   stored_file_id?: string;
+  should_automatically_sync_files_and_codes?: boolean;
   download_url?: string;
   last_updated_date?: string;
   caseLabel?: string;

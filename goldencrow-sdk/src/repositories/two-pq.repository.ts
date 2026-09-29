@@ -7,6 +7,7 @@ const adminDb = adminDbFor("mydnamap");
 import { FieldValue, type Transaction } from "firebase-admin/firestore";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { normalizeRoleEmail } from "./roles.repository.js";
+import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import type {
   AdminContext,
@@ -35,6 +36,7 @@ type TwoPQMutationInput = {
   parent_case?: string;
   three_letter_code?: string;
   stored_file_id?: string;
+  should_automatically_sync_files_and_codes?: boolean;
   download_url?: string;
   caseLabel?: string;
   caseStatus?: string;
@@ -448,6 +450,16 @@ function validateAreaSpecificPayload(areaKey: TwoPQAreaKey, payload: TwoPQMutati
       400
     );
   }
+
+  if (
+    areaKey !== "cases" &&
+    hasOwnKey(payload, "should_automatically_sync_files_and_codes")
+  ) {
+    throw new AdminRepositoryError(
+      "should_automatically_sync_files_and_codes is only supported for 2PQ case records.",
+      400
+    );
+  }
 }
 
 async function ensureUniqueCaseThreeLetterCode(
@@ -490,7 +502,12 @@ function buildEmptyRecord(
     doctorId,
     createdAt,
     updatedAt,
-    ...(areaKey === "cases" ? { last_updated_date: updatedAt } : {}),
+    ...(areaKey === "cases"
+      ? {
+          last_updated_date: updatedAt,
+          should_automatically_sync_files_and_codes: true,
+        }
+      : {}),
   };
 }
 
@@ -666,6 +683,11 @@ function toTwoPQRecord(
     normalizeStringArray(data.children_sampling) ?? normalizeStringArray(data.linkedSamplingIds);
   if (childrenSampling) {
     record.children_sampling = childrenSampling;
+  }
+
+  if (areaKey === "cases") {
+    record.should_automatically_sync_files_and_codes =
+      data.should_automatically_sync_files_and_codes !== false;
   }
 
   return record;
@@ -888,6 +910,15 @@ function applyMutation(
     }
 
     nextRecord[relationField] = normalized as never;
+  }
+
+  if (areaKey === "cases") {
+    nextRecord.should_automatically_sync_files_and_codes = hasOwnKey(
+      payload,
+      "should_automatically_sync_files_and_codes",
+    )
+      ? payload.should_automatically_sync_files_and_codes !== false
+      : baseRecord.should_automatically_sync_files_and_codes !== false;
   }
 
   return nextRecord;
@@ -1801,6 +1832,23 @@ export async function createTwoPQRecordForContext(
     await recordRef.set(writeDocument);
   }
 
+  const autoSyncResults = await synchronizeTwoPQCasesFilesAndCodes(
+    areaKey === "cases"
+      ? [recordId]
+      : areaKey === "sampling"
+        ? [requestedCaseId]
+        : [],
+    context.email,
+  );
+  if (areaKey === "cases") {
+    const synchronized = autoSyncResults.find(
+      (result) => result.status === "synchronized" && result.caseId === recordId,
+    );
+    if (synchronized?.status === "synchronized") {
+      writeDocument.stored_file_id = synchronized.storedFileId;
+    }
+  }
+
   return writeDocument;
 }
 
@@ -1909,6 +1957,8 @@ export async function replaceTwoPQRecordForContext(
       ),
       createdByEmail: existing.createdByEmail,
       updatedByEmail: context.email,
+      should_automatically_sync_files_and_codes:
+        existing.should_automatically_sync_files_and_codes !== false,
     },
     {
       ...payload,
@@ -1920,6 +1970,9 @@ export async function replaceTwoPQRecordForContext(
 
   nextRecord.createdAt = existing.createdAt;
   nextRecord.createdByEmail = existing.createdByEmail;
+  if (areaKey === "cases" && !hasOwnKey(payload, "stored_file_id")) {
+    nextRecord.stored_file_id = existing.stored_file_id;
+  }
   nextRecord.updatedAt = new Date().toISOString();
   nextRecord.updatedByEmail = context.email;
   setCaseLastUpdatedDate(nextRecord, nextRecord.updatedAt);
@@ -1937,6 +1990,27 @@ export async function replaceTwoPQRecordForContext(
     });
   } else {
     await recordRef.set(buildStoredRecordDocument(nextRecord));
+  }
+
+  const affectedCaseIds =
+    areaKey === "cases"
+      ? [recordId]
+      : areaKey === "sampling"
+        ? [existing.parent_case, nextRecord.parent_case]
+        : areaKey === "sequencing"
+          ? (await loadLinkedCasesForBatch(nextRecord)).map((record) => record.id)
+          : [];
+  const autoSyncResults = await synchronizeTwoPQCasesFilesAndCodes(
+    affectedCaseIds,
+    context.email,
+  );
+  if (areaKey === "cases") {
+    const synchronized = autoSyncResults.find(
+      (result) => result.status === "synchronized" && result.caseId === recordId,
+    );
+    if (synchronized?.status === "synchronized") {
+      nextRecord.stored_file_id = synchronized.storedFileId;
+    }
   }
 
   return nextRecord;
@@ -2027,6 +2101,27 @@ export async function updateTwoPQRecordForContext(
     });
   }
 
+  const affectedCaseIds =
+    areaKey === "cases"
+      ? [recordId]
+      : areaKey === "sampling"
+        ? [existing.parent_case, nextRecord.parent_case]
+        : areaKey === "sequencing"
+          ? (await loadLinkedCasesForBatch(nextRecord)).map((record) => record.id)
+          : [];
+  const autoSyncResults = await synchronizeTwoPQCasesFilesAndCodes(
+    affectedCaseIds,
+    context.email,
+  );
+  if (areaKey === "cases") {
+    const synchronized = autoSyncResults.find(
+      (result) => result.status === "synchronized" && result.caseId === recordId,
+    );
+    if (synchronized?.status === "synchronized") {
+      nextRecord.stored_file_id = synchronized.storedFileId;
+    }
+  }
+
   return nextRecord;
 }
 
@@ -2097,6 +2192,7 @@ export async function linkCaseToBatchForContext(
   );
 
   await batch.commit();
+  await synchronizeTwoPQCasesFilesAndCodes([caseId], context.email);
 
   return { success: true };
 }
@@ -2153,6 +2249,7 @@ export async function unlinkCaseFromBatchForContext(
   }
 
   await batch.commit();
+  await synchronizeTwoPQCasesFilesAndCodes([caseId], context.email);
 
   return { success: true };
 }
@@ -2224,6 +2321,10 @@ export async function linkSamplingToCaseForContext(
   );
 
   await batch.commit();
+  await synchronizeTwoPQCasesFilesAndCodes(
+    [samplingRecord.parent_case, caseId],
+    context.email,
+  );
 
   return { success: true };
 }
@@ -2279,6 +2380,7 @@ export async function unlinkSamplingFromCaseForContext(
   }
 
   await batch.commit();
+  await synchronizeTwoPQCasesFilesAndCodes([caseId], context.email);
 
   return { success: true };
 }
@@ -2334,6 +2436,13 @@ export async function deleteTwoPQRecordForContext(
 
       transaction.delete(getTwoPQRecordRef(areaKey, recordId));
     });
+
+    await synchronizeTwoPQCasesFilesAndCodes(
+      linkedCases
+        .filter((linkedCase) => linkedCase.parent_batch === record.id)
+        .map((linkedCase) => linkedCase.id),
+      context.email,
+    );
 
     return { success: true, recordId };
   }
@@ -2439,6 +2548,11 @@ export async function deleteTwoPQRecordForContext(
       await unlinkSamplingFromCaseInTransaction(transaction, context, record.parent_case!, record, now);
       transaction.delete(getTwoPQRecordRef(areaKey, recordId));
     });
+
+    await synchronizeTwoPQCasesFilesAndCodes(
+      [record.parent_case],
+      context.email,
+    );
 
     return { success: true, recordId };
   }

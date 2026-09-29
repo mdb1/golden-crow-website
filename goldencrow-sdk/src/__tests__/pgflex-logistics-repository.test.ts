@@ -31,6 +31,7 @@ const mockCollection = jest.fn((collectionName: string) =>
 );
 const mockSendPGFlexLogisticsAssignmentEmail = jest.fn();
 const mockGetUserRoleByEmail = jest.fn();
+const mockSynchronizeTwoPQCasesFilesAndCodes = jest.fn();
 
 function docKey(ref: MockDocumentRef) {
   return `${ref.collectionName}/${ref.id}`;
@@ -263,6 +264,11 @@ jest.mock("../lib/pgflex-dispatcher-email.js", () => ({
   sendPGFlexLogisticsAssignmentEmail: mockSendPGFlexLogisticsAssignmentEmail,
 }));
 
+jest.mock("../repositories/two-pq-auto-sync.repository.js", () => ({
+  synchronizeTwoPQCasesFilesAndCodes:
+    mockSynchronizeTwoPQCasesFilesAndCodes,
+}));
+
 const fullAdminContext = {
   email: " ADMIN@example.com ",
   uid: "admin-1",
@@ -294,6 +300,7 @@ describe("PGFlex logistics repository", () => {
     mockAutoId = 0;
     mockCollection.mockClear();
     mockGetUserRoleByEmail.mockReset();
+    mockSynchronizeTwoPQCasesFilesAndCodes.mockClear();
     mockSendPGFlexLogisticsAssignmentEmail.mockReset();
   });
 
@@ -530,6 +537,10 @@ describe("PGFlex logistics repository", () => {
       updatedAt: "2026-08-31T15:45:00.000Z",
       updatedByEmail: "admin@example.com",
     });
+    expect(mockSynchronizeTwoPQCasesFilesAndCodes).toHaveBeenCalledWith(
+      ["case-a"],
+      "admin@example.com",
+    );
   });
 
   it("lets an assigned transport dispatcher mark a dispatch as picked up", async () => {

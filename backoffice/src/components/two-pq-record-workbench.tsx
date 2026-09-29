@@ -217,7 +217,7 @@ type TwoPQFileStorageSnapshot = {
     sibling_case_ids: string[];
     parent_batch_id: string | null;
     children_sampling_ids: string[];
-    last_updated: string;
+    last_updated: string | null;
   };
   entities: {
     batches: Array<Record<string, unknown>>;
@@ -521,190 +521,6 @@ function resolveStoredFileLinkedReportCode(
     getTrimmedUnknownString(document?.data.linked_report_id) ??
     ""
   );
-}
-
-function toNullableTrimmedString(value?: string) {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
-function uniqueStringValues(values: Array<string | null | undefined>) {
-  return Array.from(
-    new Set(
-      values
-        .map((value) => value?.trim())
-        .filter((value): value is string => Boolean(value)),
-    ),
-  );
-}
-
-function buildSnapshotScope(
-  record: Pick<TwoPQRecord, "institutionId" | "doctorId" | "patientId">,
-) {
-  return {
-    institutionId: record.institutionId,
-    doctorId: record.doctorId,
-    patientId: toNullableTrimmedString(record.patientId),
-  };
-}
-
-function buildSnapshotAudit(
-  record: Pick<TwoPQRecord, "createdByEmail" | "updatedByEmail">,
-) {
-  return {
-    createdByEmail: toNullableTrimmedString(record.createdByEmail),
-    updatedByEmail: toNullableTrimmedString(record.updatedByEmail),
-  };
-}
-
-function buildSnapshotTimestamps(
-  record: Pick<TwoPQRecord, "createdAt" | "updatedAt">,
-) {
-  return {
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
-  };
-}
-
-function buildCaseSnapshotRecord(record: TwoPQListItem, samplingIds: string[]) {
-  return {
-    id: record.id,
-    kind: "case",
-    scope: buildSnapshotScope(record),
-    identity: {
-      caseLabel: toNullableTrimmedString(record.caseLabel),
-    },
-    classification: {
-      caseType: toNullableTrimmedString(record.caseType),
-    },
-    status: {
-      caseStatus: toNullableTrimmedString(
-        normalizeTwoPQCaseStatus(record.caseStatus),
-      ),
-      priority: toNullableTrimmedString(record.priority),
-    },
-    logistics: {
-      trackingNumber: toNullableTrimmedString(record.trackingNumber),
-      requestedAt: toNullableTrimmedString(record.requestedAt),
-      dueAt: toNullableTrimmedString(record.dueAt),
-    },
-    relations: {
-      batchId: toNullableTrimmedString(record.parent_batch),
-      samplingIds,
-    },
-    notes: toNullableTrimmedString(record.notes),
-    timestamps: buildSnapshotTimestamps(record),
-    audit: buildSnapshotAudit(record),
-  };
-}
-
-function buildBatchSnapshotRecord(record: TwoPQListItem, caseIds: string[]) {
-  return {
-    id: record.id,
-    kind: "batch",
-    scope: buildSnapshotScope(record),
-    identity: {
-      batchLabel:
-        toNullableTrimmedString(record.caseLabel) ??
-        toNullableTrimmedString(record.runId) ??
-        record.id,
-      runId: toNullableTrimmedString(record.runId),
-    },
-    status: {
-      analysisStatus: toNullableTrimmedString(record.analysisStatus),
-    },
-    execution: {
-      platform: toNullableTrimmedString(record.platform),
-      scheduling: toNullableTrimmedString(record.scheduling),
-      providerName: toNullableTrimmedString(record.providerName),
-      providerFormat: toNullableTrimmedString(record.providerFormat),
-      contactName: toNullableTrimmedString(record.contactName),
-      contactEmail: toNullableTrimmedString(record.contactEmail),
-      phoneNumber: toNullableTrimmedString(record.phoneNumber),
-    },
-    relations: {
-      caseIds,
-    },
-    notes: toNullableTrimmedString(record.notes),
-    timestamps: buildSnapshotTimestamps(record),
-    audit: buildSnapshotAudit(record),
-  };
-}
-
-function buildSamplingSnapshotRecord(record: TwoPQListItem) {
-  return {
-    id: record.id,
-    kind: "sampling",
-    scope: buildSnapshotScope(record),
-    identity: {
-      sampleId: toNullableTrimmedString(record.sampleId),
-      caseLabelSnapshot: toNullableTrimmedString(record.caseLabel),
-    },
-    specimen: {
-      sampleType: toNullableTrimmedString(record.sampleType),
-    },
-    status: {
-      processingStatus: toNullableTrimmedString(record.processingStatus),
-      qcStatus: toNullableTrimmedString(record.qcStatus),
-    },
-    dates: {
-      collectionDate: toNullableTrimmedString(record.collectionDate),
-      receptionDate: toNullableTrimmedString(record.receptionDate),
-      runId: toNullableTrimmedString(record.runId),
-    },
-    relations: {
-      caseId: toNullableTrimmedString(record.parent_case),
-    },
-    notes: toNullableTrimmedString(record.notes),
-    timestamps: buildSnapshotTimestamps(record),
-    audit: buildSnapshotAudit(record),
-  };
-}
-
-function buildTwoPQFileStorageSnapshot({
-  currentCase,
-  linkedBatch,
-  linkedSamplings,
-  siblingCases,
-}: {
-  currentCase: TwoPQListItem;
-  linkedBatch: TwoPQListItem | null;
-  linkedSamplings: TwoPQListItem[];
-  siblingCases: TwoPQListItem[];
-}): TwoPQFileStorageSnapshot {
-  const siblingCaseIds = siblingCases.map((record) => record.id);
-  const caseSamplingIds = linkedSamplings.map((record) => record.id);
-  const allCases = [
-    currentCase,
-    ...siblingCases.filter((record) => record.id !== currentCase.id),
-  ];
-  const allCaseIds = uniqueStringValues(allCases.map((record) => record.id));
-
-  return {
-    main_case: {
-      id: currentCase.id,
-      sibling_case_ids: siblingCaseIds,
-      parent_batch_id: toNullableTrimmedString(currentCase.parent_batch),
-      children_sampling_ids: caseSamplingIds,
-      last_updated: currentCase.updatedAt,
-    },
-    entities: {
-      batches: linkedBatch
-        ? [buildBatchSnapshotRecord(linkedBatch, allCaseIds)]
-        : [],
-      cases: allCases.map((record) =>
-        buildCaseSnapshotRecord(
-          record,
-          record.id === currentCase.id
-            ? caseSamplingIds
-            : (record.children_sampling ?? []),
-        ),
-      ),
-      samplings: linkedSamplings.map((record) =>
-        buildSamplingSnapshotRecord(record),
-      ),
-    },
-  };
 }
 
 function isAutoSamplingFormComplete(config: AutoSamplingFormState) {
@@ -1233,6 +1049,10 @@ export function TwoPQRecordWorkbench({
     useState(false);
   const [pendingPublishReportCode, setPendingPublishReportCode] =
     useState(false);
+  const [automaticSyncEnabled, setAutomaticSyncEnabled] = useState(
+    () => detail?.record.should_automatically_sync_files_and_codes !== false,
+  );
+  const [pendingAutomaticSync, setPendingAutomaticSync] = useState(false);
   const publishFileStorageRequestIdRef = useRef(0);
 
   useEffect(() => {
@@ -1265,6 +1085,10 @@ export function TwoPQRecordWorkbench({
     setIsReportCodeSectionExpanded(true);
     setIsPublishReportCodeModalOpen(false);
     setPendingPublishReportCode(false);
+    setAutomaticSyncEnabled(
+      detail?.record.should_automatically_sync_files_and_codes !== false,
+    );
+    setPendingAutomaticSync(false);
     setPendingCaseStatusAdvance(false);
     setPendingCaseLabelCorrection(false);
     setDeleteDialogOpen(false);
@@ -1273,6 +1097,7 @@ export function TwoPQRecordWorkbench({
   }, [
     detail?.record.caseLabel,
     detail?.record.id,
+    detail?.record.should_automatically_sync_files_and_codes,
     detail?.record.stored_file_id,
   ]);
 
@@ -2321,26 +2146,51 @@ export function TwoPQRecordWorkbench({
       throw new Error("Case detail is required to build the snapshot.");
     }
 
-    const parentBatchId =
-      detail.record.parent_batch?.trim() || linkedBatch?.id.trim() || "";
-    const siblingCases = parentBatchId
-      ? (
-          await sdkFetch<{ records: TwoPQListItem[] }>(
-            `/2pq/cases?parentBatchId=${encodeURIComponent(parentBatchId)}`,
-          )
-        ).records.filter((record) => record.id !== detail.record.id)
-      : [];
-    const snapshot = buildTwoPQFileStorageSnapshot({
-      currentCase: detail.record,
-      linkedBatch,
-      linkedSamplings,
-      siblingCases,
-    });
+    return sdkFetch<FileStorageSnapshotPreview>(
+      `/2pq/cases/${encodeURIComponent(detail.record.id)}/file-storage-snapshot`,
+    );
+  }
 
-    return {
-      snapshot,
-      preview: JSON.stringify(snapshot, null, 2),
-    };
+  async function handleAutomaticSyncChange(nextChecked: boolean) {
+    if (!detail || !detail.record.canUpdate || pendingAutomaticSync) {
+      return;
+    }
+
+    const previousValue = automaticSyncEnabled;
+    setAutomaticSyncEnabled(nextChecked);
+    setPendingAutomaticSync(true);
+
+    try {
+      await sdkFetch<{ record: TwoPQRecord }>(
+        `/2pq/cases/${detail.record.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            should_automatically_sync_files_and_codes: nextChecked,
+          }),
+        },
+      );
+      pushToast(
+        "success",
+        nextChecked
+          ? t(
+              "Automatic synchronization is active. File Storage and the report code are up to date.",
+            )
+          : t(
+              "Automatic synchronization is off. File Storage and report-code updates are now manual.",
+            ),
+      );
+      router.refresh();
+    } catch (error) {
+      setAutomaticSyncEnabled(previousValue);
+      pushErrorToast(
+        error,
+        t("Unable to update the automatic synchronization preference."),
+        t("Automatic synchronization"),
+      );
+    } finally {
+      setPendingAutomaticSync(false);
+    }
   }
 
   async function openPublishFileStorageModal(options?: {
@@ -6744,6 +6594,61 @@ export function TwoPQRecordWorkbench({
               </div>
             </section>
           ))}
+
+          {areaKey === "cases" && mode !== "create" ? (
+            <section className="overflow-hidden rounded-[1.45rem] border border-indigo-200/80 bg-[linear-gradient(135deg,rgba(250,245,255,0.96),rgba(238,242,255,0.92))] shadow-[0_18px_46px_rgba(129,140,248,0.14)] dark:border-indigo-300/18 dark:bg-[linear-gradient(135deg,rgba(49,46,129,0.28),rgba(30,27,75,0.2))] dark:shadow-none">
+              <div className="flex flex-col gap-4 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-indigo-200 bg-white/80 text-indigo-700 dark:border-indigo-300/20 dark:bg-indigo-950/36 dark:text-indigo-200">
+                    {pendingAutomaticSync ? (
+                      <LoaderCircle className="h-5 w-5 animate-spin" />
+                    ) : automaticSyncEnabled ? (
+                      <CheckCircle2 className="h-5 w-5" />
+                    ) : (
+                      <RotateCcw className="h-5 w-5" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
+                        {t("Automatic file and code synchronization")}
+                      </h3>
+                      <Badge
+                        variant="outline"
+                        className={
+                          automaticSyncEnabled
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-300/28 dark:bg-emerald-500/12 dark:text-emerald-100"
+                            : "border-indigo-200 bg-white/72 text-indigo-950 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50"
+                        }
+                      >
+                        {automaticSyncEnabled ? t("Active") : t("Manual")}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 max-w-3xl text-sm text-indigo-950/72 dark:text-indigo-50/74">
+                      {automaticSyncEnabled
+                        ? t(
+                            "Every saved or externally received case change updates File Storage first and then synchronizes the report code.",
+                          )
+                        : t(
+                            "Automatic updates are disabled. Use the File Storage and report-code buttons below whenever you want to synchronize them.",
+                          )}
+                    </p>
+                  </div>
+                </div>
+                <label className="flex shrink-0 cursor-pointer items-center gap-3 rounded-[1.1rem] border border-indigo-200/80 bg-white/78 px-4 py-3 text-sm font-medium text-indigo-950 shadow-sm dark:border-indigo-300/18 dark:bg-indigo-950/28 dark:text-indigo-50">
+                  <Checkbox
+                    checked={automaticSyncEnabled}
+                    onCheckedChange={(checked) =>
+                      void handleAutomaticSyncChange(checked === true)
+                    }
+                    disabled={!detail?.record.canUpdate || pendingAutomaticSync}
+                    aria-label={t("Automatically synchronize files and codes")}
+                  />
+                  <span>{t("Automatically synchronize")}</span>
+                </label>
+              </div>
+            </section>
+          ) : null}
 
           {areaKey === "cases" && mode !== "create" && hasThreeLetterCode ? (
             <section className={FILE_STORAGE_SECTION_CLASSNAME}>

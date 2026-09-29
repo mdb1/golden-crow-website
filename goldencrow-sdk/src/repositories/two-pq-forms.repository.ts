@@ -25,6 +25,7 @@ import {
   createTwoPQRecordForContext,
   getTwoPQDetailForContext,
 } from "./two-pq.repository.js";
+import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
 import type {
   AdminContext,
   DoctorRecord,
@@ -2204,6 +2205,7 @@ export async function createTwoPQFormForContext(
     });
     batch.delete(adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid));
     await batch.commit();
+    await synchronizeTwoPQCasesFilesAndCodes(linkedCaseIds, authorEmail);
     await sendWithdrawalPGFlexAssignmentEmail(
       pgflexEventId,
       pgflexEventDocument,

@@ -868,6 +868,13 @@ export async function recordUploadedReportNotification(
     }
   });
 
+  if (twoPQCaseId) {
+    const { synchronizeTwoPQCaseFilesAndCodes } = await import(
+      "./two-pq-auto-sync.repository.js"
+    );
+    await synchronizeTwoPQCaseFilesAndCodes(twoPQCaseId, "open-api");
+  }
+
   return {
     ok: true,
     reportId,

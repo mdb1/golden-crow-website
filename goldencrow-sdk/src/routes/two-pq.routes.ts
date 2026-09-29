@@ -24,6 +24,7 @@ import {
   unlinkSamplingFromCaseForContext,
   updateTwoPQRecordForContext,
 } from "../repositories/two-pq.repository.js";
+import { buildTwoPQCaseFileStorageSnapshot } from "../repositories/two-pq-auto-sync.repository.js";
 
 const TwoPQAreaKeySchema = z.enum([
   "cases",
@@ -42,6 +43,7 @@ const TwoPQMutationSchema = z.object({
   parent_case: z.string().optional(),
   three_letter_code: z.string().optional(),
   stored_file_id: z.string().optional(),
+  should_automatically_sync_files_and_codes: z.boolean().optional(),
   download_url: z.string().optional(),
   caseLabel: z.string().optional(),
   caseStatus: z.string().optional(),
@@ -603,6 +605,42 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         return sendTwoPQRouteError(request, reply, error);
       }
     }
+  );
+
+  f.get(
+    "/2pq/cases/:recordId/file-storage-snapshot",
+    {
+      schema: {
+        params: z.object({
+          recordId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        await getTwoPQDetailForContext(
+          request.adminContext,
+          "cases",
+          request.params.recordId,
+        );
+        const snapshot = await buildTwoPQCaseFileStorageSnapshot(
+          request.params.recordId,
+        );
+        if (!snapshot) {
+          return reply.status(404).send({ error: "Record not found." });
+        }
+        return reply.send({
+          snapshot,
+          preview: JSON.stringify(snapshot, null, 2),
+        });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    },
   );
 
   f.get(

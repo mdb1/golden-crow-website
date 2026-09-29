@@ -17,6 +17,7 @@ const mockFieldValueIncrement = jest.fn((value: number) => ({
 const mockServerTimestamp = jest.fn(() => ({
   __op: "serverTimestamp",
 }));
+const mockSynchronizeTwoPQCaseFilesAndCodes = jest.fn();
 
 function sourceForCollection(collectionName: string) {
   if (collectionName === "patients") {
@@ -114,6 +115,11 @@ jest.mock("../config/firebase.js", () => ({
   })),
 }));
 
+jest.mock("../repositories/two-pq-auto-sync.repository.js", () => ({
+  synchronizeTwoPQCaseFilesAndCodes:
+    mockSynchronizeTwoPQCaseFilesAndCodes,
+}));
+
 describe("reporting repository", () => {
   beforeEach(() => {
     jest.resetModules();
@@ -128,6 +134,7 @@ describe("reporting repository", () => {
     mockTransactionSet.mockClear();
     mockFieldValueIncrement.mockClear();
     mockServerTimestamp.mockClear();
+    mockSynchronizeTwoPQCaseFilesAndCodes.mockClear();
 
     mockPatients.set("PAT-00001", {
       institutionId: "INST-00001",
@@ -375,6 +382,10 @@ describe("reporting repository", () => {
         updatedByEmail: "open-api",
       }),
       { merge: true },
+    );
+    expect(mockSynchronizeTwoPQCaseFilesAndCodes).toHaveBeenCalledWith(
+      "CASE-00001",
+      "open-api",
     );
   });
 

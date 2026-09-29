@@ -25,6 +25,7 @@ const mockCollection = jest.fn((collectionName: string) =>
 const mockGetUser = jest.fn();
 const mockGetUserByEmail = jest.fn();
 const mockSendPGFlexLogisticsAssignmentEmail = jest.fn();
+const mockSynchronizeTwoPQCasesFilesAndCodes = jest.fn();
 
 function docKey(ref: MockDocumentRef) {
   return `${ref.collectionName}/${ref.id}`;
@@ -239,6 +240,11 @@ jest.mock("../lib/pgflex-dispatcher-email.js", () => ({
   sendPGFlexLogisticsAssignmentEmail: mockSendPGFlexLogisticsAssignmentEmail,
 }));
 
+jest.mock("../repositories/two-pq-auto-sync.repository.js", () => ({
+  synchronizeTwoPQCasesFilesAndCodes:
+    mockSynchronizeTwoPQCasesFilesAndCodes,
+}));
+
 const fullAdminContext = {
   email: " admin@example.com ",
   uid: "admin-uid",
@@ -260,6 +266,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     mockGetUser.mockReset();
     mockGetUserByEmail.mockReset();
     mockSendPGFlexLogisticsAssignmentEmail.mockReset();
+    mockSynchronizeTwoPQCasesFilesAndCodes.mockClear();
 
     mockDocs.set("admin_sequences/2pq_forms", { current: 40 });
     mockDocs.set("institutions/inst-1", {
@@ -373,6 +380,10 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     expect(pgflexEvent?.shipmentType).toBe("2pq");
     expect(pgflexEvent?.destination).toBe(
       "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+    );
+    expect(mockSynchronizeTwoPQCasesFilesAndCodes).toHaveBeenCalledWith(
+      ["case-a", "case-b"],
+      "admin@example.com",
     );
     expect(mockSendPGFlexLogisticsAssignmentEmail).toHaveBeenCalledWith(
       {

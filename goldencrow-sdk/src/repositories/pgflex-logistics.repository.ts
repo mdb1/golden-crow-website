@@ -18,6 +18,7 @@ import { sendPGFlexLogisticsAssignmentEmail } from "../lib/pgflex-dispatcher-ema
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { getUserRoleByEmail, normalizeRoleEmail } from "./roles.repository.js";
+import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
 
 const adminDb = adminDbFor("mydnamap");
 const USER_ROLES_COLLECTION = "user_roles";
@@ -359,12 +360,12 @@ async function syncTwoPQCasesForPGFlexStatusChange({
     return;
   }
 
-  await Promise.all(
+  const synchronizedCaseIds = await Promise.all(
     linkedCodes.map(async (linkedCode) => {
       const caseId = await getTwoPQCaseIdForLinkedCode(linkedCode);
 
       if (!caseId) {
-        return;
+        return null;
       }
 
       await adminDb
@@ -379,7 +380,12 @@ async function syncTwoPQCasesForPGFlexStatusChange({
           },
           { merge: true },
         );
+      return caseId;
     }),
+  );
+  await synchronizeTwoPQCasesFilesAndCodes(
+    synchronizedCaseIds,
+    normalizeRoleEmail(context.email),
   );
 }
 
