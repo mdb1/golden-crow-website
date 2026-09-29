@@ -58,7 +58,10 @@ function minimumValue(
       );
     }
     case "array":
-      return [];
+      return Array.from(
+        { length: Number(schema.minItems ?? 0) },
+        () => minimumValue(schema.items, document, resolving),
+      );
     case "string":
       return "fixture";
     case "integer":
@@ -119,6 +122,34 @@ describe("native PGI schema identification", () => {
       expect(identifyPgiNativeModel(content)).toEqual({ ok: true, model });
     },
   );
+
+  it("keeps the 2PQ payload scoped to one case and at most one flat batch", () => {
+    const schema = PGI_NATIVE_SCHEMAS["2pq"] as JsonSchema;
+    const definitions = record(schema.$defs);
+    const entities = record(definitions.TwoPQEntities);
+    const entityProperties = record(entities.properties);
+    const batches = record(entityProperties.batches);
+    const cases = record(entityProperties.cases);
+    const batch = record(definitions.TwoPQBatch);
+    const batchProperties = record(batch.properties);
+    const mainCase = record(definitions.TwoPQMainCaseReference);
+    const mainCaseProperties = record(mainCase.properties);
+
+    expect(batches).toMatchObject({ minItems: 0, maxItems: 1 });
+    expect(cases).toMatchObject({ minItems: 1, maxItems: 1 });
+    expect(mainCaseProperties).not.toHaveProperty("sibling_case_ids");
+    expect(batchProperties).not.toHaveProperty("relations");
+    expect(batchProperties).not.toHaveProperty("scope");
+    expect(batchProperties).not.toHaveProperty("identity");
+    expect(batchProperties).not.toHaveProperty("status");
+    expect(batchProperties).not.toHaveProperty("execution");
+    expect(
+      Object.values(batchProperties).every((property) => {
+        const definition = record(property);
+        return definition.type !== "array" && definition.type !== "object";
+      }),
+    ).toBe(true);
+  });
 
   it("returns a specific unsupported-model error with per-model diagnostics", () => {
     const result = identifyPgiNativeModel({

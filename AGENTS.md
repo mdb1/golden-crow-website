@@ -30,6 +30,15 @@
 - When a 2PQ `Observaciones` value is blank, normalize it to the exact text `Sin observaciones` before preview, draft persistence, final submission, and SDK storage.
 - Keep user-entered observations by trimming surrounding whitespace only. Do not replace non-empty observations.
 
+## 2PQ File Storage Snapshot Contract
+
+- A 2PQ File Storage JSON snapshot is scoped to one current case. `entities.cases` must contain exactly that case and must never include sibling cases from its sequencing batch.
+- `entities.batches` must contain either zero items when the case has no resolvable parent batch or exactly one compact snapshot of the directly linked batch. It must never contain more than one batch.
+- The compact batch snapshot contains only scalar identity, scope, status, execution, and update fields. Do not include child case IDs, nested case records, relationship arrays, arbitrary maps, or other expandable batch-tree data.
+- Building a case snapshot must not query or load the parent batch's `children_cases`, `linkedCaseIds`, or cases selected by `parent_batch`. Fetch the current case, its directly referenced batch, and samplings belonging to the current case only.
+- `main_case` must not expose sibling case IDs. The parent batch ID and the current case's sampling IDs remain valid direct references.
+- Enforce the bounds in the authoritative `.pgi3.json` schema: `batches` has `maxItems: 1`, while `cases` has `minItems: 1` and `maxItems: 1`.
+
 ## Backoffice Firestore Pagination
 
 - Any backoffice surface that reads potentially unbounded Firestore data must paginate instead of loading full collections.

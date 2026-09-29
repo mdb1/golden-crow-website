@@ -1550,13 +1550,6 @@ export const PGI_NATIVE_SCHEMAS = {
           "id": {
             "type": "string"
           },
-          "sibling_case_ids": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "minItems": 0
-          },
           "parent_batch_id": {
             "anyOf": [
               {
@@ -1587,7 +1580,6 @@ export const PGI_NATIVE_SCHEMAS = {
         },
         "required": [
           "id",
-          "sibling_case_ids",
           "children_sampling_ids"
         ],
         "additionalProperties": false
@@ -1600,14 +1592,16 @@ export const PGI_NATIVE_SCHEMAS = {
             "items": {
               "$ref": "#/$defs/TwoPQBatch"
             },
-            "minItems": 0
+            "minItems": 0,
+            "maxItems": 1
           },
           "cases": {
             "type": "array",
             "items": {
               "$ref": "#/$defs/TwoPQCase"
             },
-            "minItems": 0
+            "minItems": 1,
+            "maxItems": 1
           },
           "samplings": {
             "type": "array",
@@ -1633,22 +1627,7 @@ export const PGI_NATIVE_SCHEMAS = {
           "kind": {
             "const": "batch"
           },
-          "scope": {
-            "$ref": "#/$defs/TwoPQScope"
-          },
-          "identity": {
-            "$ref": "#/$defs/TwoPQIdentity"
-          },
-          "status": {
-            "$ref": "#/$defs/TwoPQStatus"
-          },
-          "execution": {
-            "$ref": "#/$defs/TwoPQExecution"
-          },
-          "relations": {
-            "$ref": "#/$defs/TwoPQBatchRelations"
-          },
-          "notes": {
+          "batchLabel": {
             "anyOf": [
               {
                 "type": "string"
@@ -1658,23 +1637,88 @@ export const PGI_NATIVE_SCHEMAS = {
               }
             ]
           },
-          "timestamps": {
-            "$ref": "#/$defs/TwoPQTimestamps"
+          "runId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
-          "audit": {
-            "$ref": "#/$defs/TwoPQAudit"
+          "institutionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analysisStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduling": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "providerName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "id",
           "kind",
-          "scope",
-          "identity",
-          "status",
-          "execution",
-          "relations",
-          "timestamps",
-          "audit"
+          "batchLabel",
+          "runId",
+          "institutionId",
+          "analysisStatus",
+          "platform",
+          "scheduling",
+          "providerName",
+          "updatedAt"
         ],
         "additionalProperties": false
       },
@@ -1827,99 +1871,6 @@ export const PGI_NATIVE_SCHEMAS = {
           }
         },
         "required": [],
-        "additionalProperties": false
-      },
-      "TwoPQExecution": {
-        "type": "object",
-        "properties": {
-          "platform": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "scheduling": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "providerName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "providerFormat": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "contactName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "contactEmail": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "phoneNumber": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [],
-        "additionalProperties": false
-      },
-      "TwoPQBatchRelations": {
-        "type": "object",
-        "properties": {
-          "caseIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "minItems": 0
-          }
-        },
-        "required": [
-          "caseIds"
-        ],
         "additionalProperties": false
       },
       "TwoPQTimestamps": {

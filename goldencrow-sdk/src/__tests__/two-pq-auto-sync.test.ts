@@ -6,6 +6,13 @@ const collections = new Map<string, Map<string, MockData>>();
 const mockCreateStoredFileDocument = jest.fn();
 const mockUpdateStoredFileDocument = jest.fn();
 const mockPublishStoredFileAsReportCode = jest.fn();
+const firestoreReads: Array<{
+  type: "document" | "query";
+  collection: string;
+  id?: string;
+  field?: string;
+  value?: unknown;
+}> = [];
 
 function collectionStore(name: string) {
   let store = collections.get(name);
@@ -29,7 +36,10 @@ function collectionReference(name: string) {
   return {
     doc: (id: string) => ({
       id,
-      get: async () => snapshot(name, id),
+      get: async () => {
+        firestoreReads.push({ type: "document", collection: name, id });
+        return snapshot(name, id);
+      },
       set: async (data: MockData, options?: { merge?: boolean }) => {
         const existing = collectionStore(name).get(id) ?? {};
         collectionStore(name).set(
@@ -39,11 +49,19 @@ function collectionReference(name: string) {
       },
     }),
     where: (field: string, _operator: string, value: unknown) => ({
-      get: async () => ({
-        docs: [...collectionStore(name).entries()]
-          .filter(([, data]) => data[field] === value)
-          .map(([id]) => snapshot(name, id)),
-      }),
+      get: async () => {
+        firestoreReads.push({
+          type: "query",
+          collection: name,
+          field,
+          value,
+        });
+        return {
+          docs: [...collectionStore(name).entries()]
+            .filter(([, data]) => data[field] === value)
+            .map(([id]) => snapshot(name, id)),
+        };
+      },
     }),
   };
 }
@@ -66,6 +84,7 @@ jest.mock("../repositories/reports.repository.js", () => ({
 describe("2PQ case automatic file and code synchronization", () => {
   beforeEach(() => {
     collections.clear();
+    firestoreReads.length = 0;
     jest.clearAllMocks();
     mockCreateStoredFileDocument.mockResolvedValue({
       document: { id: "created-file", data: {} },
@@ -83,6 +102,88 @@ describe("2PQ case automatic file and code synchronization", () => {
       ownerEmail: "owner@example.com",
       preservedExistingOwner: true,
     });
+  });
+
+  it("serializes only the current case and one compact batch without reading siblings", async () => {
+    collectionStore("2pq_case").set("CASE-CURRENT", {
+      institutionId: "institution-1",
+      doctorId: "doctor-1",
+      patientId: "patient-1",
+      parent_batch: "BATCH-1",
+      children_sampling: ["SAMPLING-1"],
+      caseLabel: "Current case",
+      caseStatus: "lab_processing",
+      updatedAt: "2026-09-28T12:00:00.000Z",
+    });
+    collectionStore("2pq_case").set("CASE-SIBLING", {
+      parent_batch: "BATCH-1",
+      caseLabel: "Sibling that must not be read",
+    });
+    collectionStore("2pq_sequencing").set("BATCH-1", {
+      institutionId: "institution-1",
+      caseLabel: "September run",
+      runId: "RUN-2026-09",
+      analysisStatus: "processing",
+      platform: "NovaSeq",
+      scheduling: "2026-09-28",
+      providerName: "2PQ",
+      updatedAt: "2026-09-28T11:30:00.000Z",
+      children_cases: ["CASE-CURRENT", "CASE-SIBLING"],
+      linkedCaseIds: ["CASE-SIBLING"],
+      largeArbitraryMap: { sibling: { deeply: { nested: true } } },
+    });
+    collectionStore("2pq_sampling").set("SAMPLING-1", {
+      parent_case: "CASE-CURRENT",
+      sampleId: "SAMPLE-1",
+      processingStatus: "processing",
+    });
+
+    const { buildTwoPQCaseFileStorageSnapshot } = await import(
+      "../repositories/two-pq-auto-sync.repository.js"
+    );
+    const { identifyPgiNativeModel } = await import(
+      "../lib/pgi-native-schema.js"
+    );
+    const result = await buildTwoPQCaseFileStorageSnapshot("CASE-CURRENT");
+
+    expect(result?.main_case).toEqual({
+      id: "CASE-CURRENT",
+      parent_batch_id: "BATCH-1",
+      children_sampling_ids: ["SAMPLING-1"],
+      last_updated: "2026-09-28T12:00:00.000Z",
+    });
+    expect(result?.entities.cases).toHaveLength(1);
+    expect(result?.entities.cases[0]).toMatchObject({
+      id: "CASE-CURRENT",
+      relations: {
+        batchId: "BATCH-1",
+        samplingIds: ["SAMPLING-1"],
+      },
+    });
+    expect(result?.entities.batches).toEqual([
+      {
+        id: "BATCH-1",
+        kind: "batch",
+        batchLabel: "September run",
+        runId: "RUN-2026-09",
+        institutionId: "institution-1",
+        analysisStatus: "processing",
+        platform: "NovaSeq",
+        scheduling: "2026-09-28",
+        providerName: "2PQ",
+        updatedAt: "2026-09-28T11:30:00.000Z",
+      },
+    ]);
+    expect(result?.entities.samplings).toHaveLength(1);
+    expect(identifyPgiNativeModel(result)).toEqual({
+      ok: true,
+      model: "2pq",
+    });
+    expect(
+      firestoreReads.filter((read) => read.collection === "2pq_case"),
+    ).toEqual([
+      { type: "document", collection: "2pq_case", id: "CASE-CURRENT" },
+    ]);
   });
 
   it("treats a missing preference as enabled and updates file storage before the report code", async () => {
@@ -126,6 +227,7 @@ describe("2PQ case automatic file and code synchronization", () => {
         parent_batch_id: null,
       },
       entities: {
+        batches: [],
         cases: [
           expect.objectContaining({
             id: "CASE-00001",

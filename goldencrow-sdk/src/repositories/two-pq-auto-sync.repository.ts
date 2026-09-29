@@ -20,7 +20,6 @@ type FirestoreRecord = {
 export interface TwoPQFileStorageSnapshot {
   main_case: {
     id: string;
-    sibling_case_ids: string[];
     parent_batch_id: string | null;
     children_sampling_ids: string[];
     last_updated: string | null;
@@ -161,34 +160,21 @@ function caseSnapshot(record: FirestoreRecord, samplingIds: string[]) {
   };
 }
 
-function batchSnapshot(record: FirestoreRecord, caseIds: string[]) {
+function batchSnapshot(record: FirestoreRecord) {
   return {
     id: record.id,
     kind: "batch",
-    scope: scope(record),
-    identity: {
-      batchLabel:
-        normalizeString(record.data.caseLabel) ??
-        normalizeString(record.data.runId) ??
-        record.id,
-      runId: nullableString(record.data.runId),
-    },
-    status: {
-      analysisStatus: nullableString(record.data.analysisStatus),
-    },
-    execution: {
-      platform: nullableString(record.data.platform),
-      scheduling: nullableString(record.data.scheduling),
-      providerName: nullableString(record.data.providerName),
-      providerFormat: nullableString(record.data.providerFormat),
-      contactName: nullableString(record.data.contactName),
-      contactEmail: nullableString(record.data.contactEmail),
-      phoneNumber: nullableString(record.data.phoneNumber),
-    },
-    relations: { caseIds },
-    notes: nullableString(record.data.notes),
-    timestamps: timestamps(record),
-    audit: audit(record),
+    batchLabel:
+      normalizeString(record.data.caseLabel) ??
+      normalizeString(record.data.runId) ??
+      record.id,
+    runId: nullableString(record.data.runId),
+    institutionId: nullableString(record.data.institutionId),
+    analysisStatus: nullableString(record.data.analysisStatus),
+    platform: nullableString(record.data.platform),
+    scheduling: nullableString(record.data.scheduling),
+    providerName: nullableString(record.data.providerName),
+    updatedAt: normalizeDateValue(record.data.updatedAt),
   };
 }
 
@@ -335,48 +321,18 @@ export async function buildTwoPQCaseFileStorageSnapshot(
     recordSortLabel(left).localeCompare(recordSortLabel(right)),
   );
 
-  let siblingCases: FirestoreRecord[] = [];
-  if (linkedBatch) {
-    const batchCaseIds = uniqueStrings([
-      ...normalizeStringArray(linkedBatch.data.children_cases),
-      ...normalizeStringArray(linkedBatch.data.linkedCaseIds),
-    ]);
-    const [casesById, casesByParent] = await Promise.all([
-      getRecordsByIds(CASES_COLLECTION, batchCaseIds),
-      getRecordsByParent(CASES_COLLECTION, "parent_batch", linkedBatch.id),
-    ]);
-    siblingCases = mergeRecords([...casesById, ...casesByParent])
-      .filter((record) => record.id !== currentCase.id)
-      .sort((left, right) =>
-        recordSortLabel(left).localeCompare(recordSortLabel(right)),
-      );
-  }
-
   const linkedSamplingIds = linkedSamplings.map((record) => record.id);
-  const allCases = [currentCase, ...siblingCases];
-  const allCaseIds = allCases.map((record) => record.id);
 
   return {
     main_case: {
       id: currentCase.id,
-      sibling_case_ids: siblingCases.map((record) => record.id),
       parent_batch_id: batchId ?? null,
       children_sampling_ids: linkedSamplingIds,
       last_updated: normalizeDateValue(currentCase.data.updatedAt),
     },
     entities: {
-      batches: linkedBatch ? [batchSnapshot(linkedBatch, allCaseIds)] : [],
-      cases: allCases.map((record) =>
-        caseSnapshot(
-          record,
-          record.id === currentCase.id
-            ? linkedSamplingIds
-            : uniqueStrings([
-                ...normalizeStringArray(record.data.children_sampling),
-                ...normalizeStringArray(record.data.linkedSamplingIds),
-              ]),
-        ),
-      ),
+      batches: linkedBatch ? [batchSnapshot(linkedBatch)] : [],
+      cases: [caseSnapshot(currentCase, linkedSamplingIds)],
       samplings: linkedSamplings.map(samplingSnapshot),
     },
   };
