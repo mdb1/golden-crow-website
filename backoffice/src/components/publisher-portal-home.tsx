@@ -43,6 +43,7 @@ type QuickAccessCardProps = {
   href?: string;
   disabled?: boolean;
   tone: "primary" | "secondary" | "neutral";
+  violetAction?: boolean;
 };
 
 function QuickAccessCard({
@@ -53,6 +54,7 @@ function QuickAccessCard({
   href,
   disabled = false,
   tone,
+  violetAction = false,
 }: QuickAccessCardProps) {
   const content = (
     <article
@@ -110,10 +112,10 @@ function QuickAccessCard({
           </Button>
         ) : (
           <Button
-            variant={tone === "neutral" ? "outline" : "default"}
+            variant={tone === "neutral" && !violetAction ? "outline" : "default"}
             className={cn(
               "h-11 w-full justify-center rounded-xl text-sm font-semibold",
-              tone === "primary"
+              violetAction || tone === "primary"
                 ? "bg-violet-600 text-white shadow-[0_14px_36px_rgba(109,40,217,0.28)] hover:bg-violet-700"
                 : tone === "secondary"
                   ? "bg-sky-600 text-white shadow-[0_14px_36px_rgba(2,132,199,0.22)] hover:bg-sky-700"
@@ -311,6 +313,7 @@ export function PublisherPortalHome({
               actionLabel="Abrir organización"
               href={organizationHref}
               tone="neutral"
+              violetAction
             />
             <QuickAccessCard
               icon={PackageOpen}
@@ -319,6 +322,7 @@ export function PublisherPortalHome({
               actionLabel="Abrir catálogo"
               href={productCatalogHref}
               tone="neutral"
+              violetAction
             />
             {serviceOfferListCard}
             {publishedFeedEntriesCard}

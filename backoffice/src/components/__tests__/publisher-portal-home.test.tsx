@@ -198,6 +198,12 @@ describe("PublisherPortalHomePage", () => {
     expect(screen.getByText("Personalizar mi organización")).toBeTruthy();
     expect(screen.getByText("Acceder al catálogo")).toBeTruthy();
     expect(
+      screen.getByRole("link", { name: /Abrir organización/i }).className,
+    ).toContain("bg-violet-600");
+    expect(
+      screen.getByRole("link", { name: /Abrir catálogo/i }).className,
+    ).toContain("bg-violet-600");
+    expect(
       screen
         .getByRole("link", { name: /Abrir ofertas/i })
         .getAttribute("href"),
