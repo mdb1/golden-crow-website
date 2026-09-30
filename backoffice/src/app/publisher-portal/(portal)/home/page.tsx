@@ -12,9 +12,9 @@ async function loadFeedEntryPresence(status: "draft" | "published") {
   return page.feedItems.length > 0;
 }
 
-async function loadServiceOfferPresence() {
+async function loadActiveServiceOfferPresence() {
   const page = await sdkFetchServer<SupportServiceOffersPage>(
-    "/admin/support-services/offers?limit=1",
+    "/admin/support-services/offers?limit=1&status=active",
   );
   return page.offers.length > 0;
 }
@@ -23,22 +23,23 @@ export default async function PublisherPortalHomePage() {
   const accountRequest = sdkFetchServer<{ account: MyAccountRecord }>(
     "/auth/my-account",
   );
-  const serviceOfferPresenceRequest = accountRequest.then(({ account }) =>
-    account.context.role === "organization_publisher" &&
-    account.context.organizationId
-      ? loadServiceOfferPresence()
-      : false,
+  const activeServiceOfferPresenceRequest = accountRequest.then(
+    ({ account }) =>
+      account.context.role === "organization_publisher" &&
+      account.context.organizationId
+        ? loadActiveServiceOfferPresence()
+        : false,
   );
   const [
     { account },
     hasPublishedFeedEntry,
     hasDraftFeedEntry,
-    hasServiceOffer,
+    hasActiveServiceOffer,
   ] = await Promise.all([
     accountRequest,
     loadFeedEntryPresence("published"),
     loadFeedEntryPresence("draft"),
-    serviceOfferPresenceRequest,
+    activeServiceOfferPresenceRequest,
   ]);
   const displayName =
     account.role?.displayName ||
@@ -58,7 +59,7 @@ export default async function PublisherPortalHomePage() {
       roleLabel={roleLabel}
       hasPublishedFeedEntry={hasPublishedFeedEntry}
       hasDraftFeedEntry={hasDraftFeedEntry}
-      hasServiceOffer={hasServiceOffer}
+      hasActiveServiceOffer={hasActiveServiceOffer}
       organizationId={
         account.context.role === "organization_publisher"
           ? account.context.organizationId

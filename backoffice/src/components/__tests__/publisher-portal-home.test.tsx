@@ -54,7 +54,7 @@ function mockPublisherHomeData(
   hasPublishedFeedEntry: boolean,
   hasDraftFeedEntry = false,
   accountOverride: MyAccountRecord = account,
-  hasServiceOffer = false,
+  hasActiveServiceOffer = false,
 ) {
   jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
     if (path === "/auth/my-account") {
@@ -75,9 +75,9 @@ function mockPublisherHomeData(
       };
     }
 
-    if (path === "/admin/support-services/offers?limit=1") {
+    if (path === "/admin/support-services/offers?limit=1&status=active") {
       return {
-        offers: hasServiceOffer ? [{ id: "offer-1" }] : [],
+        offers: hasActiveServiceOffer ? [{ id: "offer-1" }] : [],
         nextCursor: null,
       };
     }
@@ -126,7 +126,7 @@ describe("PublisherPortalHomePage", () => {
         .getAttribute("href"),
     ).toBe(publisherPortalOrganizationProductCatalogRoute("org-1"));
     expect(sdkFetchServer).toHaveBeenCalledWith(
-      "/admin/support-services/offers?limit=1",
+      "/admin/support-services/offers?limit=1&status=active",
     );
     expect(
       screen
@@ -149,7 +149,7 @@ describe("PublisherPortalHomePage", () => {
     expect(
       (
         screen.getByRole("button", {
-          name: "Disponible después de crear",
+          name: "Disponible después de publicar la oferta",
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
@@ -157,7 +157,7 @@ describe("PublisherPortalHomePage", () => {
     expect(screen.queryByText("Ver mis borradores")).toBeNull();
   });
 
-  it("shows view and create actions once the publisher has a service offer", async () => {
+  it("shows view and create actions once the publisher has an active service offer", async () => {
     mockPublisherHomeData(true, false, account, true);
 
     render(await PublisherPortalHomePage());
@@ -199,6 +199,15 @@ describe("PublisherPortalHomePage", () => {
         .getByRole("link", { name: /Crear nueva oferta/i })
         .getAttribute("href"),
     ).toBe(publisherPortalServiceOfferCreateRoute());
+    const quickAccessTitles = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(quickAccessTitles.indexOf("Crear una nueva oferta")).toBeLessThan(
+      quickAccessTitles.indexOf("Crear una nueva entrada"),
+    );
+    expect(
+      quickAccessTitles.indexOf("Ver mis notas publicadas"),
+    ).toBeGreaterThan(quickAccessTitles.indexOf("Ver ofertas de servicio"));
     expect(screen.queryByText("Solicitudes de servicio")).toBeNull();
   });
 
@@ -245,7 +254,7 @@ describe("PublisherPortalHomePage", () => {
       screen.queryByText("Creá tu primera oferta de servicio"),
     ).toBeNull();
     expect(sdkFetchServer).not.toHaveBeenCalledWith(
-      "/admin/support-services/offers?limit=1",
+      "/admin/support-services/offers?limit=1&status=active",
     );
   });
 });

@@ -30,7 +30,7 @@ type PublisherPortalHomeProps = {
   roleLabel: string;
   hasPublishedFeedEntry: boolean;
   hasDraftFeedEntry: boolean;
-  hasServiceOffer: boolean;
+  hasActiveServiceOffer: boolean;
   organizationId?: string;
 };
 
@@ -139,7 +139,7 @@ export function PublisherPortalHome({
   roleLabel,
   hasPublishedFeedEntry,
   hasDraftFeedEntry,
-  hasServiceOffer,
+  hasActiveServiceOffer,
   organizationId,
 }: PublisherPortalHomeProps) {
   const newFeedEntryHref = publisherPortalFeedEntryCreateRoute();
@@ -151,6 +151,63 @@ export function PublisherPortalHome({
     ? publisherPortalOrganizationProductCatalogRoute(organizationId)
     : undefined;
   const newServiceOfferHref = publisherPortalServiceOfferCreateRoute();
+  const publishedFeedEntriesCard = hasPublishedFeedEntry ? (
+    <QuickAccessCard
+      icon={BookOpenText}
+      title="Ver mis notas publicadas"
+      body="Entrá a tu lista para revisar lo que ya está visible y mantener tu actividad ordenada."
+      actionLabel="Abrir mis notas"
+      href={PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE}
+      tone="secondary"
+    />
+  ) : (
+    <QuickAccessCard
+      icon={FileText}
+      title="Ver mis notas publicadas"
+      body="Cuando publiques la primera, este acceso se activa para que puedas volver a verla y seguir editando tu espacio."
+      actionLabel="Disponible después de publicar"
+      disabled
+      tone="secondary"
+    />
+  );
+  const serviceOfferCreationCard = hasActiveServiceOffer ? (
+    <QuickAccessCard
+      icon={PenLine}
+      title="Crear una nueva oferta"
+      body="Definí un nuevo servicio para que las personas puedan solicitarlo desde la aplicación."
+      actionLabel="Crear nueva oferta"
+      href={newServiceOfferHref}
+      tone="primary"
+    />
+  ) : (
+    <QuickAccessCard
+      icon={PenLine}
+      title="Creá tu primera oferta de servicio"
+      body="Presentá el primer servicio de tu organización y dejalo listo para recibir solicitudes."
+      actionLabel="Crear mi primera oferta"
+      href={newServiceOfferHref}
+      tone="primary"
+    />
+  );
+  const serviceOfferListCard = hasActiveServiceOffer ? (
+    <QuickAccessCard
+      icon={BriefcaseBusiness}
+      title="Ver ofertas de servicio"
+      body="Entrá a la lista para revisar y mantener las ofertas que tu organización ya creó."
+      actionLabel="Abrir ofertas"
+      href={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
+      tone="primary"
+    />
+  ) : (
+    <QuickAccessCard
+      icon={BriefcaseBusiness}
+      title="Ver ofertas de servicio"
+      body="Cuando publiques la primera oferta, este acceso se activa para que puedas revisarla y administrarla."
+      actionLabel="Disponible después de publicar la oferta"
+      disabled
+      tone="primary"
+    />
+  );
 
   return (
     <div className="min-h-[calc(100vh-var(--app-header-height)-3rem)] bg-background px-1 py-3 text-foreground">
@@ -204,14 +261,9 @@ export function PublisherPortalHome({
                   tone="neutral"
                 />
               ) : null}
-              <QuickAccessCard
-                icon={BookOpenText}
-                title="Ver mis notas publicadas"
-                body="Entrá a tu lista para revisar lo que ya está visible y mantener tu actividad ordenada."
-                actionLabel="Abrir mis notas"
-                href={PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE}
-                tone="secondary"
-              />
+              {organizationId
+                ? serviceOfferCreationCard
+                : publishedFeedEntriesCard}
               <QuickAccessCard
                 icon={PenLine}
                 title="Crear una nueva entrada"
@@ -241,14 +293,9 @@ export function PublisherPortalHome({
                   tone="neutral"
                 />
               ) : null}
-              <QuickAccessCard
-                icon={FileText}
-                title="Ver mis notas publicadas"
-                body="Cuando publiques la primera, este acceso se activa para que puedas volver a verla y seguir editando tu espacio."
-                actionLabel="Disponible después de publicar"
-                disabled
-                tone="secondary"
-              />
+              {organizationId
+                ? serviceOfferCreationCard
+                : publishedFeedEntriesCard}
             </>
           )}
         </div>
@@ -271,45 +318,8 @@ export function PublisherPortalHome({
               href={productCatalogHref}
               tone="neutral"
             />
-            {hasServiceOffer ? (
-              <>
-                <QuickAccessCard
-                  icon={BriefcaseBusiness}
-                  title="Ver ofertas de servicio"
-                  body="Entrá a la lista para revisar y mantener las ofertas que tu organización ya creó."
-                  actionLabel="Abrir ofertas"
-                  href={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
-                  tone="primary"
-                />
-                <QuickAccessCard
-                  icon={PenLine}
-                  title="Crear una nueva oferta"
-                  body="Definí un nuevo servicio para que las personas puedan solicitarlo desde la aplicación."
-                  actionLabel="Crear nueva oferta"
-                  href={newServiceOfferHref}
-                  tone="primary"
-                />
-              </>
-            ) : (
-              <>
-                <QuickAccessCard
-                  icon={PenLine}
-                  title="Creá tu primera oferta de servicio"
-                  body="Presentá el primer servicio de tu organización y dejalo listo para recibir solicitudes."
-                  actionLabel="Crear mi primera oferta"
-                  href={newServiceOfferHref}
-                  tone="primary"
-                />
-                <QuickAccessCard
-                  icon={BriefcaseBusiness}
-                  title="Ver ofertas de servicio"
-                  body="Cuando crees la primera oferta, este acceso se activa para que puedas revisarla y administrarla."
-                  actionLabel="Disponible después de crear"
-                  disabled
-                  tone="primary"
-                />
-              </>
-            )}
+            {serviceOfferListCard}
+            {publishedFeedEntriesCard}
           </div>
         ) : null}
       </section>
