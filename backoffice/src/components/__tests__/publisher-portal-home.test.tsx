@@ -219,7 +219,7 @@ describe("PublisherPortalHomePage", () => {
     const quickAccessTitles = screen
       .getAllByRole("heading", { level: 2 })
       .map((heading) => heading.textContent);
-    expect(quickAccessTitles.indexOf("Crear una nueva oferta")).toBeLessThan(
+    expect(quickAccessTitles.indexOf("Ofrecer un nuevo servicio")).toBeLessThan(
       quickAccessTitles.indexOf("Crear una nueva entrada"),
     );
     expect(
@@ -234,7 +234,7 @@ describe("PublisherPortalHomePage", () => {
     render(await PublisherPortalHomePage());
 
     expect(
-      screen.getByRole("heading", { name: "Crear una nueva oferta" }),
+      screen.getByRole("heading", { name: "Ofrecer un nuevo servicio" }),
     ).toBeTruthy();
     expect(
       screen.queryByRole("heading", {

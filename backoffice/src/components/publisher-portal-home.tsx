@@ -175,7 +175,7 @@ export function PublisherPortalHome({
   const serviceOfferCreationCard = hasServiceOffer ? (
     <QuickAccessCard
       icon={PenLine}
-      title="Crear una nueva oferta"
+      title="Ofrecer un nuevo servicio"
       body="Definí un nuevo servicio para que las personas puedan solicitarlo desde la aplicación."
       actionLabel="Crear nueva oferta"
       href={newServiceOfferHref}
