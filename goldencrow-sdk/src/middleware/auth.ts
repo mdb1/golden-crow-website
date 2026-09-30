@@ -63,7 +63,11 @@ export function isPublisherPortalSdkPath(path: string) {
     PUBLISHER_PORTAL_SDK_PATHS.has(path) ||
     path.startsWith("/discover/organizations/") ||
     path.startsWith("/discover/individuals/") ||
-    path.startsWith("/discover/feed-items/")
+    path.startsWith("/discover/feed-items/") ||
+    path === "/admin/support-services/offers" ||
+    path.startsWith("/admin/support-services/offers/") ||
+    path === "/admin/support-services/transactions" ||
+    path.startsWith("/admin/support-services/transactions/")
   );
 }
 

@@ -26,7 +26,7 @@ describe("auth middleware", () => {
     expect(isPGFlexSdkPath("/roles")).toBe(false);
   });
 
-  it("allows publisher portal sessions to manage account setup and scoped Discover paths only", () => {
+  it("allows publisher portal sessions to manage account setup, Discover, and scoped support services", () => {
     expect(isPublisherPortalSdkPath("/auth/my-account")).toBe(true);
     expect(isPublisherPortalSdkPath("/auth/profile-setup")).toBe(true);
     expect(isPublisherPortalSdkPath("/auth/profile-setup/publisher")).toBe(
@@ -37,7 +37,25 @@ describe("auth middleware", () => {
       true,
     );
     expect(isPublisherPortalSdkPath("/discover/feed-items/feed-1")).toBe(true);
+    expect(
+      isPublisherPortalSdkPath("/admin/support-services/offers"),
+    ).toBe(true);
+    expect(
+      isPublisherPortalSdkPath("/admin/support-services/offers/offer-1"),
+    ).toBe(true);
+    expect(
+      isPublisherPortalSdkPath("/admin/support-services/transactions"),
+    ).toBe(true);
+    expect(
+      isPublisherPortalSdkPath(
+        "/admin/support-services/transactions/transaction-1",
+      ),
+    ).toBe(true);
     expect(isPublisherPortalSdkPath("/roles")).toBe(false);
+    expect(isPublisherPortalSdkPath("/admin/support-services")).toBe(false);
+    expect(isPublisherPortalSdkPath("/admin/support-services/catalog")).toBe(
+      false,
+    );
     expect(
       isPublisherPortalSdkPath(
         "/discover/organizations/org-1/submission-evaluation",
