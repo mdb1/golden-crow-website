@@ -283,7 +283,7 @@ export function PublisherPortalHome({
               body="Revisá las solicitudes recibidas y seguí su avance hasta completar la entrega."
               actionLabel="Abrir solicitudes"
               href={PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}
-              tone="secondary"
+              tone="primary"
             />
           </div>
         ) : null}

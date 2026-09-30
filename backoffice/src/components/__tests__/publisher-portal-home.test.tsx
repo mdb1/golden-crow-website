@@ -133,6 +133,12 @@ describe("PublisherPortalHomePage", () => {
     expect(
       screen.getByRole("heading", { name: "Solicitudes de servicio" }),
     ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("heading", { name: "Solicitudes de servicio" })
+        .closest("article")
+        ?.className,
+    ).toContain("border-violet-200/80");
     expect(screen.queryByText("Ver mis borradores")).toBeNull();
   });
 
