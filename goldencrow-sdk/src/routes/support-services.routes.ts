@@ -486,8 +486,17 @@ export async function supportServicesRoutes(
         .send({ error: "No authenticated admin context" });
     }
 
-    if (!request.adminContext.isBootstrap) {
-      return reply.status(403).send({ error: "GOD MODE access required" });
+    const canAccessAsOrganizationPublisher =
+      request.adminContext.role === "organization_publisher" &&
+      request.adminContext.canAccessPublisherPortal === true &&
+      Boolean(request.adminContext.organizationId?.trim());
+    if (
+      !request.adminContext.isBootstrap &&
+      !canAccessAsOrganizationPublisher
+    ) {
+      return reply
+        .status(403)
+        .send({ error: "Support services access required" });
     }
   });
 
@@ -680,6 +689,12 @@ export async function supportServicesRoutes(
     "/admin/support-services/transactions",
     { schema: { body: TransactionBodySchema } },
     async (request, reply) => {
+      if (!request.adminContext?.isBootstrap) {
+        return reply.status(403).send({
+          error:
+            "Service transactions can only be created by app users or GOD MODE.",
+        });
+      }
       try {
         const transaction = await createSupportServiceTransaction(
           request.adminContext!,
@@ -734,6 +749,11 @@ export async function supportServicesRoutes(
     "/admin/support-services/transactions/:transactionId",
     { schema: { params: TransactionParamsSchema } },
     async (request, reply) => {
+      if (!request.adminContext?.isBootstrap) {
+        return reply.status(403).send({
+          error: "Only GOD MODE can delete service transactions.",
+        });
+      }
       try {
         const result = await deleteSupportServiceTransaction(
           request.adminContext!,

@@ -2238,7 +2238,17 @@ function apiBasePath(kind: WorkbenchKind) {
   return `/admin/support-services/${kind}`;
 }
 
-export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
+export function SupportServicesBrowser({
+  kind,
+  routeBase,
+  canCreate = true,
+  canDelete = true,
+}: {
+  kind: WorkbenchKind;
+  routeBase?: string;
+  canCreate?: boolean;
+  canDelete?: boolean;
+}) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const queryClient = useQueryClient();
@@ -2248,7 +2258,7 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
   const [listErrorLogOpen, setListErrorLogOpen] = useState(false);
   const isOffers = kind === "offers";
   const queryKey = isOffers ? OFFERS_QUERY_KEY : TRANSACTIONS_QUERY_KEY;
-  const route = baseRoute(kind);
+  const route = routeBase ?? baseRoute(kind);
 
   function nextToastId() {
     setToastCounter((current) => current + 1);
@@ -2390,16 +2400,18 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                 <RefreshCw className="h-4 w-4" />
                 <span>{t("Refresh")}</span>
               </Button>
-              <Button
-                asChild
-                size="sm"
-                className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
-              >
-                <Link href={`${route}/new`}>
-                  <Plus className="h-4 w-4" />
-                  <span>{t(createLabel)}</span>
-                </Link>
-              </Button>
+              {canCreate ? (
+                <Button
+                  asChild
+                  size="sm"
+                  className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+                >
+                  <Link href={`${route}/new`}>
+                    <Plus className="h-4 w-4" />
+                    <span>{t(createLabel)}</span>
+                  </Link>
+                </Button>
+              ) : null}
             </div>
           </div>
           <div className="grid gap-3 lg:grid-cols-[minmax(14rem,1fr)_12rem_12rem]">
@@ -2548,16 +2560,18 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-muted-foreground">
                       <FileText className="h-8 w-8" />
                       <p className="text-sm">{t("No records found.")}</p>
-                      <Button
-                        asChild
-                        size="sm"
-                        className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
-                      >
-                        <Link href={`${route}/new`}>
-                          <Plus className="h-4 w-4" />
-                          <span>{t(createLabel)}</span>
-                        </Link>
-                      </Button>
+                      {canCreate ? (
+                        <Button
+                          asChild
+                          size="sm"
+                          className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+                        >
+                          <Link href={`${route}/new`}>
+                            <Plus className="h-4 w-4" />
+                            <span>{t(createLabel)}</span>
+                          </Link>
+                        </Button>
+                      ) : null}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -2634,7 +2648,9 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                     <TableCell className="text-right">
                       <RowActions
                         editHref={`${route}/${encodeURIComponent(offer.id)}`}
-                        onDelete={() => handleDelete(offer)}
+                        onDelete={
+                          canDelete ? () => handleDelete(offer) : undefined
+                        }
                       />
                     </TableCell>
                   </TableRow>
@@ -2688,7 +2704,11 @@ export function SupportServicesBrowser({ kind }: { kind: WorkbenchKind }) {
                     <TableCell className="text-right">
                       <RowActions
                         editHref={`${route}/${encodeURIComponent(transaction.requestId)}`}
-                        onDelete={() => handleDelete(transaction)}
+                        onDelete={
+                          canDelete
+                            ? () => handleDelete(transaction)
+                            : undefined
+                        }
                       />
                     </TableCell>
                   </TableRow>
@@ -2724,7 +2744,7 @@ function RowActions({
   onDelete,
 }: {
   editHref: string;
-  onDelete: () => void;
+  onDelete?: () => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -2737,17 +2757,19 @@ function RowActions({
           <span className="sr-only">{t("Edit")}</span>
         </Link>
       </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={onDelete}
-        title={t("Delete")}
-        className="text-destructive hover:text-destructive"
-      >
-        <Trash2 className="h-4 w-4" />
-        <span className="sr-only">{t("Delete")}</span>
-      </Button>
+      {onDelete ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={onDelete}
+          title={t("Delete")}
+          className="text-destructive hover:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="sr-only">{t("Delete")}</span>
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -3170,9 +3192,15 @@ function PromotionalBannerImageEditor({
 export function SupportServiceOfferWorkbench({
   mode,
   offerId,
+  routeBase = "/god-mode/service-offers",
+  fixedProvider,
+  canDelete = true,
 }: {
   mode: "create" | "edit";
   offerId?: string;
+  routeBase?: string;
+  fixedProvider?: { id: string; name: string };
+  canDelete?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -3232,6 +3260,29 @@ export function SupportServiceOfferWorkbench({
     }
   }, [offerQuery.data?.offer]);
 
+  useEffect(() => {
+    if (!fixedProvider?.id) {
+      return;
+    }
+
+    setForm((current) => {
+      if (
+        current.providerKind === "organization" &&
+        current.providerId === fixedProvider.id &&
+        current.providerName === fixedProvider.name
+      ) {
+        return current;
+      }
+      const next = {
+        ...current,
+        providerKind: "organization" as const,
+        providerId: fixedProvider.id,
+        providerName: fixedProvider.name,
+      };
+      return hasPersistedOffer ? next : applyGeneratedOfferIds(next);
+    });
+  }, [fixedProvider?.id, fixedProvider?.name, hasPersistedOffer]);
+
   const shouldValidateServiceId =
     !hasPersistedOffer &&
     Boolean(form.providerId.trim()) &&
@@ -3273,7 +3324,7 @@ export function SupportServiceOfferWorkbench({
       ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [OFFERS_QUERY_KEY] });
-      router.push("/god-mode/service-offers");
+      router.push(routeBase);
       router.refresh();
     },
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
@@ -3435,7 +3486,7 @@ export function SupportServiceOfferWorkbench({
       }
 
       if (redirectToOffer) {
-        router.push(`/god-mode/service-offers/${result.offer.id}`);
+        router.push(`${routeBase}/${encodeURIComponent(result.offer.id)}`);
       }
       router.refresh();
       return result.offer;
@@ -3583,7 +3634,7 @@ export function SupportServiceOfferWorkbench({
       <form className={SUPPORT_SERVICE_FORM_CLASS} onSubmit={handleSubmit}>
         <WorkbenchTopbar
           title={isEditing ? "Editar service offer" : "Alta de service offer"}
-          backHref="/god-mode/service-offers"
+          backHref={routeBase}
           backLabel="Back to Service Offers"
           isSaving={isWorking}
           saveDisabled={
@@ -3591,7 +3642,7 @@ export function SupportServiceOfferWorkbench({
             Boolean(form.providerId.trim()) &&
             !serviceIdValidated
           }
-          canDelete={isEditing}
+          canDelete={isEditing && canDelete}
           canExportRaw={Boolean(persistedOfferRecord)}
           onExportRaw={() => setRawExportOpen(true)}
           onDelete={() => {
@@ -3612,7 +3663,7 @@ export function SupportServiceOfferWorkbench({
                 <div>
                   <p className="font-semibold">{t("Offer requires remediation")}</p>
                   <p className="text-sm opacity-80">
-                    {t("This service offer remains visible in god mode but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.")}
+                    {t("This service offer remains visible in Support Services but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.")}
                   </p>
                 </div>
                 <ul className="list-disc space-y-1 pl-5 text-sm">
@@ -3637,65 +3688,81 @@ export function SupportServiceOfferWorkbench({
             <MockTemplatePicker onSelect={applyMockTemplate} />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Field label="Provider kind">
-              <Select
-                value={form.providerKind}
-                onValueChange={(providerKind) =>
-                  setForm((current) => {
-                    if (providerKind === current.providerKind) {
-                      return current;
+            {fixedProvider ? (
+              <>
+                <DisplayField label="Provider kind">
+                  <GeneratedValue value={t("Organization")} showLock />
+                </DisplayField>
+                <DisplayField label="Provider">
+                  <GeneratedValue
+                    value={`${fixedProvider.name} · ${fixedProvider.id}`}
+                    showLock
+                  />
+                </DisplayField>
+              </>
+            ) : (
+              <>
+                <Field label="Provider kind">
+                  <Select
+                    value={form.providerKind}
+                    onValueChange={(providerKind) =>
+                      setForm((current) => {
+                        if (providerKind === current.providerKind) {
+                          return current;
+                        }
+                        return {
+                          ...current,
+                          providerKind:
+                            providerKind as SupportServiceProviderKind,
+                          providerId: "",
+                          providerName: "",
+                          serviceId: hasPersistedOffer
+                            ? current.serviceId
+                            : "pgs_",
+                          formShape: {
+                            ...current.formShape,
+                            id: hasPersistedOffer
+                              ? current.formShape.id
+                              : "pgfs_",
+                          },
+                        };
+                      })
                     }
-                    return {
-                      ...current,
-                      providerKind:
-                        providerKind as SupportServiceProviderKind,
-                      providerId: "",
-                      providerName: "",
-                      serviceId: hasPersistedOffer
-                        ? current.serviceId
-                        : "pgs_",
-                      formShape: {
-                        ...current.formShape,
-                        id: hasPersistedOffer
-                          ? current.formShape.id
-                          : "pgfs_",
-                      },
-                    };
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="organization">
-                    {t("Organization")}
-                  </SelectItem>
-                  <SelectItem value="individual">
-                    {t("Professional individual")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <ProviderPicker
-              kind={form.providerKind}
-              selectedId={form.providerId}
-              selectedName={form.providerName}
-              onSelect={(provider) =>
-                setForm((current) => {
-                  const sameProvider = provider.id === current.providerId;
-                  const next = {
-                    ...current,
-                    providerId: provider.id,
-                    providerName: provider.name,
-                  };
-                  if (hasPersistedOffer || sameProvider) {
-                    return next;
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="organization">
+                        {t("Organization")}
+                      </SelectItem>
+                      <SelectItem value="individual">
+                        {t("Professional individual")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <ProviderPicker
+                  kind={form.providerKind}
+                  selectedId={form.providerId}
+                  selectedName={form.providerName}
+                  onSelect={(provider) =>
+                    setForm((current) => {
+                      const sameProvider = provider.id === current.providerId;
+                      const next = {
+                        ...current,
+                        providerId: provider.id,
+                        providerName: provider.name,
+                      };
+                      if (hasPersistedOffer || sameProvider) {
+                        return next;
+                      }
+                      return applyGeneratedOfferIds(next);
+                    })
                   }
-                  return applyGeneratedOfferIds(next);
-                })
-              }
-            />
+                />
+              </>
+            )}
             <div className="lg:col-span-2">
               <Field label="Offer name">
                 <Input
@@ -3986,11 +4053,11 @@ export function SupportServiceOfferWorkbench({
         offerName={form.name}
         onOpenOffer={(id) => {
           setPublishDialog(null);
-          router.push(`/god-mode/service-offers/${id}`);
+          router.push(`${routeBase}/${encodeURIComponent(id)}`);
         }}
         onBackToOffers={() => {
           setPublishDialog(null);
-          router.push("/god-mode/service-offers");
+          router.push(routeBase);
         }}
         onClose={() => setPublishDialog(null)}
       />
@@ -5457,11 +5524,13 @@ function ProviderPicker({
 
 function TransactionRequesterIdentity({
   isEditing,
+  showLockedFields,
   requestedByUserId,
   requestedByUserEmail,
   onChange,
 }: {
   isEditing: boolean;
+  showLockedFields?: boolean;
   requestedByUserId: string;
   requestedByUserEmail: string;
   onChange: (identity: { userId: string; email: string }) => void;
@@ -5546,6 +5615,7 @@ function TransactionRequesterIdentity({
             <div className="min-w-0 flex-1">
               <GeneratedValue
                 value={requestedByUserId || t("No user selected")}
+                showLock={showLockedFields && isEditing}
               />
             </div>
             {!isEditing ? (
@@ -5578,7 +5648,10 @@ function TransactionRequesterIdentity({
         </DisplayField>
         <Field label="Requester email">
           {isEditing ? (
-            <GeneratedValue value={requestedByUserEmail || "-"} />
+            <GeneratedValue
+              value={requestedByUserEmail || "-"}
+              showLock={showLockedFields}
+            />
           ) : (
             <Input
               value={requestedByUserEmail}
@@ -6900,9 +6973,15 @@ function TermsEditor({
 export function SupportServiceTransactionWorkbench({
   mode,
   transactionId,
+  routeBase = "/god-mode/service-transactions",
+  canDelete = true,
+  showLockedFields = false,
 }: {
   mode: "create" | "edit";
   transactionId?: string;
+  routeBase?: string;
+  canDelete?: boolean;
+  showLockedFields?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -7113,9 +7192,7 @@ export function SupportServiceTransactionWorkbench({
         message: t("Service transaction saved."),
       });
       router.push(
-        `/god-mode/service-transactions/${encodeURIComponent(
-          result.transaction.requestId,
-        )}`,
+        `${routeBase}/${encodeURIComponent(result.transaction.requestId)}`,
       );
       router.refresh();
     },
@@ -7295,7 +7372,7 @@ export function SupportServiceTransactionWorkbench({
           `${t("Service transaction deleted. Secondary cleanup warnings:")} ${result.cleanupWarnings.join(" ")}`,
         );
       }
-      router.push("/god-mode/service-transactions");
+      router.push(routeBase);
       router.refresh();
     },
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
@@ -7497,13 +7574,13 @@ export function SupportServiceTransactionWorkbench({
       <form className={SUPPORT_SERVICE_FORM_CLASS} onSubmit={handleSubmit}>
         <WorkbenchTopbar
           title={isEditing ? "Detalle de transaccion" : "Alta de transaccion"}
-          backHref="/god-mode/service-transactions"
+          backHref={routeBase}
           backLabel="Back to Service Transactions"
           isSaving={saveMutation.isPending}
           saveDisabled={terminalStatusLocked || transactionCommandPending}
           showSaveAction={false}
           deleteDisabled={transactionCommandPending}
-          canDelete={isEditing}
+          canDelete={isEditing && canDelete}
           canExportRaw={Boolean(transactionRecord)}
           onExportRaw={() => setRawExportOpen(true)}
           onDelete={() => {
@@ -7523,7 +7600,7 @@ export function SupportServiceTransactionWorkbench({
                 <div>
                   <p className="font-semibold">{t("Transaction requires remediation")}</p>
                   <p className="text-sm opacity-80">
-                    {t("This root transaction remains visible in god mode even when historical data is not fully compliant. Correct editable data where possible. Frozen snapshots stay read-only and do not block unrelated saves.")}
+                    {t("This root transaction remains visible in Support Services even when historical data is not fully compliant. Correct editable data where possible. Frozen snapshots stay read-only and do not block unrelated saves.")}
                   </p>
                 </div>
                 <ul className="list-disc space-y-1 pl-5 text-sm">
@@ -7551,6 +7628,15 @@ export function SupportServiceTransactionWorkbench({
                     <Badge variant="secondary">
                       {t("Frozen transaction contract")}
                     </Badge>
+                    {showLockedFields ? (
+                      <span
+                        className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg border border-violet-100 bg-violet-50 text-violet-600 dark:border-violet-400/18 dark:bg-violet-500/10 dark:text-violet-200"
+                        title={t("Read only")}
+                      >
+                        <LockKeyhole className="h-4 w-4" aria-hidden="true" />
+                        <span className="sr-only">{t("Read only")}</span>
+                      </span>
+                    ) : null}
                   </div>
                   <div className="font-mono text-xs text-muted-foreground">
                     {form.serviceId || "-"} · v{form.serviceVersion || 1}
@@ -7629,6 +7715,7 @@ export function SupportServiceTransactionWorkbench({
               {isEditing ? (
                 <GeneratedValue
                   value={form.requestId || transactionId || "pgr_"}
+                  showLock={showLockedFields}
                 />
               ) : (
                 <Input
@@ -7646,19 +7733,32 @@ export function SupportServiceTransactionWorkbench({
               )}
             </Field>
             <Field label="Offer ID">
-              <GeneratedValue value={form.offerId || "-"} />
+              <GeneratedValue
+                value={form.offerId || "-"}
+                showLock={showLockedFields}
+              />
             </Field>
             <Field label="Service version">
-              <GeneratedValue value={String(form.serviceVersion || 1)} />
+              <GeneratedValue
+                value={String(form.serviceVersion || 1)}
+                showLock={showLockedFields}
+              />
             </Field>
             <Field label="Provider ID">
-              <GeneratedValue value={form.providerId || "-"} />
+              <GeneratedValue
+                value={form.providerId || "-"}
+                showLock={showLockedFields}
+              />
             </Field>
             <Field label="Provider kind">
-              <GeneratedValue value={t(form.providerKind)} />
+              <GeneratedValue
+                value={t(form.providerKind)}
+                showLock={showLockedFields}
+              />
             </Field>
             <TransactionRequesterIdentity
               isEditing={isEditing}
+              showLockedFields={showLockedFields}
               requestedByUserId={form.requestedByUserId}
               requestedByUserEmail={form.requestedByUserEmail}
               onChange={({ userId, email }) =>
@@ -7670,23 +7770,38 @@ export function SupportServiceTransactionWorkbench({
               }
             />
             <Field label="Idempotency key">
-              <GeneratedValue value={form.idempotencyKey || "-"} />
+              <GeneratedValue
+                value={form.idempotencyKey || "-"}
+                showLock={showLockedFields}
+              />
             </Field>
             <Field label="Client request time">
-              <GeneratedValue value={form.requestedAtClient || "-"} />
+              <GeneratedValue
+                value={form.requestedAtClient || "-"}
+                showLock={showLockedFields}
+              />
             </Field>
             {isEditing ? (
               <>
                 <Field label="Requested at">
-                  <GeneratedValue value={form.requestedAt || "-"} />
+                  <GeneratedValue
+                    value={form.requestedAt || "-"}
+                    showLock={showLockedFields}
+                  />
                 </Field>
                 <Field label="Request revision">
-                  <GeneratedValue value={String(form.requestRevision || 1)} />
+                  <GeneratedValue
+                    value={String(form.requestRevision || 1)}
+                    showLock={showLockedFields}
+                  />
                 </Field>
               </>
             ) : null}
             <Field label="Contract source">
-              <GeneratedValue value={form.contractSource || "-"} />
+              <GeneratedValue
+                value={form.contractSource || "-"}
+                showLock={showLockedFields}
+              />
             </Field>
           </div>
           {!isEditing && serviceChoices.length === 0 ? (
@@ -8766,10 +8881,28 @@ function Section({
   );
 }
 
-function GeneratedValue({ value }: { value: string }) {
+function GeneratedValue({
+  value,
+  showLock = false,
+}: {
+  value: string;
+  showLock?: boolean;
+}) {
+  const { language } = useAppLanguage();
+  const readOnlyLabel = appText(language, "Read only");
+
   return (
-    <div className="flex min-h-11 items-center rounded-xl border border-violet-100 bg-white/78 px-4 py-2 font-mono text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-      {value}
+    <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-2 font-mono text-sm text-muted-foreground shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+      <span className="min-w-0 break-all">{value}</span>
+      {showLock ? (
+        <span
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-200"
+          title={readOnlyLabel}
+        >
+          <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="sr-only">{readOnlyLabel}</span>
+        </span>
+      ) : null}
     </div>
   );
 }

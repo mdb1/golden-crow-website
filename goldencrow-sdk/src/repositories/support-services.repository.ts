@@ -600,6 +600,70 @@ function requireGodMode(context: AdminContext) {
   }
 }
 
+type SupportServicesAccessScope =
+  | { kind: "god_mode" }
+  | { kind: "organization_publisher"; organizationId: string };
+
+function requireSupportServicesAccess(
+  context: AdminContext,
+): SupportServicesAccessScope {
+  if (context.isBootstrap) {
+    return { kind: "god_mode" };
+  }
+
+  const organizationId = cleanString(context.organizationId);
+  if (
+    context.role === "organization_publisher" &&
+    context.canAccessPublisherPortal === true &&
+    organizationId
+  ) {
+    return { kind: "organization_publisher", organizationId };
+  }
+
+  throw new AdminRepositoryError("Support services access required", 403);
+}
+
+function supportServicesOrganizationId(
+  scope: SupportServicesAccessScope,
+): string | undefined {
+  return scope.kind === "organization_publisher"
+    ? scope.organizationId
+    : undefined;
+}
+
+function supportServicesRecordBelongsToScope(
+  scope: SupportServicesAccessScope,
+  record: Pick<SupportServiceOfferRecord, "providerKind" | "providerId">,
+) {
+  return (
+    scope.kind === "god_mode" ||
+    (record.providerKind === "organization" &&
+      record.providerId === scope.organizationId)
+  );
+}
+
+function assertSupportServicesRecordAccess(
+  scope: SupportServicesAccessScope,
+  record: Pick<SupportServiceOfferRecord, "providerKind" | "providerId">,
+  notFoundMessage: string,
+) {
+  if (!supportServicesRecordBelongsToScope(scope, record)) {
+    throw new AdminRepositoryError(notFoundMessage, 404);
+  }
+}
+
+function assertSupportServicesProviderSelection(
+  scope: SupportServicesAccessScope,
+  record: Pick<SupportServiceOfferRecord, "providerKind" | "providerId">,
+) {
+  if (!supportServicesRecordBelongsToScope(scope, record)) {
+    throw new AdminRepositoryError(
+      "Organization publishers can only manage service offers for their linked organization.",
+      403,
+    );
+  }
+}
+
 function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -5092,6 +5156,7 @@ async function listWithFilters<TRecord>({
   cursor,
   limit,
   hasFilters,
+  whereEquals,
   toRecord,
   matches,
 }: {
@@ -5099,13 +5164,17 @@ async function listWithFilters<TRecord>({
   cursor?: string;
   limit: number;
   hasFilters: boolean;
+  whereEquals?: { field: string; value: string };
   toRecord: (id: string, data: Record<string, unknown>) => TRecord;
   matches: (record: TRecord) => boolean;
 }): Promise<{ records: TRecord[]; nextCursor?: string }> {
   const parsedCursor = parseListCursor(cursor);
-  const baseQuery = adminDb
-    .collection(collectionName)
-    .orderBy(FieldPath.documentId(), "asc");
+  const collectionQuery = whereEquals
+    ? adminDb
+        .collection(collectionName)
+        .where(whereEquals.field, "==", whereEquals.value)
+    : adminDb.collection(collectionName);
+  const baseQuery = collectionQuery.orderBy(FieldPath.documentId(), "asc");
   let query: Query = baseQuery;
 
   if (parsedCursor) {
@@ -5710,11 +5779,13 @@ export async function listSupportServiceOffers(
   context: AdminContext,
   options: OfferListOptions = {},
 ): Promise<SupportServiceOffersPage> {
-  requireGodMode(context);
+  const accessScope = requireSupportServicesAccess(context);
+  const organizationId = supportServicesOrganizationId(accessScope);
 
   const limit = normalizeLimit(options.limit);
   const hasFilters = Boolean(
-    cleanString(options.query) ||
+    organizationId ||
+      cleanString(options.query) ||
       (cleanString(options.status) && cleanString(options.status) !== "all") ||
       cleanString(options.serviceId) ||
       (cleanString(options.stage) && cleanString(options.stage) !== "all"),
@@ -5724,8 +5795,13 @@ export async function listSupportServiceOffers(
     cursor: options.cursor,
     limit,
     hasFilters,
+    whereEquals: organizationId
+      ? { field: "providerId", value: organizationId }
+      : undefined,
     toRecord: (id, data) => offerListRecord(toOfferAdminRecord(id, data)),
-    matches: (record) => matchesOfferFilters(record, options),
+    matches: (record) =>
+      supportServicesRecordBelongsToScope(accessScope, record) &&
+      matchesOfferFilters(record, options),
   });
 
   return { offers: result.records, nextCursor: result.nextCursor };
@@ -5735,24 +5811,35 @@ export async function getSupportServiceOffer(
   context: AdminContext,
   offerId: string,
 ) {
-  requireGodMode(context);
+  const accessScope = requireSupportServicesAccess(context);
   const snapshot = await getOfferSnapshot(offerId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service offer not found.", 404);
   }
 
-  return toOfferAdminRecord(offerId, snapshot.data() ?? {});
+  const offer = toOfferAdminRecord(offerId, snapshot.data() ?? {});
+  assertSupportServicesRecordAccess(
+    accessScope,
+    offer,
+    "Service offer not found.",
+  );
+  return offer;
 }
 
 export async function getSupportServiceOfferTransactionStats(
   context: AdminContext,
   offerId: string,
 ): Promise<SupportServiceOfferTransactionStats> {
-  requireGodMode(context);
+  const accessScope = requireSupportServicesAccess(context);
   const offerSnapshot = await getOfferSnapshot(offerId);
   if (!offerSnapshot) {
     throw new AdminRepositoryError("Service offer not found.", 404);
   }
+  assertSupportServicesRecordAccess(
+    accessScope,
+    toOfferAdminRecord(offerId, offerSnapshot.data() ?? {}),
+    "Service offer not found.",
+  );
 
   const currentServiceVersion = versionNumber(
     offerSnapshot.data()?.serviceVersion,
@@ -5840,7 +5927,7 @@ export async function getSupportServiceIdAvailability(
   serviceIdInput: string,
   excludeOfferIdInput?: string,
 ) {
-  requireGodMode(context);
+  requireSupportServicesAccess(context);
   const serviceId = cleanString(serviceIdInput);
   const excludeOfferId = cleanString(excludeOfferIdInput);
   if (!GENERATED_SERVICE_ID_PATTERN.test(serviceId)) {
@@ -5876,7 +5963,7 @@ export async function createSupportServiceOffer(
   context: AdminContext,
   input: SupportServiceOfferInput,
 ) {
-  requireGodMode(context);
+  const accessScope = requireSupportServicesAccess(context);
   if (
     Object.prototype.hasOwnProperty.call(
       input as Record<string, unknown>,
@@ -5900,6 +5987,7 @@ export async function createSupportServiceOffer(
     );
   }
   const draft = offerDocument(input);
+  assertSupportServicesProviderSelection(accessScope, draft);
   const providerData = await assertOfferProviderExists(draft);
   const document = applyOfferVersions(
     applyAuthoritativeOfferProviderName(draft, providerData),
@@ -5955,7 +6043,7 @@ export async function updateSupportServiceOffer(
   offerId: string,
   input: SupportServiceOfferInput,
 ) {
-  requireGodMode(context);
+  const accessScope = requireSupportServicesAccess(context);
   if (input.acknowledgesExistingTransactionContracts !== true) {
     throw new AdminRepositoryError(
       "Saving an existing service offer requires acknowledgement that previous transaction contracts remain binding.",
@@ -5985,6 +6073,7 @@ export async function updateSupportServiceOffer(
     );
   }
   const submittedDraft = offerDocument(input);
+  assertSupportServicesProviderSelection(accessScope, submittedDraft);
   const providerData = await assertOfferProviderExists(submittedDraft);
   const ref = adminDb.collection(SERVICE_OFFERS_COLLECTION).doc(offerId);
 
@@ -5997,6 +6086,11 @@ export async function updateSupportServiceOffer(
     const previousRecord = toOfferAdminRecord(
       offerId,
       snapshot.data() ?? {},
+    );
+    assertSupportServicesRecordAccess(
+      accessScope,
+      previousRecord,
+      "Service offer not found.",
     );
     const previousDocument = offerDocument(previousRecord, {
       allowHistoricalServiceCategory: true,
@@ -6109,11 +6203,16 @@ export async function deleteSupportServiceOffer(
   context: AdminContext,
   offerId: string,
 ) {
-  requireGodMode(context);
+  const accessScope = requireSupportServicesAccess(context);
   const snapshot = await getOfferSnapshot(offerId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service offer not found.", 404);
   }
+  assertSupportServicesRecordAccess(
+    accessScope,
+    toOfferAdminRecord(offerId, snapshot.data() ?? {}),
+    "Service offer not found.",
+  );
 
   const serviceId = cleanString(snapshot.data()?.serviceId);
   const claimRef = serviceId ? serviceOfferIdClaimRef(serviceId) : null;
@@ -6136,11 +6235,13 @@ export async function listSupportServiceTransactions(
   context: AdminContext,
   options: TransactionListOptions = {},
 ): Promise<SupportServiceTransactionsPage> {
-  requireGodMode(context);
+  const accessScope = requireSupportServicesAccess(context);
+  const organizationId = supportServicesOrganizationId(accessScope);
 
   const limit = normalizeLimit(options.limit);
   const hasFilters = Boolean(
-    cleanString(options.query) ||
+    organizationId ||
+      cleanString(options.query) ||
       (cleanString(options.status) && cleanString(options.status) !== "all") ||
       cleanString(options.serviceId),
   );
@@ -6149,9 +6250,14 @@ export async function listSupportServiceTransactions(
     cursor: options.cursor,
     limit,
     hasFilters,
+    whereEquals: organizationId
+      ? { field: "providerId", value: organizationId }
+      : undefined,
     toRecord: (id, data) =>
       transactionListRecord(toTransactionAdminRecord(id, data)),
-    matches: (record) => matchesTransactionFilters(record, options),
+    matches: (record) =>
+      supportServicesRecordBelongsToScope(accessScope, record) &&
+      matchesTransactionFilters(record, options),
   });
 
   return { transactions: result.records, nextCursor: result.nextCursor };
@@ -6161,8 +6267,14 @@ export async function getSupportServiceTransaction(
   context: AdminContext,
   transactionId: string,
 ) {
-  requireGodMode(context);
-  return getSupportServiceTransactionRecord(transactionId);
+  const accessScope = requireSupportServicesAccess(context);
+  const transaction = await getSupportServiceTransactionRecord(transactionId);
+  assertSupportServicesRecordAccess(
+    accessScope,
+    transaction,
+    "Service transaction not found.",
+  );
+  return transaction;
 }
 
 async function getSupportServiceTransactionRecord(transactionId: string) {
@@ -6789,7 +6901,7 @@ export async function createTwoPQCaseServiceTransaction(
 }
 
 type SupportServiceOutputAttachmentPolicy = {
-  requireGodModeAccess: boolean;
+  requireSupportServicesAccess: boolean;
   expectedOfferId?: string;
   expectedProviderId?: string;
   expectedOwnerId?: string;
@@ -6805,8 +6917,9 @@ async function attachSupportServiceTransactionOutputObjectWithPolicy(
   transaction: SupportServiceTransactionRecord;
   object: SupportServiceOutputObjectUploadRecord;
 }> {
-  if (policy.requireGodModeAccess) {
-    requireGodMode(context);
+  let accessScope: SupportServicesAccessScope | undefined;
+  if (policy.requireSupportServicesAccess) {
+    accessScope = requireSupportServicesAccess(context);
   }
   const role = cleanString(input.role);
   const downloadUrl =
@@ -6840,6 +6953,13 @@ async function attachSupportServiceTransactionOutputObjectWithPolicy(
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
   const previous = toTransactionRecord(snapshot.id, snapshot.data() ?? {});
+  if (accessScope) {
+    assertSupportServicesRecordAccess(
+      accessScope,
+      previous,
+      "Service transaction not found.",
+    );
+  }
   if (
     policy.expectedOfferId &&
     previous.offerId !== policy.expectedOfferId
@@ -6987,6 +7107,13 @@ async function attachSupportServiceTransactionOutputObjectWithPolicy(
       latestSnapshot.id,
       latestSnapshot.data() ?? {},
     );
+    if (accessScope) {
+      assertSupportServicesRecordAccess(
+        accessScope,
+        latest,
+        "Service transaction not found.",
+      );
+    }
     if (latest.requestRevision !== previous.requestRevision) {
       throw new AdminRepositoryError(
         "Service transaction changed while the output object was being attached.",
@@ -7416,7 +7543,7 @@ export async function attachSupportServiceTransactionOutputObject(
     context,
     transactionId,
     input,
-    { requireGodModeAccess: true },
+    { requireSupportServicesAccess: true },
   );
 }
 
@@ -7424,10 +7551,11 @@ async function persistSupportServiceTransactionUpdate(
   context: AdminContext,
   transactionId: string,
   input: SupportServiceTransactionInput,
-  options: { allowDelivery: boolean; requireGodModeAccess: boolean },
+  options: { allowDelivery: boolean; requireSupportServicesAccess: boolean },
 ) {
-  if (options.requireGodModeAccess) {
-    requireGodMode(context);
+  let accessScope: SupportServicesAccessScope | undefined;
+  if (options.requireSupportServicesAccess) {
+    accessScope = requireSupportServicesAccess(context);
   }
   const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
@@ -7437,6 +7565,13 @@ async function persistSupportServiceTransactionUpdate(
   const previous = options.allowDelivery
     ? toTransactionRecord(snapshot.id, snapshot.data() ?? {})
     : toTransactionAdminRecord(snapshot.id, snapshot.data() ?? {});
+  if (accessScope) {
+    assertSupportServicesRecordAccess(
+      accessScope,
+      previous,
+      "Service transaction not found.",
+    );
+  }
   if (options.allowDelivery && previous.status !== "running") {
     throw new AdminRepositoryError(
       "Only running service transactions can be marked delivered.",
@@ -7541,6 +7676,13 @@ async function persistSupportServiceTransactionUpdate(
           latestSnapshot.id,
           latestSnapshot.data() ?? {},
         );
+    if (accessScope) {
+      assertSupportServicesRecordAccess(
+        accessScope,
+        latest,
+        "Service transaction not found.",
+      );
+    }
     if (latest.requestRevision !== previous.requestRevision) {
       throw new AdminRepositoryError(
         "Service transaction changed while it was being updated.",
@@ -7674,7 +7816,7 @@ export async function updateSupportServiceTransaction(
 ) {
   return persistSupportServiceTransactionUpdate(context, transactionId, input, {
     allowDelivery: false,
-    requireGodModeAccess: true,
+    requireSupportServicesAccess: true,
   });
 }
 
@@ -7686,7 +7828,7 @@ export async function deliverSupportServiceTransaction(
     context,
     transactionId,
     { status: "delivered" },
-    { allowDelivery: true, requireGodModeAccess: true },
+    { allowDelivery: true, requireSupportServicesAccess: true },
   );
 }
 
@@ -7863,7 +8005,7 @@ export async function completeTwoPQCaseServiceTransactionOutput(input: {
       context,
       transaction.id,
       { status: nextStatus },
-      { allowDelivery: false, requireGodModeAccess: false },
+      { allowDelivery: false, requireSupportServicesAccess: false },
     );
   }
 
@@ -7874,7 +8016,7 @@ export async function completeTwoPQCaseServiceTransactionOutput(input: {
       transaction.id,
       { role, fileStorageId: input.fileStorageId },
       {
-        requireGodModeAccess: false,
+        requireSupportServicesAccess: false,
         expectedOfferId: TWO_PQ_CASE_SERVICE_OFFER_ID,
         expectedProviderId: TWO_PQ_CASE_SERVICE_PROVIDER_ID,
         expectedOwnerId: reportOwnerId,
@@ -7899,7 +8041,7 @@ export async function completeTwoPQCaseServiceTransactionOutput(input: {
     context,
     transaction.id,
     { status: "delivered" },
-    { allowDelivery: true, requireGodModeAccess: false },
+    { allowDelivery: true, requireSupportServicesAccess: false },
   );
   return { status: "completed" as const, transaction };
 }

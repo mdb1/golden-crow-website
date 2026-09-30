@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, Home, Newspaper, PackageOpen, UserRound } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  Building2,
+  ClipboardList,
+  Home,
+  Newspaper,
+  PackageOpen,
+  UserRound,
+} from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAppLanguage } from "@/components/app-language-provider";
 import {
@@ -9,6 +17,7 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -22,6 +31,8 @@ import {
   PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE,
   PUBLISHER_PORTAL_HOME_ROUTE,
+  PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
+  PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
   publisherPortalIndividualDetailRoute,
   publisherPortalOrganizationDetailRoute,
   publisherPortalOrganizationProductCatalogRoute,
@@ -99,7 +110,22 @@ export function PublisherPortalSidebar({
   const pathname = usePathname();
   const { language } = useAppLanguage();
   const navItems = publisherPortalNav({ role, organizationId, individualId });
-  const activeHref = navItems
+  const supportServiceItems =
+    role === "organization_publisher" && organizationId
+      ? [
+          {
+            href: PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
+            label: "Service Offers",
+            icon: BriefcaseBusiness,
+          },
+          {
+            href: PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
+            label: "Service Transactions",
+            icon: ClipboardList,
+          },
+        ]
+      : [];
+  const activeHref = [...navItems, ...supportServiceItems]
     .filter((item) => isNavItemActive(pathname, item.href))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
@@ -136,6 +162,31 @@ export function PublisherPortalSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {supportServiceItems.length > 0 ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>
+              {appText(language, "Support services")}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {supportServiceItems.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={item.href === activeHref}
+                      tooltip={appText(language, item.label)}
+                    >
+                      <Link href={item.href}>
+                        <item.icon className="size-4" />
+                        <span>{appText(language, item.label)}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
       </SidebarContent>
     </Sidebar>
   );

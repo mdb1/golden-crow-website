@@ -11,6 +11,7 @@ const mockDeleteSupportServiceOffer = jest.fn();
 const mockListSupportServiceOffers = jest.fn();
 const mockListSupportServiceTransactions = jest.fn();
 const mockCreateSupportServiceTransaction = jest.fn();
+const mockDeleteSupportServiceTransaction = jest.fn();
 const mockAttachSupportServiceTransactionOutputObject = jest.fn();
 const mockDeliverSupportServiceTransaction = jest.fn();
 const mockGetSupportServiceIdAvailability = jest.fn();
@@ -60,7 +61,7 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   createSupportServiceOffer: mockCreateSupportServiceOffer,
   createSupportServiceTransaction: mockCreateSupportServiceTransaction,
   deleteSupportServiceOffer: mockDeleteSupportServiceOffer,
-  deleteSupportServiceTransaction: jest.fn(),
+  deleteSupportServiceTransaction: mockDeleteSupportServiceTransaction,
   deliverSupportServiceTransaction: mockDeliverSupportServiceTransaction,
   getSupportServiceIdAvailability: mockGetSupportServiceIdAvailability,
   getSupportServiceOffer: jest.fn(),
@@ -81,6 +82,19 @@ const bootstrapContext: AdminContext = {
   canAccessBackoffice: true,
   canAccessPatientPortal: false,
   canAccessPGFlex: false,
+  projectAccess: ["mydnamap"],
+};
+
+const organizationPublisherContext: AdminContext = {
+  email: "publisher@example.org",
+  uid: "publisher-1",
+  role: "organization_publisher",
+  organizationId: "feed-org-1",
+  isBootstrap: false,
+  canAccessBackoffice: false,
+  canAccessPatientPortal: false,
+  canAccessPGFlex: false,
+  canAccessPublisherPortal: true,
   projectAccess: ["mydnamap"],
 };
 
@@ -1096,5 +1110,79 @@ describe("support service admin routes", () => {
       bootstrapContext,
       "offer-1",
     );
+  });
+
+  it("allows organization publishers to load their scoped support-service lists", async () => {
+    const fastify = await buildTestServer(organizationPublisherContext);
+
+    const [offersResponse, transactionsResponse] = await Promise.all([
+      fastify.inject({
+        method: "GET",
+        url: "/admin/support-services/offers?limit=20",
+      }),
+      fastify.inject({
+        method: "GET",
+        url: "/admin/support-services/transactions?limit=20",
+      }),
+    ]);
+
+    expect(offersResponse.statusCode).toBe(200);
+    expect(transactionsResponse.statusCode).toBe(200);
+    expect(mockListSupportServiceOffers).toHaveBeenCalledWith(
+      organizationPublisherContext,
+      expect.objectContaining({ limit: 20 }),
+    );
+    expect(mockListSupportServiceTransactions).toHaveBeenCalledWith(
+      organizationPublisherContext,
+      expect.objectContaining({ limit: 20 }),
+    );
+  });
+
+  it("blocks organization publishers from creating or deleting service transactions", async () => {
+    const fastify = await buildTestServer(organizationPublisherContext);
+
+    const createResponse = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions",
+      payload: {
+        requestId: "pgr_publisher_forbidden",
+        offerId: "offer-1",
+        serviceId: "pgs_pocket_genes_report_studio_1",
+        providerId: "feed-org-1",
+        providerKind: "organization",
+        requestedByUserEmail: "requester@example.org",
+        requestedAtClient: "2026-09-16T12:00:00.000Z",
+        status: "received",
+        idempotencyKey: "pgr_publisher_forbidden:backoffice",
+        contractSource: "service_offer",
+      },
+    });
+    const deleteResponse = await fastify.inject({
+      method: "DELETE",
+      url: "/admin/support-services/transactions/pgr_publisher_forbidden",
+    });
+
+    expect(createResponse.statusCode).toBe(403);
+    expect(deleteResponse.statusCode).toBe(403);
+    expect(mockCreateSupportServiceTransaction).not.toHaveBeenCalled();
+    expect(mockDeleteSupportServiceTransaction).not.toHaveBeenCalled();
+  });
+
+  it("keeps unrelated backoffice roles out of support services", async () => {
+    const fastify = await buildTestServer({
+      ...organizationPublisherContext,
+      role: "2pq_admin",
+      organizationId: undefined,
+      canAccessBackoffice: true,
+      canAccessPublisherPortal: false,
+    });
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/support-services/offers",
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(mockListSupportServiceOffers).not.toHaveBeenCalled();
   });
 });

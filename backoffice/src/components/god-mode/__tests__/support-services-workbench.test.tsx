@@ -368,7 +368,7 @@ describe("support services workbenches", () => {
     expect(await screen.findByText("Transaction requires remediation")).toBeTruthy();
     expect(
       screen.getByText(
-        "This root transaction remains visible in god mode even when historical data is not fully compliant. Correct editable data where possible. Frozen snapshots stay read-only and do not block unrelated saves.",
+        "This root transaction remains visible in Support Services even when historical data is not fully compliant. Correct editable data where possible. Frozen snapshots stay read-only and do not block unrelated saves.",
       ),
     ).toBeTruthy();
     expect(
@@ -413,6 +413,86 @@ describe("support services workbenches", () => {
     expect(await screen.findByText("1 compliance warnings")).toBeTruthy();
     expect(screen.getByText(hiddenOffer.name)).toBeTruthy();
     expect(screen.queryByText("No records found.")).toBeNull();
+  });
+
+  it("uses publisher routes and removes transaction creation and deletion actions", async () => {
+    sdkFetchMock.mockResolvedValue({
+      transactions: [runningTransaction],
+      nextCursor: undefined,
+    });
+
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="transactions"
+        routeBase="/publisher-portal/service-transactions"
+        canCreate={false}
+        canDelete={false}
+      />,
+    );
+
+    expect(await screen.findByText(runningTransaction.requestId)).toBeTruthy();
+    expect(screen.queryByText("Alta de transaccion")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Edit" }).getAttribute("href")).toBe(
+      `/publisher-portal/service-transactions/${runningTransaction.requestId}`,
+    );
+  });
+
+  it("preselects and locks the organization provider for publisher offer creation", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      const serviceId = new URL(
+        String(path),
+        "https://backoffice.example",
+      ).searchParams.get("serviceId");
+      if (String(path).includes("service-id-availability")) {
+        return { serviceId, available: true };
+      }
+      throw new Error(`Unexpected SDK path: ${String(path)}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        routeBase="/publisher-portal/service-offers"
+        fixedProvider={{ id: "publisher-org-1", name: "Publisher Org" }}
+        canDelete={false}
+      />,
+    );
+
+    expect(await screen.findByText("Publisher Org · publisher-org-1")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Choose provider/i })).toBeNull();
+    expect(screen.getAllByText("Read only").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("shows lock affordances and no delete action on publisher transaction detail", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (String(path).endsWith(`/transactions/${runningTransaction.requestId}`)) {
+        return { transaction: runningTransaction };
+      }
+      if (String(path).endsWith(`/offers/${runningTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${String(path)}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={runningTransaction.requestId}
+        routeBase="/publisher-portal/service-transactions"
+        canDelete={false}
+        showLockedFields
+      />,
+    );
+
+    expect(await screen.findByText("Accepted frozen service")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(screen.getAllByText("Read only").length).toBeGreaterThan(5);
+    expect(
+      screen
+        .getByRole("link", { name: /Back to Service Transactions/i })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/service-transactions");
   });
 
   it("shows offer remediation warnings without blocking the edit form", async () => {

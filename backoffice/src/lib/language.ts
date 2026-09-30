@@ -4805,6 +4805,16 @@ const SPANISH_TEXT: Record<string, string> = {
     "Crear una transacción de servicio Pocket Genes pgr_*.",
   "Edit a Pocket Genes pgr_* service transaction.":
     "Editar una transacción de servicio Pocket Genes pgr_*.",
+  "Manage your organization's Pocket Genes service offers.":
+    "Gestioná las ofertas de servicio Pocket Genes de tu organización.",
+  "Create a Pocket Genes service offer for your organization.":
+    "Creá una oferta de servicio Pocket Genes para tu organización.",
+  "Edit your organization's Pocket Genes service offer.":
+    "Editá la oferta de servicio Pocket Genes de tu organización.",
+  "Manage transactions linked to your organization's service offers.":
+    "Gestioná las transacciones vinculadas a las ofertas de servicio de tu organización.",
+  "Manage this service transaction for your organization.":
+    "Gestioná esta transacción de servicio para tu organización.",
   "Pocket Genes service request transactions.":
     "Transacciones de solicitudes de servicio Pocket Genes.",
   "A form input requires an enabled form shape.":
@@ -4935,11 +4945,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Could not load records.": "No se pudieron cargar los registros.",
   "compliance warnings": "advertencias de cumplimiento",
   "Offer requires remediation": "La oferta requiere corrección",
-  "This service offer remains visible in god mode but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.":
-    "Esta oferta de servicio sigue visible en god mode, pero no cumple completamente el contrato. Revisá las advertencias, corregí los datos editables y guardala para normalizar la entidad.",
+  "This service offer remains visible in Support Services but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.":
+    "Esta oferta de servicio sigue visible en Servicios de soporte, pero no cumple completamente el contrato. Revisá las advertencias, corregí los datos editables y guardala para normalizar la entidad.",
   "Transaction requires remediation": "La transacción requiere corrección",
-  "This root transaction remains visible in god mode even when historical data is not fully compliant. Correct editable data where possible. Frozen snapshots stay read-only and do not block unrelated saves.":
-    "Esta transacción raíz sigue visible en god mode aunque tenga datos históricos que no cumplan completamente el contrato. Corregí los datos editables cuando sea posible. Los snapshots congelados permanecen de solo lectura y no bloquean guardados no relacionados.",
+  "This root transaction remains visible in Support Services even when historical data is not fully compliant. Correct editable data where possible. Frozen snapshots stay read-only and do not block unrelated saves.":
+    "Esta transacción raíz sigue visible en Servicios de soporte aunque tenga datos históricos que no cumplan completamente el contrato. Corregí los datos editables cuando sea posible. Los snapshots congelados permanecen de solo lectura y no bloquean guardados no relacionados.",
   "No service offers are available for transactions.":
     "No hay ofertas de servicio disponibles para transacciones.",
   "Not requested": "No solicitado",

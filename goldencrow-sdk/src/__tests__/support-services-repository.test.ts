@@ -301,6 +301,19 @@ const context: AdminContext = {
   projectAccess: ["mydnamap"],
 };
 
+const organizationPublisherContext: AdminContext = {
+  email: "publisher@example.org",
+  uid: "publisher-1",
+  role: "organization_publisher",
+  organizationId: "publisher-org-1",
+  isBootstrap: false,
+  canAccessBackoffice: false,
+  canAccessPatientPortal: false,
+  canAccessPGFlex: false,
+  canAccessPublisherPortal: true,
+  projectAccess: ["mydnamap"],
+};
+
 function serializedPgoContent(snapshot: Record<string, unknown>) {
   const data = clone((snapshot.data ?? {}) as Record<string, unknown>);
   if (snapshot.objectType !== "pgo_form") {
@@ -1867,6 +1880,206 @@ describe("support service pagination", () => {
         ),
       ]),
     );
+  });
+});
+
+describe("organization publisher support service scope", () => {
+  const ownOffer = {
+    ...baseOffer,
+    serviceId: "pgs_publisher_org_12345",
+    providerId: "publisher-org-1",
+    providerName: "Publisher Org",
+    formShape: undefined,
+    inputSlots: [],
+    shortContract: "none -> report:pdf_report",
+  };
+  const otherOffer = {
+    ...ownOffer,
+    serviceId: "pgs_other_org_54321",
+    providerId: "other-org-1",
+    providerName: "Other Org",
+  };
+
+  function transactionRecord(
+    requestId: string,
+    offerId: string,
+    offer: typeof ownOffer,
+  ) {
+    return {
+      schemaVersion: 1,
+      requestId,
+      offerId,
+      serviceId: offer.serviceId,
+      serviceVersion: offer.serviceVersion,
+      providerId: offer.providerId,
+      providerKind: offer.providerKind,
+      status: "received",
+      requestedByUserEmail: "requester@example.org",
+      requestedAt: "2026-09-30T12:00:00.000Z",
+      requestedAtClient: "2026-09-30T11:59:59.000Z",
+      requestRevision: 1,
+      idempotencyKey: `${requestId}:ios`,
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      issues: [],
+      missingRequiredInputRoles: [],
+      offerSnapshot: { ...offer, offerId },
+      providerSnapshot: {
+        id: offer.providerId,
+        kind: offer.providerKind,
+        name: offer.providerName,
+      },
+      contractSource: "service_offer",
+      attachmentsPending: false,
+      createdAt: "2026-09-30T12:00:00.000Z",
+      updatedAt: "2026-09-30T12:00:00.000Z",
+    };
+  }
+
+  beforeEach(() => {
+    jest.resetModules();
+    collections.clear();
+    orderByCalls.length = 0;
+    seedDoc("feed_organizations", "publisher-org-1", {
+      name: "Publisher Org",
+      status: "active",
+      requestedTransactions: [],
+    });
+    seedDoc("feed_organizations", "other-org-1", {
+      name: "Other Org",
+      status: "active",
+      requestedTransactions: [],
+    });
+    seedDoc("service_offers", "offer-own", ownOffer);
+    seedDoc("service_offers", "offer-other", otherOffer);
+    seedDoc(
+      "service_transactions",
+      "pgr_own_transaction",
+      transactionRecord("pgr_own_transaction", "offer-own", ownOffer),
+    );
+    seedDoc(
+      "service_transactions",
+      "pgr_other_transaction",
+      transactionRecord("pgr_other_transaction", "offer-other", otherOffer),
+    );
+  });
+
+  it("lists only offers and transactions owned by the linked organization", async () => {
+    const {
+      listSupportServiceOffers,
+      listSupportServiceTransactions,
+    } = await import("../repositories/support-services.repository.js");
+
+    const [publisherOffers, publisherTransactions, godOffers] =
+      await Promise.all([
+        listSupportServiceOffers(organizationPublisherContext),
+        listSupportServiceTransactions(organizationPublisherContext),
+        listSupportServiceOffers(context),
+      ]);
+
+    expect(publisherOffers.offers.map((offer) => offer.id)).toEqual([
+      "offer-own",
+    ]);
+    expect(
+      publisherTransactions.transactions.map((transaction) => transaction.id),
+    ).toEqual(["pgr_own_transaction"]);
+    expect(godOffers.offers.map((offer) => offer.id)).toEqual([
+      "offer-other",
+      "offer-own",
+    ]);
+  });
+
+  it("returns not found for another organization's offer and transaction", async () => {
+    const {
+      getSupportServiceOffer,
+      getSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+
+    await expect(
+      getSupportServiceOffer(organizationPublisherContext, "offer-other"),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      getSupportServiceTransaction(
+        organizationPublisherContext,
+        "pgr_other_transaction",
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("forces offer mutations to stay on the publisher's linked organization", async () => {
+    const {
+      createSupportServiceOffer,
+      deleteSupportServiceOffer,
+      updateSupportServiceOffer,
+    } = await import("../repositories/support-services.repository.js");
+
+    await expect(
+      createSupportServiceOffer(organizationPublisherContext, {
+        ...ownOffer,
+        serviceId: "pgs_publisher_org_67890",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({ providerId: "publisher-org-1" }),
+    );
+    await expect(
+      createSupportServiceOffer(organizationPublisherContext, {
+        ...otherOffer,
+        serviceId: "pgs_other_org_98765",
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    await expect(
+      updateSupportServiceOffer(organizationPublisherContext, "offer-other", {
+        ...ownOffer,
+        acknowledgesExistingTransactionContracts: true,
+      }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      deleteSupportServiceOffer(organizationPublisherContext, "offer-other"),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("allows scoped transaction edits but keeps transaction deletion in god mode", async () => {
+    const {
+      attachSupportServiceTransactionOutputObject,
+      deleteSupportServiceTransaction,
+      deliverSupportServiceTransaction,
+      updateSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+
+    await expect(
+      updateSupportServiceTransaction(
+        organizationPublisherContext,
+        "pgr_own_transaction",
+        { status: "validating" },
+      ),
+    ).resolves.toEqual(expect.objectContaining({ status: "validating" }));
+    await expect(
+      updateSupportServiceTransaction(
+        organizationPublisherContext,
+        "pgr_other_transaction",
+        { status: "validating" },
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      attachSupportServiceTransactionOutputObject(
+        organizationPublisherContext,
+        "pgr_other_transaction",
+        { role: "report", fileStorageId: "foreign-output-file" },
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      deliverSupportServiceTransaction(
+        organizationPublisherContext,
+        "pgr_other_transaction",
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      deleteSupportServiceTransaction(
+        organizationPublisherContext,
+        "pgr_own_transaction",
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
   });
 });
 

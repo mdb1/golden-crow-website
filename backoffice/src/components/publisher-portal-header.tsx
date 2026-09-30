@@ -15,11 +15,27 @@ import {
   PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE,
   PUBLISHER_PORTAL_LOGIN_ROUTE,
+  PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
+  PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
 } from "@/lib/publisher-portal-routes";
 
 function titleForPath(pathname: string, language: "en" | "es") {
   if (pathname === PUBLISHER_PORTAL_ACCOUNT_ROUTE) {
     return appText(language, "My account");
+  }
+
+  if (
+    pathname === PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE ||
+    pathname.startsWith(`${PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}/`)
+  ) {
+    return appText(language, "Service Offers");
+  }
+
+  if (
+    pathname === PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE ||
+    pathname.startsWith(`${PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}/`)
+  ) {
+    return appText(language, "Service Transactions");
   }
 
   if (

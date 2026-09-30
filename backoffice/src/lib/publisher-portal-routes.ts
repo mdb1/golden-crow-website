@@ -2,6 +2,10 @@ export const PUBLISHER_PORTAL_ENTRY_ROUTE = "/publisher-portal/home";
 export const PUBLISHER_PORTAL_HOME_ROUTE = "/publisher-portal/home";
 export const PUBLISHER_PORTAL_LOGIN_ROUTE = "/publisher-portal/login";
 export const PUBLISHER_PORTAL_ACCOUNT_ROUTE = "/publisher-portal/my-account";
+export const PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE =
+  "/publisher-portal/service-offers";
+export const PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE =
+  "/publisher-portal/service-transactions";
 export const PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE =
   "/publisher-portal/discover/organizations";
 export const PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE =
@@ -31,6 +35,16 @@ export function publisherPortalIndividualDetailRoute(individualId: string) {
 
 export function publisherPortalFeedEntryCreateRoute() {
   return `${PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE}/new`;
+}
+
+export function publisherPortalServiceOfferDetailRoute(offerId: string) {
+  return `${PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}/${encodeURIComponent(offerId)}`;
+}
+
+export function publisherPortalServiceTransactionDetailRoute(
+  transactionId: string,
+) {
+  return `${PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}/${encodeURIComponent(transactionId)}`;
 }
 
 export function normalizePublisherPortalCallbackUrl(

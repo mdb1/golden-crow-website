@@ -162,6 +162,9 @@ describe("Publisher portal Spanish shell", () => {
     expect(screen.getAllByText("Inicio").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Organización").length).toBeGreaterThan(0);
     expect(screen.getByText("Catálogo")).toBeTruthy();
+    expect(screen.getByText("Servicios de soporte")).toBeTruthy();
+    expect(screen.getByText("Ofertas de servicio")).toBeTruthy();
+    expect(screen.getByText("Transacciones de servicio")).toBeTruthy();
     expect(screen.getAllByText("Entradas del feed").length).toBeGreaterThan(0);
     expect(screen.getByText("Mi cuenta")).toBeTruthy();
     expect(
@@ -174,6 +177,16 @@ describe("Publisher portal Spanish shell", () => {
         .getByRole("link", { name: /Catálogo/i })
         .getAttribute("href"),
     ).toBe("/publisher-portal/discover/organizations/org-1/product-catalog");
+    expect(
+      screen
+        .getByRole("link", { name: /Ofertas de servicio/i })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/service-offers");
+    expect(
+      screen
+        .getByRole("link", { name: /Transacciones de servicio/i })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/service-transactions");
     expect(screen.queryByText("Perfil de publicador")).toBeNull();
   });
 
@@ -195,6 +208,31 @@ describe("Publisher portal Spanish shell", () => {
         .getAttribute("href"),
     ).toBe("/publisher-portal/discover/individuals/ind-1");
     expect(screen.queryByRole("link", { name: /Catálogo/i })).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: /Ofertas de servicio/i }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: /Transacciones de servicio/i }),
+    ).toBeNull();
+  });
+
+  it("titles publisher support-service routes in the header", () => {
+    pathname = "/publisher-portal/service-transactions/pgr_org_1";
+
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <SidebarProvider>
+          <PublisherPortalHeader />
+        </SidebarProvider>
+      </AppLanguageProvider>,
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Transacciones de servicio",
+      }),
+    ).toBeTruthy();
   });
 });
 
