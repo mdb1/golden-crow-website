@@ -5860,11 +5860,6 @@ function ServiceCategoryPicker({
                                   language,
                                 )}
                               </span>
-                              <span className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-violet-700 dark:text-violet-200">
-                                <code>{category.key}</code>
-                                <span aria-hidden="true">·</span>
-                                <code>{category.systemImage}</code>
-                              </span>
                             </span>
                           </button>
                         );

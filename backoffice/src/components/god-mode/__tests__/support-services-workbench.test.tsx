@@ -705,6 +705,15 @@ describe("support services workbenches", () => {
         "Revisión profesional independiente, explicación o segunda opinión sobre un informe genómico ya finalizado.",
       ),
     ).toBeTruthy();
+    const selectedCategoryCell = within(modal).getByRole("radio", {
+      name: new RegExp(selectedCategory.nameSpanish),
+    });
+    expect(
+      within(selectedCategoryCell).queryByText(selectedCategory.key),
+    ).toBeNull();
+    expect(
+      within(selectedCategoryCell).queryByText(selectedCategory.systemImage),
+    ).toBeNull();
 
     fireEvent.click(
       within(modal).getByRole("radio", {
