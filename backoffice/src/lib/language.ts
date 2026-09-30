@@ -4811,6 +4811,46 @@ const SPANISH_TEXT: Record<string, string> = {
     "Gestioná las ofertas de servicio Pocket Genes de tu organización.",
   "Create a Pocket Genes service offer for your organization.":
     "Creá una oferta de servicio Pocket Genes para tu organización.",
+  "Create a service offer": "Crear una oferta de servicio",
+  "Build your organization's service offer one step at a time.":
+    "Construí la oferta de servicio de tu organización paso a paso.",
+  "Build your offer step by step": "Construí tu oferta paso a paso",
+  "Offer visibility": "Visualización de la oferta",
+  "Choose the name and primary category for this service.":
+    "Elegí el nombre y la categoría principal de este servicio.",
+  "Choose where and how this offer appears in the native app.":
+    "Elegí dónde y cómo aparece esta oferta en la app nativa.",
+  "Promotional image": "Imagen promocional",
+  "Add the banner people will see when they discover this service.":
+    "Agregá el banner que las personas verán al descubrir este servicio.",
+  "Service presentation": "Presentación del servicio",
+  "Explain what the requester receives and what your organization does.":
+    "Explicá qué recibe el solicitante y qué hace tu organización.",
+  "Optionally collect structured information with the service request.":
+    "Opcionalmente, recopilá información estructurada junto con la solicitud.",
+  "Inputs and outputs": "Entradas y salidas",
+  "Define the Pocket Genes objects received and produced by this service.":
+    "Definí los objetos Pocket Genes que este servicio recibe y produce.",
+  "Set optional pricing and delivery-time information.":
+    "Configurá información opcional sobre precio y tiempo de entrega.",
+  "Conditions and limitations": "Condiciones y limitaciones",
+  "Add optional acceptance conditions and service limitations.":
+    "Agregá condiciones de aceptación y limitaciones del servicio opcionales.",
+  "Service pipeline": "Pipeline del servicio",
+  "Review the calculated contract and its suggested execution stages.":
+    "Revisá el contrato calculado y las etapas de ejecución sugeridas.",
+  "Review and publish": "Revisar y publicar",
+  "Review the offer, save a private draft, or publish it now.":
+    "Revisá la oferta, guardá un borrador privado o publicala ahora.",
+  "Service offer creation progress": "Progreso de creación de la oferta",
+  Step: "Paso",
+  "Service description": "Descripción del servicio",
+  "The service offer is ready to save.":
+    "La oferta de servicio está lista para guardar.",
+  "A unique service identifier could not be prepared.":
+    "No se pudo preparar un identificador único para el servicio.",
+  "Preparing the service offer...": "Preparando la oferta de servicio...",
+  "Review the current step.": "Revisá el paso actual.",
   "Edit your organization's Pocket Genes service offer.":
     "Editá la oferta de servicio Pocket Genes de tu organización.",
   "Manage transactions linked to your organization's service offers.":

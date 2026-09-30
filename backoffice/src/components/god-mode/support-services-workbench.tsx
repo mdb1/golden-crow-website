@@ -481,6 +481,51 @@ const SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS =
 const SUPPORT_SERVICE_TABLE_SHELL_CLASS =
   "overflow-x-auto rounded-2xl border border-violet-100/80 bg-white/80 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42";
 
+const SERVICE_OFFER_WIZARD_STEPS = [
+  {
+    title: "Offer identity",
+    description: "Choose the name and primary category for this service.",
+  },
+  {
+    title: "Offer visibility",
+    description: "Choose where and how this offer appears in the native app.",
+  },
+  {
+    title: "Promotional image",
+    description: "Add the banner people will see when they discover this service.",
+  },
+  {
+    title: "Service presentation",
+    description: "Explain what the requester receives and what your organization does.",
+  },
+  {
+    title: "Request form",
+    description: "Optionally collect structured information with the service request.",
+  },
+  {
+    title: "Inputs and outputs",
+    description: "Define the Pocket Genes objects received and produced by this service.",
+  },
+  {
+    title: "Commercial terms",
+    description: "Set optional pricing and delivery-time information.",
+  },
+  {
+    title: "Conditions and limitations",
+    description: "Add optional acceptance conditions and service limitations.",
+  },
+  {
+    title: "Service pipeline",
+    description: "Review the calculated contract and its suggested execution stages.",
+  },
+  {
+    title: "Review and publish",
+    description: "Review the offer, save a private draft, or publish it now.",
+  },
+] as const;
+
+const SERVICE_OFFER_WIZARD_LAST_STEP = SERVICE_OFFER_WIZARD_STEPS.length - 1;
+
 function formatPromotionalBannerFileSize(bytes: number) {
   const kilobytes = bytes / 1024;
   return kilobytes < 1024
@@ -3202,12 +3247,14 @@ export function SupportServiceOfferWorkbench({
   routeBase = "/god-mode/service-offers",
   fixedProvider,
   canDelete = true,
+  presentation = "form",
 }: {
   mode: "create" | "edit";
   offerId?: string;
   routeBase?: string;
   fixedProvider?: { id: string; name: string };
   canDelete?: boolean;
+  presentation?: "form" | "wizard";
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -3237,7 +3284,10 @@ export function SupportServiceOfferWorkbench({
   const [versionBumpToken, setVersionBumpToken] = useState(0);
   const [formShapeVersionBumpToken, setFormShapeVersionBumpToken] =
     useState(0);
+  const [wizardStepIndex, setWizardStepIndex] = useState(0);
+  const [wizardValidationMessage, setWizardValidationMessage] = useState("");
   const isEditing = mode === "edit";
+  const isWizard = presentation === "wizard" && mode === "create";
   const effectiveOfferId = offerId ?? persistedOfferId ?? undefined;
   const hasPersistedOffer = Boolean(effectiveOfferId);
 
@@ -3622,13 +3672,599 @@ export function SupportServiceOfferWorkbench({
     requestOfferSave("publish");
   }
 
+  function validateWizardStep(stepIndex: number) {
+    if (stepIndex === 0) {
+      if (!form.name.trim()) {
+        return t("Offer name is required.");
+      }
+      if (!isSupportServiceCategoryKey(form.serviceCategory)) {
+        return t("Choose one service category.");
+      }
+    }
+
+    if (stepIndex === 2 && form.promotionalBannerImageUrl.trim()) {
+      try {
+        const imageUrl = new URL(form.promotionalBannerImageUrl.trim());
+        if (imageUrl.protocol !== "https:" || !imageUrl.hostname) {
+          return t("Promotional banner image URL must be a valid HTTPS URL.");
+        }
+      } catch {
+        return t("Promotional banner image URL must be a valid HTTPS URL.");
+      }
+    }
+
+    if (stepIndex === 3) {
+      if (!form.description.trim()) {
+        return t("Description is required.");
+      }
+      if (!form.providerWork.trim()) {
+        return t("Provider work is required.");
+      }
+    }
+
+    if (stepIndex >= 4) {
+      try {
+        offerPayloadFromForm(form);
+      } catch (error) {
+        return t(
+          error instanceof Error ? error.message : "Review the current step.",
+        );
+      }
+    }
+
+    return "";
+  }
+
+  function advanceWizard() {
+    const message = validateWizardStep(wizardStepIndex);
+    if (message) {
+      setWizardValidationMessage(message);
+      return;
+    }
+
+    setWizardValidationMessage("");
+    setWizardStepIndex((current) =>
+      Math.min(current + 1, SERVICE_OFFER_WIZARD_LAST_STEP),
+    );
+  }
+
+  function returnToPreviousWizardStep() {
+    setWizardValidationMessage("");
+    setWizardStepIndex((current) => Math.max(current - 1, 0));
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isWizard && wizardStepIndex < SERVICE_OFFER_WIZARD_LAST_STEP) {
+      advanceWizard();
+      return;
+    }
     void saveCurrentOffer();
   }
 
   if (isEditing && offerQuery.isLoading) {
     return <Skeleton className="h-[36rem] w-full" />;
+  }
+
+  if (isWizard) {
+    const activeWizardStep = SERVICE_OFFER_WIZARD_STEPS[wizardStepIndex];
+    const selectedCategory = supportServiceCategoryByKey(form.serviceCategory);
+    const wizardSaveDisabled =
+      isWorking ||
+      (Boolean(form.providerId.trim()) && !serviceIdValidated);
+
+    return (
+      <>
+        <ActionToast
+          toast={toast}
+          onDismiss={() => setToast(null)}
+          language={language}
+        />
+        <form
+          data-testid="service-offer-wizard"
+          noValidate
+          className={cn(
+            SUPPORT_SERVICE_FORM_CLASS,
+            "overflow-visible rounded-none border-0 bg-transparent shadow-none dark:bg-transparent",
+          )}
+          onSubmit={handleSubmit}
+        >
+          <div className="grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] xl:gap-8">
+            <aside className="overflow-hidden rounded-lg border border-violet-200/80 bg-violet-950 text-white shadow-[0_24px_70px_-48px_rgba(76,29,149,0.8)] lg:sticky lg:top-6">
+              <div className="border-b border-white/10 px-5 py-6">
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-white/12 text-violet-100">
+                  <Wand2 className="h-5 w-5" />
+                </div>
+                <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-violet-200">
+                  {t("New service offer")}
+                </p>
+                <h2 className="mt-2 font-heading text-2xl font-semibold leading-tight">
+                  {t("Build your offer step by step")}
+                </h2>
+              </div>
+              <ol className="hidden gap-1 p-3 lg:grid">
+                {SERVICE_OFFER_WIZARD_STEPS.map((step, index) => {
+                  const isActive = index === wizardStepIndex;
+                  const isComplete = index < wizardStepIndex;
+
+                  return (
+                    <li
+                      key={step.title}
+                      className={cn(
+                        "flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                        isActive && "bg-white text-violet-950 shadow-sm",
+                        !isActive && "text-violet-100/76",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold",
+                          isActive && "border-violet-200 bg-violet-100 text-violet-800",
+                          isComplete && "border-emerald-300/40 bg-emerald-400/18 text-emerald-100",
+                          !isActive && !isComplete && "border-white/18 bg-white/5",
+                        )}
+                      >
+                        {isComplete ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                      </span>
+                      <span className="min-w-0 leading-5">{t(step.title)}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+            </aside>
+
+            <div className="min-w-0">
+              <header className="mb-6 border-b border-violet-100 pb-6 dark:border-violet-400/16">
+                <div
+                  className="grid grid-cols-10 gap-1.5"
+                  aria-label={t("Service offer creation progress")}
+                >
+                  {SERVICE_OFFER_WIZARD_STEPS.map((step, index) => (
+                    <span
+                      key={step.title}
+                      className={cn(
+                        "h-1.5 rounded-full transition-colors",
+                        index <= wizardStepIndex
+                          ? "bg-violet-600"
+                          : "bg-violet-100 dark:bg-violet-400/16",
+                      )}
+                    />
+                  ))}
+                </div>
+                <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-200">
+                  {t("Step")} {wizardStepIndex + 1} {t("of")} {SERVICE_OFFER_WIZARD_STEPS.length}
+                </p>
+                <h1 className="mt-2 font-heading text-3xl font-semibold text-foreground">
+                  {t(activeWizardStep.title)}
+                </h1>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                  {t(activeWizardStep.description)}
+                </p>
+              </header>
+
+              <div className="min-h-[34rem] [&>section]:mx-0 [&>section]:my-0">
+                {wizardStepIndex === 0 ? (
+                  <Section title="Offer identity">
+                    <div className="grid gap-5">
+                      <Field label="Offer name">
+                        <Input
+                          autoFocus
+                          value={form.name}
+                          onChange={(event) => {
+                            setWizardValidationMessage("");
+                            setForm((current) => ({
+                              ...current,
+                              name: event.target.value,
+                            }));
+                          }}
+                          required
+                        />
+                      </Field>
+                      <Field label="Service category">
+                        <ServiceCategoryPicker
+                          value={form.serviceCategory}
+                          disabled={isWorking}
+                          onChange={(serviceCategory) => {
+                            setWizardValidationMessage("");
+                            setForm((current) => ({
+                              ...current,
+                              serviceCategory,
+                            }));
+                          }}
+                        />
+                      </Field>
+                    </div>
+                  </Section>
+                ) : null}
+
+                {wizardStepIndex === 1 ? (
+                  <Section title="Offer visibility">
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <Field label="Native discovery">
+                        <div className="flex min-h-28 items-start gap-3 rounded-lg border border-violet-100 bg-white/78 px-4 py-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                          <Checkbox
+                            id="service-offer-wizard-hidden-from-search"
+                            checked={form.isHiddenFromSearch}
+                            onCheckedChange={(checked) =>
+                              setForm((current) => ({
+                                ...current,
+                                isHiddenFromSearch: checked === true,
+                              }))
+                            }
+                          />
+                          <div className="grid gap-1">
+                            <Label htmlFor="service-offer-wizard-hidden-from-search">
+                              {t("Hide from native service search")}
+                            </Label>
+                            <p className="text-xs leading-5 text-muted-foreground">
+                              {t(
+                                "The offer remains active and available to authorized backoffice workflows, but it is excluded from native discovery.",
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </Field>
+                      <div aria-hidden="true" className="hidden lg:block" />
+                      <Field label="Highlighted offer">
+                        <div className="flex min-h-28 items-start gap-3 rounded-lg border border-violet-100 bg-white/78 px-4 py-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                          <Checkbox
+                            id="service-offer-wizard-highlighted"
+                            checked={form.isHighlightedOffer}
+                            onCheckedChange={(checked) =>
+                              setForm((current) => {
+                                const isHighlightedOffer = checked === true;
+                                return {
+                                  ...current,
+                                  isHighlightedOffer,
+                                  isProfessionalOffer: isHighlightedOffer
+                                    ? false
+                                    : current.isProfessionalOffer,
+                                };
+                              })
+                            }
+                          />
+                          <div className="grid gap-1">
+                            <Label htmlFor="service-offer-wizard-highlighted">
+                              {t("Show as a highlighted offer")}
+                            </Label>
+                            <p className="text-xs leading-5 text-muted-foreground">
+                              {t(
+                                "Places this offer in the highlighted services segment of the native experience.",
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </Field>
+                      <Field label="Professional offer">
+                        <div className="flex min-h-28 items-start gap-3 rounded-lg border border-violet-100 bg-white/78 px-4 py-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                          <Checkbox
+                            id="service-offer-wizard-professional"
+                            checked={form.isProfessionalOffer}
+                            onCheckedChange={(checked) =>
+                              setForm((current) => {
+                                const isProfessionalOffer = checked === true;
+                                return {
+                                  ...current,
+                                  isProfessionalOffer,
+                                  isHighlightedOffer: isProfessionalOffer
+                                    ? false
+                                    : current.isHighlightedOffer,
+                                };
+                              })
+                            }
+                          />
+                          <div className="grid gap-1">
+                            <Label htmlFor="service-offer-wizard-professional">
+                              {t("Show as a professional offer")}
+                            </Label>
+                            <p className="text-xs leading-5 text-muted-foreground">
+                              {t(
+                                "Places this offer in the services for professionals segment of the native experience.",
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </Field>
+                    </div>
+                  </Section>
+                ) : null}
+
+                {wizardStepIndex === 2 ? (
+                  <Section title="Promotional image">
+                    <PromotionalBannerImageEditor
+                      imageUrl={form.promotionalBannerImageUrl}
+                      imageUploadDataUrl={form.promotionalBannerImageUploadDataUrl}
+                      imageUploadName={form.promotionalBannerImageUploadName}
+                      imageUploadMimeType={form.promotionalBannerImageUploadMimeType}
+                      disabled={isWorking}
+                      onPendingChange={setPromotionalBannerUploadPending}
+                      onChange={(patch) =>
+                        setForm((current) => ({ ...current, ...patch }))
+                      }
+                    />
+                  </Section>
+                ) : null}
+
+                {wizardStepIndex === 3 ? (
+                  <Section title="Service presentation">
+                    <div className="grid gap-5">
+                      <Field label="Description">
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          {t(
+                            "Requester-facing summary shown in the app as the service offer description. Use it to explain what the service is, when someone should request it, and what outcome they can expect.",
+                          )}
+                        </p>
+                        <Textarea
+                          value={form.description}
+                          onChange={(event) => {
+                            setWizardValidationMessage("");
+                            setForm((current) => ({
+                              ...current,
+                              description: event.target.value,
+                            }));
+                          }}
+                          rows={5}
+                          required
+                        />
+                      </Field>
+                      <Field label="Provider work">
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          {t(
+                            "Operational description of what the provider does after the request is submitted. It appears in the service detail context to clarify the provider-side work, not as the short marketing summary.",
+                          )}
+                        </p>
+                        <Textarea
+                          value={form.providerWork}
+                          onChange={(event) => {
+                            setWizardValidationMessage("");
+                            setForm((current) => ({
+                              ...current,
+                              providerWork: event.target.value,
+                            }));
+                          }}
+                          rows={5}
+                          required
+                        />
+                      </Field>
+                    </div>
+                  </Section>
+                ) : null}
+
+                {wizardStepIndex === 4 ? (
+                  <FormShapeEditor
+                    form={form}
+                    setForm={setForm}
+                    idStatus={serviceIdValidationStatus}
+                    versionBumpToken={formShapeVersionBumpToken}
+                  />
+                ) : null}
+
+                {wizardStepIndex === 5 ? (
+                  <SlotEditors form={form} setForm={setForm} />
+                ) : null}
+
+                {wizardStepIndex === 6 ? (
+                  <TermsEditor form={form} setForm={setForm} />
+                ) : null}
+
+                {wizardStepIndex === 7 ? (
+                  <Section title="Acceptance conditions and service limitations">
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {t(
+                        "Acceptance conditions describe what must already be true before the provider can accept the request. Service limitations explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This whole block is optional; add one condition or limitation per line only when the service needs them.",
+                      )}
+                    </p>
+                    <div className="grid gap-5 lg:grid-cols-2">
+                      <Field label="Acceptance conditions">
+                        <Textarea
+                          value={form.acceptedConditionsText}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              acceptedConditionsText: event.target.value,
+                            }))
+                          }
+                          rows={9}
+                          placeholder={t("One acceptance condition per line")}
+                        />
+                      </Field>
+                      <Field label="Service limitations">
+                        <Textarea
+                          value={form.scopeRulesText}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              scopeRulesText: event.target.value,
+                            }))
+                          }
+                          rows={9}
+                          placeholder={t("One service limitation per line")}
+                        />
+                      </Field>
+                    </div>
+                  </Section>
+                ) : null}
+
+                {wizardStepIndex === 8 ? (
+                  <ShortContractVisual
+                    inputSlots={form.inputSlots}
+                    outputSlots={form.outputSlots}
+                    stages={form.stages}
+                    predictedStages={predictedStages}
+                    onStagesChange={(stages) =>
+                      setForm((current) => ({ ...current, stages }))
+                    }
+                    onApplyStagePrediction={() => {
+                      lastPredictedStagesRef.current = predictedStages;
+                      setForm((current) => ({
+                        ...current,
+                        stages: predictedStages,
+                      }));
+                    }}
+                  />
+                ) : null}
+
+                {wizardStepIndex === 9 ? (
+                  <Section title="Review and publish">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <WizardReviewItem
+                        label={t("Offer name")}
+                        value={form.name.trim() || t("Not specified")}
+                      />
+                      <WizardReviewItem
+                        label={t("Service category")}
+                        value={
+                          selectedCategory
+                            ? supportServiceCategoryName(selectedCategory, language)
+                            : t("Uncategorized")
+                        }
+                      />
+                      <WizardReviewItem
+                        label={t("Request form")}
+                        value={form.supportsFormShape ? t("Enabled") : t("Not requested")}
+                      />
+                      <WizardReviewItem
+                        label={t("Commercial terms")}
+                        value={t(
+                          form.commercialTerms.pricingModel === "free"
+                            ? "Free"
+                            : form.commercialTerms.pricingModel === "fixed"
+                              ? "Fixed price"
+                              : form.commercialTerms.pricingModel ===
+                                  "calculated_after_submission"
+                                ? "Calculated after submission"
+                                : "Not specified",
+                        )}
+                      />
+                      <WizardReviewItem
+                        label={t("Input slots")}
+                        value={String(form.inputSlots.length)}
+                      />
+                      <WizardReviewItem
+                        label={t("Output slots")}
+                        value={String(form.outputSlots.length)}
+                      />
+                    </div>
+                    <div className="grid gap-3 rounded-lg border border-violet-100 bg-violet-50/55 p-4 text-sm dark:border-violet-400/16 dark:bg-violet-500/8">
+                      <ReviewBooleanRow
+                        label={t("Hidden from search")}
+                        enabled={form.isHiddenFromSearch}
+                      />
+                      <ReviewBooleanRow
+                        label={t("Highlighted offer")}
+                        enabled={form.isHighlightedOffer}
+                      />
+                      <ReviewBooleanRow
+                        label={t("Professional offer")}
+                        enabled={form.isProfessionalOffer}
+                      />
+                      <ReviewBooleanRow
+                        label={t("Promotional banner image")}
+                        enabled={Boolean(
+                          form.promotionalBannerImageUrl.trim() ||
+                            form.promotionalBannerImageUploadDataUrl,
+                        )}
+                      />
+                    </div>
+                    <div className="rounded-lg border border-violet-100 bg-white/80 p-4 dark:border-violet-400/16 dark:bg-slate-950/42">
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-200">
+                        {t("Service description")}
+                      </p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">
+                        {form.description}
+                      </p>
+                    </div>
+                    <WizardOfferPreparationStatus
+                      status={serviceIdValidationStatus}
+                      onRetry={regenerateServiceId}
+                    />
+                  </Section>
+                ) : null}
+              </div>
+
+              {wizardValidationMessage ? (
+                <div
+                  role="alert"
+                  className="mt-5 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-400/24 dark:bg-rose-500/10 dark:text-rose-100"
+                >
+                  <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{wizardValidationMessage}</span>
+                </div>
+              ) : null}
+
+              <div className="sticky bottom-0 z-20 mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-violet-100 bg-background/94 py-4 backdrop-blur dark:border-violet-400/16">
+                {wizardStepIndex === 0 ? (
+                  <Button asChild type="button" variant="outline">
+                    <Link href={routeBase}>
+                      <ArrowLeft className="h-4 w-4" />
+                      {t("Back to Service Offers")}
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={returnToPreviousWizardStep}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    {t("Back")}
+                  </Button>
+                )}
+
+                {wizardStepIndex < SERVICE_OFFER_WIZARD_LAST_STEP ? (
+                  <Button
+                    type="submit"
+                    disabled={isWorking}
+                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                  >
+                    {t("Continue")}
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <div className="flex flex-wrap justify-end gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={wizardSaveDisabled}
+                      onClick={() => void saveCurrentOffer()}
+                    >
+                      {saveMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      {t("Save draft")}
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={wizardSaveDisabled}
+                      onClick={() => void publishOffer()}
+                      className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      {t("Publish service offer")}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </form>
+        <ServiceOfferPublishDialog
+          dialog={publishDialog}
+          offerName={form.name}
+          onOpenOffer={(id) => {
+            setPublishDialog(null);
+            router.push(`${routeBase}/${encodeURIComponent(id)}`);
+          }}
+          onBackToOffers={() => {
+            setPublishDialog(null);
+            router.push(routeBase);
+          }}
+          onClose={() => setPublishDialog(null)}
+        />
+      </>
+    );
   }
 
   return (
@@ -4091,6 +4727,87 @@ export function SupportServiceOfferWorkbench({
         value={persistedOfferRecord}
       />
     </>
+  );
+}
+
+function WizardReviewItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid min-w-0 gap-1 rounded-lg border border-violet-100 bg-white/80 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+      <span className="break-words text-sm font-semibold text-foreground">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function ReviewBooleanRow({
+  label,
+  enabled,
+}: {
+  label: string;
+  enabled: boolean;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+          enabled
+            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/14 dark:text-emerald-100"
+            : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+        )}
+      >
+        {enabled ? <Check className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+        {enabled ? t("Yes") : t("No")}
+      </span>
+    </div>
+  );
+}
+
+function WizardOfferPreparationStatus({
+  status,
+  onRetry,
+}: {
+  status: ServiceIdValidationStatus;
+  onRetry: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  if (status === "available" || status === "locked") {
+    return (
+      <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-400/24 dark:bg-emerald-500/10 dark:text-emerald-100">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>{t("The service offer is ready to save.")}</span>
+      </div>
+    );
+  }
+
+  if (status === "conflict" || status === "error") {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100">
+        <span className="flex min-w-0 items-start gap-3">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{t("A unique service identifier could not be prepared.")}</span>
+        </span>
+        <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+          <RefreshCw className="h-4 w-4" />
+          {t("Try again")}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-100">
+      <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+      <span>{t("Preparing the service offer...")}</span>
+    </div>
   );
 }
 

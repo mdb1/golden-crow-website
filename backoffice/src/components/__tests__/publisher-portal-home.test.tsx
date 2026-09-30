@@ -91,6 +91,12 @@ describe("PublisherPortalHomePage", () => {
     jest.mocked(sdkFetchServer).mockReset();
   });
 
+  it("routes service-offer creation through the guided wizard", () => {
+    expect(publisherPortalServiceOfferCreateRoute()).toBe(
+      "/publisher-portal/service-offers/wizard/new",
+    );
+  });
+
   it("prompts a new publisher to create the first feed entry", async () => {
     mockPublisherHomeData(false);
 

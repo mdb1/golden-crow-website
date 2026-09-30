@@ -478,6 +478,85 @@ describe("support services workbenches", () => {
     expect(screen.getAllByText("Read only").length).toBeGreaterThanOrEqual(2);
   });
 
+  it("guides publisher offer creation through focused wizard steps", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      const serviceId = new URL(
+        String(path),
+        "https://backoffice.example",
+      ).searchParams.get("serviceId");
+      if (String(path).includes("service-id-availability")) {
+        return { serviceId, available: true };
+      }
+      throw new Error(`Unexpected SDK path: ${String(path)}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        routeBase="/publisher-portal/service-offers"
+        fixedProvider={{ id: "publisher-org-1", name: "Publisher Org" }}
+        canDelete={false}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Offer identity" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Step 1 of 10")).toBeTruthy();
+    expect(screen.queryByText("Publisher Org · publisher-org-1")).toBeNull();
+    expect(screen.queryByText("Provider kind")).toBeNull();
+    expect(screen.queryByText("Service ID")).toBeNull();
+    expect(screen.queryByText("Service version")).toBeNull();
+    expect(screen.queryByText("Prefill with mocked template")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("Offer name is required.")).toBeTruthy();
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Clinical report service" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose service category" }),
+    );
+    const categoryDialog = await screen.findByRole("dialog");
+    fireEvent.click(
+      within(categoryDialog).getByRole("radio", {
+        name: /Genomic report generation/,
+      }),
+    );
+    fireEvent.click(
+      within(categoryDialog).getByRole("button", { name: "Apply category" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Offer visibility" }),
+    ).toBeTruthy();
+    expect(
+      document
+        .getElementById("service-offer-wizard-professional")
+        ?.getAttribute("data-state"),
+    ).toBe("checked");
+    fireEvent.click(
+      document.getElementById("service-offer-wizard-highlighted")!,
+    );
+    expect(
+      document
+        .getElementById("service-offer-wizard-professional")
+        ?.getAttribute("data-state"),
+    ).toBe("unchecked");
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Promotional image" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId("service-offer-promotional-banner-section"),
+    ).toBeTruthy();
+    expect(screen.queryByText("Publisher Org · publisher-org-1")).toBeNull();
+  });
+
   it("shows lock affordances and no delete action on publisher transaction detail", async () => {
     sdkFetchMock.mockImplementation(async (path) => {
       if (String(path).endsWith(`/transactions/${runningTransaction.requestId}`)) {

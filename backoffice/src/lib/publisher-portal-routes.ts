@@ -4,6 +4,8 @@ export const PUBLISHER_PORTAL_LOGIN_ROUTE = "/publisher-portal/login";
 export const PUBLISHER_PORTAL_ACCOUNT_ROUTE = "/publisher-portal/my-account";
 export const PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE =
   "/publisher-portal/service-offers";
+export const PUBLISHER_PORTAL_SERVICE_OFFER_WIZARD_ROUTE =
+  `${PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}/wizard/new`;
 export const PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE =
   "/publisher-portal/service-transactions";
 export const PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE =
@@ -42,7 +44,7 @@ export function publisherPortalServiceOfferDetailRoute(offerId: string) {
 }
 
 export function publisherPortalServiceOfferCreateRoute() {
-  return `${PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}/new`;
+  return PUBLISHER_PORTAL_SERVICE_OFFER_WIZARD_ROUTE;
 }
 
 export function publisherPortalServiceTransactionDetailRoute(
