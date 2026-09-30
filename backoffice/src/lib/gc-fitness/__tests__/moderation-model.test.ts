@@ -88,6 +88,82 @@ describe("actionsFor", () => {
   });
 });
 
+describe("describeChallengeGoal — SV2-10 kinds (#1208)", () => {
+  const bench = { en: "Bench press", es: "Press de banca" };
+  // 2026-10-01 00:00 → 2026-10-29 00:00 in Buenos Aires (UTC-3); endsAt is exclusive.
+  const startsAt = Date.UTC(2026, 9, 1, 3);
+  const endsAt = Date.UTC(2026, 9, 29, 3);
+
+  it("describes every kind with its scope and unit (no period → «en total», except the one-set max)", () => {
+    expect(describeChallengeGoal({ kind: "exerciseMaxWeight", target: 100, exerciseName: bench })).toBe(
+      "Press de banca: 100 kg en un set",
+    );
+    expect(describeChallengeGoal({ kind: "muscleSets", target: 12, cadence: "weekly", muscleGroup: "chest" })).toBe(
+      "Pecho: 12 series por semana",
+    );
+    expect(describeChallengeGoal({ kind: "volume", target: 20000, cadence: "total" })).toBe("20000 kg en total");
+    expect(describeChallengeGoal({ kind: "workouts", target: 3, cadence: "weekly" })).toBe("3 entrenos por semana");
+    expect(describeChallengeGoal({ kind: "exerciseVolume", target: 2500.5, exerciseName: bench })).toBe(
+      "Press de banca: 2500,5 kg en total",
+    );
+    expect(describeChallengeGoal({ kind: "exerciseReps", target: 1, exerciseName: bench })).toBe(
+      "Press de banca: 1 repetición en total",
+    );
+    expect(describeChallengeGoal({ kind: "exerciseReps", target: 500, cadence: "weekly", exerciseName: bench })).toBe(
+      "Press de banca: 500 repeticiones por semana",
+    );
+    expect(describeChallengeGoal({ kind: "muscleVolume", target: 8000.25, muscleGroup: "back" })).toBe(
+      "Espalda: 8000,25 kg en total",
+    );
+    expect(describeChallengeGoal({ kind: "muscleSets", target: 1, muscleGroup: "core" })).toBe("Core: 1 serie en total");
+  });
+
+  it("falls back gracefully on missing/unknown scope", () => {
+    expect(describeChallengeGoal({ kind: "exerciseMaxWeight", target: 60 })).toBe("Ejercicio: 60 kg en un set");
+    expect(describeChallengeGoal({ kind: "exerciseVolume", target: 60, exerciseName: { en: "Squat" } })).toBe(
+      "Squat: 60 kg en total",
+    );
+    expect(describeChallengeGoal({ kind: "muscleSets", target: 10, muscleGroup: "neck" })).toBe("neck: 10 series en total");
+    expect(describeChallengeGoal({ kind: "muscleVolume", target: 10 })).toBe("Grupo muscular: 10 kg en total");
+  });
+
+  it("an unknown kind is «Desafío»", () => {
+    expect(describeChallengeGoal({ kind: "laps", target: 3, durationDays: 7 })).toBe("Desafío");
+    expect(describeChallengeGoal({ target: 3 })).toBe("Desafío");
+  });
+
+  it("with startsAt/endsAt the window replaces «en N días»; endsAt is exclusive and read in the doc's timezone", () => {
+    expect(
+      describeChallengeGoal({
+        kind: "muscleSets", target: 12, cadence: "weekly", muscleGroup: "chest",
+        startsAt, endsAt, durationDays: 28, timezone: "America/Argentina/Buenos_Aires",
+      }),
+    ).toBe("Pecho: 12 series por semana del 1 oct al 28 oct");
+    // Firestore Timestamps (toDate) work the same as millis.
+    const ts = (ms: number) => ({ toDate: () => new Date(ms) });
+    expect(
+      describeChallengeGoal({
+        kind: "exerciseMaxWeight", target: 100, exerciseName: bench,
+        startsAt: ts(startsAt), endsAt: ts(endsAt), timezone: "America/Argentina/Buenos_Aires",
+      }),
+    ).toBe("Press de banca: 100 kg en un set del 1 oct al 28 oct");
+    // No / invalid timezone → UTC.
+    expect(
+      describeChallengeGoal({ kind: "volume", target: 1000, startsAt: Date.UTC(2026, 9, 1), endsAt: Date.UTC(2026, 9, 8), timezone: "Mars/Olympus" }),
+    ).toBe("1000 kg del 1 oct al 7 oct");
+    // Across a year boundary both years are shown.
+    expect(
+      describeChallengeGoal({ kind: "workouts", target: 10, startsAt: Date.UTC(2026, 11, 20), endsAt: Date.UTC(2027, 0, 10) }),
+    ).toBe("10 entrenos del 20 dic 2026 al 9 ene 2027");
+  });
+
+  it("weekly with only durationDays reads as a number of weeks", () => {
+    expect(describeChallengeGoal({ kind: "muscleSets", target: 12, cadence: "weekly", muscleGroup: "chest", durationDays: 28 })).toBe(
+      "Pecho: 12 series por semana · 4 semanas",
+    );
+  });
+});
+
 describe("challenge target (#1189)", () => {
   it("is a report target type with a Spanish label, and decodes", () => {
     expect(isReportTargetType("challenge")).toBe(true);
@@ -109,12 +185,10 @@ describe("challenge target (#1189)", () => {
     expect(groups.map((g) => [g.key, g.reports.length])).toEqual([["challenge|x", 2], ["routine|x", 1]]);
   });
 
-  it("describeChallengeGoal names the goal in Spanish, and gives up on an unreadable shape", () => {
+  it("describeChallengeGoal keeps the SV2-9 shapes (durationDays, no cadence)", () => {
     expect(describeChallengeGoal({ kind: "workouts", target: 12, durationDays: 30 })).toBe("12 entrenos en 30 días");
     expect(describeChallengeGoal({ kind: "workouts", target: 1, durationDays: 1 })).toBe("1 entreno en 1 día");
     expect(describeChallengeGoal({ kind: "volume", target: 5000, durationDays: 7 })).toBe("5000 kg en 7 días");
-    expect(describeChallengeGoal({ kind: "volume", target: 5000 })).toBe("5000 kg");
-    expect(describeChallengeGoal({ kind: "laps", target: 3, durationDays: 7 })).toBeNull();
     expect(describeChallengeGoal({ kind: "workouts" })).toBeNull();
   });
 });

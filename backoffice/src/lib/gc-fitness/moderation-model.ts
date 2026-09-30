@@ -23,6 +23,8 @@
 // `challenge` (gc-fitness #1189, SV2-9): `social_challenges/{id}`; its `name` is
 // user-generated, so it is reportable. The owner is `creatorUid`; hiding sets
 // `hidden: true` and the apps render the name as the generic «Desafío».
+import { MUSCLE_LABELS } from "./workout-generator/muscle-presets";
+
 export const REPORT_TARGET_TYPES = ["profile", "routine", "comment", "message", "challenge"] as const;
 export type ReportTargetType = (typeof REPORT_TARGET_TYPES)[number];
 
@@ -192,20 +194,158 @@ export const STATUS_LABEL: Record<ReportStatus, string> = {
   dismissed: "Descartados",
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Challenge goal line (#1189 SV2-9, extended by #1208 SV2-10)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The seven metrics of SV2-10. SV2-9 docs only ever carry the first two. */
+export const CHALLENGE_KINDS = [
+  "workouts",
+  "volume",
+  "exerciseMaxWeight",
+  "exerciseVolume",
+  "exerciseReps",
+  "muscleVolume",
+  "muscleSets",
+] as const;
+export type ChallengeKind = (typeof CHALLENGE_KINDS)[number];
+
+const SPANISH_MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+function plural(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
+}
+
+/** Up to two decimals, Spanish decimal comma, no thousands separator: 82,5 · 20000. */
+function formatNumber(n: number): string {
+  return String(Math.round(n * 100) / 100).replace(".", ",");
+}
+
+/** A Firestore Timestamp, a Date, or epoch millis → Date; anything else → null. */
+function asDate(value: unknown): Date | null {
+  if (value && typeof (value as { toDate?: unknown }).toDate === "function") {
+    const d = (value as { toDate: () => Date }).toDate();
+    return Number.isFinite(d.getTime()) ? d : null;
+  }
+  if (value instanceof Date) return Number.isFinite(value.getTime()) ? value : null;
+  if (typeof value === "number" && Number.isFinite(value)) return new Date(value);
+  return null;
+}
+
+/** Calendar day/month/year of `date` in `timeZone` (UTC when missing or invalid). */
+function civilDay(date: Date, timeZone: string | null): { day: number; month: number; year: number } {
+  const read = (tz: string) => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+    }).formatToParts(date);
+    const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+    return { day: get("day"), month: get("month"), year: get("year") };
+  };
+  if (timeZone) {
+    try {
+      return read(timeZone);
+    } catch {
+      // Unknown IANA id — fall through to UTC.
+    }
+  }
+  return read("UTC");
+}
+
+/**
+ * «del 1 oct al 28 oct». `endsAt` is EXCLUSIVE (`[startsAt, endsAt)`), so the
+ * last day shown is the one just before it. Years appear only when they differ.
+ */
+function describeChallengeWindow(startsAt: Date, endsAt: Date, timeZone: string | null): string {
+  const start = civilDay(startsAt, timeZone);
+  const lastInstant = new Date(Math.max(startsAt.getTime(), endsAt.getTime() - 1));
+  const end = civilDay(lastInstant, timeZone);
+  const withYear = start.year !== end.year;
+  const fmt = (d: { day: number; month: number; year: number }) =>
+    `${d.day} ${SPANISH_MONTHS[d.month - 1] ?? "?"}${withYear ? ` ${d.year}` : ""}`;
+  return `del ${fmt(start)} al ${fmt(end)}`;
+}
+
+function localizedEs(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (value && typeof value === "object") {
+    const map = value as Record<string, unknown>;
+    const es = typeof map.es === "string" ? map.es.trim() : "";
+    const en = typeof map.en === "string" ? map.en.trim() : "";
+    return es || en;
+  }
+  return "";
+}
+
 /**
  * One line describing a challenge's goal for the queue preview, e.g.
- * "12 entrenos en 30 días" / "5000 kg en 7 días". `null` when the doc does not
- * carry a readable goal — the preview then shows only the name.
+ * «12 entrenos en 30 días», «Press de banca: 100 kg en un set»,
+ * «Pecho: 12 series por semana del 1 oct al 28 oct», «20000 kg en total».
+ *
+ * - An unknown `kind` is «Desafío» (the apps drop such a row; the operator
+ *   still needs a line).
+ * - A known kind without a numeric `target` is `null` — the preview then shows
+ *   only the name and members.
+ * - The period is `startsAt`/`endsAt` when both exist (SV2-10), else
+ *   `durationDays` (SV2-9), else «en total» for a total-cadence goal.
  */
 export function describeChallengeGoal(data: Record<string, unknown>): string | null {
+  const kind = data.kind;
+  if (typeof kind !== "string" || !(CHALLENGE_KINDS as readonly string[]).includes(kind)) return "Desafío";
   const target = typeof data.target === "number" && Number.isFinite(data.target) ? data.target : null;
   if (target === null) return null;
+  const weekly = data.cadence === "weekly";
+  const n = formatNumber(target);
+
+  const exercise = localizedEs(data.exerciseName) || "Ejercicio";
+  const muscleKey = typeof data.muscleGroup === "string" ? data.muscleGroup.trim() : "";
+  const muscle = muscleKey ? MUSCLE_LABELS[muscleKey]?.es ?? muscleKey : "Grupo muscular";
+
+  let goal: string;
+  switch (kind as ChallengeKind) {
+    case "workouts":
+      goal = `${n} ${plural(target, "entreno", "entrenos")}`;
+      break;
+    case "volume":
+      goal = `${n} kg`;
+      break;
+    case "exerciseMaxWeight":
+      goal = `${exercise}: ${n} kg en un set`;
+      break;
+    case "exerciseVolume":
+      goal = `${exercise}: ${n} kg`;
+      break;
+    case "exerciseReps":
+      goal = `${exercise}: ${n} ${plural(target, "repetición", "repeticiones")}`;
+      break;
+    case "muscleVolume":
+      goal = `${muscle}: ${n} kg`;
+      break;
+    case "muscleSets":
+      goal = `${muscle}: ${n} ${plural(target, "serie", "series")}`;
+      break;
+  }
+  if (weekly) goal += " por semana";
+
+  const startsAt = asDate(data.startsAt);
+  const endsAt = asDate(data.endsAt);
+  const timeZone = typeof data.timezone === "string" && data.timezone ? data.timezone : null;
   const days =
     typeof data.durationDays === "number" && Number.isFinite(data.durationDays) ? data.durationDays : null;
-  const suffix = days !== null ? ` en ${days} ${days === 1 ? "día" : "días"}` : "";
-  if (data.kind === "workouts") return `${target} ${target === 1 ? "entreno" : "entrenos"}${suffix}`;
-  if (data.kind === "volume") return `${target} kg${suffix}`;
-  return null;
+
+  if (startsAt && endsAt) return `${goal} ${describeChallengeWindow(startsAt, endsAt, timeZone)}`;
+  if (days !== null) {
+    if (weekly) {
+      const weeks = Math.max(1, Math.round(days / 7));
+      return `${goal} · ${weeks} ${plural(weeks, "semana", "semanas")}`;
+    }
+    return `${goal} en ${days} ${plural(days, "día", "días")}`;
+  }
+  // No period at all: say it is cumulative, except where «en un set» already says what counts.
+  if (!weekly && kind !== "exerciseMaxWeight") return `${goal} en total`;
+  return goal;
 }
 
 /** `{threadId}/{messageId}` — how a message target is named by the app. */
