@@ -3908,7 +3908,7 @@ export function SupportServiceOfferWorkbench({
                             </Label>
                             <p className="text-xs leading-5 text-muted-foreground">
                               {t(
-                                "Places this offer in the highlighted services segment of the native experience.",
+                                "End-to-end services for patients or physicians who want to request a study.",
                               )}
                             </p>
                           </div>
@@ -3938,7 +3938,7 @@ export function SupportServiceOfferWorkbench({
                             </Label>
                             <p className="text-xs leading-5 text-muted-foreground">
                               {t(
-                                "Places this offer in the services for professionals segment of the native experience.",
+                                "Genomic services for bioinformaticians or audiences with advanced subject-matter knowledge.",
                               )}
                             </p>
                           </div>

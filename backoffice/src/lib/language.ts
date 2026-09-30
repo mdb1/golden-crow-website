@@ -5302,6 +5302,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Professional offer": "Oferta profesional",
   "Show as a highlighted offer": "Mostrar como oferta destacada",
   "Show as a professional offer": "Mostrar como oferta profesional",
+  "End-to-end services for patients or physicians who want to request a study.":
+    "Servicios end-to-end para pacientes o médicos que quieren solicitar un estudio.",
+  "Genomic services for bioinformaticians or audiences with advanced subject-matter knowledge.":
+    "Servicios genómicos dirigidos a bioinformáticos o a un público con mayor conocimiento del tema.",
   "Places this offer in the highlighted services segment of the native experience.":
     "Ubica esta oferta en el segmento de servicios destacados de la experiencia nativa.",
   "Places this offer in the services for professionals segment of the native experience.":

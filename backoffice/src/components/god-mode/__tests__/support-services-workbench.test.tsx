@@ -533,6 +533,21 @@ describe("support services workbenches", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Offer visibility" }),
     ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "End-to-end services for patients or physicians who want to request a study.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Genomic services for bioinformaticians or audiences with advanced subject-matter knowledge.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        "Places this offer in the highlighted services segment of the native experience.",
+      ),
+    ).toBeNull();
     expect(screen.queryByText("Native discovery")).toBeNull();
     expect(
       document.getElementById("service-offer-wizard-hidden-from-search"),
@@ -966,6 +981,16 @@ describe("support services workbenches", () => {
     expect(
       document.getElementById("service-offer-hidden-from-search"),
     ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Places this offer in the highlighted services segment of the native experience.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        "End-to-end services for patients or physicians who want to request a study.",
+      ),
+    ).toBeNull();
     expect(
       screen
         .getByTestId("service-offer-slot-layout")
