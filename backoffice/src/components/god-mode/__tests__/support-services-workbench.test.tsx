@@ -533,6 +533,10 @@ describe("support services workbenches", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Offer visibility" }),
     ).toBeTruthy();
+    expect(screen.queryByText("Native discovery")).toBeNull();
+    expect(
+      document.getElementById("service-offer-wizard-hidden-from-search"),
+    ).toBeNull();
     expect(
       document
         .getElementById("service-offer-wizard-professional")
@@ -554,7 +558,51 @@ describe("support services workbenches", () => {
     expect(
       screen.getByTestId("service-offer-promotional-banner-section"),
     ).toBeTruthy();
+    expect(
+      screen
+        .getByTestId("service-offer-promotional-banner-section")
+        .closest("section"),
+    ).toBeNull();
     expect(screen.queryByText("Publisher Org · publisher-org-1")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Service presentation" }),
+    ).toBeTruthy();
+    const presentationFields = screen.getAllByRole("textbox");
+    fireEvent.change(presentationFields[0], {
+      target: { value: "A clear requester-facing service description." },
+    });
+    fireEvent.change(presentationFields[1], {
+      target: { value: "The provider completes the requested analysis." },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Request form" }),
+    ).toBeTruthy();
+    const formDisclosure = screen.getByTestId(
+      "service-offer-wizard-form-disclosure",
+    );
+    expect(formDisclosure.getAttribute("aria-expanded")).toBe("false");
+    expect(
+      screen.queryByRole("checkbox", { name: "Support form input" }),
+    ).toBeNull();
+    expect(screen.queryByText("Form shape ID")).toBeNull();
+
+    fireEvent.click(formDisclosure);
+    expect(formDisclosure.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Form shape ID")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Inputs and outputs" }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByTestId("service-offer-slot-layout")
+        .classList.contains("xl:grid-cols-2"),
+    ).toBe(false);
   });
 
   it("shows lock affordances and no delete action on publisher transaction detail", async () => {
@@ -905,6 +953,15 @@ describe("support services workbenches", () => {
     ).toBe(true);
     expect(screen.getByText("No input slots defined.")).toBeTruthy();
     expect(screen.getByText("No output slots defined.")).toBeTruthy();
+    expect(screen.getByText("Native discovery")).toBeTruthy();
+    expect(
+      document.getElementById("service-offer-hidden-from-search"),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByTestId("service-offer-slot-layout")
+        .classList.contains("xl:grid-cols-2"),
+    ).toBe(true);
     expect(screen.getByText("Not requested")).toBeTruthy();
     expect(
       document

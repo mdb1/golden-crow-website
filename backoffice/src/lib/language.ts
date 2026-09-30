@@ -4828,6 +4828,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Explicá qué recibe el solicitante y qué hace tu organización.",
   "Optionally collect structured information with the service request.":
     "Opcionalmente, recopilá información estructurada junto con la solicitud.",
+  "The request form is included in this offer.":
+    "El formulario de solicitud está incluido en esta oferta.",
+  "This offer does not request a form.":
+    "Esta oferta no solicita un formulario.",
   "Inputs and outputs": "Entradas y salidas",
   "Define the Pocket Genes objects received and produced by this service.":
     "Definí los objetos Pocket Genes que este servicio recibe y produce.",

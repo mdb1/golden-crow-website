@@ -25,6 +25,7 @@ import {
   ChartPie,
   Check,
   CheckCircle2,
+  ChevronDown,
   CircleAlert,
   ClipboardList,
   Copy,
@@ -3879,32 +3880,10 @@ export function SupportServiceOfferWorkbench({
 
                 {wizardStepIndex === 1 ? (
                   <Section title="Offer visibility">
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <Field label="Native discovery">
-                        <div className="flex min-h-28 items-start gap-3 rounded-lg border border-violet-100 bg-white/78 px-4 py-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-                          <Checkbox
-                            id="service-offer-wizard-hidden-from-search"
-                            checked={form.isHiddenFromSearch}
-                            onCheckedChange={(checked) =>
-                              setForm((current) => ({
-                                ...current,
-                                isHiddenFromSearch: checked === true,
-                              }))
-                            }
-                          />
-                          <div className="grid gap-1">
-                            <Label htmlFor="service-offer-wizard-hidden-from-search">
-                              {t("Hide from native service search")}
-                            </Label>
-                            <p className="text-xs leading-5 text-muted-foreground">
-                              {t(
-                                "The offer remains active and available to authorized backoffice workflows, but it is excluded from native discovery.",
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      </Field>
-                      <div aria-hidden="true" className="hidden lg:block" />
+                    <div
+                      data-testid="service-offer-wizard-visibility-options"
+                      className="grid gap-4 lg:grid-cols-2"
+                    >
                       <Field label="Highlighted offer">
                         <div className="flex min-h-28 items-start gap-3 rounded-lg border border-violet-100 bg-white/78 px-4 py-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
                           <Checkbox
@@ -3970,19 +3949,17 @@ export function SupportServiceOfferWorkbench({
                 ) : null}
 
                 {wizardStepIndex === 2 ? (
-                  <Section title="Promotional image">
-                    <PromotionalBannerImageEditor
-                      imageUrl={form.promotionalBannerImageUrl}
-                      imageUploadDataUrl={form.promotionalBannerImageUploadDataUrl}
-                      imageUploadName={form.promotionalBannerImageUploadName}
-                      imageUploadMimeType={form.promotionalBannerImageUploadMimeType}
-                      disabled={isWorking}
-                      onPendingChange={setPromotionalBannerUploadPending}
-                      onChange={(patch) =>
-                        setForm((current) => ({ ...current, ...patch }))
-                      }
-                    />
-                  </Section>
+                  <PromotionalBannerImageEditor
+                    imageUrl={form.promotionalBannerImageUrl}
+                    imageUploadDataUrl={form.promotionalBannerImageUploadDataUrl}
+                    imageUploadName={form.promotionalBannerImageUploadName}
+                    imageUploadMimeType={form.promotionalBannerImageUploadMimeType}
+                    disabled={isWorking}
+                    onPendingChange={setPromotionalBannerUploadPending}
+                    onChange={(patch) =>
+                      setForm((current) => ({ ...current, ...patch }))
+                    }
+                  />
                 ) : null}
 
                 {wizardStepIndex === 3 ? (
@@ -4036,11 +4013,12 @@ export function SupportServiceOfferWorkbench({
                     setForm={setForm}
                     idStatus={serviceIdValidationStatus}
                     versionBumpToken={formShapeVersionBumpToken}
+                    presentation="wizard"
                   />
                 ) : null}
 
                 {wizardStepIndex === 5 ? (
-                  <SlotEditors form={form} setForm={setForm} />
+                  <SlotEditors form={form} setForm={setForm} layout="stack" />
                 ) : null}
 
                 {wizardStepIndex === 6 ? (
@@ -6562,11 +6540,13 @@ function FormShapeEditor({
   setForm,
   idStatus,
   versionBumpToken,
+  presentation = "form",
 }: {
   form: OfferFormState;
   setForm: React.Dispatch<React.SetStateAction<OfferFormState>>;
   idStatus: ServiceIdValidationStatus;
   versionBumpToken: number;
+  presentation?: "form" | "wizard";
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -6676,26 +6656,71 @@ function FormShapeEditor({
   }
 
   return (
-    <Section title="Form input">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="grid gap-1">
-          <h3 className="font-heading text-base font-semibold text-foreground">
-            {t("Request form")}
-          </h3>
-          <div className="text-sm text-muted-foreground">
+    <Section title="Form input" hideTitle={presentation === "wizard"}>
+      {presentation === "wizard" ? (
+        <button
+          type="button"
+          data-testid="service-offer-wizard-form-disclosure"
+          aria-expanded={form.supportsFormShape}
+          onClick={() => setSupportsFormShape(!form.supportsFormShape)}
+          className={cn(
+            "flex min-h-32 w-full items-center gap-4 rounded-lg border px-5 py-5 text-left shadow-sm transition duration-200",
+            form.supportsFormShape
+              ? "border-violet-300 bg-violet-50/80 text-violet-950 shadow-[0_18px_44px_-34px_rgba(109,40,217,0.72)] dark:border-violet-300/34 dark:bg-violet-500/12 dark:text-violet-50"
+              : "border-violet-100 bg-white/82 text-foreground hover:border-violet-300 hover:bg-violet-50/60 dark:border-violet-400/16 dark:bg-slate-950/42 dark:hover:bg-violet-500/10",
+          )}
+        >
+          <span
+            className={cn(
+              "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border",
+              form.supportsFormShape
+                ? "border-violet-200 bg-white text-violet-700 dark:border-violet-400/24 dark:bg-slate-950/60 dark:text-violet-100"
+                : "border-violet-100 bg-violet-50 text-violet-600 dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-200",
+            )}
+          >
+            <ClipboardList className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-heading text-lg font-semibold">
+              {t("Support form input")}
+            </span>
+            <span className="mt-1 block text-sm leading-6 text-muted-foreground">
+              {form.supportsFormShape
+                ? t("The request form is included in this offer.")
+                : t("This offer does not request a form.")}
+            </span>
+          </span>
+          <span className="hidden shrink-0 rounded-full border border-violet-200 bg-white/80 px-3 py-1 text-xs font-semibold text-violet-800 sm:inline-flex dark:border-violet-400/24 dark:bg-slate-950/50 dark:text-violet-100">
             {form.supportsFormShape ? t("Enabled") : t("Not requested")}
-          </div>
-        </div>
-        <label className="flex items-center gap-3 text-sm font-medium">
-          <Checkbox
-            checked={form.supportsFormShape}
-            onCheckedChange={(checked) =>
-              setSupportsFormShape(checked === true)
-            }
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-5 w-5 shrink-0 text-violet-600 transition-transform duration-200 dark:text-violet-200",
+              form.supportsFormShape && "rotate-180",
+            )}
           />
-          <span>{t("Support form input")}</span>
-        </label>
-      </div>
+        </button>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="grid gap-1">
+            <h3 className="font-heading text-base font-semibold text-foreground">
+              {t("Request form")}
+            </h3>
+            <div className="text-sm text-muted-foreground">
+              {form.supportsFormShape ? t("Enabled") : t("Not requested")}
+            </div>
+          </div>
+          <label className="flex items-center gap-3 text-sm font-medium">
+            <Checkbox
+              checked={form.supportsFormShape}
+              onCheckedChange={(checked) =>
+                setSupportsFormShape(checked === true)
+              }
+            />
+            <span>{t("Support form input")}</span>
+          </label>
+        </div>
+      )}
       {!form.supportsFormShape ? null : (
         <>
           <div className="grid gap-4 lg:grid-cols-2">
@@ -6933,13 +6958,21 @@ function FormShapeEditor({
 function SlotEditors({
   form,
   setForm,
+  layout = "columns",
 }: {
   form: OfferFormState;
   setForm: React.Dispatch<React.SetStateAction<OfferFormState>>;
+  layout?: "columns" | "stack";
 }) {
   return (
     <Section title="Slots">
-      <div className="grid gap-6 xl:grid-cols-2 xl:gap-8">
+      <div
+        data-testid="service-offer-slot-layout"
+        className={cn(
+          "grid gap-6",
+          layout === "columns" && "xl:grid-cols-2 xl:gap-8",
+        )}
+      >
         <InputSlotEditor form={form} setForm={setForm} />
         <OutputSlotEditor form={form} setForm={setForm} />
       </div>
@@ -9583,23 +9616,27 @@ function WorkbenchTopbar({
 function Section({
   title,
   children,
+  hideTitle = false,
 }: {
   title: string;
   children: React.ReactNode;
+  hideTitle?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
 
   return (
     <section className={SUPPORT_SERVICE_SECTION_CLASS}>
-      <div className="flex items-center gap-3 border-b border-violet-100/80 pb-4 dark:border-violet-400/14">
-        <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/18 dark:bg-violet-500/12 dark:text-violet-100">
-          <FileText className="h-4 w-4" />
-        </span>
-        <h3 className="font-heading text-xl font-semibold text-foreground">
-          {t(title)}
-        </h3>
-      </div>
+      {hideTitle ? null : (
+        <div className="flex items-center gap-3 border-b border-violet-100/80 pb-4 dark:border-violet-400/14">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/18 dark:bg-violet-500/12 dark:text-violet-100">
+            <FileText className="h-4 w-4" />
+          </span>
+          <h3 className="font-heading text-xl font-semibold text-foreground">
+            {t(title)}
+          </h3>
+        </div>
+      )}
       {children}
     </section>
   );
