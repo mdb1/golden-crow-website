@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { PublisherPortalEmptyState } from "@/components/publisher-portal-empty-state";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -235,32 +236,28 @@ export function DiscoverOrganizationProductCatalogBrowser({
         </div>
 
         {filteredItems.length === 0 ? (
-          <div className="px-4 py-12 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-violet-100 text-violet-700 shadow-inner dark:bg-violet-500/14 dark:text-violet-100">
-              <PackageOpen className="h-6 w-6" />
-            </div>
-            <h3 className="mt-4 font-heading text-lg font-semibold text-foreground">
-              {items.length === 0
+          <PublisherPortalEmptyState
+            icon={PackageOpen}
+            title={
+              items.length === 0
                 ? t("No products in the catalog yet")
-                : t("No products match the loaded rows.")}
-            </h3>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              {items.length === 0
+                : t("No products match the loaded rows.")
+            }
+            description={
+              items.length === 0
                 ? t("Create your first product in under 5 minutes.")
-                : t("Try a different search or refresh the catalog.")}
-            </p>
-            {items.length === 0 ? (
-              <Button
-                className={`${publisherPrimaryButtonClass} mt-5 h-11 px-4`}
-                asChild
-              >
-                <Link href={`${routeBase}/new`}>
-                  <Plus className="h-4 w-4" />
-                  {t("Add product to catalog")}
-                </Link>
-              </Button>
-            ) : null}
-          </div>
+                : t("Try a different search or refresh the catalog.")
+            }
+            action={
+              items.length === 0
+                ? {
+                    href: `${routeBase}/new`,
+                    label: t("Add product to catalog"),
+                    icon: Plus,
+                  }
+                : undefined
+            }
+          />
         ) : (
           filteredItems.map((item) => {
             const imageSource = catalogImageSource(item);

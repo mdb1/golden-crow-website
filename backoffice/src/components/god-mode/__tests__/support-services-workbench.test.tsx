@@ -320,11 +320,22 @@ describe("support services workbenches", () => {
       }),
     );
 
-    renderWithQueryClient(<SupportServicesBrowser kind="transactions" />);
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="transactions"
+        routeBase="/publisher-portal/service-transactions"
+        canCreate={false}
+        canDelete={false}
+        publisherPresentation
+      />,
+    );
 
     expect(await screen.findByText("Could not load records.")).toBeTruthy();
     expect(screen.getByText("Internal Server Error")).toBeTruthy();
     expect(screen.queryByText("No records found.")).toBeNull();
+    expect(
+      screen.queryByTestId("publisher-portal-empty-state"),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Show log" }));
 
@@ -452,6 +463,158 @@ describe("support services workbenches", () => {
     expect(screen.getByRole("link", { name: "Open" }).getAttribute("href")).toBe(
       `/publisher-portal/service-transactions/${runningTransaction.requestId}`,
     );
+  });
+
+  it("shows a catalog-style empty state for publisher service requests", async () => {
+    sdkFetchMock.mockResolvedValue({
+      transactions: [],
+      nextCursor: undefined,
+    });
+
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="transactions"
+        routeBase="/publisher-portal/service-transactions"
+        canCreate={false}
+        canDelete={false}
+        publisherPresentation
+        publisherEmptyActionHref="/publisher-portal/service-offers"
+        displayTitle="Service Requests"
+        recordColumnLabel="Service Request"
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "No service requests yet" }),
+    ).toBeTruthy();
+    const emptyState = screen.getByTestId("publisher-portal-empty-state");
+    expect(
+      screen.getByText(
+        "New requests will appear here when someone chooses one of your published services.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(emptyState)
+        .getByRole("link", { name: "Review service offers" })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/service-offers");
+    expect(screen.queryByText("No records found.")).toBeNull();
+    expect(screen.queryByText("0 loaded")).toBeNull();
+    expect(screen.queryByText("Alta de transaccion")).toBeNull();
+  });
+
+  it("shows one catalog-style creation action for an empty publisher offer list", async () => {
+    sdkFetchMock.mockResolvedValue({
+      offers: [],
+      nextCursor: undefined,
+    });
+
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="offers"
+        routeBase="/publisher-portal/service-offers"
+        canCreate
+        canDelete={false}
+        publisherPresentation
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "No service offers yet" }),
+    ).toBeTruthy();
+    const emptyState = screen.getByTestId("publisher-portal-empty-state");
+    expect(
+      screen.getByText(
+        "Create your first service offer so people can discover and request what you provide.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(emptyState)
+        .getByRole("link", { name: "Create your first service offer" })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/service-offers/new");
+    expect(
+      screen.getAllByRole("link", { name: "Create your first service offer" }),
+    ).toHaveLength(1);
+    expect(screen.queryByText("Alta de service offer")).toBeNull();
+    expect(screen.queryByText("No records found.")).toBeNull();
+    expect(screen.queryByText("0 loaded")).toBeNull();
+  });
+
+  it("does not expose offer creation from a read-only publisher empty state", async () => {
+    sdkFetchMock.mockResolvedValue({
+      offers: [],
+      nextCursor: undefined,
+    });
+
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="offers"
+        routeBase="/publisher-portal/service-offers"
+        canCreate={false}
+        canDelete={false}
+        publisherPresentation
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "No service offers yet" }),
+    ).toBeTruthy();
+    expect(
+      within(screen.getByTestId("publisher-portal-empty-state")).queryByRole(
+        "link",
+      ),
+    ).toBeNull();
+    expect(screen.queryByText("Alta de service offer")).toBeNull();
+  });
+
+  it("uses filter-specific publisher offer copy without an empty-state action", async () => {
+    sdkFetchMock.mockResolvedValue({
+      offers: [],
+      nextCursor: undefined,
+    });
+
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="offers"
+        routeBase="/publisher-portal/service-offers"
+        publisherPresentation
+      />,
+    );
+
+    expect(await screen.findByText("No service offers yet")).toBeTruthy();
+    fireEvent.change(
+      screen.getByPlaceholderText("Search by ID, provider, request, or name"),
+      { target: { value: "not present" } },
+    );
+
+    expect(
+      await screen.findByText("No service offers match your filters"),
+    ).toBeTruthy();
+    const emptyState = screen.getByTestId("publisher-portal-empty-state");
+    expect(
+      screen.getByText("Try changing or clearing your search and filters."),
+    ).toBeTruthy();
+    expect(within(emptyState).queryByRole("link")).toBeNull();
+    expect(
+      screen
+        .getByRole("link", { name: "Alta de service offer" })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/service-offers/new");
+  });
+
+  it("keeps the compact empty row in god mode", async () => {
+    sdkFetchMock.mockResolvedValue({
+      offers: [],
+      nextCursor: undefined,
+    });
+
+    renderWithQueryClient(<SupportServicesBrowser kind="offers" />);
+
+    expect(await screen.findByText("No records found.")).toBeTruthy();
+    expect(
+      screen.queryByTestId("publisher-portal-empty-state"),
+    ).toBeNull();
   });
 
   it("shows publisher offers as useful open-only rows without the contract column", async () => {

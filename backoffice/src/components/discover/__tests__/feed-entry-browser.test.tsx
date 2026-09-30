@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { DiscoverFeedEntryBrowser } from "@/components/discover/feed-entry-browser";
@@ -87,10 +87,12 @@ function renderBrowser({
   initialFeedItems = [feedItem],
   initialNextCursor = null,
   initialStatus,
+  initialLoadError,
 }: {
   initialFeedItems?: DiscoverFeedItemRecord[];
   initialNextCursor?: string | null;
   initialStatus?: "all" | DiscoverFeedStatus;
+  initialLoadError?: string | null;
 } = {}) {
   render(
     <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
@@ -99,8 +101,10 @@ function renderBrowser({
         initialNextCursor={initialNextCursor}
         organizations={[organization]}
         individuals={[]}
+        initialLoadError={initialLoadError}
         initialStatus={initialStatus}
         routeBase="/publisher-portal/discover/feed-entries"
+        publisherPresentation
       />
     </AppLanguageProvider>,
   );
@@ -167,5 +171,63 @@ describe("DiscoverFeedEntryBrowser route base", () => {
         "/publisher-portal/discover/feed-entries/feed-copy",
       );
     });
+  });
+
+  it("shows the catalog-style first-entry action only inside the true empty state", () => {
+    renderBrowser({ initialFeedItems: [] });
+
+    const emptyState = screen.getByTestId("publisher-portal-empty-state");
+    expect(screen.getByText("No feed entries yet")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Create your first publication and share news, resources, events, or updates with your community.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(emptyState)
+        .getByRole("link", { name: /Create your first feed entry/i })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/discover/feed-entries/new");
+    expect(
+      screen.getAllByRole("link", { name: /Create your first feed entry/i }),
+    ).toHaveLength(1);
+    expect(
+      screen.queryByRole("link", { name: /^New feed entry$/i }),
+    ).toBeNull();
+  });
+
+  it("uses filter-specific empty copy and keeps creation in the header", async () => {
+    const user = userEvent.setup();
+    renderBrowser();
+
+    await user.type(
+      screen.getByPlaceholderText("Search title, publisher, body, or URL"),
+      "not present",
+    );
+
+    const emptyState = screen.getByTestId("publisher-portal-empty-state");
+    expect(screen.getByText("No feed entries match your filters")).toBeTruthy();
+    expect(
+      screen.getByText("Try changing or clearing your search and filters."),
+    ).toBeTruthy();
+    expect(within(emptyState).queryByRole("link")).toBeNull();
+    expect(
+      screen
+        .getByRole("link", { name: /^New feed entry$/i })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/discover/feed-entries/new");
+  });
+
+  it("does not present a load failure as an aspirational empty state", () => {
+    renderBrowser({
+      initialFeedItems: [],
+      initialLoadError: "Unable to load Discover data.",
+    });
+
+    expect(screen.getAllByText("Unable to load Discover data.")).toHaveLength(2);
+    expect(
+      screen.queryByTestId("publisher-portal-empty-state"),
+    ).toBeNull();
+    expect(screen.queryByText("No feed entries yet")).toBeNull();
   });
 });

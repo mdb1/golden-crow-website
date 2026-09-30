@@ -8,6 +8,7 @@ import {
   type ChangeEvent,
   type DragEvent,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -59,6 +60,7 @@ import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { FileJsonWizard } from "@/components/file-storage/file-json-wizard";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { PublisherPortalEmptyState } from "@/components/publisher-portal-empty-state";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -2317,6 +2319,7 @@ export function SupportServicesBrowser({
   canCreate = true,
   canDelete = true,
   publisherPresentation = false,
+  publisherEmptyActionHref,
   displayTitle,
   recordColumnLabel,
 }: {
@@ -2325,6 +2328,7 @@ export function SupportServicesBrowser({
   canCreate?: boolean;
   canDelete?: boolean;
   publisherPresentation?: boolean;
+  publisherEmptyActionHref?: string;
   displayTitle?: string;
   recordColumnLabel?: string;
 }) {
@@ -2429,6 +2433,66 @@ export function SupportServicesBrowser({
     ? "Alta de service offer"
     : "Alta de transaccion";
   const isInitialLoading = listQuery.isLoading && rows.length === 0;
+  const hasActiveFilters = Boolean(
+    filters.query.trim() ||
+      filters.status !== "all" ||
+      (isOffers
+        ? filters.stage !== "all"
+        : filters.serviceId.trim()),
+  );
+  const showPublisherEmptyState =
+    publisherPresentation &&
+    listQuery.isSuccess &&
+    rows.length === 0 &&
+    !listQuery.hasNextPage;
+  const isPublisherTrueEmpty =
+    showPublisherEmptyState && !hasActiveFilters;
+  const showPublisherRows =
+    publisherPresentation &&
+    (rows.length > 0 || showPublisherEmptyState);
+  const hidePublisherListFooter =
+    publisherPresentation && rows.length === 0 && !listQuery.hasNextPage;
+  const publisherEmptyAction = !isPublisherTrueEmpty
+    ? undefined
+    : isOffers
+      ? canCreate
+        ? {
+            href: `${route}/new`,
+            label: t("Create your first service offer"),
+            icon: Plus,
+          }
+        : undefined
+      : publisherEmptyActionHref
+        ? {
+            href: publisherEmptyActionHref,
+            label: t("Review service offers"),
+            icon: BriefcaseBusiness,
+          }
+        : undefined;
+  const publisherEmptyState = showPublisherEmptyState ? (
+    <PublisherPortalEmptyState
+      icon={isOffers ? BriefcaseBusiness : ClipboardList}
+      title={
+        isPublisherTrueEmpty
+          ? t(isOffers ? "No service offers yet" : "No service requests yet")
+          : t(
+              isOffers
+                ? "No service offers match your filters"
+                : "No service requests match your filters",
+            )
+      }
+      description={
+        isPublisherTrueEmpty
+          ? t(
+              isOffers
+                ? "Create your first service offer so people can discover and request what you provide."
+                : "New requests will appear here when someone chooses one of your published services.",
+            )
+          : t("Try changing or clearing your search and filters.")
+      }
+      action={publisherEmptyAction}
+    />
+  ) : undefined;
 
   return (
     <>
@@ -2481,7 +2545,7 @@ export function SupportServicesBrowser({
                 <RefreshCw className="h-4 w-4" />
                 <span>{t("Refresh")}</span>
               </Button>
-              {canCreate ? (
+              {canCreate && !isPublisherTrueEmpty ? (
                 <Button
                   asChild
                   size="sm"
@@ -2566,12 +2630,13 @@ export function SupportServicesBrowser({
           </div>
         </div>
         <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
-          {publisherPresentation && rows.length > 0 ? (
+          {showPublisherRows ? (
             <PublisherSupportServiceRows
               kind={kind}
               offers={offers}
               transactions={transactions}
               route={route}
+              emptyState={publisherEmptyState}
             />
           ) : (
           <Table>
@@ -2819,23 +2884,27 @@ export function SupportServicesBrowser({
           </Table>
           )}
         </div>
-        <div className="flex items-center justify-between border-t border-border/70 px-4 py-3">
-          <p className="text-sm text-muted-foreground">
-            {rows.length} {t("loaded")}
-          </p>
-          {listQuery.hasNextPage ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => listQuery.fetchNextPage()}
-              disabled={listQuery.isFetchingNextPage}
-              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
-            >
-              {listQuery.isFetchingNextPage ? t("Loading...") : t("Load more")}
-            </Button>
-          ) : null}
-        </div>
+        {hidePublisherListFooter ? null : (
+          <div className="flex items-center justify-between border-t border-border/70 px-4 py-3">
+            <p className="text-sm text-muted-foreground">
+              {rows.length} {t("loaded")}
+            </p>
+            {listQuery.hasNextPage ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => listQuery.fetchNextPage()}
+                disabled={listQuery.isFetchingNextPage}
+                className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+              >
+                {listQuery.isFetchingNextPage
+                  ? t("Loading...")
+                  : t("Load more")}
+              </Button>
+            ) : null}
+          </div>
+        )}
       </section>
     </>
   );
@@ -2846,11 +2915,13 @@ function PublisherSupportServiceRows({
   offers,
   transactions,
   route,
+  emptyState,
 }: {
   kind: WorkbenchKind;
   offers: SupportServiceOfferRecord[];
   transactions: SupportServiceTransactionRecord[];
   route: string;
+  emptyState?: ReactNode;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -2874,9 +2945,10 @@ function PublisherSupportServiceRows({
         <span className="text-right">{t("Action")}</span>
       </div>
 
-      <div role="list">
-        {isOffers
-          ? offers.map((offer) => {
+      {emptyState ?? (
+        <div role="list">
+          {isOffers
+            ? offers.map((offer) => {
               const category = supportServiceCategoryByKey(
                 offer.serviceCategory,
               );
@@ -3035,8 +3107,9 @@ function PublisherSupportServiceRows({
                   />
                 </article>
               );
-            })}
-      </div>
+              })}
+        </div>
+      )}
     </div>
   );
 }

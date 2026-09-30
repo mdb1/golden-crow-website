@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { PublisherPortalEmptyState } from "@/components/publisher-portal-empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +103,7 @@ export function DiscoverFeedEntryBrowser({
   initialLoadError,
   initialStatus = "all",
   routeBase = "/discover/feed-entries",
+  publisherPresentation = false,
 }: {
   initialFeedItems: DiscoverFeedItemRecord[];
   initialNextCursor: string | null;
@@ -110,6 +112,7 @@ export function DiscoverFeedEntryBrowser({
   initialLoadError?: string | null;
   initialStatus?: "all" | DiscoverFeedStatus;
   routeBase?: string;
+  publisherPresentation?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -183,6 +186,46 @@ export function DiscoverFeedEntryBrowser({
       );
     });
   }, [feedItems, publisherFilter, query, status, type]);
+  const hasActiveFilters = Boolean(
+    query.trim() ||
+      type !== "all" ||
+      status !== "all" ||
+      loadedStatus !== "all" ||
+      publisherFilter !== "all",
+  );
+  const isPublisherTrueEmpty =
+    publisherPresentation &&
+    !initialLoadError &&
+    feedItems.length === 0 &&
+    !nextCursor &&
+    !hasActiveFilters;
+  const publisherEmptyState =
+    publisherPresentation && !initialLoadError ? (
+      <PublisherPortalEmptyState
+        icon={Newspaper}
+        title={
+          isPublisherTrueEmpty
+            ? t("No feed entries yet")
+            : t("No feed entries match your filters")
+        }
+        description={
+          isPublisherTrueEmpty
+            ? t(
+                "Create your first publication and share news, resources, events, or updates with your community.",
+              )
+            : t("Try changing or clearing your search and filters.")
+        }
+        action={
+          isPublisherTrueEmpty
+            ? {
+                href: `${routeBase}/new`,
+                label: t("Create your first feed entry"),
+                icon: Plus,
+              }
+            : undefined
+        }
+      />
+    ) : null;
 
   async function loadMore() {
     if (!nextCursor) {
@@ -305,12 +348,14 @@ export function DiscoverFeedEntryBrowser({
               <RefreshCcw className="h-3.5 w-3.5" />
               {pending ? t("Working...") : t("Refresh")}
             </Button>
-            <Button size="sm" asChild className={publisherPrimaryButtonClass}>
-              <Link href={`${routeBase}/new`}>
-                <Plus className="h-3.5 w-3.5" />
-                {t("New feed entry")}
-              </Link>
-            </Button>
+            {!isPublisherTrueEmpty ? (
+              <Button size="sm" asChild className={publisherPrimaryButtonClass}>
+                <Link href={`${routeBase}/new`}>
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("New feed entry")}
+                </Link>
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -390,12 +435,16 @@ export function DiscoverFeedEntryBrowser({
         </div>
 
         {filteredFeedItems.length === 0 ? (
-          <div className="px-4 py-12 text-center text-sm text-muted-foreground">
-            <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-violet-100 text-violet-700 dark:bg-violet-500/14 dark:text-violet-100">
-              <Newspaper className="size-6" />
+          publisherPresentation ? (
+            publisherEmptyState
+          ) : (
+            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+              <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-violet-100 text-violet-700 dark:bg-violet-500/14 dark:text-violet-100">
+                <Newspaper className="size-6" />
+              </div>
+              {t("No Discover feed entries match the loaded rows.")}
             </div>
-            {t("No Discover feed entries match the loaded rows.")}
-          </div>
+          )
         ) : (
           filteredFeedItems.map((item) => {
             const publisher = item.publisherOrganizationId

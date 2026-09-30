@@ -2,7 +2,10 @@ import { SupportServicesBrowser } from "@/components/god-mode/support-services-w
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { appText } from "@/lib/language";
-import { PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE } from "@/lib/publisher-portal-routes";
+import {
+  PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
+  PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
+} from "@/lib/publisher-portal-routes";
 import { requirePublisherSupportServicesAccess } from "@/lib/publisher-support-services-server";
 
 export default async function PublisherServiceTransactionsPage() {
@@ -26,6 +29,7 @@ export default async function PublisherServiceTransactionsPage() {
           canCreate={false}
           canDelete={false}
           publisherPresentation
+          publisherEmptyActionHref={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
           displayTitle="Service Requests"
           recordColumnLabel="Service Request"
         />

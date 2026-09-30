@@ -101,6 +101,7 @@ export default async function PublisherPortalFeedEntriesPage({
           initialLoadError={initialLoadError}
           initialStatus={initialStatus ?? "all"}
           routeBase={PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE}
+          publisherPresentation
         />
       </HeaderUnclutterScope>
     </div>

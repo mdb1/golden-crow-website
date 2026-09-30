@@ -798,6 +798,14 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to load more publishers.": "No se pudieron cargar más publicadores.",
   "No Discover feed entries match the loaded rows.":
     "Ninguna entrada de Discover coincide con las filas cargadas.",
+  "No feed entries yet": "Todavía no publicaste entradas",
+  "No feed entries match your filters":
+    "Ninguna entrada coincide con los filtros",
+  "Create your first publication and share news, resources, events, or updates with your community.":
+    "Creá tu primera publicación y compartí noticias, recursos, eventos o novedades con tu comunidad.",
+  "Create your first feed entry": "Crear mi primera entrada",
+  "Try changing or clearing your search and filters.":
+    "Probá cambiar o limpiar la búsqueda y los filtros.",
   "Search title, publisher, body, or URL":
     "Buscar por título, publicador, cuerpo o URL",
   News: "Noticias",
@@ -4999,6 +5007,20 @@ const SPANISH_TEXT: Record<string, string> = {
   "No providers found in the loaded page.":
     "No se encontraron proveedores en la página cargada.",
   "No records found.": "No se encontraron registros.",
+  "No service offers yet":
+    "Todavía no publicaste ofertas de servicio",
+  "No service requests yet":
+    "Todavía no recibiste solicitudes de servicio",
+  "No service offers match your filters":
+    "Ninguna oferta de servicio coincide con los filtros",
+  "No service requests match your filters":
+    "Ninguna solicitud de servicio coincide con los filtros",
+  "Create your first service offer so people can discover and request what you provide.":
+    "Creá tu primera oferta para que las personas puedan descubrir y solicitar lo que ofrecés.",
+  "New requests will appear here when someone chooses one of your published services.":
+    "Las nuevas solicitudes aparecerán acá cuando alguien elija uno de tus servicios publicados.",
+  "Create your first service offer": "Crear mi primera oferta de servicio",
+  "Review service offers": "Revisar ofertas de servicio",
   "Could not load records.": "No se pudieron cargar los registros.",
   "compliance warnings": "advertencias de cumplimiento",
   warnings: "advertencias",
