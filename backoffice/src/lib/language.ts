@@ -4823,10 +4823,11 @@ const SPANISH_TEXT: Record<string, string> = {
     "Transacciones de solicitudes de servicio Pocket Genes.",
   "A form input requires an enabled form shape.":
     "Una entrada de formulario requiere una forma de formulario habilitada.",
-  "Acceptance and scope": "Aceptación y alcance",
-  "Accepted conditions": "Condiciones aceptadas",
-  "Accepted conditions are the facts that must be true before the provider accepts the request. Scope rules are the boundaries the provider must follow while doing the work. This block is optional; add one rule per line only when the service needs explicit limits.":
-    "Las condiciones aceptadas son los hechos que deben cumplirse antes de que el proveedor acepte la solicitud. Las reglas de alcance son los límites que el proveedor debe respetar mientras realiza el trabajo. Este bloque es opcional; agregá una regla por línea solo cuando el servicio necesite límites explícitos.",
+  "Acceptance conditions and service limitations":
+    "Condiciones de aceptación y limitaciones del servicio",
+  "Acceptance conditions": "Condiciones de aceptación",
+  "Acceptance conditions describe what must already be true before the provider can accept the request. Service limitations explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This whole block is optional; add one condition or limitation per line only when the service needs them.":
+    "Las condiciones de aceptación describen qué debe cumplirse antes de que el proveedor pueda aceptar la solicitud. Las limitaciones del servicio explican qué no incluye el servicio, dónde termina la responsabilidad del proveedor o qué restricciones aplican a la entrega. Este bloque completo es opcional; agregá una condición o limitación por línea solo cuando el servicio las necesite.",
   "Accepted types": "Tipos aceptados",
   "Add field": "Agregar campo",
   "Add form field": "Agregar campo de formulario",
@@ -4940,8 +4941,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "No output slots defined.": "No hay slots de salida definidos.",
   "No output files are required for this service.":
     "Este servicio no requiere archivos de salida.",
-  "One accepted condition per line": "Una condición aceptada por línea",
-  "One scope rule per line": "Una regla de alcance por línea",
+  "One acceptance condition per line":
+    "Una condición de aceptación por línea",
+  "One service limitation per line":
+    "Una limitación del servicio por línea",
   "No provider selected": "Sin proveedor seleccionado",
   "No providers found in the loaded page.":
     "No se encontraron proveedores en la página cargada.",
@@ -5098,7 +5101,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Save field": "Guardar campo",
   "Save input slot": "Guardar slot de entrada",
   "Save output slot": "Guardar slot de salida",
-  "Scope rules": "Reglas de alcance",
+  "Service limitations": "Limitaciones del servicio",
   "Search by ID, provider, request, or name":
     "Buscar por ID, proveedor, solicitud o nombre",
   "Search loaded providers": "Buscar proveedores cargados",
@@ -5342,16 +5345,16 @@ const SPANISH_TEXT: Record<string, string> = {
     "El importe de precio fijo debe ser numérico.",
   "Fixed price currency is required.":
     "La moneda del precio fijo es obligatoria.",
-  "At least one accepted condition is required.":
-    "Se requiere al menos una condición aceptada.",
-  "At least one scope rule is required.":
-    "Se requiere al menos una regla de alcance.",
+  "At least one acceptance condition is required.":
+    "Se requiere al menos una condición de aceptación.",
+  "At least one service limitation is required.":
+    "Se requiere al menos una limitación del servicio.",
   "Completed transactions need at least one output object.":
     "Las transacciones completadas necesitan al menos un objeto de salida.",
   "Generated service ID is still checking existing offers.":
     "El ID de servicio generado todavía está verificando ofertas existentes.",
   "Use template": "Usar plantilla",
-  "Wet lab": "Laboratorio húmedo",
+  "Wet lab": "Wet lab",
   Weeks: "Semanas",
   bound: "vinculado",
   fields: "campos",

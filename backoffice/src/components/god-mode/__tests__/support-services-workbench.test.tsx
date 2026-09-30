@@ -298,6 +298,16 @@ describe("support services workbenches", () => {
     );
   });
 
+  it("uses service limitations terminology and keeps Wet lab in Spanish", () => {
+    expect(appText("es", "Service limitations")).toBe(
+      "Limitaciones del servicio",
+    );
+    expect(appText("es", "One service limitation per line")).toBe(
+      "Una limitación del servicio por línea",
+    );
+    expect(appText("es", "Wet lab")).toBe("Wet lab");
+  });
+
   it("shows transaction list load failures instead of a false empty state", async () => {
     sdkFetchMock.mockRejectedValue(
       new SdkRequestError({

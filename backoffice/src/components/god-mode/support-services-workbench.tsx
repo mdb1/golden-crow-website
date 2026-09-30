@@ -3970,16 +3970,16 @@ export function SupportServiceOfferWorkbench({
         />
         <SlotEditors form={form} setForm={setForm} />
         <TermsEditor form={form} setForm={setForm} />
-        <Section title="Acceptance and scope">
+        <Section title="Acceptance conditions and service limitations">
           <div className="grid gap-2">
             <p className="text-sm text-muted-foreground">
               {t(
-                "Accepted conditions are the facts that must be true before the provider accepts the request. Scope rules are the boundaries the provider must follow while doing the work. This block is optional; add one rule per line only when the service needs explicit limits.",
+                "Acceptance conditions describe what must already be true before the provider can accept the request. Service limitations explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This whole block is optional; add one condition or limitation per line only when the service needs them.",
               )}
             </p>
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Field label="Accepted conditions">
+            <Field label="Acceptance conditions">
               <Textarea
                 value={form.acceptedConditionsText}
                 onChange={(event) =>
@@ -3989,10 +3989,10 @@ export function SupportServiceOfferWorkbench({
                   }))
                 }
                 rows={8}
-                placeholder={t("One accepted condition per line")}
+                placeholder={t("One acceptance condition per line")}
               />
             </Field>
-            <Field label="Scope rules">
+            <Field label="Service limitations">
               <Textarea
                 value={form.scopeRulesText}
                 onChange={(event) =>
@@ -4002,7 +4002,7 @@ export function SupportServiceOfferWorkbench({
                   }))
                 }
                 rows={8}
-                placeholder={t("One scope rule per line")}
+                placeholder={t("One service limitation per line")}
               />
             </Field>
           </div>

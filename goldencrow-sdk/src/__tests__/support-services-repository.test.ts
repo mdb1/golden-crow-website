@@ -886,6 +886,7 @@ describe("support service repository versions", () => {
       description: "Create a reviewed report.",
       isHighlightedOffer: true,
       acceptedConditions: ["The order must identify the subject."],
+      scopeRules: ["The service does not include clinical follow-up."],
     });
 
     expect(first.serviceVersion).toBe(4);
@@ -910,6 +911,12 @@ describe("support service repository versions", () => {
     expect(firstTransition!.en).toContain(
       "Acceptance conditions / item 1 was added",
     );
+    expect(firstTransition!.en).toContain(
+      "Service limitations / item 1 was added",
+    );
+    expect(firstTransition!.es).toContain(
+      "Limitaciones del servicio / elemento 1 se agregó con",
+    );
     expect(firstTransition!.en).not.toContain("Contract continuity:");
     expect(firstTransition!.es).not.toContain("Continuidad contractual:");
 
@@ -919,6 +926,7 @@ describe("support service repository versions", () => {
       description: "Create a reviewed report.",
       isHighlightedOffer: true,
       acceptedConditions: ["The order must identify the subject."],
+      scopeRules: ["The service does not include clinical follow-up."],
     });
 
     expect(second.serviceVersion).toBe(5);
