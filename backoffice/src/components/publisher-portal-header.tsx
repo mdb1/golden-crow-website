@@ -35,7 +35,7 @@ function titleForPath(pathname: string, language: "en" | "es") {
     pathname === PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE ||
     pathname.startsWith(`${PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}/`)
   ) {
-    return appText(language, "Service Transactions");
+    return appText(language, "Service Requests");
   }
 
   if (

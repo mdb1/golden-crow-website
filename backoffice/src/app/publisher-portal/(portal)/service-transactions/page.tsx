@@ -15,9 +15,9 @@ export default async function PublisherServiceTransactionsPage() {
         header={
           <PageHero
             eyebrow={t("Support services")}
-            title={t("Service Transactions")}
+            title={t("Service Requests")}
             description={t(
-              "Manage transactions linked to your organization's service offers.",
+              "Manage requests linked to your organization's service offers.",
             )}
           />
         }
@@ -27,6 +27,8 @@ export default async function PublisherServiceTransactionsPage() {
           routeBase={PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}
           canCreate={false}
           canDelete={false}
+          displayTitle="Service Requests"
+          recordColumnLabel="Service Request"
         />
       </HeaderUnclutterScope>
     </div>

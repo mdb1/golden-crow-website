@@ -120,7 +120,7 @@ export function PublisherPortalSidebar({
           },
           {
             href: PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
-            label: "Service Transactions",
+            label: "Service Requests",
             icon: ClipboardList,
           },
         ]

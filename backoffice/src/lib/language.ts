@@ -4785,8 +4785,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Support Services": "Servicios de soporte",
   "Service Offers": "Ofertas de servicio",
   "Service Transactions": "Transacciones de servicio",
+  "Service Requests": "Solicitudes de servicio",
   "Service Offer": "Oferta de servicio",
   "Service Transaction": "Transacción de servicio",
+  "Service Request": "Solicitud de servicio",
   "Alta de service offer": "Alta de oferta de servicio",
   "Editar service offer": "Editar oferta de servicio",
   "Alta de transaccion": "Alta de transacción",
@@ -4813,6 +4815,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Editá la oferta de servicio Pocket Genes de tu organización.",
   "Manage transactions linked to your organization's service offers.":
     "Gestioná las transacciones vinculadas a las ofertas de servicio de tu organización.",
+  "Manage requests linked to your organization's service offers.":
+    "Gestioná las solicitudes vinculadas a las ofertas de servicio de tu organización.",
   "Manage this service transaction for your organization.":
     "Gestioná esta transacción de servicio para tu organización.",
   "Pocket Genes service request transactions.":

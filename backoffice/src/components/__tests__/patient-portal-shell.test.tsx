@@ -164,7 +164,7 @@ describe("Publisher portal Spanish shell", () => {
     expect(screen.getByText("Catálogo")).toBeTruthy();
     expect(screen.getByText("Servicios de soporte")).toBeTruthy();
     expect(screen.getByText("Ofertas de servicio")).toBeTruthy();
-    expect(screen.getByText("Transacciones de servicio")).toBeTruthy();
+    expect(screen.getByText("Solicitudes de servicio")).toBeTruthy();
     expect(screen.getAllByText("Entradas del feed").length).toBeGreaterThan(0);
     expect(screen.getByText("Mi cuenta")).toBeTruthy();
     expect(
@@ -184,7 +184,7 @@ describe("Publisher portal Spanish shell", () => {
     ).toBe("/publisher-portal/service-offers");
     expect(
       screen
-        .getByRole("link", { name: /Transacciones de servicio/i })
+        .getByRole("link", { name: /Solicitudes de servicio/i })
         .getAttribute("href"),
     ).toBe("/publisher-portal/service-transactions");
     expect(screen.queryByText("Perfil de publicador")).toBeNull();
@@ -212,7 +212,7 @@ describe("Publisher portal Spanish shell", () => {
       screen.queryByRole("link", { name: /Ofertas de servicio/i }),
     ).toBeNull();
     expect(
-      screen.queryByRole("link", { name: /Transacciones de servicio/i }),
+      screen.queryByRole("link", { name: /Solicitudes de servicio/i }),
     ).toBeNull();
   });
 
@@ -230,7 +230,7 @@ describe("Publisher portal Spanish shell", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "Transacciones de servicio",
+        name: "Solicitudes de servicio",
       }),
     ).toBeTruthy();
   });

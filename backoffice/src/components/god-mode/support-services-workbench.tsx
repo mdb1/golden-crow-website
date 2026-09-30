@@ -2243,11 +2243,15 @@ export function SupportServicesBrowser({
   routeBase,
   canCreate = true,
   canDelete = true,
+  displayTitle,
+  recordColumnLabel,
 }: {
   kind: WorkbenchKind;
   routeBase?: string;
   canCreate?: boolean;
   canDelete?: boolean;
+  displayTitle?: string;
+  recordColumnLabel?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -2343,7 +2347,8 @@ export function SupportServicesBrowser({
     deleteMutation.mutate(record);
   }
 
-  const title = isOffers ? "Service Offers" : "Service Transactions";
+  const title =
+    displayTitle ?? (isOffers ? "Service Offers" : "Service Transactions");
   const createLabel = isOffers
     ? "Alta de service offer"
     : "Alta de transaccion";
@@ -2498,7 +2503,9 @@ export function SupportServicesBrowser({
                 </TableRow>
               ) : (
                 <TableRow>
-                  <TableHead>{t("Transaction")}</TableHead>
+                  <TableHead>
+                    {t(recordColumnLabel ?? "Transaction")}
+                  </TableHead>
                   <TableHead>{t("Service")}</TableHead>
                   <TableHead>{t("Status")}</TableHead>
                   <TableHead>{t("Inputs")}</TableHead>

@@ -5,6 +5,8 @@ import PublisherPortalHomePage from "@/app/publisher-portal/(portal)/home/page";
 import type { MyAccountRecord } from "@/lib/admin-areas";
 import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
+  PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
+  PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
   publisherPortalFeedEntriesByStatusRoute,
   publisherPortalFeedEntryCreateRoute,
   publisherPortalOrganizationDetailRoute,
@@ -115,6 +117,22 @@ describe("PublisherPortalHomePage", () => {
         .getByRole("link", { name: /Abrir catálogo/i })
         .getAttribute("href"),
     ).toBe(publisherPortalOrganizationProductCatalogRoute("org-1"));
+    expect(
+      screen
+        .getByRole("link", { name: /Abrir ofertas/i })
+        .getAttribute("href"),
+    ).toBe(PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE);
+    expect(
+      screen.getByRole("heading", { name: "Ofertas de servicio" }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: /Abrir solicitudes/i })
+        .getAttribute("href"),
+    ).toBe(PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE);
+    expect(
+      screen.getByRole("heading", { name: "Solicitudes de servicio" }),
+    ).toBeTruthy();
     expect(screen.queryByText("Ver mis borradores")).toBeNull();
   });
 
@@ -181,5 +199,7 @@ describe("PublisherPortalHomePage", () => {
 
     expect(screen.queryByText("Personalizar mi organización")).toBeNull();
     expect(screen.queryByText("Acceder al catálogo")).toBeNull();
+    expect(screen.queryByText("Ofertas de servicio")).toBeNull();
+    expect(screen.queryByText("Solicitudes de servicio")).toBeNull();
   });
 });

@@ -427,10 +427,14 @@ describe("support services workbenches", () => {
         routeBase="/publisher-portal/service-transactions"
         canCreate={false}
         canDelete={false}
+        displayTitle="Service Requests"
+        recordColumnLabel="Service Request"
       />,
     );
 
     expect(await screen.findByText(runningTransaction.requestId)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Service Requests" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Service Request" })).toBeTruthy();
     expect(screen.queryByText("Alta de transaccion")).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
     expect(screen.getByRole("link", { name: "Edit" }).getAttribute("href")).toBe(

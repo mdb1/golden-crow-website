@@ -3,7 +3,9 @@ import {
   ArrowRight,
   BadgeCheck,
   BookOpenText,
+  BriefcaseBusiness,
   Building2,
+  ClipboardList,
   FileText,
   type LucideIcon,
   Newspaper,
@@ -14,6 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
+  PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
+  PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
   publisherPortalFeedEntriesByStatusRoute,
   publisherPortalFeedEntryCreateRoute,
   publisherPortalOrganizationDetailRoute,
@@ -264,6 +268,22 @@ export function PublisherPortalHome({
               actionLabel="Abrir catálogo"
               href={productCatalogHref}
               tone="neutral"
+            />
+            <QuickAccessCard
+              icon={BriefcaseBusiness}
+              title="Ofertas de servicio"
+              body="Creá y administrá las ofertas que tu organización publica para recibir nuevas solicitudes."
+              actionLabel="Abrir ofertas"
+              href={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
+              tone="primary"
+            />
+            <QuickAccessCard
+              icon={ClipboardList}
+              title="Solicitudes de servicio"
+              body="Revisá las solicitudes recibidas y seguí su avance hasta completar la entrega."
+              actionLabel="Abrir solicitudes"
+              href={PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}
+              tone="secondary"
             />
           </div>
         ) : null}
