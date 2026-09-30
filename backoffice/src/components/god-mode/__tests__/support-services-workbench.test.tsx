@@ -620,6 +620,41 @@ describe("support services workbenches", () => {
         .getByTestId("service-offer-slot-layout")
         .classList.contains("xl:grid-cols-2"),
     ).toBe(false);
+    expect(screen.getByText("No input slots defined.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Request form" }),
+    ).toBeTruthy();
+    const resetFormDisclosure = screen.getByTestId(
+      "service-offer-wizard-form-disclosure",
+    );
+    expect(resetFormDisclosure.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(resetFormDisclosure);
+    fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+    const fieldDialog = await screen.findByRole("dialog", {
+      name: "Add form field",
+    });
+    fireEvent.change(within(fieldDialog).getByLabelText("Key"), {
+      target: { value: "request_reason" },
+    });
+    fireEvent.change(within(fieldDialog).getByLabelText("Label"), {
+      target: { value: "Request reason" },
+    });
+    fireEvent.click(
+      within(fieldDialog).getByRole("button", { name: "Save field" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Inputs and outputs" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("No input slots defined.")).toBeNull();
+    expect(
+      within(screen.getByTestId("service-offer-slot-layout")).getByText(
+        "Form",
+      ),
+    ).toBeTruthy();
   });
 
   it("shows lock affordances and no delete action on publisher transaction detail", async () => {

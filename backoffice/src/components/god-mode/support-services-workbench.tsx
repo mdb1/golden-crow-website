@@ -3673,19 +3673,24 @@ export function SupportServiceOfferWorkbench({
     requestOfferSave("publish");
   }
 
-  function validateWizardStep(stepIndex: number) {
+  function validateWizardStep(
+    stepIndex: number,
+    candidateForm: OfferFormState = form,
+  ) {
     if (stepIndex === 0) {
-      if (!form.name.trim()) {
+      if (!candidateForm.name.trim()) {
         return t("Offer name is required.");
       }
-      if (!isSupportServiceCategoryKey(form.serviceCategory)) {
+      if (!isSupportServiceCategoryKey(candidateForm.serviceCategory)) {
         return t("Choose one service category.");
       }
     }
 
-    if (stepIndex === 2 && form.promotionalBannerImageUrl.trim()) {
+    if (stepIndex === 2 && candidateForm.promotionalBannerImageUrl.trim()) {
       try {
-        const imageUrl = new URL(form.promotionalBannerImageUrl.trim());
+        const imageUrl = new URL(
+          candidateForm.promotionalBannerImageUrl.trim(),
+        );
         if (imageUrl.protocol !== "https:" || !imageUrl.hostname) {
           return t("Promotional banner image URL must be a valid HTTPS URL.");
         }
@@ -3695,17 +3700,17 @@ export function SupportServiceOfferWorkbench({
     }
 
     if (stepIndex === 3) {
-      if (!form.description.trim()) {
+      if (!candidateForm.description.trim()) {
         return t("Description is required.");
       }
-      if (!form.providerWork.trim()) {
+      if (!candidateForm.providerWork.trim()) {
         return t("Provider work is required.");
       }
     }
 
     if (stepIndex >= 4) {
       try {
-        offerPayloadFromForm(form);
+        offerPayloadFromForm(candidateForm);
       } catch (error) {
         return t(
           error instanceof Error ? error.message : "Review the current step.",
@@ -3717,12 +3722,27 @@ export function SupportServiceOfferWorkbench({
   }
 
   function advanceWizard() {
-    const message = validateWizardStep(wizardStepIndex);
+    const shouldIgnoreEmptyForm =
+      wizardStepIndex === 4 &&
+      form.supportsFormShape &&
+      form.formShape.fields.length === 0;
+    const candidateForm = shouldIgnoreEmptyForm
+      ? {
+          ...form,
+          supportsFormShape: false,
+          formShape: defaultFormShape(),
+          inputSlots: withoutFormInputSlots(form.inputSlots),
+        }
+      : form;
+    const message = validateWizardStep(wizardStepIndex, candidateForm);
     if (message) {
       setWizardValidationMessage(message);
       return;
     }
 
+    if (shouldIgnoreEmptyForm) {
+      setForm(candidateForm);
+    }
     setWizardValidationMessage("");
     setWizardStepIndex((current) =>
       Math.min(current + 1, SERVICE_OFFER_WIZARD_LAST_STEP),
