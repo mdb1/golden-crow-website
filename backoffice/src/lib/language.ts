@@ -4870,6 +4870,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Acceptance conditions and service limitations":
     "Condiciones de aceptación y limitaciones del servicio",
   "Acceptance conditions": "Condiciones de aceptación",
+  "Define what must already be true before the provider can accept the request. This section is optional; add one condition per line only when needed.":
+    "Definí qué debe cumplirse antes de que el proveedor pueda aceptar la solicitud. Esta sección es opcional; agregá una condición por línea sólo cuando sea necesaria.",
+  "Explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This section is optional; add one limitation per line only when needed.":
+    "Explicá qué no incluye el servicio, dónde termina la responsabilidad del proveedor o qué restricciones aplican a la entrega. Esta sección es opcional; agregá una limitación por línea sólo cuando sea necesaria.",
   "Acceptance conditions describe what must already be true before the provider can accept the request. Service limitations explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This whole block is optional; add one condition or limitation per line only when the service needs them.":
     "Las condiciones de aceptación describen qué debe cumplirse antes de que el proveedor pueda aceptar la solicitud. Las limitaciones del servicio explican qué no incluye el servicio, dónde termina la responsabilidad del proveedor o qué restricciones aplican a la entrega. Este bloque completo es opcional; agregá una condición o limitación por línea solo cuando el servicio las necesite.",
   "Accepted types": "Tipos aceptados",

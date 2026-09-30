@@ -669,6 +669,47 @@ describe("support services workbenches", () => {
         .classList.contains("lg:grid-cols-3"),
     ).toBe(false);
     expect(appText("es", "Price summary")).toBe("Explicación del precio");
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Conditions and limitations",
+      }),
+    ).toBeTruthy();
+    const conditionsLayout = screen.getByTestId(
+      "service-offer-wizard-conditions-layout",
+    );
+    expect(within(conditionsLayout).getAllByRole("heading", { level: 3 })).toHaveLength(
+      2,
+    );
+    expect(
+      within(conditionsLayout).getByRole("heading", {
+        level: 3,
+        name: "Acceptance conditions",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(conditionsLayout).getByText(
+        "Define what must already be true before the provider can accept the request. This section is optional; add one condition per line only when needed.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(conditionsLayout).getByRole("heading", {
+        level: 3,
+        name: "Service limitations",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(conditionsLayout).getByText(
+        "Explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This section is optional; add one limitation per line only when needed.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        "Acceptance conditions describe what must already be true before the provider can accept the request. Service limitations explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This whole block is optional; add one condition or limitation per line only when the service needs them.",
+      ),
+    ).toBeNull();
   });
 
   it("shows lock affordances and no delete action on publisher transaction detail", async () => {
@@ -1052,6 +1093,11 @@ describe("support services workbenches", () => {
         .getByTestId("service-offer-terms-layout")
         .classList.contains("lg:grid-cols-3"),
     ).toBe(true);
+    expect(
+      screen.getByText(
+        "Acceptance conditions describe what must already be true before the provider can accept the request. Service limitations explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This whole block is optional; add one condition or limitation per line only when the service needs them.",
+      ),
+    ).toBeTruthy();
     expect(screen.getByText("Not requested")).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox", { name: "Support form input" }));
     expect(screen.getByText("Form shape ID")).toBeTruthy();

@@ -4069,15 +4069,19 @@ export function SupportServiceOfferWorkbench({
                 ) : null}
 
                 {wizardStepIndex === 7 ? (
-                  <Section title="Acceptance conditions and service limitations">
-                    <p className="text-sm leading-6 text-muted-foreground">
-                      {t(
-                        "Acceptance conditions describe what must already be true before the provider can accept the request. Service limitations explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This whole block is optional; add one condition or limitation per line only when the service needs them.",
-                      )}
-                    </p>
-                    <div className="grid gap-5 lg:grid-cols-2">
-                      <Field label="Acceptance conditions">
+                  <div
+                    data-testid="service-offer-wizard-conditions-layout"
+                    className="grid gap-8 [&>section]:m-0"
+                  >
+                    <Section title="Acceptance conditions">
+                      <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                        {t(
+                          "Define what must already be true before the provider can accept the request. This section is optional; add one condition per line only when needed.",
+                        )}
+                      </p>
+                      <div className="pt-1">
                         <Textarea
+                          aria-label={t("Acceptance conditions")}
                           value={form.acceptedConditionsText}
                           onChange={(event) =>
                             setForm((current) => ({
@@ -4088,9 +4092,17 @@ export function SupportServiceOfferWorkbench({
                           rows={9}
                           placeholder={t("One acceptance condition per line")}
                         />
-                      </Field>
-                      <Field label="Service limitations">
+                      </div>
+                    </Section>
+                    <Section title="Service limitations">
+                      <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                        {t(
+                          "Explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This section is optional; add one limitation per line only when needed.",
+                        )}
+                      </p>
+                      <div className="pt-1">
                         <Textarea
+                          aria-label={t("Service limitations")}
                           value={form.scopeRulesText}
                           onChange={(event) =>
                             setForm((current) => ({
@@ -4101,9 +4113,9 @@ export function SupportServiceOfferWorkbench({
                           rows={9}
                           placeholder={t("One service limitation per line")}
                         />
-                      </Field>
-                    </div>
-                  </Section>
+                      </div>
+                    </Section>
+                  </div>
                 ) : null}
 
                 {wizardStepIndex === 8 ? (
