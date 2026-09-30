@@ -27,6 +27,7 @@ export default async function PublisherServiceTransactionsPage() {
           routeBase={PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}
           canCreate={false}
           canDelete={false}
+          publisherPresentation
           displayTitle="Service Requests"
           recordColumnLabel="Service Request"
         />

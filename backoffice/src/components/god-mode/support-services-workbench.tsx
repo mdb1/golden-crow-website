@@ -22,6 +22,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Binary,
+  BriefcaseBusiness,
   Building2,
   ChartPie,
   Check,
@@ -2315,6 +2316,7 @@ export function SupportServicesBrowser({
   routeBase,
   canCreate = true,
   canDelete = true,
+  publisherPresentation = false,
   displayTitle,
   recordColumnLabel,
 }: {
@@ -2322,6 +2324,7 @@ export function SupportServicesBrowser({
   routeBase?: string;
   canCreate?: boolean;
   canDelete?: boolean;
+  publisherPresentation?: boolean;
   displayTitle?: string;
   recordColumnLabel?: string;
 }) {
@@ -2368,6 +2371,7 @@ export function SupportServicesBrowser({
     [listQuery.data?.pages],
   );
   const rows = isOffers ? offers : transactions;
+  const allowDelete = canDelete && !publisherPresentation;
   const listErrorLog = useMemo(
     () => (listQuery.error ? requestErrorLog(listQuery.error) : ""),
     [listQuery.error],
@@ -2562,6 +2566,14 @@ export function SupportServicesBrowser({
           </div>
         </div>
         <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
+          {publisherPresentation && rows.length > 0 ? (
+            <PublisherSupportServiceRows
+              kind={kind}
+              offers={offers}
+              transactions={transactions}
+              route={route}
+            />
+          ) : (
           <Table>
             <TableHeader>
               {isOffers ? (
@@ -2570,7 +2582,9 @@ export function SupportServicesBrowser({
                   <TableHead>{t("Provider")}</TableHead>
                   <TableHead>{t("Stage")}</TableHead>
                   <TableHead>{t("Status")}</TableHead>
-                  <TableHead>{t("Contract")}</TableHead>
+                  {!publisherPresentation ? (
+                    <TableHead>{t("Contract")}</TableHead>
+                  ) : null}
                   <TableHead className="text-right">{t("Actions")}</TableHead>
                 </TableRow>
               ) : (
@@ -2590,14 +2604,17 @@ export function SupportServicesBrowser({
               {isInitialLoading ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <TableRow key={index}>
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={isOffers && publisherPresentation ? 5 : 6}>
                       <Skeleton className="h-9 w-full" />
                     </TableCell>
                   </TableRow>
                 ))
               ) : listQuery.isError && rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center">
+                  <TableCell
+                    colSpan={isOffers && publisherPresentation ? 5 : 6}
+                    className="py-10 text-center"
+                  >
                     <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-destructive">
                       <CircleAlert className="h-8 w-8" />
                       <p className="text-sm font-medium">
@@ -2635,7 +2652,10 @@ export function SupportServicesBrowser({
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center">
+                  <TableCell
+                    colSpan={isOffers && publisherPresentation ? 5 : 6}
+                    className="py-10 text-center"
+                  >
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-muted-foreground">
                       <FileText className="h-8 w-8" />
                       <p className="text-sm">{t("No records found.")}</p>
@@ -2721,14 +2741,16 @@ export function SupportServicesBrowser({
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-[20rem] truncate text-sm text-muted-foreground">
-                      {offer.shortContract || "-"}
-                    </TableCell>
+                    {!publisherPresentation ? (
+                      <TableCell className="max-w-[20rem] truncate text-sm text-muted-foreground">
+                        {offer.shortContract || "-"}
+                      </TableCell>
+                    ) : null}
                     <TableCell className="text-right">
                       <RowActions
                         editHref={`${route}/${encodeURIComponent(offer.id)}`}
                         onDelete={
-                          canDelete ? () => handleDelete(offer) : undefined
+                          allowDelete ? () => handleDelete(offer) : undefined
                         }
                       />
                     </TableCell>
@@ -2784,7 +2806,7 @@ export function SupportServicesBrowser({
                       <RowActions
                         editHref={`${route}/${encodeURIComponent(transaction.requestId)}`}
                         onDelete={
-                          canDelete
+                          allowDelete
                             ? () => handleDelete(transaction)
                             : undefined
                         }
@@ -2795,6 +2817,7 @@ export function SupportServicesBrowser({
               )}
             </TableBody>
           </Table>
+          )}
         </div>
         <div className="flex items-center justify-between border-t border-border/70 px-4 py-3">
           <p className="text-sm text-muted-foreground">
@@ -2815,6 +2838,227 @@ export function SupportServicesBrowser({
         </div>
       </section>
     </>
+  );
+}
+
+function PublisherSupportServiceRows({
+  kind,
+  offers,
+  transactions,
+  route,
+}: {
+  kind: WorkbenchKind;
+  offers: SupportServiceOfferRecord[];
+  transactions: SupportServiceTransactionRecord[];
+  route: string;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const isOffers = kind === "offers";
+  const gridClass = isOffers
+    ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1.25fr)_minmax(8rem,0.8fr)_10rem_auto]"
+    : "lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1.3fr)_minmax(8rem,0.8fr)_10rem_auto]";
+
+  return (
+    <div data-testid="publisher-support-service-list">
+      <div
+        className={cn(
+          "hidden gap-4 border-b border-violet-100/80 bg-violet-50/60 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-950/60 dark:border-violet-400/14 dark:bg-violet-500/8 dark:text-violet-100/62 lg:grid",
+          gridClass,
+        )}
+      >
+        <span>{t(isOffers ? "Offer" : "Service Request")}</span>
+        <span>{t(isOffers ? "Stage" : "Service")}</span>
+        <span>{t("Status")}</span>
+        <span>{t("Updated")}</span>
+        <span className="text-right">{t("Action")}</span>
+      </div>
+
+      <div role="list">
+        {isOffers
+          ? offers.map((offer) => {
+              const category = supportServiceCategoryByKey(
+                offer.serviceCategory,
+              );
+              const bannerSource =
+                offer.promotionalBannerImageUrl?.trim() ||
+                offer.promotionalBannerImageUploadDataUrl ||
+                "";
+
+              return (
+                <article
+                  key={offer.id}
+                  role="listitem"
+                  className={cn(
+                    "grid gap-4 border-b border-violet-100/70 px-4 py-4 transition-colors last:border-b-0 hover:bg-violet-50/42 dark:border-violet-400/12 dark:hover:bg-violet-500/6 lg:items-center",
+                    gridClass,
+                  )}
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-violet-100 bg-violet-50 text-violet-600 dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100">
+                      {bannerSource ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={bannerSource}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <BriefcaseBusiness className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-heading text-base font-semibold text-foreground">
+                        {offer.name || offer.id}
+                      </h3>
+                      <p className="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground">
+                        {offer.description || t("No description")}
+                      </p>
+                      <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                        {offer.serviceId} · v{offer.serviceVersion}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="min-w-0 space-y-2">
+                    <Badge variant="brand">
+                      {category
+                        ? supportServiceCategoryName(category, language)
+                        : t("Uncategorized")}
+                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {offer.stages.map((stage) => (
+                        <Badge key={stage} variant="secondary">
+                          {t(stageLabel(stage))}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge
+                      variant={offer.status === "active" ? "success" : "outline"}
+                    >
+                      {t(offerStatusLabel(offer.status))}
+                    </Badge>
+                    {offer.isHighlightedOffer ? (
+                      <Badge variant="secondary">{t("Highlighted offer")}</Badge>
+                    ) : null}
+                    {offer.isProfessionalOffer ? (
+                      <Badge variant="secondary">{t("Professional offer")}</Badge>
+                    ) : null}
+                    {(offer.complianceWarnings?.length ?? 0) > 0 ? (
+                      <Badge variant="warning">
+                        <CircleAlert className="h-3 w-3" />
+                        {offer.complianceWarnings?.length} {t("warnings")}
+                      </Badge>
+                    ) : null}
+                  </div>
+
+                  <div className="text-sm text-muted-foreground">
+                    {t(dateLabel(offer.updatedAt))}
+                  </div>
+
+                  <PublisherOpenAction
+                    href={`${route}/${encodeURIComponent(offer.id)}`}
+                  />
+                </article>
+              );
+            })
+          : transactions.map((transaction) => {
+              const serviceName =
+                typeof transaction.offerSnapshot?.name === "string"
+                  ? transaction.offerSnapshot.name.trim()
+                  : "";
+
+              return (
+                <article
+                  key={transaction.id}
+                  role="listitem"
+                  className={cn(
+                    "grid gap-4 border-b border-violet-100/70 px-4 py-4 transition-colors last:border-b-0 hover:bg-violet-50/42 dark:border-violet-400/12 dark:hover:bg-violet-500/6 lg:items-center",
+                    gridClass,
+                  )}
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-violet-100 bg-violet-50 text-violet-700 dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100">
+                      <ClipboardList className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="truncate font-mono text-sm font-semibold text-foreground">
+                        {transaction.requestId}
+                      </h3>
+                      <p className="mt-1 truncate text-sm text-muted-foreground">
+                        {transaction.requestedByUserEmail ||
+                          transaction.requestedByUserId ||
+                          "-"}
+                      </p>
+                      <Badge variant="outline" className="mt-2">
+                        {transaction.inputs.length} {t("bound inputs")}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {serviceName || transaction.serviceId}
+                    </p>
+                    <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                      {transaction.serviceId} · v{transaction.serviceVersion}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge
+                      variant={
+                        transaction.status === "delivered"
+                          ? "success"
+                          : "outline"
+                      }
+                    >
+                      {t(transactionStatusLabel(transaction.status))}
+                    </Badge>
+                    {(transaction.complianceWarnings?.length ?? 0) > 0 ? (
+                      <Badge variant="warning">
+                        <CircleAlert className="h-3 w-3" />
+                        {transaction.complianceWarnings?.length} {t("warnings")}
+                      </Badge>
+                    ) : null}
+                  </div>
+
+                  <div className="text-sm text-muted-foreground">
+                    {t(dateLabel(transaction.updatedAt))}
+                  </div>
+
+                  <PublisherOpenAction
+                    href={`${route}/${encodeURIComponent(transaction.requestId)}`}
+                  />
+                </article>
+              );
+            })}
+      </div>
+    </div>
+  );
+}
+
+function PublisherOpenAction({ href }: { href: string }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <div className="flex lg:justify-end">
+      <Button
+        asChild
+        variant="outline"
+        size="sm"
+        className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+      >
+        <Link href={href}>
+          <span>{t("Open")}</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </Button>
+    </div>
   );
 }
 

@@ -34,7 +34,7 @@ export default async function PublisherServiceOfferDetailPage({
           offerId={decodeURIComponent(offerId)}
           routeBase={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
           fixedProvider={provider}
-          canDelete
+          canDelete={false}
         />
       </HeaderUnclutterScope>
     </div>

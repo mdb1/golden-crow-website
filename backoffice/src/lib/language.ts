@@ -5001,6 +5001,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "No records found.": "No se encontraron registros.",
   "Could not load records.": "No se pudieron cargar los registros.",
   "compliance warnings": "advertencias de cumplimiento",
+  warnings: "advertencias",
+  "bound inputs": "entradas vinculadas",
+  "No description": "Sin descripción",
   "Offer requires remediation": "La oferta requiere corrección",
   "This service offer remains visible in Support Services but is not fully compliant. Review these warnings, correct the editable data, and save it to normalize the entity.":
     "Esta oferta de servicio sigue visible en Servicios de soporte, pero no cumple completamente el contrato. Revisá las advertencias, corregí los datos editables y guardala para normalizar la entidad.",

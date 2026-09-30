@@ -437,6 +437,7 @@ describe("support services workbenches", () => {
         routeBase="/publisher-portal/service-transactions"
         canCreate={false}
         canDelete={false}
+        publisherPresentation
         displayTitle="Service Requests"
         recordColumnLabel="Service Request"
       />,
@@ -444,11 +445,39 @@ describe("support services workbenches", () => {
 
     expect(await screen.findByText(runningTransaction.requestId)).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Service Requests" })).toBeTruthy();
-    expect(screen.getByRole("columnheader", { name: "Service Request" })).toBeTruthy();
+    expect(screen.getByTestId("publisher-support-service-list")).toBeTruthy();
     expect(screen.queryByText("Alta de transaccion")).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-    expect(screen.getByRole("link", { name: "Edit" }).getAttribute("href")).toBe(
+    expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Open" }).getAttribute("href")).toBe(
       `/publisher-portal/service-transactions/${runningTransaction.requestId}`,
+    );
+  });
+
+  it("shows publisher offers as useful open-only rows without the contract column", async () => {
+    sdkFetchMock.mockResolvedValue({
+      offers: [hiddenOffer],
+      nextCursor: undefined,
+    });
+
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="offers"
+        routeBase="/publisher-portal/service-offers"
+        canDelete
+        publisherPresentation
+      />,
+    );
+
+    expect(await screen.findByText(hiddenOffer.name)).toBeTruthy();
+    expect(screen.getByText(hiddenOffer.description)).toBeTruthy();
+    expect(screen.getByText("Genomic report generation")).toBeTruthy();
+    expect(screen.queryByText("Contract")).toBeNull();
+    expect(screen.queryByText(hiddenOffer.shortContract)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Open" }).getAttribute("href")).toBe(
+      `/publisher-portal/service-offers/${hiddenOffer.id}`,
     );
   });
 

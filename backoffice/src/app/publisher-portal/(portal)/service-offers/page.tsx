@@ -26,7 +26,8 @@ export default async function PublisherServiceOffersPage() {
           kind="offers"
           routeBase={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
           canCreate
-          canDelete
+          canDelete={false}
+          publisherPresentation
         />
       </HeaderUnclutterScope>
     </div>
