@@ -162,6 +162,7 @@ function localPath(path: string) {
         <div class="pg-card-grid">
           {page.pillars.map((pillar) => (
             <article class="pg-card">
+              {pillar.badge && <span class="pg-badge" set:html={formatBrandText(pillar.badge)} />}
               <h3 set:html={formatBrandText(pillar.title)} />
               <p set:html={formatBrandText(pillar.body)} />
             </article>
@@ -171,7 +172,7 @@ function localPath(path: string) {
     </section>
 
     {page.sections.map((section, index) => (
-      <section id={section.id} class:list={['pg-deep-section', { 'is-reversed': index % 2 === 1 }]}>
+      <section id={section.id} class:list={['pg-deep-section', { 'is-reversed': index % 2 === 1, 'is-wide': section.wide && !section.image, 'is-two-col': section.twoColumns }]}>
         <div class="pg-container pg-deep-grid">
           <div class="pg-deep-copy">
             <p class="pg-section-eyebrow" set:html={formatBrandText(section.eyebrow)} />
@@ -180,6 +181,7 @@ function localPath(path: string) {
             <div class="pg-list-grid">
               {section.items.map((item) => (
                 <article class="pg-list-item">
+                  {item.badge && <span class="pg-badge" set:html={formatBrandText(item.badge)} />}
                   <h3 set:html={formatBrandText(item.title)} />
                   <p set:html={formatBrandText(item.body)} />
                 </article>
@@ -516,6 +518,36 @@ function localPath(path: string) {
     align-items: center;
   }
 
+  .pg-deep-section.is-wide .pg-deep-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pg-deep-section.is-wide .pg-deep-copy > h2,
+  .pg-deep-section.is-wide .pg-deep-copy > p {
+    max-width: 780px;
+  }
+
+  .pg-deep-section.is-wide .pg-list-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .pg-deep-section.is-two-col .pg-list-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pg-badge {
+    display: inline-block;
+    margin-bottom: 0.6rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: var(--pg-nav-active-bg);
+    color: var(--pg-nav-active-ink);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
   .pg-deep-section.is-reversed .pg-deep-copy {
     order: 2;
   }
@@ -623,7 +655,8 @@ function localPath(path: string) {
     }
 
     .pg-card-grid,
-    .pg-list-grid {
+    .pg-list-grid,
+    .pg-deep-section.is-wide .pg-list-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
@@ -701,7 +734,9 @@ function localPath(path: string) {
     }
 
     .pg-card-grid,
-    .pg-list-grid {
+    .pg-list-grid,
+    .pg-deep-section.is-wide .pg-list-grid,
+    .pg-deep-section.is-two-col .pg-list-grid {
       grid-template-columns: 1fr;
     }
 

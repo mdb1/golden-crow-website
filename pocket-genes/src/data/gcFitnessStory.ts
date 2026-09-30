@@ -2,7 +2,28 @@
 // que la de Pocket Genes. Los datos duros (links de tienda) salen de
 // `gcFitnessPublic.ts` para no tener dos fuentes de verdad.
 import type { Lang } from '../i18n/ui';
-import type { ProductStoryPageData, StoryNavItem } from './productStory';
+import type { ProductStoryPageData, StoryNavItem, StoryPalette } from './productStory';
+
+/**
+ * Paleta ámbar de GC Fitness, compartida por /gc-fitness y /gc-fitness/coaches.
+ *
+ * La imagen del hero es la misma de la card, y trae el logo y el nombre
+ * pintados a la izquierda. El velo va casi opaco hasta el 42% para tapar ese
+ * texto — si no se lee por detrás del titular de la página — y se abre sobre el
+ * lado derecho, que es donde están el teléfono y el reloj.
+ */
+export const gcFitnessPalette: StoryPalette = {
+  accent: '#af8232',
+  accentAlt: '#7a5413',
+  accentSoft: '#f0c658',
+  navActiveBg: '#faf1dd',
+  navActiveInk: '#6b4c12',
+  heroOverlay:
+    'linear-gradient(90deg, rgba(26, 18, 6, 0.99) 0%, rgba(26, 18, 6, 0.98) 48%, rgba(26, 18, 6, 0.5) 66%, rgba(26, 18, 6, 0.1) 100%)',
+  heroOverlayNarrow:
+    'linear-gradient(180deg, rgba(26, 18, 6, 0.94) 0%, rgba(26, 18, 6, 0.78) 62%, rgba(26, 18, 6, 0.42) 100%)',
+  heroPosition: 'right center',
+};
 
 interface StoryCopy {
   nav: StoryNavItem[];
@@ -13,6 +34,7 @@ const copy: Record<Lang, StoryCopy> = {
   es: {
     nav: [
       { label: 'El producto', path: '/gc-fitness', slug: 'product' },
+      { label: 'Para coaches', path: '/gc-fitness/coaches', slug: 'coaches' },
       { label: 'Descargar', path: '/gc-fitness/download', slug: 'download' },
       { label: 'Privacidad', path: '/gc-fitness/privacy', slug: 'privacy' },
     ],
@@ -190,6 +212,7 @@ const copy: Record<Lang, StoryCopy> = {
   en: {
     nav: [
       { label: 'The product', path: '/gc-fitness', slug: 'product' },
+      { label: 'For coaches', path: '/gc-fitness/coaches', slug: 'coaches' },
       { label: 'Download', path: '/gc-fitness/download', slug: 'download' },
       { label: 'Privacy', path: '/gc-fitness/privacy', slug: 'privacy' },
     ],

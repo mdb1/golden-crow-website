@@ -32,6 +32,8 @@ export interface StoryStat {
 export interface StoryCard {
   title: string;
   body: string;
+  /** Etiqueta chica arriba del título («Nuevo», «Próximamente»…). Opcional. */
+  badge?: string;
 }
 
 export interface StorySection {
@@ -42,6 +44,13 @@ export interface StorySection {
   items: StoryCard[];
   image?: string;
   imageAlt?: string;
+  /**
+   * Sin imagen, la sección igual reserva la columna derecha. `wide` la saca y
+   * deja que la copia (y su grilla de tarjetas) ocupe todo el ancho.
+   */
+  wide?: boolean;
+  /** Tarjetas en 2 columnas junto a la imagen (para listas de 6 ítems). */
+  twoColumns?: boolean;
 }
 
 export interface ProductStoryPageData {

@@ -1,0 +1,18 @@
+---
+// /gc-fitness/coaches — la propuesta de valor para coaches (gc-fitness#909).
+// Misma maqueta y paleta que la página de producto; el copy vive en
+// `data/gcFitnessCoaches.ts`.
+import ProductStoryPage from '../../components/ProductStoryPage.astro';
+import { gcFitnessPalette, getGCFitnessStoryNav } from '../../data/gcFitnessStory';
+import { getGCFitnessCoachesPage } from '../../data/gcFitnessCoaches';
+import { defaultLang, type Lang } from '../../i18n/ui';
+
+const lang = (Astro.currentLocale || defaultLang) as Lang;
+---
+
+<ProductStoryPage
+  page={getGCFitnessCoachesPage(lang)}
+  navItems={getGCFitnessStoryNav(lang)}
+  activeSlug="coaches"
+  palette={gcFitnessPalette}
+/>
