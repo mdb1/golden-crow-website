@@ -51,6 +51,7 @@ import {
   UploadCloud,
   Wand2,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
 import { Cell, Pie, PieChart, Tooltip } from "recharts";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -3796,7 +3797,6 @@ export function SupportServiceOfferWorkbench({
 
   if (isWizard) {
     const activeWizardStep = SERVICE_OFFER_WIZARD_STEPS[wizardStepIndex];
-    const selectedCategory = supportServiceCategoryByKey(form.serviceCategory);
     const wizardSaveDisabled =
       isWorking ||
       (Boolean(form.providerId.trim()) && !serviceIdValidated);
@@ -4141,80 +4141,16 @@ export function SupportServiceOfferWorkbench({
                 ) : null}
 
                 {wizardStepIndex === 9 ? (
-                  <Section title="Review and publish">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <WizardReviewItem
-                        label={t("Offer name")}
-                        value={form.name.trim() || t("Not specified")}
-                      />
-                      <WizardReviewItem
-                        label={t("Service category")}
-                        value={
-                          selectedCategory
-                            ? supportServiceCategoryName(selectedCategory, language)
-                            : t("Uncategorized")
-                        }
-                      />
-                      <WizardReviewItem
-                        label={t("Request form")}
-                        value={form.supportsFormShape ? t("Enabled") : t("Not requested")}
-                      />
-                      <WizardReviewItem
-                        label={t("Commercial terms")}
-                        value={t(
-                          form.commercialTerms.pricingModel === "free"
-                            ? "Free"
-                            : form.commercialTerms.pricingModel === "fixed"
-                              ? "Fixed price"
-                              : form.commercialTerms.pricingModel ===
-                                  "calculated_after_submission"
-                                ? "Calculated after submission"
-                                : "Not specified",
-                        )}
-                      />
-                      <WizardReviewItem
-                        label={t("Input slots")}
-                        value={String(form.inputSlots.length)}
-                      />
-                      <WizardReviewItem
-                        label={t("Output slots")}
-                        value={String(form.outputSlots.length)}
-                      />
-                    </div>
-                    <div className="grid gap-3 rounded-lg border border-violet-100 bg-violet-50/55 p-4 text-sm dark:border-violet-400/16 dark:bg-violet-500/8">
-                      <ReviewBooleanRow
-                        label={t("Hidden from search")}
-                        enabled={form.isHiddenFromSearch}
-                      />
-                      <ReviewBooleanRow
-                        label={t("Highlighted offer")}
-                        enabled={form.isHighlightedOffer}
-                      />
-                      <ReviewBooleanRow
-                        label={t("Professional offer")}
-                        enabled={form.isProfessionalOffer}
-                      />
-                      <ReviewBooleanRow
-                        label={t("Promotional banner image")}
-                        enabled={Boolean(
-                          form.promotionalBannerImageUrl.trim() ||
-                            form.promotionalBannerImageUploadDataUrl,
-                        )}
-                      />
-                    </div>
-                    <div className="rounded-lg border border-violet-100 bg-white/80 p-4 dark:border-violet-400/16 dark:bg-slate-950/42">
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-200">
-                        {t("Service description")}
-                      </p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">
-                        {form.description}
-                      </p>
-                    </div>
+                  <WizardOfferReview form={form} />
+                ) : null}
+
+                {wizardStepIndex === 9 ? (
+                  <div className="mt-6">
                     <WizardOfferPreparationStatus
                       status={serviceIdValidationStatus}
                       onRetry={regenerateServiceId}
                     />
-                  </Section>
+                  </div>
                 ) : null}
               </div>
 
@@ -4766,41 +4702,315 @@ export function SupportServiceOfferWorkbench({
   );
 }
 
-function WizardReviewItem({ label, value }: { label: string; value: string }) {
+function WizardReviewSection({
+  icon: Icon,
+  title,
+  children,
+  className,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="grid min-w-0 gap-1 rounded-lg border border-violet-100 bg-white/80 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
-      <span className="break-words text-sm font-semibold text-foreground">
-        {value}
-      </span>
-    </div>
+    <article
+      className={cn(
+        "overflow-hidden rounded-lg border border-violet-100 bg-white/82 shadow-[0_20px_54px_-44px_rgba(109,40,217,0.56)] dark:border-violet-400/16 dark:bg-slate-950/42",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-3 border-b border-violet-100/80 px-5 py-4 dark:border-violet-400/14">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-500/14 dark:text-violet-100">
+          <Icon className="h-4 w-4" />
+        </span>
+        <h3 className="font-heading text-lg font-semibold text-foreground">
+          {title}
+        </h3>
+      </div>
+      <div className="p-5">{children}</div>
+    </article>
   );
 }
 
-function ReviewBooleanRow({
-  label,
-  enabled,
-}: {
-  label: string;
-  enabled: boolean;
-}) {
+function WizardOfferReview({ form }: { form: OfferFormState }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const selectedCategory = supportServiceCategoryByKey(form.serviceCategory);
+  const bannerSource =
+    form.promotionalBannerImageUrl.trim() ||
+    form.promotionalBannerImageUploadDataUrl;
+  const acceptedConditions = splitLines(form.acceptedConditionsText);
+  const serviceLimitations = splitLines(form.scopeRulesText);
+  const selectedStages = sortedStages(form.stages);
+  const pricingModel = form.commercialTerms.pricingModel ?? "not_specified";
+  const pricingLabel =
+    pricingModel === "free"
+      ? t("Free")
+      : pricingModel === "fixed"
+        ? `${form.commercialTerms.price?.currency || "ARS"} ${Number(
+            form.commercialTerms.price?.amount ?? 0,
+          ).toLocaleString(language === "es" ? "es-AR" : "en-US")}`
+        : pricingModel === "calculated_after_submission"
+          ? t("Calculated after submission")
+          : t("Not specified");
+  const priceExplanation = form.commercialTerms.price?.summary?.trim();
+  const turnaround = turnaroundParts(form.commercialTerms.turnaround);
+  const turnaroundUnit = TURNAROUND_UNITS.find(
+    (unit) => unit.value === turnaround.unit,
+  );
+  const turnaroundLabel = turnaround.amount
+    ? `${turnaround.amount} ${t(turnaroundUnit?.label ?? "Days")}`
+    : t("Not specified");
 
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
-          enabled
-            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/14 dark:text-emerald-100"
-            : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
-        )}
+    <div data-testid="service-offer-wizard-review" className="grid gap-6">
+      <article
+        data-testid="service-offer-wizard-review-preview"
+        className="overflow-hidden rounded-lg border border-violet-200/80 bg-white shadow-[0_30px_90px_-56px_rgba(109,40,217,0.72)] dark:border-violet-400/20 dark:bg-slate-950"
       >
-        {enabled ? <Check className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-        {enabled ? t("Yes") : t("No")}
-      </span>
+        {bannerSource ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={bannerSource}
+            alt={form.name.trim()}
+            className="aspect-[1024/500] max-h-[24rem] w-full object-cover"
+          />
+        ) : (
+          <div className="flex min-h-48 items-center justify-center bg-violet-50/70 text-violet-500 dark:bg-violet-500/8 dark:text-violet-200">
+            <div className="grid justify-items-center gap-3 text-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-violet-100 bg-white shadow-sm dark:border-violet-400/16 dark:bg-slate-950/60">
+                <ImageIcon className="h-6 w-6" />
+              </span>
+              <span className="text-sm font-medium text-muted-foreground">
+                {t("No promotional banner image")}
+              </span>
+            </div>
+          </div>
+        )}
+        <div className="grid gap-4 px-5 py-6 sm:px-7 sm:py-7">
+          <div className="flex flex-wrap gap-2">
+            <Badge className="border-violet-200 bg-violet-100 text-violet-800 hover:bg-violet-100 dark:border-violet-400/20 dark:bg-violet-500/14 dark:text-violet-100">
+              {selectedCategory
+                ? supportServiceCategoryName(selectedCategory, language)
+                : t("Uncategorized")}
+            </Badge>
+            {form.isHighlightedOffer ? (
+              <Badge variant="outline">{t("Highlighted offer")}</Badge>
+            ) : null}
+            {form.isProfessionalOffer ? (
+              <Badge variant="outline">{t("Professional offer")}</Badge>
+            ) : null}
+          </div>
+          <div className="grid gap-3">
+            <h2 className="font-heading text-3xl font-semibold leading-tight text-foreground">
+              {form.name.trim() || t("Not specified")}
+            </h2>
+            <p className="max-w-4xl whitespace-pre-wrap text-base leading-7 text-muted-foreground">
+              {form.description.trim() || t("Not specified")}
+            </p>
+          </div>
+        </div>
+      </article>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <WizardReviewSection icon={UserRound} title={t("Service presentation")}>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-200">
+            {t("Provider work")}
+          </p>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground">
+            {form.providerWork.trim() || t("Not specified")}
+          </p>
+        </WizardReviewSection>
+
+        <WizardReviewSection icon={Settings2} title={t("Commercial terms")}>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">
+                {t("Pricing")}
+              </p>
+              <p className="mt-1 font-heading text-xl font-semibold text-foreground">
+                {pricingLabel}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">
+                {t("Turnaround")}
+              </p>
+              <p className="mt-1 font-heading text-xl font-semibold text-foreground">
+                {turnaroundLabel}
+              </p>
+            </div>
+            {priceExplanation ? (
+              <div className="border-t border-violet-100 pt-4 sm:col-span-2 dark:border-violet-400/14">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  {t("Price summary")}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-foreground">
+                  {priceExplanation}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </WizardReviewSection>
+
+        <WizardReviewSection
+          icon={ClipboardList}
+          title={t("Inputs and outputs")}
+          className="xl:col-span-2"
+        >
+          <div className="grid gap-6 md:grid-cols-3 md:divide-x md:divide-violet-100 dark:md:divide-violet-400/14">
+            <div className="grid content-start gap-3 md:pr-6">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-200">
+                {t("Request form")}
+              </p>
+              <p className="text-sm font-semibold text-foreground">
+                {form.supportsFormShape
+                  ? `${form.formShape.fields.length} ${t("fields")}`
+                  : t("Not requested")}
+              </p>
+              {form.supportsFormShape ? (
+                <div className="flex flex-wrap gap-2">
+                  {form.formShape.fields.map((field) => (
+                    <span
+                      key={field.key}
+                      className="rounded-md bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-800 dark:bg-violet-500/12 dark:text-violet-100"
+                    >
+                      {field.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="grid content-start gap-3 md:px-6">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-200">
+                {t("Inputs")}
+              </p>
+              {form.inputSlots.length ? (
+                <div className="grid gap-2">
+                  {form.inputSlots.map((slot, index) => (
+                    <div key={`${slot.role}-${index}`} className="min-w-0">
+                      <p className="truncate font-mono text-xs text-muted-foreground">
+                        {slot.role}
+                      </p>
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {objectLabel(slotObjectType(slot))}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t("No inputs")}</p>
+              )}
+            </div>
+            <div className="grid content-start gap-3 md:pl-6">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-200">
+                {t("Outputs")}
+              </p>
+              {form.outputSlots.length ? (
+                <div className="grid gap-2">
+                  {form.outputSlots.map((slot, index) => (
+                    <div key={`${slot.role}-${index}`} className="min-w-0">
+                      <p className="truncate font-mono text-xs text-muted-foreground">
+                        {slot.role}
+                      </p>
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {outputObjectLabel(slot)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t(mutationModeLabel(slot.mutationMode))}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t("No outputs")}</p>
+              )}
+            </div>
+          </div>
+        </WizardReviewSection>
+
+        <WizardReviewSection
+          icon={CheckCircle2}
+          title={t("Conditions and limitations")}
+          className="xl:col-span-2"
+        >
+          <div className="grid gap-7 lg:grid-cols-2">
+            <div>
+              <h4 className="font-heading text-base font-semibold text-foreground">
+                {t("Acceptance conditions")}
+              </h4>
+              {acceptedConditions.length ? (
+                <ul className="mt-3 grid gap-2">
+                  {acceptedConditions.map((condition) => (
+                    <li key={condition} className="flex items-start gap-2 text-sm leading-6">
+                      <Check className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />
+                      <span>{condition}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {t("Not specified")}
+                </p>
+              )}
+            </div>
+            <div>
+              <h4 className="font-heading text-base font-semibold text-foreground">
+                {t("Service limitations")}
+              </h4>
+              {serviceLimitations.length ? (
+                <ul className="mt-3 grid gap-2">
+                  {serviceLimitations.map((limitation) => (
+                    <li key={limitation} className="flex items-start gap-2 text-sm leading-6">
+                      <CircleAlert className="mt-1 h-4 w-4 shrink-0 text-amber-600" />
+                      <span>{limitation}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {t("Not specified")}
+                </p>
+              )}
+            </div>
+          </div>
+        </WizardReviewSection>
+
+        <WizardReviewSection
+          icon={Wand2}
+          title={t("Stage pipeline")}
+          className="xl:col-span-2"
+        >
+          <div className="grid gap-3">
+            {selectedStages.map((stage, index) => {
+              const StageIcon = stagePipelineIcon(stage);
+              return (
+                <div key={stage} className="grid gap-3">
+                  <div className="flex items-start gap-4 rounded-lg bg-violet-50/70 px-4 py-4 dark:bg-violet-500/8">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-violet-700 shadow-sm dark:bg-slate-950/60 dark:text-violet-100">
+                      <StageIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="font-heading text-base font-semibold text-foreground">
+                        {t(stageLabel(stage))}
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                        {t(stagePipelineDescription(stage))}
+                      </p>
+                    </div>
+                  </div>
+                  {index < selectedStages.length - 1 ? (
+                    <div className="flex justify-center text-violet-500">
+                      <ArrowDown className="h-5 w-5" />
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </WizardReviewSection>
+      </div>
     </div>
   );
 }

@@ -734,6 +734,30 @@ describe("support services workbenches", () => {
     expect(
       appText("es", "Suggested based on input and output types"),
     ).toBe("Sugerido en base a los tipos de entrada y salida");
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Review and publish" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", { level: 3, name: "Review and publish" }),
+    ).toBeNull();
+
+    const review = screen.getByTestId("service-offer-wizard-review");
+    expect(within(review).queryByRole("textbox")).toBeNull();
+    expect(within(review).queryByText("Hidden from search")).toBeNull();
+    expect(within(review).queryByText("Native discovery")).toBeNull();
+    expect(
+      within(review).getByText("A clear requester-facing service description."),
+    ).toBeTruthy();
+    expect(
+      within(review).getByText("The provider completes the requested analysis."),
+    ).toBeTruthy();
+    expect(within(review).getByText("Request reason")).toBeTruthy();
+    expect(within(review).getByText("pdf_report")).toBeTruthy();
+    expect(within(review).getByText("PDF report")).toBeTruthy();
+    expect(within(review).getByText("Commercial terms")).toBeTruthy();
+    expect(within(review).getByText("Stage pipeline")).toBeTruthy();
   });
 
   it("shows lock affordances and no delete action on publisher transaction detail", async () => {
