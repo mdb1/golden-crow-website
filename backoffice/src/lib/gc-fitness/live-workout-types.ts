@@ -47,6 +47,12 @@ export interface SessionSetLog {
    * resolve via `effectiveSetType()` from ./set-type.
    */
   setType?: SetType | null;
+  /**
+   * #1197 — the athlete's body weight this set moved (kg). Stamped at finalize
+   * on bodyweight-exercise sets only; load for volume = weightKg + bodyweightKg.
+   * Wire: `bodyweight_kg`. Mirrors SetLog.swift / SetLog.kt.
+   */
+  bodyweightKg?: number | null;
 }
 
 /**

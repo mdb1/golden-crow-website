@@ -45,6 +45,8 @@ import {
 import {
   computeDurationSeconds,
   computeTotalVolumeKg,
+  isBodyweightEquipment,
+  stampingBodyweight,
 } from "./live-workout-volume";
 import { resolveExerciseDocsById } from "./exercise-resolution";
 // quick-260714-m57 (#403) — per-set types. `isSetType` gates the forgiving
@@ -241,6 +243,11 @@ function wireSetToSession(s: Record<string, unknown>): SessionSetLog {
     // is_warmup, matching the iOS/Android twins).
     setType:
       isSetType(s.set_type) && s.set_type !== "normal" ? s.set_type : null,
+    // #1197 — forgiving: non-positive / absent → null.
+    bodyweightKg:
+      typeof s.bodyweight_kg === "number" && s.bodyweight_kg > 0
+        ? s.bodyweight_kg
+        : null,
   };
 }
 
@@ -270,6 +277,10 @@ function sessionSetToWire(s: SessionSetLog): Record<string, unknown> {
   // Firestore rejects `undefined`; iOS omits the field on reps-based sets.
   if (typeof s.durationSeconds === "number" && s.durationSeconds > 0) {
     wire.duration_seconds = s.durationSeconds;
+  }
+  // #1197 — omitted when absent (pre-#1197 docs stay byte-identical).
+  if (typeof s.bodyweightKg === "number" && s.bodyweightKg > 0) {
+    wire.bodyweight_kg = s.bodyweightKg;
   }
   return wire;
 }
@@ -633,6 +644,35 @@ export async function syncWorkoutSession(
   return { ok: true };
 }
 
+// #1197 — the client's latest body weight: the newest `body_weight_logs` entry,
+// else the `/users/{uid}.bodyWeightKg` mirror. Null when neither is positive.
+// (Not exported: a "use server" file may only export async Server Actions.)
+async function latestClientBodyWeightKg(clientId: string): Promise<number | null> {
+  if (!clientId) return null;
+  const db = gcFitnessFirestore();
+  const userRef = db.collection(FirestoreCollections.users).doc(clientId);
+  const logs = await userRef
+    .collection("body_weight_logs")
+    .orderBy("recordedAt", "desc")
+    .limit(1)
+    .get();
+  const logged = logs.docs[0]?.get("valueKg");
+  if (typeof logged === "number" && logged > 0) return logged;
+  const mirror = (await userRef.get()).get("bodyWeightKg");
+  return typeof mirror === "number" && mirror > 0 ? mirror : null;
+}
+
+// #1197 — which of these exercises are bodyweight movements (equipment
+// "bodyweight" / "none"), resolved through `mergedInto` like everything else.
+async function bodyweightExerciseIds(ids: string[]): Promise<Set<string>> {
+  const docs = await resolveExerciseDocsById(gcFitnessFirestore(), ids);
+  const out = new Set<string>();
+  for (const [id, data] of docs) {
+    if (isBodyweightEquipment(data.equipment)) out.add(id);
+  }
+  return out;
+}
+
 // ───────────────────────────────────────────────────────────────────────────
 // finalizeWorkoutSession — write the completed log + optional recurrence
 // propagation. The future-dated same-series assignments are rewritten to
@@ -657,14 +697,24 @@ export async function finalizeWorkoutSession(
     return { logId: parsed.logId, futureUpdated: 0 };
   }
 
-  const totalVolumeKg = computeTotalVolumeKg(parsed.sets);
+  // #1197 — bodyweight exercises carry the client's body weight into volume,
+  // exactly like the iOS / Android finalize. Best effort: a failed read
+  // degrades to the pre-#1197 total (bodyweight sets count 0).
+  const finishedSets = stampingBodyweight(
+    parsed.sets,
+    await latestClientBodyWeightKg(clientId).catch(() => null),
+    await bodyweightExerciseIds(
+      Array.from(new Set(parsed.sets.map((s) => s.exerciseId))),
+    ).catch(() => new Set<string>()),
+  );
+  const totalVolumeKg = computeTotalVolumeKg(finishedSets);
   const durationSeconds = computeDurationSeconds(
     toIso(log.startedAt),
     Date.now(),
   );
 
   const finalize: Record<string, unknown> = {
-    sets: parsed.sets.map(sessionSetToWire),
+    sets: finishedSets.map(sessionSetToWire),
     status: "completed",
     total_volume_kg: totalVolumeKg,
     duration_seconds: durationSeconds,

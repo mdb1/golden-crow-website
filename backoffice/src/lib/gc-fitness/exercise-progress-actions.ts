@@ -398,6 +398,9 @@ async function loadClientExerciseProgress(
       // iOS + Android). `set_type` / `is_warmup` are display markers only.
       const weight = numeric(s.weight_kg ?? s.weight);
       const reps = numeric(s.reps);
+      // #1197 — the load a set moved: external weight + the body weight stamped
+      // on bodyweight-exercise sets (twin of WorkoutVolume.setLoadKg).
+      const load = weight + numeric(s.bodyweight_kg ?? s.bodyweightKg);
 
       // #480 — per-set volume for the muscle-group charts. Twin of
       // WorkoutVolume.setVolumeKg: a TIME set (duration present) → weight ×
@@ -410,8 +413,8 @@ async function loadClientExerciseProgress(
           durRaw.trim() !== "" &&
           Number.isFinite(Number(durRaw)));
       const setVolume = hasDuration
-        ? weight * (numeric(durRaw) / 60)
-        : weight * reps;
+        ? load * (numeric(durRaw) / 60)
+        : load * reps;
       muscleSetInputs.push({ date, exerciseId: exId, volumeKg: setVolume });
       muscleExerciseIds.add(exId);
 
@@ -439,13 +442,14 @@ async function loadClientExerciseProgress(
       if (weight > 0) {
         acc.topWeight =
           acc.topWeight === null ? weight : Math.max(acc.topWeight, weight);
-        if (reps > 0) {
-          // Epley: 1RM ≈ weight × (1 + reps/30). Matches iOS PR e1RM.
-          const e1rm = weight * (1 + reps / 30);
-          acc.bestE1rm =
-            acc.bestE1rm === null ? e1rm : Math.max(acc.bestE1rm, e1rm);
-          acc.volume += weight * reps;
-        }
+      }
+      if (load > 0 && reps > 0) {
+        // Epley: 1RM ≈ load × (1 + reps/30). Matches the apps'
+        // `WorkoutVolume.exerciseSummary` (body weight included, #1197).
+        const e1rm = load * (1 + reps / 30);
+        acc.bestE1rm =
+          acc.bestE1rm === null ? e1rm : Math.max(acc.bestE1rm, e1rm);
+        acc.volume += load * reps;
       }
     }
 

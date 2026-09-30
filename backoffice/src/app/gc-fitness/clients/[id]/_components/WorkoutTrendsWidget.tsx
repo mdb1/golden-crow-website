@@ -93,7 +93,10 @@ export async function WorkoutTrendsWidget({
       completedSets += 1;
       // #565 — every set type contributes to volume (warm-up / failure /
       // drop set alike); `set_type` / `is_warmup` are display markers only.
-      volumeKg += numeric(s.weight_kg ?? s.weight) * numeric(s.reps);
+      // #1197 — plus the body weight stamped on bodyweight-exercise sets.
+      volumeKg +=
+        (numeric(s.weight_kg ?? s.weight) + numeric(s.bodyweight_kg)) *
+        numeric(s.reps);
     }
 
     const completedAt = toDate(data.completedAt);
