@@ -133,6 +133,50 @@ describe("ModerationQueue", () => {
     expect(screen.getByRole("button", { name: "Levantar suspensión" })).toBeInTheDocument();
   });
 
+  it("a challenge row (#1189) is labelled «Desafío», shows its name, and offers the three verbs with the challenge triple", () => {
+    const g = group({
+      key: "challenge|ch-1",
+      targetType: "challenge",
+      targetId: "ch-1",
+      targetOwnerUid: "u-creator",
+      reports: [
+        { id: "r-ch", reporterUid: "u-a", targetType: "challenge", targetId: "ch-1", targetOwnerUid: "u-creator", reason: "harassment", note: null, status: "open", createdAtISO: "2026-09-18T11:00:00.000Z", resolvedAtISO: null, resolvedBy: null, resolution: null },
+      ],
+      oldestOpenISO: "2026-09-18T11:00:00.000Z",
+      reasons: ["harassment"],
+      preview: { title: "Semana sin excusas · @lucia", body: "5 entrenos en 7 días · 2 miembros", hidden: false, ownerSuspended: false, missing: false },
+    });
+    render(<ModerationQueue groups={[g]} status="open" nowISO={NOW} />);
+    const row = screen.getByTestId("moderation-group-challenge-ch-1");
+    expect(within(row).getByText("Desafío")).toBeInTheDocument();
+    expect(within(row).getByText("Semana sin excusas · @lucia")).toBeInTheDocument();
+    expect(within(row).getByText("5 entrenos en 7 días · 2 miembros")).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Ocultar contenido" })).toBeInTheDocument();
+    const forms = Array.from(row.querySelectorAll("form"));
+    expect(forms).toHaveLength(3);
+    for (const form of forms) {
+      expect(hiddenFields(form)).toEqual({
+        targetType: "challenge",
+        targetId: "ch-1",
+        targetOwnerUid: "u-creator",
+        reportIds: "r-ch",
+      });
+    }
+  });
+
+  it("a hidden challenge offers Volver a mostrar", () => {
+    render(
+      <ModerationQueue
+        groups={[group({ key: "challenge|ch-1", targetType: "challenge", targetId: "ch-1", preview: { title: "t", body: null, hidden: true, ownerSuspended: false, missing: false } })]}
+        status="open"
+        nowISO={NOW}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Ocultar contenido" })).toBeDisabled();
+    const unhide = screen.getByRole("button", { name: "Volver a mostrar" }).closest("form")!;
+    expect(hiddenFields(unhide)).toMatchObject({ targetType: "challenge", targetId: "ch-1" });
+  });
+
   it("a resolved bandeja shows no verbs and the empty state names the bandeja", () => {
     render(<ModerationQueue groups={[]} status="dismissed" nowISO={NOW} />);
     expect(screen.getByTestId("moderation-empty")).toHaveTextContent("Nada en esta bandeja.");

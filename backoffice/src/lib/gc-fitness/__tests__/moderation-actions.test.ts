@@ -31,8 +31,25 @@ function docRef(path: string) {
     collection: (name: string) => collectionRef(`${path}/${name}`),
   };
 }
+/** Just enough of a query for `listModerationQueue`: equality on one field, then get/count. */
+function queryRef(path: string, field: string, value: unknown) {
+  const matching = () =>
+    Array.from(store.entries()).filter(
+      ([p, d]) => p.startsWith(`${path}/`) && !p.slice(path.length + 1).includes("/") && d[field] === value,
+    );
+  const q = {
+    orderBy: () => q,
+    limit: () => q,
+    get: async () => ({
+      docs: matching().map(([p, d]) => ({ id: p.slice(path.length + 1), data: () => d })),
+    }),
+    count: () => ({ get: async () => ({ data: () => ({ count: matching().length }) }) }),
+  };
+  return q;
+}
 function collectionRef(path: string) {
   return {
+    where: (field: string, _op: string, value: unknown) => queryRef(path, field, value),
     doc: (id: string) => docRef(`${path}/${id}`),
     add: async (data: Record<string, unknown>) => {
       added.push({ collection: path, data });
@@ -62,7 +79,9 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import {
   dismissReports,
   hideReportedContent,
+  listModerationQueue,
   suspendReportedAuthor,
+  unhideReportedContent,
   unsuspendSocialAccount,
 } from "@/lib/gc-fitness/moderation-actions";
 import { redirect } from "next/navigation";
@@ -173,5 +192,82 @@ describe("unsuspendSocialAccount", () => {
     await unsuspendSocialAccount(form({ uid: "u-owner" }));
     expect(store.get("social_profiles/u-owner")).toMatchObject({ suspended: false });
     expect(added[0]).toMatchObject({ data: { kind: "moderation_unsuspend", targetUid: "u-owner" } });
+  });
+});
+
+describe("challenge target (#1189)", () => {
+  beforeEach(() => {
+    store.set("social_challenges/ch-1", {
+      creatorUid: "u-creator",
+      name: "Semana sin excusas",
+      kind: "workouts",
+      target: 5,
+      durationDays: 7,
+      memberUids: ["u-creator", "u-rep"],
+      members: { "u-creator": { handle: "lucia", status: "joined" }, "u-rep": { handle: "tomi", status: "joined" } },
+      hidden: false,
+    });
+    store.set("social_reports/r-ch", {
+      status: "open",
+      targetType: "challenge",
+      targetId: "ch-1",
+      targetOwnerUid: "u-creator",
+      reporterUid: "u-rep",
+      reason: "harassment",
+    });
+  });
+
+  it("Ocultar flips hidden on social_challenges/{id}, resolves the report, logs against the creator", async () => {
+    await hideReportedContent(
+      form({ targetType: "challenge", targetId: "ch-1", targetOwnerUid: "u-creator", reportIds: "r-ch" }),
+    );
+    expect(writes).toEqual([
+      { path: "social_challenges/ch-1", data: { hidden: true, updatedAt: "SERVER_TIMESTAMP" }, merge: true, op: "set" },
+    ]);
+    expect(store.get("social_challenges/ch-1")).toMatchObject({ name: "Semana sin excusas", hidden: true });
+    expect(batchUpdates.map((u) => u.path)).toEqual(["social_reports/r-ch"]);
+    expect(batchUpdates[0].data).toMatchObject({ status: "actioned", resolution: "hide" });
+    expect(added[0]).toMatchObject({
+      collection: "admin_operations",
+      data: { kind: "moderation_hide", targetUid: "u-creator", status: "success", summary: { targetType: "challenge", targetId: "ch-1", resolvedReports: 1 } },
+    });
+  });
+
+  it("Volver a mostrar is the reverse flag on the same doc", async () => {
+    store.set("social_challenges/ch-1", { ...store.get("social_challenges/ch-1"), hidden: true });
+    await unhideReportedContent(form({ targetType: "challenge", targetId: "ch-1", targetOwnerUid: "u-creator" }));
+    expect(writes[0]).toMatchObject({ path: "social_challenges/ch-1", data: { hidden: false }, merge: true });
+    expect(added[0]).toMatchObject({ data: { kind: "moderation_unhide", summary: { targetType: "challenge", targetId: "ch-1" } } });
+  });
+
+  it("Suspender goes to the CREATOR's profile, not the challenge", async () => {
+    await suspendReportedAuthor(
+      form({ targetType: "challenge", targetId: "ch-1", targetOwnerUid: "u-creator", reportIds: "r-ch" }),
+    );
+    expect(writes.map((w) => w.path)).toEqual(["social_profiles/u-creator"]);
+  });
+
+  it("the queue previews the challenge by name, creator handle, goal and member count", async () => {
+    const page = await listModerationQueue({ status: "open", targetType: "challenge" });
+    expect(page.groups).toHaveLength(1);
+    expect(page.groups[0]).toMatchObject({
+      key: "challenge|ch-1",
+      targetOwnerUid: "u-creator",
+      preview: {
+        title: "Semana sin excusas · @lucia",
+        body: "5 entrenos en 7 días · 2 miembros",
+        hidden: false,
+        missing: false,
+      },
+    });
+  });
+
+  it("a hidden challenge previews as hidden; a deleted one as missing", async () => {
+    store.set("social_challenges/ch-1", { ...store.get("social_challenges/ch-1"), hidden: true });
+    let page = await listModerationQueue({ status: "open", targetType: "challenge" });
+    expect(page.groups[0].preview).toMatchObject({ hidden: true, missing: false });
+    store.delete("social_challenges/ch-1");
+    page = await listModerationQueue({ status: "open", targetType: "challenge" });
+    expect(page.groups[0].preview).toMatchObject({ missing: true, title: "(ya no existe)" });
   });
 });
