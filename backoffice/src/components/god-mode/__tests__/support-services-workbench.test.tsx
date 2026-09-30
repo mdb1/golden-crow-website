@@ -621,6 +621,9 @@ describe("support services workbenches", () => {
         .classList.contains("xl:grid-cols-2"),
     ).toBe(false);
     expect(screen.getByText("No input slots defined.")).toBeTruthy();
+    expect(screen.getByText("pdf_report")).toBeTruthy();
+    expect(screen.getByText("PDF report")).toBeTruthy();
+    expect(screen.getByText("New object")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(

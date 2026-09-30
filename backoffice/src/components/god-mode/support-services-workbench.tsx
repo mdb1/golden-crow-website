@@ -1023,6 +1023,27 @@ function defaultOfferForm(): OfferFormState {
   };
 }
 
+function initialOfferForm(
+  mode: "create" | "edit",
+  presentation: "form" | "wizard",
+): OfferFormState {
+  const initialForm = defaultOfferForm();
+  if (mode !== "create" || presentation !== "wizard") {
+    return initialForm;
+  }
+
+  return {
+    ...initialForm,
+    outputSlots: [
+      {
+        role: "pdf_report",
+        objectType: DEFAULT_OUTPUT_OBJECT_TYPE,
+        mutationMode: "new_object",
+      },
+    ],
+  };
+}
+
 function singleInputSlot(
   slot: SupportServiceInputSlot,
 ): SupportServiceInputSlot {
@@ -3261,9 +3282,11 @@ export function SupportServiceOfferWorkbench({
   const t = (text: string) => appText(language, text);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<OfferFormState>(() => defaultOfferForm());
+  const [form, setForm] = useState<OfferFormState>(() =>
+    initialOfferForm(mode, presentation),
+  );
   const [savedForm, setSavedForm] = useState<OfferFormState>(() =>
-    defaultOfferForm(),
+    initialOfferForm(mode, presentation),
   );
   const [persistedOfferId, setPersistedOfferId] = useState<string | null>(
     offerId ?? null,
