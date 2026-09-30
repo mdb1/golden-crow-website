@@ -249,7 +249,7 @@ export function PublisherPortalHome({
             <h1 className="mt-1 font-heading text-3xl font-semibold text-foreground">
               {hasPublishedFeedEntry
                 ? "Seguís construyendo tu presencia"
-                : "Empezá con una primera nota"}
+                : "Empezá a construir tu presencia"}
             </h1>
           </div>
           <Sparkles className="hidden size-6 text-violet-500 sm:block" />

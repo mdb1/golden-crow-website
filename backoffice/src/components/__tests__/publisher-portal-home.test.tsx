@@ -117,7 +117,7 @@ describe("PublisherPortalHomePage", () => {
     expect(sdkFetchServer).toHaveBeenCalledWith(
       "/discover/feed-items?limit=1&status=draft",
     );
-    expect(screen.getByText("Empezá con una primera nota")).toBeTruthy();
+    expect(screen.getByText("Empezá a construir tu presencia")).toBeTruthy();
     expect(
       screen
         .getByRole("link", { name: /Crear mi primera entrada/i })
