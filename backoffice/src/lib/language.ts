@@ -5101,7 +5101,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Pick a Discover publisher": "Elegí un publicador de Discover",
   "Prefill with mocked template": "Precargar plantilla mock",
   "Price amount": "Importe",
-  "Price summary": "Resumen del precio",
+  "Price summary": "Explicación del precio",
   Pricing: "Precio",
   "Professional individual": "Profesional individual",
   "Provider kind": "Tipo de proveedor",

@@ -4065,7 +4065,7 @@ export function SupportServiceOfferWorkbench({
                 ) : null}
 
                 {wizardStepIndex === 6 ? (
-                  <TermsEditor form={form} setForm={setForm} />
+                  <TermsEditor form={form} setForm={setForm} layout="stack" />
                 ) : null}
 
                 {wizardStepIndex === 7 ? (
@@ -7564,9 +7564,11 @@ function OutputSlotEditor({
 function TermsEditor({
   form,
   setForm,
+  layout = "columns",
 }: {
   form: OfferFormState;
   setForm: React.Dispatch<React.SetStateAction<OfferFormState>>;
+  layout?: "columns" | "stack";
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -7660,7 +7662,13 @@ function TermsEditor({
 
   return (
     <Section title="Commercial terms">
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div
+        data-testid="service-offer-terms-layout"
+        className={cn(
+          "grid gap-4",
+          layout === "columns" && "lg:grid-cols-3",
+        )}
+      >
         <Field label="Pricing">
           <Select value={pricingModel} onValueChange={updatePricingModel}>
             <SelectTrigger>

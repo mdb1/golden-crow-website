@@ -658,6 +658,17 @@ describe("support services workbenches", () => {
         "Form",
       ),
     ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Commercial terms" }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByTestId("service-offer-terms-layout")
+        .classList.contains("lg:grid-cols-3"),
+    ).toBe(false);
+    expect(appText("es", "Price summary")).toBe("Explicación del precio");
   });
 
   it("shows lock affordances and no delete action on publisher transaction detail", async () => {
@@ -1035,6 +1046,11 @@ describe("support services workbenches", () => {
       screen
         .getByTestId("service-offer-slot-layout")
         .classList.contains("xl:grid-cols-2"),
+    ).toBe(true);
+    expect(
+      screen
+        .getByTestId("service-offer-terms-layout")
+        .classList.contains("lg:grid-cols-3"),
     ).toBe(true);
     expect(screen.getByText("Not requested")).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox", { name: "Support form input" }));
