@@ -120,7 +120,7 @@ export function PublisherPortalSidebar({
           },
           {
             href: PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
-            label: "Service Requests",
+            label: "Received requests",
             icon: ClipboardList,
           },
         ]
@@ -165,7 +165,7 @@ export function PublisherPortalSidebar({
         {supportServiceItems.length > 0 ? (
           <SidebarGroup>
             <SidebarGroupLabel>
-              {appText(language, "Support services")}
+              {appText(language, "My published services")}
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
