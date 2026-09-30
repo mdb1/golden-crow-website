@@ -1079,6 +1079,7 @@ export function MyAccountWorkbench({
             </Button>
             <Button
               type="button"
+              variant="outline"
               size="lg"
               className="h-11 w-full"
               onClick={openEmailChangeDialog}

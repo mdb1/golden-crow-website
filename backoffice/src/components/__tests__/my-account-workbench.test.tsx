@@ -128,6 +128,12 @@ describe("MyAccountWorkbench diagnostics", () => {
     expect(
       screen.getByRole("button", { name: "Cambiar contraseña" }),
     ).toBeTruthy();
+    expect(
+      ["Email verificado", "Cambiar email", "Cambiar contraseña"].map(
+        (name) =>
+          screen.getByRole("button", { name }).getAttribute("data-variant"),
+      ),
+    ).toEqual(["outline", "outline", "outline"]);
     expect(screen.queryByLabelText("Email de la cuenta")).toBeNull();
     expect(screen.queryByText("Current project")).toBeNull();
     expect(screen.queryByText("Notes")).toBeNull();
