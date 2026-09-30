@@ -30,6 +30,7 @@ type PublisherPortalHomeProps = {
   roleLabel: string;
   hasPublishedFeedEntry: boolean;
   hasDraftFeedEntry: boolean;
+  hasServiceOffer: boolean;
   hasActiveServiceOffer: boolean;
   organizationId?: string;
 };
@@ -139,6 +140,7 @@ export function PublisherPortalHome({
   roleLabel,
   hasPublishedFeedEntry,
   hasDraftFeedEntry,
+  hasServiceOffer,
   hasActiveServiceOffer,
   organizationId,
 }: PublisherPortalHomeProps) {
@@ -170,7 +172,7 @@ export function PublisherPortalHome({
       tone="secondary"
     />
   );
-  const serviceOfferCreationCard = hasActiveServiceOffer ? (
+  const serviceOfferCreationCard = hasServiceOffer ? (
     <QuickAccessCard
       icon={PenLine}
       title="Crear una nueva oferta"
@@ -182,7 +184,7 @@ export function PublisherPortalHome({
   ) : (
     <QuickAccessCard
       icon={PenLine}
-      title="Creá tu primera oferta de servicio"
+      title="Crear tu primera oferta de servicio"
       body="Presentá el primer servicio de tu organización y dejalo listo para recibir solicitudes."
       actionLabel="Crear mi primera oferta"
       href={newServiceOfferHref}

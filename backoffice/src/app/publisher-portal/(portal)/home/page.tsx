@@ -12,9 +12,10 @@ async function loadFeedEntryPresence(status: "draft" | "published") {
   return page.feedItems.length > 0;
 }
 
-async function loadActiveServiceOfferPresence() {
+async function loadServiceOfferPresence(status?: "active") {
+  const statusQuery = status ? `&status=${status}` : "";
   const page = await sdkFetchServer<SupportServiceOffersPage>(
-    "/admin/support-services/offers?limit=1&status=active",
+    `/admin/support-services/offers?limit=1${statusQuery}`,
   );
   return page.offers.length > 0;
 }
@@ -23,23 +24,31 @@ export default async function PublisherPortalHomePage() {
   const accountRequest = sdkFetchServer<{ account: MyAccountRecord }>(
     "/auth/my-account",
   );
-  const activeServiceOfferPresenceRequest = accountRequest.then(
-    ({ account }) =>
-      account.context.role === "organization_publisher" &&
-      account.context.organizationId
-        ? loadActiveServiceOfferPresence()
-        : false,
+  const serviceOfferPresenceRequest = accountRequest.then(
+    async ({ account }): Promise<[boolean, boolean]> => {
+      if (
+        account.context.role !== "organization_publisher" ||
+        !account.context.organizationId
+      ) {
+        return [false, false];
+      }
+
+      return Promise.all([
+        loadServiceOfferPresence(),
+        loadServiceOfferPresence("active"),
+      ]);
+    },
   );
   const [
     { account },
     hasPublishedFeedEntry,
     hasDraftFeedEntry,
-    hasActiveServiceOffer,
+    [hasServiceOffer, hasActiveServiceOffer],
   ] = await Promise.all([
     accountRequest,
     loadFeedEntryPresence("published"),
     loadFeedEntryPresence("draft"),
-    activeServiceOfferPresenceRequest,
+    serviceOfferPresenceRequest,
   ]);
   const displayName =
     account.role?.displayName ||
@@ -59,6 +68,7 @@ export default async function PublisherPortalHomePage() {
       roleLabel={roleLabel}
       hasPublishedFeedEntry={hasPublishedFeedEntry}
       hasDraftFeedEntry={hasDraftFeedEntry}
+      hasServiceOffer={hasServiceOffer}
       hasActiveServiceOffer={hasActiveServiceOffer}
       organizationId={
         account.context.role === "organization_publisher"
