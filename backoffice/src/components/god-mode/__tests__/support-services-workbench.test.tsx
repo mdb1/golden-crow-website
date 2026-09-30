@@ -710,6 +710,30 @@ describe("support services workbenches", () => {
         "Acceptance conditions describe what must already be true before the provider can accept the request. Service limitations explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This whole block is optional; add one condition or limitation per line only when the service needs them.",
       ),
     ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Service pipeline" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Calculated short contract")).toBeNull();
+    expect(screen.getByText("Stage pipeline")).toBeTruthy();
+    expect(screen.getByText("Best-effort prediction")).toBeTruthy();
+    const pipelineLayout = screen.getByTestId(
+      "service-offer-stage-pipeline-layout",
+    );
+    expect(pipelineLayout.getAttribute("data-orientation")).toBe("vertical");
+    expect(
+      screen.getAllByTestId("service-offer-stage-pipeline-connector"),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByTestId("service-offer-stage-pipeline-arrow-down"),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByTestId("service-offer-stage-pipeline-arrow-right"),
+    ).toBeNull();
+    expect(
+      appText("es", "Suggested based on input and output types"),
+    ).toBe("Sugerido en base a los tipos de entrada y salida");
   });
 
   it("shows lock affordances and no delete action on publisher transaction detail", async () => {
@@ -1098,6 +1122,15 @@ describe("support services workbenches", () => {
         "Acceptance conditions describe what must already be true before the provider can accept the request. Service limitations explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This whole block is optional; add one condition or limitation per line only when the service needs them.",
       ),
     ).toBeTruthy();
+    expect(screen.getByText("Calculated short contract")).toBeTruthy();
+    expect(
+      screen
+        .getByTestId("service-offer-stage-pipeline-layout")
+        .getAttribute("data-orientation"),
+    ).toBe("horizontal");
+    expect(
+      screen.getAllByTestId("service-offer-stage-pipeline-arrow-right"),
+    ).toHaveLength(2);
     expect(screen.getByText("Not requested")).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox", { name: "Support form input" }));
     expect(screen.getByText("Form shape ID")).toBeTruthy();

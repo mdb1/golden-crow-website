@@ -18,6 +18,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
   Binary,
@@ -1032,15 +1033,18 @@ function initialOfferForm(
     return initialForm;
   }
 
+  const outputSlots: SupportServiceOutputSlot[] = [
+    {
+      role: "pdf_report",
+      objectType: DEFAULT_OUTPUT_OBJECT_TYPE,
+      mutationMode: "new_object",
+    },
+  ];
+
   return {
     ...initialForm,
-    outputSlots: [
-      {
-        role: "pdf_report",
-        objectType: DEFAULT_OUTPUT_OBJECT_TYPE,
-        mutationMode: "new_object",
-      },
-    ],
+    stages: predictedStagesForContract(initialForm.inputSlots, outputSlots),
+    outputSlots,
   };
 }
 
@@ -4119,15 +4123,14 @@ export function SupportServiceOfferWorkbench({
                 ) : null}
 
                 {wizardStepIndex === 8 ? (
-                  <ShortContractVisual
-                    inputSlots={form.inputSlots}
-                    outputSlots={form.outputSlots}
-                    stages={form.stages}
-                    predictedStages={predictedStages}
-                    onStagesChange={(stages) =>
+                  <StagePipeline
+                    value={form.stages}
+                    predictedValue={predictedStages}
+                    layout="vertical"
+                    onChange={(stages) =>
                       setForm((current) => ({ ...current, stages }))
                     }
-                    onApplyStagePrediction={() => {
+                    onApplyPrediction={() => {
                       lastPredictedStagesRef.current = predictedStages;
                       setForm((current) => ({
                         ...current,
@@ -5407,11 +5410,13 @@ function StagePipeline({
   predictedValue,
   onChange,
   onApplyPrediction,
+  layout = "horizontal",
 }: {
   value: SupportServiceStage[];
   predictedValue: SupportServiceStage[];
   onChange: (value: SupportServiceStage[]) => void;
   onApplyPrediction: () => void;
+  layout?: "horizontal" | "vertical";
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -5474,7 +5479,15 @@ function StagePipeline({
         ) : null}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-stretch">
+      <div
+        data-testid="service-offer-stage-pipeline-layout"
+        data-orientation={layout}
+        className={cn(
+          "grid gap-3",
+          layout === "horizontal" &&
+            "md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-stretch",
+        )}
+      >
         {SUPPORT_SERVICE_STAGES.map((stage, index) => {
           const selected = selectedSet.has(stage.value);
           const predicted = predictedSet.has(stage.value);
@@ -5508,7 +5521,7 @@ function StagePipeline({
                       </span>
                       {predicted ? (
                         <span className="mt-1 inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/12 dark:text-violet-100">
-                          {t("Suggested by inputs and outputs")}
+                          {t("Suggested based on input and output types")}
                         </span>
                       ) : null}
                     </span>
@@ -5525,9 +5538,26 @@ function StagePipeline({
                 </p>
               </div>
               {index < SUPPORT_SERVICE_STAGES.length - 1 ? (
-                <div className="hidden items-center justify-center md:flex">
+                <div
+                  data-testid="service-offer-stage-pipeline-connector"
+                  data-orientation={layout}
+                  className={cn(
+                    "items-center justify-center",
+                    layout === "vertical" ? "flex" : "hidden md:flex",
+                  )}
+                >
                   <span className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-100 bg-white text-violet-700 shadow-sm dark:border-violet-400/18 dark:bg-slate-950/70 dark:text-violet-100">
-                    <ArrowRight className="h-5 w-5" />
+                    {layout === "vertical" ? (
+                      <ArrowDown
+                        data-testid="service-offer-stage-pipeline-arrow-down"
+                        className="h-5 w-5"
+                      />
+                    ) : (
+                      <ArrowRight
+                        data-testid="service-offer-stage-pipeline-arrow-right"
+                        className="h-5 w-5"
+                      />
+                    )}
                   </span>
                 </div>
               ) : null}

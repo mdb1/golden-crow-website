@@ -5272,7 +5272,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Best-effort prediction": "Predicción automática",
   "Manually adjusted": "Ajustado manualmente",
   "Use suggested pipeline": "Usar pipeline sugerido",
-  "Suggested by inputs and outputs": "Sugerido por entradas y salidas",
+  "Suggested based on input and output types":
+    "Sugerido en base a los tipos de entrada y salida",
   "Forms, consent, candidate genes, and order construction.":
     "Formularios, consentimiento, genes candidatos y construcción de órdenes.",
   "Specimen logistics, extraction, sequencing, and lab-produced source files.":
