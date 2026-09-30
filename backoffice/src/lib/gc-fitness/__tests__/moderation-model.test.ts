@@ -3,11 +3,14 @@
 import {
   actionsFor,
   decodeModerationReport,
+  describeChallengeGoal,
   groupReportsByTarget,
+  isReportTargetType,
   moderationGroupKey,
   parseMessageTargetId,
   reportAgeHours,
   slaState,
+  TARGET_TYPE_LABEL,
   type ModerationReport,
 } from "@/lib/gc-fitness/moderation-model";
 
@@ -81,6 +84,38 @@ describe("actionsFor", () => {
     expect(actionsFor("routine")).toEqual(["hide", "suspend", "dismiss"]);
     expect(actionsFor("comment")).toEqual(["hide", "suspend", "dismiss"]);
     expect(actionsFor("message")).toEqual(["hide", "suspend", "dismiss"]);
+    expect(actionsFor("challenge")).toEqual(["hide", "suspend", "dismiss"]);
+  });
+});
+
+describe("challenge target (#1189)", () => {
+  it("is a report target type with a Spanish label, and decodes", () => {
+    expect(isReportTargetType("challenge")).toBe(true);
+    expect(TARGET_TYPE_LABEL.challenge).toBe("Desafío");
+    const decoded = decodeModerationReport(
+      "r1",
+      { reporterUid: "u1", targetType: "challenge", targetId: "ch-1", targetOwnerUid: "u-creator", reason: "harassment" },
+      (v) => (typeof v === "string" ? v : null),
+    );
+    expect(decoded).toMatchObject({ targetType: "challenge", targetId: "ch-1", targetOwnerUid: "u-creator" });
+  });
+
+  it("groups by exact key: a challenge and a routine with the same id are two rows", () => {
+    const groups = groupReportsByTarget([
+      report({ id: "a", targetType: "challenge", targetId: "x" }),
+      report({ id: "b", targetType: "routine", targetId: "x" }),
+      report({ id: "c", targetType: "challenge", targetId: "x" }),
+    ]);
+    expect(groups.map((g) => [g.key, g.reports.length])).toEqual([["challenge|x", 2], ["routine|x", 1]]);
+  });
+
+  it("describeChallengeGoal names the goal in Spanish, and gives up on an unreadable shape", () => {
+    expect(describeChallengeGoal({ kind: "workouts", target: 12, durationDays: 30 })).toBe("12 entrenos en 30 días");
+    expect(describeChallengeGoal({ kind: "workouts", target: 1, durationDays: 1 })).toBe("1 entreno en 1 día");
+    expect(describeChallengeGoal({ kind: "volume", target: 5000, durationDays: 7 })).toBe("5000 kg en 7 días");
+    expect(describeChallengeGoal({ kind: "volume", target: 5000 })).toBe("5000 kg");
+    expect(describeChallengeGoal({ kind: "laps", target: 3, durationDays: 7 })).toBeNull();
+    expect(describeChallengeGoal({ kind: "workouts" })).toBeNull();
   });
 });
 

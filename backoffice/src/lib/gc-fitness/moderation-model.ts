@@ -20,7 +20,10 @@
 // hours. `slaState` turns a report's age into three states so the queue can
 // paint the ones that are about to (or already did) miss it.
 
-export const REPORT_TARGET_TYPES = ["profile", "routine", "comment", "message"] as const;
+// `challenge` (gc-fitness #1189, SV2-9): `social_challenges/{id}`; its `name` is
+// user-generated, so it is reportable. The owner is `creatorUid`; hiding sets
+// `hidden: true` and the apps render the name as the generic «Desafío».
+export const REPORT_TARGET_TYPES = ["profile", "routine", "comment", "message", "challenge"] as const;
 export type ReportTargetType = (typeof REPORT_TARGET_TYPES)[number];
 
 export const REPORT_REASONS = [
@@ -180,6 +183,7 @@ export const TARGET_TYPE_LABEL: Record<ReportTargetType, string> = {
   routine: "Rutina",
   comment: "Comentario",
   message: "Mensaje",
+  challenge: "Desafío",
 };
 
 export const STATUS_LABEL: Record<ReportStatus, string> = {
@@ -187,6 +191,22 @@ export const STATUS_LABEL: Record<ReportStatus, string> = {
   actioned: "Con acción",
   dismissed: "Descartados",
 };
+
+/**
+ * One line describing a challenge's goal for the queue preview, e.g.
+ * "12 entrenos en 30 días" / "5000 kg en 7 días". `null` when the doc does not
+ * carry a readable goal — the preview then shows only the name.
+ */
+export function describeChallengeGoal(data: Record<string, unknown>): string | null {
+  const target = typeof data.target === "number" && Number.isFinite(data.target) ? data.target : null;
+  if (target === null) return null;
+  const days =
+    typeof data.durationDays === "number" && Number.isFinite(data.durationDays) ? data.durationDays : null;
+  const suffix = days !== null ? ` en ${days} ${days === 1 ? "día" : "días"}` : "";
+  if (data.kind === "workouts") return `${target} ${target === 1 ? "entreno" : "entrenos"}${suffix}`;
+  if (data.kind === "volume") return `${target} kg${suffix}`;
+  return null;
+}
 
 /** `{threadId}/{messageId}` — how a message target is named by the app. */
 export function parseMessageTargetId(targetId: string): { threadId: string; messageId: string } | null {

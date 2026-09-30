@@ -15,9 +15,10 @@
 //   suspend → `social_profiles/{uid}.suspended = true`, and the EXISTING
 //             `onSocialProfileWritten` trigger fans `authorSuspended` out to
 //             every `public_routines` card (reversible by design).
-//   hide    → `hidden = true` on the card / comment / message. The card's
-//             decoder drops a hidden card in both apps; the comment trigger
-//             recounts; the message renders a placeholder.
+//   hide    → `hidden = true` on the card / comment / message / challenge.
+//             The card's decoder drops a hidden card in both apps; the comment
+//             trigger recounts; the message renders a placeholder; a hidden
+//             challenge's name renders as the generic «Desafío» (#1189).
 //
 // ## Resolving a report resolves the GROUP
 //
@@ -37,6 +38,7 @@ import { getCurrentAdmin } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import {
   decodeModerationReport,
+  describeChallengeGoal,
   groupReportsByTarget,
   isReportStatus,
   isReportTargetType,
@@ -159,6 +161,29 @@ async function previewTarget(
         return {
           title: `mensaje de ${typeof d.senderId === "string" ? d.senderId : "?"}`,
           body: typeof d.text === "string" ? d.text : null,
+          hidden: d.hidden === true,
+          ownerSuspended: false,
+          missing: false,
+        };
+      }
+      case "challenge": {
+        const snap = await db.collection(FirestoreCollections.socialChallenges).doc(targetId).get();
+        if (!snap.exists) return missing;
+        const d = snap.data() ?? {};
+        const creatorUid = typeof d.creatorUid === "string" ? d.creatorUid : "";
+        const members = d.members && typeof d.members === "object" ? (d.members as Record<string, unknown>) : {};
+        const creator = creatorUid ? (members[creatorUid] as Record<string, unknown> | undefined) : undefined;
+        const handle =
+          creator && typeof creator.handle === "string" && creator.handle ? `@${creator.handle}` : "";
+        const name = typeof d.name === "string" && d.name.trim() ? d.name.trim() : targetId;
+        const memberCount = Array.isArray(d.memberUids) ? d.memberUids.length : 0;
+        const goal = describeChallengeGoal(d as Record<string, unknown>);
+        const body = [goal, memberCount > 0 ? `${memberCount} ${memberCount === 1 ? "miembro" : "miembros"}` : null]
+          .filter(Boolean)
+          .join(" · ");
+        return {
+          title: [name, handle].filter(Boolean).join(" · "),
+          body: body || null,
           hidden: d.hidden === true,
           ownerSuspended: false,
           missing: false,
@@ -328,6 +353,12 @@ async function setHidden(target: ActionTarget, hidden: boolean): Promise<void> {
         .set({ hidden }, { merge: true });
       return;
     }
+    case "challenge":
+      await db
+        .collection(FirestoreCollections.socialChallenges)
+        .doc(target.targetId)
+        .set({ hidden, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      return;
     case "profile":
       throw new Error("A profile is not hidden; it is suspended.");
   }

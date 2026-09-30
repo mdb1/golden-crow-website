@@ -238,6 +238,8 @@ export const FirestoreCollections = {
   publicRoutines: "public_routines",
   /** Comments on a public routine — `hidden` is what moderation flips. */
   routineComments: "routine_comments",
+  /** Challenges between friends (SV2-9, #1189) — `hidden` is what moderation flips. */
+  socialChallenges: "social_challenges",
   /** DM threads; messages live in `dm_threads/{id}/messages/{id}`. */
   dmThreads: "dm_threads",
   /**
