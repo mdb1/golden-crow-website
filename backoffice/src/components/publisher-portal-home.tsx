@@ -4,22 +4,21 @@ import {
   BadgeCheck,
   BookOpenText,
   BriefcaseBusiness,
-  Building2,
+  ClipboardList,
   FileText,
   type LucideIcon,
   Newspaper,
-  PackageOpen,
   PenLine,
   Sparkles,
+  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
+  PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
   publisherPortalFeedEntriesByStatusRoute,
   publisherPortalFeedEntryCreateRoute,
-  publisherPortalOrganizationDetailRoute,
-  publisherPortalOrganizationProductCatalogRoute,
   publisherPortalServiceOfferCreateRoute,
 } from "@/lib/publisher-portal-routes";
 import { cn } from "@/lib/utils";
@@ -32,7 +31,7 @@ type PublisherPortalHomeProps = {
   hasDraftFeedEntry: boolean;
   hasServiceOffer: boolean;
   hasActiveServiceOffer: boolean;
-  organizationId?: string;
+  publisherProfileHref?: string;
 };
 
 type QuickAccessCardProps = {
@@ -144,16 +143,10 @@ export function PublisherPortalHome({
   hasDraftFeedEntry,
   hasServiceOffer,
   hasActiveServiceOffer,
-  organizationId,
+  publisherProfileHref,
 }: PublisherPortalHomeProps) {
   const newFeedEntryHref = publisherPortalFeedEntryCreateRoute();
   const draftFeedEntriesHref = publisherPortalFeedEntriesByStatusRoute("draft");
-  const organizationHref = organizationId
-    ? publisherPortalOrganizationDetailRoute(organizationId)
-    : undefined;
-  const productCatalogHref = organizationId
-    ? publisherPortalOrganizationProductCatalogRoute(organizationId)
-    : undefined;
   const newServiceOfferHref = publisherPortalServiceOfferCreateRoute();
   const publishedFeedEntriesCard = hasPublishedFeedEntry ? (
     <QuickAccessCard
@@ -187,7 +180,7 @@ export function PublisherPortalHome({
     <QuickAccessCard
       icon={PenLine}
       title="Crear tu primera oferta de servicio"
-      body="Presentá el primer servicio de tu organización y dejalo listo para recibir solicitudes."
+      body="Presentá tu primer servicio y dejalo listo para recibir solicitudes."
       actionLabel="Crear mi primera oferta"
       href={newServiceOfferHref}
       tone="primary"
@@ -197,7 +190,7 @@ export function PublisherPortalHome({
     <QuickAccessCard
       icon={BriefcaseBusiness}
       title="Ver ofertas de servicio"
-      body="Entrá a la lista para revisar y mantener las ofertas que tu organización ya creó."
+      body="Entrá a la lista para revisar y mantener las ofertas que ya creaste."
       actionLabel="Abrir ofertas"
       href={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
       tone="primary"
@@ -209,6 +202,16 @@ export function PublisherPortalHome({
       body="Cuando publiques la primera oferta, este acceso se activa para que puedas revisarla y administrarla."
       actionLabel="Disponible después de publicar la oferta"
       disabled
+      tone="primary"
+    />
+  );
+  const receivedRequestsCard = (
+    <QuickAccessCard
+      icon={ClipboardList}
+      title="Solicitudes de servicio"
+      body="Revisá las solicitudes recibidas, seguí su avance y entregá los resultados de tus servicios."
+      actionLabel="Abrir solicitudes"
+      href={PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}
       tone="primary"
     />
   );
@@ -265,9 +268,7 @@ export function PublisherPortalHome({
                   tone="neutral"
                 />
               ) : null}
-              {organizationId
-                ? serviceOfferCreationCard
-                : publishedFeedEntriesCard}
+              {serviceOfferCreationCard}
               <QuickAccessCard
                 icon={PenLine}
                 title="Crear una nueva entrada"
@@ -297,37 +298,26 @@ export function PublisherPortalHome({
                   tone="neutral"
                 />
               ) : null}
-              {organizationId
-                ? serviceOfferCreationCard
-                : publishedFeedEntriesCard}
+              {serviceOfferCreationCard}
             </>
           )}
         </div>
 
-        {organizationId ? (
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <QuickAccessCard
-              icon={Building2}
-              title="Personalizar mi organización"
-              body="Actualizá el nombre, descripción, países, imagen y enlaces principales de tu perfil."
-              actionLabel="Abrir organización"
-              href={organizationHref}
-              tone="neutral"
-              violetAction
-            />
-            <QuickAccessCard
-              icon={PackageOpen}
-              title="Acceder al catálogo"
-              body="Entrá directo a tus productos para crear, revisar o ajustar las entradas visibles."
-              actionLabel="Abrir catálogo"
-              href={productCatalogHref}
-              tone="neutral"
-              violetAction
-            />
-            {serviceOfferListCard}
-            {publishedFeedEntriesCard}
-          </div>
-        ) : null}
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <QuickAccessCard
+            icon={UserRound}
+            title="Personalizar mi perfil"
+            body="Actualizá el nombre, descripción, países, imagen y enlaces principales de tu perfil."
+            actionLabel="Abrir perfil"
+            href={publisherProfileHref}
+            disabled={!publisherProfileHref}
+            tone="neutral"
+            violetAction
+          />
+          {serviceOfferListCard}
+          {receivedRequestsCard}
+          {publishedFeedEntriesCard}
+        </div>
       </section>
     </div>
   );

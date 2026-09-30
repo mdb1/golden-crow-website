@@ -500,7 +500,7 @@ const SERVICE_OFFER_WIZARD_STEPS = [
   },
   {
     title: "Service presentation",
-    description: "Explain what the requester receives and what your organization does.",
+    description: "Explain what the requester receives and what you do.",
   },
   {
     title: "Request form",
@@ -3523,7 +3523,11 @@ export function SupportServiceOfferWorkbench({
   mode: "create" | "edit";
   offerId?: string;
   routeBase?: string;
-  fixedProvider?: { id: string; name: string };
+  fixedProvider?: {
+    kind: SupportServiceProviderKind;
+    id: string;
+    name: string;
+  };
   canDelete?: boolean;
   presentation?: "form" | "wizard";
 }) {
@@ -3597,7 +3601,7 @@ export function SupportServiceOfferWorkbench({
 
     setForm((current) => {
       if (
-        current.providerKind === "organization" &&
+        current.providerKind === fixedProvider.kind &&
         current.providerId === fixedProvider.id &&
         current.providerName === fixedProvider.name
       ) {
@@ -3605,13 +3609,18 @@ export function SupportServiceOfferWorkbench({
       }
       const next = {
         ...current,
-        providerKind: "organization" as const,
+        providerKind: fixedProvider.kind,
         providerId: fixedProvider.id,
         providerName: fixedProvider.name,
       };
       return hasPersistedOffer ? next : applyGeneratedOfferIds(next);
     });
-  }, [fixedProvider?.id, fixedProvider?.name, hasPersistedOffer]);
+  }, [
+    fixedProvider?.id,
+    fixedProvider?.kind,
+    fixedProvider?.name,
+    hasPersistedOffer,
+  ]);
 
   const shouldValidateServiceId =
     !hasPersistedOffer &&
@@ -4550,7 +4559,14 @@ export function SupportServiceOfferWorkbench({
             {fixedProvider ? (
               <>
                 <DisplayField label="Provider kind">
-                  <GeneratedValue value={t("Organization")} showLock />
+                  <GeneratedValue
+                    value={t(
+                      fixedProvider.kind === "individual"
+                        ? "Professional individual"
+                        : "Organization",
+                    )}
+                    showLock
+                  />
                 </DisplayField>
                 <DisplayField label="Provider">
                   <GeneratedValue

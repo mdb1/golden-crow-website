@@ -4809,13 +4809,13 @@ const SPANISH_TEXT: Record<string, string> = {
     "Crear una transacción de servicio Pocket Genes pgr_*.",
   "Edit a Pocket Genes pgr_* service transaction.":
     "Editar una transacción de servicio Pocket Genes pgr_*.",
-  "Manage your organization's Pocket Genes service offers.":
-    "Gestioná las ofertas de servicio Pocket Genes de tu organización.",
-  "Create a Pocket Genes service offer for your organization.":
-    "Creá una oferta de servicio Pocket Genes para tu organización.",
+  "Manage your Pocket Genes service offers.":
+    "Gestioná tus ofertas de servicio Pocket Genes.",
+  "Create a Pocket Genes service offer for your publisher profile.":
+    "Creá una oferta de servicio Pocket Genes para tu perfil de publicador.",
   "Create a service offer": "Crear una oferta de servicio",
-  "Build your organization's service offer one step at a time.":
-    "Construí la oferta de servicio de tu organización paso a paso.",
+  "Build your service offer one step at a time.":
+    "Construí tu oferta de servicio paso a paso.",
   "Build your offer step by step": "Construí tu oferta paso a paso",
   "Offer visibility": "Visualización de la oferta",
   "Choose the name and primary category for this service.":
@@ -4826,8 +4826,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add the banner people will see when they discover this service.":
     "Agregá el banner que las personas verán al descubrir este servicio.",
   "Service presentation": "Presentación del servicio",
-  "Explain what the requester receives and what your organization does.":
-    "Explicá qué recibe el solicitante y qué hace tu organización.",
+  "Explain what the requester receives and what you do.":
+    "Explicá qué recibe el solicitante y qué hacés.",
   "Optionally collect structured information with the service request.":
     "Opcionalmente, recopilá información estructurada junto con la solicitud.",
   "The request form is included in this offer.":
@@ -4857,14 +4857,14 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se pudo preparar un identificador único para el servicio.",
   "Preparing the service offer...": "Preparando la oferta de servicio...",
   "Review the current step.": "Revisá el paso actual.",
-  "Edit your organization's Pocket Genes service offer.":
-    "Editá la oferta de servicio Pocket Genes de tu organización.",
-  "Manage transactions linked to your organization's service offers.":
-    "Gestioná las transacciones vinculadas a las ofertas de servicio de tu organización.",
-  "Manage requests linked to your organization's service offers.":
-    "Gestioná las solicitudes vinculadas a las ofertas de servicio de tu organización.",
-  "Manage this service transaction for your organization.":
-    "Gestioná esta transacción de servicio para tu organización.",
+  "Edit your Pocket Genes service offer.":
+    "Editá tu oferta de servicio Pocket Genes.",
+  "Manage transactions linked to your service offers.":
+    "Gestioná las transacciones vinculadas a tus ofertas de servicio.",
+  "Manage requests linked to your service offers.":
+    "Gestioná las solicitudes vinculadas a tus ofertas de servicio.",
+  "Manage this service transaction.":
+    "Gestioná esta transacción de servicio.",
   "Pocket Genes service request transactions.":
     "Transacciones de solicitudes de servicio Pocket Genes.",
   "A form input requires an enabled form shape.":

@@ -110,8 +110,11 @@ export function PublisherPortalSidebar({
   const pathname = usePathname();
   const { language } = useAppLanguage();
   const navItems = publisherPortalNav({ role, organizationId, individualId });
+  const hasSupportServicesScope =
+    (role === "organization_publisher" && Boolean(organizationId?.trim())) ||
+    (role === "individual_publisher" && Boolean(individualId?.trim()));
   const supportServiceItems =
-    role === "organization_publisher" && organizationId
+    hasSupportServicesScope
       ? [
           {
             href: PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,

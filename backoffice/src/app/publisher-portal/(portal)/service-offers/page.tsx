@@ -3,10 +3,10 @@ import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { appText } from "@/lib/language";
 import { PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE } from "@/lib/publisher-portal-routes";
-import { requireOrganizationPublisher } from "@/lib/publisher-support-services-server";
+import { requirePublisherSupportServicesAccess } from "@/lib/publisher-support-services-server";
 
 export default async function PublisherServiceOffersPage() {
-  await requireOrganizationPublisher();
+  await requirePublisherSupportServicesAccess();
   const t = (text: string) => appText("es", text);
 
   return (
@@ -16,9 +16,7 @@ export default async function PublisherServiceOffersPage() {
           <PageHero
             eyebrow={t("Support services")}
             title={t("Service Offers")}
-            description={t(
-              "Manage your organization's Pocket Genes service offers.",
-            )}
+            description={t("Manage your Pocket Genes service offers.")}
           />
         }
       >

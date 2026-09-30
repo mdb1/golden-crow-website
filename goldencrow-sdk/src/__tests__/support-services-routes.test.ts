@@ -98,6 +98,19 @@ const organizationPublisherContext: AdminContext = {
   projectAccess: ["mydnamap"],
 };
 
+const individualPublisherContext: AdminContext = {
+  email: "professional@example.org",
+  uid: "publisher-2",
+  role: "individual_publisher",
+  individualId: "feed-individual-1",
+  isBootstrap: false,
+  canAccessBackoffice: false,
+  canAccessPatientPortal: false,
+  canAccessPGFlex: false,
+  canAccessPublisherPortal: true,
+  projectAccess: ["mydnamap"],
+};
+
 const validOfferPayload = {
   serviceId: "pgs_pocket_genes_report_studio_12345",
   serviceVersion: 1,
@@ -1112,60 +1125,88 @@ describe("support service admin routes", () => {
     );
   });
 
-  it("allows organization publishers to load their scoped support-service lists", async () => {
-    const fastify = await buildTestServer(organizationPublisherContext);
+  it.each([
+    ["organization", organizationPublisherContext],
+    ["individual", individualPublisherContext],
+  ])(
+    "allows %s publishers to load their scoped support-service lists",
+    async (_publisherKind, publisherContext) => {
+      const fastify = await buildTestServer(publisherContext);
 
-    const [offersResponse, transactionsResponse] = await Promise.all([
-      fastify.inject({
-        method: "GET",
-        url: "/admin/support-services/offers?limit=20",
-      }),
-      fastify.inject({
-        method: "GET",
-        url: "/admin/support-services/transactions?limit=20",
-      }),
-    ]);
+      const [offersResponse, transactionsResponse] = await Promise.all([
+        fastify.inject({
+          method: "GET",
+          url: "/admin/support-services/offers?limit=20",
+        }),
+        fastify.inject({
+          method: "GET",
+          url: "/admin/support-services/transactions?limit=20",
+        }),
+      ]);
 
-    expect(offersResponse.statusCode).toBe(200);
-    expect(transactionsResponse.statusCode).toBe(200);
-    expect(mockListSupportServiceOffers).toHaveBeenCalledWith(
-      organizationPublisherContext,
-      expect.objectContaining({ limit: 20 }),
-    );
-    expect(mockListSupportServiceTransactions).toHaveBeenCalledWith(
-      organizationPublisherContext,
-      expect.objectContaining({ limit: 20 }),
-    );
-  });
+      expect(offersResponse.statusCode).toBe(200);
+      expect(transactionsResponse.statusCode).toBe(200);
+      expect(mockListSupportServiceOffers).toHaveBeenCalledWith(
+        publisherContext,
+        expect.objectContaining({ limit: 20 }),
+      );
+      expect(mockListSupportServiceTransactions).toHaveBeenCalledWith(
+        publisherContext,
+        expect.objectContaining({ limit: 20 }),
+      );
+    },
+  );
 
-  it("blocks organization publishers from creating or deleting service transactions", async () => {
-    const fastify = await buildTestServer(organizationPublisherContext);
+  it.each([
+    ["organization", organizationPublisherContext],
+    ["individual", individualPublisherContext],
+  ])(
+    "blocks %s publishers from creating or deleting service transactions",
+    async (_publisherKind, publisherContext) => {
+      const fastify = await buildTestServer(publisherContext);
 
-    const createResponse = await fastify.inject({
-      method: "POST",
-      url: "/admin/support-services/transactions",
-      payload: {
-        requestId: "pgr_publisher_forbidden",
-        offerId: "offer-1",
-        serviceId: "pgs_pocket_genes_report_studio_1",
-        providerId: "feed-org-1",
-        providerKind: "organization",
-        requestedByUserEmail: "requester@example.org",
-        requestedAtClient: "2026-09-16T12:00:00.000Z",
-        status: "received",
-        idempotencyKey: "pgr_publisher_forbidden:backoffice",
-        contractSource: "service_offer",
-      },
+      const isIndividual = publisherContext.role === "individual_publisher";
+      const createResponse = await fastify.inject({
+        method: "POST",
+        url: "/admin/support-services/transactions",
+        payload: {
+          requestId: "pgr_publisher_forbidden",
+          offerId: "offer-1",
+          serviceId: "pgs_pocket_genes_report_studio_1",
+          providerId: isIndividual ? "feed-individual-1" : "feed-org-1",
+          providerKind: isIndividual ? "individual" : "organization",
+          requestedByUserEmail: "requester@example.org",
+          requestedAtClient: "2026-09-16T12:00:00.000Z",
+          status: "received",
+          idempotencyKey: "pgr_publisher_forbidden:backoffice",
+          contractSource: "service_offer",
+        },
+      });
+      const deleteResponse = await fastify.inject({
+        method: "DELETE",
+        url: "/admin/support-services/transactions/pgr_publisher_forbidden",
+      });
+
+      expect(createResponse.statusCode).toBe(403);
+      expect(deleteResponse.statusCode).toBe(403);
+      expect(mockCreateSupportServiceTransaction).not.toHaveBeenCalled();
+      expect(mockDeleteSupportServiceTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects an individual publisher without a linked individual profile", async () => {
+    const fastify = await buildTestServer({
+      ...individualPublisherContext,
+      individualId: undefined,
     });
-    const deleteResponse = await fastify.inject({
-      method: "DELETE",
-      url: "/admin/support-services/transactions/pgr_publisher_forbidden",
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/support-services/offers",
     });
 
-    expect(createResponse.statusCode).toBe(403);
-    expect(deleteResponse.statusCode).toBe(403);
-    expect(mockCreateSupportServiceTransaction).not.toHaveBeenCalled();
-    expect(mockDeleteSupportServiceTransaction).not.toHaveBeenCalled();
+    expect(response.statusCode).toBe(403);
+    expect(mockListSupportServiceOffers).not.toHaveBeenCalled();
   });
 
   it("keeps unrelated backoffice roles out of support services", async () => {

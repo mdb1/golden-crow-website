@@ -486,13 +486,18 @@ export async function supportServicesRoutes(
         .send({ error: "No authenticated admin context" });
     }
 
-    const canAccessAsOrganizationPublisher =
-      request.adminContext.role === "organization_publisher" &&
+    const publisherId =
+      request.adminContext.role === "organization_publisher"
+        ? request.adminContext.organizationId
+        : request.adminContext.role === "individual_publisher"
+          ? request.adminContext.individualId
+          : undefined;
+    const canAccessAsPublisher =
       request.adminContext.canAccessPublisherPortal === true &&
-      Boolean(request.adminContext.organizationId?.trim());
+      Boolean(publisherId?.trim());
     if (
       !request.adminContext.isBootstrap &&
-      !canAccessAsOrganizationPublisher
+      !canAccessAsPublisher
     ) {
       return reply
         .status(403)

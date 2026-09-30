@@ -209,6 +209,28 @@ describe("Publisher portal Spanish shell", () => {
     ).toBe("/publisher-portal/discover/individuals/ind-1");
     expect(screen.queryByRole("link", { name: /Catálogo/i })).toBeNull();
     expect(
+      screen
+        .getByRole("link", { name: /Ofertas de servicio/i })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/service-offers");
+    expect(
+      screen
+        .getByRole("link", { name: /Solicitudes recibidas/i })
+        .getAttribute("href"),
+    ).toBe("/publisher-portal/service-transactions");
+    expect(screen.getByText("Mis servicios publicados")).toBeTruthy();
+  });
+
+  it("hides support services when the publisher role has no linked provider", () => {
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <SidebarProvider>
+          <PublisherPortalSidebar role="individual_publisher" />
+        </SidebarProvider>
+      </AppLanguageProvider>,
+    );
+
+    expect(
       screen.queryByRole("link", { name: /Ofertas de servicio/i }),
     ).toBeNull();
     expect(

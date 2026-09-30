@@ -314,6 +314,19 @@ const organizationPublisherContext: AdminContext = {
   projectAccess: ["mydnamap"],
 };
 
+const individualPublisherContext: AdminContext = {
+  email: "professional@example.org",
+  uid: "publisher-2",
+  role: "individual_publisher",
+  individualId: "publisher-individual-1",
+  isBootstrap: false,
+  canAccessBackoffice: false,
+  canAccessPatientPortal: false,
+  canAccessPGFlex: false,
+  canAccessPublisherPortal: true,
+  projectAccess: ["mydnamap"],
+};
+
 function serializedPgoContent(snapshot: Record<string, unknown>) {
   const data = clone((snapshot.data ?? {}) as Record<string, unknown>);
   if (snapshot.objectType !== "pgo_form") {
@@ -2087,6 +2100,269 @@ describe("organization publisher support service scope", () => {
         organizationPublisherContext,
         "pgr_own_transaction",
       ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+});
+
+describe("individual publisher support service scope", () => {
+  const ownOffer = {
+    ...baseOffer,
+    serviceId: "pgs_publisher_individual_12345",
+    providerKind: "individual" as const,
+    providerId: "publisher-individual-1",
+    providerName: "Dr. Publisher",
+    formShape: undefined,
+    inputSlots: [],
+    shortContract: "none -> report:pdf_report",
+  };
+  const sameIdOrganizationOffer = {
+    ...ownOffer,
+    serviceId: "pgs_same_id_organization_23456",
+    providerKind: "organization" as const,
+    providerName: "Same-ID Organization",
+  };
+  const otherIndividualOffer = {
+    ...ownOffer,
+    serviceId: "pgs_other_individual_34567",
+    providerId: "other-individual-1",
+    providerName: "Other Professional",
+  };
+
+  function transactionRecord(
+    requestId: string,
+    offerId: string,
+    offer:
+      | typeof ownOffer
+      | typeof sameIdOrganizationOffer
+      | typeof otherIndividualOffer,
+  ) {
+    return {
+      schemaVersion: 1,
+      requestId,
+      offerId,
+      serviceId: offer.serviceId,
+      serviceVersion: offer.serviceVersion,
+      providerId: offer.providerId,
+      providerKind: offer.providerKind,
+      status: "received",
+      requestedByUserEmail: "requester@example.org",
+      requestedAt: "2026-09-30T12:00:00.000Z",
+      requestedAtClient: "2026-09-30T11:59:59.000Z",
+      requestRevision: 1,
+      idempotencyKey: `${requestId}:ios`,
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      issues: [],
+      missingRequiredInputRoles: [],
+      offerSnapshot: { ...offer, offerId },
+      providerSnapshot: {
+        id: offer.providerId,
+        kind: offer.providerKind,
+        name: offer.providerName,
+      },
+      contractSource: "service_offer",
+      attachmentsPending: false,
+      createdAt: "2026-09-30T12:00:00.000Z",
+      updatedAt: "2026-09-30T12:00:00.000Z",
+    };
+  }
+
+  beforeEach(() => {
+    jest.resetModules();
+    collections.clear();
+    orderByCalls.length = 0;
+    seedDoc("feed_individuals", "publisher-individual-1", {
+      name: "Dr. Publisher",
+      status: "active",
+      requestedTransactions: [],
+    });
+    seedDoc("feed_individuals", "other-individual-1", {
+      name: "Other Professional",
+      status: "active",
+      requestedTransactions: [],
+    });
+    seedDoc("feed_organizations", "publisher-individual-1", {
+      name: "Same-ID Organization",
+      status: "active",
+      requestedTransactions: [],
+    });
+    seedDoc("service_offers", "offer-own-individual", ownOffer);
+    seedDoc(
+      "service_offers",
+      "offer-same-id-organization",
+      sameIdOrganizationOffer,
+    );
+    seedDoc("service_offers", "offer-other-individual", otherIndividualOffer);
+    seedDoc(
+      "service_transactions",
+      "pgr_own_individual",
+      transactionRecord(
+        "pgr_own_individual",
+        "offer-own-individual",
+        ownOffer,
+      ),
+    );
+    seedDoc(
+      "service_transactions",
+      "pgr_same_id_organization",
+      transactionRecord(
+        "pgr_same_id_organization",
+        "offer-same-id-organization",
+        sameIdOrganizationOffer,
+      ),
+    );
+    seedDoc(
+      "service_transactions",
+      "pgr_other_individual",
+      transactionRecord(
+        "pgr_other_individual",
+        "offer-other-individual",
+        otherIndividualOffer,
+      ),
+    );
+  });
+
+  it("lists only exact-kind records owned by the linked individual", async () => {
+    const {
+      listSupportServiceOffers,
+      listSupportServiceTransactions,
+    } = await import("../repositories/support-services.repository.js");
+
+    const [offers, transactions] = await Promise.all([
+      listSupportServiceOffers(individualPublisherContext),
+      listSupportServiceTransactions(individualPublisherContext),
+    ]);
+
+    expect(offers.offers.map((offer) => offer.id)).toEqual([
+      "offer-own-individual",
+    ]);
+    expect(transactions.transactions.map((transaction) => transaction.id)).toEqual([
+      "pgr_own_individual",
+    ]);
+  });
+
+  it("returns not found for foreign and same-id organization records", async () => {
+    const {
+      getSupportServiceOffer,
+      getSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+
+    await expect(
+      getSupportServiceOffer(
+        individualPublisherContext,
+        "offer-same-id-organization",
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      getSupportServiceOffer(
+        individualPublisherContext,
+        "offer-other-individual",
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      getSupportServiceTransaction(
+        individualPublisherContext,
+        "pgr_same_id_organization",
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      getSupportServiceTransaction(
+        individualPublisherContext,
+        "pgr_other_individual",
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("keeps offer mutations inside the linked individual profile", async () => {
+    const {
+      createSupportServiceOffer,
+      deleteSupportServiceOffer,
+      updateSupportServiceOffer,
+    } = await import("../repositories/support-services.repository.js");
+
+    await expect(
+      createSupportServiceOffer(individualPublisherContext, {
+        ...ownOffer,
+        serviceId: "pgs_dr_publisher_45678",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        providerKind: "individual",
+        providerId: "publisher-individual-1",
+      }),
+    );
+    await expect(
+      createSupportServiceOffer(individualPublisherContext, {
+        ...sameIdOrganizationOffer,
+        serviceId: "pgs_same_id_organization_56789",
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    await expect(
+      createSupportServiceOffer(individualPublisherContext, {
+        ...otherIndividualOffer,
+        serviceId: "pgs_other_individual_67890",
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    await expect(
+      updateSupportServiceOffer(
+        individualPublisherContext,
+        "offer-own-individual",
+        {
+          ...ownOffer,
+          name: "Updated individual service",
+          acknowledgesExistingTransactionContracts: true,
+        },
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({ name: "Updated individual service" }),
+    );
+    await expect(
+      deleteSupportServiceOffer(
+        individualPublisherContext,
+        "offer-same-id-organization",
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("allows own transaction edits and rejects cross-scope edits", async () => {
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceTransaction(
+        individualPublisherContext,
+        "pgr_own_individual",
+        { status: "validating" },
+      ),
+    ).resolves.toEqual(expect.objectContaining({ status: "validating" }));
+    await expect(
+      updateSupportServiceTransaction(
+        individualPublisherContext,
+        "pgr_same_id_organization",
+        { status: "validating" },
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      updateSupportServiceTransaction(
+        individualPublisherContext,
+        "pgr_other_individual",
+        { status: "validating" },
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("requires the individual publisher context to contain its linked id", async () => {
+    const { listSupportServiceOffers } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      listSupportServiceOffers({
+        ...individualPublisherContext,
+        individualId: undefined,
+      }),
     ).rejects.toMatchObject({ statusCode: 403 });
   });
 });

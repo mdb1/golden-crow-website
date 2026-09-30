@@ -3,10 +3,10 @@ import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { appText } from "@/lib/language";
 import { PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE } from "@/lib/publisher-portal-routes";
-import { requireOrganizationPublisher } from "@/lib/publisher-support-services-server";
+import { requirePublisherSupportServicesAccess } from "@/lib/publisher-support-services-server";
 
 export default async function PublisherServiceTransactionsPage() {
-  await requireOrganizationPublisher();
+  await requirePublisherSupportServicesAccess();
   const t = (text: string) => appText("es", text);
 
   return (
@@ -16,9 +16,7 @@ export default async function PublisherServiceTransactionsPage() {
           <PageHero
             eyebrow={t("Support services")}
             title={t("Service Requests")}
-            description={t(
-              "Manage requests linked to your organization's service offers.",
-            )}
+            description={t("Manage requests linked to your service offers.")}
           />
         }
       >

@@ -497,14 +497,95 @@ describe("support services workbenches", () => {
       <SupportServiceOfferWorkbench
         mode="create"
         routeBase="/publisher-portal/service-offers"
-        fixedProvider={{ id: "publisher-org-1", name: "Publisher Org" }}
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
         canDelete={false}
       />,
     );
 
     expect(await screen.findByText("Publisher Org · publisher-org-1")).toBeTruthy();
+    expect(screen.getByText("Organization")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Choose provider/i })).toBeNull();
     expect(screen.getAllByText("Read only").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("preselects an individual provider and serializes its kind in the create payload", async () => {
+    let createPayload: Record<string, unknown> | undefined;
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        const serviceId = new URL(
+          value,
+          "https://backoffice.example",
+        ).searchParams.get("serviceId");
+        return { serviceId, available: true };
+      }
+      if (
+        value === "/admin/support-services/offers" &&
+        init?.method === "POST"
+      ) {
+        const payload = JSON.parse(String(init.body)) as Record<string, unknown>;
+        createPayload = payload;
+        return {
+          offer: {
+            ...hiddenOffer,
+            ...payload,
+            id: "offer-individual",
+            acceptedConditions: payload.acceptedConditions ?? [],
+            scopeRules: payload.scopeRules ?? [],
+          },
+        };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        routeBase="/publisher-portal/service-offers"
+        fixedProvider={{
+          kind: "individual",
+          id: "publisher-individual-1",
+          name: "Dr. Publisher",
+        }}
+        canDelete={false}
+      />,
+    );
+
+    expect(
+      await screen.findByText("Dr. Publisher · publisher-individual-1"),
+    ).toBeTruthy();
+    expect(screen.getByText("Professional individual")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Choose provider/i })).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Prefill with mocked template" }),
+    );
+    const templateDialog = await screen.findByRole("dialog", {
+      name: "Prefill with mocked template",
+    });
+    fireEvent.click(
+      within(templateDialog).getAllByRole("button", {
+        name: "Use template",
+      })[0],
+    );
+
+    expect(await screen.findByText("Service ID is available.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    await waitFor(() => expect(createPayload).toBeDefined());
+    expect(createPayload).toEqual(
+      expect.objectContaining({
+        providerKind: "individual",
+        providerId: "publisher-individual-1",
+        providerName: "Dr. Publisher",
+      }),
+    );
+    expect(createPayload).not.toHaveProperty("provider_kind");
+    expect(createPayload).not.toHaveProperty("provider_id");
   });
 
   it("guides publisher offer creation through focused wizard steps", async () => {
@@ -524,7 +605,11 @@ describe("support services workbenches", () => {
         mode="create"
         presentation="wizard"
         routeBase="/publisher-portal/service-offers"
-        fixedProvider={{ id: "publisher-org-1", name: "Publisher Org" }}
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
         canDelete={false}
       />,
     );

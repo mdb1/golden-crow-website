@@ -602,7 +602,11 @@ function requireGodMode(context: AdminContext) {
 
 type SupportServicesAccessScope =
   | { kind: "god_mode" }
-  | { kind: "organization_publisher"; organizationId: string };
+  | {
+      kind: "publisher";
+      providerKind: SupportServiceProviderKind;
+      providerId: string;
+    };
 
 function requireSupportServicesAccess(
   context: AdminContext,
@@ -617,18 +621,33 @@ function requireSupportServicesAccess(
     context.canAccessPublisherPortal === true &&
     organizationId
   ) {
-    return { kind: "organization_publisher", organizationId };
+    return {
+      kind: "publisher",
+      providerKind: "organization",
+      providerId: organizationId,
+    };
+  }
+
+  const individualId = cleanString(context.individualId);
+  if (
+    context.role === "individual_publisher" &&
+    context.canAccessPublisherPortal === true &&
+    individualId
+  ) {
+    return {
+      kind: "publisher",
+      providerKind: "individual",
+      providerId: individualId,
+    };
   }
 
   throw new AdminRepositoryError("Support services access required", 403);
 }
 
-function supportServicesOrganizationId(
+function supportServicesProviderId(
   scope: SupportServicesAccessScope,
 ): string | undefined {
-  return scope.kind === "organization_publisher"
-    ? scope.organizationId
-    : undefined;
+  return scope.kind === "publisher" ? scope.providerId : undefined;
 }
 
 function supportServicesRecordBelongsToScope(
@@ -637,8 +656,8 @@ function supportServicesRecordBelongsToScope(
 ) {
   return (
     scope.kind === "god_mode" ||
-    (record.providerKind === "organization" &&
-      record.providerId === scope.organizationId)
+    (record.providerKind === scope.providerKind &&
+      record.providerId === scope.providerId)
   );
 }
 
@@ -658,7 +677,7 @@ function assertSupportServicesProviderSelection(
 ) {
   if (!supportServicesRecordBelongsToScope(scope, record)) {
     throw new AdminRepositoryError(
-      "Organization publishers can only manage service offers for their linked organization.",
+      "Publishers can only manage service offers for their linked publisher profile.",
       403,
     );
   }
@@ -5780,11 +5799,11 @@ export async function listSupportServiceOffers(
   options: OfferListOptions = {},
 ): Promise<SupportServiceOffersPage> {
   const accessScope = requireSupportServicesAccess(context);
-  const organizationId = supportServicesOrganizationId(accessScope);
+  const providerId = supportServicesProviderId(accessScope);
 
   const limit = normalizeLimit(options.limit);
   const hasFilters = Boolean(
-    organizationId ||
+    providerId ||
       cleanString(options.query) ||
       (cleanString(options.status) && cleanString(options.status) !== "all") ||
       cleanString(options.serviceId) ||
@@ -5795,8 +5814,8 @@ export async function listSupportServiceOffers(
     cursor: options.cursor,
     limit,
     hasFilters,
-    whereEquals: organizationId
-      ? { field: "providerId", value: organizationId }
+    whereEquals: providerId
+      ? { field: "providerId", value: providerId }
       : undefined,
     toRecord: (id, data) => offerListRecord(toOfferAdminRecord(id, data)),
     matches: (record) =>
@@ -6236,11 +6255,11 @@ export async function listSupportServiceTransactions(
   options: TransactionListOptions = {},
 ): Promise<SupportServiceTransactionsPage> {
   const accessScope = requireSupportServicesAccess(context);
-  const organizationId = supportServicesOrganizationId(accessScope);
+  const providerId = supportServicesProviderId(accessScope);
 
   const limit = normalizeLimit(options.limit);
   const hasFilters = Boolean(
-    organizationId ||
+    providerId ||
       cleanString(options.query) ||
       (cleanString(options.status) && cleanString(options.status) !== "all") ||
       cleanString(options.serviceId),
@@ -6250,8 +6269,8 @@ export async function listSupportServiceTransactions(
     cursor: options.cursor,
     limit,
     hasFilters,
-    whereEquals: organizationId
-      ? { field: "providerId", value: organizationId }
+    whereEquals: providerId
+      ? { field: "providerId", value: providerId }
       : undefined,
     toRecord: (id, data) =>
       transactionListRecord(toTransactionAdminRecord(id, data)),

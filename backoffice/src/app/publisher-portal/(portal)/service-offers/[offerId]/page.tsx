@@ -3,7 +3,7 @@ import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { appText } from "@/lib/language";
 import { PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE } from "@/lib/publisher-portal-routes";
-import { getOrganizationPublisherProvider } from "@/lib/publisher-support-services-server";
+import { getPublisherSupportServicesProvider } from "@/lib/publisher-support-services-server";
 
 export default async function PublisherServiceOfferDetailPage({
   params,
@@ -12,7 +12,7 @@ export default async function PublisherServiceOfferDetailPage({
 }) {
   const [{ offerId }, { provider }] = await Promise.all([
     params,
-    getOrganizationPublisherProvider(),
+    getPublisherSupportServicesProvider(),
   ]);
   const t = (text: string) => appText("es", text);
 
@@ -23,9 +23,7 @@ export default async function PublisherServiceOfferDetailPage({
           <PageHero
             eyebrow={t("Support services")}
             title={t("Service Offer")}
-            description={t(
-              "Edit your organization's Pocket Genes service offer.",
-            )}
+            description={t("Edit your Pocket Genes service offer.")}
           />
         }
       >

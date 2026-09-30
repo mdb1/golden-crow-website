@@ -1,15 +1,16 @@
 /** @jest-environment jsdom */
 
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import PublisherPortalHomePage from "@/app/publisher-portal/(portal)/home/page";
 import type { MyAccountRecord } from "@/lib/admin-areas";
 import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
+  PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
   publisherPortalFeedEntriesByStatusRoute,
   publisherPortalFeedEntryCreateRoute,
+  publisherPortalIndividualDetailRoute,
   publisherPortalOrganizationDetailRoute,
-  publisherPortalOrganizationProductCatalogRoute,
   publisherPortalServiceOfferCreateRoute,
 } from "@/lib/publisher-portal-routes";
 import { sdkFetchServer } from "@/lib/sdk-server";
@@ -131,14 +132,9 @@ describe("PublisherPortalHomePage", () => {
     ).toBe(true);
     expect(
       screen
-        .getByRole("link", { name: /Abrir organización/i })
+        .getByRole("link", { name: /Abrir perfil/i })
         .getAttribute("href"),
     ).toBe(publisherPortalOrganizationDetailRoute("org-1"));
-    expect(
-      screen
-        .getByRole("link", { name: /Abrir catálogo/i })
-        .getAttribute("href"),
-    ).toBe(publisherPortalOrganizationProductCatalogRoute("org-1"));
     expect(sdkFetchServer).toHaveBeenCalledWith(
       "/admin/support-services/offers?limit=1",
     );
@@ -170,7 +166,11 @@ describe("PublisherPortalHomePage", () => {
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
-    expect(screen.queryByText("Solicitudes de servicio")).toBeNull();
+    expect(
+      screen
+        .getByRole("link", { name: /Abrir solicitudes/i })
+        .getAttribute("href"),
+    ).toBe(PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE);
     expect(screen.queryByText("Ver mis borradores")).toBeNull();
   });
 
@@ -195,13 +195,9 @@ describe("PublisherPortalHomePage", () => {
       }),
     ).toBeNull();
     expect(screen.queryByText("Ver mis borradores")).toBeNull();
-    expect(screen.getByText("Personalizar mi organización")).toBeTruthy();
-    expect(screen.getByText("Acceder al catálogo")).toBeTruthy();
+    expect(screen.getByText("Personalizar mi perfil")).toBeTruthy();
     expect(
-      screen.getByRole("link", { name: /Abrir organización/i }).className,
-    ).toContain("bg-violet-600");
-    expect(
-      screen.getByRole("link", { name: /Abrir catálogo/i }).className,
+      screen.getByRole("link", { name: /Abrir perfil/i }).className,
     ).toContain("bg-violet-600");
     expect(
       screen
@@ -231,7 +227,11 @@ describe("PublisherPortalHomePage", () => {
     expect(
       quickAccessTitles.indexOf("Ver mis notas publicadas"),
     ).toBeGreaterThan(quickAccessTitles.indexOf("Ver ofertas de servicio"));
-    expect(screen.queryByText("Solicitudes de servicio")).toBeNull();
+    expect(
+      screen
+        .getByRole("link", { name: /Abrir solicitudes/i })
+        .getAttribute("href"),
+    ).toBe(PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE);
   });
 
   it("offers another creation flow when a non-active service offer already exists", async () => {
@@ -279,7 +279,7 @@ describe("PublisherPortalHomePage", () => {
     );
   });
 
-  it("does not show organization quick accesses to individual publishers", async () => {
+  it("renders the same home cards for organization and individual publishers", async () => {
     const individualAccount = {
       ...account,
       context: {
@@ -293,20 +293,50 @@ describe("PublisherPortalHomePage", () => {
         role: "individual_publisher",
       },
     } as unknown as MyAccountRecord;
-    mockPublisherHomeData(true, false, individualAccount);
+
+    mockPublisherHomeData(true, false, account, true);
+    render(await PublisherPortalHomePage());
+
+    const organizationCardTitles = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent);
+    const organizationCardClasses = screen
+      .getAllByRole("article")
+      .map((article) => article.className);
+    cleanup();
+
+    jest.mocked(sdkFetchServer).mockReset();
+    mockPublisherHomeData(true, false, individualAccount, true);
 
     render(await PublisherPortalHomePage());
 
-    expect(screen.queryByText("Personalizar mi organización")).toBeNull();
-    expect(screen.queryByText("Acceder al catálogo")).toBeNull();
-    expect(screen.queryByText("Ver ofertas de servicio")).toBeNull();
     expect(
-      screen.queryByText("Crear tu primera oferta de servicio"),
-    ).toBeNull();
-    expect(sdkFetchServer).not.toHaveBeenCalledWith(
+      screen
+        .getByRole("link", { name: /Abrir perfil/i })
+        .getAttribute("href"),
+    ).toBe(publisherPortalIndividualDetailRoute("ind-1"));
+    expect(
+      screen
+        .getByRole("link", { name: /Abrir ofertas/i })
+        .getAttribute("href"),
+    ).toBe(PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE);
+    expect(
+      screen
+        .getByRole("link", { name: /Abrir solicitudes/i })
+        .getAttribute("href"),
+    ).toBe(PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE);
+    expect(
+      screen
+        .getAllByRole("heading", { level: 2 })
+        .map((heading) => heading.textContent),
+    ).toEqual(organizationCardTitles);
+    expect(
+      screen.getAllByRole("article").map((article) => article.className),
+    ).toEqual(organizationCardClasses);
+    expect(sdkFetchServer).toHaveBeenCalledWith(
       "/admin/support-services/offers?limit=1",
     );
-    expect(sdkFetchServer).not.toHaveBeenCalledWith(
+    expect(sdkFetchServer).toHaveBeenCalledWith(
       "/admin/support-services/offers?limit=1&status=active",
     );
   });

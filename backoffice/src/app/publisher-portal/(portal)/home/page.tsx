@@ -2,6 +2,10 @@ import { ADMIN_ROLE_LABELS, type MyAccountRecord } from "@/lib/admin-areas";
 import { PublisherPortalHome } from "@/components/publisher-portal-home";
 import type { DiscoverFeedItemsPage } from "@/lib/discover";
 import { appText } from "@/lib/language";
+import {
+  publisherPortalIndividualDetailRoute,
+  publisherPortalOrganizationDetailRoute,
+} from "@/lib/publisher-portal-routes";
 import { sdkFetchServer } from "@/lib/sdk-server";
 import type { SupportServiceOffersPage } from "@/lib/support-services";
 
@@ -26,10 +30,13 @@ export default async function PublisherPortalHomePage() {
   );
   const serviceOfferPresenceRequest = accountRequest.then(
     async ({ account }): Promise<[boolean, boolean]> => {
-      if (
-        account.context.role !== "organization_publisher" ||
-        !account.context.organizationId
-      ) {
+      const publisherId =
+        account.context.role === "organization_publisher"
+          ? account.context.organizationId?.trim()
+          : account.context.role === "individual_publisher"
+            ? account.context.individualId?.trim()
+            : undefined;
+      if (!publisherId) {
         return [false, false];
       }
 
@@ -60,6 +67,14 @@ export default async function PublisherPortalHomePage() {
       ? ADMIN_ROLE_LABELS[account.role.role]
       : ADMIN_ROLE_LABELS[account.context.role],
   );
+  const organizationId = account.context.organizationId?.trim();
+  const individualId = account.context.individualId?.trim();
+  const publisherProfileHref =
+    account.context.role === "organization_publisher" && organizationId
+      ? publisherPortalOrganizationDetailRoute(organizationId)
+      : account.context.role === "individual_publisher" && individualId
+        ? publisherPortalIndividualDetailRoute(individualId)
+        : undefined;
 
   return (
     <PublisherPortalHome
@@ -70,11 +85,7 @@ export default async function PublisherPortalHomePage() {
       hasDraftFeedEntry={hasDraftFeedEntry}
       hasServiceOffer={hasServiceOffer}
       hasActiveServiceOffer={hasActiveServiceOffer}
-      organizationId={
-        account.context.role === "organization_publisher"
-          ? account.context.organizationId
-          : undefined
-      }
+      publisherProfileHref={publisherProfileHref}
     />
   );
 }

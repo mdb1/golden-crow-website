@@ -4,7 +4,7 @@ import { PageHero } from "@/components/page-hero";
 import { notFound } from "next/navigation";
 import { appText } from "@/lib/language";
 import { PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE } from "@/lib/publisher-portal-routes";
-import { requireOrganizationPublisher } from "@/lib/publisher-support-services-server";
+import { requirePublisherSupportServicesAccess } from "@/lib/publisher-support-services-server";
 
 export default async function PublisherServiceTransactionDetailPage({
   params,
@@ -13,7 +13,7 @@ export default async function PublisherServiceTransactionDetailPage({
 }) {
   const [{ transactionId }] = await Promise.all([
     params,
-    requireOrganizationPublisher(),
+    requirePublisherSupportServicesAccess(),
   ]);
   const decodedTransactionId = decodeURIComponent(transactionId);
   if (decodedTransactionId === "new") {
@@ -28,9 +28,7 @@ export default async function PublisherServiceTransactionDetailPage({
           <PageHero
             eyebrow={t("Support services")}
             title={t("Service Transaction")}
-            description={t(
-              "Manage this service transaction for your organization.",
-            )}
+            description={t("Manage this service transaction.")}
           />
         }
       >
