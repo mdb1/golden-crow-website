@@ -6718,20 +6718,22 @@ function FormShapeEditor({
       )}
       {!form.supportsFormShape ? null : (
         <>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <DisplayField label="Form shape ID">
-              <FormShapeIdGeneratedValue
-                formShapeId={formShapeIdPreview}
-                status={idStatus}
-              />
-            </DisplayField>
-            <DisplayField label="Form shape version">
-              <FormShapeVersionGeneratedValue
-                value={form.formShape.version || 1}
-                bumpToken={versionBumpToken}
-              />
-            </DisplayField>
-          </div>
+          {presentation === "form" ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DisplayField label="Form shape ID">
+                <FormShapeIdGeneratedValue
+                  formShapeId={formShapeIdPreview}
+                  status={idStatus}
+                />
+              </DisplayField>
+              <DisplayField label="Form shape version">
+                <FormShapeVersionGeneratedValue
+                  value={form.formShape.version || 1}
+                  bumpToken={versionBumpToken}
+                />
+              </DisplayField>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm text-muted-foreground">
               {form.formShape.fields.length} {t("fields")}

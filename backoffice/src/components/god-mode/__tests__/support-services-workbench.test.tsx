@@ -607,7 +607,9 @@ describe("support services workbenches", () => {
 
     fireEvent.click(formDisclosure);
     expect(formDisclosure.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByText("Form shape ID")).toBeTruthy();
+    expect(screen.queryByText("Form shape ID")).toBeNull();
+    expect(screen.queryByText("Form shape version")).toBeNull();
+    expect(screen.getByRole("button", { name: "Add field" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
@@ -997,6 +999,9 @@ describe("support services workbenches", () => {
         .classList.contains("xl:grid-cols-2"),
     ).toBe(true);
     expect(screen.getByText("Not requested")).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Support form input" }));
+    expect(screen.getByText("Form shape ID")).toBeTruthy();
+    expect(screen.getByText("Form shape version")).toBeTruthy();
     expect(
       document
         .getElementById("service-offer-highlighted")
