@@ -5,7 +5,6 @@ import {
   BookOpenText,
   BriefcaseBusiness,
   Building2,
-  ClipboardList,
   FileText,
   type LucideIcon,
   Newspaper,
@@ -17,11 +16,11 @@ import { Button } from "@/components/ui/button";
 import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
-  PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
   publisherPortalFeedEntriesByStatusRoute,
   publisherPortalFeedEntryCreateRoute,
   publisherPortalOrganizationDetailRoute,
   publisherPortalOrganizationProductCatalogRoute,
+  publisherPortalServiceOfferCreateRoute,
 } from "@/lib/publisher-portal-routes";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +30,7 @@ type PublisherPortalHomeProps = {
   roleLabel: string;
   hasPublishedFeedEntry: boolean;
   hasDraftFeedEntry: boolean;
+  hasServiceOffer: boolean;
   organizationId?: string;
 };
 
@@ -139,6 +139,7 @@ export function PublisherPortalHome({
   roleLabel,
   hasPublishedFeedEntry,
   hasDraftFeedEntry,
+  hasServiceOffer,
   organizationId,
 }: PublisherPortalHomeProps) {
   const newFeedEntryHref = publisherPortalFeedEntryCreateRoute();
@@ -149,6 +150,7 @@ export function PublisherPortalHome({
   const productCatalogHref = organizationId
     ? publisherPortalOrganizationProductCatalogRoute(organizationId)
     : undefined;
+  const newServiceOfferHref = publisherPortalServiceOfferCreateRoute();
 
   return (
     <div className="min-h-[calc(100vh-var(--app-header-height)-3rem)] bg-background px-1 py-3 text-foreground">
@@ -269,22 +271,45 @@ export function PublisherPortalHome({
               href={productCatalogHref}
               tone="neutral"
             />
-            <QuickAccessCard
-              icon={BriefcaseBusiness}
-              title="Ofertas de servicio"
-              body="Creá y administrá las ofertas que tu organización publica para recibir nuevas solicitudes."
-              actionLabel="Abrir ofertas"
-              href={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
-              tone="primary"
-            />
-            <QuickAccessCard
-              icon={ClipboardList}
-              title="Solicitudes de servicio"
-              body="Revisá las solicitudes recibidas y seguí su avance hasta completar la entrega."
-              actionLabel="Abrir solicitudes"
-              href={PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}
-              tone="primary"
-            />
+            {hasServiceOffer ? (
+              <>
+                <QuickAccessCard
+                  icon={BriefcaseBusiness}
+                  title="Ver ofertas de servicio"
+                  body="Entrá a la lista para revisar y mantener las ofertas que tu organización ya creó."
+                  actionLabel="Abrir ofertas"
+                  href={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
+                  tone="primary"
+                />
+                <QuickAccessCard
+                  icon={PenLine}
+                  title="Crear una nueva oferta"
+                  body="Definí un nuevo servicio para que las personas puedan solicitarlo desde la aplicación."
+                  actionLabel="Crear nueva oferta"
+                  href={newServiceOfferHref}
+                  tone="primary"
+                />
+              </>
+            ) : (
+              <>
+                <QuickAccessCard
+                  icon={PenLine}
+                  title="Creá tu primera oferta de servicio"
+                  body="Presentá el primer servicio de tu organización y dejalo listo para recibir solicitudes."
+                  actionLabel="Crear mi primera oferta"
+                  href={newServiceOfferHref}
+                  tone="primary"
+                />
+                <QuickAccessCard
+                  icon={BriefcaseBusiness}
+                  title="Ver ofertas de servicio"
+                  body="Cuando crees la primera oferta, este acceso se activa para que puedas revisarla y administrarla."
+                  actionLabel="Disponible después de crear"
+                  disabled
+                  tone="primary"
+                />
+              </>
+            )}
           </div>
         ) : null}
       </section>

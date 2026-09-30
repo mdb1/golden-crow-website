@@ -6,11 +6,11 @@ import type { MyAccountRecord } from "@/lib/admin-areas";
 import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
-  PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
   publisherPortalFeedEntriesByStatusRoute,
   publisherPortalFeedEntryCreateRoute,
   publisherPortalOrganizationDetailRoute,
   publisherPortalOrganizationProductCatalogRoute,
+  publisherPortalServiceOfferCreateRoute,
 } from "@/lib/publisher-portal-routes";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
@@ -54,6 +54,7 @@ function mockPublisherHomeData(
   hasPublishedFeedEntry: boolean,
   hasDraftFeedEntry = false,
   accountOverride: MyAccountRecord = account,
+  hasServiceOffer = false,
 ) {
   jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
     if (path === "/auth/my-account") {
@@ -70,6 +71,13 @@ function mockPublisherHomeData(
     if (path === "/discover/feed-items?limit=1&status=draft") {
       return {
         feedItems: hasDraftFeedEntry ? [{ id: "draft-1" }] : [],
+        nextCursor: null,
+      };
+    }
+
+    if (path === "/admin/support-services/offers?limit=1") {
+      return {
+        offers: hasServiceOffer ? [{ id: "offer-1" }] : [],
         nextCursor: null,
       };
     }
@@ -117,33 +125,40 @@ describe("PublisherPortalHomePage", () => {
         .getByRole("link", { name: /Abrir catálogo/i })
         .getAttribute("href"),
     ).toBe(publisherPortalOrganizationProductCatalogRoute("org-1"));
+    expect(sdkFetchServer).toHaveBeenCalledWith(
+      "/admin/support-services/offers?limit=1",
+    );
     expect(
       screen
-        .getByRole("link", { name: /Abrir ofertas/i })
+        .getByRole("link", { name: /Crear mi primera oferta/i })
         .getAttribute("href"),
-    ).toBe(PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE);
+    ).toBe(publisherPortalServiceOfferCreateRoute());
     expect(
-      screen.getByRole("heading", { name: "Ofertas de servicio" }),
+      screen.getByRole("heading", {
+        name: "Creá tu primera oferta de servicio",
+      }),
     ).toBeTruthy();
     expect(
       screen
-        .getByRole("link", { name: /Abrir solicitudes/i })
-        .getAttribute("href"),
-    ).toBe(PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE);
-    expect(
-      screen.getByRole("heading", { name: "Solicitudes de servicio" }),
-    ).toBeTruthy();
-    expect(
-      screen
-        .getByRole("heading", { name: "Solicitudes de servicio" })
+        .getByRole("heading", {
+          name: "Creá tu primera oferta de servicio",
+        })
         .closest("article")
         ?.className,
     ).toContain("border-violet-200/80");
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Disponible después de crear",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(screen.queryByText("Solicitudes de servicio")).toBeNull();
     expect(screen.queryByText("Ver mis borradores")).toBeNull();
   });
 
-  it("enables both quick accesses once the publisher has a published entry", async () => {
-    mockPublisherHomeData(true);
+  it("shows view and create actions once the publisher has a service offer", async () => {
+    mockPublisherHomeData(true, false, account, true);
 
     render(await PublisherPortalHomePage());
 
@@ -165,6 +180,26 @@ describe("PublisherPortalHomePage", () => {
     expect(screen.queryByText("Ver mis borradores")).toBeNull();
     expect(screen.getByText("Personalizar mi organización")).toBeTruthy();
     expect(screen.getByText("Acceder al catálogo")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: /Abrir ofertas/i })
+        .getAttribute("href"),
+    ).toBe(PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE);
+    expect(
+      screen.getByRole("heading", { name: "Ver ofertas de servicio" }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("heading", { name: "Ver ofertas de servicio" })
+        .closest("article")
+        ?.className,
+    ).toContain("border-violet-200/80");
+    expect(
+      screen
+        .getByRole("link", { name: /Crear nueva oferta/i })
+        .getAttribute("href"),
+    ).toBe(publisherPortalServiceOfferCreateRoute());
+    expect(screen.queryByText("Solicitudes de servicio")).toBeNull();
   });
 
   it("shows a draft shortcut before published notes when draft entries exist", async () => {
@@ -205,7 +240,12 @@ describe("PublisherPortalHomePage", () => {
 
     expect(screen.queryByText("Personalizar mi organización")).toBeNull();
     expect(screen.queryByText("Acceder al catálogo")).toBeNull();
-    expect(screen.queryByText("Ofertas de servicio")).toBeNull();
-    expect(screen.queryByText("Solicitudes de servicio")).toBeNull();
+    expect(screen.queryByText("Ver ofertas de servicio")).toBeNull();
+    expect(
+      screen.queryByText("Creá tu primera oferta de servicio"),
+    ).toBeNull();
+    expect(sdkFetchServer).not.toHaveBeenCalledWith(
+      "/admin/support-services/offers?limit=1",
+    );
   });
 });

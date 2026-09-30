@@ -3,6 +3,7 @@ import { PublisherPortalHome } from "@/components/publisher-portal-home";
 import type { DiscoverFeedItemsPage } from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
+import type { SupportServiceOffersPage } from "@/lib/support-services";
 
 async function loadFeedEntryPresence(status: "draft" | "published") {
   const page = await sdkFetchServer<DiscoverFeedItemsPage>(
@@ -11,13 +12,34 @@ async function loadFeedEntryPresence(status: "draft" | "published") {
   return page.feedItems.length > 0;
 }
 
+async function loadServiceOfferPresence() {
+  const page = await sdkFetchServer<SupportServiceOffersPage>(
+    "/admin/support-services/offers?limit=1",
+  );
+  return page.offers.length > 0;
+}
+
 export default async function PublisherPortalHomePage() {
-  const [{ account }, hasPublishedFeedEntry, hasDraftFeedEntry] =
-    await Promise.all([
-      sdkFetchServer<{ account: MyAccountRecord }>("/auth/my-account"),
-      loadFeedEntryPresence("published"),
-      loadFeedEntryPresence("draft"),
-    ]);
+  const accountRequest = sdkFetchServer<{ account: MyAccountRecord }>(
+    "/auth/my-account",
+  );
+  const serviceOfferPresenceRequest = accountRequest.then(({ account }) =>
+    account.context.role === "organization_publisher" &&
+    account.context.organizationId
+      ? loadServiceOfferPresence()
+      : false,
+  );
+  const [
+    { account },
+    hasPublishedFeedEntry,
+    hasDraftFeedEntry,
+    hasServiceOffer,
+  ] = await Promise.all([
+    accountRequest,
+    loadFeedEntryPresence("published"),
+    loadFeedEntryPresence("draft"),
+    serviceOfferPresenceRequest,
+  ]);
   const displayName =
     account.role?.displayName ||
     account.auth.displayName ||
@@ -36,6 +58,7 @@ export default async function PublisherPortalHomePage() {
       roleLabel={roleLabel}
       hasPublishedFeedEntry={hasPublishedFeedEntry}
       hasDraftFeedEntry={hasDraftFeedEntry}
+      hasServiceOffer={hasServiceOffer}
       organizationId={
         account.context.role === "organization_publisher"
           ? account.context.organizationId

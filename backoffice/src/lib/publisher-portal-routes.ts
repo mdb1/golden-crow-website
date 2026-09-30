@@ -41,6 +41,10 @@ export function publisherPortalServiceOfferDetailRoute(offerId: string) {
   return `${PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}/${encodeURIComponent(offerId)}`;
 }
 
+export function publisherPortalServiceOfferCreateRoute() {
+  return `${PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}/new`;
+}
+
 export function publisherPortalServiceTransactionDetailRoute(
   transactionId: string,
 ) {
