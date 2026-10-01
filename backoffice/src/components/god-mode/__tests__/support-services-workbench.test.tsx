@@ -822,6 +822,80 @@ describe("support services workbenches", () => {
     expect(screen.getByText("Organization")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Choose provider/i })).toBeNull();
     expect(screen.getAllByText("Read only").length).toBeGreaterThanOrEqual(2);
+    expect(
+      screen.queryByTestId("publisher-service-offer-editor-header"),
+    ).toBeNull();
+  });
+
+  it("visually separates the publisher offer editor header from its identity section", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (
+        String(path) ===
+        `/admin/support-services/offers/${hiddenOffer.id}`
+      ) {
+        return { offer: hiddenOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${String(path)}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="edit"
+        offerId={hiddenOffer.id}
+        routeBase="/publisher-portal/service-offers"
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
+        canDelete={false}
+        publisherEditorPresentation
+      />,
+      "es",
+    );
+
+    const editorHeader = await screen.findByTestId(
+      "publisher-service-offer-editor-header",
+    );
+    const editorTitle = within(editorHeader).getByRole("heading", {
+      level: 2,
+      name: "Editor de oferta",
+    });
+    expect(editorHeader.classList.contains("bg-slate-950")).toBe(true);
+    expect(editorTitle.classList.contains("font-sans")).toBe(true);
+    expect(editorTitle.classList.contains("font-bold")).toBe(true);
+    expect(editorTitle.classList.contains("text-white")).toBe(true);
+    expect(
+      within(editorHeader).getByText(
+        "Configuración comercial, operativa y de publicación",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(editorHeader)
+        .getByTestId("publisher-service-offer-editor-header-icon")
+        .querySelector("svg")
+        ?.classList.contains("lucide-pencil"),
+    ).toBe(true);
+
+    const identitySection = screen.getByTestId(
+      "publisher-service-offer-identity-section",
+    );
+    const identityTitle = within(identitySection).getByRole("heading", {
+      level: 3,
+      name: "Datos principales del servicio",
+    });
+    expect(identityTitle.classList.contains("font-heading")).toBe(true);
+    expect(identityTitle.classList.contains("text-sky-950")).toBe(true);
+    expect(
+      within(identitySection)
+        .getByTestId("publisher-service-offer-identity-icon")
+        .querySelector("svg")
+        ?.classList.contains("lucide-fingerprint-pattern"),
+    ).toBe(true);
+
+    expect(screen.queryByText("Editar oferta de servicio")).toBeNull();
+    expect(screen.queryByText("Contrato de servicio Pocket Genes")).toBeNull();
+    expect(screen.queryByText("Identidad de la oferta")).toBeNull();
   });
 
   it("preselects an individual provider and serializes its kind in the create payload", async () => {
@@ -1335,6 +1409,13 @@ describe("support services workbenches", () => {
       ),
     ).toBeTruthy();
     expect(screen.getByText("Offer identity")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Editar service offer" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Pocket Genes service contract")).toBeTruthy();
+    expect(
+      screen.queryByTestId("publisher-service-offer-editor-header"),
+    ).toBeNull();
   });
 
   it("uses a wide, bilingual single-select registry modal and persists only its key", async () => {

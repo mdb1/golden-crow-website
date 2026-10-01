@@ -4801,6 +4801,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service Request": "Solicitud de servicio",
   "Alta de service offer": "Alta de oferta de servicio",
   "Editar service offer": "Editar oferta de servicio",
+  "Offer editor": "Editor de oferta",
+  "Commercial, operational, and publication settings":
+    "Configuración comercial, operativa y de publicación",
+  "Core service details": "Datos principales del servicio",
   "Alta de transaccion": "Alta de transacción",
   "Editar transaccion": "Editar transacción",
   "Detalle de transaccion": "Detalle de transacción",

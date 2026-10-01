@@ -33,6 +33,7 @@ export default async function PublisherServiceOfferDetailPage({
           routeBase={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
           fixedProvider={provider}
           canDelete={false}
+          publisherEditorPresentation
         />
       </HeaderUnclutterScope>
     </div>

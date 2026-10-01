@@ -35,6 +35,7 @@ import {
   Download,
   FileText,
   Filter,
+  Fingerprint,
   FlaskConical,
   ImageIcon,
   History,
@@ -53,6 +54,7 @@ import {
   UploadCloud,
   Wand2,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
 import { Cell, Pie, PieChart, Tooltip } from "recharts";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -473,6 +475,8 @@ const SUPPORT_SERVICE_FORM_CLASS = cn(
 );
 const SUPPORT_SERVICE_HEADER_CLASS =
   "border-b border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.90)_54%,rgba(240,249,255,0.72))] px-5 py-4 dark:border-violet-400/14 dark:bg-[linear-gradient(145deg,rgba(30,24,57,0.94),rgba(12,35,54,0.68))]";
+const SUPPORT_SERVICE_EDITOR_HEADER_CLASS =
+  "relative overflow-hidden border-b border-slate-800 bg-slate-950 px-5 py-5 text-white shadow-[inset_0_-1px_0_rgba(255,255,255,0.06)] dark:border-slate-800 dark:bg-slate-950 lg:px-6";
 const SUPPORT_SERVICE_SECTION_CLASS =
   "mx-4 my-6 grid gap-6 rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(250,250,255,0.94)_58%,rgba(245,243,255,0.86))] px-4 py-5 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.86))] lg:mx-6 lg:px-6 lg:py-6";
 const SUPPORT_SERVICE_SUBSECTION_CLASS =
@@ -3633,6 +3637,7 @@ export function SupportServiceOfferWorkbench({
   fixedProvider,
   canDelete = true,
   presentation = "form",
+  publisherEditorPresentation = false,
 }: {
   mode: "create" | "edit";
   offerId?: string;
@@ -3644,6 +3649,7 @@ export function SupportServiceOfferWorkbench({
   };
   canDelete?: boolean;
   presentation?: "form" | "wizard";
+  publisherEditorPresentation?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -3679,6 +3685,7 @@ export function SupportServiceOfferWorkbench({
   const [wizardValidationMessage, setWizardValidationMessage] = useState("");
   const isEditing = mode === "edit";
   const isWizard = presentation === "wizard" && mode === "create";
+  const isPublisherOfferEditor = isEditing && publisherEditorPresentation;
   const effectiveOfferId = offerId ?? persistedOfferId ?? undefined;
   const hasPersistedOffer = Boolean(effectiveOfferId);
 
@@ -4643,7 +4650,19 @@ export function SupportServiceOfferWorkbench({
       />
       <form className={SUPPORT_SERVICE_FORM_CLASS} onSubmit={handleSubmit}>
         <WorkbenchTopbar
-          title={isEditing ? "Editar service offer" : "Alta de service offer"}
+          title={
+            isPublisherOfferEditor
+              ? "Offer editor"
+              : isEditing
+                ? "Editar service offer"
+                : "Alta de service offer"
+          }
+          subtitle={
+            isPublisherOfferEditor
+              ? "Commercial, operational, and publication settings"
+              : undefined
+          }
+          appearance={isPublisherOfferEditor ? "offer-editor" : "default"}
           backHref={routeBase}
           backLabel="Back to Service Offers"
           isSaving={isWorking}
@@ -4685,7 +4704,20 @@ export function SupportServiceOfferWorkbench({
             </div>
           </div>
         ) : null}
-        <Section title="Offer identity">
+        <Section
+          title={
+            isPublisherOfferEditor ? "Core service details" : "Offer identity"
+          }
+          icon={isPublisherOfferEditor ? Fingerprint : undefined}
+          appearance={
+            isPublisherOfferEditor ? "service-identity" : "default"
+          }
+          testId={
+            isPublisherOfferEditor
+              ? "publisher-service-offer-identity-section"
+              : undefined
+          }
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="grid gap-1">
               <div className="text-sm font-medium text-foreground">
@@ -10282,6 +10314,8 @@ function ServiceTransactionActionFooter({
 
 function WorkbenchTopbar({
   title,
+  subtitle = "Pocket Genes service contract",
+  appearance = "default",
   backHref,
   backLabel,
   isSaving,
@@ -10295,6 +10329,8 @@ function WorkbenchTopbar({
   saveLabel = "Save",
 }: {
   title: string;
+  subtitle?: string;
+  appearance?: "default" | "offer-editor";
   backHref: string;
   backLabel: string;
   isSaving: boolean;
@@ -10309,35 +10345,83 @@ function WorkbenchTopbar({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const isOfferEditor = appearance === "offer-editor";
+  const HeaderIcon = isOfferEditor ? Pencil : FileText;
 
   return (
     <div
+      data-testid={
+        isOfferEditor ? "publisher-service-offer-editor-header" : undefined
+      }
       className={cn(
         "flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between",
-        SUPPORT_SERVICE_HEADER_CLASS,
+        isOfferEditor
+          ? SUPPORT_SERVICE_EDITOR_HEADER_CLASS
+          : SUPPORT_SERVICE_HEADER_CLASS,
       )}
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-violet-200 bg-violet-100 text-violet-700 shadow-inner dark:border-violet-400/20 dark:bg-violet-500/14 dark:text-violet-100">
-          <FileText className="h-5 w-5" />
+      {isOfferEditor ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-16 -top-28 h-64 w-64 rounded-full bg-violet-500/20 blur-3xl"
+        />
+      ) : null}
+      <div className="relative z-10 flex min-w-0 items-center gap-3">
+        <div
+          data-testid={
+            isOfferEditor
+              ? "publisher-service-offer-editor-header-icon"
+              : undefined
+          }
+          className={cn(
+            "flex h-11 w-11 shrink-0 items-center justify-center",
+            isOfferEditor
+              ? "rounded-xl border border-amber-200/25 bg-amber-200/10 text-amber-200 shadow-[0_12px_28px_-18px_rgba(253,230,138,0.8)]"
+              : "rounded-2xl border border-violet-200 bg-violet-100 text-violet-700 shadow-inner dark:border-violet-400/20 dark:bg-violet-500/14 dark:text-violet-100",
+          )}
+        >
+          <HeaderIcon className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
-          <h2 className="font-heading text-xl font-semibold text-foreground">
+          <h2
+            className={cn(
+              isOfferEditor
+                ? "font-sans text-2xl font-bold tracking-tight text-white"
+                : "font-heading text-xl font-semibold text-foreground",
+            )}
+          >
             {t(title)}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            {t("Pocket Genes service contract")}
+          <p
+            className={cn(
+              "text-sm",
+              isOfferEditor
+                ? "mt-1 font-mono text-xs uppercase tracking-[0.08em] text-slate-300"
+                : "text-muted-foreground",
+            )}
+          >
+            {t(subtitle)}
           </p>
         </div>
-        <HeaderUnclutterButton />
+        <HeaderUnclutterButton
+          className={
+            isOfferEditor
+              ? "text-slate-300 hover:bg-white/10 hover:text-white"
+              : undefined
+          }
+        />
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="relative z-10 flex flex-wrap items-center gap-2">
         <Button
           asChild
           type="button"
           variant="outline"
           size="sm"
-          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+          className={
+            isOfferEditor
+              ? "h-9 rounded-xl border-white/15 bg-white/10 px-3 text-white shadow-none hover:border-white/25 hover:bg-white/15 hover:text-white"
+              : SUPPORT_SERVICE_SOFT_BUTTON_CLASS
+          }
         >
           <Link href={backHref}>
             <ArrowLeft className="h-4 w-4" />
@@ -10350,7 +10434,11 @@ function WorkbenchTopbar({
             variant="outline"
             size="sm"
             onClick={onExportRaw}
-            className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+            className={
+              isOfferEditor
+                ? "h-9 rounded-xl border-white/15 bg-white/10 px-3 text-white shadow-none hover:border-white/25 hover:bg-white/15 hover:text-white"
+                : SUPPORT_SERVICE_SOFT_BUTTON_CLASS
+            }
           >
             <Download className="h-4 w-4" />
             <span>{t("Export raw file")}</span>
@@ -10363,7 +10451,12 @@ function WorkbenchTopbar({
             size="sm"
             onClick={onDelete}
             disabled={deleteDisabled}
-            className="h-9 rounded-xl border-destructive/30 bg-white/78 px-3 text-destructive shadow-sm hover:bg-destructive/5 hover:text-destructive dark:bg-slate-950/50"
+            className={cn(
+              "h-9 rounded-xl border-destructive/30 px-3 text-destructive",
+              isOfferEditor
+                ? "bg-white/10 shadow-none hover:bg-destructive/15 hover:text-rose-200"
+                : "bg-white/78 shadow-sm hover:bg-destructive/5 hover:text-destructive dark:bg-slate-950/50",
+            )}
           >
             <Trash2 className="h-4 w-4" />
             <span>{t("Delete")}</span>
@@ -10374,7 +10467,11 @@ function WorkbenchTopbar({
             type="submit"
             size="sm"
             disabled={isSaving || saveDisabled}
-            className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
+            className={
+              isOfferEditor
+                ? "h-9 rounded-xl bg-amber-300 px-4 font-semibold text-slate-950 shadow-[0_14px_30px_-18px_rgba(253,224,71,0.9)] hover:bg-amber-200"
+                : SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS
+            }
           >
             <CheckCircle2 className="h-4 w-4" />
             <span>{isSaving ? t("Saving...") : t(saveLabel)}</span>
@@ -10389,22 +10486,54 @@ function Section({
   title,
   children,
   hideTitle = false,
+  icon: Icon = FileText,
+  appearance = "default",
+  testId,
 }: {
   title: string;
   children: React.ReactNode;
   hideTitle?: boolean;
+  icon?: LucideIcon;
+  appearance?: "default" | "service-identity";
+  testId?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const isServiceIdentity = appearance === "service-identity";
 
   return (
-    <section className={SUPPORT_SERVICE_SECTION_CLASS}>
+    <section data-testid={testId} className={SUPPORT_SERVICE_SECTION_CLASS}>
       {hideTitle ? null : (
-        <div className="flex items-center gap-3 border-b border-violet-100/80 pb-4 dark:border-violet-400/14">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/18 dark:bg-violet-500/12 dark:text-violet-100">
-            <FileText className="h-4 w-4" />
+        <div
+          className={cn(
+            "flex items-center gap-3 border-b pb-4",
+            isServiceIdentity
+              ? "border-sky-100 dark:border-sky-400/15"
+              : "border-violet-100/80 dark:border-violet-400/14",
+          )}
+        >
+          <span
+            data-testid={
+              isServiceIdentity
+                ? "publisher-service-offer-identity-icon"
+                : undefined
+            }
+            className={cn(
+              "flex h-10 w-10 items-center justify-center",
+              isServiceIdentity
+                ? "rounded-xl border border-sky-200 bg-sky-50 text-sky-700 shadow-sm dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-200"
+                : "rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/18 dark:bg-violet-500/12 dark:text-violet-100",
+            )}
+          >
+            <Icon className="h-4 w-4" aria-hidden="true" />
           </span>
-          <h3 className="font-heading text-xl font-semibold text-foreground">
+          <h3
+            className={cn(
+              isServiceIdentity
+                ? "font-heading text-lg font-semibold tracking-tight text-sky-950 dark:text-sky-100"
+                : "font-heading text-xl font-semibold text-foreground",
+            )}
+          >
             {t(title)}
           </h3>
         </div>
