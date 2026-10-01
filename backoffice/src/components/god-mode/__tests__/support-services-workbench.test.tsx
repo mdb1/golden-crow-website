@@ -305,6 +305,14 @@ describe("support services workbenches", () => {
     expect(appText("es", "One service limitation per line")).toBe(
       "Una limitación del servicio por línea",
     );
+    expect(
+      appText(
+        "es",
+        "Describe the processing scope and the quality requirements for client-provided information. If data, documents, or samples are incomplete or do not meet the required standards, the procedure's feasibility and the quality, accuracy, or scope of its results may be affected. This section is optional; add one limitation per line when applicable.",
+      ),
+    ).toBe(
+      "Describí el alcance del procesamiento y los requisitos de calidad que debe cumplir la información provista por el cliente. Si los datos, la documentación o las muestras están incompletos o no alcanzan los estándares requeridos, la viabilidad del procedimiento y la calidad, precisión o alcance de sus resultados pueden verse condicionados. Esta sección es opcional; agregá una limitación por línea cuando corresponda.",
+    );
     expect(appText("es", "Wet lab")).toBe("Wet lab");
   });
 
@@ -1117,7 +1125,7 @@ describe("support services workbenches", () => {
     ).toBeTruthy();
     expect(
       within(conditionsLayout).getByText(
-        "Explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This section is optional; add one limitation per line only when needed.",
+        "Describe the processing scope and the quality requirements for client-provided information. If data, documents, or samples are incomplete or do not meet the required standards, the procedure's feasibility and the quality, accuracy, or scope of its results may be affected. This section is optional; add one limitation per line when applicable.",
       ),
     ).toBeTruthy();
     expect(

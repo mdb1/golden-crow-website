@@ -4468,9 +4468,9 @@ export function SupportServiceOfferWorkbench({
                     </Section>
                     <Section title="Service limitations">
                       <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                        {t(
-                          "Explain what the service does not cover, where the provider's responsibility ends, or which delivery constraints apply. This section is optional; add one limitation per line only when needed.",
-                        )}
+                          {t(
+                            "Describe the processing scope and the quality requirements for client-provided information. If data, documents, or samples are incomplete or do not meet the required standards, the procedure's feasibility and the quality, accuracy, or scope of its results may be affected. This section is optional; add one limitation per line when applicable.",
+                          )}
                       </p>
                       <div className="pt-1">
                         <Textarea
