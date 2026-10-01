@@ -2952,10 +2952,6 @@ function PublisherSupportServiceRows({
               const category = supportServiceCategoryByKey(
                 offer.serviceCategory,
               );
-              const bannerSource =
-                offer.promotionalBannerImageUrl?.trim() ||
-                offer.promotionalBannerImageUploadDataUrl ||
-                "";
 
               return (
                 <article
@@ -2967,18 +2963,7 @@ function PublisherSupportServiceRows({
                   )}
                 >
                   <div className="flex min-w-0 items-start gap-3">
-                    <div className="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-violet-100 bg-violet-50 text-violet-600 dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100">
-                      {bannerSource ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={bannerSource}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <BriefcaseBusiness className="h-5 w-5" />
-                      )}
-                    </div>
+                    <PublisherServiceOfferThumbnail offer={offer} />
                     <div className="min-w-0">
                       <h3 className="font-heading text-base font-semibold text-foreground">
                         {offer.name || offer.id}
@@ -3109,6 +3094,61 @@ function PublisherSupportServiceRows({
               );
               })}
         </div>
+      )}
+    </div>
+  );
+}
+
+function PublisherServiceOfferThumbnail({
+  offer,
+}: {
+  offer: SupportServiceOfferRecord;
+}) {
+  const listBannerSource =
+    offer.promotionalBannerImageUrl?.trim() ||
+    offer.promotionalBannerImageUploadDataUrl?.trim() ||
+    "";
+  const offerDetailQuery = useQuery({
+    queryKey: [OFFERS_QUERY_KEY, "publisher-thumbnail", offer.id],
+    queryFn: () =>
+      sdkFetch<{ offer: SupportServiceOfferRecord }>(
+        `/admin/support-services/offers/${encodeURIComponent(offer.id)}`,
+      ),
+    enabled: !listBannerSource,
+    staleTime: 5 * 60 * 1000,
+  });
+  const detailBannerSource =
+    offerDetailQuery.data?.offer.promotionalBannerImageUrl?.trim() ||
+    offerDetailQuery.data?.offer.promotionalBannerImageUploadDataUrl?.trim() ||
+    "";
+  const bannerSource = listBannerSource || detailBannerSource;
+  const [failedBannerSource, setFailedBannerSource] = useState("");
+  const showBanner = Boolean(
+    bannerSource && bannerSource !== failedBannerSource,
+  );
+
+  return (
+    <div
+      className="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-violet-100 bg-violet-50 text-violet-600 dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100"
+      data-testid={`service-offer-thumbnail-${offer.id}`}
+    >
+      {showBanner ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={bannerSource}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+          data-testid={`service-offer-banner-image-${offer.id}`}
+          onError={() => setFailedBannerSource(bannerSource)}
+        />
+      ) : (
+        <BriefcaseBusiness
+          aria-hidden="true"
+          className="h-5 w-5"
+          data-testid={`service-offer-banner-fallback-${offer.id}`}
+        />
       )}
     </div>
   );

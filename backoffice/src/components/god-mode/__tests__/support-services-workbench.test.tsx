@@ -644,6 +644,147 @@ describe("support services workbenches", () => {
     );
   });
 
+  it("uses the service banner URL directly for its publisher thumbnail", async () => {
+    const offerWithBannerUrl: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      id: "offer-with-banner-url",
+      promotionalBannerImageUrl:
+        "https://images.example.org/service-specific-banner.webp",
+      promotionalBannerImageUploadDataUrl:
+        "data:image/png;base64,U0hPVUxEX05PVF9XSU4=",
+    };
+    sdkFetchMock.mockResolvedValue({
+      offers: [offerWithBannerUrl],
+      nextCursor: undefined,
+    });
+
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="offers"
+        routeBase="/publisher-portal/service-offers"
+        publisherPresentation
+      />,
+    );
+
+    const banner = await screen.findByTestId(
+      `service-offer-banner-image-${offerWithBannerUrl.id}`,
+    );
+    expect(banner.getAttribute("src")).toBe(
+      offerWithBannerUrl.promotionalBannerImageUrl,
+    );
+    expect(
+      sdkFetchMock.mock.calls.some(
+        ([path]) =>
+          String(path) ===
+          `/admin/support-services/offers/${offerWithBannerUrl.id}`,
+      ),
+    ).toBe(false);
+  });
+
+  it("loads each upload-only service banner from its own authorized offer detail", async () => {
+    const firstOffer: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      id: "offer-upload-one",
+      name: "First uploaded banner service",
+    };
+    const secondOffer: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      id: "offer-upload-two",
+      name: "Second uploaded banner service",
+    };
+    const firstBanner = "data:image/png;base64,RklSU1Q=";
+    const secondBanner = "data:image/webp;base64,U0VDT05E";
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.startsWith("/admin/support-services/offers?")) {
+        return {
+          offers: [firstOffer, secondOffer],
+          nextCursor: undefined,
+        };
+      }
+      if (value === `/admin/support-services/offers/${firstOffer.id}`) {
+        return {
+          offer: {
+            ...firstOffer,
+            promotionalBannerImageUploadDataUrl: firstBanner,
+          },
+        };
+      }
+      if (value === `/admin/support-services/offers/${secondOffer.id}`) {
+        return {
+          offer: {
+            ...secondOffer,
+            promotionalBannerImageUploadDataUrl: secondBanner,
+          },
+        };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="offers"
+        routeBase="/publisher-portal/service-offers"
+        publisherPresentation
+      />,
+    );
+
+    const firstImage = await screen.findByTestId(
+      `service-offer-banner-image-${firstOffer.id}`,
+    );
+    const secondImage = await screen.findByTestId(
+      `service-offer-banner-image-${secondOffer.id}`,
+    );
+    expect(firstImage.getAttribute("src")).toBe(firstBanner);
+    expect(secondImage.getAttribute("src")).toBe(secondBanner);
+
+    fireEvent.error(firstImage);
+
+    expect(
+      screen.getByTestId(`service-offer-banner-fallback-${firstOffer.id}`),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(`service-offer-banner-image-${secondOffer.id}`),
+    ).toBeTruthy();
+  });
+
+  it("keeps the icon fallback when the service has no banner", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.startsWith("/admin/support-services/offers?")) {
+        return { offers: [hiddenOffer], nextCursor: undefined };
+      }
+      if (value === `/admin/support-services/offers/${hiddenOffer.id}`) {
+        return { offer: hiddenOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="offers"
+        routeBase="/publisher-portal/service-offers"
+        publisherPresentation
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        sdkFetchMock.mock.calls.some(
+          ([path]) =>
+            String(path) ===
+            `/admin/support-services/offers/${hiddenOffer.id}`,
+        ),
+      ).toBe(true);
+    });
+    expect(
+      screen.getByTestId(`service-offer-banner-fallback-${hiddenOffer.id}`),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId(`service-offer-banner-image-${hiddenOffer.id}`),
+    ).toBeNull();
+  });
+
   it("preselects and locks the organization provider for publisher offer creation", async () => {
     sdkFetchMock.mockImplementation(async (path) => {
       const serviceId = new URL(
