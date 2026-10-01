@@ -205,7 +205,12 @@ describe("PublisherPortalHomePage", () => {
       }),
     ).toBeNull();
     expect(screen.queryByText("Ver mis borradores")).toBeNull();
-    expect(screen.getByText("Personalizar mi perfil")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("heading", { name: "Personalizar mi perfil" })
+        .closest("article")
+        ?.className,
+    ).toContain("border-violet-200/80");
     expect(
       screen.getByRole("link", { name: /Abrir perfil/i }).className,
     ).toContain("bg-violet-600");
