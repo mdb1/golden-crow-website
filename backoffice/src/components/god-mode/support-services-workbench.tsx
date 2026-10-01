@@ -1047,6 +1047,8 @@ function initialOfferForm(
 
   return {
     ...initialForm,
+    isHighlightedOffer: true,
+    isProfessionalOffer: false,
     stages: predictedStagesForContract(initialForm.inputSlots, outputSlots),
     outputSlots,
   };

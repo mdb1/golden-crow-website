@@ -972,12 +972,9 @@ describe("support services workbenches", () => {
     ).toBeNull();
     expect(
       document
-        .getElementById("service-offer-wizard-professional")
+        .getElementById("service-offer-wizard-highlighted")
         ?.getAttribute("data-state"),
     ).toBe("checked");
-    fireEvent.click(
-      document.getElementById("service-offer-wizard-highlighted")!,
-    );
     expect(
       document
         .getElementById("service-offer-wizard-professional")
