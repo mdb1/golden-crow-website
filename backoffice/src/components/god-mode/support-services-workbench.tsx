@@ -4104,9 +4104,17 @@ export function SupportServiceOfferWorkbench({
       }
     }
 
+    if (stepIndex === 8 && candidateForm.stages.length === 0) {
+      return t("Select at least one stage before continuing.");
+    }
+
     if (stepIndex >= 4) {
       try {
-        offerPayloadFromForm(candidateForm);
+        offerPayloadFromForm(
+          stepIndex < 8 && candidateForm.stages.length === 0
+            ? { ...candidateForm, stages: ["test_planning"] }
+            : candidateForm,
+        );
       } catch (error) {
         return t(
           error instanceof Error ? error.message : "Review the current step.",
@@ -4495,10 +4503,13 @@ export function SupportServiceOfferWorkbench({
                     value={form.stages}
                     predictedValue={predictedStages}
                     layout="vertical"
-                    onChange={(stages) =>
-                      setForm((current) => ({ ...current, stages }))
-                    }
+                    allowEmptySelection
+                    onChange={(stages) => {
+                      setWizardValidationMessage("");
+                      setForm((current) => ({ ...current, stages }));
+                    }}
                     onApplyPrediction={() => {
+                      setWizardValidationMessage("");
                       lastPredictedStagesRef.current = predictedStages;
                       setForm((current) => ({
                         ...current,
@@ -5996,12 +6007,14 @@ function StagePipeline({
   onChange,
   onApplyPrediction,
   layout = "horizontal",
+  allowEmptySelection = false,
 }: {
   value: SupportServiceStage[];
   predictedValue: SupportServiceStage[];
   onChange: (value: SupportServiceStage[]) => void;
   onApplyPrediction: () => void;
   layout?: "horizontal" | "vertical";
+  allowEmptySelection?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -6012,7 +6025,7 @@ function StagePipeline({
 
   function toggle(stage: SupportServiceStage) {
     if (selectedSet.has(stage)) {
-      if (selectedStages.length <= 1) {
+      if (!allowEmptySelection && selectedStages.length <= 1) {
         return;
       }
 
@@ -6077,10 +6090,30 @@ function StagePipeline({
           const selected = selectedSet.has(stage.value);
           const predicted = predictedSet.has(stage.value);
           const StageIcon = stagePipelineIcon(stage.value);
+          const checkboxId = `service-offer-stage-${stage.value}`;
+          const stageCheckbox = (
+            <Checkbox
+              id={checkboxId}
+              checked={selected}
+              onCheckedChange={() => toggle(stage.value)}
+              disabled={
+                !allowEmptySelection &&
+                selected &&
+                selectedStages.length <= 1
+              }
+              aria-label={t(stage.label)}
+              className={cn(
+                layout === "vertical"
+                  ? "mt-1 size-8 rounded-lg border-[3px] [&_svg]:size-5"
+                  : "ml-auto",
+              )}
+            />
+          );
 
           return (
             <div key={stage.value} className="contents">
               <div
+                data-testid={`service-offer-stage-card-${stage.value}`}
                 className={cn(
                   "grid min-h-36 gap-3 rounded-2xl border p-4 transition",
                   selected
@@ -6088,8 +6121,15 @@ function StagePipeline({
                     : "border-violet-100/70 bg-white/52 text-muted-foreground dark:border-violet-400/12 dark:bg-slate-950/24",
                 )}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
+                <div
+                  data-testid="service-offer-stage-header"
+                  className="flex items-start gap-4"
+                >
+                  {layout === "vertical" ? stageCheckbox : null}
+                  <Label
+                    htmlFor={checkboxId}
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 font-normal"
+                  >
                     <span
                       className={cn(
                         "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border shadow-inner",
@@ -6110,13 +6150,8 @@ function StagePipeline({
                         </span>
                       ) : null}
                     </span>
-                  </div>
-                  <Checkbox
-                    checked={selected}
-                    onCheckedChange={() => toggle(stage.value)}
-                    disabled={selected && selectedStages.length <= 1}
-                    aria-label={t(stage.label)}
-                  />
+                  </Label>
+                  {layout === "horizontal" ? stageCheckbox : null}
                 </div>
                 <p className="text-sm leading-6 text-muted-foreground">
                   {t(stagePipelineDescription(stage.value))}

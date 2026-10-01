@@ -1158,6 +1158,50 @@ describe("support services workbenches", () => {
       appText("es", "Suggested based on input and output types"),
     ).toBe("Sugerido en base a los tipos de entrada y salida");
 
+    const testPlanningStage = screen.getByRole("checkbox", {
+      name: "Test planning",
+    });
+    const wetLabStage = screen.getByRole("checkbox", { name: "Wet lab" });
+    const bioinformaticsStage = screen.getByRole("checkbox", {
+      name: "Bioinformatics",
+    });
+    expect(testPlanningStage.getAttribute("data-state")).toBe("checked");
+    for (const checkbox of [
+      testPlanningStage,
+      wetLabStage,
+      bioinformaticsStage,
+    ]) {
+      expect((checkbox as HTMLButtonElement).disabled).toBe(false);
+      expect(checkbox.classList.contains("size-8")).toBe(true);
+    }
+    const testPlanningCard = screen.getByTestId(
+      "service-offer-stage-card-test_planning",
+    );
+    expect(
+      within(testPlanningCard).getByTestId("service-offer-stage-header")
+        .firstElementChild,
+    ).toBe(testPlanningStage);
+
+    fireEvent.click(testPlanningStage);
+    expect(testPlanningStage.getAttribute("data-state")).toBe("unchecked");
+    expect(wetLabStage.getAttribute("data-state")).toBe("unchecked");
+    expect(bioinformaticsStage.getAttribute("data-state")).toBe("unchecked");
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("alert").textContent,
+    ).toContain("Select at least one stage before continuing.");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Service pipeline" }),
+    ).toBeTruthy();
+
+    fireEvent.click(bioinformaticsStage);
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(wetLabStage);
+    fireEvent.click(bioinformaticsStage);
+    expect(wetLabStage.getAttribute("data-state")).toBe("checked");
+    expect(bioinformaticsStage.getAttribute("data-state")).toBe("unchecked");
+
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
       screen.getByRole("heading", { level: 1, name: "Review and publish" }),

@@ -5371,6 +5371,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Operational description of what the provider does after the request is submitted. It appears in the service detail context to clarify the provider-side work, not as the short marketing summary.":
     "Descripción operativa de lo que hace el proveedor después de que se envía la solicitud. Aparece en el contexto de detalle del servicio para aclarar el trabajo del proveedor, no como resumen comercial corto.",
   "At least one stage is required.": "Se requiere al menos una etapa.",
+  "Select at least one stage before continuing.":
+    "Seleccioná al menos una etapa antes de continuar.",
   "Active service offers are published and can be selected by new service transactions.":
     "Las ofertas de servicio activas están publicadas y se pueden seleccionar en nuevas transacciones de servicio.",
   "Inactive service offers stay saved, but should not receive new transaction requests until they are published again.":
