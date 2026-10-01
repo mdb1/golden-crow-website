@@ -117,6 +117,16 @@ describe("PublisherPortalHomePage", () => {
     expect(sdkFetchServer).toHaveBeenCalledWith(
       "/discover/feed-items?limit=1&status=draft",
     );
+    const dashboard = screen.getByTestId("publisher-home-dashboard");
+    const userSection = screen.getByTestId("publisher-home-user");
+    expect(dashboard.parentElement?.firstElementChild).toBe(dashboard);
+    expect(
+      dashboard.compareDocumentPosition(userSection) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Mi usuario" }),
+    ).toBeTruthy();
     expect(screen.getByText("Empezá a construir tu presencia")).toBeTruthy();
     expect(
       screen

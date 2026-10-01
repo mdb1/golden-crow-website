@@ -218,29 +218,7 @@ export function PublisherPortalHome({
 
   return (
     <div className="min-h-[calc(100vh-var(--app-header-height)-3rem)] bg-background px-1 py-3 text-foreground">
-      <section className="rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
-              <Newspaper className="size-5" />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-foreground">
-                {displayName}
-              </span>
-              <span className="block truncate text-xs text-muted-foreground">
-                {email}
-              </span>
-            </span>
-          </div>
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800">
-            <BadgeCheck className="size-3.5" />
-            {roleLabel}
-          </span>
-        </div>
-      </section>
-
-      <section className="mt-6">
+      <section data-testid="publisher-home-dashboard">
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
@@ -317,6 +295,40 @@ export function PublisherPortalHome({
           {serviceOfferListCard}
           {receivedRequestsCard}
           {publishedFeedEntriesCard}
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="publisher-home-user-heading"
+        data-testid="publisher-home-user"
+        className="mt-8"
+      >
+        <h2
+          id="publisher-home-user-heading"
+          className="mb-4 font-heading text-2xl font-semibold text-foreground"
+        >
+          Mi usuario
+        </h2>
+        <div className="rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                <Newspaper className="size-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-foreground">
+                  {displayName}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {email}
+                </span>
+              </span>
+            </div>
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800">
+              <BadgeCheck className="size-3.5" />
+              {roleLabel}
+            </span>
+          </div>
         </div>
       </section>
     </div>
