@@ -53,7 +53,6 @@ import {
   UploadCloud,
   Wand2,
   XCircle,
-  type LucideIcon,
 } from "lucide-react";
 import { Cell, Pie, PieChart, Tooltip } from "recharts";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -4237,7 +4236,13 @@ export function SupportServiceOfferWorkbench({
               </ol>
             </aside>
 
-            <div className="min-w-0">
+            <div
+              className={cn(
+                "min-w-0",
+                wizardStepIndex === SERVICE_OFFER_WIZARD_LAST_STEP &&
+                  "pb-40 sm:pb-24",
+              )}
+            >
               <header className="mb-6 border-b border-violet-100 pb-6 dark:border-violet-400/16">
                 <div
                   className="grid grid-cols-10 gap-1.5"
@@ -4520,16 +4525,11 @@ export function SupportServiceOfferWorkbench({
                 ) : null}
 
                 {wizardStepIndex === 9 ? (
-                  <WizardOfferReview form={form} />
-                ) : null}
-
-                {wizardStepIndex === 9 ? (
-                  <div className="mt-6">
-                    <WizardOfferPreparationStatus
-                      status={serviceIdValidationStatus}
-                      onRetry={regenerateServiceId}
-                    />
-                  </div>
+                  <WizardOfferReview
+                    form={form}
+                    preparationStatus={serviceIdValidationStatus}
+                    onRetryPreparation={regenerateServiceId}
+                  />
                 ) : null}
               </div>
 
@@ -4543,60 +4543,76 @@ export function SupportServiceOfferWorkbench({
                 </div>
               ) : null}
 
-              <div className="sticky bottom-0 z-20 mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-violet-100 bg-background/94 py-4 backdrop-blur dark:border-violet-400/16">
-                {wizardStepIndex === 0 ? (
-                  <Button asChild type="button" variant="outline">
-                    <Link href={routeBase}>
-                      <ArrowLeft className="h-4 w-4" />
-                      {t("Back to Service Offers")}
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={returnToPreviousWizardStep}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    {t("Back")}
-                  </Button>
+              <div
+                data-testid="service-offer-wizard-action-footer"
+                className={cn(
+                  "border-t border-violet-100 bg-background/94 backdrop-blur dark:border-violet-400/16",
+                  wizardStepIndex === SERVICE_OFFER_WIZARD_LAST_STEP
+                    ? "fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-18px_45px_-28px_rgba(15,23,42,0.42)] md:left-[var(--sidebar-width)] lg:px-6"
+                    : "sticky bottom-0 z-20 mt-6 py-4",
                 )}
-
-                {wizardStepIndex < SERVICE_OFFER_WIZARD_LAST_STEP ? (
-                  <Button
-                    type="submit"
-                    disabled={isWorking}
-                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
-                  >
-                    {t("Continue")}
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <div className="flex flex-wrap justify-end gap-3">
+              >
+                <div
+                  className={cn(
+                    "flex flex-wrap items-center justify-between gap-3",
+                    wizardStepIndex === SERVICE_OFFER_WIZARD_LAST_STEP &&
+                      "mx-auto w-full max-w-5xl",
+                  )}
+                >
+                  {wizardStepIndex === 0 ? (
+                    <Button asChild type="button" variant="outline">
+                      <Link href={routeBase}>
+                        <ArrowLeft className="h-4 w-4" />
+                        {t("Back to Service Offers")}
+                      </Link>
+                    </Button>
+                  ) : (
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={wizardSaveDisabled}
-                      onClick={() => void saveCurrentOffer()}
+                      onClick={returnToPreviousWizardStep}
                     >
-                      {saveMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4" />
-                      )}
-                      {t("Save draft")}
+                      <ArrowLeft className="h-4 w-4" />
+                      {t("Back")}
                     </Button>
+                  )}
+
+                  {wizardStepIndex < SERVICE_OFFER_WIZARD_LAST_STEP ? (
                     <Button
-                      type="button"
-                      disabled={wizardSaveDisabled}
-                      onClick={() => void publishOffer()}
+                      type="submit"
+                      disabled={isWorking}
                       className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
                     >
-                      <CheckCircle2 className="h-4 w-4" />
-                      {t("Publish service offer")}
+                      {t("Continue")}
+                      <ArrowRight className="h-4 w-4" />
                     </Button>
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex flex-wrap justify-end gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={wizardSaveDisabled}
+                        onClick={() => void saveCurrentOffer()}
+                      >
+                        {saveMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
+                        {t("Save draft")}
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={wizardSaveDisabled}
+                        onClick={() => void publishOffer()}
+                        className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        {t("Publish service offer")}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -5088,38 +5104,36 @@ export function SupportServiceOfferWorkbench({
   );
 }
 
-function WizardReviewSection({
-  icon: Icon,
+function WizardReviewClause({
+  number,
   title,
   children,
-  className,
 }: {
-  icon: LucideIcon;
+  number: string;
   title: string;
-  children: React.ReactNode;
-  className?: string;
+  children: ReactNode;
 }) {
   return (
-    <article
-      className={cn(
-        "overflow-hidden rounded-lg border border-violet-100 bg-white/82 shadow-[0_20px_54px_-44px_rgba(109,40,217,0.56)] dark:border-violet-400/16 dark:bg-slate-950/42",
-        className,
-      )}
-    >
-      <div className="flex items-center gap-3 border-b border-violet-100/80 px-5 py-4 dark:border-violet-400/14">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-500/14 dark:text-violet-100">
-          <Icon className="h-4 w-4" />
-        </span>
-        <h3 className="font-heading text-lg font-semibold text-foreground">
-          {title}
-        </h3>
+    <section className="border-t border-slate-300 py-8 first:border-t-0">
+      <h3 className="font-serif text-sm font-bold uppercase tracking-[0.12em] text-slate-900">
+        {number}. {title}
+      </h3>
+      <div className="mt-5 grid gap-5 text-[0.95rem] leading-7 text-slate-700">
+        {children}
       </div>
-      <div className="p-5">{children}</div>
-    </article>
+    </section>
   );
 }
 
-function WizardOfferReview({ form }: { form: OfferFormState }) {
+function WizardOfferReview({
+  form,
+  preparationStatus,
+  onRetryPreparation,
+}: {
+  form: OfferFormState;
+  preparationStatus: ServiceIdValidationStatus;
+  onRetryPreparation: () => void;
+}) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const selectedCategory = supportServiceCategoryByKey(form.serviceCategory);
@@ -5148,256 +5162,292 @@ function WizardOfferReview({ form }: { form: OfferFormState }) {
   const turnaroundLabel = turnaround.amount
     ? `${turnaround.amount} ${t(turnaroundUnit?.label ?? "Days")}`
     : t("Not specified");
+  const providerKindLabel =
+    form.providerKind === "organization"
+      ? t("Organization")
+      : t("Professional individual");
+  const offerProfile = [
+    form.isHighlightedOffer ? t("Highlighted offer") : "",
+    form.isProfessionalOffer ? t("Professional offer") : "",
+  ]
+    .filter(Boolean)
+    .join(" / ");
 
   return (
-    <div data-testid="service-offer-wizard-review" className="grid gap-6">
-      <article
-        data-testid="service-offer-wizard-review-preview"
-        className="overflow-hidden rounded-lg border border-violet-200/80 bg-white shadow-[0_30px_90px_-56px_rgba(109,40,217,0.72)] dark:border-violet-400/20 dark:bg-slate-950"
-      >
-        {bannerSource ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={bannerSource}
-            alt={form.name.trim()}
-            className="aspect-[1024/500] max-h-[24rem] w-full object-cover"
+    <article
+      data-testid="service-offer-wizard-review"
+      role="region"
+      tabIndex={0}
+      aria-label={t("Service offer contract summary")}
+      className="mx-auto max-h-[calc(100dvh-22rem)] min-h-80 w-full max-w-[54rem] overflow-y-auto overscroll-contain border border-slate-300 bg-white font-serif text-slate-900 shadow-[0_30px_80px_-38px_rgba(15,23,42,0.34)] [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-4"
+    >
+      <div className="px-6 py-9 sm:px-10 sm:py-12 lg:px-14">
+        <header
+          data-testid="service-offer-wizard-review-preview"
+          className="text-center"
+        >
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+            {t("Service offer contract summary")}
+          </p>
+          <h2 className="mx-auto mt-5 max-w-2xl text-3xl font-semibold leading-tight text-slate-950 sm:text-4xl">
+            {form.name.trim() || t("Not specified")}
+          </h2>
+          <p className="mt-4 text-sm italic text-slate-500">
+            {t("Document for review before publication")}
+          </p>
+          <div className="mt-7 border-y border-slate-300 py-3 text-xs uppercase tracking-[0.12em] text-slate-600">
+            <span>{t("Service ID")}: </span>
+            <span className="font-mono normal-case tracking-normal text-slate-900">
+              {form.serviceId.trim() || t("Not specified")}
+            </span>
+            <span className="px-2 text-slate-300" aria-hidden="true">
+              |
+            </span>
+            <span>{t("Version")}: </span>
+            <span className="text-slate-900">{form.serviceVersion || 1}</span>
+          </div>
+          <WizardOfferPreparationStatus
+            status={preparationStatus}
+            onRetry={onRetryPreparation}
           />
-        ) : (
-          <div className="flex min-h-48 items-center justify-center bg-violet-50/70 text-violet-500 dark:bg-violet-500/8 dark:text-violet-200">
-            <div className="grid justify-items-center gap-3 text-center">
-              <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-violet-100 bg-white shadow-sm dark:border-violet-400/16 dark:bg-slate-950/60">
-                <ImageIcon className="h-6 w-6" />
-              </span>
-              <span className="text-sm font-medium text-muted-foreground">
-                {t("No promotional banner image")}
-              </span>
+        </header>
+
+        <WizardReviewClause number="1" title={t("Provider identity")}>
+          <dl className="divide-y divide-slate-200 border-y border-slate-200">
+            <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5">
+              <dt className="font-semibold text-slate-900">{t("Provider name")}</dt>
+              <dd>{form.providerName.trim() || t("Not specified")}</dd>
             </div>
-          </div>
-        )}
-        <div className="grid gap-4 px-5 py-6 sm:px-7 sm:py-7">
-          <div className="flex flex-wrap gap-2">
-            <Badge className="border-violet-200 bg-violet-100 text-violet-800 hover:bg-violet-100 dark:border-violet-400/20 dark:bg-violet-500/14 dark:text-violet-100">
-              {selectedCategory
-                ? supportServiceCategoryName(selectedCategory, language)
-                : t("Uncategorized")}
-            </Badge>
-            {form.isHighlightedOffer ? (
-              <Badge variant="outline">{t("Highlighted offer")}</Badge>
-            ) : null}
-            {form.isProfessionalOffer ? (
-              <Badge variant="outline">{t("Professional offer")}</Badge>
-            ) : null}
-          </div>
-          <div className="grid gap-3">
-            <h2 className="font-heading text-3xl font-semibold leading-tight text-foreground">
-              {form.name.trim() || t("Not specified")}
-            </h2>
-            <p className="max-w-4xl whitespace-pre-wrap text-base leading-7 text-muted-foreground">
+            <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5">
+              <dt className="font-semibold text-slate-900">{t("Provider kind")}</dt>
+              <dd>{providerKindLabel}</dd>
+            </div>
+            <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5">
+              <dt className="font-semibold text-slate-900">{t("Provider ID")}</dt>
+              <dd className="break-all font-mono text-sm">
+                {form.providerId.trim() || t("Not specified")}
+              </dd>
+            </div>
+            <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5">
+              <dt className="font-semibold text-slate-900">{t("Service category")}</dt>
+              <dd>
+                {selectedCategory
+                  ? supportServiceCategoryName(selectedCategory, language)
+                  : t("Uncategorized")}
+              </dd>
+            </div>
+            <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5">
+              <dt className="font-semibold text-slate-900">{t("Type")}</dt>
+              <dd>{offerProfile || t("Not specified")}</dd>
+            </div>
+          </dl>
+          {bannerSource ? (
+            <figure className="border-t border-slate-200 pt-5">
+              <figcaption className="mb-3 text-sm font-semibold text-slate-900">
+                {t("Promotional image")}
+              </figcaption>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={bannerSource}
+                alt={form.name.trim() || t("Promotional image")}
+                className="aspect-[1024/500] max-h-64 w-full border border-slate-200 object-cover"
+              />
+            </figure>
+          ) : (
+            <p className="text-sm italic text-slate-500">
+              {t("Promotional image")}: {t("Not provided")}
+            </p>
+          )}
+        </WizardReviewClause>
+
+        <WizardReviewClause number="2" title={t("Service presentation")}>
+          <div>
+            <h4 className="font-semibold text-slate-950">{t("Description")}</h4>
+            <p className="mt-2 whitespace-pre-wrap">
               {form.description.trim() || t("Not specified")}
             </p>
           </div>
-        </div>
-      </article>
+          <div>
+            <h4 className="font-semibold text-slate-950">{t("Provider work")}</h4>
+            <p className="mt-2 whitespace-pre-wrap">
+              {form.providerWork.trim() || t("Not specified")}
+            </p>
+          </div>
+        </WizardReviewClause>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <WizardReviewSection icon={UserRound} title={t("Service presentation")}>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-200">
-            {t("Provider work")}
-          </p>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground">
-            {form.providerWork.trim() || t("Not specified")}
-          </p>
-        </WizardReviewSection>
-
-        <WizardReviewSection icon={Settings2} title={t("Commercial terms")}>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground">
-                {t("Pricing")}
-              </p>
-              <p className="mt-1 font-heading text-xl font-semibold text-foreground">
-                {pricingLabel}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground">
-                {t("Turnaround")}
-              </p>
-              <p className="mt-1 font-heading text-xl font-semibold text-foreground">
-                {turnaroundLabel}
-              </p>
-            </div>
-            {priceExplanation ? (
-              <div className="border-t border-violet-100 pt-4 sm:col-span-2 dark:border-violet-400/14">
-                <p className="text-xs font-semibold text-muted-foreground">
-                  {t("Price summary")}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-foreground">
-                  {priceExplanation}
-                </p>
-              </div>
+        <WizardReviewClause number="3" title={t("Inputs and outputs")}>
+          <div>
+            <h4 className="font-semibold text-slate-950">{t("Request form")}</h4>
+            <p className="mt-1 text-sm text-slate-600">
+              {form.supportsFormShape
+                ? `${form.formShape.fields.length} ${t("fields")}`
+                : t("Not requested")}
+            </p>
+            {form.supportsFormShape && form.formShape.fields.length ? (
+              <ol className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
+                {form.formShape.fields.map((field, index) => {
+                  const fieldType = SUPPORT_SERVICE_FORM_FIELD_TYPES.find(
+                    (option) => option.value === field.type,
+                  );
+                  return (
+                    <li
+                      key={field.key}
+                      className="grid gap-1 py-3 sm:grid-cols-[2rem_minmax(0,1fr)_auto] sm:items-baseline sm:gap-4"
+                    >
+                      <span className="text-slate-400">{index + 1}.</span>
+                      <span>
+                        <strong className="font-semibold text-slate-900">
+                          {field.label}
+                        </strong>
+                        <span className="ml-2 font-mono text-xs text-slate-500">
+                          {field.key}
+                        </span>
+                      </span>
+                      <span className="text-sm text-slate-600">
+                        {t(fieldType?.label ?? field.type)} · {field.required ? t("Required") : t("Optional")}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
             ) : null}
           </div>
-        </WizardReviewSection>
 
-        <WizardReviewSection
-          icon={ClipboardList}
-          title={t("Inputs and outputs")}
-          className="xl:col-span-2"
-        >
-          <div className="grid gap-6 md:grid-cols-3 md:divide-x md:divide-violet-100 dark:md:divide-violet-400/14">
-            <div className="grid content-start gap-3 md:pr-6">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-200">
-                {t("Request form")}
-              </p>
-              <p className="text-sm font-semibold text-foreground">
-                {form.supportsFormShape
-                  ? `${form.formShape.fields.length} ${t("fields")}`
-                  : t("Not requested")}
-              </p>
-              {form.supportsFormShape ? (
-                <div className="flex flex-wrap gap-2">
-                  {form.formShape.fields.map((field) => (
-                    <span
-                      key={field.key}
-                      className="rounded-md bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-800 dark:bg-violet-500/12 dark:text-violet-100"
-                    >
-                      {field.label}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <div className="grid content-start gap-3 md:px-6">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-200">
-                {t("Inputs")}
-              </p>
-              {form.inputSlots.length ? (
-                <div className="grid gap-2">
-                  {form.inputSlots.map((slot, index) => (
-                    <div key={`${slot.role}-${index}`} className="min-w-0">
-                      <p className="truncate font-mono text-xs text-muted-foreground">
-                        {slot.role}
-                      </p>
-                      <p className="truncate text-sm font-semibold text-foreground">
+          <div>
+            <h4 className="font-semibold text-slate-950">{t("Inputs")}</h4>
+            {form.inputSlots.length ? (
+              <ol className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
+                {form.inputSlots.map((slot, index) => (
+                  <li
+                    key={`${slot.role}-${index}`}
+                    className="grid gap-1 py-3 sm:grid-cols-[2rem_minmax(0,1fr)_auto] sm:items-baseline sm:gap-4"
+                  >
+                    <span className="text-slate-400">{index + 1}.</span>
+                    <span>
+                      <strong className="font-semibold text-slate-900">
                         {objectLabel(slotObjectType(slot))}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t("No inputs")}</p>
-              )}
-            </div>
-            <div className="grid content-start gap-3 md:pl-6">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-200">
-                {t("Outputs")}
-              </p>
-              {form.outputSlots.length ? (
-                <div className="grid gap-2">
-                  {form.outputSlots.map((slot, index) => (
-                    <div key={`${slot.role}-${index}`} className="min-w-0">
-                      <p className="truncate font-mono text-xs text-muted-foreground">
+                      </strong>
+                      <span className="ml-2 font-mono text-xs text-slate-500">
                         {slot.role}
-                      </p>
-                      <p className="truncate text-sm font-semibold text-foreground">
-                        {outputObjectLabel(slot)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {t(mutationModeLabel(slot.mutationMode))}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t("No outputs")}</p>
-              )}
-            </div>
-          </div>
-        </WizardReviewSection>
-
-        <WizardReviewSection
-          icon={CheckCircle2}
-          title={t("Conditions and limitations")}
-          className="xl:col-span-2"
-        >
-          <div className="grid gap-7 lg:grid-cols-2">
-            <div>
-              <h4 className="font-heading text-base font-semibold text-foreground">
-                {t("Acceptance conditions")}
-              </h4>
-              {acceptedConditions.length ? (
-                <ul className="mt-3 grid gap-2">
-                  {acceptedConditions.map((condition) => (
-                    <li key={condition} className="flex items-start gap-2 text-sm leading-6">
-                      <Check className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />
-                      <span>{condition}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {t("Not specified")}
-                </p>
-              )}
-            </div>
-            <div>
-              <h4 className="font-heading text-base font-semibold text-foreground">
-                {t("Service limitations")}
-              </h4>
-              {serviceLimitations.length ? (
-                <ul className="mt-3 grid gap-2">
-                  {serviceLimitations.map((limitation) => (
-                    <li key={limitation} className="flex items-start gap-2 text-sm leading-6">
-                      <CircleAlert className="mt-1 h-4 w-4 shrink-0 text-amber-600" />
-                      <span>{limitation}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {t("Not specified")}
-                </p>
-              )}
-            </div>
-          </div>
-        </WizardReviewSection>
-
-        <WizardReviewSection
-          icon={Wand2}
-          title={t("Stage pipeline")}
-          className="xl:col-span-2"
-        >
-          <div className="grid gap-3">
-            {selectedStages.map((stage, index) => {
-              const StageIcon = stagePipelineIcon(stage);
-              return (
-                <div key={stage} className="grid gap-3">
-                  <div className="flex items-start gap-4 rounded-lg bg-violet-50/70 px-4 py-4 dark:bg-violet-500/8">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-violet-700 shadow-sm dark:bg-slate-950/60 dark:text-violet-100">
-                      <StageIcon className="h-5 w-5" />
+                      </span>
                     </span>
-                    <div>
-                      <p className="font-heading text-base font-semibold text-foreground">
-                        {t(stageLabel(stage))}
-                      </p>
-                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                        {t(stagePipelineDescription(stage))}
-                      </p>
-                    </div>
-                  </div>
-                  {index < selectedStages.length - 1 ? (
-                    <div className="flex justify-center text-violet-500">
-                      <ArrowDown className="h-5 w-5" />
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
+                    <span className="text-sm text-slate-600">
+                      {slot.required ? t("Required") : t("Optional")} · {slot.cardinality.min}–{slot.cardinality.max}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="mt-2 italic text-slate-500">{t("No inputs")}</p>
+            )}
           </div>
-        </WizardReviewSection>
+
+          <div>
+            <h4 className="font-semibold text-slate-950">{t("Outputs")}</h4>
+            {form.outputSlots.length ? (
+              <ol className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
+                {form.outputSlots.map((slot, index) => (
+                  <li
+                    key={`${slot.role}-${index}`}
+                    className="grid gap-1 py-3 sm:grid-cols-[2rem_minmax(0,1fr)_auto] sm:items-baseline sm:gap-4"
+                  >
+                    <span className="text-slate-400">{index + 1}.</span>
+                    <span>
+                      <strong className="font-semibold text-slate-900">
+                        {outputObjectLabel(slot)}
+                      </strong>
+                      <span className="ml-2 font-mono text-xs text-slate-500">
+                        {slot.role}
+                      </span>
+                    </span>
+                    <span className="text-sm text-slate-600">
+                      {t(mutationModeLabel(slot.mutationMode))}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="mt-2 italic text-slate-500">{t("No outputs")}</p>
+            )}
+          </div>
+        </WizardReviewClause>
+
+        <WizardReviewClause number="4" title={t("Commercial terms")}>
+          <dl className="divide-y divide-slate-200 border-y border-slate-200">
+            <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5">
+              <dt className="font-semibold text-slate-900">{t("Pricing")}</dt>
+              <dd>{pricingLabel}</dd>
+            </div>
+            <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5">
+              <dt className="font-semibold text-slate-900">{t("Turnaround")}</dt>
+              <dd>{turnaroundLabel}</dd>
+            </div>
+            {priceExplanation ? (
+              <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5">
+                <dt className="font-semibold text-slate-900">{t("Price summary")}</dt>
+                <dd>{priceExplanation}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </WizardReviewClause>
+
+        <WizardReviewClause number="5" title={t("Conditions and limitations")}>
+          <div>
+            <h4 className="font-semibold text-slate-950">
+              {t("Acceptance conditions")}
+            </h4>
+            {acceptedConditions.length ? (
+              <ul className="mt-3 list-disc space-y-2 pl-5">
+                {acceptedConditions.map((condition) => (
+                  <li key={condition}>{condition}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 italic text-slate-500">{t("Not specified")}</p>
+            )}
+          </div>
+          <div>
+            <h4 className="font-semibold text-slate-950">
+              {t("Service limitations")}
+            </h4>
+            {serviceLimitations.length ? (
+              <ul className="mt-3 list-disc space-y-2 pl-5">
+                {serviceLimitations.map((limitation) => (
+                  <li key={limitation}>{limitation}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 italic text-slate-500">{t("Not specified")}</p>
+            )}
+          </div>
+        </WizardReviewClause>
+
+        <WizardReviewClause number="6" title={t("Stage pipeline")}>
+          <ol className="divide-y divide-slate-200 border-y border-slate-200">
+            {selectedStages.map((stage, index) => (
+              <li
+                key={stage}
+                className="grid gap-2 py-4 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:gap-5"
+              >
+                <span className="text-xl text-slate-400">{index + 1}.</span>
+                <span>
+                  <strong className="block font-semibold text-slate-950">
+                    {t(stageLabel(stage))}
+                  </strong>
+                  <span className="mt-1 block text-sm leading-6 text-slate-600">
+                    {t(stagePipelineDescription(stage))}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </WizardReviewClause>
+
+        <p className="border-t border-slate-300 pt-6 text-center text-xs italic leading-5 text-slate-500">
+          {t("This summary reflects the service terms configured by the provider.")}
+        </p>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -5413,7 +5463,11 @@ function WizardOfferPreparationStatus({
 
   if (status === "available" || status === "locked") {
     return (
-      <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-400/24 dark:bg-emerald-500/10 dark:text-emerald-100">
+      <div
+        data-testid="service-offer-wizard-preparation-status"
+        role="status"
+        className="flex items-start justify-center gap-2 border-b border-emerald-700/30 py-3 text-sm text-emerald-800"
+      >
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
         <span>{t("The service offer is ready to save.")}</span>
       </div>
@@ -5422,7 +5476,11 @@ function WizardOfferPreparationStatus({
 
   if (status === "conflict" || status === "error") {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100">
+      <div
+        data-testid="service-offer-wizard-preparation-status"
+        role="alert"
+        className="flex flex-wrap items-center justify-center gap-3 border-b border-amber-700/30 py-3 text-sm text-amber-900"
+      >
         <span className="flex min-w-0 items-start gap-3">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{t("A unique service identifier could not be prepared.")}</span>
@@ -5436,7 +5494,11 @@ function WizardOfferPreparationStatus({
   }
 
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-100">
+    <div
+      data-testid="service-offer-wizard-preparation-status"
+      role="status"
+      className="flex items-start justify-center gap-2 border-b border-slate-300 py-3 text-sm text-slate-700"
+    >
       <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
       <span>{t("Preparing the service offer...")}</span>
     </div>

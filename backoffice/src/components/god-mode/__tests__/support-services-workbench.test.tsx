@@ -1211,9 +1211,27 @@ describe("support services workbenches", () => {
     ).toBeNull();
 
     const review = screen.getByTestId("service-offer-wizard-review");
+    expect(review.getAttribute("role")).toBe("region");
+    expect(review.getAttribute("tabindex")).toBe("0");
+    expect(review.classList.contains("overflow-y-auto")).toBe(true);
+    expect(review.classList.contains("font-serif")).toBe(true);
+    expect(review.className).toContain("max-w-[54rem]");
     expect(within(review).queryByRole("textbox")).toBeNull();
     expect(within(review).queryByText("Hidden from search")).toBeNull();
     expect(within(review).queryByText("Native discovery")).toBeNull();
+    expect(
+      within(review).getByText("Service offer contract summary"),
+    ).toBeTruthy();
+    expect(
+      within(review).getByText("Document for review before publication"),
+    ).toBeTruthy();
+    expect(within(review).getByText("Publisher Org")).toBeTruthy();
+    expect(
+      within(review).getByRole("heading", {
+        level: 3,
+        name: "1. Provider identity",
+      }),
+    ).toBeTruthy();
     expect(
       within(review).getByText("A clear requester-facing service description."),
     ).toBeTruthy();
@@ -1223,8 +1241,42 @@ describe("support services workbenches", () => {
     expect(within(review).getByText("Request reason")).toBeTruthy();
     expect(within(review).getByText("pdf_report")).toBeTruthy();
     expect(within(review).getByText("PDF report")).toBeTruthy();
-    expect(within(review).getByText("Commercial terms")).toBeTruthy();
-    expect(within(review).getByText("Stage pipeline")).toBeTruthy();
+    expect(
+      within(review).getByRole("heading", {
+        level: 3,
+        name: "4. Commercial terms",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(review).getByRole("heading", {
+        level: 3,
+        name: "6. Stage pipeline",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(review).getByTestId("service-offer-wizard-preparation-status"),
+    ).toBeTruthy();
+
+    const actionFooter = screen.getByTestId(
+      "service-offer-wizard-action-footer",
+    );
+    expect(actionFooter.classList.contains("fixed")).toBe(true);
+    expect(actionFooter.classList.contains("bottom-0")).toBe(true);
+    expect(review.contains(actionFooter)).toBe(false);
+    expect(
+      within(actionFooter).getByRole("button", { name: "Back" }),
+    ).toBeTruthy();
+    expect(
+      within(actionFooter).getByRole("button", { name: "Save draft" }),
+    ).toBeTruthy();
+    expect(
+      within(actionFooter).getByRole("button", {
+        name: "Publish service offer",
+      }),
+    ).toBeTruthy();
+    expect(appText("es", "Service offer contract summary")).toBe(
+      "Resumen contractual de la oferta de servicio",
+    );
   });
 
   it("shows lock affordances and no delete action on publisher transaction detail", async () => {

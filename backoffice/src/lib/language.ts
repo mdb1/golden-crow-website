@@ -4856,6 +4856,12 @@ const SPANISH_TEXT: Record<string, string> = {
   "Review and publish": "Revisar y publicar",
   "Review the offer, save a private draft, or publish it now.":
     "Revisá la oferta, guardá un borrador privado o publicala ahora.",
+  "Service offer contract summary":
+    "Resumen contractual de la oferta de servicio",
+  "Document for review before publication":
+    "Documento de revisión previo a la publicación",
+  "This summary reflects the service terms configured by the provider.":
+    "Este resumen refleja las condiciones del servicio configuradas por el proveedor.",
   "Service offer creation progress": "Progreso de creación de la oferta",
   Step: "Paso",
   "Service description": "Descripción del servicio",
