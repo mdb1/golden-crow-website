@@ -476,7 +476,7 @@ const SUPPORT_SERVICE_FORM_CLASS = cn(
 const SUPPORT_SERVICE_HEADER_CLASS =
   "border-b border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.90)_54%,rgba(240,249,255,0.72))] px-5 py-4 dark:border-violet-400/14 dark:bg-[linear-gradient(145deg,rgba(30,24,57,0.94),rgba(12,35,54,0.68))]";
 const SUPPORT_SERVICE_EDITOR_HEADER_CLASS =
-  "relative overflow-hidden border-b border-slate-800 bg-slate-950 px-5 py-5 text-white shadow-[inset_0_-1px_0_rgba(255,255,255,0.06)] dark:border-slate-800 dark:bg-slate-950 lg:px-6";
+  "relative overflow-hidden border-b border-violet-200/80 bg-[linear-gradient(135deg,rgba(250,245,255,0.98),rgba(245,243,255,0.96)_52%,rgba(224,242,254,0.78))] px-5 py-5 text-violet-950 shadow-[0_18px_50px_-38px_rgba(109,40,217,0.45)] dark:border-violet-400/18 dark:bg-[linear-gradient(135deg,rgba(46,30,88,0.90),rgba(30,24,57,0.92)_52%,rgba(14,116,144,0.22))] dark:text-violet-50 lg:px-6";
 const SUPPORT_SERVICE_SECTION_CLASS =
   "mx-4 my-6 grid gap-6 rounded-2xl border border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(250,250,255,0.94)_58%,rgba(245,243,255,0.86))] px-4 py-5 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/16 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.86))] lg:mx-6 lg:px-6 lg:py-6";
 const SUPPORT_SERVICE_SUBSECTION_CLASS =
@@ -10361,10 +10361,16 @@ function WorkbenchTopbar({
       )}
     >
       {isOfferEditor ? (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-16 -top-28 h-64 w-64 rounded-full bg-violet-500/20 blur-3xl"
-        />
+        <>
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-14 -top-24 h-56 w-56 rounded-full bg-fuchsia-300/35 blur-3xl dark:bg-fuchsia-500/16"
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-24 right-32 h-44 w-44 rounded-full bg-sky-300/30 blur-3xl dark:bg-sky-400/12"
+          />
+        </>
       ) : null}
       <div className="relative z-10 flex min-w-0 items-center gap-3">
         <div
@@ -10376,7 +10382,7 @@ function WorkbenchTopbar({
           className={cn(
             "flex h-11 w-11 shrink-0 items-center justify-center",
             isOfferEditor
-              ? "rounded-xl border border-amber-200/25 bg-amber-200/10 text-amber-200 shadow-[0_12px_28px_-18px_rgba(253,230,138,0.8)]"
+              ? "rounded-2xl border border-violet-200 bg-white/82 text-violet-700 shadow-[0_12px_28px_-20px_rgba(109,40,217,0.75)] dark:border-violet-300/24 dark:bg-violet-500/14 dark:text-violet-100"
               : "rounded-2xl border border-violet-200 bg-violet-100 text-violet-700 shadow-inner dark:border-violet-400/20 dark:bg-violet-500/14 dark:text-violet-100",
           )}
         >
@@ -10386,7 +10392,7 @@ function WorkbenchTopbar({
           <h2
             className={cn(
               isOfferEditor
-                ? "font-sans text-2xl font-bold tracking-tight text-white"
+                ? "font-sans text-2xl font-bold tracking-tight text-violet-950 dark:text-violet-50"
                 : "font-heading text-xl font-semibold text-foreground",
             )}
           >
@@ -10396,7 +10402,7 @@ function WorkbenchTopbar({
             className={cn(
               "text-sm",
               isOfferEditor
-                ? "mt-1 font-mono text-xs uppercase tracking-[0.08em] text-slate-300"
+                ? "mt-1 font-mono text-xs uppercase tracking-[0.08em] text-violet-700 dark:text-violet-200/72"
                 : "text-muted-foreground",
             )}
           >
@@ -10406,7 +10412,7 @@ function WorkbenchTopbar({
         <HeaderUnclutterButton
           className={
             isOfferEditor
-              ? "text-slate-300 hover:bg-white/10 hover:text-white"
+              ? "text-violet-500 hover:bg-white/65 hover:text-violet-800 dark:text-violet-200/70 dark:hover:bg-white/10 dark:hover:text-white"
               : undefined
           }
         />
@@ -10417,11 +10423,7 @@ function WorkbenchTopbar({
           type="button"
           variant="outline"
           size="sm"
-          className={
-            isOfferEditor
-              ? "h-9 rounded-xl border-white/15 bg-white/10 px-3 text-white shadow-none hover:border-white/25 hover:bg-white/15 hover:text-white"
-              : SUPPORT_SERVICE_SOFT_BUTTON_CLASS
-          }
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
         >
           <Link href={backHref}>
             <ArrowLeft className="h-4 w-4" />
@@ -10434,11 +10436,7 @@ function WorkbenchTopbar({
             variant="outline"
             size="sm"
             onClick={onExportRaw}
-            className={
-              isOfferEditor
-                ? "h-9 rounded-xl border-white/15 bg-white/10 px-3 text-white shadow-none hover:border-white/25 hover:bg-white/15 hover:text-white"
-                : SUPPORT_SERVICE_SOFT_BUTTON_CLASS
-            }
+            className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
           >
             <Download className="h-4 w-4" />
             <span>{t("Export raw file")}</span>
@@ -10451,12 +10449,7 @@ function WorkbenchTopbar({
             size="sm"
             onClick={onDelete}
             disabled={deleteDisabled}
-            className={cn(
-              "h-9 rounded-xl border-destructive/30 px-3 text-destructive",
-              isOfferEditor
-                ? "bg-white/10 shadow-none hover:bg-destructive/15 hover:text-rose-200"
-                : "bg-white/78 shadow-sm hover:bg-destructive/5 hover:text-destructive dark:bg-slate-950/50",
-            )}
+            className="h-9 rounded-xl border-destructive/30 bg-white/78 px-3 text-destructive shadow-sm hover:bg-destructive/5 hover:text-destructive dark:bg-slate-950/50"
           >
             <Trash2 className="h-4 w-4" />
             <span>{t("Delete")}</span>
@@ -10467,11 +10460,7 @@ function WorkbenchTopbar({
             type="submit"
             size="sm"
             disabled={isSaving || saveDisabled}
-            className={
-              isOfferEditor
-                ? "h-9 rounded-xl bg-amber-300 px-4 font-semibold text-slate-950 shadow-[0_14px_30px_-18px_rgba(253,224,71,0.9)] hover:bg-amber-200"
-                : SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS
-            }
+            className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
           >
             <CheckCircle2 className="h-4 w-4" />
             <span>{isSaving ? t("Saving...") : t(saveLabel)}</span>

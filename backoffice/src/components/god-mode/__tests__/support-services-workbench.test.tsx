@@ -861,20 +861,29 @@ describe("support services workbenches", () => {
       level: 2,
       name: "Editor de oferta",
     });
-    expect(editorHeader.classList.contains("bg-slate-950")).toBe(true);
+    const editorSubtitle = within(editorHeader).getByText(
+      "Configuración comercial, operativa y de publicación",
+    );
+    const editorIcon = within(editorHeader).getByTestId(
+      "publisher-service-offer-editor-header-icon",
+    );
+    expect(editorHeader.classList.contains("border-violet-200/80")).toBe(true);
+    expect(editorHeader.classList.contains("text-violet-950")).toBe(true);
+    expect(editorHeader.classList.contains("bg-slate-950")).toBe(false);
     expect(editorTitle.classList.contains("font-sans")).toBe(true);
     expect(editorTitle.classList.contains("font-bold")).toBe(true);
-    expect(editorTitle.classList.contains("text-white")).toBe(true);
+    expect(editorTitle.classList.contains("text-violet-950")).toBe(true);
+    expect(editorSubtitle.classList.contains("font-mono")).toBe(true);
+    expect(editorSubtitle.classList.contains("text-violet-700")).toBe(true);
+    expect(editorIcon.classList.contains("bg-white/82")).toBe(true);
+    expect(editorIcon.classList.contains("text-violet-700")).toBe(true);
     expect(
-      within(editorHeader).getByText(
-        "Configuración comercial, operativa y de publicación",
-      ),
-    ).toBeTruthy();
+      editorIcon.querySelector("svg")?.classList.contains("lucide-pencil"),
+    ).toBe(true);
     expect(
       within(editorHeader)
-        .getByTestId("publisher-service-offer-editor-header-icon")
-        .querySelector("svg")
-        ?.classList.contains("lucide-pencil"),
+        .getByRole("button", { name: "Guardar cambios" })
+        .classList.contains("bg-violet-600"),
     ).toBe(true);
 
     const identitySection = screen.getByTestId(
