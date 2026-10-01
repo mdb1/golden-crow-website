@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  PUBLISHER_PORTAL_ACCOUNT_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
   PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
@@ -306,7 +307,11 @@ export function PublisherPortalHome({
         >
           Mi usuario
         </h2>
-        <div className="rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+        <Link
+          href={PUBLISHER_PORTAL_ACCOUNT_ROUTE}
+          aria-label="Abrir Mi usuario"
+          className="block rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm transition hover:border-violet-300 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+        >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
@@ -326,7 +331,7 @@ export function PublisherPortalHome({
               {roleLabel}
             </span>
           </div>
-        </div>
+        </Link>
       </section>
     </div>
   );

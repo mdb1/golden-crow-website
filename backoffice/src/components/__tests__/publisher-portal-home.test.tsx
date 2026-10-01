@@ -4,6 +4,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import PublisherPortalHomePage from "@/app/publisher-portal/(portal)/home/page";
 import type { MyAccountRecord } from "@/lib/admin-areas";
 import {
+  PUBLISHER_PORTAL_ACCOUNT_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
   PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
@@ -127,6 +128,9 @@ describe("PublisherPortalHomePage", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: "Mi usuario" }),
     ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Abrir Mi usuario" }).getAttribute("href"),
+    ).toBe(PUBLISHER_PORTAL_ACCOUNT_ROUTE);
     expect(screen.getByText("Empezá a construir tu presencia")).toBeTruthy();
     expect(
       screen
