@@ -305,11 +305,11 @@ export function PublisherPortalHome({
           id="publisher-home-user-heading"
           className="mb-4 font-heading text-2xl font-semibold text-foreground"
         >
-          Mi usuario
+          Mi cuenta
         </h2>
         <Link
           href={PUBLISHER_PORTAL_ACCOUNT_ROUTE}
-          aria-label="Abrir Mi usuario"
+          aria-label="Abrir Mi cuenta"
           className="block rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm transition hover:border-violet-300 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

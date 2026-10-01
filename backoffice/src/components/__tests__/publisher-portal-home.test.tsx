@@ -126,10 +126,10 @@ describe("PublisherPortalHomePage", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
     expect(
-      screen.getByRole("heading", { level: 2, name: "Mi usuario" }),
+      screen.getByRole("heading", { level: 2, name: "Mi cuenta" }),
     ).toBeTruthy();
     expect(
-      screen.getByRole("link", { name: "Abrir Mi usuario" }).getAttribute("href"),
+      screen.getByRole("link", { name: "Abrir Mi cuenta" }).getAttribute("href"),
     ).toBe(PUBLISHER_PORTAL_ACCOUNT_ROUTE);
     expect(screen.getByText("Empezá a construir tu presencia")).toBeTruthy();
     expect(
