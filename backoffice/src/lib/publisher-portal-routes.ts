@@ -53,6 +53,15 @@ export function publisherPortalServiceTransactionDetailRoute(
   return `${PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}/${encodeURIComponent(transactionId)}`;
 }
 
+export function publisherPortalServiceTransactionsByServiceIdRoute(
+  serviceId: string,
+) {
+  const normalizedServiceId = serviceId.trim();
+  return normalizedServiceId
+    ? `${PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}?serviceId=${encodeURIComponent(normalizedServiceId)}`
+    : PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE;
+}
+
 export function normalizePublisherPortalCallbackUrl(
   callbackUrl: string | null | undefined,
 ) {

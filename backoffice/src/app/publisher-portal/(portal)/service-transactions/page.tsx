@@ -8,8 +8,18 @@ import {
 } from "@/lib/publisher-portal-routes";
 import { requirePublisherSupportServicesAccess } from "@/lib/publisher-support-services-server";
 
-export default async function PublisherServiceTransactionsPage() {
-  await requirePublisherSupportServicesAccess();
+export default async function PublisherServiceTransactionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ serviceId?: string | string[] }>;
+}) {
+  const [, resolvedSearchParams] = await Promise.all([
+    requirePublisherSupportServicesAccess(),
+    searchParams,
+  ]);
+  const requestedServiceId = Array.isArray(resolvedSearchParams.serviceId)
+    ? resolvedSearchParams.serviceId[0]
+    : resolvedSearchParams.serviceId;
   const t = (text: string) => appText("es", text);
 
   return (
@@ -32,6 +42,7 @@ export default async function PublisherServiceTransactionsPage() {
           publisherEmptyActionHref={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
           displayTitle="Service Requests"
           recordColumnLabel="Service Request"
+          initialServiceIdFilter={requestedServiceId?.trim() ?? ""}
         />
       </HeaderUnclutterScope>
     </div>

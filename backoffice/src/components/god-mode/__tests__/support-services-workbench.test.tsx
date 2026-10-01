@@ -473,6 +473,39 @@ describe("support services workbenches", () => {
     );
   });
 
+  it("loads publisher service requests with the service filter from the offer link", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      const url = new URL(String(path), "https://backoffice.example");
+      expect(url.pathname).toBe("/admin/support-services/transactions");
+      expect(url.searchParams.get("serviceId")).toBe(hiddenOffer.serviceId);
+      return {
+        transactions: [runningTransaction],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="transactions"
+        routeBase="/publisher-portal/service-transactions"
+        canCreate={false}
+        canDelete={false}
+        publisherPresentation
+        initialServiceIdFilter={hiddenOffer.serviceId}
+      />,
+    );
+
+    expect(await screen.findByText(runningTransaction.requestId)).toBeTruthy();
+    expect(
+      (
+        screen.getByPlaceholderText(
+          "Filter by service ID",
+        ) as HTMLInputElement
+      ).value,
+    ).toBe(hiddenOffer.serviceId);
+    expect(sdkFetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("shows a catalog-style empty state for publisher service requests", async () => {
     sdkFetchMock.mockResolvedValue({
       transactions: [],
@@ -905,6 +938,16 @@ describe("support services workbenches", () => {
     expect(screen.queryByText("Editar oferta de servicio")).toBeNull();
     expect(screen.queryByText("Contrato de servicio Pocket Genes")).toBeNull();
     expect(screen.queryByText("Identidad de la oferta")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Número de solicitudes activas" }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: "Ver solicitudes activas" })
+        .getAttribute("href"),
+    ).toBe(
+      `/publisher-portal/service-transactions?serviceId=${encodeURIComponent(hiddenOffer.serviceId)}`,
+    );
   });
 
   it("preselects an individual provider and serializes its kind in the create payload", async () => {
@@ -2767,7 +2810,7 @@ describe("support services workbenches", () => {
     );
 
     const statsTrigger = await screen.findByRole("button", {
-      name: "Número de transacciones activas",
+      name: "Número de solicitudes activas",
     });
     const statsSection = screen.getByTestId(
       "service-offer-transaction-stats",
@@ -2792,7 +2835,7 @@ describe("support services workbenches", () => {
     fireEvent.click(statsTrigger);
 
     const statsDialog = await screen.findByRole("dialog", {
-      name: "Número de transacciones activas",
+      name: "Número de solicitudes activas",
     });
     expect(statsDialog.className).toContain("90rem");
     expect(statsDialog.className).toContain("max-h-[92vh]");
@@ -2860,13 +2903,13 @@ describe("support services workbenches", () => {
     await waitFor(() => {
       expect(
         screen.queryByRole("dialog", {
-          name: "Número de transacciones activas",
+          name: "Número de solicitudes activas",
         }),
       ).toBeNull();
     });
     fireEvent.click(statsTrigger);
     await screen.findByRole("dialog", {
-      name: "Número de transacciones activas",
+      name: "Número de solicitudes activas",
     });
     await waitFor(() => {
       expect(

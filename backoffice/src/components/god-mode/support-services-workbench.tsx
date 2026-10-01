@@ -130,6 +130,7 @@ import type {
   DiscoverOrganizationsPage,
 } from "@/lib/discover";
 import { appText } from "@/lib/language";
+import { publisherPortalServiceTransactionsByServiceIdRoute } from "@/lib/publisher-portal-routes";
 import {
   SUPPORT_SERVICE_FORM_FIELD_TYPES,
   SUPPORT_SERVICE_MUTATION_MODES,
@@ -2327,6 +2328,7 @@ export function SupportServicesBrowser({
   publisherEmptyActionHref,
   displayTitle,
   recordColumnLabel,
+  initialServiceIdFilter = "",
 }: {
   kind: WorkbenchKind;
   routeBase?: string;
@@ -2336,11 +2338,16 @@ export function SupportServicesBrowser({
   publisherEmptyActionHref?: string;
   displayTitle?: string;
   recordColumnLabel?: string;
+  initialServiceIdFilter?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const queryClient = useQueryClient();
-  const [filters, setFilters] = useState<ServiceFilters>(() => emptyFilters());
+  const [filters, setFilters] = useState<ServiceFilters>(() => ({
+    ...emptyFilters(),
+    serviceId:
+      kind === "transactions" ? initialServiceIdFilter.trim() : "",
+  }));
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [listErrorLogOpen, setListErrorLogOpen] = useState(false);
@@ -5069,7 +5076,16 @@ export function SupportServiceOfferWorkbench({
           />
         ) : null}
         {hasPersistedOffer && effectiveOfferId ? (
-          <ServiceOfferTransactionStatsSection offerId={effectiveOfferId} />
+          <ServiceOfferTransactionStatsSection
+            offerId={effectiveOfferId}
+            activeRequestsHref={
+              isPublisherOfferEditor && form.serviceId.trim()
+                ? publisherPortalServiceTransactionsByServiceIdRoute(
+                    form.serviceId,
+                  )
+                : undefined
+            }
+          />
         ) : null}
         <ServiceOfferStatusBlock
           status={form.status}
@@ -10560,8 +10576,10 @@ function GeneratedValue({
 
 function ServiceOfferTransactionStatsSection({
   offerId,
+  activeRequestsHref,
 }: {
   offerId: string;
+  activeRequestsHref?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -10591,6 +10609,7 @@ function ServiceOfferTransactionStatsSection({
       <ServiceOfferTransactionStatsModal
         expanded={expanded}
         onExpandedChange={setExpanded}
+        activeRequestsHref={activeRequestsHref}
       >
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.9fr)]">
           <Skeleton className="h-28 w-full rounded-xl" />
@@ -10605,6 +10624,7 @@ function ServiceOfferTransactionStatsSection({
       <ServiceOfferTransactionStatsModal
         expanded={expanded}
         onExpandedChange={setExpanded}
+        activeRequestsHref={activeRequestsHref}
       >
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50/70 px-4 py-3 text-rose-800 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100">
           <div className="flex items-center gap-2 text-sm font-medium">
@@ -10716,6 +10736,7 @@ function ServiceOfferTransactionStatsSection({
     <ServiceOfferTransactionStatsModal
       expanded={expanded}
       onExpandedChange={setExpanded}
+      activeRequestsHref={activeRequestsHref}
     >
       <p className="text-sm leading-6 text-muted-foreground">
         {t(
@@ -10901,10 +10922,12 @@ function ServiceTransactionDonutChart({
 function ServiceOfferTransactionStatsModal({
   expanded,
   onExpandedChange,
+  activeRequestsHref,
   children,
 }: {
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
+  activeRequestsHref?: string;
   children: React.ReactNode;
 }) {
   const { language } = useAppLanguage();
@@ -10919,7 +10942,7 @@ function ServiceOfferTransactionStatsModal({
         <button
           type="button"
           aria-haspopup="dialog"
-          aria-label={t("Number of active transactions")}
+          aria-label={t("Number of active requests")}
           onClick={() => onExpandedChange(true)}
           className="flex w-full items-center justify-between gap-4 border-b border-violet-100/80 pb-4 text-left transition-colors hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-4 dark:border-violet-400/14 dark:hover:text-cyan-200"
         >
@@ -10928,7 +10951,7 @@ function ServiceOfferTransactionStatsModal({
               <ChartPie className="h-4 w-4" />
             </span>
             <span className="font-heading text-xl font-semibold text-foreground">
-              {t("Number of active transactions")}
+              {t("Number of active requests")}
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-2 text-xs font-semibold text-cyan-700 dark:text-cyan-200">
@@ -10936,6 +10959,23 @@ function ServiceOfferTransactionStatsModal({
             <Maximize2 className="h-4 w-4" />
           </span>
         </button>
+        {activeRequestsHref ? (
+          <Link
+            href={activeRequestsHref}
+            data-testid="service-offer-active-requests-link"
+            className="mt-4 flex w-full items-center justify-between gap-4 rounded-xl border border-violet-200/80 bg-white/78 px-4 py-3 text-left text-violet-900 shadow-sm transition-colors hover:border-cyan-200 hover:bg-cyan-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-4 dark:border-violet-400/18 dark:bg-slate-950/42 dark:text-violet-50 dark:hover:border-cyan-400/30 dark:hover:bg-cyan-500/10"
+          >
+            <span className="flex min-w-0 flex-1 items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-100 bg-cyan-50 text-cyan-700 shadow-inner dark:border-cyan-400/18 dark:bg-cyan-500/10 dark:text-cyan-100">
+                <ClipboardList className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <span className="font-heading text-lg font-semibold">
+                {t("View active requests")}
+              </span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-cyan-700 dark:text-cyan-200" />
+          </Link>
+        ) : null}
       </section>
 
       <Dialog open={expanded} onOpenChange={onExpandedChange}>
@@ -10947,7 +10987,7 @@ function ServiceOfferTransactionStatsModal({
               </span>
               <div className="min-w-0">
                 <DialogTitle className="font-heading text-2xl font-semibold">
-                  {t("Number of active transactions")}
+                  {t("Number of active requests")}
                 </DialogTitle>
                 <DialogDescription className="mt-1 leading-6">
                   {t(

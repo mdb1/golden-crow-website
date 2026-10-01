@@ -5265,7 +5265,8 @@ const SPANISH_TEXT: Record<string, string> = {
   to: "a",
   "No version changes have been recorded yet.":
     "Todavía no se registraron cambios de versión.",
-  "Number of active transactions": "Número de transacciones activas",
+  "Number of active requests": "Número de solicitudes activas",
+  "View active requests": "Ver solicitudes activas",
   "Open full statistics": "Abrir estadísticas completas",
   "Detailed transaction status and offer-version distribution.":
     "Detalle del estado de las transacciones y su distribución por versión de la oferta.",
