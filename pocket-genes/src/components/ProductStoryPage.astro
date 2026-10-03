@@ -175,7 +175,10 @@ function localPath(path: string) {
       <section id={section.id} class:list={['pg-deep-section', { 'is-reversed': index % 2 === 1, 'is-wide': section.wide && !section.image, 'is-two-col': section.twoColumns }]}>
         <div class="pg-container pg-deep-grid">
           <div class="pg-deep-copy">
-            <p class="pg-section-eyebrow" set:html={formatBrandText(section.eyebrow)} />
+            <p class="pg-section-eyebrow">
+              <span set:html={formatBrandText(section.eyebrow)} />
+              {section.badge && <span class="pg-badge pg-badge-inline" set:html={formatBrandText(section.badge)} />}
+            </p>
             <h2 set:html={formatBrandText(section.title)} />
             <p set:html={formatBrandText(section.body)} />
             <div class="pg-list-grid">
@@ -187,6 +190,25 @@ function localPath(path: string) {
                 </article>
               ))}
             </div>
+            {section.gallery && section.gallery.length > 0 && (
+              <ol class="pg-shots" aria-label={section.title}>
+                {section.gallery.map((shot) => (
+                  <li class="pg-shot">
+                    <figure>
+                      <img
+                        src={shot.src}
+                        alt={shot.alt}
+                        width={shot.width}
+                        height={shot.height}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      <figcaption set:html={formatBrandText(shot.caption)} />
+                    </figure>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
           {section.image && (
             <figure class="pg-image-panel">
@@ -548,6 +570,42 @@ function localPath(path: string) {
     text-transform: uppercase;
   }
 
+  .pg-badge-inline {
+    margin: 0 0 0 0.6rem;
+    vertical-align: 0.1em;
+  }
+
+  .pg-shots {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1.25rem;
+    margin: 2.5rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pg-shot figure {
+    margin: 0;
+  }
+
+  .pg-shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 22px;
+    border: 4px solid #1b1b1d;
+    background: #0b0b0c;
+    box-shadow: 0 18px 40px rgba(20, 33, 61, 0.18);
+  }
+
+  .pg-shot figcaption {
+    margin-top: 0.85rem;
+    color: var(--pg-ink);
+    font-size: 0.95rem;
+    font-weight: 750;
+    text-align: center;
+  }
+
   .pg-deep-section.is-reversed .pg-deep-copy {
     order: 2;
   }
@@ -725,6 +783,24 @@ function localPath(path: string) {
 
     .pg-image-panel img {
       height: 320px;
+    }
+  }
+
+  @media (max-width: 860px) {
+    /* Cinco teléfonos no entran en una tablet ni en un teléfono: la tira pasa a
+       desplazarse de costado DENTRO de su caja (la página no scrollea horizontal). */
+    .pg-shots {
+      display: flex;
+      gap: 1rem;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      padding-bottom: 0.75rem;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .pg-shot {
+      flex: 0 0 min(62%, 220px);
+      scroll-snap-align: start;
     }
   }
 

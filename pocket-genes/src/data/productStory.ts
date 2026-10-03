@@ -36,8 +36,21 @@ export interface StoryCard {
   badge?: string;
 }
 
+/** Una captura de la app dentro de una tira de pantallas (`StorySection.gallery`). */
+export interface StoryShot {
+  src: string;
+  alt: string;
+  /** Leyenda corta debajo del teléfono («Hoy», «Clientes»…). */
+  caption: string;
+  /** Tamaño intrínseco del archivo, para reservar el lugar y no saltar al cargar. */
+  width: number;
+  height: number;
+}
+
 export interface StorySection {
   id?: string;
+  /** Etiqueta junto al eyebrow de la sección («Llega en 1.8»). Opcional. */
+  badge?: string;
   eyebrow: string;
   title: string;
   body: string;
@@ -51,6 +64,11 @@ export interface StorySection {
   wide?: boolean;
   /** Tarjetas en 2 columnas junto a la imagen (para listas de 6 ítems). */
   twoColumns?: boolean;
+  /**
+   * Tira de capturas de la app debajo de la copia, a todo el ancho. Pensada para
+   * secciones `wide`: muestra un recorrido (varias pantallas) en vez de una sola.
+   */
+  gallery?: StoryShot[];
 }
 
 export interface ProductStoryPageData {

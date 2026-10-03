@@ -10,8 +10,25 @@
 //   creador, tendencias) sale en la 1.7 y dice «Llega en 1.7». Nutricionista y
 //   kinesiólogo son «Próximamente»; viandas y antropometrías son «A medida» —
 //   se conversan, no se prometen.
+// - El modo coach de la app (épica gc-fitness#1211, C14 #1250) sale en la 1.8 y dice
+//   «Llega en 1.8» hasta que esa versión esté en las tiendas. Sus capturas son NATIVAS:
+//   salen de `scripts/marketing-capture.sh coach` (GC_MKT_LANG=es|en) en gc-fitness,
+//   con el fixture de marketing, y viven en `public/gc-fitness/screenshots/coach/<lang>/`.
 import type { Lang } from '../i18n/ui';
-import type { ProductStoryPageData } from './productStory';
+import type { ProductStoryPageData, StoryShot } from './productStory';
+
+// Capturas del iPhone 17 Pro Max (1320×2868) reducidas a 560 de ancho, como las demás.
+const SHOT_W = 560;
+const SHOT_H = 1217;
+function coachShots(lang: Lang, shots: Array<[file: string, caption: string, alt: string]>): StoryShot[] {
+  return shots.map(([file, caption, alt]) => ({
+    src: `/gc-fitness/screenshots/coach/${lang}/${file}.webp`,
+    caption,
+    alt,
+    width: SHOT_W,
+    height: SHOT_H,
+  }));
+}
 
 const pages: Record<Lang, ProductStoryPageData> = {
   es: {
@@ -65,6 +82,55 @@ const pages: Record<Lang, ProductStoryPageData> = {
     ],
 
     sections: [
+      {
+        id: 'modo-coach',
+        badge: 'Llega en 1.8',
+        eyebrow: 'El modo coach',
+        title: 'Tu panel, también en el bolsillo',
+        body: 'Con la 1.8, entrás a GC Fitness con tu cuenta de coach y la app se convierte en la tuya: tus clientes, sus semanas y sus mensajes, en el teléfono. Lo que hacés ahí aparece en el panel, y al revés.',
+        wide: true,
+        items: [
+          {
+            title: 'Hoy',
+            body: 'Tu propio entreno, las sesiones del día de tus clientes, quién necesita atención y tus pendientes, en una sola pantalla.',
+          },
+          {
+            title: 'Clientes',
+            body: 'Tu cartera completa, con buscador y los mensajes sin leer de cada uno. Sumás un cliente nuevo con su email, desde el teléfono.',
+          },
+          {
+            title: 'La ficha de cada cliente',
+            body: 'Su semana, su progreso, sus hábitos, su plan de nutrición y tus notas. Le pedís el peso o fotos en un toque.',
+          },
+          {
+            title: 'Asignar en segundos',
+            body: 'Elegís la rutina, el día y si se repite. Le aparece en la app al instante, y en el reloj.',
+          },
+          {
+            title: 'Mensajes',
+            body: 'Las conversaciones con todos tus clientes en una bandeja, con lo que todavía no leíste marcado.',
+          },
+          {
+            title: 'Tu biblioteca y tu calendario',
+            body: 'Tus rutinas y ejercicios para editar o crear, y la semana de todos tus clientes en un calendario.',
+          },
+          {
+            title: 'Vos también entrenás',
+            body: 'En «Yo» están tus propias rutinas, tu calendario y tu progreso, con el Apple Watch o el Wear OS.',
+          },
+          {
+            title: 'iPhone y Android',
+            body: 'El modo coach está en las dos plataformas, en español y en inglés.',
+          },
+        ],
+        gallery: coachShots('es', [
+          ['hoy', 'Hoy', 'La pantalla Hoy del modo coach: sesiones del día, clientes que necesitan atención y pendientes'],
+          ['clientes', 'Clientes', 'La lista de clientes del coach en GC Fitness'],
+          ['ficha', 'Ficha del cliente', 'La ficha de un cliente: su semana, su último entrenamiento y su progreso'],
+          ['asignar', 'Asignar', 'La hoja para asignar una rutina a un cliente, con día y repetición'],
+          ['mensajes', 'Mensajes', 'La bandeja de mensajes del coach con sus clientes'],
+        ]),
+      },
       {
         id: 'panel',
         eyebrow: 'El panel',
@@ -390,6 +456,55 @@ const pages: Record<Lang, ProductStoryPageData> = {
     ],
 
     sections: [
+      {
+        id: 'coach-mode',
+        badge: 'Coming in 1.8',
+        eyebrow: 'Coach mode',
+        title: 'Your dashboard, in your pocket too',
+        body: 'With 1.8, you sign in to GC Fitness with your coach account and the app becomes yours: your clients, their weeks and their messages, on your phone. What you do there shows up in the dashboard, and the other way around.',
+        wide: true,
+        items: [
+          {
+            title: 'Today',
+            body: 'Your own workout, your clients’ sessions for the day, who needs your attention and your checklist, on one screen.',
+          },
+          {
+            title: 'Clients',
+            body: 'Your whole roster, searchable, with each client’s unread messages. Add a new client by email, right from your phone.',
+          },
+          {
+            title: 'Every client’s profile',
+            body: 'Their week, their progress, their habits, their nutrition plan and your notes. Ask for their weight or photos in one tap.',
+          },
+          {
+            title: 'Assign in seconds',
+            body: 'Pick the routine, the day and whether it repeats. It shows up in their app right away — and on their watch.',
+          },
+          {
+            title: 'Messages',
+            body: 'Your conversations with every client in one inbox, with what you haven’t read yet flagged.',
+          },
+          {
+            title: 'Your library and calendar',
+            body: 'Your routines and exercises to edit or create, and every client’s week on one calendar.',
+          },
+          {
+            title: 'You train too',
+            body: '“Me” holds your own routines, calendar and progress, with Apple Watch or Wear OS.',
+          },
+          {
+            title: 'iPhone and Android',
+            body: 'Coach mode is on both platforms, in English and Spanish.',
+          },
+        ],
+        gallery: coachShots('en', [
+          ['today', 'Today', 'Coach mode’s Today screen: the day’s sessions, clients who need attention and to-dos'],
+          ['clients', 'Clients', 'The coach’s client list in GC Fitness'],
+          ['profile', 'Client profile', 'A client’s profile: their week, latest workout and progress'],
+          ['assign', 'Assign', 'The sheet to assign a routine to a client, with day and repeat'],
+          ['messages', 'Messages', 'The coach’s inbox with their clients'],
+        ]),
+      },
       {
         id: 'dashboard',
         eyebrow: 'The dashboard',
