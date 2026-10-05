@@ -127,6 +127,21 @@ const metricSchema = z.enum(["reps", "time"]).default("reps");
 // Defaults to `true` so every legacy exercise keeps showing the weight column.
 const tracksWeightSchema = z.boolean().default(true);
 
+// #1307 — fraction (0–1, steps of 0.05) of the athlete's body weight this
+// exercise counts toward VOLUME. Optional: absent ⇒ resolved at finalize from
+// equipment + primary muscle (`resolveBodyweightLoadFactor`). `null` on an
+// UPDATE clears it (the Server Action turns it into a field delete).
+export const bodyweightLoadFactorSchema = z
+  .number()
+  .min(0, "Body-weight percentage must be between 0 and 100.")
+  .max(1, "Body-weight percentage must be between 0 and 100.")
+  .refine(
+    (v) => Math.abs(v * 20 - Math.round(v * 20)) < 1e-6,
+    "Body-weight percentage must be a multiple of 5.",
+  )
+  .nullable()
+  .optional();
+
 // Phase 24-06 — widened to 3-way to match the ExerciseRow union
 // (exercises-listener.ts:80) + the iOS Source enum (Exercise.swift).
 // Trainer-form ingress for a fexd-* doc with `source: "free-exercise-db"`
@@ -224,6 +239,7 @@ export const exerciseSchema = z.object({
   version: z.number().int().min(1).default(1),
   metric: metricSchema,
   tracksWeight: tracksWeightSchema,
+  bodyweightLoadFactor: bodyweightLoadFactorSchema,
 });
 
 // Partial — used by `updateExercise` which patches subsets of the shape.

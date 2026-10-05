@@ -23,6 +23,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import { addCivilDays } from "./trend-range";
+import { wireSetVolumeKg } from "@/lib/gc-fitness/live-workout-volume";
 import {
   WorkoutTrendsClient,
   type WorkoutTrendPoint,
@@ -45,11 +46,6 @@ function toDate(v: unknown): Date | null {
     return Number.isNaN(d.getTime()) ? null : d;
   }
   return null;
-}
-
-function numeric(v: unknown): number {
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n : 0;
 }
 
 export async function WorkoutTrendsWidget({
@@ -93,10 +89,9 @@ export async function WorkoutTrendsWidget({
       completedSets += 1;
       // #565 — every set type contributes to volume (warm-up / failure /
       // drop set alike); `set_type` / `is_warmup` are display markers only.
-      // #1197 — plus the body weight stamped on bodyweight-exercise sets.
-      volumeKg +=
-        (numeric(s.weight_kg ?? s.weight) + numeric(s.bodyweight_kg)) *
-        numeric(s.reps);
+      // #1197/#1307 — plus the counted fraction of the stamped body weight;
+      // time sets use load × minutes. One formula: the volume twin.
+      volumeKg += wireSetVolumeKg(s);
     }
 
     const completedAt = toDate(data.completedAt);

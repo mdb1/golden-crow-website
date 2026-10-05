@@ -76,6 +76,7 @@ jest.mock("firebase-admin/firestore", () => ({
   FieldValue: {
     serverTimestamp: jest.fn(() => "SERVER_TIMESTAMP_SENTINEL"),
     increment: jest.fn((n: number) => ({ __increment: n })),
+    delete: jest.fn(() => "DELETE_SENTINEL"),
   },
 }));
 
@@ -350,6 +351,60 @@ describe("updateExercise", () => {
     // The action MUST NOT echo back source / ownerId in the patch (immutable).
     expect(patch.source).toBeUndefined();
     expect(patch.ownerId).toBeUndefined();
+  });
+});
+
+// #1307 — the per-exercise body-weight fraction.
+describe("bodyweightLoadFactor (#1307)", () => {
+  function ownSnapshot() {
+    return fakeSnapshot({ exists: true, source: "trainer", ownerId: ALLOWED_UID });
+  }
+
+  it("create writes a numeric factor and never writes a null/absent one", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockSet.mockResolvedValue(undefined);
+
+    await createExercise({ ...VALID_EXERCISE_INPUT, bodyweightLoadFactor: 0.65 });
+    expect(mockSet.mock.calls[0][0].bodyweightLoadFactor).toBe(0.65);
+
+    mockSet.mockClear();
+    await createExercise({ ...VALID_EXERCISE_INPUT, bodyweightLoadFactor: null });
+    expect("bodyweightLoadFactor" in mockSet.mock.calls[0][0]).toBe(false);
+
+    mockSet.mockClear();
+    await createExercise(VALID_EXERCISE_INPUT);
+    expect("bodyweightLoadFactor" in mockSet.mock.calls[0][0]).toBe(false);
+  });
+
+  it("rejects an off-grid or out-of-range factor", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    const offGrid = await createExercise({
+      ...VALID_EXERCISE_INPUT,
+      bodyweightLoadFactor: 0.67,
+    });
+    expect(offGrid.ok).toBe(false);
+    const tooBig = await createExercise({
+      ...VALID_EXERCISE_INPUT,
+      bodyweightLoadFactor: 1.5,
+    });
+    expect(tooBig.ok).toBe(false);
+    expect(mockSet).not.toHaveBeenCalled();
+  });
+
+  it("update: a number is written, null becomes a field delete, absent is untouched", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(ownSnapshot());
+    mockUpdate.mockResolvedValue(undefined);
+    const id = `custom-${ALLOWED_UID}-abc`;
+
+    await updateExercise(id, { bodyweightLoadFactor: 0.95 });
+    expect(mockUpdate.mock.calls[0][0].bodyweightLoadFactor).toBe(0.95);
+
+    await updateExercise(id, { bodyweightLoadFactor: null });
+    expect(mockUpdate.mock.calls[1][0].bodyweightLoadFactor).toBe("DELETE_SENTINEL");
+
+    await updateExercise(id, { name: { en: "X", es: "X" } });
+    expect("bodyweightLoadFactor" in mockUpdate.mock.calls[2][0]).toBe(false);
   });
 });
 

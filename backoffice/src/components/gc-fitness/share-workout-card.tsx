@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { GOLDENCROW_LOGO_DATA_URI } from "@/components/gc-fitness/goldencrow-logo-data";
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import type { WorkoutLogDetail } from "@/lib/gc-fitness/recent-logs-actions";
+import { setLoadKg, setVolumeKg } from "@/lib/gc-fitness/live-workout-volume";
 import type { AssignmentDetail } from "@/lib/gc-fitness/schedule-month-actions";
 
 // 260529-mrp / 260529-ltm — cross-surface "share workout image", v2.2.
@@ -170,6 +171,29 @@ function bestEstimatedOneRM(
   }
   if (best <= 0) return null;
   return `1RM ${Math.round(best)} kg`;
+}
+
+type DetailSet = WorkoutLogDetail["sets"][number];
+
+/** #1307 — a logged set's load (external + counted body weight). */
+function cardSetLoadKg(s: DetailSet): number {
+  return setLoadKg({
+    weightKg: s.weight ?? 0,
+    bodyweightKg: s.bodyweightKg ?? null,
+    bodyweightFactor: s.bodyweightFactor ?? null,
+  });
+}
+
+/** #1307 — a logged set's volume via the twin (time sets: load × minutes). */
+function cardSetVolumeKg(s: DetailSet): number {
+  const isTime = s.metric === "time";
+  return setVolumeKg({
+    weightKg: s.weight ?? 0,
+    reps: isTime ? 0 : (s.reps ?? 0),
+    durationSeconds: isTime ? (s.durationSeconds ?? 0) : null,
+    bodyweightKg: s.bodyweightKg ?? null,
+    bodyweightFactor: s.bodyweightFactor ?? null,
+  });
 }
 
 /** Compact integer-kg volume number, e.g. "5240 kg". */
@@ -506,12 +530,14 @@ function buildSuccessModel(
     // distinguishes them visually) and counts in the totals.
     const working = bucket.sets.slice().sort((a, b) => a.index - b.index);
 
-    // Highest-volume set = max(weight × reps); only weighted sets.
+    // Highest-volume set = max(load × reps) over loaded rep sets, where load
+    // includes the counted body weight (#1307 — twin `setLoadKg`).
     let topVolume = 0;
     let topIdx = -1;
     working.forEach((s, i) => {
-      if (s.metric !== "time" && s.weight !== null && s.weight > 0) {
-        const vol = s.weight * (s.reps ?? 0);
+      const load = cardSetLoadKg(s);
+      if (s.metric !== "time" && load > 0) {
+        const vol = load * (s.reps ?? 0);
         if (vol > topVolume) {
           topVolume = vol;
           topIdx = i;
@@ -527,18 +553,17 @@ function buildSuccessModel(
 
     const oneRMLabel = bestEstimatedOneRM(
       working
-        .filter((s) => s.metric !== "time" && s.weight !== null && s.weight > 0)
-        .map((s) => ({ weight: s.weight as number, reps: s.reps ?? 0 })),
+        .filter((s) => s.metric !== "time" && cardSetLoadKg(s) > 0)
+        .map((s) => ({ weight: cardSetLoadKg(s), reps: s.reps ?? 0 })),
     );
 
     const supersetGroup = bucket.sets[0]?.supersetGroup ?? null;
     return { name: bucket.name, chips, oneRMLabel, supersetGroup };
   });
 
-  // Volumen total = Σ(weight × reps) over EVERY set (#565).
-  const totalVolume = detail.sets
-    .filter((s) => s.metric !== "time")
-    .reduce((acc, s) => acc + (s.weight ?? 0) * (s.reps ?? 0), 0);
+  // Volumen total = Σ set volume over EVERY set (#565), through the volume
+  // twin (#1307): counted body weight included, time sets as load × minutes.
+  const totalVolume = detail.sets.reduce((acc, s) => acc + cardSetVolumeKg(s), 0);
   const seriesCount = detail.sets.length;
   const exerciseCount = detail.exerciseCount || order.length;
 

@@ -33,6 +33,8 @@ export const sessionSetLogSchema = z.object({
   setType: z.enum(SET_TYPES).nullish(),
   // #1197 — stamped server-side at finalize; accepted (and kept) when present.
   bodyweightKg: z.number().positive().max(1000).nullish(),
+  // #1307 — the counted fraction of bodyweightKg, stamped next to it.
+  bodyweightFactor: z.number().min(0).max(1).nullish(),
 });
 
 export const startSessionSchema = z.object({
