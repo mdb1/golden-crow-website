@@ -159,8 +159,12 @@ async function createExerciseImpl(
       ? raw.id
       : `custom-${trainer.uid}-${randomUUID()}`;
   const docRef = db.collection(COLLECTION).doc(docId);
+  // #1307 — a missing/null factor is simply not written (absent ⇒ resolved
+  // from equipment + muscle at finalize); the Admin SDK rejects `undefined`.
+  const { bodyweightLoadFactor, ...rest } = data;
   await docRef.set({
-    ...data,
+    ...rest,
+    ...(typeof bodyweightLoadFactor === "number" ? { bodyweightLoadFactor } : {}),
     id: docId,
     // #741 — ver la nota en el update de edición.
     updatedBy: trainer.uid,
@@ -223,9 +227,19 @@ async function updateExerciseImpl(
   const safe = { ...patch };
   delete (safe as { source?: unknown }).source;
   delete (safe as { ownerId?: unknown }).ownerId;
+  // #1307 — `null` clears the explicit factor (back to the equipment/muscle
+  // default); `undefined` leaves it alone (never sent to the Admin SDK).
+  const factorPatch: Record<string, unknown> = {};
+  if (safe.bodyweightLoadFactor === null) {
+    factorPatch.bodyweightLoadFactor = FieldValue.delete();
+  } else if (typeof safe.bodyweightLoadFactor === "number") {
+    factorPatch.bodyweightLoadFactor = safe.bodyweightLoadFactor;
+  }
+  delete (safe as { bodyweightLoadFactor?: unknown }).bodyweightLoadFactor;
 
   await docRef.update({
     ...safe,
+    ...factorPatch,
     // #741 — quién tocó el documento. Sin esto, una edición de un ejercicio de la
     // BIBLIOTECA COMPARTIDA queda sin atribuir en el feed de Monitoring: no tiene
     // `ownerId` (por diseño) y el `audit_log` que escribe la Function no puede saber

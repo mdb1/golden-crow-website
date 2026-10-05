@@ -50,6 +50,13 @@ import {
   thumbnailUrlIssue,
 } from "@/lib/gc-fitness/exercise-media-url";
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
+import { BodyweightFactorField } from "@/components/gc-fitness/bodyweight-factor-field";
+import {
+  factorToPersist,
+  percentToFactor,
+  showsBodyweightFactorField,
+  suggestedBodyweightPercent,
+} from "@/lib/gc-fitness/bodyweight-factor-form";
 
 export interface QuickCreateSeed {
   name: string;
@@ -136,6 +143,8 @@ export function QuickCreateExercise({
   const [equipment, setEquipment] = useState<string>(DEFAULT_EQUIPMENT);
   const [gifUrl, setGifUrl] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  // #1307 — explicit «% del peso corporal» or null = the muscle suggestion.
+  const [bodyweightPercent, setBodyweightPercent] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nameDirty, setNameDirty] = useState(false);
@@ -185,6 +194,7 @@ export function QuickCreateExercise({
   // alone precisely so it reaches `thumbnailUrlIssue` recognizable instead of
   // becoming the nonsense `https://data:image/jpeg;base64,…`.
   const normalizedGif = normalizeExternalUrl(gifUrl);
+  const asksBodyweightFactor = showsBodyweightFactorField([equipment]);
   const gifIssue = thumbnailUrlIssue(normalizedGif);
 
   function reset() {
@@ -194,6 +204,7 @@ export function QuickCreateExercise({
     setEquipment(DEFAULT_EQUIPMENT);
     setGifUrl("");
     setYoutubeUrl("");
+    setBodyweightPercent(null);
     setError(null);
     setNameDirty(false);
   }
@@ -241,6 +252,16 @@ export function QuickCreateExercise({
         // empty string is a present value on Firestore and the clients treat
         // "has a video" as "the field is non-null".
         youtubeURL: normalizedYoutube || null,
+        // #1307 — bodyweight movements carry the counted body-weight fraction
+        // (the coach's value or the suggestion for the picked muscle).
+        ...(asksBodyweightFactor
+          ? {
+              bodyweightLoadFactor: factorToPersist(
+                percentToFactor(bodyweightPercent),
+                muscleGroup,
+              ),
+            }
+          : {}),
         source: "trainer",
         ownerId: null,
       });
@@ -371,6 +392,15 @@ export function QuickCreateExercise({
             </SelectContent>
           </Select>
         </div>
+        {asksBodyweightFactor ? (
+          <div className="sm:col-span-2">
+            <BodyweightFactorField
+              percent={bodyweightPercent}
+              suggestedPercent={suggestedBodyweightPercent(muscleGroup)}
+              onChange={setBodyweightPercent}
+            />
+          </div>
+        ) : null}
         <div className="sm:col-span-2">
           <Label htmlFor="quick-create-gif" className="sr-only">
             GIF or preview URL (optional)

@@ -53,6 +53,12 @@ export interface SessionSetLog {
    * Wire: `bodyweight_kg`. Mirrors SetLog.swift / SetLog.kt.
    */
   bodyweightKg?: number | null;
+  /**
+   * #1307 — the fraction (0–1) of `bodyweightKg` that counts toward the load,
+   * stamped next to it at finalize. Absent on a set WITH `bodyweightKg` ⇒
+   * legacy #1197 set, counted at 1.0. Wire: `bodyweight_factor`.
+   */
+  bodyweightFactor?: number | null;
 }
 
 /**
