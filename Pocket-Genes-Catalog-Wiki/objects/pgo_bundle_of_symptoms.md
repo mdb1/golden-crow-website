@@ -2,10 +2,10 @@
 
 A standalone set of readable symptom observations with optional terminology coding.
 
-**Nature:** virtual  
-**Stages:** test_planning  
-**Serialized extension:** `.pgsymptoms.json`  
-**Schema:** `schemas/objects/pgo_bundle_of_symptoms.schema.json`  
+**Nature:** virtual<br>
+**Stages:** test_planning<br>
+**Serialized extension:** `.pgsymptoms.json`<br>
+**Schema:** `schemas/objects/pgo_bundle_of_symptoms.schema.json`<br>
 **Example:** `examples/objects/pgo_bundle_of_symptoms.pgsymptoms.json`
 
 ## Content boundary

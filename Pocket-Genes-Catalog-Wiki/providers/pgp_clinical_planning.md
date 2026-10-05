@@ -2,9 +2,9 @@
 
 Fictional multidisciplinary provider that structures request information, prioritizes candidate genes, records informed consent, prepares test orders, and produces form-based documents.
 
-**Kind:** professional_services_organization  
-**Stages:** test_planning  
-**Regions:** AR  
+**Kind:** professional_services_organization<br>
+**Stages:** test_planning<br>
+**Regions:** AR<br>
 **Catalog status:** fictional example, not a live integration
 
 ## Services

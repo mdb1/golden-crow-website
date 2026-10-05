@@ -2,10 +2,10 @@
 
 A titled reference to a downloadable native PGI report decoded through the existing PGI format parsers.
 
-**Nature:** virtual  
-**Stages:** bioinformatics  
-**Serialized extension:** `.pgi1.json / .pgi2.json / .pgi3.json`  
-**Schema:** `schemas/objects/pgo_interactive_report.schema.json`  
+**Nature:** virtual<br>
+**Stages:** bioinformatics<br>
+**Serialized extension:** `.pgi1.json / .pgi2.json / .pgi3.json`<br>
+**Schema:** `schemas/objects/pgo_interactive_report.schema.json`<br>
 **Example:** `examples/objects/pgo_interactive_report.pgobject.json`
 
 ## Content boundary

@@ -8,8 +8,6 @@ The service offer's external `formShape` is camelCase configuration with generat
 
 `form_shape` contains exactly `fields`. Definitions stay ordered. Every definition requires `key`, `label`, `type`, and `required`; only `options` and `help_info_text` are optional. `options` is required and nonempty only for `enum` and `multi_enum`, and must be omitted for every other type.
 
-Field keys use `^[a-z][a-z0-9_]{0,63}$`. Labels contain 1 to 120 characters and optional `help_info_text` contains 1 to 500 characters after trimming. Each option value contains 1 to 128 characters and matches `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`; its readable label contains 1 to 120 characters. Option values are unique within the field.
-
 Answers contain exactly `key` and `value`. Keys must be unique and declared by the frozen shape. Values are validated against the matching definition, including enum membership and numeric array element types. Optional unanswered fields may be absent. An empty answer array is valid when no required field is unanswered.
 
 Supported definition types:

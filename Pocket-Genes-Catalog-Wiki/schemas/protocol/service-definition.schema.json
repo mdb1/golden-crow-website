@@ -117,20 +117,18 @@
             "type": "object",
             "description": "One enum choice.",
             "properties": {
-             "value": {
-               "type": "string",
-               "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
-                "maxLength": 128,
-               "description": "Stable stored option value."
-             },
-             "label": {
-               "type": "string",
-               "minLength": 1,
-               "pattern": "\\S",
-                "maxLength": 120,
-               "description": "Human-readable option label frozen with the form."
-             }
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S",
+                "description": "Stable stored option value."
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S",
+                "description": "Human-readable option label frozen with the form."
+              }
             },
             "required": [
               "value",
@@ -257,20 +255,18 @@
                   "type": "object",
                   "description": "One enum choice.",
                   "properties": {
-                   "value": {
-                     "type": "string",
-                     "minLength": 1,
-                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
-                      "maxLength": 128,
-                     "description": "Stable stored option value."
-                   },
-                   "label": {
-                     "type": "string",
-                     "minLength": 1,
-                     "pattern": "\\S",
-                      "maxLength": 120,
-                     "description": "Human-readable option label frozen with the form."
-                   }
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "description": "Stable stored option value."
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "description": "Human-readable option label frozen with the form."
+                    }
                   },
                   "required": [
                     "value",
@@ -452,20 +448,18 @@
                       "type": "object",
                       "description": "One enum choice.",
                       "properties": {
-                       "value": {
-                         "type": "string",
-                         "minLength": 1,
-                          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
-                          "maxLength": 128,
-                         "description": "Stable stored option value."
-                       },
-                       "label": {
-                         "type": "string",
-                         "minLength": 1,
-                         "pattern": "\\S",
-                          "maxLength": 120,
-                         "description": "Human-readable option label frozen with the form."
-                       }
+                        "value": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S",
+                          "description": "Stable stored option value."
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S",
+                          "description": "Human-readable option label frozen with the form."
+                        }
                       },
                       "required": [
                         "value",
@@ -1166,27 +1160,6 @@
         }
       ]
     },
-    "service_change_log_entry": {
-      "type": "object",
-      "description": "Server-generated bilingual description of one consecutive service-offer version transition.",
-      "properties": {
-        "en": {
-          "type": "string",
-          "minLength": 1,
-          "description": "English natural-language change list as line-separated middle-dot bullets."
-        },
-        "es": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Spanish natural-language change list as line-separated middle-dot bullets."
-        }
-      },
-      "required": [
-        "en",
-        "es"
-      ],
-      "additionalProperties": false
-    },
     "service_definition": {
       "type": "object",
       "properties": {
@@ -1202,26 +1175,6 @@
         "serviceVersion": {
           "type": "integer",
           "minimum": 1
-        },
-        "changeLogHistoryByVersion": {
-          "type": "object",
-          "description": "Server-owned append-only history. Keys use vN_to_vN+1 transition IDs; clients cannot write this map.",
-          "propertyNames": {
-            "pattern": "^v[1-9][0-9]*_to_v[1-9][0-9]*$"
-          },
-          "additionalProperties": {
-            "$ref": "#/$defs/service_change_log_entry"
-          }
-        },
-        "changeLogFormShapeByVersion": {
-          "type": "object",
-          "description": "Server-owned append-only request-form history. A consecutive vN_to_vN+1 entry is added only when the normalized form shape changes; clients cannot write this map.",
-          "propertyNames": {
-            "pattern": "^v[1-9][0-9]*_to_v[1-9][0-9]*$"
-          },
-          "additionalProperties": {
-            "$ref": "#/$defs/service_change_log_entry"
-          }
         },
         "name": {
           "type": "string",
@@ -1315,8 +1268,7 @@
         "availability": {
           "type": "string",
           "enum": [
-            "backoffice",
-            "mock_catalog_only"
+            "backoffice"
           ]
         },
         "isHiddenFromSearch": {

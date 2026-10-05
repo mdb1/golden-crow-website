@@ -2,10 +2,10 @@
 
 Domain description of a distinguishable extracted DNA specimen.
 
-**Nature:** physical  
-**Stages:** wet_lab  
-**Serialized extension:** `.pgdna.json`  
-**Schema:** `schemas/objects/pgo_dna_sample.schema.json`  
+**Nature:** physical<br>
+**Stages:** wet_lab<br>
+**Serialized extension:** `.pgdna.json`<br>
+**Schema:** `schemas/objects/pgo_dna_sample.schema.json`<br>
 **Example:** `examples/objects/pgo_dna_sample.pgdna.json`
 
 ## Content boundary

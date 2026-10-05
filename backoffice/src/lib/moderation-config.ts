@@ -529,7 +529,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionConfig> = {
     },
     getRelatedLinks: (_documentId, data) => {
       const links: RelatedRecordLink[] = [];
-      const reportCode = getString(data.reportCode) ?? getString(data.report_code);
+      const reportCode = getString(data.reportCode);
       const linkedFileId = getString(data.linkedFileId) ?? getString(data.linked_file_id);
       const ownerId =
         getString(data.reportOwnerId) ??

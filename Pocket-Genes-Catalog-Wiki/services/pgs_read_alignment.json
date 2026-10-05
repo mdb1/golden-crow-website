@@ -3,7 +3,7 @@
   "stages": [
     "bioinformatics"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Align accepted FASTQ reads to the order reference and return an aligned-read object.",
   "serviceId": "pgs_read_alignment",
   "schemaVersion": 1,

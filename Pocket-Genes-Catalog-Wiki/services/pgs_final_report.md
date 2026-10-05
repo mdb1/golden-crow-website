@@ -2,9 +2,9 @@
 
 Combine the complete test order with a registered PGI payload into a final PDF for the requested objective.
 
-**Provider:** Clarity Report Studio (`pgp_report_studio`)  
-**Provider kind:** organization  
-**Service version:** 1  
+**Provider:** Clarity Report Studio (`pgp_report_studio`)<br>
+**Provider kind:** organization<br>
+**Service version:** 1<br>
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
@@ -23,7 +23,7 @@ Verify the order match, native PGI schema, support evidence and scope, perform i
 | Input | `interactive_report` | `pgo_interactive_report` | Required 1:1 |
 | Output | `report` | `pgo_pdf_report` | new_object |
 
-The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
+Input and output arrays are independent. Either may be empty, and both may be empty at the same time. An empty side is encoded as `none` in the calculated `shortContract`, including `none -> none`. The compact syntax is backend/catalog data only; native user interfaces render it as `PGOConversionView`, never as raw text.
 
 ## Request form
 

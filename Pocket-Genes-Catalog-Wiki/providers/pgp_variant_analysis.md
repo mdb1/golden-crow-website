@@ -2,9 +2,9 @@
 
 Fictional specialist in independently purchasable alignment, variant calling, annotation, and symptom-independent structured genomic interpretation.
 
-**Kind:** bioinformatics_company  
-**Stages:** bioinformatics  
-**Regions:** AR  
+**Kind:** bioinformatics_company<br>
+**Stages:** bioinformatics<br>
+**Regions:** AR<br>
 **Catalog status:** fictional example, not a live integration
 
 ## Services

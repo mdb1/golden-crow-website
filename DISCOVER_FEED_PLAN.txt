@@ -1,0 +1,2924 @@
+Discover Feed Plan
+==================
+
+Purpose
+-------
+
+Discover is the app's read-only home feed for curated genetics, rare disease,
+bioinformatics, research, education, opportunities, and events.
+
+The feed should feel alive and useful, but the content model must stay compact and
+clear. The schema must make a hard distinction between:
+
+1. Root fields that apply to every feed item.
+2. Type-specific fields that apply only to one item type.
+
+Common title/body/image/source fields belong at the feed item root. Type payload
+nodes should not duplicate those fields.
+
+Schema naming convention:
+
+1. Firestore document field keys must always be camelCase.
+2. This rule applies to feed_organizations, feed_individuals, feed_items,
+   publisherSnapshot, social child fields, and every type-specific payload object.
+3. If planning notes, tickets, chats, or editor copy mention a snake_case field such
+   as image_url, source_url, color_hex, description_en,
+   is_genetic_report_provider, is_grc_highlighted, product_catalog,
+   product_url, call_to_action_label, or show_in_discover_feed, treat that as
+   informal wording only.
+   The saved key must be imageUrl, imageUploadDataUrl, sourceUrl, colorHex,
+   descriptionEn, isGeneticReportProvider, isGrcHighlighted, productCatalog,
+   productUrl, callToActionLabel, or showInDiscoverFeed.
+4. Do not add new client parser fallbacks for snake_case, legacy aliases, or
+   duplicate key spellings. Backoffice writes and mobile reads must share the same
+   canonical camelCase field names. The current defensive read exceptions are:
+   show_in_discover_feed for the newly requested checkbox, and the payload-node
+   fallback described in the type-specific schema section. Writers must still save
+   showInDiscoverFeed and the canonical camelCase payload node.
+5. Canonical values are different from field keys. Values that are identifiers,
+   such as org_genomics_laboratories, pro_clinical_geneticists,
+   grc_full_genome, pending_approval, and feed item type values such as
+   research_update, remain exactly as defined by their providers and must not be
+   converted to camelCase.
+6. Firestore collection names, asset filenames, deep-link paths, and other external
+   identifiers are not field keys; keep their existing explicit spelling.
+
+
+Deleted Publisher And Creator Continuity
+----------------------------------------
+
+DELETED_IDENTITY_CONTINUITY_CONTRACT.txt is the repository-wide source of truth
+for every retained record whose creator, publisher, owner, provider, participant,
+or requester identity has been deleted. Its rules are part of this Discover plan,
+including for all future feed types and publisher-linked surfaces.
+
+Discover-specific requirements:
+
+1. A valid feed item, event, opportunity, spotlight, saved item, or other editorial
+   record remains visible under its own status and retention rules when its
+   publisher identity is deleted. Identity deletion must not be treated as a
+   parser failure or an implicit content cascade.
+2. publisherSnapshot remains historical provenance only. After authoritative
+   deletion is confirmed, clients must not render its former name, image, logo,
+   icon, color, email, or contact data. DeletedUserProvider supplies the localized
+   Deleted user, Deleted profile, Deleted provider, or Deleted organization label
+   appropriate to the publisher kind and the neutral gray crossed-out icon.
+3. The feed item and event remain tappable and open their normal detail. Tapping
+   the deleted publisher attribution opens the provider-owned deleted identity
+   state. Active publisher directories may exclude a deleted publisher, but that
+   must not remove its retained feed items or saved content.
+4. A successful server response confirming the canonical identity is absent is a
+   deletion. Offline state, timeout, permission denial, malformed data, or a
+   missing embedded snapshot is only unavailable and must use retryable warning
+   presentation. It must never be labelled Deleted.
+5. The fallback does not widen access, revive archived content, change feed-item
+   status, or permit follow/contact actions against a deleted publisher. It also
+   does not add identity metadata to any serialized Pocket Genes Object.
+6. iOS and Android must have identical state, navigation, localization,
+   accessibility, and interaction semantics. Feature tests must prove the content
+   stays visible while only publisher presentation and identity-targeted actions
+   change.
+
+
+1. Product Idea
+---------------
+
+Discover gives users a recurring reason to open the app even when they are not
+actively exploring a genomic report. It should surface useful information from
+trusted organizations and individual publishers:
+
+1. News about genetics, genomics, rare disease, and patient resources.
+2. Research updates written in plain language.
+3. Opportunities such as programs, calls, fellowships, resources, or provider-facing
+   content.
+4. Upcoming events such as webinars, workshops, conferences, or awareness sessions.
+5. Internal Pocket Genes guide cells that point into useful app features.
+
+Discover is not:
+
+1. A user-generated social feed.
+2. A public posting platform.
+3. An RSVP or application system.
+4. A clinical recommendation engine.
+5. An organization directory inside the feed itself.
+
+Users can read items, open details, share content, save content, follow
+publishers, and navigate to related app areas. They cannot edit feed items or
+publishers.
+
+
+2. Concept
+----------
+
+The section is named:
+
+    Discover
+
+Discover is broad enough to contain news, research, opportunities, events, internal
+guide cells, and future curated resources without implying that organizations are
+the main feed cells.
+
+Important distinction:
+
+1. feed_organizations and feed_individuals are backend publisher records.
+2. feed_items are the visible editorial feed entries.
+3. Each feed item is published by exactly one publisher.
+4. Each feed item stores exactly one of publisherOrganizationId or
+   publisherIndividualId and a lightweight publisherSnapshot.
+5. Publishers have their own detail screens, opened from publisher areas, not as
+   ordinary repeated feed cells.
+
+
+3. Product Scope
+----------------
+
+MVP includes:
+
+1. Five-tab app with Discover as the center/default home tab.
+2. Firestore-backed published feed items.
+3. Internal local guide cells mixed into the feed.
+4. Filters: All, Following, Events, News, Research, Opportunities, plus a "+"
+   filter picker for the remaining supported content types.
+5. Infinite scrolling and pull to refresh.
+6. Empty, loading, offline, and error states.
+7. Detail screen for every feed item.
+8. Organization and individual detail screens from publisher avatar/name.
+9. Generic share.
+10. Event share labelled as Invite.
+11. Local save/bookmark for feed items, lessons, and genes.
+12. Publisher following stored on the user's community profile document.
+
+MVP does not include:
+
+1. User-created feed items.
+2. Comments, likes, reactions, or reposts on feed items.
+3. In-app event RSVP.
+4. In-app applications.
+5. Huge custom metadata forms per type.
+6. Automated scraping without editorial review.
+7. Medical advice.
+
+
+4. Information Architecture
+---------------------------
+
+Main tab order:
+
+    Explore
+    Learn
+    Discover
+    Connect
+    Profile
+
+Discover is selected by default on cold start.
+
+Discover screen structure:
+
+1. Navigation title: Discover.
+2. Filter row: All, Following, Events, News, Research, Opportunities, and "+".
+   The fixed filters remain visible at all times. The "+" opens a single-choice
+   modal with all 30 content types. Extra content-type filters are only visible
+   in the row while selected; otherwise they are reached through "+".
+3. Infinite mixed feed.
+4. Local guide cells interleaved with external feed items.
+5. Bottom pagination loader and retry footer.
+
+Screen states:
+
+1. Initial loading uses polished skeleton cards, not a blank spinner.
+2. Empty external feed still shows local guide cells.
+3. Fully empty state appears only if neither external nor local cells can be shown.
+4. Offline with cached items keeps the feed visible with a compact banner.
+5. Offline with no items shows a full no-connection state with retry.
+6. Pagination failure keeps existing items and shows a retry footer.
+
+
+4.1 Discover List Rendering Contract
+------------------------------------
+
+This section describes the exact mobile rendering contract for the Discover list.
+It is intentionally separate from the Firestore schema because the same data must
+produce predictable list cells, filters, hub entries, calendar entries, and empty
+states on iOS and Android.
+
+Core rule:
+
+1. The Discover list is additive. Optional data only affects the UI when that
+   optional field is present and valid.
+2. The app must not fill missing content with invented facts. Missing cost does
+   not mean free. Missing attendanceMode does not mean in person. Missing
+   accessibilityFeatures does not mean no accessibility. Missing timeKind does
+   not mean a default hour.
+3. A malformed feed item is filtered before it becomes a cell. The list should
+   look intentional instead of showing partially parsed records.
+
+A. Discover controller and visible sections
+
+Discover is a top-level app tab and is the default center/home tab. Inside
+Discover, the app uses a horizontal filter controller, not separate navigation
+tabs:
+
+1. Fixed visible filters:
+   - All
+   - Following
+   - Events
+   - News
+   - Research
+   - Opportunities
+   - +
+2. The "+" control opens a single-choice content-type picker containing all 30
+   supported Discover item types.
+3. If the selected filter is one of the extra types, that extra type is appended
+   to the visible filter row while selected. When a primary filter is selected
+   again, the extra type disappears from the row and returns to the "+" picker.
+4. Selecting a different filter resets pagination and reloads from the first
+   page.
+5. Selecting Events again, or opening Discover while Events is selected, triggers
+   an automatic refresh so the calendar has the latest event information without
+   requiring pull-to-refresh.
+6. All and Following can show the trusted publisher profiles access banner.
+   Other type filters should not show that publisher hub access banner.
+7. The Events filter is special: it renders the event calendar/list section
+   instead of the regular mixed feed card stream.
+
+B. Language picker and localized loading
+
+The toolbar language picker controls which authored language is queried and how
+supporting labels are localized.
+
+1. Feed items are queried by the selected app language using the feed_items
+   language field. Accepted authored values are exactly "en" and "es".
+2. Changing the app language clears the loaded feed and reloads the current
+   filter for the new language.
+3. The app does not translate feed item title, subtitle, body, htmlBody, or CTA
+   labels inside the cell. The backend must publish separate English and Spanish
+   items when both languages are needed.
+4. System labels, empty states, date labels, country names, buttons, and filter
+   labels are localized by the app.
+5. Publisher profile descriptions can use descriptionEn as the English
+   description and description as the Spanish/default description.
+6. Country pickers store ISO country codes, but show localized country names and
+   flags according to the active app language.
+
+C. Feed data loading and parser gates
+
+The normal Discover feed reads feed_items, then builds cells only from valid,
+published documents.
+
+Query rules:
+
+1. Base query:
+   - collection: feed_items
+   - status == "published"
+   - language == selected app language
+   - order by publishedAt descending
+   - page size 20
+2. Type filters add a type condition when the selected filter maps to a
+   DiscoverFeedItemType.
+3. Events use canonical type "upcoming_event". Newer clients may defensively
+   tolerate the legacy value "upcomingEvent" while querying/reading, but backend
+   writers must save "upcoming_event".
+4. Following does publisher-based queries over the user's followed
+   publisherOrganizationId and publisherIndividualId values, chunks the ids when
+   needed, then merges, de-duplicates, sorts by publishedAt descending, and
+   returns the first page.
+5. Publisher recent-item lists apply the same visibility rules as the regular
+   feed.
+6. The feed list does not fetch feed_organizations or feed_individuals just to
+   render a cell. publisherSnapshot is the list-time source for publisher name
+   and image.
+
+Parser gates for a visible external feed cell:
+
+1. type must exist.
+2. For authored content, type must be one of the supported canonical values. If
+   an old unsupported type is encountered, the app may show the
+   unsupported fallback only when the root fields are otherwise usable.
+3. publisherSnapshot must exist and contain a non-empty name.
+4. Exactly one of publisherOrganizationId or publisherIndividualId must exist.
+5. title must be non-empty.
+6. subtitle must be non-empty.
+7. The matching payload node must exist. Canonical writers use camelCase payload
+   keys such as upcomingEvent, researchUpdate, and externalArticle.
+8. For upcoming_event, upcomingEvent.date is required before it can appear in
+   the Events calendar.
+9. showInDiscoverFeed defaults to true when missing or null.
+
+showInDiscoverFeed rendering:
+
+1. true, null, or omitted:
+   - The item can appear in All, Following, matching type filters, publisher
+     recent-item lists, and the Events calendar when it is an event.
+2. false:
+   - The item is hidden from normal Discover card streams and publisher
+     recent-item lists.
+   - If the item has type == "upcoming_event" and a valid upcomingEvent.date, it
+     still appears inside the Events calendar/subsection.
+   - Non-event items with showInDiscoverFeed == false have no Discover list
+     surface.
+
+D. Mixed feed composition
+
+The regular Discover stream is a composed list of two sources:
+
+1. External Firestore feed items.
+2. Local Pocket Genes guide cells.
+
+The user sees one mixed feed, but the sources are different:
+
+1. External cells come from feed_items and open DiscoverDetailScreen.
+2. Local guide cells are app-defined suggestions that open internal Pocket Genes
+   destinations such as Learn, Explore, Connect, profile setup, saved content,
+   genes, variants, or the publisher hub.
+3. Empty external feed does not automatically mean an empty screen; local guide
+   cells can still fill the Discover surface.
+4. A fully empty state appears only when both external feed items and local guide
+   cells are unavailable.
+5. Offline with previously loaded data keeps the existing content visible and
+   shows a compact no-connection banner.
+6. Pagination starts before the user reaches the final rows. If pagination fails,
+   existing cells stay on screen and the footer shows retry.
+
+E. External Discover feed cell layout
+
+Every external feed cell uses the same list cell hierarchy regardless of type.
+Type-specific content changes the badge, accent, fallback visual, metadata
+chips, and detail screen, not the overall cell skeleton.
+
+Cell structure:
+
+1. The entire cell is tappable.
+2. Publisher row:
+   - circular publisher image from publisherSnapshot.imageUrl.
+   - if imageUrl is empty, use publisherSnapshot.imageUploadDataUrl.
+   - publisher name from publisherSnapshot.name.
+   - supporting label "Published by".
+   - type badge with the item type label and type icon.
+3. Text block:
+   - title from root title, maximum 3 lines.
+   - subtitle from root subtitle, maximum 3 lines.
+4. Media:
+   - root imageUrl is preferred.
+   - root imageUploadDataUrl is used only when imageUrl is empty.
+   - if neither is present, render the type visual panel/fallback image.
+   - media uses a fixed Discover cover ratio and aspect-fill crop.
+5. Metadata row:
+   - up to 3 short metadata chips.
+   - empty metadata values are omitted.
+   - chips use the type accent as their tint.
+6. Footer:
+   - shows the best short date/footer text for the item, or localized
+     "Recently" if no footer date exists.
+   - shows the generic "Open" affordance.
+   - the icon changes when the root sourceUrl exists, but the note-level main
+     button remains controlled by sourceUrl/sourceButtonText on the detail
+     screen.
+
+Cell color and type styling:
+
+1. The selected filter pill and the cell accents come from DiscoverFeedItemType.
+2. News uses a red/pink accent family: primary #E04A5E and end #F9737A.
+3. Upcoming events use an indigo/purple accent family: primary #4F46E5 and end
+   #7C3AED.
+4. Research uses blue/teal, opportunities use red/purple, and the other types
+   use the explicit type matrix colors in the client.
+5. Organization publisher colorHex affects organization/profile surfaces. It
+   does not override the editorial feed item type accent.
+6. Individual publisher colorHex affects individual/profile surfaces. It does
+   not override the editorial feed item type accent.
+
+F. News rendering in Discover
+
+News is a normal external Discover feed item with type == "news" and payload key
+news.
+
+List cell:
+
+1. Badge label: News.
+2. Icon: newspaper.
+3. Accent: #E04A5E to #F9737A.
+4. Title: root title.
+5. Preview: root subtitle.
+6. Body preview is not shown in the list.
+7. Metadata chips, in order:
+   - news.category, if present.
+   - news.region, if present.
+   - publishedAt short date, if present.
+8. Cover media comes only from root imageUrl/imageUploadDataUrl.
+9. The main CTA comes only from root sourceUrl and root sourceButtonText, with
+   the type default CTA used only when sourceButtonText is empty.
+
+Detail behavior:
+
+1. htmlBody has priority over body.
+2. body is only the fallback when htmlBody is absent or empty.
+3. summary and detailBody are forbidden duplicate keys and must not be read,
+   written, generated, or previewed.
+
+G. Event rendering in Discover
+
+Events are authored as type == "upcoming_event" with payload key upcomingEvent.
+Do not author type == "upcomingEvent" and do not author payload key
+upcoming_event.
+
+Regular feed behavior:
+
+1. When showInDiscoverFeed is true, null, or omitted, an event can appear as a
+   regular card in All, Following, and any regular type card stream that includes
+   events. The Events filter itself renders the calendar/subsection.
+2. When showInDiscoverFeed is false, the event is hidden from the regular card
+   stream but remains eligible for the Events calendar.
+3. The event card uses the standard external cell skeleton, the Event badge, the
+   calendar icon, and the #4F46E5 to #7C3AED accent family.
+4. Event metadata chips, in order:
+   - event date or event date range.
+   - event display time, if timeKind allows a visible time.
+   - event location, if present.
+5. If timeKind is missing or represents "unspecified", no time row/chip should
+   be invented. In particular, the app must not show a default 9 PM or any other
+   default hour.
+6. Event date display uses the UTC calendar date from upcomingEvent.date. A
+   timestamp representing September 15 at 00:00 UTC must display as September
+   15, even for users in UTC-3.
+
+Events calendar behavior:
+
+1. The Events filter renders a calendar section instead of the normal card
+   stream.
+2. The calendar receives only items where type == "upcoming_event" and
+   upcomingEvent.date is valid.
+3. Event days are computed from upcomingEvent.date using the UTC event calendar.
+4. The calendar shades every day on which the event occurs.
+5. multiDayLength affects calendar day count only when timeKind supports
+   multi-day display: allDay, timeTba, or regionalTimes.
+6. If timeKind does not support multi-day display, the event is treated as one
+   calendar day even if multiDayLength exists in bad data.
+7. Selecting a shaded day shows the events for that exact day under the calendar.
+8. Multi-day occurrences use occurrence labels such as "Event title - Day 1" and
+   "Day 1 of 3" so tapping any shaded day still opens the same event with clear
+   context.
+9. Calendar event cards show the date badge, title, subtitle, optional time,
+   optional day label, and optional location.
+
+Event detail handoff:
+
+1. The normal note-level main button is still root sourceUrl/sourceButtonText.
+   It belongs to every note type and is not part of the event info block.
+2. upcomingEvent.actionButtons are secondary event actions inside the event info
+   block only. They never replace the note-level main button.
+3. Event details use the calm EventInfoBlock layout, grouped sections, and
+   omission rules already defined in the event model section.
+4. For regionalTimes, the event detail block shows "Revisa el horario en tu
+   región." plus the compact regional table when valid regional rows exist.
+5. The regional table uses regionalStartTimes, regionalEndTimes, and
+   regionalTimezones only. Do not read or save countryDailyStartTimes,
+   countryDailyEndTimes, or countryTimezones.
+6. maxAttendance null means no attendance limit and renders as "No limit" /
+   "Sin límite" where the detail design shows capacity. It must never become
+   "max 1".
+7. priceMinorUnits is displayed as the authored integer amount, not divided by
+   100. If the backend saves 4000, the UI shows 4000.
+
+H. Organization and publisher hub rendering
+
+Publisher profiles are related to Discover but are not ordinary feed item cards.
+They are opened from the trusted profiles banner, deep links, spotlight details,
+publisher rows, or local guide cells.
+
+General OrganizationsHub:
+
+1. It queries feed_organizations where status == "active", ordered by name, with
+   pagination.
+2. It queries feed_individuals where status == "active", ordered by name, with
+   pagination.
+3. The screen uses a segmented controller:
+   - professionals.
+   - organizations.
+4. Professionals render as table/list rows.
+5. Organizations render as a two-column grid.
+6. Follow buttons use the user's followed publisher ids; unauthenticated users
+   see an authentication requirement.
+7. The search/filter button opens filters for publisher category and country.
+8. Organization filters also support requiresGeneticReportProvider and
+   geneticReportCategory.
+9. When filters are active, the hub loads remaining pages as needed so filtering
+   is applied to the full available in-memory result set, not only the first
+   page.
+10. Organization isGrcHighlighted affects ordering in the general hub:
+    highlighted organizations appear first, but still use the standard
+    two-column organization cell there.
+
+GeneticReportCompaniesHub:
+
+1. This is a specialized organization-only surface.
+2. It is reached from report-company/provider flows, not from the normal
+   publisher segmented hub.
+3. It filters organizations by:
+   - isGeneticReportProvider == true.
+   - selected countryCode.
+   - optional geneticReportCategory.
+4. The selected country is shown as a flag button. Tapping it opens
+   CountryPickerScreen.
+5. The default selected country comes from the active app language.
+6. Highlighted report companies with isGrcHighlighted == true render first as
+   full-width highlighted cells.
+7. Highlighted cells use imageUrl/imageUploadDataUrl for the circular publisher
+   image and bannerImageUrl/bannerImageUploadDataUrl for the 1024x500 banner.
+8. Standard matching report companies render after highlighted companies in the
+   normal organization grid.
+
+I. Empty, loading, offline, and retry presentation
+
+1. Initial Discover loading uses skeleton feed cards.
+2. Initial publisher hub loading uses hub-specific skeleton rows/cards.
+3. Empty All says there are no Discover items yet.
+4. Empty Following tells users to follow publishers.
+5. Empty Events says no events right now.
+6. Empty News says no news right now.
+7. Empty Research and Opportunities use their own explanatory messages.
+8. Error states keep loaded content when possible and show retry in context.
+9. Pull-to-refresh reloads the active feed.
+10. Bottom pagination retry only retries the next page; it does not clear already
+    visible content.
+
+
+5. Backend Data Model
+---------------------
+
+Use three top-level Firestore collections:
+
+    feed_organizations
+    feed_individuals
+    feed_items
+
+The app primarily queries feed_items. The app should not fetch publisher
+collections just to render the feed list.
+
+
+5.1 feed_organizations
+----------------------
+
+Purpose:
+
+Canonical backend record for each publisher organization.
+
+Suggested fields:
+
+{
+  "id": "org_456",
+  "name": "Global Rare Disease Foundation",
+  "imageUrl": "https://...",
+  "imageUploadDataUrl": null,
+  "bannerImageUrl": null,
+  "bannerImageUploadDataUrl": null,
+  "websiteUrl": "https://...",
+  "social": {
+    "facebook": "https://facebook.com/...",
+    "twitter": "https://x.com/...",
+    "instagram": "https://instagram.com/...",
+    "tiktok": "https://tiktok.com/@...",
+    "youtube": "https://youtube.com/@...",
+    "linkedin": "https://linkedin.com/in/...",
+    "github": "https://github.com/...",
+    "gitlab": "https://gitlab.com/...",
+    "stackOverflow": "https://stackoverflow.com/users/...",
+    "huggingFace": "https://huggingface.co/...",
+    "kaggle": "https://kaggle.com/...",
+    "researchGate": "https://researchgate.net/profile/...",
+    "orcid": "https://orcid.org/...",
+    "googleScholar": "https://scholar.google.com/citations?user=...",
+    "pubmed": "https://pubmed.ncbi.nlm.nih.gov/?term=...",
+    "scopus": "https://www.scopus.com/authid/detail.uri?authorId=...",
+    "webOfScience": "https://www.webofscience.com/wos/author/record/...",
+    "biostars": "https://www.biostars.org/u/...",
+    "protocolsIo": "https://www.protocols.io/researchers/...",
+    "osf": "https://osf.io/...",
+    "zenodo": "https://zenodo.org/communities/...",
+    "whatsapp": "https://wa.me/...",
+    "telegram": "https://t.me/...",
+    "threads": "https://threads.net/@...",
+    "pinterest": "https://pinterest.com/...",
+    "snapchat": "https://snapchat.com/add/...",
+    "reddit": "https://reddit.com/u/...",
+    "discord": "https://discord.gg/...",
+    "twitch": "https://twitch.tv/...",
+    "bluesky": "https://bsky.app/profile/...",
+    "mastodon": "https://mastodon.social/@...",
+    "email": "mailto:contact@example.org",
+    "other": "https://..."
+  },
+  "description": "Short organization description.",
+  "descriptionEn": "Short organization description in English.",
+  "countryCode": "GLOBAL,US,AR",
+  "organizationType": "org_patient_advocacy_organizations,org_genetics_research_institutes",
+  "isGeneticReportProvider": false,
+  "geneticReportCategory": null,
+  "isGrcHighlighted": false,
+  "productCatalog": [
+    {
+      "id": "cat_<uuid>",
+      "title": "Full genome report",
+      "description": "At least 30 characters describing the product.",
+      "imageUrl": "https://example.com/product.png",
+      "imageUploadDataUrl": null,
+      "productUrl": "https://example.com/product",
+      "callToActionLabel": "Buy",
+      "createdAt": "<server timestamp>",
+      "updatedAt": "<server timestamp>",
+      "createdByUserId": "firebaseUid",
+      "updatedByUserId": "firebaseUid"
+    }
+  ],
+  "colorHex": "#4F46E5",
+  "verified": true,
+  "status": "active",
+  "createdAt": "<server timestamp>",
+  "updatedAt": "<server timestamp>"
+}
+
+Only name, status, createdAt, and updatedAt are required. imageUrl,
+imageUploadDataUrl, bannerImageUrl, bannerImageUploadDataUrl, and websiteUrl
+are optional: omit them or store null when the publisher does not have a usable
+image, banner image, or website. imageUploadDataUrl is only a fallback for an
+uploaded publisher profile/logo image when imageUrl is empty; it must be a full
+data:image/...;base64,... URL and must not be written when imageUrl has a
+usable URL. bannerImageUrl and bannerImageUploadDataUrl are organization-only
+fields used only by the highlighted GeneticReportCompaniesHub cell when
+isGrcHighlighted is true. bannerImageUrl is the 1024x500 banner image source;
+bannerImageUploadDataUrl is only a fallback for an uploaded banner image when
+bannerImageUrl is empty, must be a full data:image/...;base64,... URL, and must
+not be written when bannerImageUrl has a usable URL. These banner fields never
+replace imageUrl/imageUploadDataUrl, which remain the publisher profile/logo
+image used in avatars and headers. The rest exists for the organization detail
+screen and admin context.
+productCatalog is optional and organization-only. It belongs only on
+feed_organizations; do not store it on feed_individuals, feed_items, or
+publisherSnapshot. When present, it must be a real Firestore array of product
+objects saved under the exact camelCase key productCatalog. This is different
+from taxonomy fields such as organizationType, countryCode, individualType, and
+geneticReportCategory, which are comma-separated strings. Each product object
+must use only camelCase keys. Required product fields are id, title, and
+productUrl. Optional product fields are description, imageUrl,
+imageUploadDataUrl, callToActionLabel, createdAt, updatedAt, createdByUserId,
+and updatedByUserId. productCatalog.imageUploadDataUrl is only a fallback for an
+uploaded product image when productCatalog.imageUrl is empty; it must be a full
+data:image/...;base64,... URL and must not be written when imageUrl has a
+usable URL. description is strongly recommended and should be at least 30
+characters when provided. Do not write product_catalog, product_url,
+image_upload_data_url, call_to_action_label, or any other snake_case aliases;
+clients do not parse those fallbacks. Product ids such as cat_<uuid> are stable
+identifiers and may remain underscore-form identifiers. Compact preview product
+cells have a last action row laid out as Open, spacer, and a purchase CTA pill.
+That action row must be one horizontal line with all items vertically centered
+and a stable fixed row height. The Open label is fixed/localized by the client
+("Open"/"Abrir").
+callToActionLabel only customizes the purchase CTA pill; if it is empty, clients
+show "Buy"/"Comprar". Tapping Open or any non-CTA area of a compact preview
+product cell opens a modal product detail screen. Highlighted product catalog
+cells do not have an Open label, do not open the modal when tapped, and expose
+only the purchase CTA. Product CTA pills are filled with the screen tint, use
+light text, and have no outline. The visible CTA pill must be trailing-aligned
+inside any width cap; do not center it in an invisible wrapper or add extra
+right-side inset beyond the card's content padding. The only exception is the
+highlighted product cell, whose main CTA must keep a fixed 16-point/dp inset
+from the card's right border. Tapping the purchase CTA pill opens productUrl in
+the external browser. On iOS this modal uses a 0.5
+presentation detent;
+Android uses the equivalent half-height bottom sheet. On organization detail, iOS and Android show a
+"Product catalog" preview immediately above Recent updates.
+If productCatalog is absent, null, or empty, clients hide the entire product
+catalog section, including the section title, placeholder, empty state, and "View
+all" link. The preview uses two-column ProductGridCell cards, shows only the
+first two products, shows a small gray product description capped at three
+lines, and always shows "View all" whenever at least one product exists, even if
+there is only one product. Compact preview product images must render as a
+square thumbnail sized to one quarter of the actual cell width, clipped into a
+stable masked window with aspect-fill scaling, rounded corners, and a subtle
+border. The thumbnail appears in its own top row aligned left with trailing
+space. A flexible vertical spacer sits between the thumbnail row and the title,
+so title, description, and the final action row stay grouped below it using the full cell width. The
+full Product catalog screen uses one-per-row highlighted product
+cells for every product; these highlighted cells keep the larger media
+presentation, show the full product description in the half-height detail modal,
+and may show a capped description preview in the cell.
+description stores the Spanish/base description. descriptionEn is optional and
+is used only by English clients when present; otherwise clients fall back to
+description as stored.
+Allowed publisher status values are active, inactive, pending_approval, and
+archived. Mobile publisher listings, including the organizations/professionals
+hub, show only documents whose status is active.
+isGeneticReportProvider is optional and defaults to false when omitted.
+geneticReportCategory is optional and must be null unless
+isGeneticReportProvider is true. When set, it must be a comma-separated string
+containing one or more closed OrganizationReportCategoryProvider keys, with no
+spaces. The backend must send a string, not an array. Mobile clients split this
+string by comma, trim whitespace around each token, reject the field if any
+token is empty or invalid, and match filters key by key. A single
+organization can therefore appear through multiple report-category paths, such
+as reproductive and full genome, when it stores:
+
+    "geneticReportCategory": "grc_reproductive,grc_full_genome"
+
+isGrcHighlighted is an optional organization-only boolean and defaults to false
+when omitted. The key must be saved exactly as isGrcHighlighted, never
+is_grc_highlighted. In the general organization publisher hub, active
+organizations with isGrcHighlighted == true must render first in the normal
+two-column OrganizationsHubGridCell grid, before all non-highlighted
+organizations, without changing their cell type. In GeneticReportCompaniesHub,
+when an active organization also matches isGeneticReportProvider == true, the
+selected geneticReportCategory path, and the selected countryCode,
+isGrcHighlighted == true makes that company render before all non-highlighted
+matches as a full-width one-per-row highlighted cell. Non-highlighted matching
+companies continue to render afterward in the normal two-column grid, with the
+same bottom action row pattern as the highlighted cell: Open on the left, a
+spacer, and the Follow control on the right. Do not use this field on
+feed_individuals.
+
+Highlighted GeneticReportCompaniesHub cells use a highlighted-only country row.
+When countryCode has exactly one valid country, show two adjacent pills for that
+same country: first the country-name pill with the globe icon, then the
+flag-only pill. When countryCode has more than one country, use the normal
+flag-only country row and overflow behavior.
+
+Verified publisher badges are visual indicators derived from the verified
+boolean. Across organization grid cells, highlighted organization cells,
+professional publisher cells, and publisher detail headers, render the badge at
+two thirds of its previous local base size and do not add badge padding,
+especially top padding.
+
+Allowed geneticReportCategory values are exactly:
+
+    grc_reproductive
+    grc_ophthalmics
+    grc_full_genome
+    grc_cardiovascular
+    grc_rare_diseases
+    grc_neurological
+    grc_prenatal
+    grc_nutrition_and_metabolism
+    grc_ancestry
+    grc_hereditary_cancer
+    grc_other
+
+These fields apply only to feed_organizations. grc_other means "Other genomic
+reports" / "Otros informes genómicos" and is a normal selectable value that must
+be shown alongside any other selected grc_* values. raw_pdf, raw_vcf, other,
+translated labels, display labels, arrays, old unprefixed values such as
+full_genome, and any unlisted values are not valid mobile filter keys.
+
+colorHex is optional and, when present, is used by clients as the organization's
+visual accent color in organization cards, follow controls, and organization
+detail chrome.
+
+social is optional and must be omitted or stored as one nested object under the
+publisher document. Every child key is optional: facebook, twitter, instagram,
+tiktok, youtube, linkedin, github, gitlab, stackOverflow, huggingFace, kaggle,
+researchGate, orcid, googleScholar, pubmed, scopus, webOfScience, biostars,
+protocolsIo, osf, zenodo, whatsapp, telegram, threads, pinterest, snapchat,
+reddit, discord, twitch, bluesky, mastodon, email, and other. twitter is the
+canonical key for X / Twitter. Do not write social platform URLs as top-level
+publisher fields. When one or more social values exists, clients show a
+horizontal scroll row of circular icon-only buttons in the publisher detail hero;
+tapping an icon opens that value externally. No visible labels or additional
+social logic are shown in the app UI. Empty social values must be omitted, not
+saved as empty strings.
+
+Backoffice should expose the social picker in this order and save exactly the
+camelCase data key shown in the left column. The picker must display the circular
+PNG asset shown in the Asset column, sourced from social_network_assets/ and
+copied into the backoffice public assets folder using the same filename. Mobile
+clients use the same explicit asset names.
+Repository paths are:
+social_network_assets/<asset>.png for the shared source PNG,
+mydnamap-ios/mydnamap/Assets.xcassets/<asset>.imageset/<asset>.png
+for iOS, and
+mydnamap-android/app/src/main/res/drawable-nodpi/<asset>.png for Android.
+
+    key             Spanish label                English label             Placeholder                         Asset
+    facebook        Perfil de Facebook           Facebook profile          https://facebook.com/...            social_facebook.png
+    twitter         Perfil en X / Twitter        X / Twitter profile       https://x.com/...                   social_twitter.png
+    instagram       Perfil de Instagram          Instagram profile         https://instagram.com/...           social_instagram.png
+    tiktok          Perfil de TikTok             TikTok profile            https://tiktok.com/@...             social_tiktok.png
+    youtube         Canal de YouTube             YouTube channel           https://youtube.com/@...            social_youtube.png
+    linkedin        Perfil de LinkedIn           LinkedIn profile          https://linkedin.com/in/...         social_linkedin.png
+    github          Perfil de GitHub             GitHub profile            https://github.com/...              social_github.png
+    gitlab          Perfil de GitLab             GitLab profile            https://gitlab.com/...              social_gitlab.png
+    stackOverflow   Perfil de Stack Overflow     Stack Overflow profile    https://stackoverflow.com/users/... social_stack_overflow.png
+    huggingFace     Perfil de Hugging Face       Hugging Face profile      https://huggingface.co/...          social_hugging_face.png
+    kaggle          Perfil de Kaggle             Kaggle profile            https://kaggle.com/...              social_kaggle.png
+    researchGate    Perfil de ResearchGate       ResearchGate profile      https://researchgate.net/profile/... social_researchgate.png
+    orcid           ORCID                        ORCID                     https://orcid.org/...               social_orcid.png
+    googleScholar   Perfil de Google Scholar     Google Scholar profile    https://scholar.google.com/...      social_google_scholar.png
+    pubmed          Perfil de PubMed             PubMed profile            https://pubmed.ncbi.nlm.nih.gov/... social_pubmed.png
+    scopus          Perfil de Scopus             Scopus profile            https://scopus.com/...              social_scopus.png
+    webOfScience    Perfil de Web of Science     Web of Science profile    https://webofscience.com/...        social_web_of_science.png
+    biostars        Perfil de BioStars           BioStars profile          https://biostars.org/u/...          social_biostars.png
+    protocolsIo     Perfil de protocols.io       protocols.io profile      https://protocols.io/...            social_protocols_io.png
+    osf             Perfil de OSF                OSF profile               https://osf.io/...                  social_osf.png
+    zenodo          Perfil de Zenodo             Zenodo profile            https://zenodo.org/...              social_zenodo.png
+    whatsapp        WhatsApp                     WhatsApp                  https://wa.me/...                   social_whatsapp.png
+    telegram        Telegram                     Telegram                  https://t.me/...                    social_telegram.png
+    threads         Perfil de Threads            Threads profile           https://threads.net/@...            social_threads.png
+    pinterest       Perfil de Pinterest          Pinterest profile         https://pinterest.com/...           social_pinterest.png
+    snapchat        Perfil de Snapchat           Snapchat profile          https://snapchat.com/add/...        social_snapchat.png
+    reddit          Perfil de Reddit             Reddit profile            https://reddit.com/u/...            social_reddit.png
+    discord         Servidor de Discord          Discord server            https://discord.gg/...              social_discord.png
+    twitch          Canal de Twitch              Twitch channel            https://twitch.tv/...               social_twitch.png
+    bluesky         Perfil de Bluesky            Bluesky profile           https://bsky.app/profile/...        social_bluesky.png
+    mastodon        Perfil de Mastodon           Mastodon profile          https://mastodon.social/@...        social_mastodon.png
+    email           Email de contacto            Contact email             contact@example.org or mailto:...   social_email.png
+    other           Otro enlace                  Other link                https://...                         social_other.png
+
+organizationType stores optional comma-separated canonical category keys, not
+display labels. Backoffice must expose the fixed organization category provider
+as a multi-select and persist selected keys joined by commas with no spaces. The
+mobile parser reads the value key by key, trims whitespace, keeps only exact
+fixed org_ category keys, deduplicates repeated keys, and ignores unknown keys.
+
+countryCode stores optional comma-separated country coverage keys, not display
+labels. Backoffice must expose this as a country multi-select and persist selected
+keys joined by commas with no spaces. Use uppercase ISO 3166-1 alpha-2 country
+codes such as US, AR, ES, MX, BR, CA, GB, and CL. Use the special key GLOBAL for
+publishers that are intentionally global or not tied to a specific country.
+GLOBAL is mutually exclusive with country-specific keys: if GLOBAL is selected,
+clear all country-specific selections before saving. If no country coverage is
+known, omit countryCode or store null. Do not store country names such as
+"Argentina" or labels such as "United States" in countryCode.
+
+5.1.1 feed_individuals
+----------------------
+
+Purpose:
+
+Canonical backend record for each individual publisher.
+
+Suggested fields:
+
+{
+  "id": "person_456",
+  "name": "Dr. Ada Rivera",
+  "imageUrl": "https://...",
+  "imageUploadDataUrl": null,
+  "websiteUrl": "https://...",
+  "social": {
+    "facebook": "https://facebook.com/...",
+    "twitter": "https://x.com/...",
+    "instagram": "https://instagram.com/...",
+    "tiktok": "https://tiktok.com/@...",
+    "youtube": "https://youtube.com/@...",
+    "linkedin": "https://linkedin.com/in/...",
+    "github": "https://github.com/...",
+    "gitlab": "https://gitlab.com/...",
+    "stackOverflow": "https://stackoverflow.com/users/...",
+    "huggingFace": "https://huggingface.co/...",
+    "kaggle": "https://kaggle.com/...",
+    "researchGate": "https://researchgate.net/profile/...",
+    "orcid": "https://orcid.org/...",
+    "googleScholar": "https://scholar.google.com/citations?user=...",
+    "pubmed": "https://pubmed.ncbi.nlm.nih.gov/?term=...",
+    "scopus": "https://www.scopus.com/authid/detail.uri?authorId=...",
+    "webOfScience": "https://www.webofscience.com/wos/author/record/...",
+    "biostars": "https://www.biostars.org/u/...",
+    "protocolsIo": "https://www.protocols.io/researchers/...",
+    "osf": "https://osf.io/...",
+    "zenodo": "https://zenodo.org/communities/...",
+    "whatsapp": "https://wa.me/...",
+    "telegram": "https://t.me/...",
+    "threads": "https://threads.net/@...",
+    "pinterest": "https://pinterest.com/...",
+    "snapchat": "https://snapchat.com/add/...",
+    "reddit": "https://reddit.com/u/...",
+    "discord": "https://discord.gg/...",
+    "twitch": "https://twitch.tv/...",
+    "bluesky": "https://bsky.app/profile/...",
+    "mastodon": "https://mastodon.social/@...",
+    "email": "mailto:ada@example.org",
+    "other": "https://..."
+  },
+  "description": "Short publisher description.",
+  "descriptionEn": "Short publisher description in English.",
+  "countryCode": "ES,MX",
+  "individualType": "pro_clinical_geneticists,pro_medical_geneticists",
+  "colorHex": "#14B8A6",
+  "verified": true,
+  "status": "active",
+  "createdAt": "<server timestamp>",
+  "updatedAt": "<server timestamp>"
+}
+
+Only name, status, createdAt, and updatedAt are required. imageUrl,
+imageUploadDataUrl, and websiteUrl are optional: omit them or store null when
+the publisher does not have a usable image or website. imageUploadDataUrl is
+only a fallback for an uploaded publisher image when imageUrl is empty; it must
+be a full data:image/...;base64,... URL and must not be written when imageUrl
+has a usable URL. The rest exists for the individual detail screen and admin
+context. description stores the Spanish/base description. descriptionEn is
+optional and is used only by English clients when present; otherwise clients
+fall back to description as stored. Allowed publisher status values are active,
+inactive, pending_approval, and archived. Mobile publisher listings, including
+the organizations/professionals hub, show only documents whose status is active.
+The individual publisher model intentionally mirrors the organization
+publisher model, including the optional nested social object. The same child keys
+and UI behavior apply to individual publishers.
+
+individualType stores optional comma-separated canonical professional category
+keys, not display labels. Backoffice must expose the fixed professional category
+provider as a multi-select and persist selected keys joined by commas with no
+spaces. The mobile parser reads the value key by key, trims whitespace, keeps
+only exact fixed pro_ category keys, deduplicates repeated keys, and ignores
+unknown keys.
+
+countryCode follows exactly the same contract on feed_individuals as it does on
+feed_organizations. A professional may cover multiple countries or operate
+globally, so the value is a comma-separated string in one field, for example
+ES,MX or GLOBAL. The backoffice UI must use the same country multi-select control,
+the same validation, and the same serialization rules for both publisher kinds.
+
+5.1.2 Publisher Country Codes
+-----------------------------
+
+Mobile clients define country parsing for publishers in dedicated provider
+classes:
+
+    iOS:
+      DiscoverPublisherCountryProvider
+
+    Android:
+      DiscoverPublisherCountryProvider
+
+Canonical storage rules:
+
+    - Field name: countryCode.
+    - Applies to both feed_organizations and feed_individuals.
+    - Type: optional string.
+    - Format: comma-separated canonical keys with no spaces.
+    - Valid canonical keys: uppercase ISO 3166-1 alpha-2 country codes plus the
+      special key GLOBAL.
+    - Examples:
+      GLOBAL
+      US,AR
+      ES,MX,CO
+    - Store keys only. Never store localized country labels in countryCode.
+    - Deduplicate selected keys before saving.
+    - Preserve the admin-selected order after dedupe.
+    - Omit the field or store null when no country coverage is known.
+    - GLOBAL means worldwide or not country-specific and must not be mixed with
+      ISO country codes.
+
+Backoffice country picker requirements:
+
+    - Use a searchable multi-select country picker for publisher countryCode.
+    - Include a first-class "Global" option that writes GLOBAL.
+    - Include all ISO 3166-1 alpha-2 countries as selectable options.
+    - Show human labels in the admin UI, but persist only canonical keys.
+    - When Global is selected, clear all country-specific selections.
+    - When a country-specific option is selected, clear Global.
+    - Save selected values as a single CSV string, for example US,AR,ES.
+    - Do not save arrays, objects, lowercase codes, labels, or CSV values with
+      spaces after commas.
+
+Mobile country behavior:
+
+    - New and edited data must use countryCode only.
+    - Do not write countryCodes, countryRegion, country, or region alias fields.
+    - The parser splits CSV values key by key, trims whitespace, uppercases ISO
+      codes, deduplicates repeated countries, and ignores unknown tokens.
+    - The normalized model value remains a CSV string such as GLOBAL,US,AR.
+    - Cards, detail chips, and saved items render localized country labels from
+      the normalized CSV string.
+
+5.1.3 Fixed Publisher Type Providers
+------------------------------------
+
+Mobile clients define the publisher type lists in dedicated provider classes:
+
+    iOS:
+      DiscoverPublisherTypeOption
+      DiscoverPublisherTypeKind
+      DiscoverPublisherTypeProvider
+
+    Android:
+      DiscoverPublisherTypeOption
+      DiscoverPublisherTypeKind
+      DiscoverPublisherTypeProvider
+
+Provider requirements:
+
+    - Exactly 60 organization categories and 90 professional categories.
+    - Canonical keys must be unique across both provider lists.
+    - Organization category keys use the org_ prefix.
+    - Professional category keys use the pro_ prefix.
+    - Stored Firestore values are comma-separated canonical keys in the same field, because one publisher may have multiple categories or roles.
+    - Clients display the localized labels for each parsed key.
+    - The mobile "Our trusted publishers" screen uses these same providers for
+      its publisher category filter. When the Organizations segment is active,
+      the Search organizations modal lists the 60 organization categories as a
+      single-choice secondary picker. When the Professionals segment is active,
+      the Search professionals modal lists the 90 professional categories as a
+      single-choice secondary picker. Clearing the secondary picker removes the
+      active publisher category filter.
+
+Organization categories:
+
+    org_genetic_testing_laboratories = Genetic Testing Laboratories
+    org_genomics_laboratories = Genomics Laboratories
+    org_molecular_diagnostics_laboratories = Molecular Diagnostics Laboratories
+    org_reproductive_genetics_laboratories = Reproductive Genetics Laboratories
+    org_prenatal_genetics_laboratories = Prenatal Genetics Laboratories
+    org_nipt_providers = NIPT Providers
+    org_oncology_genetics_laboratories = Oncology Genetics Laboratories
+    org_pharmacogenomics_providers = Pharmacogenomics Providers
+    org_nutrigenomics_providers = Nutrigenomics Providers
+    org_bioinformatics_companies = Bioinformatics Companies
+    org_variant_interpretation_companies = Variant Interpretation Companies
+    org_genetic_testing_platforms = Genetic Testing Platforms
+    org_clinical_genetics_centers = Clinical Genetics Centers
+    org_genetic_counseling_centers = Genetic Counseling Centers
+    org_fertility_clinics = Fertility Clinics
+    org_reproductive_medicine_centers = Reproductive Medicine Centers
+    org_gamete_banks = Gamete Banks
+    org_maternal_medicine_centers = Maternal Medicine Centers
+    org_fetal_medicine_centers = Fetal Medicine Centers
+    org_oncology_centers = Oncology Centers
+    org_neurogenetics_centers = Neurogenetics Centers
+    org_cardiogenetics_centers = Cardiogenetics Centers
+    org_pediatric_genetics_centers = Pediatric Genetics Centers
+    org_metabolic_genetics_centers = Metabolic Genetics Centers
+    org_rare_disease_centers = Rare Disease Centers
+    org_rare_disease_foundations = Rare Disease Foundations
+    org_patient_organizations = Patient Organizations
+    org_disease_foundations = Disease Foundations
+    org_patient_advocacy_organizations = Patient Advocacy Organizations
+    org_caregiver_organizations = Caregiver Organizations
+    org_family_support_organizations = Family Support Organizations
+    org_rare_disease_networks = Rare Disease Networks
+    org_patient_communities = Patient Communities
+    org_disability_organizations = Disability Organizations
+    org_genetics_education_providers = Genetics Education Providers
+    org_genomics_education_providers = Genomics Education Providers
+    org_bioinformatics_education_providers = Bioinformatics Education Providers
+    org_medical_education_providers = Medical Education Providers
+    org_universities = Universities
+    org_teaching_hospitals = Teaching Hospitals
+    org_scientific_societies = Scientific Societies
+    org_medical_societies = Medical Societies
+    org_professional_associations = Professional Associations
+    org_genomics_research_institutes = Genomics Research Institutes
+    org_genetics_research_institutes = Genetics Research Institutes
+    org_rare_disease_research_organizations = Rare Disease Research Organizations
+    org_university_research_laboratories = University Research Laboratories
+    org_clinical_research_organizations = Clinical Research Organizations
+    org_clinical_trial_sponsors = Clinical Trial Sponsors
+    org_clinical_trial_networks = Clinical Trial Networks
+    org_biobanks = Biobanks
+    org_genomic_databases = Genomic Databases
+    org_precision_medicine_companies = Precision Medicine Companies
+    org_biotechnology_companies = Biotechnology Companies
+    org_gene_therapy_companies = Gene Therapy Companies
+    org_cell_therapy_companies = Cell Therapy Companies
+    org_pharmaceutical_companies = Pharmaceutical Companies
+    org_sequencing_companies = Sequencing Companies
+    org_healthcare_networks = Healthcare Networks
+    org_public_health_organizations = Public Health Organizations
+
+Professional categories:
+
+    pro_clinical_geneticists = Clinical Geneticists
+    pro_medical_geneticists = Medical Geneticists
+    pro_molecular_geneticists = Molecular Geneticists
+    pro_human_geneticists = Human Geneticists
+    pro_cytogeneticists = Cytogeneticists
+    pro_genetic_counselors = Genetic Counselors
+    pro_genomics_specialists = Genomics Specialists
+    pro_bioinformaticians = Bioinformaticians
+    pro_computational_biologists = Computational Biologists
+    pro_molecular_biologists = Molecular Biologists
+    pro_cell_biologists = Cell Biologists
+    pro_biotechnologists = Biotechnologists
+    pro_biochemists = Biochemists
+    pro_microbiologists = Microbiologists
+    pro_biomedical_scientists = Biomedical Scientists
+    pro_laboratory_scientists = Laboratory Scientists
+    pro_laboratory_technicians = Laboratory Technicians
+    pro_genomic_analysts = Genomic Analysts
+    pro_variant_scientists = Variant Scientists
+    pro_variant_curators = Variant Curators
+    pro_data_scientists = Data Scientists
+    pro_biostatisticians = Biostatisticians
+    pro_research_scientists = Research Scientists
+    pro_clinical_researchers = Clinical Researchers
+    pro_principal_investigators = Principal Investigators
+    pro_physicians = Physicians
+    pro_pediatricians = Pediatricians
+    pro_neurologists = Neurologists
+    pro_oncologists = Oncologists
+    pro_hematologists = Hematologists
+    pro_cardiologists = Cardiologists
+    pro_endocrinologists = Endocrinologists
+    pro_immunologists = Immunologists
+    pro_pathologists = Pathologists
+    pro_reproductive_specialists = Reproductive Specialists
+    pro_fertility_specialists = Fertility Specialists
+    pro_embryologists = Embryologists
+    pro_obstetricians = Obstetricians
+    pro_gynecologists = Gynecologists
+    pro_maternal_medicine_specialists = Maternal Medicine Specialists
+    pro_fetal_medicine_specialists = Fetal Medicine Specialists
+    pro_pediatric_genetics_specialists = Pediatric Genetics Specialists
+    pro_metabolic_disease_specialists = Metabolic Disease Specialists
+    pro_rare_disease_specialists = Rare Disease Specialists
+    pro_pharmacogenomics_specialists = Pharmacogenomics Specialists
+    pro_precision_medicine_specialists = Precision Medicine Specialists
+    pro_genetic_epidemiologists = Genetic Epidemiologists
+    pro_public_health_specialists = Public Health Specialists
+    pro_clinical_trial_specialists = Clinical Trial Specialists
+    pro_research_coordinators = Research Coordinators
+    pro_patient_advocates = Patient Advocates
+    pro_patient_navigators = Patient Navigators
+    pro_rare_disease_advocates = Rare Disease Advocates
+    pro_caregivers = Caregivers
+    pro_educators = Educators
+    pro_professors = Professors
+    pro_science_communicators = Science Communicators
+    pro_medical_writers = Medical Writers
+    pro_healthcare_executives = Healthcare Executives
+    pro_biotechnology_entrepreneurs = Biotechnology Entrepreneurs
+    pro_entrepreneurs = Entrepreneurs
+    pro_startup_founders = Startup Founders
+    pro_small_business_owners = Small Business Owners
+    pro_software_engineers = Software Engineers
+    pro_app_developers = App Developers
+    pro_web_developers = Web Developers
+    pro_product_managers = Product Managers
+    pro_ux_ui_designers = UX/UI Designers
+    pro_data_engineers = Data Engineers
+    pro_ai_engineers = AI Engineers
+    pro_machine_learning_engineers = Machine Learning Engineers
+    pro_ai_researchers = AI Researchers
+    pro_content_creators = Content Creators
+    pro_microinfluencers = Microinfluencers
+    pro_influencers = Influencers
+    pro_social_media_managers = Social Media Managers
+    pro_community_managers = Community Managers
+    pro_marketing_specialists = Marketing Specialists
+    pro_growth_marketers = Growth Marketers
+    pro_brand_strategists = Brand Strategists
+    pro_communications_managers = Communications Managers
+    pro_journalists = Journalists
+    pro_editors = Editors
+    pro_podcast_hosts = Podcast Hosts
+    pro_video_producers = Video Producers
+    pro_public_speakers = Public Speakers
+    pro_leaders = Leaders
+    pro_project_managers = Project Managers
+    pro_consultants = Consultants
+    pro_other = Other
+
+
+5.2 feed_items
+--------------
+
+Purpose:
+
+User-visible read-only content cards in Discover.
+
+Core pattern:
+
+1. Every feed item has root common fields.
+2. Every feed item has a type.
+3. Every feed item has exactly one matching type-specific node.
+4. Type-specific nodes contain only fields exclusive to that type.
+
+Supported item types:
+
+    news
+    research_update
+    upcoming_event
+    opportunity
+    video
+    external_article
+    podcast_episode
+    survey
+    organization_spotlight
+    professional_spotlight
+    community_invitation
+    bioinformatics_tool
+    genomic_database
+    health_guidance
+    educational_explainer
+    gene_spotlight
+    condition_spotlight
+    genetic_test_guide
+    report_explainer
+    clinical_guideline
+    clinical_trial
+    patient_registry
+    research_participation
+    screening_program
+    support_service
+    course
+    downloadable_resource
+    lived_experience_story
+    expert_qa
+    advocacy_campaign
+
+
+5.3 Root Common Schema
+----------------------
+
+These fields apply to every feed item and live at feed_items document root:
+
+{
+  "id": "item_123",
+  "publisherOrganizationId": "org_456",
+  "publisherIndividualId": null,
+  "publisherSnapshot": {
+    "name": "Global Rare Disease Foundation",
+    "imageUrl": "https://...",
+    "imageUploadDataUrl": null
+  },
+  "type": "research_update",
+  "status": "published",
+  "publishedAt": "<server timestamp>",
+  "language": "en",
+  "title": "New findings in rare variant interpretation",
+  "subtitle": "Short preview for the Discover feed.",
+  "body": "Plain text detail body.",
+  "htmlBody": null,
+  "imageUrl": "https://...",
+  "imageUploadDataUrl": null,
+  "sourceUrl": "https://...",
+  "sourceButtonText": "Open study",
+  "researchUpdate": {
+    "researchTopic": "Variant interpretation",
+    "genes": ["CFTR"],
+    "conditions": ["Cystic fibrosis"],
+    "journal": "Genetics in Medicine"
+  }
+}
+
+Root field details:
+
+id:
+    Stable item ID. It can be the Firestore document ID and optionally repeated
+    inside the document.
+
+publisherOrganizationId:
+    Nullable. References feed_organizations/{organizationId} when the publisher
+    is an organization.
+
+publisherIndividualId:
+    Nullable. References feed_individuals/{individualId} when the publisher is an
+    individual.
+
+Publisher ID rule:
+    Exactly one of publisherOrganizationId or publisherIndividualId must be set.
+    They are mutually exclusive in app logic and backoffice validation.
+
+publisherSnapshot:
+    Required for feed performance. Contains only name, nullable imageUrl, and
+    nullable imageUploadDataUrl. imageUploadDataUrl is a fallback only when the
+    snapshot imageUrl is empty; it must be a full data:image/...;base64,... URL.
+
+type:
+    Required enum. Determines filter, badge, accent styling, and which payload node
+    exists.
+
+status:
+    draft, published, or archived.
+
+publishedAt:
+    Required for published items. Main feed sort field.
+
+language:
+    Required. Use exactly "en" or "es".
+
+title:
+    Main headline for the feed cell and detail screen.
+
+subtitle:
+    Short preview for the feed cell.
+
+body:
+    Plain-text detail content. Use this for narrative detail, context, links, notes,
+    deadlines, instructions, and any detail that does not need structured UI.
+    If htmlBody is also present, body is only the fallback and is not the
+    preferred rendered detail.
+
+htmlBody:
+    Optional rich detail content. Use only when basic hierarchy is needed. The app
+    should sanitize and render it. If both htmlBody and body are present,
+    htmlBody has priority. Fall back to body only when htmlBody is absent or
+    empty.
+
+Forbidden duplicate content keys:
+    Do not store, generate, read, or accept an exact key named summary anywhere
+    in a Discover feed item document. The only short preview field is subtitle.
+    Do not store, generate, read, or accept an exact key named detailBody
+    anywhere in a Discover feed item document. The rich detail field is htmlBody;
+    the plain-text detail field is body.
+
+    This is strict across news, events, research, opportunities, articles,
+    spotlights, guides, stories, and every other Discover type. Do not put
+    summary or detailBody at root level, and do not put them inside any
+    type-specific payload node. Do not mirror subtitle into summary. Do not
+    mirror htmlBody into detailBody. Do not copy the same article text into both
+    body and htmlBody unless body is a real plain-text fallback and htmlBody is
+    the intentional rich version.
+
+    Clients ignore summary and detailBody if a bad backend document contains
+    them. Backoffice validation must block save/publish when either exact key is
+    present at root level or inside any payload object.
+
+imageUrl:
+    Optional cover image. The app should render it in a fixed 1024w x 500h ratio
+    container using aspect fill. This is the preferred portada image field when a
+    usable hosted URL exists.
+
+imageUploadDataUrl:
+    Optional cover image data fallback for every feed item type. Use only when
+    root imageUrl is empty. It must be a full data:image/...;base64,... URL from
+    an uploaded portada image. Do not write this field when root imageUrl has a
+    usable URL. This is root-level because notes, news, events, opportunities,
+    guides, stories, and every other type all share the same feed-item cover
+    renderer.
+
+sourceUrl:
+    Optional public source, registration, application, article, DOI, or reference
+    URL. It is root-level because every type can have one.
+
+sourceButtonText:
+    Optional custom label for the detail screen button that opens sourceUrl.
+    This is root-level because every item type can link to an external source.
+    It must be authored in the same language as the feed item. If missing, null,
+    or empty, the app uses its default item-type label from the type matrix below.
+    Do not add duplicate type-specific URL fields such as youtube_url,
+    spotify_url, note_url, form_url, article_url, tool_url, or application_url.
+    The one visible action is sourceUrl plus sourceButtonText.
+
+showInDiscoverFeed:
+    Optional root boolean. This is the Discover feed visibility checkbox requested
+    as "show_in_discover_feed", but the saved Firestore key is showInDiscoverFeed.
+    It belongs at the root of feed_items, next to title, subtitle, imageUrl,
+    sourceUrl, and sourceButtonText. It must never be stored inside upcomingEvent
+    or any other type-specific payload.
+
+    Accepted values:
+        true
+        false
+        null or omitted
+
+    Default:
+        If showInDiscoverFeed is omitted or null, clients treat it as true. This
+        preserves retrocompatibility: old feed items display exactly as they do
+        today without a migration.
+
+    Rendering behavior:
+        true:
+            The item appears in the normal Discover feed as before, including
+            All, Following, matching type filters, publisher recent-item lists,
+            and the Events calendar when it is an event.
+        false:
+            The item is hidden from the normal Discover feed, Following feed,
+            matching non-event type feeds, and publisher recent-item lists.
+            If and only if the item is an event with type == "upcoming_event"
+            and a parsed event date, it still appears in the Events
+            subsection/calendar. The canonical source is upcomingEvent.date;
+            newer mobile readers can also recover from the payload node typo
+            upcoming_event when upcomingEvent is missing. The calendar renders
+            the event on each computed event day exactly like any other event.
+            For a multi-day hidden event, clicking any shaded day still opens
+            that event, with the day label such as "Event title - day 1" or the
+            equivalent calendar occurrence label already used by the client.
+
+    Important:
+        This is not an event payload field. It answers "Should this feed item be
+        shown in the general Discover feed?" It does not describe the event itself.
+        Use showInDiscoverFeed at feed_items/{id}. Do not use
+        upcomingEvent.showInDiscoverFeed.
+
+
+5.4 Type-Specific Schema
+------------------------
+
+Each selected type adds exactly one exclusive payload node named with the
+camelCase form of the canonical type value. For example, type value
+research_update uses payload key researchUpdate, and type value upcoming_event
+uses payload key upcomingEvent. The node may be empty, but it must exist so app
+clients can prove the item was intentionally authored for that type. Payload
+fields describe the post; they do not launch workflows. Videos, podcasts,
+surveys, Q&A, tools, and registrations all open through the root sourceUrl CTA.
+
+Canonical writer rule and defensive mobile reader fallback:
+
+    Backend and backoffice writers must save exactly one payload node, using
+    the canonical camelCase payload key shown in the type matrix below. Do not
+    author snake_case payload nodes and do not dual-write both payload keys.
+
+    Newer mobile clients defensively read the canonical camelCase payload node
+    first, and if it is missing, fall back to the canonical snake_case type value
+    as the payload node. This applies to every modeled Discover payload type:
+    researchUpdate falls back to research_update, upcomingEvent falls back to
+    upcoming_event, clinicalTrial falls back to clinical_trial,
+    downloadableResource falls back to downloadable_resource, expertQA falls
+    back to expert_qa, and so on for all typed payloads.
+
+    This fallback is a compatibility safety net only. The backend contract
+    remains canonical camelCase payload keys. Older store builds before this
+    compatibility fix still require the canonical camelCase payload key.
+
+    Event-specific key rule:
+
+        type must be "upcoming_event"
+        payload object key must be "upcomingEvent"
+
+    Do not save type: "upcomingEvent" for authored data. Do not save
+    upcoming_event as the authored payload object key. Newer mobile clients may
+    tolerate that payload typo, but backend writers must still emit
+    upcomingEvent.
+
+    Correct minimal event shape:
+
+        {
+          "type": "upcoming_event",
+          "upcomingEvent": {
+            "date": "2026-10-12T14:00:00Z",
+            "location": "Online"
+          }
+        }
+
+    Newer mobile clients may defensively tolerate type == "upcomingEvent", but
+    that is not the backend contract and must not be used for authored data.
+
+Required field rule:
+
+1. For all 30 types, root title, subtitle, body/htmlBody, language, status,
+   publisher, and publishedAt rules still apply.
+2. The only required type-specific field is upcomingEvent.date.
+3. All other payload fields listed below are optional.
+4. Array fields must be saved as array<string>, except
+   upcomingEvent.actionButtons, which is array<object>. Do not save
+   comma-separated strings for payload arrays.
+
+Full type matrix:
+
+| # | Canonical type | Display label | Payload node | Default CTA | Optional payload fields |
+|---|---|---|---|---|---|
+| 1 | news | News | news | Read more | category, region |
+| 2 | research_update | Research update | researchUpdate | Open study | researchTopic, genes, conditions, journal |
+| 3 | upcoming_event | Upcoming event | upcomingEvent | Register now | date required, location, maxAttendance, optional additive event fields listed below |
+| 4 | opportunity | Opportunity | opportunity | View opportunity | opportunityType, requirements, eligibility, location |
+| 5 | video | Video | video | Watch video | provider, durationSeconds, presenters, captionLanguages |
+| 6 | external_article | Article | externalArticle | Read article | publicationName, authors, articleDate, section |
+| 7 | podcast_episode | Podcast episode | podcastEpisode | Listen now | podcastName, episodeNumber, durationSeconds, hosts, guests |
+| 8 | survey | Survey | survey | Complete survey | estimatedMinutes, closingDate, targetAudience, anonymous |
+| 9 | organization_spotlight | Organization spotlight | organizationSpotlight | Meet the organization | featuredOrganizationId, focusConditions, services, serviceRegions |
+| 10 | professional_spotlight | Professional spotlight | professionalSpotlight | Meet the professional | featuredIndividualId, specialties, languages, serviceRegions |
+| 11 | community_invitation | Community invitation | communityInvitation | Join the community | communityType, targetAudience, accessType, communityLanguages, moderated |
+| 12 | bioinformatics_tool | Bioinformatics tool | bioinformaticsTool | Explore the tool | toolName, toolCategory, inputFormats, technicalLevel, licenseModel |
+| 13 | genomic_database | Genomic database | genomicDatabase | Search the database | resourceName, dataScope, supportedSpecies, accessModel, updateFrequency |
+| 14 | health_guidance | Health guidance | healthGuidance | View guidance | targetAudience, reviewedBy, reviewedAt, evidenceLevel, urgencyLevel |
+| 15 | educational_explainer | Educational explainer | educationalExplainer | Start learning | topic, difficultyLevel, estimatedMinutes, learningObjectives |
+| 16 | gene_spotlight | Gene spotlight | geneSpotlight | Explore the gene | geneSymbol, geneName, inheritanceModes, relatedConditions |
+| 17 | condition_spotlight | Condition spotlight | conditionSpotlight | Learn about the condition | conditionName, ontologyIds, relatedGenes, inheritanceModes |
+| 18 | genetic_test_guide | Genetic test guide | geneticTestGuide | View testing guide | testType, sampleTypes, intendedUse, turnaroundTime, requiresPrescription |
+| 19 | report_explainer | Report explainer | reportExplainer | Understand this result | reportSection, conceptsCovered, readingLevel, relatedGenes |
+| 20 | clinical_guideline | Clinical guideline | clinicalGuideline | Open guideline | issuingBody, version, releaseDate, targetProfessions, guidelineStatus |
+| 21 | clinical_trial | Clinical trial | clinicalTrial | View trial | trialIdentifier, phase, recruitmentStatus, conditions, countries, sponsor |
+| 22 | patient_registry | Patient registry | patientRegistry | Join the registry | registryName, enrollmentStatus, conditions, eligiblePopulation, countries |
+| 23 | research_participation | Research participation | researchParticipation | See if you are eligible | studyIdentifier, studyType, recruitmentStatus, eligibilitySummary, participationMode, endDate |
+| 24 | screening_program | Screening program | screeningProgram | Find screening | screeningType, eligiblePopulation, startDate, endDate, locations, costNote |
+| 25 | support_service | Support service | supportService | Access support | serviceType, availability, deliveryMode, languages, eligibilitySummary, regions |
+| 26 | course | Course | course | Start course | deliveryMode, difficultyLevel, duration, targetAudience, certificateAvailable |
+| 27 | downloadable_resource | Downloadable resource | downloadableResource | Download resource | fileType, pageCount, fileSize, resourceLanguages, targetAudience |
+| 28 | lived_experience_story | Patient or caregiver story | livedExperienceStory | Read the story | perspective, conditions, lifeStage, topics, contentWarning |
+| 29 | expert_qa | Expert Q&A | expertQA | Read the Q&A | expertName, credentials, specialty, questionsCount, recordedAt |
+| 30 | advocacy_campaign | Advocacy campaign | advocacyCampaign | Take action | campaignType, organizer, targetRegion, deadline, campaignGoal |
+
+Upcoming event additive contract:
+
+    Retrocompatibility:
+
+        The existing payload remains valid and complete:
+
+            "upcomingEvent": {
+              "date": "2026-10-12T14:00:00Z",
+              "location": "Online"
+            }
+
+        date is still the only required upcomingEvent schedule field. It is the
+        start date anchor. New clients use it as day 1 for multi-day events.
+        Old clients continue to show the same single-day date/location UI and
+        ignore all unknown optional fields.
+
+    Flat schedule fields:
+
+        date
+            Required date value. Start anchor and day 1. Acceptable values:
+            Firestore Timestamp, ISO datetime string such as
+            2026-10-12T14:00:00Z, or date-only string 2026-10-12.
+
+        Visualización de horario
+            This is the backoffice dropdown that decides both which schedule
+            fields appear and which schedule fields are saved. Hidden fields
+            are not validated and must not be sent in the payload. This keeps
+            the model flat, additive, and retrocompatible.
+
+            Sin especificar
+                Use when the editor does not want to define a concrete time
+                display mode.
+                Visible fields: only the Visualización de horario selector.
+                Hidden fields: timezone, dailyStartTime, dailyEndTime,
+                multiDayLength, regionalStartTimes, regionalEndTimes,
+                regionalTimezones.
+                Saved payload: do not save timeKind and do not save any
+                advanced schedule field.
+                App rendering: hide the time row entirely. Do not display a
+                default time and do not derive a time from the date timestamp,
+                even if date contains a technical hour.
+
+            Evento con horario
+                Use when the event has a concrete hour, for example 10:00 to
+                11:30.
+                Visible fields: timezone, dailyStartTime, dailyEndTime.
+                Hidden fields: regionalStartTimes, regionalEndTimes,
+                regionalTimezones, multiDayLength.
+                Saved payload: timeKind: "timed". Save timezone,
+                dailyStartTime, and dailyEndTime only when completed.
+                Active validation: dailyStartTime and dailyEndTime must use
+                HH:mm syntax, and timezone must be valid IANA when completed.
+
+            Evento de día completo
+                Use when the event occupies the whole day without a precise
+                hour, for example a full-day conference, campaign, or congress.
+                Visible fields: multiDayLength.
+                Hidden fields: timezone, dailyStartTime, dailyEndTime,
+                regionalStartTimes, regionalEndTimes, regionalTimezones.
+                Saved payload: timeKind: "allDay". Save multiDayLength only
+                when completed. Do not save timezone, dailyStartTime,
+                dailyEndTime, or regional fields.
+
+            Solo fecha
+                Use when only the date matters, for example "12 de octubre"
+                without hour or duration. This always means exactly one day.
+                Visible fields: no extra fields below the selector.
+                Hidden fields: timezone, dailyStartTime, dailyEndTime,
+                multiDayLength, regionalStartTimes, regionalEndTimes,
+                regionalTimezones.
+                Saved payload: timeKind: "dateOnly". Do not save
+                multiDayLength or any time/regional fields. If multiDayLength
+                had a stale value before switching to Solo fecha, it is ignored,
+                not validated, and not sent.
+
+            Horario a confirmar
+                Use when the date is defined but the hour is not ready to
+                publish, for example "12 de octubre, horario a confirmar".
+                Visible fields: multiDayLength, plus an informational notice
+                explaining that this is for a defined date with time still to be
+                announced.
+                Hidden fields: timezone, dailyStartTime, dailyEndTime,
+                regionalStartTimes, regionalEndTimes, regionalTimezones.
+                Saved payload: timeKind: "timeTba". Save multiDayLength only
+                when completed.
+
+            Horarios por región
+                Use when the event hour changes by country or timezone, for
+                example Argentina 09:30, Mexico 06:30, Spain 14:30.
+                Visible fields: multiDayLength and a Configurar horarios
+                regionales button/table.
+                Hidden fields: global timezone, global dailyStartTime, global
+                dailyEndTime.
+                Saved payload: timeKind: "regionalTimes". Save multiDayLength
+                only when completed. Save regionalStartTimes,
+                regionalEndTimes, and regionalTimezones only from configured
+                regional rows.
+                Active validation: every country key must be an uppercase
+                ISO 3166-1 alpha-2 code such as AR, UY, MX, US, or ES; every
+                regional start/end time must use HH:mm syntax; every regional
+                timezone must be valid IANA. If regionalTimes is selected and
+                no rows are configured, show a review warning.
+
+            Simple rule:
+                Evento con horario uses global schedule fields.
+                Horarios por región uses per-country schedule fields.
+                Solo fecha uses no time fields and no duration.
+                Evento de día completo uses duration but no hours.
+                Horario a confirmar can use duration but no hours yet.
+
+        timeKind
+            Optional enum saved by the Visualización de horario selector.
+            Accepted values only: timed, allDay, dateOnly, timeTba,
+            regionalTimes. Omit the field entirely for Sin especificar.
+
+        timezone
+            Optional IANA timezone string, for example UTC,
+            America/New_York, America/Argentina/Buenos_Aires, Europe/Madrid.
+            Save only when timeKind is timed.
+
+        dailyStartTime
+            Optional HH:mm string in 24-hour time. Example: 08:00.
+            Save only when timeKind is timed.
+
+        dailyEndTime
+            Optional HH:mm string in 24-hour time. Example: 16:00.
+            Save only when timeKind is timed.
+
+        multiDayLength
+            Optional integer from 1 to 365. If omitted, the event is one day.
+            Save only when timeKind is allDay, timeTba, or regionalTimes. Do
+            not save for timed, dateOnly, or Sin especificar. If a stale
+            multiDayLength reaches the client for timed/dateOnly/Sin
+            especificar, the app ignores it and hides the top-right duration
+            label.
+
+        regionalStartTimes
+            Optional object keyed by ISO country code with HH:mm values.
+            Example: { "US": "08:00", "AR": "10:00" }. Save only when
+            timeKind is regionalTimes.
+
+        regionalEndTimes
+            Optional object keyed by ISO country code with HH:mm values.
+            Save only when timeKind is regionalTimes.
+
+        regionalTimezones
+            Optional object keyed by ISO country code with IANA timezone values.
+            Save only when timeKind is regionalTimes.
+
+    Event classification:
+
+        eventKind optional enum:
+            webinar, conference, workshop, seminar, supportGroup,
+            communityMeetup, awarenessDay, course, training, fundraiser,
+            clinicalSession, researchSession, networking, livestream,
+            recordedSession, other
+
+        attendanceMode optional enum:
+            online, inPerson, hybrid, phone, onDemand, toBeAnnounced
+            App rendering must always label this field explicitly as
+            "Attendance mode: [value]" / "Modalidad de asistencia: [valor]".
+            Never render only "[value]" beside an icon, because values like
+            Phone/Teléfono are ambiguous without the field name.
+
+        eventStatus optional enum:
+            normal, scheduled, tentative, postponed, rescheduled, cancelled,
+            completed, soldOut, available_slots
+
+            Exact new status keys:
+                normal
+                    Neutral/default event state. The app accepts it and renders
+                    it like scheduled/no special status row.
+
+                available_slots
+                    Means "inscripcion abierta - cupos disponibles". Save this
+                    exact key. Do not save the Spanish phrase as eventStatus.
+
+    Capacity:
+
+        maxAttendance is nullable. Canonical payload key: maxAttendance.
+        If a backoffice form field is named max_attendance, it must be mapped to
+        maxAttendance before saving. The app tolerates max_attendance as a
+        legacy read alias, but new payloads should not use it.
+
+        Acceptable values:
+            null
+                Means there is no attendance limit. Render Capacity as "No
+                limit" / "Sin límite". Do not convert null to 1, and do not
+                infer "Up to 1 person".
+
+            positive integer
+                Means a capped event. Render Capacity as "Up to N people" /
+                "Hasta N personas".
+
+            omitted
+                Means the backend did not provide the capacity field. The app
+                omits the Capacity fact to preserve additive optional rendering.
+
+        Invalid values:
+            0, negative numbers, non-integers, strings, arrays, and objects.
+
+    Event actions / Acciones del evento:
+
+        actionButtons is an optional array of button objects. Use this instead
+        of flat registrationUrl/accessUrl/agendaUrl/materialsUrl fields.
+
+        Important hierarchy rule:
+            actionButtons are Acciones del evento: event-scoped secondary
+            actions that render only inside the upcomingEvent detail block, in
+            the Acciones del evento subsection.
+
+            actionButtons are not the Botón principal. The main note button is
+            the existing root-level/global CTA for every Discover note type,
+            controlled by the shared fields such as sourceUrl and
+            sourceButtonText. Do not move the main CTA into upcomingEvent and do
+            not use actionButtons as a replacement for the main CTA.
+
+        Button object:
+            type
+                Required enum: register, join, learnMore, viewAgenda,
+                watchRecording, downloadMaterials, contactOrganizer.
+                One button per type maximum. Clients keep the first valid
+                button of a type and ignore later duplicates.
+
+            title
+                Optional string, max 56 characters. If omitted, clients use the
+                default title for the type.
+
+            url
+                Required URL string. Use https:// for web destinations.
+                contactOrganizer may use mailto:.
+
+        Default titles:
+            register -> Register
+            join -> Join event
+            learnMore -> Learn more
+            viewAgenda -> View agenda
+            watchRecording -> Watch recording
+            downloadMaterials -> Download materials
+            contactOrganizer -> Contact organizer
+
+    Organizer and relationship:
+
+        publisherRelationshipToEvent optional enum:
+            organizer, coOrganizer, speaker, sponsor, partner, participant,
+            attendee, mentioning, unknown
+
+        organizerName
+            Optional string, max 80 characters. This is the only organizer
+            identity field accepted inside upcomingEvent. Do not add
+            organizerOrganizationId or organizerIndividualId to upcomingEvent.
+
+        publisherDisclosure
+            Optional string, max 140 characters.
+
+    Audience, cost, language, and accessibility:
+
+        audience optional array:
+            patients, families, caregivers, students, clinicians, researchers,
+            geneticCounselors, advocates, industry, generalPublic
+
+        costType optional enum:
+            free, paid, donation, varies, unknown
+
+        currency
+            Optional ISO 4217 code. Dependency: if costType is free, currency is
+            never used and not required. If costType is paid, currency can still
+            be empty and the app renders "Paid" without a price.
+
+        priceMinorUnits
+            Optional integer >= 0. Dependency: if costType is free,
+            priceMinorUnits is never used and not required. If costType is paid,
+            priceMinorUnits can still be empty and the app renders "Paid"
+            without a price. Important display rule: despite the legacy field
+            name, clients render this integer as the authored price amount
+            without reducing cents/minor units. Example: priceMinorUnits=4000
+            renders as 4000, not 40.00.
+
+        languages
+            Optional language-code array such as en, es, pt-BR.
+
+        accessibilityFeatures optional array:
+            captions, liveTranscript, signLanguage, wheelchairAccessible,
+            recordingAvailable, quietRoom, translatedMaterials
+
+    Rendering:
+
+        Detail UI remains additive. Rows render only for valid present fields.
+        A legacy event still shows the current Date, Time, Location, and Max
+        attendance rows.
+
+        The calendar derives visible days from date + multiDayLength only when
+        timeKind is allDay, timeTba, or regionalTimes. There is no
+        occurrences[] array and no multi-session model. If multiDayLength=3 on
+        an accepted multi-day mode, the calendar shades three days. Clicking
+        day 2 shows "Event title - Day 2" and a "Day 2 of 3" chip, while
+        opening the same underlying event.
+
+        Schedule rendering follows timeKind:
+            Omitted timeKind / Sin especificar: render the date and location
+            normally, but hide the time row entirely. Do not show a default
+            hour, and do not derive a visible hour from the date timestamp.
+            timed: dailyStartTime and dailyEndTime render as one concrete
+            single-day schedule. If only dailyStartTime exists, render "Starts
+            HH:mm". If both exist, render "HH:mm-HH:mm". Do not show the
+            top-right duration label for timed.
+            allDay: render "All day"; do not render timezone or hour rows.
+            dateOnly: render the date only and no time row.
+            timeTba: render "Time TBA" and duration when present.
+            regionalTimes: render the relevant regional row when the client can
+            choose one; otherwise render a compact "Times vary by region" hint.
+            In the event detail view, regionalTimes also renders a compact table
+            under the schedule/location group when at least one country has both
+            a valid regionalStartTimes entry and a valid regionalEndTimes entry.
+            The table has exactly three visual columns: country flag, start
+            time, and duration. Duration is computed by the client from the
+            difference between the country start and end clocks and is shown in
+            simplified text such as 30m, 1 hour, or 1h 30m. Countries without a
+            computable start/end pair do not create placeholder rows.
+            Do not fall back to global timezone/dailyStartTime/dailyEndTime for
+            newly authored regionalTimes events because those fields are not
+            saved with that mode.
+
+        actionButtons render only when valid entries are present, and only as
+        secondary buttons inside the upcomingEvent Acciones del evento
+        subsection. If no valid actionButtons exist, that subsection does not
+        appear unless virtualMeetingLink is present.
+
+        If virtualMeetingLink is present and there is no valid join action, the
+        app adds a secondary "Join virtual meeting" action inside the same event
+        subsection. If a join button exists, virtualMeetingLink is suppressed to
+        avoid duplicate join actions.
+
+        sourceUrl/sourceButtonText keep rendering as the global Botón principal
+        for the whole note. This global CTA appears outside the event block and
+        is never suppressed just because actionButtons exist.
+
+    Justification:
+
+        The model stays flat so event creation remains simple and
+        retrocompatible. Authors can still fill only date and location. Richer
+        fields are optional, strict, and deterministic, which lets the app add
+        multi-day calendar shading, daily hours, regional time hints, cost,
+        audience, organizer context, and typed links without cluttering legacy
+        UI or requiring a nested occurrence/session system.
+
+    Sample:
+
+        "upcomingEvent": {
+          "date": "2026-10-12T00:00:00Z",
+          "location": "Boston",
+          "timeKind": "regionalTimes",
+          "multiDayLength": 3,
+          "regionalStartTimes": {
+            "US": "08:00",
+            "AR": "10:00"
+          },
+          "regionalEndTimes": {
+            "US": "16:00",
+            "AR": "18:00"
+          },
+          "regionalTimezones": {
+            "US": "America/New_York",
+            "AR": "America/Argentina/Buenos_Aires"
+          },
+          "eventKind": "conference",
+          "attendanceMode": "inPerson",
+          "eventStatus": "scheduled",
+          "actionButtons": [
+            {
+              "type": "register",
+              "title": "Register now",
+              "url": "https://example.org/register"
+            },
+            {
+              "type": "join",
+              "url": "https://example.org/join"
+            },
+            {
+              "type": "viewAgenda",
+              "url": "https://example.org/agenda"
+            }
+          ],
+          "publisherRelationshipToEvent": "participant",
+          "organizerName": "Rare Disease Network",
+          "audience": ["patients", "families", "clinicians"],
+          "costType": "free",
+          "languages": ["en", "es"],
+          "accessibilityFeatures": ["captions", "recordingAvailable"]
+        }
+
+Payload field types:
+
+    string or null:
+        category, region, researchTopic, journal, location, opportunityType,
+        requirements, eligibility, provider, publicationName, section,
+        podcastName, episodeNumber, targetAudience, featuredOrganizationId,
+        featuredIndividualId, communityType, accessType, toolName,
+        toolCategory, technicalLevel, licenseModel, resourceName, dataScope,
+        accessModel, updateFrequency, reviewedBy, evidenceLevel,
+        urgencyLevel, topic, difficultyLevel, geneSymbol, geneName,
+        conditionName, testType, intendedUse, turnaroundTime, reportSection,
+        readingLevel, issuingBody, version, guidelineStatus, trialIdentifier,
+        phase, recruitmentStatus, sponsor, registryName, enrollmentStatus,
+        eligiblePopulation, studyIdentifier, studyType, eligibilitySummary,
+        participationMode, screeningType, costNote, serviceType, availability,
+        deliveryMode, duration, fileType, fileSize, perspective, lifeStage,
+        contentWarning, expertName, credentials, specialty, campaignType,
+        organizer, targetRegion, campaignGoal
+
+    array<string> or empty array:
+        genes, conditions, presenters, captionLanguages, authors, hosts, guests,
+        focusConditions, services, serviceRegions, specialties, languages,
+        communityLanguages, inputFormats, supportedSpecies,
+        learningObjectives, inheritanceModes, relatedConditions,
+        ontologyIds, relatedGenes, sampleTypes, conceptsCovered,
+        targetProfessions, countries, locations, regions, resourceLanguages,
+        topics
+
+    timestamp or null:
+        upcomingEvent.date, articleDate, closingDate, reviewedAt,
+        releaseDate, endDate, startDate, recordedAt, deadline
+
+    integer or null:
+        maxAttendance, durationSeconds, estimatedMinutes, pageCount,
+        questionsCount
+
+        For upcomingEvent.maxAttendance specifically, null is semantic and
+        means no limit; render "No limit" / "Sin límite". Do not replace null
+        with 1.
+
+    boolean or null:
+        anonymous, moderated, requiresPrescription, certificateAvailable
+
+Spotlight links:
+
+1. organizationSpotlight.featuredOrganizationId references
+   feed_organizations/{organizationId}. When present, the app shows a row that
+   opens that trusted publisher profile.
+2. professionalSpotlight.featuredIndividualId references
+   feed_individuals/{individualId}. When present, the app shows a row that opens
+   that professional profile.
+3. These profile links are separate from the root sourceUrl CTA. A spotlight can
+   have both: the profile link opens an in-app publisher detail, and sourceUrl
+   opens the external source configured by the editor.
+
+Payload examples:
+
+{
+  "video": {
+    "provider": "YouTube",
+    "durationSeconds": 780,
+    "presenters": ["Dr. Ada Rivera"],
+    "captionLanguages": ["en", "es"]
+  }
+}
+
+{
+  "organizationSpotlight": {
+    "featuredOrganizationId": "org_spine_foundation",
+    "focusConditions": ["Spinal muscular atrophy"],
+    "services": ["Family support", "Education"],
+    "serviceRegions": ["AR", "UY", "CL"]
+  }
+}
+
+These payloads must not repeat root common fields:
+
+    title
+    subtitle
+    body
+    htmlBody
+    imageUrl
+    sourceUrl
+    sourceButtonText
+    publishedAt
+    language
+    status
+
+
+5.5 Type Examples
+-----------------
+
+News:
+
+{
+  "id": "item_news_123",
+  "publisherOrganizationId": "org_456",
+  "publisherIndividualId": null,
+  "publisherSnapshot": {
+    "name": "Global Rare Disease Foundation",
+    "imageUrl": "https://..."
+  },
+  "type": "news",
+  "status": "published",
+  "publishedAt": "2026-08-12T14:00:00Z",
+  "language": "en",
+  "title": "New diagnostic resources released for rare genetic disorders",
+  "subtitle": "A short description shown in the Discover feed.",
+  "body": "Plain text article body written for the detail screen.",
+  "htmlBody": null,
+  "imageUrl": "https://...",
+  "sourceUrl": "https://example.org/news/diagnostic-resources",
+  "sourceButtonText": "Read full update",
+  "news": {
+    "category": "Patient resources",
+    "region": "Global"
+  }
+}
+
+Research update:
+
+{
+  "id": "item_research_123",
+  "publisherOrganizationId": "org_456",
+  "publisherIndividualId": null,
+  "publisherSnapshot": {
+    "name": "Genome Research Institute",
+    "imageUrl": "https://..."
+  },
+  "type": "research_update",
+  "status": "published",
+  "publishedAt": "2026-08-10T09:30:00Z",
+  "language": "en",
+  "title": "New findings in rare variant interpretation",
+  "subtitle": "Researchers report updated context for uncertain variants.",
+  "body": "Plain-language research update. This should remain educational and avoid medical advice.",
+  "htmlBody": null,
+  "imageUrl": "https://...",
+  "sourceUrl": "https://doi.org/10.0000/example",
+  "sourceButtonText": "Open study",
+  "researchUpdate": {
+    "researchTopic": "Variant interpretation",
+    "genes": ["MECP2"],
+    "conditions": ["Rett syndrome"],
+    "journal": "American Journal of Human Genetics"
+  }
+}
+
+Upcoming event:
+
+{
+  "id": "item_event_123",
+  "publisherOrganizationId": "org_789",
+  "publisherIndividualId": null,
+  "publisherSnapshot": {
+    "name": "Rare Disease Network",
+    "imageUrl": "https://..."
+  },
+  "type": "upcoming_event",
+  "status": "published",
+  "publishedAt": "2026-08-01T12:00:00Z",
+  "language": "en",
+  "title": "Rare Disease Genomics Webinar",
+  "subtitle": "A virtual session about genetic testing and patient resources.",
+  "body": "Plain text event details, registration instructions, and agenda if needed.",
+  "htmlBody": null,
+  "imageUrl": "https://...",
+  "sourceUrl": "https://example.org/events/register",
+  "sourceButtonText": "Register now",
+  "showInDiscoverFeed": true,
+  "upcomingEvent": {
+    "date": "2026-09-04T18:00:00Z",
+    "location": "Online",
+    "maxAttendance": 250
+  }
+}
+
+Calendar-only event example:
+
+{
+  "id": "item_event_calendar_only_123",
+  "publisherOrganizationId": "org_789",
+  "publisherIndividualId": null,
+  "publisherSnapshot": {
+    "name": "Rare Disease Network",
+    "imageUrl": "https://..."
+  },
+  "type": "upcoming_event",
+  "status": "published",
+  "publishedAt": "2026-08-01T12:00:00Z",
+  "language": "en",
+  "title": "Rare Disease Genomics Webinar",
+  "subtitle": "A virtual session about genetic testing and patient resources.",
+  "body": "Plain text event details, registration instructions, and agenda if needed.",
+  "imageUrl": "https://...",
+  "sourceUrl": "https://example.org/events/register",
+  "sourceButtonText": "Register now",
+  "showInDiscoverFeed": false,
+  "upcomingEvent": {
+    "date": "2026-09-04T18:00:00Z",
+    "multiDayLength": 3,
+    "location": "Online"
+  }
+}
+
+The field above is root showInDiscoverFeed. It means this event is not a normal
+Discover feed card, but it remains visible in the Events subsection/calendar.
+For a three-day event, the calendar shades all three days and the event can be
+opened from any of those days.
+
+Opportunity:
+
+{
+  "id": "item_opportunity_123",
+  "publisherOrganizationId": null,
+  "publisherIndividualId": "person_321",
+  "publisherSnapshot": {
+    "name": "Dr. Ada Rivera",
+    "imageUrl": "https://..."
+  },
+  "type": "opportunity",
+  "status": "published",
+  "publishedAt": "2026-08-05T16:00:00Z",
+  "language": "en",
+  "title": "Bioinformatics fellowship applications are open",
+  "subtitle": "A training opportunity for students and early-career researchers.",
+  "body": "Plain text details, deadline, application instructions, and context.",
+  "htmlBody": null,
+  "imageUrl": "https://...",
+  "sourceUrl": "https://example.org/fellowship/apply",
+  "sourceButtonText": "Apply now",
+  "opportunity": {
+    "opportunityType": "fellowship",
+    "requirements": "Short statement and availability for monthly sessions.",
+    "eligibility": "Students and early-career researchers.",
+    "location": "Remote"
+  }
+}
+
+
+5.6 Canonical Key Contract
+--------------------------
+
+All new and edited Discover records must use only the camelCase field keys in
+this document. Do not write snake_case aliases, do not dual-write legacy names,
+and do not add mobile parser fallbacks for alternate spellings.
+
+Examples:
+
+    imageUrl, not image_url
+    imageUploadDataUrl, not image_upload_data_url
+    bannerImageUrl, not banner_image_url
+    bannerImageUploadDataUrl, not banner_image_upload_data_url
+    sourceUrl, not source_url
+    sourceButtonText, not source_button_text
+    showInDiscoverFeed, not show_in_discover_feed
+    htmlBody, not html_body
+    researchUpdate, not research_update, when naming the authored payload object key
+    upcomingEvent.date, not upcoming_event.date, when authoring event payloads
+    colorHex, not color_hex
+    descriptionEn, not description_en
+    isGeneticReportProvider, not is_genetic_report_provider
+    geneticReportCategory, not genetic_report_category
+    isGrcHighlighted, not is_grc_highlighted
+    productCatalog, not product_catalog
+    productUrl, not product_url
+    callToActionLabel, not call_to_action_label
+
+Canonical values remain exact values:
+
+    type: "research_update"
+    type: "upcoming_event"
+    organizationType: "org_genomics_laboratories"
+    individualType: "pro_clinical_geneticists"
+    status: "pending_approval"
+    geneticReportCategory: "grc_full_genome"
+    geneticReportCategory: "grc_reproductive,grc_full_genome"
+
+Event naming must not mix these two concepts:
+
+    Root type value:
+        Use "upcoming_event".
+        Do not use "upcomingEvent".
+
+    Payload object key:
+        Use upcomingEvent.
+        Do not use upcoming_event when authoring data. Newer mobile clients may
+        read it only as a defensive fallback when upcomingEvent is missing.
+
+If someone asks for a snake_case field in a ticket or conversation, translate it
+to the corresponding camelCase saved key before implementing or entering data.
+
+
+5.7 Validation Rules
+--------------------
+
+Before publishing:
+
+Root:
+
+1. Exactly one of publisherOrganizationId or publisherIndividualId must exist.
+2. publisherSnapshot.name must be non-empty.
+3. type must be supported.
+4. title must be non-empty.
+5. subtitle must be non-empty.
+6. body must be non-empty unless htmlBody is present.
+7. htmlBody, if present, must be sanitized.
+8. imageUrl, if present, must be a valid HTTPS URL.
+9. root imageUploadDataUrl, if present, must be a full
+   data:image/...;base64,... URL and only used when root imageUrl is empty. This
+   is the portada/cover fallback for all feed item types. Do not put cover image
+   data inside notes, events, or any other payload object.
+10. publisherSnapshot.imageUploadDataUrl, if present, must be a full
+   data:image/...;base64,... URL and only used when publisherSnapshot.imageUrl
+   is empty.
+11. feed_organizations.bannerImageUrl, if present, must be a valid HTTPS image
+    URL and is used only for highlighted GRC company banner media.
+12. feed_organizations.bannerImageUploadDataUrl, if present, must be a full
+    data:image/...;base64,... URL and only used when bannerImageUrl is empty.
+13. sourceUrl is empty/null or a valid HTTPS URL.
+14. sourceButtonText is empty/null or a short action label in the same language
+    as the item. It only affects the button that opens sourceUrl.
+15. publishedAt must exist.
+16. language must be "en" or "es".
+17. status must be draft, published, or archived.
+18. showInDiscoverFeed must be true, false, null, or omitted. It is root-level
+    only. If omitted or null, the app treats it as true.
+
+Organization productCatalog:
+
+1. productCatalog, when present, must be an organization-only array of product
+   objects. It must not be saved on individuals, feed items, or snapshots.
+2. Each product object must have non-empty id, title, and productUrl.
+3. productUrl must be a valid HTTP/HTTPS URL because the product purchase CTA
+   opens it directly in the external browser.
+4. description is optional but strongly recommended and should be at least 30
+   characters when provided.
+5. imageUrl is optional; when present, it must be a valid HTTPS image URL.
+6. imageUploadDataUrl is optional and must be used only when imageUrl is empty.
+   It must be a full data:image/...;base64,... URL for the uploaded product
+   image. Do not write imageUploadDataUrl when imageUrl has a usable URL.
+7. callToActionLabel is optional and should be a short action label. It only
+   changes the purchase CTA pill and the bottom CTA in the product detail
+   modal; it never changes the fixed Open/Abrir label used by compact preview
+   cells. If it is empty, clients show "Buy"/"Comprar".
+8. Product object keys must be camelCase only, for example productUrl,
+   imageUploadDataUrl, and callToActionLabel, never product_url,
+   image_upload_data_url, or call_to_action_label.
+
+Payload:
+
+1. exactly one matching payload node must exist.
+2. non-matching payload nodes must be absent.
+3. payload must not duplicate root common fields.
+4. upcomingEvent.date must exist.
+5. upcomingEvent.maxAttendance must be null or a positive integer. Null means
+   no attendance limit and renders as "No limit" / "Sin límite"; it must never
+   be coerced to 1.
+6. all other payload fields are optional but, when present, must use the field
+   type defined in the type matrix.
+7. featuredOrganizationId must reference an existing active
+   feed_organizations document when present.
+8. featuredIndividualId must reference an existing active feed_individuals
+   document when present.
+
+
+6. Feed Querying and Pagination
+-------------------------------
+
+MVP query:
+
+    feed_items
+    where status == "published"
+    order by publishedAt descending
+    limit pageSize
+
+Recommended page size:
+
+    20
+
+After fetching and parsing backend documents, app clients apply root
+showInDiscoverFeed:
+
+    missing/null -> true
+    true         -> visible in normal Discover feed surfaces
+    false        -> hidden from normal Discover feed surfaces
+
+This is a client-side visibility rule, not a new Firestore query field. No new
+index is required for showInDiscoverFeed. The Events subsection/calendar is the
+only exception: event documents with type == "upcoming_event" and a parsed event
+date remain visible in Events when showInDiscoverFeed is false. The canonical
+source is upcomingEvent.date; newer mobile readers can also recover from the
+payload node typo upcoming_event when upcomingEvent is missing. This lets the
+backoffice create calendar-only event entries without creating a normal feed
+card.
+
+Filter query examples:
+
+All:
+
+    status == published
+    orderBy publishedAt desc
+
+Events:
+
+    status == published
+    type == upcoming_event
+    orderBy publishedAt desc
+
+News:
+
+    status == published
+    type == news
+    orderBy publishedAt desc
+
+Research:
+
+    status == published
+    type == research_update
+    orderBy publishedAt desc
+
+Opportunities:
+
+    status == published
+    type == opportunity
+    orderBy publishedAt desc
+
+Recommended Firestore indexes:
+
+1. feed_items: status ascending, publishedAt descending.
+2. feed_items: status ascending, type ascending, publishedAt descending.
+3. feed_organizations: status ascending, name ascending.
+4. feed_individuals: status ascending, name ascending.
+
+
+7. Backoffice Requirements
+--------------------------
+
+Minimum admin capabilities:
+
+1. List, create, edit, and archive organization and individual publishers.
+2. List, create, edit, duplicate, preview, publish, and archive feed items.
+3. Select publisher kind and publisher.
+4. Automatically populate publisherSnapshot.
+5. Choose item type.
+6. Show root common fields for all types.
+7. Show only the selected type's exclusive fields.
+8. Validate required fields before publish.
+
+Publisher create/edit form:
+
+1. Status selector supports active, inactive, pending_approval, and archived.
+2. Mobile publisher listings show only active publishers; all statuses remain
+   manageable in backoffice.
+3. Organization publishers expose an isGeneticReportProvider checkbox or
+   yes/no control that persists a boolean and defaults to false when omitted.
+4. Organization publishers expose a nullable geneticReportCategory multi-select.
+   Persist null when no category is selected or isGeneticReportProvider is
+   false. Otherwise persist the selected OrganizationReportCategoryProvider
+   keys as one comma-separated string, for example
+   grc_reproductive,grc_full_genome. Do not persist an array.
+5. Organization publishers expose an isGrcHighlighted checkbox or yes/no control.
+   Persist a boolean and default to false when the field is omitted. It only
+   affects highlighted placement inside GeneticReportCompaniesHub.
+6. Individual publishers do not store isGeneticReportProvider,
+   geneticReportCategory, or isGrcHighlighted.
+
+Feed item create/edit form:
+
+Root common fields:
+
+1. Publisher kind and publisher.
+2. Type.
+3. Published at.
+4. Language: en or es.
+5. Title.
+6. Subtitle.
+7. Body.
+8. Optional HTML body.
+9. Image URL or upload.
+10. Source URL.
+11. Source button text, visible only when Source URL is present.
+12. Show in Discover feed checkbox, saved as root showInDiscoverFeed.
+
+Show in Discover feed checkbox:
+
+1. The editor label can say show_in_discover_feed if the team wants that exact
+   wording, but the Firestore key must be showInDiscoverFeed.
+2. This checkbox is a root field on feed_items, not part of upcomingEvent.
+3. Default checked. If the saved field is absent or null, mobile clients treat it
+   as true.
+4. Checked / true: the item appears in the normal Discover feed surfaces.
+5. Unchecked / false: the item is hidden from normal Discover feed surfaces. For
+   event posts only, it still appears in the Events subsection/calendar.
+
+Type-specific fields:
+
+1. The Type selector offers the 30 canonical values from section 5.4.
+2. The form shows exactly one conditional payload group for the selected type.
+3. The payload group contains only the optional fields listed in the matrix.
+4. upcomingEvent.date is the only required payload field.
+5. organizationSpotlight shows a selector for featuredOrganizationId.
+6. professionalSpotlight shows a selector for featuredIndividualId.
+7. No type-specific external URL fields are shown. sourceUrl is the single CTA
+   destination for every type.
+
+Do not include these in the normal form:
+
+1. Tags.
+2. Locale or languageCode.
+3. Priority.
+4. Expiration.
+5. Editorial notes in the normal content form.
+6. Detail title/body duplicates.
+7. Key points.
+8. DOI as a separate field.
+9. Video, podcast, survey, form, article, tool, registry, or application URL
+    duplicates when sourceUrl can cover them.
+10. Deadline/application URL duplicates when sourceUrl/body can cover them.
+11. Type-specific CTA label duplicates when sourceButtonText can label the
+    sourceUrl button.
+
+
+8. App UI Design
+----------------
+
+Discover should feel like one aligned feed, not many unrelated designs.
+
+Shared cell layout:
+
+1. Publisher row: publisher avatar/name, published date, type badge.
+2. Title.
+3. Subtitle.
+4. Optional image in a fixed 1024w x 500h ratio container.
+5. Small type-specific metadata row.
+6. Footer/source affordance if sourceUrl exists.
+
+Type-specific metadata:
+
+1. Render compact metadata from the selected type's payload.
+2. Skip absent optional fields instead of showing empty labels.
+3. Keep metadata to the most useful two or three values in the cell.
+4. The detail screen may show the fuller optional metadata group.
+5. Spotlight profile links appear only on the detail screen when the featured id
+   exists.
+
+When imageUrl is missing:
+
+1. Show a refined static fallback visual.
+2. Keep layout stable.
+3. Do not let missing or malformed images change card width, height, or table layout.
+
+
+9. Detail Screen Strategy
+-------------------------
+
+Use one Discover item detail route with shared root content and type-specific
+sections.
+
+Shared detail header:
+
+1. Publisher image.
+2. Publisher name.
+3. Published date.
+4. Type badge.
+5. Save button.
+
+Shared detail content:
+
+1. Title.
+2. Hero image if present.
+3. Subtitle.
+4. Body or htmlBody.
+5. Source link if sourceUrl exists. Use sourceButtonText as the button label
+   when present; otherwise use the default item-type label.
+6. Bottom share button.
+
+Type-specific detail sections:
+
+News:
+    Category and region when present.
+
+Research update:
+    Research topic, genes, conditions, journal, and educational disclaimer.
+
+Upcoming event:
+    Date, location, and max attendance when present.
+
+Opportunity:
+    Opportunity type, requirements, eligibility, and location.
+
+Research detail should include an educational disclaimer near the body:
+
+    This information is educational and is not medical advice.
+
+
+10. Local Discover Cells
+------------------------
+
+Local cells can interleave with Firestore feed items to keep Discover useful even
+when no external feed content exists.
+
+Local cell families:
+
+1. Pocket Genes guide cells.
+2. Lesson suggestions.
+3. Gene focus cells.
+4. Variant/report exploration prompts.
+5. Community prompts.
+6. Provider/resource prompts.
+7. Organization hub prompts.
+8. Profile completion prompts.
+9. Saved content prompts.
+
+Rules:
+
+1. Local cells should visually align with external feed cells.
+2. Local cells can navigate directly to app screens.
+3. If a local action requires login, switch to the appropriate auth/community tab
+   instead of pushing a protected screen.
+4. Do not store local guide cells in feed_items.
+5. Do not write local interactions to feed_items, feed_organizations, or feed_individuals.
+
+
+11. iOS Implementation Notes
+----------------------------
+
+Recommended model shape:
+
+1. DiscoverFeedItem wrapper with root common content:
+   - title
+   - subtitle
+   - body
+   - htmlBody
+   - imageUrl
+   - sourceUrl
+   - sourceButtonText
+2. DiscoverPublisherSnapshot.
+3. DiscoverFeedItemType enum with all 30 canonical cases listed in section 5.4.
+4. Type-specific payload models:
+   - NewsPayload: category, region.
+   - ResearchUpdatePayload: researchTopic, genes, conditions, journal.
+   - UpcomingEventPayload: date, location, maxAttendance.
+   - OpportunityPayload: opportunityType, requirements, eligibility, location.
+   - VideoPayload: provider, durationSeconds, presenters, captionLanguages.
+   - ExternalArticlePayload: publicationName, authors, articleDate, section.
+   - PodcastEpisodePayload: podcastName, episodeNumber, durationSeconds,
+     hosts, guests.
+   - SurveyPayload: estimatedMinutes, closingDate, targetAudience, anonymous.
+   - OrganizationSpotlightPayload: featuredOrganizationId, focusConditions,
+     services, serviceRegions.
+   - ProfessionalSpotlightPayload: featuredIndividualId, specialties,
+     languages, serviceRegions.
+   - CommunityInvitationPayload: communityType, targetAudience, accessType,
+     communityLanguages, moderated.
+   - BioinformaticsToolPayload: toolName, toolCategory, inputFormats,
+     technicalLevel, licenseModel.
+   - GenomicDatabasePayload: resourceName, dataScope, supportedSpecies,
+     accessModel, updateFrequency.
+   - HealthGuidancePayload: targetAudience, reviewedBy, reviewedAt,
+     evidenceLevel, urgencyLevel.
+   - EducationalExplainerPayload: topic, difficultyLevel, estimatedMinutes,
+     learningObjectives.
+   - GeneSpotlightPayload: geneSymbol, geneName, inheritanceModes,
+     relatedConditions.
+   - ConditionSpotlightPayload: conditionName, ontologyIds, relatedGenes,
+     inheritanceModes.
+   - GeneticTestGuidePayload: testType, sampleTypes, intendedUse,
+     turnaroundTime, requiresPrescription.
+   - ReportExplainerPayload: reportSection, conceptsCovered, readingLevel,
+     relatedGenes.
+   - ClinicalGuidelinePayload: issuingBody, version, releaseDate,
+     targetProfessions, guidelineStatus.
+   - ClinicalTrialPayload: trialIdentifier, phase, recruitmentStatus,
+     conditions, countries, sponsor.
+   - PatientRegistryPayload: registryName, enrollmentStatus, conditions,
+     eligiblePopulation, countries.
+   - ResearchParticipationPayload: studyIdentifier, studyType,
+     recruitmentStatus, eligibilitySummary, participationMode, endDate.
+   - ScreeningProgramPayload: screeningType, eligiblePopulation, startDate,
+     endDate, locations, costNote.
+   - SupportServicePayload: serviceType, availability, deliveryMode,
+     languages, eligibilitySummary, regions.
+   - CoursePayload: deliveryMode, difficultyLevel, duration, targetAudience,
+     certificateAvailable.
+   - DownloadableResourcePayload: fileType, pageCount, fileSize,
+     resourceLanguages, targetAudience.
+   - LivedExperienceStoryPayload: perspective, conditions, lifeStage, topics,
+     contentWarning.
+   - ExpertQAPayload: expertName, credentials, specialty, questionsCount,
+     recordedAt.
+   - AdvocacyCampaignPayload: campaignType, organizer, targetRegion, deadline,
+     campaignGoal.
+
+Decoding approach:
+
+1. Decode common root fields first, including showInDiscoverFeed.
+2. Switch on type.
+3. Decode only the matching payload for exclusive fields.
+4. Reject items where the matching payload is missing.
+5. Reject payloads that duplicate root common fields.
+6. Support defensive mobile read fallbacks for:
+   - root show_in_discover_feed when root showInDiscoverFeed is missing.
+   - payload node snake_case keys when the canonical camelCase payload node is
+     missing, for every modeled Discover payload type.
+   Writers must still save canonical showInDiscoverFeed and canonical camelCase
+   payload keys.
+7. Treat new type payload internals as optional. The app must not drop a video,
+   podcast, survey, expertQA, or other new post just because a metadata field is
+   absent.
+8. Render spotlight profile rows when featuredOrganizationId or
+   featuredIndividualId is present.
+9. Do not implement embedded players, forms, Q&A flows, or tool launchers for
+   these content types. The single external action remains sourceUrl.
+
+Image rendering:
+
+1. Feed and detail images use a stable 1024w x 500h ratio.
+2. Use aspect fill.
+3. Clip overflow.
+4. Never let the image resize the card or table unexpectedly.
+
+
+12. Android Implementation Notes
+--------------------------------
+
+Recommended model shape:
+
+1. DiscoverFeedItem wrapper with root common content.
+2. DiscoverPublisherSnapshot.
+3. DiscoverFeedItemType enum.
+4. Type-specific payload data classes containing only exclusive fields.
+
+Repository approach:
+
+1. Query feed_items.
+2. Filter status == published.
+3. Filter type if selected.
+4. Order by publishedAt descending.
+5. Limit page size.
+6. Keep last DocumentSnapshot for pagination.
+7. Skip malformed items and log parse errors.
+8. Do not support arbitrary temporary aliases or alternate parser field names.
+   The only defined read fallbacks are root show_in_discover_feed for
+   showInDiscoverFeed, and snake_case payload node keys when the canonical
+   camelCase payload node is missing.
+
+Compose image rendering:
+
+1. Fixed 1024w x 500h aspect ratio.
+2. ContentScale.Crop.
+3. Clip to card image bounds.
+4. Fallback visual when missing or failed.
+
+
+13. Localization
+----------------
+
+Feed item language:
+
+    language: "en" or "es"
+
+Internal app-generated Discover cells must be translated in English and Spanish.
+External feed content should render in the language provided by the publisher.
+
+If a publisher wants the same item in both languages, create two feed_items.
+
+
+14. Content Quality and Medical Safety
+--------------------------------------
+
+Discover can include health-related and research-related content, so editorial tone
+matters.
+
+Rules:
+
+1. Do not publish individualized medical advice.
+2. Do not imply diagnosis or treatment recommendations from a general feed item.
+3. Research updates should use educational language.
+4. Source links can be included in sourceUrl and body/htmlBody.
+5. If sourceUrl needs a custom CTA label, use sourceButtonText.
+6. Avoid sensational wording around cures, risk, prognosis, or genetic findings.
+7. For patient-facing content, use clear plain language.
+
+
+15. Testing Plan
+----------------
+
+Backend tests:
+
+1. Organization create/update/archive.
+2. Feed item create/update/archive.
+3. Publisher snapshot copied correctly.
+4. Publish validation rejects missing root title/subtitle/body.
+5. Publish validation rejects duplicate common fields inside payload.
+6. Publish validation rejects invalid language.
+7. Publish validation rejects event without date.
+8. Publish validation accepts optional payload fields being omitted for all
+   non-event-date metadata.
+9. Publish validation rejects invalid featuredOrganizationId or
+   featuredIndividualId references when provided.
+10. Security rules deny app client writes.
+11. Security rules deny reading drafts.
+
+iOS tests:
+
+1. Decode each type using root common schema.
+2. Decode type-specific fields from matching payload.
+3. Reject or ignore old alias fields instead of decoding them as migration fallbacks.
+4. Malformed item does not crash.
+5. Cell rendering for missing image and remote image.
+6. Detail rendering for body and htmlBody.
+7. Detail rendering for optional metadata on all 30 types.
+8. Spotlight rows navigate to organization/professional detail when IDs exist.
+9. CTA button uses sourceButtonText when present and default type CTA when
+   absent.
+
+Android tests:
+
+1. Parse each type using root common schema.
+2. Parse type-specific fields from matching payload.
+3. Reject or ignore old alias fields instead of parsing them as migration fallbacks.
+4. Repository pagination.
+5. Compose cell rendering for fixed image ratio.
+6. Detail route handling.
+7. Optional payload fields do not make a valid item disappear.
+
+
+16. Acceptance Criteria
+-----------------------
+
+Backend:
+
+1. feed_organizations exists.
+2. feed_individuals exists.
+3. feed_items exists.
+4. Each feed item references exactly one of publisherOrganizationId or publisherIndividualId.
+5. Each feed item has publisherSnapshot.name and nullable publisherSnapshot.imageUrl.
+6. Publisher organizationType and individualType values use comma-separated fixed canonical keys only.
+7. Publisher type keys are unique across organization and professional provider lists.
+8. Each feed item has root common fields stored once.
+9. Each feed item has one valid type from the 30 canonical values.
+10. Each feed item has exactly one matching type-specific payload node.
+11. Type-specific payload nodes do not duplicate root common fields.
+12. App clients cannot create, edit, or delete feed items.
+13. App clients cannot see drafts.
+14. Query indexes are in place.
+
+Discover feed:
+
+1. Discover loads published items.
+2. Feed supports infinite scrolling.
+3. Feed supports pull to refresh.
+4. Feed keeps the fixed visible filters: All, Following, Events, News, Research,
+   and Opportunities.
+5. The final "+" filter bar item opens a single-choice modal with all 30
+   canonical content types.
+6. Selecting an extra type filters the feed by that type and shows that extra
+   filter as a selected chip before "+".
+7. Extra type filters disappear from the bar again when the user selects a fixed
+   filter.
+8. All and Following include every supported feed item type.
+9. External and local cells share aligned layout.
+10. Detail screen opens for every type.
+11. Detail screen renders root title, subtitle, image, source, and body/htmlBody.
+12. Detail screen renders type-specific metadata from the matching payload.
+13. Empty and error states work.
+14. Malformed backend data does not crash the app.
+15. Root showInDiscoverFeed controls feed placement without breaking old items:
+    missing/null/true shows normally, false hides from normal feed surfaces, and
+    false upcoming_event posts still render in the Events subsection/calendar.
+
+Trusted publishers:
+
+1. The trusted publishers screen title is "Our trusted publishers".
+2. The screen uses a segmented control ordered Professionals first,
+   Organizations second. The default loaded tab is Our trusted professionals;
+   users switch to the second tab to see Our trusted organizations.
+3. A top-right magnifying-glass button opens Search organizations or Search
+   professionals depending on the active segment.
+4. The first modal screen is the main search-filter overview with a prominent,
+   flashy Search CTA and a 0.7-height presentation detent. The overview rows are
+   plain, document-like filter fields: the filter label is secondary and the
+   picked value is the primary text, with no bordered cell treatment. Tapping a
+   row opens a secondary picker screen.
+5. Secondary picker screens opened from the Search organizations/Search
+   professionals modal are plain pushed screens, not colored header cards. They
+   have no Apply CTA and no option-box/check-circle accessory; tapping one row
+   immediately writes that filter value and returns to the main search modal.
+6. Professional filters are publisher category and country. Each is
+   single-choice.
+7. Organization filters are publisher category, country,
+   isGeneticReportProvider, and geneticReportCategory. Publisher category,
+   country, and geneticReportCategory are single-choice. The
+   geneticReportCategory picker appears only when isGeneticReportProvider
+   is checked.
+8. Organization category filters use only the fixed org_ category keys.
+9. Professional category filters use only the fixed pro_ category keys.
+10. Country filters use ISO 3166-1 alpha-2 codes. The CountryPickerScreen shows
+   localized country names, a small flag icon, a right-side letter picker, and
+   promotes language-specific priority countries before the alphabetized list.
+   The flag icon background is clear so the native flag colors stay visible.
+   When the selected app language is English, priority countries are New
+   Zealand (NZ), United States (US), Australia (AU), and United Kingdom (GB),
+   in that order. When the selected app language is Spanish, priority countries
+   are Argentina (AR), Spain (ES), Uruguay (UY), Chile (CL), and Mexico (MX),
+   in that order. These priority choices only affect mobile picker ordering;
+   saved filters still use ISO 3166-1 alpha-2 codes.
+11. geneticReportCategory filters use only OrganizationReportCategoryProvider:
+    grc_reproductive, grc_ophthalmics, grc_full_genome,
+    grc_cardiovascular, grc_rare_diseases, grc_neurological, grc_prenatal,
+    grc_nutrition_and_metabolism, grc_ancestry, grc_hereditary_cancer, and
+    grc_other. grc_other is a normal report category and must be listed with the
+    other selected categories, not treated as a fallback.
+12. Filtering parses publisher organizationType, individualType, and
+   geneticReportCategory as comma-separated canonical keys and matches key by
+   key.
+13. When any trusted-publisher filter is active, the app loads remaining
+   publisher pages so the filter can evaluate the full paginated publisher list.
+14. Only active organizations and active professionals appear in mobile publisher
+   listings; pending_approval, inactive, and archived publishers do not appear.
+15. Organization list cells show the isGeneticReportProvider boolean as a
+    natural localized row when true. They do not concatenate
+    geneticReportCategory values into the compact grid cell.
+16. Organization detail screens show a "Product catalog" section immediately
+    above Recent updates when productCatalog contains products. The detail
+    section is fully opt-in: if productCatalog is absent, null, or empty, there
+    must be no product block, no section title, no placeholder, and no empty
+    state. When products exist, the section is a one-row hint using two-column
+    ProductGridCell cards, shows only the first two products, and renders a
+    small gray product description capped at three lines. It always shows a
+    "View all" link whenever at least one product exists, even if there is only
+    one product. The full Product catalog screen uses one-per-row highlighted
+    product cells. Compact product cells end with an action row laid out as
+    Open/Abrir, spacer, and a purchase CTA pill. That row must remain one
+    horizontal line with all items vertically centered and no vertical drift.
+    Highlighted product cells have no Open/Abrir label and no cell tap action;
+    only their purchase CTA is
+    interactive. The Open/Abrir label is fixed by the client. callToActionLabel
+    only customizes the purchase CTA pill and the bottom CTA in the product
+    detail modal; empty values fall back to Buy/Comprar. Tapping Open/Abrir or
+    any non-CTA area of a compact preview product cell opens a modal product
+    detail screen with the full product information shown at larger sizes and a
+    large bottom CTA pinned to the sheet bottom. iOS must use
+    presentationDetents([.fraction(0.5)]), and Android must use the equivalent
+    half-height bottom sheet. Tapping the purchase CTA opens productUrl in the
+    external browser. This behavior applies to organization publishers only.
+    Compact preview ProductGridCell images are square thumbnails sized to one
+    quarter of the actual cell width, clipped, and placed in their own top row
+    aligned left with trailing space. A flexible vertical spacer sits between
+    that thumbnail row and the title. Title, description, and the action row sit
+    below that spacer and use the full cell width. Images must never occupy the full card width or
+    overlap text/actions.
+    Highlighted product catalog cells keep their larger media treatment.
+    Product CTA pills are inverted/filled: tint background, light text, no
+    outline. The visible pill must be trailing-aligned inside any width cap and
+    must not sit inside extra invisible right-side space. Highlighted product
+    cells are the explicit exception: their main CTA keeps a fixed 16-point/dp
+    right inset from the card border.
+17. SuggestedProvidersInformationScreen consumes OrganizationReportCategoryProvider
+    for all supported grc_* cards. Tapping a card opens GeneticReportCompaniesHub
+    directly, skipping the pushed country picker. The default country is Argentina
+    for Spanish and New Zealand for English. GeneticReportCompaniesHub shows the
+    selected country flag as a top-right button; tapping it presents
+    CountryPickerScreen modally so the user can switch the single selected country
+    and dismiss back into the hub. The hub is an organization-only company surface
+    filtered with isGeneticReportProvider == true, the selected geneticReportCategory
+    key, and the selected country code. Because
+    geneticReportCategory is stored as a comma-separated string, a company with
+    grc_reproductive,grc_full_genome appears from both the reproductive and full
+    genome paths. This surface is not a publisher hub: it has no professional
+    segment, no search/filter button, no magnifying-glass icon, no publisher
+    wording, and no "Show all" fallback when no company is found. Its empty
+    state apologizes that no company providing this service has been found in
+    the selected region yet and says the network is being expanded.
+18. GeneticReportCompaniesHub splits matching companies into highlighted and
+    standard groups. Highlighted organizations have isGrcHighlighted == true and
+    render first as full-width one-per-row OrganizationsHubHighlightedGridCell
+    rows. The highlighted cell has a Discover-feed-like header using
+    imageUrl/imageUploadDataUrl as the circular publisher profile image, then
+    uses bannerImageUrl as the 1024x500 banner media. If bannerImageUrl is empty
+    and bannerImageUploadDataUrl contains a full data:image/...;base64,... URL,
+    the highlighted banner uses that upload-data URL as its fallback. Standard
+    organizations render afterward in the normal two-column OrganizationsHubGridCell
+    grid.
+    The general OrganizationsHub organization tab also honors isGrcHighlighted,
+    but only as ordering: highlighted organizations appear first in the standard
+    two-column OrganizationsHubGridCell grid and do not use the full-width
+    highlighted cell there.
+
+
+19. Recommended MVP Scope
+-------------------------
+
+The smallest useful version:
+
+1. feed_organizations.
+2. feed_individuals.
+3. feed_items.
+4. Root common feed item fields.
+5. Small type-specific payload nodes.
+6. Thirty supported types listed in section 5.4.
+7. Discover feed with external and local cells.
+8. Infinite scroll.
+9. Type filters.
+10. Detail screen.
+11. Organization and individual publisher detail screens.
+12. Share/save/follow actions.
+
+What to defer:
+
+1. Large structured metadata forms.
+2. Tags and personalization.
+3. Search.
+4. Push notifications.
+5. User reactions.
+6. In-app RSVP/application.
+7. Automated scraping.
+
+
+18. Final Product Shape
+-----------------------
+
+Discover should feel like this:
+
+1. A user opens the app.
+2. The first screen shows a clean stream of useful genetics and rare disease
+   information.
+3. The user can scan content by type.
+4. The user sees who published every item.
+5. The user opens details and reads a clear body.
+6. Source links are root-level and work consistently across types.
+7. Events show date, location, and attendance cap when available.
+8. Opportunities show type, requirements, eligibility, and location.
+9. Richer hierarchy comes from htmlBody, not dozens of separate fields.
+10. The app remains read-only and credible.

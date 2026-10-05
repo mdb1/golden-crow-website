@@ -2,10 +2,10 @@
 
 A named collection of one or more directly downloadable sequencing-read files.
 
-**Nature:** virtual  
-**Stages:** wet_lab, bioinformatics  
-**Serialized extension:** `.fastq`  
-**Schema:** `schemas/objects/pgo_sequence_reads.schema.json`  
+**Nature:** virtual<br>
+**Stages:** wet_lab, bioinformatics<br>
+**Serialized extension:** `.fastq`<br>
+**Schema:** `schemas/objects/pgo_sequence_reads.schema.json`<br>
 **Example:** `examples/objects/pgo_sequence_reads.pgobject.json`
 
 ## Content boundary

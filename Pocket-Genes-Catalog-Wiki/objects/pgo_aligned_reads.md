@@ -2,10 +2,10 @@
 
 A titled reference to downloadable aligned reads with an optional index.
 
-**Nature:** virtual  
-**Stages:** wet_lab, bioinformatics  
-**Serialized extension:** `.bam`  
-**Schema:** `schemas/objects/pgo_aligned_reads.schema.json`  
+**Nature:** virtual<br>
+**Stages:** wet_lab, bioinformatics<br>
+**Serialized extension:** `.bam`<br>
+**Schema:** `schemas/objects/pgo_aligned_reads.schema.json`<br>
 **Example:** `examples/objects/pgo_aligned_reads.pgobject.json`
 
 ## Content boundary

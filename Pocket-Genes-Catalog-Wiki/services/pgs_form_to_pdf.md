@@ -2,9 +2,9 @@
 
 Create a standalone professional summary from the submitted form, demonstrating a service with no additional input objects.
 
-**Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
-**Provider kind:** organization  
-**Service version:** 1  
+**Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)<br>
+**Provider kind:** organization<br>
+**Service version:** 1<br>
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
@@ -21,7 +21,7 @@ Review the submitted information within the service scope and issue a clearly la
 | Input | `form` | `pgo_form` | Required 1:1 |
 | Output | `summary` | `pgo_pdf_report` | new_object |
 
-The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
+Input and output arrays are independent. Either may be empty, and both may be empty at the same time. An empty side is encoded as `none` in the calculated `shortContract`, including `none -> none`. The compact syntax is backend/catalog data only; native user interfaces render it as `PGOConversionView`, never as raw text.
 
 ## Request form
 

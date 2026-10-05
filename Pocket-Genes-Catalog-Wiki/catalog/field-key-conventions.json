@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.4.0",
+  "schema_version": "1.2.0",
   "policy": "Field-key casing is selected by the containing Firestore collection. Collection-local coherence takes priority over a global casing preference.",
   "applies_to_nested_maps": true,
   "compatibility_aliases_allowed": false,
@@ -14,8 +14,6 @@
         "isProfessionalOffer",
         "promotionalBannerImageUrl",
         "promotionalBannerImageUploadDataUrl",
-        "changeLogHistoryByVersion",
-        "changeLogFormShapeByVersion",
         "inputSlots",
         "outputSlots",
         "objectType"
@@ -25,11 +23,21 @@
       "collection": "service_transactions",
       "field_key_convention": "lower_camel_case",
       "examples": [
+        "requestedByUserId",
+        "requestedByUserEmail",
         "outputObjects",
         "outputReports",
         "objectType",
         "objectCode",
         "reportCode"
+      ]
+    },
+    {
+      "collection": "deferred_service_transactions",
+      "field_key_convention": "snake_case",
+      "examples": [
+        "email",
+        "deferred_transaction_ids"
       ]
     },
     {
@@ -39,7 +47,8 @@
         "object_type",
         "object_code",
         "object_owner_id",
-        "upload_version_count"
+        "upload_version_count",
+        "submitted_by_email"
       ]
     },
     {
@@ -57,7 +66,8 @@
       "examples": [
         "file_name",
         "linked_object_code",
-        "linked_report_code"
+        "linked_report_code",
+        "submitted_by_email"
       ]
     },
     {
@@ -93,22 +103,6 @@
       ]
     }
   ],
-  "nested_map_key_exceptions": [
-    {
-      "collection": "service_offers",
-      "field": "changeLogHistoryByVersion",
-      "key_pattern": "^v[1-9][0-9]*_to_v[1-9][0-9]*$",
-      "example": "v1_to_v2",
-      "rule": "Server-generated immutable version-transition identifiers use snake_case; the destination version must equal the source version plus one. Entry fields remain exactly en and es. These keys are not compatibility aliases."
-    },
-    {
-      "collection": "service_offers",
-      "field": "changeLogFormShapeByVersion",
-      "key_pattern": "^v[1-9][0-9]*_to_v[1-9][0-9]*$",
-      "example": "v2_to_v3",
-      "rule": "Server-generated immutable form-shape version-transition identifiers use snake_case and are appended only when the normalized request form changes. The destination version must equal the source version plus one. Entry fields remain exactly en and es."
-    }
-  ],
   "cross_boundary_examples": [
     {
       "concept": "object type",
@@ -137,5 +131,5 @@
     ],
     "rule": "The file contains only the strict domain allowlist for its externally selected PGO type. No casing aliases or envelope fields are accepted."
   },
-  "boundary_adapter_rule": "Map strict snake_case PGO content explicitly at persistence boundaries. service_offers and service_transactions keep camelCase except for the declared server-generated transition-key patterns inside changeLogHistoryByVersion and changeLogFormShapeByVersion; uploaded_objects and other listed storage collections keep snake_case."
+  "boundary_adapter_rule": "Map strict snake_case PGO content explicitly at persistence boundaries. service_offers and service_transactions keep camelCase; uploaded_objects and other listed storage collections keep snake_case."
 }

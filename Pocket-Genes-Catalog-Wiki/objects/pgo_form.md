@@ -2,10 +2,10 @@
 
 A completed form with its frozen field definitions and typed answers.
 
-**Nature:** virtual  
-**Stages:** test_planning, wet_lab, bioinformatics  
-**Serialized extension:** `.pgform.json`  
-**Schema:** `schemas/objects/pgo_form.schema.json`  
+**Nature:** virtual<br>
+**Stages:** test_planning, wet_lab, bioinformatics<br>
+**Serialized extension:** `.pgform.json`<br>
+**Schema:** `schemas/objects/pgo_form.schema.json`<br>
 **Example:** `examples/objects/pgo_form.pgform.json`
 
 ## Content boundary

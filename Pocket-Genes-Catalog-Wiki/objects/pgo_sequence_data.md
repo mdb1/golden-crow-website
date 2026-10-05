@@ -2,10 +2,10 @@
 
 A titled reference to downloadable native nucleotide-sequence data.
 
-**Nature:** virtual  
-**Stages:** wet_lab, bioinformatics  
-**Serialized extension:** `.fasta`  
-**Schema:** `schemas/objects/pgo_sequence_data.schema.json`  
+**Nature:** virtual<br>
+**Stages:** wet_lab, bioinformatics<br>
+**Serialized extension:** `.fasta`<br>
+**Schema:** `schemas/objects/pgo_sequence_data.schema.json`<br>
 **Example:** `examples/objects/pgo_sequence_data.pgobject.json`
 
 ## Content boundary

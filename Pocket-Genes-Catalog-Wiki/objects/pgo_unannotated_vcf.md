@@ -2,10 +2,10 @@
 
 A titled reference to a downloadable native unannotated VCF.
 
-**Nature:** virtual  
-**Stages:** wet_lab, bioinformatics  
-**Serialized extension:** `.vcf`  
-**Schema:** `schemas/objects/pgo_unannotated_vcf.schema.json`  
+**Nature:** virtual<br>
+**Stages:** wet_lab, bioinformatics<br>
+**Serialized extension:** `.vcf`<br>
+**Schema:** `schemas/objects/pgo_unannotated_vcf.schema.json`<br>
 **Example:** `examples/objects/pgo_unannotated_vcf.pgobject.json`
 
 ## Content boundary

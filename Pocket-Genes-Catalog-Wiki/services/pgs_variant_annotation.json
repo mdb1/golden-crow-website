@@ -3,7 +3,7 @@
   "stages": [
     "bioinformatics"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Add the agreed variant annotations while preserving input identity, native variant context and analytical limitations.",
   "serviceId": "pgs_variant_annotation",
   "schemaVersion": 1,

@@ -111,7 +111,7 @@ export function parseUploadedReportRecord(
     providerFormat: getString(data.provider_format) ?? "",
     providerName: getString(data.provider_name) ?? "",
     trackingProgressStatus: getString(data.tracking_progress_status) ?? "",
-    reportCode: getString(data.report_code) ?? "",
+    reportCode: getString(data.reportCode) ?? "",
     reportOwnerId: getString(data.report_owner_id) ?? "",
     ownerName: getString(data.owner_name) ?? "",
     ownerEmail: getString(data.owner_email) ?? "",

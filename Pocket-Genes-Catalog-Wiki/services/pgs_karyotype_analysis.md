@@ -2,9 +2,9 @@
 
 Review a compatible bundle of metaphase images and return a structured karyotype result without a sequencing step.
 
-**Provider:** Chromosome Image Services (`pgp_cytogenetics`)  
-**Provider kind:** organization  
-**Service version:** 1  
+**Provider:** Chromosome Image Services (`pgp_cytogenetics`)<br>
+**Provider kind:** organization<br>
+**Service version:** 1<br>
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
@@ -22,7 +22,7 @@ Perform digital image analysis and the professional review included in the offer
 | Input | `image_bundle` | `pgo_image_bundle` | Required 1:1 |
 | Output | `karyotype_result` | `pgo_karyotype_result` | new_object |
 
-The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
+Input and output arrays are independent. Either may be empty, and both may be empty at the same time. An empty side is encoded as `none` in the calculated `shortContract`, including `none -> none`. The compact syntax is backend/catalog data only; native user interfaces render it as `PGOConversionView`, never as raw text.
 
 ## Request form
 

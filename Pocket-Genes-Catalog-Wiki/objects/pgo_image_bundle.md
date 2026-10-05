@@ -2,10 +2,10 @@
 
 A named collection of one or more directly downloadable images.
 
-**Nature:** virtual  
-**Stages:** test_planning, wet_lab, bioinformatics  
-**Serialized extension:** `.pgimages.json`  
-**Schema:** `schemas/objects/pgo_image_bundle.schema.json`  
+**Nature:** virtual<br>
+**Stages:** test_planning, wet_lab, bioinformatics<br>
+**Serialized extension:** `.pgimages.json`<br>
+**Schema:** `schemas/objects/pgo_image_bundle.schema.json`<br>
 **Example:** `examples/objects/pgo_image_bundle.pgimages.json`
 
 ## Content boundary

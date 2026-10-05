@@ -2,9 +2,9 @@
 
 Convert an annotated VCF into a registered Pocket Genes interactive report backed by a native MyDNAMap .pgi1.json payload that matches MDMAPIModel.
 
-**Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)  
-**Provider kind:** organization  
-**Service version:** 1  
+**Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)<br>
+**Provider kind:** organization<br>
+**Service version:** 1<br>
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
@@ -22,7 +22,7 @@ Produce or register a native PGI payload, validate it against the matching provi
 | Input | `annotated_vcf` | `pgo_annotated_vcf` | Required 1:1 |
 | Output | `interactive_report` | `pgo_interactive_report` | new_object |
 
-The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
+Input and output arrays are independent. Either may be empty, and both may be empty at the same time. An empty side is encoded as `none` in the calculated `shortContract`, including `none -> none`. The compact syntax is backend/catalog data only; native user interfaces render it as `PGOConversionView`, never as raw text.
 
 ## Request form
 

@@ -3,7 +3,7 @@
   "stages": [
     "test_planning"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Turn the submitted observations into a reusable symptom bundle. A professional or organization can supply this service.",
   "serviceId": "pgs_symptom_intake",
   "schemaVersion": 1,

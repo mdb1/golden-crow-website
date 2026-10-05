@@ -3,7 +3,7 @@
   "stages": [
     "test_planning"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Combine the consent record, candidate genes and patient/request context into the formal test order.",
   "serviceId": "pgs_test_ordering",
   "schemaVersion": 1,

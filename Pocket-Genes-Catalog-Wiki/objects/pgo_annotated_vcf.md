@@ -2,10 +2,10 @@
 
 A titled reference to a downloadable native annotated VCF.
 
-**Nature:** virtual  
-**Stages:** bioinformatics  
-**Serialized extension:** `.vcf`  
-**Schema:** `schemas/objects/pgo_annotated_vcf.schema.json`  
+**Nature:** virtual<br>
+**Stages:** bioinformatics<br>
+**Serialized extension:** `.vcf`<br>
+**Schema:** `schemas/objects/pgo_annotated_vcf.schema.json`<br>
 **Example:** `examples/objects/pgo_annotated_vcf.pgobject.json`
 
 ## Content boundary

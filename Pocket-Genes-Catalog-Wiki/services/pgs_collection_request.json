@@ -3,7 +3,7 @@
   "stages": [
     "wet_lab"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Create a request for a qualified collector or laboratory to obtain a real biological sample from the subject. This means phlebotomy, swab, saliva, biopsy, or embryo-material collection; it is not courier pickup, package pickup, truck pickup, or sample transport.",
   "serviceId": "pgs_collection_request",
   "schemaVersion": 1,

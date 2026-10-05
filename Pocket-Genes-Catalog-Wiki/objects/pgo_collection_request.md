@@ -2,10 +2,10 @@
 
 A request to obtain biological material; it is not courier pickup or specimen transport.
 
-**Nature:** virtual  
-**Stages:** wet_lab  
-**Serialized extension:** `.pgcollection.json`  
-**Schema:** `schemas/objects/pgo_collection_request.schema.json`  
+**Nature:** virtual<br>
+**Stages:** wet_lab<br>
+**Serialized extension:** `.pgcollection.json`<br>
+**Schema:** `schemas/objects/pgo_collection_request.schema.json`<br>
 **Example:** `examples/objects/pgo_collection_request.pgcollection.json`
 
 ## Content boundary

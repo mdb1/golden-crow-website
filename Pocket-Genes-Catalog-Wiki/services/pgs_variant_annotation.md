@@ -2,9 +2,9 @@
 
 Add the agreed variant annotations while preserving input identity, native variant context and analytical limitations.
 
-**Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)  
-**Provider kind:** organization  
-**Service version:** 1  
+**Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)<br>
+**Provider kind:** organization<br>
+**Service version:** 1<br>
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
@@ -23,7 +23,7 @@ Enrich variants using the provider annotation profile and record the knowledge-s
 | Input | `test_order` | `pgo_test_order` | Required 1:1 |
 | Output | `annotated_variants` | `pgo_annotated_vcf` | new_object |
 
-The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
+Input and output arrays are independent. Either may be empty, and both may be empty at the same time. An empty side is encoded as `none` in the calculated `shortContract`, including `none -> none`. The compact syntax is backend/catalog data only; native user interfaces render it as `PGOConversionView`, never as raw text.
 
 ## Request form
 

@@ -2,10 +2,10 @@
 
 Domain description of distinguishable embryo-derived material.
 
-**Nature:** physical  
-**Stages:** wet_lab  
-**Serialized extension:** `.pgembryo.json`  
-**Schema:** `schemas/objects/pgo_embryo_sample.schema.json`  
+**Nature:** physical<br>
+**Stages:** wet_lab<br>
+**Serialized extension:** `.pgembryo.json`<br>
+**Schema:** `schemas/objects/pgo_embryo_sample.schema.json`<br>
 **Example:** `examples/objects/pgo_embryo_sample.pgembryo.json`
 
 ## Content boundary

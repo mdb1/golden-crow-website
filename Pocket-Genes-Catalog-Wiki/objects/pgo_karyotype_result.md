@@ -2,10 +2,10 @@
 
 A karyotype notation with an optional readable professional interpretation.
 
-**Nature:** virtual  
-**Stages:** bioinformatics  
-**Serialized extension:** `.pgkaryotype.json`  
-**Schema:** `schemas/objects/pgo_karyotype_result.schema.json`  
+**Nature:** virtual<br>
+**Stages:** bioinformatics<br>
+**Serialized extension:** `.pgkaryotype.json`<br>
+**Schema:** `schemas/objects/pgo_karyotype_result.schema.json`<br>
 **Example:** `examples/objects/pgo_karyotype_result.pgkaryotype.json`
 
 ## Content boundary

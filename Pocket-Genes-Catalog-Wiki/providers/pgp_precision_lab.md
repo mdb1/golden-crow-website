@@ -2,9 +2,9 @@
 
 Fictional laboratory extracting DNA from accepted specimens and producing the agreed sequencing-read deliverable for the scope and fulfillment requirements in a test order.
 
-**Kind:** laboratory  
-**Stages:** wet_lab  
-**Regions:** AR  
+**Kind:** laboratory<br>
+**Stages:** wet_lab<br>
+**Regions:** AR<br>
 **Catalog status:** fictional example, not a live integration
 
 ## Services

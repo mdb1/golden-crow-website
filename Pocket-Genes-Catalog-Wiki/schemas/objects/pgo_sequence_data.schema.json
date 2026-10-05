@@ -15,7 +15,7 @@
       "type": "string",
       "minLength": 1,
       "format": "uri",
-      "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
+      "pattern": "^https://",
       "description": "HTTPS URL used to download the native file."
     },
     "notes": {

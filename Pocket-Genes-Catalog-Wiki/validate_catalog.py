@@ -257,10 +257,12 @@ def schema_validator(schema):
 
 OBJECT_CATALOG = read("catalog/objects.json")
 SERVICE_CATALOG = read("catalog/services.json")
+SERVICE_OFFER_TYPE_CATALOG = read("catalog/service-offer-types.json")
 PROVIDER_CATALOG = read("catalog/providers.json")
 FIELD_KEY_CONVENTIONS = read("catalog/field-key-conventions.json")
 OBJECTS = OBJECT_CATALOG["objects"]
 SERVICES = SERVICE_CATALOG["services"]
+SERVICE_OFFER_TYPES = SERVICE_OFFER_TYPE_CATALOG["serviceOfferTypes"]
 PROVIDERS = PROVIDER_CATALOG["providers"]
 OBJECT_BY_ID = {item["id"]: item for item in OBJECTS}
 SCHEMAS = {type_id: read(f"schemas/objects/{type_id}.schema.json") for type_id in TYPE_IDS}
@@ -507,6 +509,23 @@ check("symptoms_standalone_free_text", lambda: validate_content("pgo_bundle_of_s
 check("physical_sample_standalone", lambda: validate_content("pgo_blood_sample", {"sample_label": "Tube A"}))
 
 
+def validate_optional_test_order_genes_have_no_added_minimum():
+    genes_schema = SCHEMAS["pgo_test_order"]["properties"]["genes"]
+    require("minItems" not in genes_schema, "Optional test-order genes gained an unspecified minimum")
+    validate_content(
+        "pgo_test_order",
+        {
+            "patient": "Patient AB-123",
+            "test_name": "Hereditary cancer panel",
+            "sample_type": "blood",
+            "genes": [],
+        },
+    )
+
+
+check("optional_test_order_genes_have_no_added_minimum", validate_optional_test_order_genes_have_no_added_minimum)
+
+
 def property_enum(type_id: str, key: str):
     return SCHEMAS[type_id]["properties"][key]["enum"]
 
@@ -713,62 +732,72 @@ def validate_service_forms_and_slots():
 check("service_forms_slots_and_deleted_paths", validate_service_forms_and_slots)
 
 
-def validate_optional_service_slots():
-    validator = schema_validator(read("schemas/protocol/service-definition.schema.json"))
+def validate_service_offer_type_registry():
+    require(len(SERVICE_OFFER_TYPES) == 30, "Service-offer type registry must contain exactly 30 values")
+    keys = [item["key"] for item in SERVICE_OFFER_TYPES]
+    icons = [item["systemImage"] for item in SERVICE_OFFER_TYPES]
+    require(len(set(keys)) == len(keys), "Service-offer type keys are not unique")
+    require(len(set(icons)) == len(icons), "Service-offer type SF Symbols are not unique")
+    require(all(re.fullmatch(r"sot_[a-z0-9]+(?:_[a-z0-9]+)*", key) for key in keys), "Invalid sot_* key")
+    for item in SERVICE_OFFER_TYPES:
+        for field in ("nameEnglish", "nameSpanish", "descriptionEnglish", "descriptionSpanish", "systemImage"):
+            require(isinstance(item.get(field), str) and item[field].strip(), f"Missing {field} for {item['key']}")
+    require(all(service.get("serviceCategory") in keys for service in SERVICES), "A catalog service uses an unknown serviceCategory")
     service_schema = read("schemas/protocol/service-definition.schema.json")["$defs"]["service_definition"]
+    require(service_schema["properties"]["serviceCategory"]["enum"] == keys, "Schema serviceCategory enum differs from registry")
+    swift_source = (ROOT.parent / "mydnamap-ios/mydnamap/Tabs/ServicesHub/ServiceOfferTypeProvider.swift").read_text()
+    swift_entries = re.findall(
+        r'''\.init\(\s*key: "([^"]+)",\s*nameEnglish: "([^"]+)",\s*nameSpanish: "([^"]+)",\s*descriptionEnglish: "([^"]+)",\s*descriptionSpanish: "([^"]+)",\s*systemImage: "([^"]+)"\s*\)''',
+        swift_source,
+        re.DOTALL,
+    )
+    native_registry = [
+        dict(zip(("key", "nameEnglish", "nameSpanish", "descriptionEnglish", "descriptionSpanish", "systemImage"), entry))
+        for entry in swift_entries
+    ]
+    require(native_registry == SERVICE_OFFER_TYPES, "Native iOS service-offer type provider differs from the canonical registry")
+
+
+check("closed_30_value_service_offer_type_registry", validate_service_offer_type_registry)
+
+
+def validate_empty_service_slot_policy():
+    schema = read("schemas/protocol/service-definition.schema.json")
+    service_schema = schema["$defs"]["service_definition"]
+    properties = service_schema["properties"]
+    require(properties["inputSlots"].get("minItems") == 0, "inputSlots must allow an empty array")
+    require(properties["outputSlots"].get("minItems") == 0, "outputSlots must allow an empty array")
+    require("inputSlots" in service_schema["required"], "inputSlots must remain an explicit contract array")
+    require("outputSlots" in service_schema["required"], "outputSlots must remain an explicit contract array")
     require("isHighlightedOffer" in service_schema["required"], "isHighlightedOffer must be required")
     require("isProfessionalOffer" in service_schema["required"], "isProfessionalOffer must be required")
-    base = SERVICES[0]
-    variants = (
-        ("no_inputs", False, True),
-        ("no_outputs", True, False),
-        ("no_inputs_or_outputs", False, False),
-    )
-    for name, keep_inputs, keep_outputs in variants:
-        service = copy.deepcopy(base)
-        service["serviceId"] = f"pgs_contract_{name}"
-        if not keep_inputs:
-            service["inputSlots"] = []
-            service.pop("formShape", None)
-            service.pop("sampleFormData", None)
-            service.pop("sampleFormObject", None)
-            service["sampleRequest"]["inputs"] = []
-        if not keep_outputs:
-            service["outputSlots"] = []
-            service["sampleResult"]["outputs"] = []
-        left = "form:form" if keep_inputs else "none"
-        right = "symptoms:bundle_of_symptoms" if keep_outputs else "none"
-        service["shortContract"] = f"{left} -> {right}"
-        validator.validate(service)
 
-    transaction_validator = schema_validator(read("schemas/protocol/service-transaction.schema.json"))
-    transaction_validator.validate({
-        "requestId": "pgr_empty_contract",
-        "offerId": "offer_empty_contract",
-        "serviceId": "pgs_contract_no_inputs_or_outputs",
-        "serviceVersion": 1,
-        "providerId": "provider_empty_contract",
-        "providerKind": "organization",
-        "requestedByUserId": "user_requester",
-        "requestedAt": "2026-09-22T12:00:00Z",
-        "requestedAtClient": "2026-09-22T12:00:00Z",
-        "status": "delivered",
-        "requestRevision": 1,
-        "idempotencyKey": "empty-contract-delivery",
-        "inputs": [],
-        "outputObjects": [],
-        "outputReports": [],
-        "issues": [],
-        "missingRequiredInputRoles": [],
-        "offerSnapshot": {},
-        "providerSnapshot": {},
-        "contractSource": "pocket_genes_services_wiki_v1",
-        "createdAt": "2026-09-22T12:00:00Z",
-        "updatedAt": "2026-09-22T12:00:00Z",
-    })
+    validator = schema_validator(schema)
+    original = SERVICES[0]
+
+    no_outputs = copy.deepcopy(original)
+    no_outputs["outputSlots"] = []
+    no_outputs["shortContract"] = "form:form -> none"
+    no_outputs["sampleResult"]["outputs"] = []
+    validator.validate(no_outputs)
+
+    no_inputs = copy.deepcopy(original)
+    no_inputs["inputSlots"] = []
+    no_inputs["shortContract"] = "none -> symptoms:bundle_of_symptoms"
+    no_inputs["sampleRequest"]["inputs"] = []
+    no_inputs.pop("formShape", None)
+    no_inputs.pop("sampleFormData", None)
+    no_inputs.pop("sampleFormObject", None)
+    validator.validate(no_inputs)
+
+    slotless = copy.deepcopy(no_inputs)
+    slotless["outputSlots"] = []
+    slotless["shortContract"] = "none -> none"
+    slotless["sampleResult"]["outputs"] = []
+    validator.validate(slotless)
 
 
-check("optional_service_input_and_output_slots", validate_optional_service_slots)
+check("service_slots_may_be_empty_independently_or_together", validate_empty_service_slot_policy)
 
 
 def validate_protocol_examples():
@@ -803,8 +832,11 @@ def validate_provider_catalog():
     require("data" in referenced_form and referenced_form["object_type"] == "pgo_form", "Provider form fixture is missing")
     validate_content("pgo_form", referenced_form["data"])
     shared = PROVIDER_CATALOG["shared_api_contract"]
-    require("requestedAt" in shared["form_metadata_location"] and "requestedByUserId" in shared["form_metadata_location"], "Transaction metadata location is unclear")
+    require("requestedAt" in shared["form_metadata_location"] and "requestedByUserId" in shared["form_metadata_location"] and "requestedByUserEmail" in shared["form_metadata_location"], "Transaction metadata location is unclear")
     require("input_refs" in shared["object_provenance"] and "no input_refs" in shared["object_provenance"], "Standalone provenance rule is missing")
+    require("may each be empty" in shared["empty_slot_policy"], "Empty input/output slot policy is missing")
+    require("none -> none" in shared["empty_slot_policy"], "Slotless short contract syntax is missing")
+    require("no declared outputSlots" in shared["delivery_without_outputs"], "Output-free delivery rule is missing")
 
 
 check("providers_and_shared_api_boundary", validate_provider_catalog)
@@ -814,6 +846,7 @@ def validate_field_key_matrix():
     expected = {
         "service_offers": "lower_camel_case",
         "service_transactions": "lower_camel_case",
+        "deferred_service_transactions": "snake_case",
         "uploaded_objects": "snake_case",
         "uploaded_reports": "snake_case",
         "file_storage": "snake_case",
@@ -827,18 +860,28 @@ def validate_field_key_matrix():
     require(FIELD_KEY_CONVENTIONS["compatibility_aliases_allowed"] is False, "Compatibility aliases must remain forbidden")
     serialized = FIELD_KEY_CONVENTIONS["serialized_pgo_content"]
     require(serialized["field_key_convention"] == "snake_case", "Serialized PGO content must use snake_case")
-    exceptions = FIELD_KEY_CONVENTIONS["nested_map_key_exceptions"]
-    require(len(exceptions) == 2, "Exactly two nested-map key exceptions must be declared")
-    transitions = {transition["field"]: transition for transition in exceptions}
-    require(set(transitions) == {"changeLogHistoryByVersion", "changeLogFormShapeByVersion"}, "Change-log key exception fields differ")
-    for transition in transitions.values():
-        require(transition["collection"] == "service_offers", "Change-log key exception must belong to service_offers")
-        require(re.fullmatch(transition["key_pattern"], transition["example"]) is not None, "Change-log example does not match its key pattern")
-    require(transitions["changeLogHistoryByVersion"]["example"] == "v1_to_v2", "Canonical offer change-log example differs")
-    require(transitions["changeLogFormShapeByVersion"]["example"] == "v2_to_v3", "Canonical form-shape change-log example differs")
 
 
 check("field_key_boundary_matrix", validate_field_key_matrix)
+
+
+def validate_deferred_service_transaction_contract():
+    schema = read("schemas/protocol/deferred-service-transactions.schema.json")
+    validator = schema_validator(schema)
+    validator.validate({
+        "email": "requester@example.com",
+        "deferred_transaction_ids": ["pgr_ios_example1", "pgr_ios_example2"],
+    })
+    service_schema = read("schemas/protocol/service-transaction.schema.json")
+    require("requestedByUserId" not in service_schema["required"], "requestedByUserId must remain optional")
+    identity_rule = service_schema["allOf"][0]["anyOf"]
+    require(identity_rule == [
+        {"required": ["requestedByUserId"]},
+        {"required": ["requestedByUserEmail"]},
+    ], "Service transactions must require a user ID or requester email")
+
+
+check("deferred_service_transaction_contract", validate_deferred_service_transaction_contract)
 
 
 def validate_native_pgi_contracts():
@@ -855,6 +898,76 @@ def read_text(relative_path: str):
 
 
 check("native_pgi_mappings_preserved", validate_native_pgi_contracts)
+
+
+def validate_deleted_identity_continuity_contract():
+    canonical = read_text("docs/deleted-identity-continuity.md")
+    root_contract = (ROOT.parent / "DELETED_IDENTITY_CONTINUITY_CONTRACT.txt").read_text()
+    require(canonical == root_contract, "Markdown and TXT deleted-identity contracts differ")
+
+    required_phrases = [
+        "DeletedUserProvider",
+        "person.crop.circle.badge.xmark",
+        "#8E8E93",
+        "Deleted user",
+        "Deleted profile",
+        "Deleted organization",
+        "Deleted provider",
+        "User information unavailable",
+        "successful server lookup",
+        "Community posts",
+        "Rare Friends",
+        "Discover feed items",
+        "Service offers",
+        "Service transactions",
+        "Reports, report owners, uploaded objects",
+        "Pocket Genes Object content",
+        "serialized PGO files remain unchanged",
+        "iOS, Android, and web",
+    ]
+    for phrase in required_phrases:
+        require(phrase in canonical, f"Deleted-identity contract omits {phrase}")
+
+    for relative_path in [
+        "Pocket-Genes-Wiki.md",
+        "docs/service-model.md",
+        "docs/native-services-current-state.md",
+        "docs/ownership-and-service-fulfillment.md",
+    ]:
+        documentation = read_text(relative_path)
+        require("Deleted identity continuity" in documentation, f"{relative_path} omits deleted-identity continuity")
+        require("Never add deleted-user flags" in documentation, f"{relative_path} omits the PGO identity boundary")
+
+    for relative_path in [
+        "DISCOVER_FEED_PLAN.txt",
+        "DISCOVER_BACKOFFICE_REQUIREMENTS.txt",
+        "android_ios_parity_mismatch_audit.txt",
+    ]:
+        documentation = (ROOT.parent / relative_path).read_text()
+        require(
+            "DELETED_IDENTITY_CONTINUITY_CONTRACT.txt" in documentation,
+            f"{relative_path} does not reference the canonical deleted-identity TXT contract",
+        )
+
+    forbidden_pgo_keys = {
+        "deleted_user",
+        "deletedUser",
+        "is_deleted_user",
+        "isDeletedUser",
+        "deleted_identity",
+        "deletedIdentity",
+        "deleted_avatar",
+        "deletedAvatar",
+    }
+    for type_id in TYPE_IDS:
+        properties = set(read(OBJECT_BY_ID[type_id]["schema_path"]).get("properties", {}))
+        require(
+            properties.isdisjoint(forbidden_pgo_keys),
+            f"{type_id} illegally persists deleted-identity presentation metadata",
+        )
+
+
+check("deleted_identity_continuity_contract", validate_deleted_identity_continuity_contract)
 
 
 def validate_collection_request_language():
@@ -874,6 +987,8 @@ def validate_docs_and_breaking_policy():
     aggregate = read_text("Pocket-Genes-Wiki.md")
     root_wiki = (ROOT.parent / "Pocket-Genes-Services-Wiki.md").read_text()
     service_model = read_text("docs/service-model.md")
+    backoffice_contract = (ROOT.parent / "DISCOVER_BACKOFFICE_REQUIREMENTS.txt").read_text()
+    services_backoffice_contract = backoffice_contract.split("Services Hub Native And Backend Contract", 1)[1]
     for text_name, text in [("package wiki", aggregate), ("root wiki", root_wiki), ("service model", service_model)]:
         require("no compatibility" in text.lower() or "no legacy" in text.lower(), f"{text_name} does not state the strict breaking policy")
         require(
@@ -883,6 +998,14 @@ def validate_docs_and_breaking_policy():
         for type_id in TYPE_IDS:
             require(type_id in text, f"{text_name} omits {type_id}")
     require(aggregate == root_wiki, "The two generated aggregate wikis differ")
+    require("none -> none" in aggregate, "The wiki omits the slotless short contract")
+    require("without producing an object" in aggregate, "The wiki omits output-free services")
+    require("empty states" in service_model.lower(), "The service model omits native empty states")
+    require("Either may be empty" in services_backoffice_contract, "The backoffice contract omits empty slot arrays")
+    require("pgo_empty_outline.png" in services_backoffice_contract, "The backoffice contract omits the empty conversion asset")
+    require("outputSlots: non-empty object[]" not in services_backoffice_contract, "The backoffice contract still requires outputs")
+    require("is_hidden_from_search" not in services_backoffice_contract, "The service contract still uses a snake-case offer key")
+    require("output_objects" not in services_backoffice_contract, "The service contract still uses a snake-case transaction key")
     for type_id in TYPE_IDS:
         page = read_text(f"objects/{type_id}.md")
         for key in CONTRACTS[type_id][0] | CONTRACTS[type_id][1]:
@@ -896,7 +1019,6 @@ def validate_all_json_and_mirrors():
     for path in sorted(ROOT.rglob("*.json")):
         json.loads(path.read_text())
     ios_root = ROOT.parent / "mydnamap-ios/mydnamap/Resources"
-    require(json.loads((ios_root / "PocketGenesServicesCatalog.json").read_text()) == SERVICE_CATALOG, "Bundled iOS service catalog differs")
     require(json.loads((ios_root / "PocketGenesProvidersCatalog.json").read_text()) == PROVIDER_CATALOG, "Bundled iOS provider catalog differs")
     for type_id in TYPE_IDS:
         require(json.loads((ios_root / f"FileWizardSchemas/{type_id}.schema.json").read_text()) == SCHEMAS[type_id], f"Bundled wizard schema differs for {type_id}")

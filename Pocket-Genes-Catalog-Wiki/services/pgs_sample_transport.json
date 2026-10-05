@@ -3,7 +3,7 @@
   "stages": [
     "wet_lab"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Move an already biologically collected physical specimen from origin to destination and record custody and receipt. This is the transport service; it does not create or replace the biological sample collection request.",
   "serviceId": "pgs_sample_transport",
   "schemaVersion": 1,

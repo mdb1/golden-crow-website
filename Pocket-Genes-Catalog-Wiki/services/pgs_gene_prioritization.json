@@ -3,7 +3,7 @@
   "stages": [
     "test_planning"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Use a symptom bundle to return a ranked or selected bundle of candidate genes for subsequent test planning.",
   "serviceId": "pgs_gene_prioritization",
   "schemaVersion": 1,

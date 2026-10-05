@@ -33,7 +33,7 @@ const httpsURL = (description) => ({
   type: "string",
   minLength: 1,
   format: "uri",
-  pattern: String.raw`^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\s]+(?:[/?#]|$)`,
+  pattern: "^https://",
   description
 });
 
@@ -156,15 +156,8 @@ const formFieldTypes = [
 ];
 
 const formOption = closedObject({
-  value: {
-    ...nonemptyString("Stable stored option value."),
-    maxLength: 128,
-    pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
-  },
-  label: {
-    ...nonemptyString("Human-readable option label frozen with the form."),
-    maxLength: 120
-  }
+  value: nonemptyString("Stable stored option value."),
+  label: nonemptyString("Human-readable option label frozen with the form.")
 }, ["value", "label"], "One enum choice.");
 
 const formFieldDefinition = {
@@ -314,7 +307,7 @@ const contracts = {
       test_type: openEnum(testTypes, "Optional broad test category."),
       objective: nonemptyString("Optional objective for the test."),
       clinical_suspicion: nonemptyString("Optional clinical suspicion."),
-      genes: { type: "array", minItems: 1, items: nonemptyString("Gene symbol.") }
+      genes: { type: "array", items: nonemptyString("Gene symbol.") }
     }),
     required: ["patient", "test_name", "sample_type"],
     example: {
@@ -732,6 +725,24 @@ const embeddedField = (field) => ({
 
 const answerFields = (config) => Object.entries(config.values).map(([key, value]) => ({ key, value }));
 
+const serviceOfferTypeByServiceId = {
+  pgs_collection_request: "sot_sample_collection",
+  pgs_dna_extraction: "sot_dna_extraction",
+  pgs_final_report: "sot_genomic_report_generation",
+  pgs_form_to_pdf: "sot_genomic_report_generation",
+  pgs_gene_prioritization: "sot_gene_variant_prioritization",
+  pgs_informed_consent: "sot_informed_consent",
+  pgs_interactive_interpretation: "sot_genomic_interpretation",
+  pgs_karyotype_analysis: "sot_cytogenetic_analysis",
+  pgs_read_alignment: "sot_read_alignment",
+  pgs_sample_transport: "sot_sample_logistics",
+  pgs_sequencing: "sot_dna_sequencing",
+  pgs_symptom_intake: "sot_clinical_intake_phenotyping",
+  pgs_test_ordering: "sot_genetic_test_ordering",
+  pgs_variant_annotation: "sot_variant_annotation",
+  pgs_variant_calling: "sot_variant_calling"
+};
+
 const migrateService = (service) => {
   const config = serviceFormContracts[service.serviceId];
   const hasFormInput = service.inputSlots?.some((slot) => slot.objectType === "pgo_form");
@@ -740,6 +751,10 @@ const migrateService = (service) => {
   }
 
   const migrated = structuredClone(service);
+  migrated.serviceCategory = serviceOfferTypeByServiceId[migrated.serviceId];
+  if (!migrated.serviceCategory) {
+    throw new Error(`Missing service-offer type for ${migrated.serviceId}`);
+  }
   migrated.isHighlightedOffer ??= false;
   migrated.isProfessionalOffer ??= true;
   if (config) {
@@ -799,10 +814,6 @@ const servicesPath = path.join(root, "catalog/services.json");
 const servicesCatalog = readJSON(servicesPath);
 servicesCatalog.services = servicesCatalog.services.map(migrateService);
 writeJSON(servicesPath, servicesCatalog);
-writeJSON(
-  path.join(repositoryRoot, "mydnamap-ios/mydnamap/Resources/PocketGenesServicesCatalog.json"),
-  servicesCatalog
-);
 
 for (const service of servicesCatalog.services) {
   writeJSON(path.join(root, `services/${service.serviceId}.json`), service);
@@ -901,6 +912,19 @@ const rewriteProtocolDefinitions = (value) => {
   const rewritten = Object.fromEntries(
     Object.entries(value).map(([key, child]) => [key, rewriteProtocolDefinitions(child)])
   );
+  for (const slotKey of ["inputSlots", "outputSlots"]) {
+    if (rewritten.properties?.[slotKey]?.type === "array") {
+      rewritten.properties[slotKey].minItems = 0;
+    }
+  }
+  for (const condition of rewritten.allOf ?? []) {
+    if (
+      condition.if?.properties?.status?.const === "delivered" &&
+      condition.then?.properties?.outputs
+    ) {
+      condition.then.properties.outputs.minItems = 0;
+    }
+  }
   if (rewritten.$defs) {
     if (rewritten.$defs.field_definition) rewritten.$defs.field_definition = structuredClone(externalFieldDefinition);
     if (rewritten.$defs.form_shape) rewritten.$defs.form_shape = structuredClone(externalFormShape);
@@ -915,8 +939,52 @@ const rewriteProtocolDefinitions = (value) => {
 
 for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filter((name) => name.endsWith(".schema.json"))) {
   const filePath = path.join(root, "schemas/protocol", fileName);
-  writeJSON(filePath, rewriteProtocolDefinitions(readJSON(filePath)));
+  const rewritten = rewriteProtocolDefinitions(readJSON(filePath));
+  if (fileName === "service-transaction.schema.json") {
+    rewritten.required = rewritten.required.filter((key) => key !== "requestedByUserId");
+    rewritten.properties.requestedByUserEmail = {
+      type: "string",
+      format: "email",
+      minLength: 3,
+      maxLength: 254
+    };
+    const nonIdentityConditions = (rewritten.allOf ?? []).filter((condition) => {
+      const requiredAlternatives = condition.anyOf?.map((alternative) => alternative.required?.[0]);
+      return JSON.stringify(requiredAlternatives) !== JSON.stringify([
+        "requestedByUserId",
+        "requestedByUserEmail"
+      ]);
+    });
+    rewritten.allOf = [
+      {
+        anyOf: [
+          { required: ["requestedByUserId"] },
+          { required: ["requestedByUserEmail"] }
+        ]
+      },
+      ...nonIdentityConditions
+    ];
+  }
+  writeJSON(filePath, rewritten);
 }
+
+writeJSON(path.join(root, "schemas/protocol/deferred-service-transactions.schema.json"), {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "https://schemas.pocketgenes.example/protocol/deferred-service-transactions/1.2.0/schema.json",
+  title: "Pocket Genes deferred service-transaction index v1.2.0",
+  description: "One deterministic deferred_service_transactions document per normalized requester email. This is an index only; full transaction data stays in service_transactions.",
+  type: "object",
+  properties: {
+    email: { type: "string", format: "email", minLength: 3, maxLength: 254 },
+    deferred_transaction_ids: {
+      type: "array",
+      items: { type: "string", pattern: "^pgr_[a-z0-9_]+$" },
+      uniqueItems: true
+    }
+  },
+  required: ["email", "deferred_transaction_ids"],
+  additionalProperties: false
+});
 
 writeJSON(path.join(root, "schemas/protocol/object-envelope.schema.json"), {
   $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -940,7 +1008,7 @@ const providersPath = path.join(root, "catalog/providers.json");
 const providersCatalog = readJSON(providersPath);
 providersCatalog.provider_definition = "A provider publishes a service contract and performs each accepted transaction. PGO content remains standalone; identity, ownership, authorization, revisions and service role bindings live in existing platform records.";
 providersCatalog.provider_field_guide.provider_id = "Stable pgp_ provider identifier used by services and transactions. It is not repeated inside PGO content.";
-providersCatalog.shared_api_contract.form_metadata_location = "The service transaction stores requestedAt and requestedByUserId. A pgo_form input contains only its frozen form_shape.fields, submitted fields and optional notes; requested_at and requested_by are not universal form questions.";
+providersCatalog.shared_api_contract.form_metadata_location = "The service transaction stores requestedAt plus either requestedByUserId or requestedByUserEmail. requestedByUserId remains optional because an email-only requester may not have an account yet. A pgo_form input contains only its frozen form_shape.fields, submitted fields and optional notes; requester identity and request time are not universal form questions.";
 providersCatalog.shared_api_contract.version_binding = "Validate the pinned integer service_version against the published offer. A submitted pgo_form preserves its frozen definitions but carries no content-level form-shape ID or version.";
 providersCatalog.shared_api_contract.file_transfer = "File-bearing PGO content exposes direct absolute HTTPS download_url values, or direct component URLs for reads and images. Preserve signed query parameters. The API does not embed native bytes and does not require generic file descriptors inside PGO content.";
 providersCatalog.shared_api_contract.matching_rules = [
@@ -952,6 +1020,8 @@ providersCatalog.shared_api_contract.matching_rules = [
 ];
 providersCatalog.shared_api_contract.scope_rule = "Global PGO validity and suitability for a particular service are separate checks. Providers validate the actual native input and transaction context needed for their published service without adding universal metadata to every PGO.";
 providersCatalog.shared_api_contract.object_provenance = "Service input and output relationships are recorded by role-labelled references on the transaction. Standalone PGO content contains no input_refs, source-reference placeholder or generic provenance envelope.";
+providersCatalog.shared_api_contract.empty_slot_policy = "inputSlots and outputSlots are required contract arrays but may each be empty, independently or simultaneously. Empty arrays create no synthetic form, input object, output object or placeholder reference. shortContract writes none for an empty side, including none -> none.";
+providersCatalog.shared_api_contract.delivery_without_outputs = "A delivered transaction with no declared outputSlots is complete when outputObjects is empty. If output slots were declared, every promised role and type remains mandatory before delivered. outputReports never substitute for promised object outputs.";
 
 const annotationService = servicesCatalog.services.find((service) => service.serviceId === "pgs_variant_annotation");
 providersCatalog.variant_analysis_api_example.referenced_form_example = structuredClone(annotationService.sampleFormObject);
@@ -981,23 +1051,7 @@ fieldConventions.serialized_pgo_content = {
   examples: ["form_shape", "sample_type", "download_url", "accepted_at"],
   rule: "The file contains only the strict domain allowlist for its externally selected PGO type. No casing aliases or envelope fields are accepted."
 };
-fieldConventions.nested_map_key_exceptions = [
-  {
-    collection: "service_offers",
-    field: "changeLogHistoryByVersion",
-    key_pattern: "^v[1-9][0-9]*_to_v[1-9][0-9]*$",
-    example: "v1_to_v2",
-    rule: "Server-generated immutable version-transition identifiers use snake_case; the destination version must equal the source version plus one. Entry fields remain exactly en and es. These keys are not compatibility aliases."
-  },
-  {
-    collection: "service_offers",
-    field: "changeLogFormShapeByVersion",
-    key_pattern: "^v[1-9][0-9]*_to_v[1-9][0-9]*$",
-    example: "v2_to_v3",
-    rule: "Server-generated immutable form-shape version-transition identifiers use snake_case and are appended only when the normalized request form changes. The destination version must equal the source version plus one. Entry fields remain exactly en and es."
-  }
-];
-fieldConventions.boundary_adapter_rule = "Map strict snake_case PGO content explicitly at persistence boundaries. service_offers and service_transactions keep camelCase except for the declared server-generated transition-key patterns inside changeLogHistoryByVersion and changeLogFormShapeByVersion; uploaded_objects and other listed storage collections keep snake_case.";
+fieldConventions.boundary_adapter_rule = "Map strict snake_case PGO content explicitly at persistence boundaries. service_offers and service_transactions keep camelCase; uploaded_objects and other listed storage collections keep snake_case.";
 writeJSON(fieldConventionPath, fieldConventions);
 
 await import("./generate_minimal_pgo_docs.mjs");

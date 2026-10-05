@@ -2,9 +2,9 @@
 
 Process an accepted DNA sample and deliver FASTQ reads supporting the contracted order scope.
 
-**Provider:** Atlas Precision Laboratory (`pgp_precision_lab`)  
-**Provider kind:** organization  
-**Service version:** 1  
+**Provider:** Atlas Precision Laboratory (`pgp_precision_lab`)<br>
+**Provider kind:** organization<br>
+**Service version:** 1<br>
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
@@ -24,7 +24,7 @@ Prepare and run the laboratory work, assess the requested scope, and deliver the
 | Output | `reads` | `pgo_sequence_reads` | new_object |
 | Output | `source_dna` | `same_as:dna_sample` | new_revision |
 
-The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
+Input and output arrays are independent. Either may be empty, and both may be empty at the same time. An empty side is encoded as `none` in the calculated `shortContract`, including `none -> none`. The compact syntax is backend/catalog data only; native user interfaces render it as `PGOConversionView`, never as raw text.
 
 ## Request form
 

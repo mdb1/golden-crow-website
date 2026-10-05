@@ -2,10 +2,10 @@
 
 A standalone nonempty list of candidate gene symbols.
 
-**Nature:** virtual  
-**Stages:** test_planning  
-**Serialized extension:** `.pggenes.json`  
-**Schema:** `schemas/objects/pgo_bundle_of_candidate_genes.schema.json`  
+**Nature:** virtual<br>
+**Stages:** test_planning<br>
+**Serialized extension:** `.pggenes.json`<br>
+**Schema:** `schemas/objects/pgo_bundle_of_candidate_genes.schema.json`<br>
 **Example:** `examples/objects/pgo_bundle_of_candidate_genes.pggenes.json`
 
 ## Content boundary

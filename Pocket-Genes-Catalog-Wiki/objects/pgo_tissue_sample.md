@@ -2,10 +2,10 @@
 
 Domain description of a distinguishable tissue specimen.
 
-**Nature:** physical  
-**Stages:** wet_lab  
-**Serialized extension:** `.pgtissue.json`  
-**Schema:** `schemas/objects/pgo_tissue_sample.schema.json`  
+**Nature:** physical<br>
+**Stages:** wet_lab<br>
+**Serialized extension:** `.pgtissue.json`<br>
+**Schema:** `schemas/objects/pgo_tissue_sample.schema.json`<br>
 **Example:** `examples/objects/pgo_tissue_sample.pgtissue.json`
 
 ## Content boundary

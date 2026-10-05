@@ -2,10 +2,10 @@
 
 A standalone request for a named test on a stated patient or source and specimen type.
 
-**Nature:** virtual  
-**Stages:** test_planning, wet_lab, bioinformatics  
-**Serialized extension:** `.pgorder.json`  
-**Schema:** `schemas/objects/pgo_test_order.schema.json`  
+**Nature:** virtual<br>
+**Stages:** test_planning, wet_lab, bioinformatics<br>
+**Serialized extension:** `.pgorder.json`<br>
+**Schema:** `schemas/objects/pgo_test_order.schema.json`<br>
 **Example:** `examples/objects/pgo_test_order.pgorder.json`
 
 ## Content boundary

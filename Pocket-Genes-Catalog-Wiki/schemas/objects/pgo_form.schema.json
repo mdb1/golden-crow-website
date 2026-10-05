@@ -71,15 +71,13 @@
                     "value": {
                       "type": "string",
                       "minLength": 1,
-                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
-                      "maxLength": 128,
+                      "pattern": "\\S",
                       "description": "Stable stored option value."
                     },
                     "label": {
                       "type": "string",
                       "minLength": 1,
                       "pattern": "\\S",
-                      "maxLength": 120,
                       "description": "Human-readable option label frozen with the form."
                     }
                   },

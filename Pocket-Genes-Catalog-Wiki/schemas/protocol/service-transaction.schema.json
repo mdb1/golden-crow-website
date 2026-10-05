@@ -56,7 +56,9 @@
     },
     "requestedByUserEmail": {
       "type": "string",
-      "minLength": 1
+      "format": "email",
+      "minLength": 3,
+      "maxLength": 254
     },
     "inputs": {
       "type": "array",
@@ -129,7 +131,6 @@
     "serviceVersion",
     "providerId",
     "providerKind",
-    "requestedByUserId",
     "requestedAt",
     "requestedAtClient",
     "status",
@@ -149,6 +150,20 @@
   "additionalProperties": false,
   "allOf": [
     {
+      "anyOf": [
+        {
+          "required": [
+            "requestedByUserId"
+          ]
+        },
+        {
+          "required": [
+            "requestedByUserEmail"
+          ]
+        }
+      ]
+    },
+    {
       "if": {
         "properties": {
           "status": {
@@ -162,7 +177,7 @@
       "then": {
         "properties": {
           "outputObjects": {
-            "minItems": 0
+            "minItems": 1
           }
         }
       }

@@ -2,10 +2,10 @@
 
 Domain description of a distinguishable blood specimen.
 
-**Nature:** physical  
-**Stages:** wet_lab  
-**Serialized extension:** `.pgblood.json`  
-**Schema:** `schemas/objects/pgo_blood_sample.schema.json`  
+**Nature:** physical<br>
+**Stages:** wet_lab<br>
+**Serialized extension:** `.pgblood.json`<br>
+**Schema:** `schemas/objects/pgo_blood_sample.schema.json`<br>
 **Example:** `examples/objects/pgo_blood_sample.pgblood.json`
 
 ## Content boundary

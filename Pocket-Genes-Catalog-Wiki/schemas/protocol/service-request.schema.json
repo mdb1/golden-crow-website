@@ -117,20 +117,18 @@
             "type": "object",
             "description": "One enum choice.",
             "properties": {
-             "value": {
-               "type": "string",
-               "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
-                "maxLength": 128,
-               "description": "Stable stored option value."
-             },
-             "label": {
-               "type": "string",
-               "minLength": 1,
-               "pattern": "\\S",
-                "maxLength": 120,
-               "description": "Human-readable option label frozen with the form."
-             }
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S",
+                "description": "Stable stored option value."
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S",
+                "description": "Human-readable option label frozen with the form."
+              }
             },
             "required": [
               "value",
@@ -257,20 +255,18 @@
                   "type": "object",
                   "description": "One enum choice.",
                   "properties": {
-                   "value": {
-                     "type": "string",
-                     "minLength": 1,
-                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
-                      "maxLength": 128,
-                     "description": "Stable stored option value."
-                   },
-                   "label": {
-                     "type": "string",
-                     "minLength": 1,
-                     "pattern": "\\S",
-                      "maxLength": 120,
-                     "description": "Human-readable option label frozen with the form."
-                   }
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "description": "Stable stored option value."
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "description": "Human-readable option label frozen with the form."
+                    }
                   },
                   "required": [
                     "value",
@@ -452,20 +448,18 @@
                       "type": "object",
                       "description": "One enum choice.",
                       "properties": {
-                       "value": {
-                         "type": "string",
-                         "minLength": 1,
-                          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
-                          "maxLength": 128,
-                         "description": "Stable stored option value."
-                       },
-                       "label": {
-                         "type": "string",
-                         "minLength": 1,
-                         "pattern": "\\S",
-                          "maxLength": 120,
-                         "description": "Human-readable option label frozen with the form."
-                       }
+                        "value": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S",
+                          "description": "Stable stored option value."
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S",
+                          "description": "Human-readable option label frozen with the form."
+                        }
                       },
                       "required": [
                         "value",
@@ -1164,7 +1158,7 @@
         "availability": {
           "type": "string",
           "enum": [
-            "mock_catalog_only"
+            "backoffice"
           ]
         },
         "description": {
@@ -1200,7 +1194,7 @@
           "items": {
             "$ref": "#/$defs/output_slot"
           },
-          "minItems": 0
+          "minItems": 1
         },
         "accepted_conditions": {
           "type": "array",

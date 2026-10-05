@@ -2,9 +2,9 @@
 
 Fictional report provider combining a self-contained test order with a symptom-independent .pgi1.json result and the service form to produce a final PDF. Request-specific presentation options belong to the form.
 
-**Kind:** report_production_company  
-**Stages:** bioinformatics  
-**Regions:** AR  
+**Kind:** report_production_company<br>
+**Stages:** bioinformatics<br>
+**Regions:** AR<br>
 **Catalog status:** fictional example, not a live integration
 
 ## Services

@@ -2,9 +2,9 @@
 
 Fictional provider coordinating real biological sample collection by qualified staff and, when a separate transport service is requested, transporting already collected specimens while preserving identity, custody and condition records.
 
-**Kind:** sample_collection_and_transport_provider  
-**Stages:** wet_lab  
-**Regions:** AR  
+**Kind:** sample_collection_and_transport_provider<br>
+**Stages:** wet_lab<br>
+**Regions:** AR<br>
 **Catalog status:** fictional example, not a live integration
 
 ## Services

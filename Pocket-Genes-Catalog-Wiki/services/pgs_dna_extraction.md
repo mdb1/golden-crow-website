@@ -2,9 +2,9 @@
 
 Produce an identified DNA sample from one compatible blood, tissue or embryo-biopsy specimen.
 
-**Provider:** Atlas Precision Laboratory (`pgp_precision_lab`)  
-**Provider kind:** organization  
-**Service version:** 1  
+**Provider:** Atlas Precision Laboratory (`pgp_precision_lab`)<br>
+**Provider kind:** organization<br>
+**Service version:** 1<br>
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
@@ -24,7 +24,7 @@ Perform the accepted extraction method and return the DNA identity, measured pro
 | Output | `dna_sample` | `pgo_dna_sample` | new_object |
 | Output | `source_specimen` | `same_as:blood_sample` | new_revision |
 
-The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
+Input and output arrays are independent. Either may be empty, and both may be empty at the same time. An empty side is encoded as `none` in the calculated `shortContract`, including `none -> none`. The compact syntax is backend/catalog data only; native user interfaces render it as `PGOConversionView`, never as raw text.
 
 ## Request form
 

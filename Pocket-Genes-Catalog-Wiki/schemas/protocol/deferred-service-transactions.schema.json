@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pocketgenes.example/protocol/deferred-service-transactions/1.2.0/schema.json",
+  "title": "Pocket Genes deferred service-transaction index v1.2.0",
+  "description": "One deterministic deferred_service_transactions document per normalized requester email. This is an index only; full transaction data stays in service_transactions.",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "format": "email",
+      "minLength": 3,
+      "maxLength": 254
+    },
+    "deferred_transaction_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^pgr_[a-z0-9_]+$"
+      },
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "email",
+    "deferred_transaction_ids"
+  ],
+  "additionalProperties": false
+}

@@ -2,10 +2,10 @@
 
 A titled reference to a downloadable PDF report.
 
-**Nature:** virtual  
-**Stages:** test_planning, wet_lab, bioinformatics  
-**Serialized extension:** `.pdf`  
-**Schema:** `schemas/objects/pgo_pdf_report.schema.json`  
+**Nature:** virtual<br>
+**Stages:** test_planning, wet_lab, bioinformatics<br>
+**Serialized extension:** `.pdf`<br>
+**Schema:** `schemas/objects/pgo_pdf_report.schema.json`<br>
 **Example:** `examples/objects/pgo_pdf_report.pgobject.json`
 
 ## Content boundary

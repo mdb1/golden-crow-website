@@ -2,9 +2,9 @@
 
 Fictional image-analysis provider accepting a compatible metaphase image bundle and returning a structured karyotype result. The digital analysis can be requested independently of specimen preparation or sequencing.
 
-**Kind:** cytogenetics_analysis_company  
-**Stages:** bioinformatics  
-**Regions:** AR  
+**Kind:** cytogenetics_analysis_company<br>
+**Stages:** bioinformatics<br>
+**Regions:** AR<br>
 **Catalog status:** fictional example, not a live integration
 
 ## Services

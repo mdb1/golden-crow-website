@@ -2,10 +2,10 @@
 
 A titled reference to downloadable native flow-cytometry data.
 
-**Nature:** virtual  
-**Stages:** wet_lab, bioinformatics  
-**Serialized extension:** `.fcs`  
-**Schema:** `schemas/objects/pgo_flow_cytometry_data.schema.json`  
+**Nature:** virtual<br>
+**Stages:** wet_lab, bioinformatics<br>
+**Serialized extension:** `.fcs`<br>
+**Schema:** `schemas/objects/pgo_flow_cytometry_data.schema.json`<br>
 **Example:** `examples/objects/pgo_flow_cytometry_data.pgobject.json`
 
 ## Content boundary

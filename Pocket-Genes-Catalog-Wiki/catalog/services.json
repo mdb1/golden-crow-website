@@ -6,7 +6,7 @@
       "stages": [
         "test_planning"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Turn the submitted observations into a reusable symptom bundle. A professional or organization can supply this service.",
       "serviceId": "pgs_symptom_intake",
       "schemaVersion": 1,
@@ -146,7 +146,7 @@
       "stages": [
         "test_planning"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Use a symptom bundle to return a ranked or selected bundle of candidate genes for subsequent test planning.",
       "serviceId": "pgs_gene_prioritization",
       "schemaVersion": 1,
@@ -339,7 +339,7 @@
       "stages": [
         "test_planning"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Receive the completed consent-specific form and produce an informed-consent record for the stated scope.",
       "serviceId": "pgs_informed_consent",
       "schemaVersion": 1,
@@ -581,7 +581,7 @@
       "stages": [
         "test_planning"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Combine the consent record, candidate genes and patient/request context into the formal test order.",
       "serviceId": "pgs_test_ordering",
       "schemaVersion": 1,
@@ -1169,7 +1169,7 @@
       "stages": [
         "wet_lab"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Create a request for a qualified collector or laboratory to obtain a real biological sample from the subject. This means phlebotomy, swab, saliva, biopsy, or embryo-material collection; it is not courier pickup, package pickup, truck pickup, or sample transport.",
       "serviceId": "pgs_collection_request",
       "schemaVersion": 1,
@@ -1842,7 +1842,7 @@
       "stages": [
         "wet_lab"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Move an already biologically collected physical specimen from origin to destination and record custody and receipt. This is the transport service; it does not create or replace the biological sample collection request.",
       "serviceId": "pgs_sample_transport",
       "schemaVersion": 1,
@@ -2038,7 +2038,7 @@
       "stages": [
         "wet_lab"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Produce an identified DNA sample from one compatible blood, tissue or embryo-biopsy specimen.",
       "serviceId": "pgs_dna_extraction",
       "schemaVersion": 1,
@@ -2256,7 +2256,7 @@
       "stages": [
         "wet_lab"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Process an accepted DNA sample and deliver FASTQ reads supporting the contracted order scope.",
       "serviceId": "pgs_sequencing",
       "schemaVersion": 1,
@@ -2458,7 +2458,7 @@
       "stages": [
         "bioinformatics"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Align accepted FASTQ reads to the order reference and return an aligned-read object.",
       "serviceId": "pgs_read_alignment",
       "schemaVersion": 1,
@@ -2644,7 +2644,7 @@
       "stages": [
         "bioinformatics"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Derive an unannotated VCF from aligned reads for the contracted genes, regions and variant classes.",
       "serviceId": "pgs_variant_calling",
       "schemaVersion": 1,
@@ -2830,7 +2830,7 @@
       "stages": [
         "bioinformatics"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Add the agreed variant annotations while preserving input identity, native variant context and analytical limitations.",
       "serviceId": "pgs_variant_annotation",
       "schemaVersion": 1,
@@ -3017,7 +3017,7 @@
       "stages": [
         "bioinformatics"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Convert an annotated VCF into a registered Pocket Genes interactive report backed by a native MyDNAMap .pgi1.json payload that matches MDMAPIModel.",
       "serviceId": "pgs_interactive_interpretation",
       "schemaVersion": 1,
@@ -3186,7 +3186,7 @@
       "stages": [
         "bioinformatics"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Combine the complete test order with a registered PGI payload into a final PDF for the requested objective.",
       "serviceId": "pgs_final_report",
       "schemaVersion": 1,
@@ -3432,7 +3432,7 @@
       "stages": [
         "bioinformatics"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Review a compatible bundle of metaphase images and return a structured karyotype result without a sequencing step.",
       "serviceId": "pgs_karyotype_analysis",
       "schemaVersion": 1,
@@ -3619,7 +3619,7 @@
       "stages": [
         "test_planning"
       ],
-      "availability": "mock_catalog_only",
+      "availability": "backoffice",
       "description": "Create a standalone professional summary from the submitted form, demonstrating a service with no additional input objects.",
       "serviceId": "pgs_form_to_pdf",
       "schemaVersion": 1,

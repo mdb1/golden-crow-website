@@ -3,7 +3,7 @@
   "stages": [
     "bioinformatics"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Review a compatible bundle of metaphase images and return a structured karyotype result without a sequencing step.",
   "serviceId": "pgs_karyotype_analysis",
   "schemaVersion": 1,

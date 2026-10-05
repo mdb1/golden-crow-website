@@ -3,7 +3,7 @@
   "stages": [
     "bioinformatics"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Combine the complete test order with a registered PGI payload into a final PDF for the requested objective.",
   "serviceId": "pgs_final_report",
   "schemaVersion": 1,

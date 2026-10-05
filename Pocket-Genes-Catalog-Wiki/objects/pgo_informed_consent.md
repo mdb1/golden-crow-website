@@ -2,10 +2,10 @@
 
 Readable informed-consent content with optional explicit workflow state and acceptance facts.
 
-**Nature:** virtual  
-**Stages:** test_planning, wet_lab, bioinformatics  
-**Serialized extension:** `.pgconsent.json`  
-**Schema:** `schemas/objects/pgo_informed_consent.schema.json`  
+**Nature:** virtual<br>
+**Stages:** test_planning, wet_lab, bioinformatics<br>
+**Serialized extension:** `.pgconsent.json`<br>
+**Schema:** `schemas/objects/pgo_informed_consent.schema.json`<br>
 **Example:** `examples/objects/pgo_informed_consent.pgconsent.json`
 
 ## Content boundary

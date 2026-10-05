@@ -3,7 +3,7 @@
   "stages": [
     "bioinformatics"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Derive an unannotated VCF from aligned reads for the contracted genes, regions and variant classes.",
   "serviceId": "pgs_variant_calling",
   "schemaVersion": 1,

@@ -3,7 +3,7 @@
   "stages": [
     "test_planning"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Receive the completed consent-specific form and produce an informed-consent record for the stated scope.",
   "serviceId": "pgs_informed_consent",
   "schemaVersion": 1,

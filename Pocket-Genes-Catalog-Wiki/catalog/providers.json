@@ -241,7 +241,7 @@
         "meaning": "Role-labelled pieces required by the published offer inputSlots. A form is included here as a pgo_form input when and only when the offer declares a pgo_form slot backed by a matching formShape."
       }
     },
-    "form_metadata_location": "The service transaction stores requestedAt and requestedByUserId. A pgo_form input contains only its frozen form_shape.fields, submitted fields and optional notes; requested_at and requested_by are not universal form questions.",
+    "form_metadata_location": "The service transaction stores requestedAt plus either requestedByUserId or requestedByUserEmail. requestedByUserId remains optional because an email-only requester may not have an account yet. A pgo_form input contains only its frozen form_shape.fields, submitted fields and optional notes; requester identity and request time are not universal form questions.",
     "version_binding": "Validate the pinned integer service_version against the published offer. A submitted pgo_form preserves its frozen definitions but carries no content-level form-shape ID or version.",
     "object_access": "References resolve through an authenticated Pocket Genes object access mechanism. The provider receives access only to the pinned input revisions and authorized payloads for that request. Result objects must be registered and accessible before completion is emitted.",
     "file_transfer": "File-bearing PGO content exposes direct absolute HTTPS download_url values, or direct component URLs for reads and images. Preserve signed query parameters. The API does not embed native bytes and does not require generic file descriptors inside PGO content.",
@@ -334,7 +334,9 @@
       "payload": "Include request identity, state, request_revision and role-labelled outputs when completed. Patient details and native file bytes are excluded from callback bodies."
     },
     "role_binding": "Each inputs item must name a published inputSlots role, satisfy that slot's single accepted object type and 1:1 cardinality, and pin a positive integer object revision. Each outputs item must name a published outputSlots role and contain a compatible object_ref. A pgo_form is included as a normal inputs item only when the offer declares exactly one pgo_form slot with role form.",
-    "object_provenance": "Service input and output relationships are recorded by role-labelled references on the transaction. Standalone PGO content contains no input_refs, source-reference placeholder or generic provenance envelope."
+    "object_provenance": "Service input and output relationships are recorded by role-labelled references on the transaction. Standalone PGO content contains no input_refs, source-reference placeholder or generic provenance envelope.",
+    "empty_slot_policy": "inputSlots and outputSlots are required contract arrays but may each be empty, independently or simultaneously. Empty arrays create no synthetic form, input object, output object or placeholder reference. shortContract writes none for an empty side, including none -> none.",
+    "delivery_without_outputs": "A delivered transaction with no declared outputSlots is complete when outputObjects is empty. If output slots were declared, every promised role and type remains mandatory before delivered. outputReports never substitute for promised object outputs."
   },
   "variant_analysis_api_example": {
     "provider_id": "pgp_variant_analysis",

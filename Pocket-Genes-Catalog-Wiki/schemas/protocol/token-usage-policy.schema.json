@@ -56,9 +56,13 @@
           "type": "string",
           "const": "service_transactions"
         },
-        "requester_field": {
+        "authenticated_requester_field": {
           "type": "string",
           "const": "requestedByUserId"
+        },
+        "deferred_requester_field": {
+          "type": "string",
+          "const": "requestedByUserEmail"
         },
         "transaction_time_field": {
           "type": "string",
@@ -134,7 +138,8 @@
       },
       "required": [
         "authoritative_collection",
-        "requester_field",
+        "authenticated_requester_field",
+        "deferred_requester_field",
         "transaction_time_field",
         "daily_count_interval",
         "daily_count_timezone",

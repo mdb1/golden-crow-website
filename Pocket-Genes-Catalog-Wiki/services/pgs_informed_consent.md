@@ -2,9 +2,9 @@
 
 Receive the completed consent-specific form and produce an informed-consent record for the stated scope.
 
-**Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
-**Provider kind:** organization  
-**Service version:** 1  
+**Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)<br>
+**Provider kind:** organization<br>
+**Service version:** 1<br>
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
@@ -21,7 +21,7 @@ Present or verify the consent material and record the completed consent process 
 | Input | `form` | `pgo_form` | Required 1:1 |
 | Output | `consent` | `pgo_informed_consent` | new_object |
 
-The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
+Input and output arrays are independent. Either may be empty, and both may be empty at the same time. An empty side is encoded as `none` in the calculated `shortContract`, including `none -> none`. The compact syntax is backend/catalog data only; native user interfaces render it as `PGOConversionView`, never as raw text.
 
 ## Request form
 

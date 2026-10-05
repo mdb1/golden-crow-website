@@ -2,9 +2,9 @@
 
 Use a symptom bundle to return a ranked or selected bundle of candidate genes for subsequent test planning.
 
-**Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)  
-**Provider kind:** organization  
-**Service version:** 1  
+**Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)<br>
+**Provider kind:** organization<br>
+**Service version:** 1<br>
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
@@ -22,7 +22,7 @@ Apply the provider method and professional review where included; return genes, 
 | Input | `bundle_of_symptoms` | `pgo_bundle_of_symptoms` | Required 1:1 |
 | Output | `candidate_genes` | `pgo_bundle_of_candidate_genes` | new_object |
 
-The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
+Input and output arrays are independent. Either may be empty, and both may be empty at the same time. An empty side is encoded as `none` in the calculated `shortContract`, including `none -> none`. The compact syntax is backend/catalog data only; native user interfaces render it as `PGOConversionView`, never as raw text.
 
 ## Request form
 

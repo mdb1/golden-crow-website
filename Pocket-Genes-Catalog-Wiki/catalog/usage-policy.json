@@ -11,7 +11,8 @@
   },
   "functional_accounting": {
     "authoritative_collection": "service_transactions",
-    "requester_field": "requestedByUserId",
+    "authenticated_requester_field": "requestedByUserId",
+    "deferred_requester_field": "requestedByUserEmail",
     "transaction_time_field": "requestedAt",
     "daily_count_interval": "utc_day_start <= requestedAt < next_utc_day_start and requestedAt <= now",
     "daily_count_timezone": "UTC",

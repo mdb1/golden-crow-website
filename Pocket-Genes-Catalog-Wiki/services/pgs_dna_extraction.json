@@ -3,7 +3,7 @@
   "stages": [
     "wet_lab"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Produce an identified DNA sample from one compatible blood, tissue or embryo-biopsy specimen.",
   "serviceId": "pgs_dna_extraction",
   "schemaVersion": 1,

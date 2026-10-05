@@ -2,9 +2,9 @@
 
 Create a request for a qualified collector or laboratory to obtain a real biological sample from the subject. This means phlebotomy, swab, saliva, biopsy, or embryo-material collection; it is not courier pickup, package pickup, truck pickup, or sample transport.
 
-**Provider:** Origin Sample Services (`pgp_sample_logistics`)  
-**Provider kind:** organization  
-**Service version:** 1  
+**Provider:** Origin Sample Services (`pgp_sample_logistics`)<br>
+**Provider kind:** organization<br>
+**Service version:** 1<br>
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
@@ -22,7 +22,7 @@ Verify the subject, consent, requested material, collection method, collection s
 | Input | `test_order` | `pgo_test_order` | Required 1:1 |
 | Output | `collection_request` | `pgo_collection_request` | new_object |
 
-The compact `shortContract` is backend/catalog syntax only. Native user interfaces render it as `PGOConversionView`, never as raw text.
+Input and output arrays are independent. Either may be empty, and both may be empty at the same time. An empty side is encoded as `none` in the calculated `shortContract`, including `none -> none`. The compact syntax is backend/catalog data only; native user interfaces render it as `PGOConversionView`, never as raw text.
 
 ## Request form
 

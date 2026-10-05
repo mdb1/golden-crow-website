@@ -3,7 +3,7 @@
   "stages": [
     "test_planning"
   ],
-  "availability": "mock_catalog_only",
+  "availability": "backoffice",
   "description": "Create a standalone professional summary from the submitted form, demonstrating a service with no additional input objects.",
   "serviceId": "pgs_form_to_pdf",
   "schemaVersion": 1,
