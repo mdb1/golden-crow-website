@@ -1250,6 +1250,43 @@ describe("support services workbenches", () => {
         "more-information-frequentQuestions-item",
       ).textContent,
     ).toContain("How should I prepare?");
+    expect(
+      within(moreInformationEditor).getByTestId(
+        "more-information-frequentQuestions-add",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      within(moreInformationEditor).getByRole("button", {
+        name: "Add frequent question",
+      }),
+    );
+    const secondFrequentQuestionDialog = await screen.findByRole("dialog", {
+      name: "Add frequent question",
+    });
+    fireEvent.change(
+      within(secondFrequentQuestionDialog).getByLabelText("Question"),
+      { target: { value: "When will the results be ready?" } },
+    );
+    fireEvent.change(
+      within(secondFrequentQuestionDialog).getByLabelText("Answer"),
+      { target: { value: "The provider will confirm the delivery date." } },
+    );
+    fireEvent.click(
+      within(secondFrequentQuestionDialog).getByRole("button", {
+        name: "Add item",
+      }),
+    );
+    expect(
+      within(moreInformationEditor).getAllByTestId(
+        "more-information-frequentQuestions-item",
+      ),
+    ).toHaveLength(2);
+    expect(
+      within(moreInformationEditor).getByTestId(
+        "more-information-frequentQuestions-add",
+      ),
+    ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
@@ -2401,39 +2438,54 @@ describe("support services workbenches", () => {
     const editor = await screen.findByTestId(
       "service-offer-more-information-editor",
     );
+    const openMoreInformationSection = (title: string) => {
+      const trigger = within(editor).getByText(title).closest("button");
+      expect(trigger).toBeTruthy();
+      if (trigger?.getAttribute("aria-expanded") !== "true") {
+        fireEvent.click(trigger!);
+      }
+    };
+    for (const [sectionTitle, addTestId] of [
+      ["Frequent questions", "more-information-frequentQuestions-add"],
+      ["Key insights", "more-information-keyInsights-add"],
+      ["Scientific facts", "more-information-scientificFacts-add"],
+      ["Useful links", "more-information-usefulLinks-add"],
+      ["Illustrated segments", "more-information-bulletSegments-add"],
+      [
+        "Technical information",
+        "more-information-technicalInformationFacts-add",
+      ],
+      [
+        "Biological sample requirements",
+        "more-information-biologicalSampleRequirements-add",
+      ],
+    ]) {
+      openMoreInformationSection(sectionTitle);
+      expect(within(editor).getByTestId(addTestId)).toBeTruthy();
+    }
     expect(
       within(editor).getByTestId("more-information-frequentQuestions-item")
         .textContent,
     ).toContain("How should I prepare?");
-    fireEvent.click(
-      within(editor).getByRole("button", { name: /Sample link/ }),
-    );
+    openMoreInformationSection("Sample link");
     expect(
       within(editor).getByTestId("more-information-sampleLink-item")
         .textContent,
     ).toContain("View example");
-    fireEvent.click(
-      within(editor).getByRole("button", { name: /Technical information/ }),
-    );
+    openMoreInformationSection("Technical information");
     expect(
       within(editor).getByTestId(
         "more-information-technicalInformationFacts-item",
       ).textContent,
     ).toContain("Quality control");
-    fireEvent.click(
-      within(editor).getByRole("button", {
-        name: /Biological sample requirements/,
-      }),
-    );
+    openMoreInformationSection("Biological sample requirements");
     expect(
       within(editor).getByTestId(
         "more-information-biologicalSampleRequirements-item",
       ).textContent,
     ).toContain("Use the collection kit supplied by the provider.");
 
-    fireEvent.click(
-      within(editor).getByRole("button", { name: /Useful links/ }),
-    );
+    openMoreInformationSection("Useful links");
     fireEvent.click(
       within(editor).getByRole("button", { name: "Add useful link" }),
     );
@@ -2449,9 +2501,7 @@ describe("support services workbenches", () => {
     fireEvent.click(
       within(usefulLinkDialog).getByRole("button", { name: "Add item" }),
     );
-    fireEvent.click(
-      within(editor).getByRole("button", { name: /Service website/ }),
-    );
+    openMoreInformationSection("Service website");
     fireEvent.change(within(editor).getByLabelText("Website URL"), {
       target: { value: "https://example.org/services/updated-report" },
     });

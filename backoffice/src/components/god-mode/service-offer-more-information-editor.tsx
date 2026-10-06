@@ -470,7 +470,7 @@ function SectionShell({
           </span>
         </span>
       </AccordionTrigger>
-      <AccordionContent className="border-t border-violet-100/80 px-4 pb-4 pt-4 dark:border-violet-400/12">
+      <AccordionContent className="h-auto border-t border-violet-100/80 px-4 pb-4 pt-4 dark:border-violet-400/12">
         {children}
       </AccordionContent>
     </AccordionItem>
@@ -759,6 +759,18 @@ export function ServiceOfferMoreInformationEditor({
           return (
             <SectionShell key={section.kind} section={section} count={count}>
               <div className="grid gap-3">
+                {sectionKind !== "sampleLink" || !value.sampleLink ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    data-testid={`more-information-${sectionKind}-add`}
+                    className="justify-self-start rounded-xl border-violet-200 text-violet-800 hover:bg-violet-50 dark:border-violet-400/24 dark:text-violet-100 dark:hover:bg-violet-500/12"
+                    onClick={() => openDialog({ kind: sectionKind })}
+                  >
+                    <Plus className="h-4 w-4" />
+                    {t(section.addLabel ?? "Add")}
+                  </Button>
+                ) : null}
                 {items.length ? (
                   <div className="grid gap-3">
                     {items.map((item, index) => (
@@ -777,17 +789,6 @@ export function ServiceOfferMoreInformationEditor({
                     {t("No items added yet.")}
                   </div>
                 )}
-                {sectionKind !== "sampleLink" || !value.sampleLink ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="justify-self-start rounded-xl border-violet-200 text-violet-800 hover:bg-violet-50 dark:border-violet-400/24 dark:text-violet-100 dark:hover:bg-violet-500/12"
-                    onClick={() => openDialog({ kind: sectionKind })}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t(section.addLabel ?? "Add")}
-                  </Button>
-                ) : null}
               </div>
             </SectionShell>
           );
