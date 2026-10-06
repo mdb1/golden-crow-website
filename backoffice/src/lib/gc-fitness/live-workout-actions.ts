@@ -45,7 +45,7 @@ import {
 import {
   computeDurationSeconds,
   computeTotalVolumeKg,
-  isBodyweightEquipment,
+  resolveBodyweightLoadFactor,
   stampingBodyweight,
 } from "./live-workout-volume";
 import { resolveExerciseDocsById } from "./exercise-resolution";
@@ -248,6 +248,13 @@ function wireSetToSession(s: Record<string, unknown>): SessionSetLog {
       typeof s.bodyweight_kg === "number" && s.bodyweight_kg > 0
         ? s.bodyweight_kg
         : null,
+    // #1307 — forgiving: only a number in [0, 1] survives.
+    bodyweightFactor:
+      typeof s.bodyweight_factor === "number" &&
+      s.bodyweight_factor >= 0 &&
+      s.bodyweight_factor <= 1
+        ? s.bodyweight_factor
+        : null,
   };
 }
 
@@ -281,6 +288,10 @@ function sessionSetToWire(s: SessionSetLog): Record<string, unknown> {
   // #1197 — omitted when absent (pre-#1197 docs stay byte-identical).
   if (typeof s.bodyweightKg === "number" && s.bodyweightKg > 0) {
     wire.bodyweight_kg = s.bodyweightKg;
+    // #1307 — the counted fraction travels with the body weight it scales.
+    if (typeof s.bodyweightFactor === "number" && s.bodyweightFactor >= 0) {
+      wire.bodyweight_factor = s.bodyweightFactor;
+    }
   }
   return wire;
 }
@@ -662,13 +673,18 @@ async function latestClientBodyWeightKg(clientId: string): Promise<number | null
   return typeof mirror === "number" && mirror > 0 ? mirror : null;
 }
 
-// #1197 — which of these exercises are bodyweight movements (equipment
-// "bodyweight" / "none"), resolved through `mergedInto` like everything else.
-async function bodyweightExerciseIds(ids: string[]): Promise<Set<string>> {
+// #1307 — the counted body-weight fraction of each exercise that has one
+// (explicit `bodyweightLoadFactor`, else the bodyweight/none muscle default),
+// resolved through `mergedInto` like everything else. Factor-0 exercises are
+// left out so their sets are never stamped.
+async function bodyweightFactorsByExerciseId(
+  ids: string[],
+): Promise<Map<string, number>> {
   const docs = await resolveExerciseDocsById(gcFitnessFirestore(), ids);
-  const out = new Set<string>();
+  const out = new Map<string, number>();
   for (const [id, data] of docs) {
-    if (isBodyweightEquipment(data.equipment)) out.add(id);
+    const factor = resolveBodyweightLoadFactor(data);
+    if (factor > 0) out.set(id, factor);
   }
   return out;
 }
@@ -697,15 +713,16 @@ export async function finalizeWorkoutSession(
     return { logId: parsed.logId, futureUpdated: 0 };
   }
 
-  // #1197 — bodyweight exercises carry the client's body weight into volume,
+  // #1197/#1307 — bodyweight exercises carry a FRACTION of the client's body
+  // weight into volume (stamped as bodyweight_kg + bodyweight_factor),
   // exactly like the iOS / Android finalize. Best effort: a failed read
   // degrades to the pre-#1197 total (bodyweight sets count 0).
   const finishedSets = stampingBodyweight(
     parsed.sets,
     await latestClientBodyWeightKg(clientId).catch(() => null),
-    await bodyweightExerciseIds(
+    await bodyweightFactorsByExerciseId(
       Array.from(new Set(parsed.sets.map((s) => s.exerciseId))),
-    ).catch(() => new Set<string>()),
+    ).catch(() => new Map<string, number>()),
   );
   const totalVolumeKg = computeTotalVolumeKg(finishedSets);
   const durationSeconds = computeDurationSeconds(

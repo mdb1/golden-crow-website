@@ -102,6 +102,10 @@ export default async function ViewExercisePage({ params }: PageParams) {
     source: (data.source as ExerciseInput["source"]) ?? "wger",
     ownerId: typeof data.ownerId === "string" ? data.ownerId : null,
     version: typeof data.version === "number" ? data.version : 1,
+    // #1307 — the explicit body-weight fraction, shown read-only.
+    ...(typeof data.bodyweightLoadFactor === "number"
+      ? { bodyweightLoadFactor: data.bodyweightLoadFactor }
+      : {}),
   };
 
   // 260522-orr — read-only preview + numbered EN instructions header

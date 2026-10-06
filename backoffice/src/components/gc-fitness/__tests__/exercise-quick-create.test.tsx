@@ -513,3 +513,56 @@ describe("QuickCreateExercise — a returned failure is shown (#1104)", () => {
     expect(onCreated).not.toHaveBeenCalled();
   });
 });
+
+// #1307 — bodyweight movements carry the counted fraction of body weight.
+describe("QuickCreateExercise — % of body weight (#1307)", () => {
+  function percentField() {
+    return screen.getByLabelText("% of body weight counted in volume");
+  }
+
+  it("defaults to the muscle suggestion on bodyweight equipment and persists it", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    // Default equipment is bodyweight + default muscle chest → 65%.
+    expect(percentField()).toHaveValue(65);
+    await user.type(nameField(), "Push-up");
+    await user.click(createButton());
+
+    const payload = await createdPayload();
+    expect(payload.bodyweightLoadFactor).toBe(0.65);
+  });
+
+  it("persists the coach's edited percentage as a 0–1 factor", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.type(nameField(), "Decline push-up");
+    await user.clear(percentField());
+    await user.type(percentField(), "75");
+    await user.click(createButton());
+
+    const payload = await createdPayload();
+    expect(payload.bodyweightLoadFactor).toBe(0.75);
+  });
+
+  it("does not ask nor send a factor for weighted equipment", async () => {
+    const user = userEvent.setup();
+    renderPanel({ seed: seed() }); // barbell row
+
+    expect(screen.queryByLabelText("% of body weight counted in volume")).toBeNull();
+    await user.clear(nameField());
+    await user.type(nameField(), "Pendlay Row");
+    await user.click(createButton());
+
+    const payload = await createdPayload();
+    expect("bodyweightLoadFactor" in payload).toBe(false);
+  });
+
+  it("explains what the number is", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(screen.getByRole("button", { name: "What is this?" }));
+    expect(screen.getByText(/a push-up loads ~65%/)).toBeInTheDocument();
+  });
+});

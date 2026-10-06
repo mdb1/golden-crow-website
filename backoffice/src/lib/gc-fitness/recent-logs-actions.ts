@@ -28,6 +28,7 @@ import { getTrainerTimezone } from "./trainer-timezone";
 // quick-260714-m57 (#403) — effective per-set type (setType ?? is_warmup) for
 // the "Detalle de series" badges + warmup exclusions.
 import { effectiveSetType, type SetType } from "./set-type";
+import { wireSetLoadInputs } from "./live-workout-volume";
 // #949 follow-up — the nutrition row's "X de Y" counts one day of marks. Shared
 // with the admin feed rather than recomputed: the two surfaces describing the
 // same document with different denominators is exactly how this row shipped
@@ -232,6 +233,11 @@ export interface WorkoutLogDetail {
     } | null;
     /** Snapshot superset label (e.g. "A"); null for standalone exercises. */
     supersetGroup: string | null;
+    /** #1197 — stamped FULL body weight (wire `bodyweight_kg`); null when absent. */
+    bodyweightKg?: number | null;
+    /** #1307 — counted fraction of `bodyweightKg` (wire `bodyweight_factor`);
+     *  null on a legacy stamped set (counts at 1.0). */
+    bodyweightFactor?: number | null;
   }>;
 }
 
@@ -2222,6 +2228,7 @@ async function buildWorkoutLogDetail(
     );
     const setLogId = typeof set.id === "string" ? set.id : "";
     const pr = setLogId ? prBySetLogId.get(setLogId) : undefined;
+    const loadInputs = wireSetLoadInputs(set);
     // quick-260714-m57 (#403) — effective type: a valid non-normal
     // `set_type` wins; unknown strings and legacy docs fall back to the
     // warmup flag. Hardens the share-card warmup exclusion too (a
@@ -2274,6 +2281,10 @@ async function buildWorkoutLogDetail(
         (templateExercise.supersetGroup as string).trim().length > 0
           ? (templateExercise.supersetGroup as string).trim()
           : null,
+      // #1197/#1307 — body-weight load inputs for the share card's volume /
+      // top set / 1RM (decoded by the volume twin).
+      bodyweightKg: loadInputs.bodyweightKg,
+      bodyweightFactor: loadInputs.bodyweightFactor,
     };
   });
 

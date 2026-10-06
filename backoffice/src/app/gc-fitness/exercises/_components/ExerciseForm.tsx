@@ -85,6 +85,12 @@ import { EXERCISES_QUERY_KEY } from "@/lib/gc-fitness/exercises-query-key";
 import { MultiSelectCombobox } from "./MultiSelectCombobox";
 import { ExerciseMuscleHeatmapSection } from "@/components/gc-fitness/exercise-muscle-heatmap-section";
 import { ThumbnailUploadDropzone } from "./ThumbnailUploadDropzone";
+import { BodyweightFactorField } from "@/components/gc-fitness/bodyweight-factor-field";
+import {
+  factorToPersist,
+  showsBodyweightFactorField,
+  suggestedBodyweightPercent,
+} from "@/lib/gc-fitness/bodyweight-factor-form";
 
 export type ExerciseFormMode = "create" | "edit" | "view";
 
@@ -161,6 +167,12 @@ function buildDefaults(
     // legacy "reps × weight" behavior; `false` authors the exercise as
     // "reps without weight" (seeds the template "Sin peso" sentinel on add).
     tracksWeight: passed?.tracksWeight ?? true,
+    // #1307 — explicit body-weight fraction (0–1) or null = follow the
+    // equipment/muscle suggestion.
+    bodyweightLoadFactor:
+      typeof passed?.bodyweightLoadFactor === "number"
+        ? passed.bodyweightLoadFactor
+        : null,
   };
 }
 
@@ -234,6 +246,8 @@ export function ExerciseForm({
   // ...secondaries]) plus the dedicated `primaryMuscleGroup` field.
   const primaryMuscle = form.watch("primaryMuscleGroup") ?? "";
   const allMuscles = form.watch("muscleGroups") ?? [];
+  const equipmentValue = form.watch("equipment") ?? [];
+  const bodyweightFactorValue = form.watch("bodyweightLoadFactor");
   const secondaryMuscles = allMuscles.filter((g) => g !== primaryMuscle);
   const secondaryOptions = useMemo(
     () => MUSCLE_GROUPS.filter((g) => g !== primaryMuscle),
@@ -280,13 +294,25 @@ export function ExerciseForm({
     const secondaries = (raw.muscleGroups ?? []).filter((g) => g !== primary);
     const muscleGroups = primary ? [primary, ...secondaries] : secondaries;
     // "No translation" ⇒ store the coach's text in every language.
+    // #1307 — the body-weight fraction. Asked → persist the coach's value or
+    // the suggestion for the primary muscle. Not asked (weighted equipment) →
+    // an edit clears a stale explicit value (null ⇒ field delete server-side);
+    // a create never writes the key (the Admin SDK rejects `undefined`).
+    const { bodyweightLoadFactor: rawFactor, ...rawRest } = raw;
+    const factorEntry: { bodyweightLoadFactor?: number | null } =
+      showsBodyweightFactorField(raw.equipment, rawFactor)
+        ? { bodyweightLoadFactor: factorToPersist(rawFactor, primary) }
+        : mode === "edit" && typeof formDefaults.bodyweightLoadFactor === "number"
+          ? { bodyweightLoadFactor: null }
+          : {};
     const values = {
-      ...raw,
+      ...rawRest,
       name: mirrorLocalizedBlank(raw.name),
       description: mirrorLocalizedBlank(raw.description),
       tips: mirrorLocalizedBlank(raw.tips),
       primaryMuscleGroup: primary,
       muscleGroups,
+      ...factorEntry,
     };
     startTransition(async () => {
       try {
@@ -656,6 +682,27 @@ export function ExerciseForm({
               </FormItem>
             )}
           />
+          {/* #1307 — «% del peso corporal para el volumen», only for
+              bodyweight movements. Prefilled by the primary muscle. */}
+          {showsBodyweightFactorField(
+            equipmentValue,
+            bodyweightFactorValue,
+          ) ? (
+            <BodyweightFactorField
+              percent={
+                typeof bodyweightFactorValue === "number"
+                  ? Math.round(bodyweightFactorValue * 100)
+                  : null
+              }
+              suggestedPercent={suggestedBodyweightPercent(primaryMuscle)}
+              onChange={(pct) =>
+                form.setValue("bodyweightLoadFactor", pct === null ? null : pct / 100, {
+                  shouldDirty: true,
+                })
+              }
+              disabled={isView}
+            />
+          ) : null}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

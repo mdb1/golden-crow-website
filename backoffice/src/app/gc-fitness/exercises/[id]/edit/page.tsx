@@ -106,6 +106,10 @@ export default async function EditExercisePage({ params }: PageParams) {
     // (without these the chip would reset to "reps × weight" on every edit).
     metric: data.metric === "time" ? "time" : "reps",
     tracksWeight: data.tracksWeight === false ? false : true,
+    // #1307 — explicit body-weight fraction, when the doc carries one.
+    ...(typeof data.bodyweightLoadFactor === "number"
+      ? { bodyweightLoadFactor: data.bodyweightLoadFactor }
+      : {}),
   };
 
   const previewHref = pickPreviewSrc(data);

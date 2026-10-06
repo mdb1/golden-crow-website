@@ -357,3 +357,44 @@ describe("ExerciseForm — the mode fork", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+// #1307 — «% del peso corporal para el volumen».
+describe("ExerciseForm — % of body weight (#1307)", () => {
+  const label = "% of body weight counted in volume";
+
+  it("asks for it on a bodyweight exercise, prefilled by the primary muscle, and persists it", async () => {
+    const user = userEvent.setup();
+    renderEdit({ equipment: ["bodyweight"], primaryMuscleGroup: "quadriceps", muscleGroups: ["quadriceps"] });
+
+    expect(screen.getByLabelText(label)).toHaveValue(90);
+    await save(user);
+
+    const payload = await savedPayload();
+    expect(payload.bodyweightLoadFactor).toBe(0.9);
+  });
+
+  it("persists an edited value", async () => {
+    const user = userEvent.setup();
+    renderEdit({ equipment: ["none"], bodyweightLoadFactor: 0.65 });
+
+    const field = screen.getByLabelText(label);
+    expect(field).toHaveValue(65);
+    await user.clear(field);
+    await user.type(field, "40");
+    await save(user);
+
+    const payload = await savedPayload();
+    expect(payload.bodyweightLoadFactor).toBe(0.4);
+  });
+
+  it("is not asked for weighted equipment, and sends no factor", async () => {
+    const user = userEvent.setup();
+    renderEdit();
+
+    expect(screen.queryByLabelText(label)).toBeNull();
+    await save(user);
+
+    const payload = await savedPayload();
+    expect("bodyweightLoadFactor" in payload).toBe(false);
+  });
+});

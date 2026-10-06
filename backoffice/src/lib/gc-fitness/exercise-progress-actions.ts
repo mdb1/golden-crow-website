@@ -33,6 +33,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat, civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { effectiveSetType, type SetType } from "@/lib/gc-fitness/set-type";
+import { wireSetLoadKg } from "@/lib/gc-fitness/live-workout-volume";
 import {
   collectExerciseNameVariants,
   searchAliasesFor,
@@ -398,9 +399,10 @@ async function loadClientExerciseProgress(
       // iOS + Android). `set_type` / `is_warmup` are display markers only.
       const weight = numeric(s.weight_kg ?? s.weight);
       const reps = numeric(s.reps);
-      // #1197 — the load a set moved: external weight + the body weight stamped
-      // on bodyweight-exercise sets (twin of WorkoutVolume.setLoadKg).
-      const load = weight + numeric(s.bodyweight_kg ?? s.bodyweightKg);
+      // #1197/#1307 — the load a set moved: external weight + the counted
+      // fraction of the stamped body weight (twin of WorkoutVolume.setLoadKg;
+      // a legacy set without bodyweight_factor counts it at 1.0).
+      const load = wireSetLoadKg(s);
 
       // #480 — per-set volume for the muscle-group charts. Twin of
       // WorkoutVolume.setVolumeKg: a TIME set (duration present) → weight ×
