@@ -14,6 +14,7 @@ import {
   SupportServicesBrowser,
   SupportServiceOfferWorkbench,
   SupportServiceTransactionWorkbench,
+  WizardMoreInformationReview,
 } from "@/components/god-mode/support-services-workbench";
 import {
   POCKET_GENES_SERVICE_OPTIONS,
@@ -349,6 +350,68 @@ describe("support services workbenches", () => {
     expect(appText("es", "Continue with new file")).toBe(
       "Continuar con nuevo file",
     );
+  });
+
+  it("shows every more-information field in the wizard contract preview", () => {
+    const uploadedImageDataUrl = "data:image/png;base64,cHJldmlldw==";
+    renderWithQueryClient(
+      <WizardMoreInformationReview
+        information={{
+          ...completeMoreInformation,
+          bulletSegments: [
+            ...completeMoreInformation.bulletSegments,
+            {
+              title: "Uploaded illustration",
+              description: "An uploaded image is included in the preview.",
+              imageUploadDataUrl: uploadedImageDataUrl,
+            },
+          ],
+        }}
+      />,
+    );
+
+    const review = screen.getByTestId(
+      "service-offer-wizard-more-information-review",
+    );
+    for (const text of [
+      "How should I prepare?",
+      "Follow the instructions sent by the provider.",
+      "Actionable results",
+      "The service focuses on findings that can guide care.",
+      "Validated workflow",
+      "The analysis follows a documented scientific workflow.",
+      "Preparation guide",
+      "https://example.org/preparation",
+      "Example report",
+      "Review an example of the delivered result.",
+      "View example",
+      "https://example.org/sample-report",
+      "Clear delivery",
+      "Results are organized for practical review.",
+      "Uploaded illustration",
+      "An uploaded image is included in the preview.",
+      "Pipeline",
+      "Quality-controlled processing and interpretation.",
+      "Quality control",
+      "Expert review",
+      "Blood sample",
+      "A whole-blood sample is accepted.",
+      "Use the collection kit supplied by the provider.",
+      "https://example.org/services/report",
+    ]) {
+      expect(within(review).getByText(text)).toBeTruthy();
+    }
+
+    expect(
+      within(review)
+        .getByRole("img", { name: "Clear delivery" })
+        .getAttribute("src"),
+    ).toBe("https://example.org/images/delivery.png");
+    expect(
+      within(review)
+        .getByRole("img", { name: "Uploaded illustration" })
+        .getAttribute("src"),
+    ).toBe(uploadedImageDataUrl);
   });
 
   it("uses service limitations terminology and keeps Wet lab in Spanish", () => {

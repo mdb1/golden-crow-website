@@ -5388,74 +5388,229 @@ function WizardReviewClause({
   );
 }
 
-function WizardMoreInformationReview({
+function WizardMoreInformationSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section>
+      <h4 className="font-semibold text-slate-950">{title}</h4>
+      <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function WizardMoreInformationItem({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <article className="py-4">
+      <h5 className="font-semibold text-slate-950">{title}</h5>
+      <div className="mt-2 grid gap-3 whitespace-pre-wrap text-slate-700">
+        {children}
+      </div>
+    </article>
+  );
+}
+
+function WizardMoreInformationUrl({ url }: { url: string }) {
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="break-all font-mono text-sm text-violet-700 underline decoration-violet-300 underline-offset-4"
+    >
+      {url}
+    </a>
+  );
+}
+
+export function WizardMoreInformationReview({
   information,
 }: {
   information: SupportServiceMoreInformation;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
-  const groups = [
-    {
-      label: "Frequent questions",
-      items: information.frequentQuestions?.map((item) => item.question) ?? [],
-    },
-    {
-      label: "Key insights",
-      items: information.keyInsights?.map((item) => item.title) ?? [],
-    },
-    {
-      label: "Scientific facts",
-      items: information.scientificFacts?.map((item) => item.title) ?? [],
-    },
-    {
-      label: "Useful links",
-      items: information.usefulLinks?.map((item) => item.title) ?? [],
-    },
-    {
-      label: "Sample link",
-      items: information.sampleLink ? [information.sampleLink.title] : [],
-    },
-    {
-      label: "Illustrated segments",
-      items: information.bulletSegments?.map((item) => item.title) ?? [],
-    },
-    {
-      label: "Technical information",
-      items:
-        information.technicalInformationFacts?.map((item) => item.title) ?? [],
-    },
-    {
-      label: "Biological sample requirements",
-      items:
-        information.biologicalSampleRequirements?.map((item) => item.title) ??
-        [],
-    },
-  ].filter((group) => group.items.length > 0);
+  const frequentQuestions = information.frequentQuestions ?? [];
+  const keyInsights = information.keyInsights ?? [];
+  const scientificFacts = information.scientificFacts ?? [];
+  const usefulLinks = information.usefulLinks ?? [];
+  const bulletSegments = information.bulletSegments ?? [];
+  const technicalInformationFacts = information.technicalInformationFacts ?? [];
+  const biologicalSampleRequirements =
+    information.biologicalSampleRequirements ?? [];
+  const hasStructuredInformation =
+    frequentQuestions.length > 0 ||
+    keyInsights.length > 0 ||
+    scientificFacts.length > 0 ||
+    usefulLinks.length > 0 ||
+    Boolean(information.sampleLink) ||
+    bulletSegments.length > 0 ||
+    technicalInformationFacts.length > 0 ||
+    biologicalSampleRequirements.length > 0;
 
-  if (!groups.length && !information.websiteUrl?.trim()) {
+  if (!hasStructuredInformation && !information.websiteUrl?.trim()) {
     return <p className="italic text-slate-500">{t("Not provided")}</p>;
   }
 
   return (
-    <div className="grid gap-5">
-      {groups.map((group) => (
-        <div key={group.label}>
-          <h4 className="font-semibold text-slate-950">{t(group.label)}</h4>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            {group.items.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      ))}
+    <div
+      data-testid="service-offer-wizard-more-information-review"
+      className="grid gap-7"
+    >
+      {frequentQuestions.length ? (
+        <WizardMoreInformationSection title={t("Frequent questions")}>
+          {frequentQuestions.map((item, index) => (
+            <WizardMoreInformationItem
+              key={`${item.question}-${index}`}
+              title={item.question}
+            >
+              <p>{item.answer}</p>
+            </WizardMoreInformationItem>
+          ))}
+        </WizardMoreInformationSection>
+      ) : null}
+
+      {keyInsights.length ? (
+        <WizardMoreInformationSection title={t("Key insights")}>
+          {keyInsights.map((item, index) => (
+            <WizardMoreInformationItem
+              key={`${item.title}-${index}`}
+              title={item.title}
+            >
+              <p>{item.description}</p>
+            </WizardMoreInformationItem>
+          ))}
+        </WizardMoreInformationSection>
+      ) : null}
+
+      {scientificFacts.length ? (
+        <WizardMoreInformationSection title={t("Scientific facts")}>
+          {scientificFacts.map((item, index) => (
+            <WizardMoreInformationItem
+              key={`${item.title}-${index}`}
+              title={item.title}
+            >
+              <p>{item.description}</p>
+            </WizardMoreInformationItem>
+          ))}
+        </WizardMoreInformationSection>
+      ) : null}
+
+      {usefulLinks.length ? (
+        <WizardMoreInformationSection title={t("Useful links")}>
+          {usefulLinks.map((item, index) => (
+            <WizardMoreInformationItem
+              key={`${item.title}-${index}`}
+              title={item.title}
+            >
+              <WizardMoreInformationUrl url={item.url} />
+            </WizardMoreInformationItem>
+          ))}
+        </WizardMoreInformationSection>
+      ) : null}
+
+      {information.sampleLink ? (
+        <WizardMoreInformationSection title={t("Sample link")}>
+          <WizardMoreInformationItem title={information.sampleLink.title}>
+            <p>{information.sampleLink.description}</p>
+            <dl className="grid gap-2 text-sm sm:grid-cols-[9rem_minmax(0,1fr)]">
+              <dt className="font-semibold text-slate-900">
+                {t("Button title")}
+              </dt>
+              <dd>{information.sampleLink.buttonTitle}</dd>
+              <dt className="font-semibold text-slate-900">{t("URL")}</dt>
+              <dd>
+                <WizardMoreInformationUrl url={information.sampleLink.url} />
+              </dd>
+            </dl>
+          </WizardMoreInformationItem>
+        </WizardMoreInformationSection>
+      ) : null}
+
+      {bulletSegments.length ? (
+        <WizardMoreInformationSection title={t("Illustrated segments")}>
+          {bulletSegments.map((item, index) => {
+            const imageSource =
+              item.imageUrl?.trim() || item.imageUploadDataUrl?.trim();
+            return (
+              <WizardMoreInformationItem
+                key={`${item.title}-${index}`}
+                title={item.title}
+              >
+                <p>{item.description}</p>
+                {imageSource ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imageSource}
+                    alt={item.title}
+                    className="max-h-72 w-full border border-slate-200 object-contain"
+                  />
+                ) : null}
+              </WizardMoreInformationItem>
+            );
+          })}
+        </WizardMoreInformationSection>
+      ) : null}
+
+      {technicalInformationFacts.length ? (
+        <WizardMoreInformationSection title={t("Technical information")}>
+          {technicalInformationFacts.map((item, index) => (
+            <WizardMoreInformationItem
+              key={`${item.title}-${index}`}
+              title={item.title}
+            >
+              <p>{item.description}</p>
+              {item.subitems.length ? (
+                <ul className="list-disc space-y-1 pl-5">
+                  {item.subitems.map((subitem, subitemIndex) => (
+                    <li key={`${subitem}-${subitemIndex}`}>{subitem}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </WizardMoreInformationItem>
+          ))}
+        </WizardMoreInformationSection>
+      ) : null}
+
+      {biologicalSampleRequirements.length ? (
+        <WizardMoreInformationSection
+          title={t("Biological sample requirements")}
+        >
+          {biologicalSampleRequirements.map((item, index) => (
+            <WizardMoreInformationItem
+              key={`${item.title}-${index}`}
+              title={item.title}
+            >
+              <p>{item.description}</p>
+              <div className="border-l-2 border-slate-300 pl-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                  {t("Instructions")}
+                </p>
+                <p className="mt-1">{item.instructions}</p>
+              </div>
+            </WizardMoreInformationItem>
+          ))}
+        </WizardMoreInformationSection>
+      ) : null}
+
       {information.websiteUrl?.trim() ? (
-        <div>
-          <h4 className="font-semibold text-slate-950">{t("Service website")}</h4>
-          <p className="mt-2 break-all font-mono text-sm">
-            {information.websiteUrl.trim()}
-          </p>
-        </div>
+        <WizardMoreInformationSection title={t("Service website")}>
+          <div className="py-4">
+            <WizardMoreInformationUrl url={information.websiteUrl.trim()} />
+          </div>
+        </WizardMoreInformationSection>
       ) : null}
     </div>
   );
