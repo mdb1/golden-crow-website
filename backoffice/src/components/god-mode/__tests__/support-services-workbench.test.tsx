@@ -18,6 +18,7 @@ import {
 import {
   POCKET_GENES_SERVICE_OPTIONS,
   normalizePocketGenesCatalogFormShape,
+  normalizePocketGenesCatalogMoreInformation,
 } from "@/lib/pocket-genes-service-catalog";
 import {
   SUPPORT_SERVICE_CATEGORIES,
@@ -88,6 +89,58 @@ const hiddenOffer: SupportServiceOfferRecord = {
     turnaround: "1d",
   },
   normalizedName: "frozen lab service",
+};
+
+const completeMoreInformation = {
+  frequentQuestions: [
+    {
+      question: "How should I prepare?",
+      answer: "Follow the instructions sent by the provider.",
+    },
+  ],
+  keyInsights: [
+    {
+      title: "Actionable results",
+      description: "The service focuses on findings that can guide care.",
+    },
+  ],
+  scientificFacts: [
+    {
+      title: "Validated workflow",
+      description: "The analysis follows a documented scientific workflow.",
+    },
+  ],
+  usefulLinks: [
+    { title: "Preparation guide", url: "https://example.org/preparation" },
+  ],
+  sampleLink: {
+    title: "Example report",
+    description: "Review an example of the delivered result.",
+    buttonTitle: "View example",
+    url: "https://example.org/sample-report",
+  },
+  bulletSegments: [
+    {
+      title: "Clear delivery",
+      description: "Results are organized for practical review.",
+      imageUrl: "https://example.org/images/delivery.png",
+    },
+  ],
+  technicalInformationFacts: [
+    {
+      title: "Pipeline",
+      description: "Quality-controlled processing and interpretation.",
+      subitems: ["Quality control", "Expert review"],
+    },
+  ],
+  biologicalSampleRequirements: [
+    {
+      title: "Blood sample",
+      description: "A whole-blood sample is accepted.",
+      instructions: "Use the collection kit supplied by the provider.",
+    },
+  ],
+  websiteUrl: "https://example.org/services/report",
 };
 
 const frozenOfferSnapshot = {
@@ -1055,7 +1108,7 @@ describe("support services workbenches", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Offer identity" }),
     ).toBeTruthy();
-    expect(screen.getByText("Step 1 of 10")).toBeTruthy();
+    expect(screen.getByText("Step 1 of 11")).toBeTruthy();
     expect(screen.queryByText("Publisher Org · publisher-org-1")).toBeNull();
     expect(screen.queryByText("Provider kind")).toBeNull();
     expect(screen.queryByText("Service ID")).toBeNull();
@@ -1140,6 +1193,63 @@ describe("support services workbenches", () => {
     fireEvent.change(presentationFields[1], {
       target: { value: "The provider completes the requested analysis." },
     });
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "More information" }),
+    ).toBeTruthy();
+    const moreInformationEditor = screen.getByTestId(
+      "service-offer-more-information-editor",
+    );
+    expect(
+      within(moreInformationEditor).getByText("Frequent questions"),
+    ).toBeTruthy();
+    expect(within(moreInformationEditor).getByText("Key insights")).toBeTruthy();
+    expect(
+      within(moreInformationEditor).getByText("Scientific facts"),
+    ).toBeTruthy();
+    expect(within(moreInformationEditor).getByText("Useful links")).toBeTruthy();
+    expect(within(moreInformationEditor).getByText("Sample link")).toBeTruthy();
+    expect(
+      within(moreInformationEditor).getByText("Illustrated segments"),
+    ).toBeTruthy();
+    expect(
+      within(moreInformationEditor).getByText("Technical information"),
+    ).toBeTruthy();
+    expect(
+      within(moreInformationEditor).getByText(
+        "Biological sample requirements",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(moreInformationEditor).getByText("Service website"),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      within(moreInformationEditor).getByRole("button", {
+        name: "Add frequent question",
+      }),
+    );
+    const frequentQuestionDialog = await screen.findByRole("dialog", {
+      name: "Add frequent question",
+    });
+    fireEvent.change(
+      within(frequentQuestionDialog).getByLabelText("Question"),
+      { target: { value: "How should I prepare?" } },
+    );
+    fireEvent.change(within(frequentQuestionDialog).getByLabelText("Answer"), {
+      target: { value: "Follow the instructions sent by the provider." },
+    });
+    fireEvent.click(
+      within(frequentQuestionDialog).getByRole("button", {
+        name: "Add item",
+      }),
+    );
+    expect(
+      within(moreInformationEditor).getByTestId(
+        "more-information-frequentQuestions-item",
+      ).textContent,
+    ).toContain("How should I prepare?");
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
@@ -1365,18 +1475,19 @@ describe("support services workbenches", () => {
       within(review).getByText("The provider completes the requested analysis."),
     ).toBeTruthy();
     expect(within(review).getByText("Request reason")).toBeTruthy();
+    expect(within(review).getByText("How should I prepare?")).toBeTruthy();
     expect(within(review).getByText("pdf_report")).toBeTruthy();
     expect(within(review).getByText("PDF report")).toBeTruthy();
     expect(
       within(review).getByRole("heading", {
         level: 3,
-        name: "4. Commercial terms",
+        name: "5. Commercial terms",
       }),
     ).toBeTruthy();
     expect(
       within(review).getByRole("heading", {
         level: 3,
-        name: "6. Stage pipeline",
+        name: "7. Stage pipeline",
       }),
     ).toBeTruthy();
     expect(
@@ -1742,6 +1853,34 @@ describe("support services workbenches", () => {
 
   it("normalizes a catalog service without a form shape as an absent optional form", () => {
     expect(normalizePocketGenesCatalogFormShape(undefined)).toBeUndefined();
+  });
+
+  it("strictly validates canonical catalog more-information keys and URLs", () => {
+    expect(
+      normalizePocketGenesCatalogMoreInformation({
+        usefulLinks: [
+          { title: "Preparation guide", url: "https://example.org/guide" },
+        ],
+        technicalInformationFacts: [
+          { title: "Pipeline", description: "Validated.", subitems: [] },
+        ],
+      }),
+    ).toEqual({
+      usefulLinks: [
+        { title: "Preparation guide", url: "https://example.org/guide" },
+      ],
+      technicalInformationFacts: [
+        { title: "Pipeline", description: "Validated.", subitems: [] },
+      ],
+    });
+    expect(() =>
+      normalizePocketGenesCatalogMoreInformation({ frequent_questions: [] }),
+    ).toThrow("unsupported keys");
+    expect(() =>
+      normalizePocketGenesCatalogMoreInformation({
+        websiteUrl: "https://bad..example.org",
+      }),
+    ).toThrow("valid lowercase HTTPS URL");
   });
 
   it("starts a new offer with no input or output slots", () => {
@@ -2230,6 +2369,114 @@ describe("support services workbenches", () => {
       expect(payload).not.toHaveProperty(
         "promotional_banner_image_upload_data_url",
       );
+    });
+  });
+
+  it("edits rich more-information cards and saves only canonical camelCase keys", async () => {
+    const offerWithMoreInformation: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      moreInformation: completeMoreInformation,
+    };
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        return { offer: { ...offerWithMoreInformation, ...payload } };
+      }
+      if (
+        String(path).includes("provider-siblings") ||
+        String(path).includes("?limit=")
+      ) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: offerWithMoreInformation };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="edit"
+        offerId={offerWithMoreInformation.id}
+      />,
+    );
+
+    const editor = await screen.findByTestId(
+      "service-offer-more-information-editor",
+    );
+    expect(
+      within(editor).getByTestId("more-information-frequentQuestions-item")
+        .textContent,
+    ).toContain("How should I prepare?");
+    fireEvent.click(
+      within(editor).getByRole("button", { name: /Sample link/ }),
+    );
+    expect(
+      within(editor).getByTestId("more-information-sampleLink-item")
+        .textContent,
+    ).toContain("View example");
+    fireEvent.click(
+      within(editor).getByRole("button", { name: /Technical information/ }),
+    );
+    expect(
+      within(editor).getByTestId(
+        "more-information-technicalInformationFacts-item",
+      ).textContent,
+    ).toContain("Quality control");
+    fireEvent.click(
+      within(editor).getByRole("button", {
+        name: /Biological sample requirements/,
+      }),
+    );
+    expect(
+      within(editor).getByTestId(
+        "more-information-biologicalSampleRequirements-item",
+      ).textContent,
+    ).toContain("Use the collection kit supplied by the provider.");
+
+    fireEvent.click(
+      within(editor).getByRole("button", { name: /Useful links/ }),
+    );
+    fireEvent.click(
+      within(editor).getByRole("button", { name: "Add useful link" }),
+    );
+    const usefulLinkDialog = await screen.findByRole("dialog", {
+      name: "Add useful link",
+    });
+    fireEvent.change(within(usefulLinkDialog).getByLabelText("Title"), {
+      target: { value: "Provider resources" },
+    });
+    fireEvent.change(within(usefulLinkDialog).getByLabelText("URL"), {
+      target: { value: "https://example.org/provider-resources" },
+    });
+    fireEvent.click(
+      within(usefulLinkDialog).getByRole("button", { name: "Add item" }),
+    );
+    fireEvent.click(
+      within(editor).getByRole("button", { name: /Service website/ }),
+    );
+    fireEvent.change(within(editor).getByLabelText("Website URL"), {
+      target: { value: "https://example.org/services/updated-report" },
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
+
+    await waitFor(() => {
+      const putCall = sdkFetchMock.mock.calls.find(
+        ([, init]) => init?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const payload = JSON.parse(String(putCall?.[1]?.body));
+      expect(payload.moreInformation).toEqual({
+        ...completeMoreInformation,
+        usefulLinks: [
+          ...completeMoreInformation.usefulLinks,
+          {
+            title: "Provider resources",
+            url: "https://example.org/provider-resources",
+          },
+        ],
+        websiteUrl: "https://example.org/services/updated-report",
+      });
+      expect(payload).not.toHaveProperty("more_information");
     });
   });
 

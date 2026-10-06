@@ -591,7 +591,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "Catalog preview": "Vista previa del catálogo",
   "The product description will appear here.":
     "La descripción del producto va a aparecer acá.",
-  "Website URL": "URL del sitio web",
   "Internal notes": "Notas internas",
   "Verified publisher": "Publicador verificado",
   Verified: "Verificado",
@@ -4840,6 +4839,60 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service presentation": "Presentación del servicio",
   "Explain what the requester receives and what you do.":
     "Explicá qué recibe el solicitante y qué hacés.",
+  "Build optional rich sections for the service detail experience.":
+    "Armá secciones enriquecidas opcionales para la experiencia de detalle del servicio.",
+  "Build the optional requester-facing sections shown in the service detail experience.":
+    "Armá las secciones opcionales para solicitantes que se muestran en la experiencia de detalle del servicio.",
+  "Frequent questions": "Preguntas frecuentes",
+  "Answer the questions requesters most often ask.":
+    "Respondé las preguntas que los solicitantes hacen con mayor frecuencia.",
+  "Key insights": "Aspectos clave",
+  "Highlight the most important takeaways about the service.":
+    "Destacá los puntos más importantes del servicio.",
+  "Scientific facts": "Datos científicos",
+  "Share relevant scientific context in clear language.":
+    "Compartí contexto científico relevante con un lenguaje claro.",
+  "Useful links": "Enlaces útiles",
+  "Collect trusted external resources for requesters.":
+    "Reuní recursos externos confiables para los solicitantes.",
+  "Sample link": "Enlace de ejemplo",
+  "Feature one example resource with its own action label.":
+    "Destacá un recurso de ejemplo con su propia etiqueta de acción.",
+  "Illustrated segments": "Segmentos ilustrados",
+  "Add image-led explanations for the service detail view.":
+    "Agregá explicaciones visuales para la vista de detalle del servicio.",
+  "Technical information": "Información técnica",
+  "Explain technical details with optional supporting points.":
+    "Explicá detalles técnicos con puntos de apoyo opcionales.",
+  "Biological sample requirements": "Requisitos de muestra biológica",
+  "Describe accepted materials and the instructions for each.":
+    "Describí los materiales aceptados y las instrucciones para cada uno.",
+  "Service website": "Sitio web del servicio",
+  "Add the canonical HTTPS destination for this service.":
+    "Agregá el destino HTTPS canónico de este servicio.",
+  "Website URL": "URL del sitio web",
+  "Use an absolute URL beginning with lowercase https://.":
+    "Usá una URL absoluta que comience con https:// en minúsculas.",
+  "Add frequent question": "Agregar pregunta frecuente",
+  "Add key insight": "Agregar aspecto clave",
+  "Add scientific fact": "Agregar dato científico",
+  "Add useful link": "Agregar enlace útil",
+  "Add sample link": "Agregar enlace de ejemplo",
+  "Add illustrated segment": "Agregar segmento ilustrado",
+  "Add technical fact": "Agregar dato técnico",
+  "Add sample requirement": "Agregar requisito de muestra",
+  "No items added yet.": "Todavía no agregaste elementos.",
+  "Complete every field before adding this item to the offer.":
+    "Completá todos los campos antes de agregar este elemento a la oferta.",
+  Question: "Pregunta",
+  Answer: "Respuesta",
+  "Supporting points": "Puntos de apoyo",
+  "One supporting point per line": "Un punto de apoyo por línea",
+  Instructions: "Instrucciones",
+  "Add item": "Agregar elemento",
+  "Review this item.": "Revisá este elemento.",
+  "is required": "es obligatorio",
+  "must be a valid HTTPS URL": "debe ser una URL HTTPS válida",
   "Optionally collect structured information with the service request.":
     "Opcionalmente, recopilá información estructurada junto con la solicitud.",
   "The request form is included in this offer.":

@@ -187,6 +187,58 @@ const validOfferPayload = {
   },
 };
 
+const completeMoreInformation = {
+  frequentQuestions: [
+    {
+      question: "How should I prepare?",
+      answer: "Follow the instructions sent by the provider.",
+    },
+  ],
+  keyInsights: [
+    {
+      title: "Actionable results",
+      description: "The service focuses on findings that can guide care.",
+    },
+  ],
+  scientificFacts: [
+    {
+      title: "Validated workflow",
+      description: "The analysis follows a documented scientific workflow.",
+    },
+  ],
+  usefulLinks: [
+    { title: "Preparation guide", url: "https://example.org/preparation" },
+  ],
+  sampleLink: {
+    title: "Example report",
+    description: "Review an example of the delivered result.",
+    buttonTitle: "View example",
+    url: "https://example.org/sample-report",
+  },
+  bulletSegments: [
+    {
+      title: "Clear delivery",
+      description: "Results are organized for practical review.",
+      imageUrl: "https://example.org/images/delivery.png",
+    },
+  ],
+  technicalInformationFacts: [
+    {
+      title: "Pipeline",
+      description: "Quality-controlled processing and interpretation.",
+      subitems: ["Quality control", "Expert review"],
+    },
+  ],
+  biologicalSampleRequirements: [
+    {
+      title: "Blood sample",
+      description: "A whole-blood sample is accepted.",
+      instructions: "Use the collection kit supplied by the provider.",
+    },
+  ],
+  websiteUrl: "https://example.org/services/report",
+};
+
 async function buildTestServer(
   context: AdminContext | null = bootstrapContext,
 ) {
@@ -300,6 +352,49 @@ describe("support service admin routes", () => {
         promotionalBannerImageUrl: null,
       }),
     );
+  });
+
+  it("accepts and forwards every canonical more-information section", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        moreInformation: completeMoreInformation,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
+      bootstrapContext,
+      expect.objectContaining({ moreInformation: completeMoreInformation }),
+    );
+  });
+
+  it.each([
+    ["a snake-case section", { frequent_questions: [] }],
+    [
+      "an unknown item key",
+      { frequentQuestions: [{ question: "Question", answer: "Answer", note: "No" }] },
+    ],
+    [
+      "a non-HTTPS useful link",
+      { usefulLinks: [{ title: "Guide", url: "http://example.org/guide" }] },
+    ],
+    ["a malformed host", { websiteUrl: "https://bad..example.org" }],
+  ])("rejects moreInformation with %s", async (_label, moreInformation) => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: { ...validOfferPayload, moreInformation },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 
   it("requires and forwards the existing-transaction contract acknowledgement on updates", async () => {

@@ -183,6 +183,35 @@ export type SupportServicePricingModel =
   | "fixed"
   | "calculated_after_submission";
 
+export interface SupportServiceMoreInformation {
+  frequentQuestions?: Array<{ question: string; answer: string }> | null;
+  keyInsights?: Array<{ title: string; description: string }> | null;
+  scientificFacts?: Array<{ title: string; description: string }> | null;
+  usefulLinks?: Array<{ title: string; url: string }> | null;
+  sampleLink?: {
+    title: string;
+    description: string;
+    buttonTitle: string;
+    url: string;
+  } | null;
+  bulletSegments?: Array<{
+    title: string;
+    description: string;
+    imageUrl: string;
+  }> | null;
+  technicalInformationFacts?: Array<{
+    title: string;
+    description: string;
+    subitems: string[];
+  }> | null;
+  biologicalSampleRequirements?: Array<{
+    title: string;
+    description: string;
+    instructions: string;
+  }> | null;
+  websiteUrl?: string | null;
+}
+
 type ListOptions = {
   cursor?: string;
   limit?: unknown;
@@ -223,6 +252,7 @@ export interface SupportServiceOfferInput {
   acceptedConditions?: string[];
   scopeRules?: string[];
   commercialTerms?: Record<string, unknown>;
+  moreInformation?: SupportServiceMoreInformation | null;
   acknowledgesExistingTransactionContracts?: boolean;
 }
 
@@ -262,6 +292,7 @@ export interface SupportServiceOfferRecord {
   acceptedConditions: string[];
   scopeRules: string[];
   commercialTerms?: Record<string, unknown>;
+  moreInformation?: SupportServiceMoreInformation | null;
   changeLogHistoryByVersion?: SupportServiceOfferChangeLogHistory;
   changeLogFormShapeByVersion?: SupportServiceOfferChangeLogHistory;
   normalizedName: string;
@@ -554,6 +585,7 @@ const FORBIDDEN_OFFER_ROOT_KEYS = [
   "accepted_conditions",
   "scope_rules",
   "commercial_terms",
+  "more_information",
   "change_log_history_by_version",
   "change_log_form_shape_by_version",
 ] as const;
@@ -1375,6 +1407,287 @@ function normalizeCommercialTerms(value: unknown) {
   });
 }
 
+const MORE_INFORMATION_KEYS = [
+  "frequentQuestions",
+  "keyInsights",
+  "scientificFacts",
+  "usefulLinks",
+  "sampleLink",
+  "bulletSegments",
+  "technicalInformationFacts",
+  "biologicalSampleRequirements",
+  "websiteUrl",
+] as const;
+
+function requiredMoreInformationString(value: unknown, label: string) {
+  const normalized = cleanString(value);
+  if (!normalized) {
+    throw new AdminRepositoryError(`${label} must be a nonempty string.`, 400);
+  }
+  return normalized;
+}
+
+function moreInformationHttpsUrl(value: unknown, label: string) {
+  if (typeof value !== "string" || value !== value.trim() || /\s/.test(value)) {
+    throw new AdminRepositoryError(
+      `${label} must be an absolute lowercase HTTPS URL without whitespace.`,
+      400,
+    );
+  }
+  if (!value.startsWith("https://")) {
+    throw new AdminRepositoryError(
+      `${label} must use the exact lowercase https:// scheme.`,
+      400,
+    );
+  }
+  try {
+    const authority =
+      value.slice("https://".length).split(/[/?#]/, 1)[0] ?? "";
+    const bracketedIpv6Authority = authority.match(
+      /^\[([0-9A-Fa-f:.]+)\](?::([0-9]{1,5}))?$/,
+    );
+    const dnsAuthority = authority.match(/^([^:]+)(?::([0-9]{1,5}))?$/);
+    const dnsHost = dnsAuthority?.[1];
+    const validDnsOrIpv4Host = Boolean(
+      dnsHost &&
+        dnsHost.split(".").every((hostLabel) =>
+          /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(
+            hostLabel,
+          ),
+        ),
+    );
+    if (!bracketedIpv6Authority && !validDnsOrIpv4Host) {
+      throw new Error("invalid");
+    }
+
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      !url.hostname ||
+      url.username ||
+      url.password
+    ) {
+      throw new Error("invalid");
+    }
+  } catch {
+    throw new AdminRepositoryError(
+      `${label} must be an absolute HTTPS URL without userinfo and with a valid host.`,
+      400,
+    );
+  }
+  return value;
+}
+
+function moreInformationItem(
+  value: unknown,
+  label: string,
+  allowedKeys: readonly string[],
+) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new AdminRepositoryError(`${label} must be an object.`, 400);
+  }
+  const item = value as Record<string, unknown>;
+  rejectUnknownKeys(item, allowedKeys, label);
+  return item;
+}
+
+function normalizeMoreInformation(
+  value: unknown,
+): SupportServiceMoreInformation | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new AdminRepositoryError(
+      "Service offer moreInformation must be an object or null.",
+      400,
+    );
+  }
+  const information = value as Record<string, unknown>;
+  rejectUnknownKeys(
+    information,
+    MORE_INFORMATION_KEYS,
+    "Service offer moreInformation",
+  );
+  const normalizeArray = <T>(
+    key: (typeof MORE_INFORMATION_KEYS)[number],
+    allowedKeys: readonly string[],
+    normalize: (item: Record<string, unknown>, index: number) => T,
+  ) => {
+    const rawValue = information[key];
+    if (rawValue === undefined) {
+      return undefined;
+    }
+    if (rawValue === null) {
+      return null;
+    }
+    if (!Array.isArray(rawValue)) {
+      throw new AdminRepositoryError(
+        `Service offer moreInformation.${key} must be an array or null.`,
+        400,
+      );
+    }
+    return rawValue.map((rawItem, index) => {
+      const label = `Service offer moreInformation.${key} item ${index + 1}`;
+      const item = moreInformationItem(rawItem, label, allowedKeys);
+      return normalize(item, index);
+    });
+  };
+  const titleDescriptionArray = (
+    key: "keyInsights" | "scientificFacts",
+  ) =>
+    normalizeArray(key, ["title", "description"], (item, index) => ({
+      title: requiredMoreInformationString(
+        item.title,
+        `Service offer moreInformation.${key} item ${index + 1} title`,
+      ),
+      description: requiredMoreInformationString(
+        item.description,
+        `Service offer moreInformation.${key} item ${index + 1} description`,
+      ),
+    }));
+  const sampleLinkValue = information.sampleLink;
+  let sampleLink: SupportServiceMoreInformation["sampleLink"];
+  if (sampleLinkValue === null) {
+    sampleLink = null;
+  } else if (sampleLinkValue !== undefined) {
+    const item = moreInformationItem(
+      sampleLinkValue,
+      "Service offer moreInformation.sampleLink",
+      ["title", "description", "buttonTitle", "url"],
+    );
+    sampleLink = {
+      title: requiredMoreInformationString(
+        item.title,
+        "Service offer moreInformation.sampleLink title",
+      ),
+      description: requiredMoreInformationString(
+        item.description,
+        "Service offer moreInformation.sampleLink description",
+      ),
+      buttonTitle: requiredMoreInformationString(
+        item.buttonTitle,
+        "Service offer moreInformation.sampleLink buttonTitle",
+      ),
+      url: moreInformationHttpsUrl(
+        item.url,
+        "Service offer moreInformation.sampleLink url",
+      ),
+    };
+  }
+  let websiteUrl: string | null | undefined;
+  if (information.websiteUrl === null) {
+    websiteUrl = null;
+  } else if (information.websiteUrl !== undefined) {
+    websiteUrl = moreInformationHttpsUrl(
+      information.websiteUrl,
+      "Service offer moreInformation.websiteUrl",
+    );
+  }
+
+  return withoutUndefined({
+    frequentQuestions: normalizeArray(
+      "frequentQuestions",
+      ["question", "answer"],
+      (item, index) => ({
+        question: requiredMoreInformationString(
+          item.question,
+          `Service offer moreInformation.frequentQuestions item ${index + 1} question`,
+        ),
+        answer: requiredMoreInformationString(
+          item.answer,
+          `Service offer moreInformation.frequentQuestions item ${index + 1} answer`,
+        ),
+      }),
+    ),
+    keyInsights: titleDescriptionArray("keyInsights"),
+    scientificFacts: titleDescriptionArray("scientificFacts"),
+    usefulLinks: normalizeArray(
+      "usefulLinks",
+      ["title", "url"],
+      (item, index) => ({
+        title: requiredMoreInformationString(
+          item.title,
+          `Service offer moreInformation.usefulLinks item ${index + 1} title`,
+        ),
+        url: moreInformationHttpsUrl(
+          item.url,
+          `Service offer moreInformation.usefulLinks item ${index + 1} url`,
+        ),
+      }),
+    ),
+    sampleLink,
+    bulletSegments: normalizeArray(
+      "bulletSegments",
+      ["title", "description", "imageUrl"],
+      (item, index) => ({
+        title: requiredMoreInformationString(
+          item.title,
+          `Service offer moreInformation.bulletSegments item ${index + 1} title`,
+        ),
+        description: requiredMoreInformationString(
+          item.description,
+          `Service offer moreInformation.bulletSegments item ${index + 1} description`,
+        ),
+        imageUrl: moreInformationHttpsUrl(
+          item.imageUrl,
+          `Service offer moreInformation.bulletSegments item ${index + 1} imageUrl`,
+        ),
+      }),
+    ),
+    technicalInformationFacts: normalizeArray(
+      "technicalInformationFacts",
+      ["title", "description", "subitems"],
+      (item, index) => {
+        if (!Array.isArray(item.subitems)) {
+          throw new AdminRepositoryError(
+            `Service offer moreInformation.technicalInformationFacts item ${index + 1} subitems must be an array.`,
+            400,
+          );
+        }
+        return {
+          title: requiredMoreInformationString(
+            item.title,
+            `Service offer moreInformation.technicalInformationFacts item ${index + 1} title`,
+          ),
+          description: requiredMoreInformationString(
+            item.description,
+            `Service offer moreInformation.technicalInformationFacts item ${index + 1} description`,
+          ),
+          subitems: item.subitems.map((subitem, subitemIndex) =>
+            requiredMoreInformationString(
+              subitem,
+              `Service offer moreInformation.technicalInformationFacts item ${index + 1} subitem ${subitemIndex + 1}`,
+            ),
+          ),
+        };
+      },
+    ),
+    biologicalSampleRequirements: normalizeArray(
+      "biologicalSampleRequirements",
+      ["title", "description", "instructions"],
+      (item, index) => ({
+        title: requiredMoreInformationString(
+          item.title,
+          `Service offer moreInformation.biologicalSampleRequirements item ${index + 1} title`,
+        ),
+        description: requiredMoreInformationString(
+          item.description,
+          `Service offer moreInformation.biologicalSampleRequirements item ${index + 1} description`,
+        ),
+        instructions: requiredMoreInformationString(
+          item.instructions,
+          `Service offer moreInformation.biologicalSampleRequirements item ${index + 1} instructions`,
+        ),
+      }),
+    ),
+    websiteUrl,
+  }) as SupportServiceMoreInformation;
+}
+
 function normalizeStage(value: unknown): SupportServiceStage | null {
   const normalized = normalizeKey(cleanString(value));
   return STAGE_SET.has(normalized)
@@ -1683,6 +1996,7 @@ function offerDocument(
     acceptedConditions: cleanStringArray(input.acceptedConditions),
     scopeRules: cleanStringArray(input.scopeRules),
     commercialTerms: normalizeCommercialTerms(input.commercialTerms),
+    moreInformation: normalizeMoreInformation(input.moreInformation),
     normalizedName: normalizeName(
       `${name} ${serviceId} ${serviceCategory} ${providerId} ${providerName}`,
     ),
@@ -1859,6 +2173,24 @@ const CHANGE_LOG_FIELD_LABELS: Record<
     acceptedConditions: "Acceptance conditions",
     scopeRules: "Service limitations",
     commercialTerms: "Commercial terms",
+    moreInformation: "More information",
+    frequentQuestions: "frequent questions",
+    keyInsights: "key insights",
+    scientificFacts: "scientific facts",
+    usefulLinks: "useful links",
+    sampleLink: "sample link",
+    bulletSegments: "illustrated segments",
+    technicalInformationFacts: "technical information",
+    biologicalSampleRequirements: "biological sample requirements",
+    websiteUrl: "website URL",
+    question: "question",
+    answer: "answer",
+    title: "title",
+    buttonTitle: "button title",
+    url: "URL",
+    imageUrl: "image URL",
+    subitems: "supporting points",
+    instructions: "instructions",
     id: "ID",
     version: "version",
     allowUnknownFields: "allow unknown fields",
@@ -1908,6 +2240,24 @@ const CHANGE_LOG_FIELD_LABELS: Record<
     acceptedConditions: "Condiciones de aceptación",
     scopeRules: "Limitaciones del servicio",
     commercialTerms: "Términos comerciales",
+    moreInformation: "Más información",
+    frequentQuestions: "preguntas frecuentes",
+    keyInsights: "aspectos clave",
+    scientificFacts: "datos científicos",
+    usefulLinks: "enlaces útiles",
+    sampleLink: "enlace de ejemplo",
+    bulletSegments: "segmentos ilustrados",
+    technicalInformationFacts: "información técnica",
+    biologicalSampleRequirements: "requisitos de muestra biológica",
+    websiteUrl: "URL del sitio web",
+    question: "pregunta",
+    answer: "respuesta",
+    title: "título",
+    buttonTitle: "texto del botón",
+    url: "URL",
+    imageUrl: "URL de imagen",
+    subitems: "puntos de apoyo",
+    instructions: "instrucciones",
     id: "ID",
     version: "versión",
     allowUnknownFields: "permitir campos desconocidos",
@@ -1961,6 +2311,7 @@ function offerChangeLogModel(document: SupportServiceOfferDocument) {
     acceptedConditions: document.acceptedConditions,
     scopeRules: document.scopeRules,
     commercialTerms: document.commercialTerms,
+    moreInformation: document.moreInformation,
   };
 }
 
@@ -2268,6 +2619,7 @@ function offerSnapshotForTransaction(
     acceptedConditions: offer.acceptedConditions,
     scopeRules: offer.scopeRules,
     commercialTerms: offer.commercialTerms,
+    moreInformation: offer.moreInformation,
   });
 }
 
@@ -4495,6 +4847,7 @@ function toOfferRecord(
     acceptedConditions: cleanStringArray(data.acceptedConditions),
     scopeRules: cleanStringArray(data.scopeRules),
     commercialTerms: normalizeCommercialTerms(data.commercialTerms),
+    moreInformation: normalizeMoreInformation(data.moreInformation),
     changeLogHistoryByVersion: changeLogHistoryFromUnknown(
       data.changeLogHistoryByVersion,
     ),
@@ -4750,6 +5103,20 @@ function toOfferAdminRecord(
     }
   }
 
+  let moreInformation: ReturnType<typeof normalizeMoreInformation>;
+  if (data.moreInformation !== undefined) {
+    try {
+      moreInformation = normalizeMoreInformation(data.moreInformation);
+    } catch (error) {
+      pushComplianceWarning(
+        complianceWarnings,
+        error instanceof Error
+          ? `moreInformation: ${error.message}`
+          : "moreInformation is malformed and was omitted.",
+      );
+    }
+  }
+
   let promotionalBannerImage: ReturnType<
     typeof promotionalBannerImageDocumentFields
   > = {};
@@ -4849,6 +5216,7 @@ function toOfferAdminRecord(
       complianceWarnings,
     ),
     commercialTerms,
+    moreInformation,
     changeLogHistoryByVersion: changeLogHistoryFromUnknown(
       data.changeLogHistoryByVersion,
       complianceWarnings,

@@ -123,6 +123,104 @@ export interface SupportServiceCommercialTerms {
   turnaround?: string;
 }
 
+export interface SupportServiceFrequentQuestion {
+  question: string;
+  answer: string;
+}
+
+export interface SupportServiceInformationFact {
+  title: string;
+  description: string;
+}
+
+export interface SupportServiceUsefulLink {
+  title: string;
+  url: string;
+}
+
+export interface SupportServiceSampleLink {
+  title: string;
+  description: string;
+  buttonTitle: string;
+  url: string;
+}
+
+export interface SupportServiceBulletSegment {
+  title: string;
+  description: string;
+  imageUrl: string;
+}
+
+export interface SupportServiceTechnicalInformationFact
+  extends SupportServiceInformationFact {
+  subitems: string[];
+}
+
+export interface SupportServiceBiologicalSampleRequirement
+  extends SupportServiceInformationFact {
+  instructions: string;
+}
+
+export interface SupportServiceMoreInformation {
+  frequentQuestions?: SupportServiceFrequentQuestion[] | null;
+  keyInsights?: SupportServiceInformationFact[] | null;
+  scientificFacts?: SupportServiceInformationFact[] | null;
+  usefulLinks?: SupportServiceUsefulLink[] | null;
+  sampleLink?: SupportServiceSampleLink | null;
+  bulletSegments?: SupportServiceBulletSegment[] | null;
+  technicalInformationFacts?:
+    | SupportServiceTechnicalInformationFact[]
+    | null;
+  biologicalSampleRequirements?:
+    | SupportServiceBiologicalSampleRequirement[]
+    | null;
+  websiteUrl?: string | null;
+}
+
+export function isSupportServiceMoreInformationHttpsUrl(value: string) {
+  if (
+    value !== value.trim() ||
+    !value.startsWith("https://") ||
+    /\s/.test(value)
+  ) {
+    return false;
+  }
+
+  try {
+    const authority =
+      value.slice("https://".length).split(/[/?#]/, 1)[0] ?? "";
+    const bracketedIpv6Authority = authority.match(
+      /^\[([0-9A-Fa-f:.]+)\](?::([0-9]{1,5}))?$/,
+    );
+    const dnsAuthority = authority.match(/^([^:]+)(?::([0-9]{1,5}))?$/);
+    const dnsHost = dnsAuthority?.[1];
+    const validDnsOrIpv4Host = Boolean(
+      dnsHost &&
+        dnsHost.split(".").every((label) =>
+          /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(
+            label,
+          ),
+        ),
+    );
+    if (!bracketedIpv6Authority && !validDnsOrIpv4Host) {
+      return false;
+    }
+
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      !url.hostname ||
+      url.username ||
+      url.password
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface SupportServiceOfferInput {
   serviceId: string;
   serviceVersion?: number;
@@ -147,6 +245,7 @@ export interface SupportServiceOfferInput {
   acceptedConditions?: string[];
   scopeRules?: string[];
   commercialTerms?: SupportServiceCommercialTerms;
+  moreInformation?: SupportServiceMoreInformation | null;
 }
 
 export interface SupportServiceOfferUpdateInput
@@ -170,6 +269,7 @@ export interface SupportServiceOfferRecord
       SupportServiceOfferInput,
       | "formShape"
       | "commercialTerms"
+      | "moreInformation"
       | "serviceCategory"
       | "promotionalBannerImageUrl"
       | "promotionalBannerImageUploadDataUrl"
@@ -182,6 +282,7 @@ export interface SupportServiceOfferRecord
   serviceCategory: string;
   formShape?: SupportServiceFormShape;
   commercialTerms?: SupportServiceCommercialTerms;
+  moreInformation?: SupportServiceMoreInformation | null;
   promotionalBannerImageUrl?: string | null;
   promotionalBannerImageUploadDataUrl?: string | null;
   changeLogHistoryByVersion?: SupportServiceOfferChangeLogHistory;
@@ -272,6 +373,7 @@ export interface SupportServiceOfferSnapshot extends Record<string, unknown> {
   acceptedConditions?: string[];
   scopeRules?: string[];
   commercialTerms?: SupportServiceCommercialTerms;
+  moreInformation?: SupportServiceMoreInformation | null;
 }
 
 export interface SupportServiceProviderSnapshot extends Record<string, unknown> {

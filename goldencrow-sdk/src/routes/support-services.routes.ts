@@ -122,6 +122,123 @@ const PromotionalBannerImageUploadDataUrlSchema = z.preprocess(
     .nullable()
     .optional(),
 );
+const MoreInformationTextSchema = z.string().trim().min(1);
+const MoreInformationHttpsUrlSchema = z
+  .string()
+  .min(1)
+  .refine(
+    (value) => {
+      if (
+        value !== value.trim() ||
+        !value.startsWith("https://") ||
+        /\s/.test(value)
+      ) {
+        return false;
+      }
+      try {
+        const authority =
+          value.slice("https://".length).split(/[/?#]/, 1)[0] ?? "";
+        const bracketedIpv6Authority = authority.match(
+          /^\[([0-9A-Fa-f:.]+)\](?::([0-9]{1,5}))?$/,
+        );
+        const dnsAuthority = authority.match(/^([^:]+)(?::([0-9]{1,5}))?$/);
+        const dnsHost = dnsAuthority?.[1];
+        const validDnsOrIpv4Host = Boolean(
+          dnsHost &&
+            dnsHost.split(".").every((label) =>
+              /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(
+                label,
+              ),
+            ),
+        );
+        if (!bracketedIpv6Authority && !validDnsOrIpv4Host) {
+          return false;
+        }
+
+        const url = new URL(value);
+        if (
+          url.protocol !== "https:" ||
+          !url.hostname ||
+          url.username ||
+          url.password
+        ) {
+          return false;
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: "Use an absolute lowercase HTTPS URL without userinfo or whitespace." },
+  );
+const MoreInformationFrequentQuestionSchema = z
+  .object({
+    question: MoreInformationTextSchema,
+    answer: MoreInformationTextSchema,
+  })
+  .strict();
+const MoreInformationFactSchema = z
+  .object({
+    title: MoreInformationTextSchema,
+    description: MoreInformationTextSchema,
+  })
+  .strict();
+const MoreInformationUsefulLinkSchema = z
+  .object({
+    title: MoreInformationTextSchema,
+    url: MoreInformationHttpsUrlSchema,
+  })
+  .strict();
+const MoreInformationSampleLinkSchema = z
+  .object({
+    title: MoreInformationTextSchema,
+    description: MoreInformationTextSchema,
+    buttonTitle: MoreInformationTextSchema,
+    url: MoreInformationHttpsUrlSchema,
+  })
+  .strict();
+const MoreInformationBulletSegmentSchema = z
+  .object({
+    title: MoreInformationTextSchema,
+    description: MoreInformationTextSchema,
+    imageUrl: MoreInformationHttpsUrlSchema,
+  })
+  .strict();
+const MoreInformationTechnicalFactSchema = MoreInformationFactSchema.extend({
+  subitems: z.array(MoreInformationTextSchema),
+}).strict();
+const MoreInformationBiologicalSampleRequirementSchema =
+  MoreInformationFactSchema.extend({
+    instructions: MoreInformationTextSchema,
+  }).strict();
+const MoreInformationSchema = z
+  .object({
+    frequentQuestions: z
+      .array(MoreInformationFrequentQuestionSchema)
+      .nullable()
+      .optional(),
+    keyInsights: z.array(MoreInformationFactSchema).nullable().optional(),
+    scientificFacts: z.array(MoreInformationFactSchema).nullable().optional(),
+    usefulLinks: z
+      .array(MoreInformationUsefulLinkSchema)
+      .nullable()
+      .optional(),
+    sampleLink: MoreInformationSampleLinkSchema.nullable().optional(),
+    bulletSegments: z
+      .array(MoreInformationBulletSegmentSchema)
+      .nullable()
+      .optional(),
+    technicalInformationFacts: z
+      .array(MoreInformationTechnicalFactSchema)
+      .nullable()
+      .optional(),
+    biologicalSampleRequirements: z
+      .array(MoreInformationBiologicalSampleRequirementSchema)
+      .nullable()
+      .optional(),
+    websiteUrl: MoreInformationHttpsUrlSchema.nullable().optional(),
+  })
+  .strict();
 const ObjectIdSchema = z
   .string()
   .trim()
@@ -375,6 +492,7 @@ const OfferBodySchema = z.object({
     .max(30)
     .optional(),
   commercialTerms: CommercialTermsSchema.optional(),
+  moreInformation: MoreInformationSchema.nullable().optional(),
 }).strict();
 const CreateOfferBodySchema = OfferBodySchema.extend({
   serviceId: GeneratedServiceIdSchema,

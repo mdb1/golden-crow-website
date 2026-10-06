@@ -5,11 +5,13 @@ import type {
   SupportServiceFormFieldType,
   SupportServiceFormShape,
   SupportServiceInputSlot,
+  SupportServiceMoreInformation,
   SupportServiceOfferInput,
   SupportServiceOutputSlot,
   SupportServicePricingModel,
   SupportServiceStage,
 } from "@/lib/support-services";
+import { isSupportServiceMoreInformationHttpsUrl } from "@/lib/support-services";
 import {
   isSupportServiceCategoryKey,
   type SupportServiceCategoryKey,
@@ -66,6 +68,262 @@ function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function requiredCatalogString(value: unknown, fieldName: string) {
+  const text = cleanString(value);
+  if (!text) {
+    throw new Error(`${fieldName} must be a nonempty string.`);
+  }
+  return text;
+}
+
+function requiredCatalogHttpsUrl(value: unknown, fieldName: string) {
+  const url = requiredCatalogString(value, fieldName);
+  if (!isSupportServiceMoreInformationHttpsUrl(url)) {
+    throw new Error(`${fieldName} must be a valid lowercase HTTPS URL.`);
+  }
+  return url;
+}
+
+function assertCatalogKeys(
+  value: Record<string, unknown>,
+  allowedKeys: readonly string[],
+  fieldName: string,
+) {
+  const unknownKeys = Object.keys(value).filter(
+    (key) => !allowedKeys.includes(key),
+  );
+  if (unknownKeys.length) {
+    throw new Error(
+      `${fieldName} contains unsupported keys: ${unknownKeys.join(", ")}.`,
+    );
+  }
+}
+
+function optionalCatalogArray<T>(
+  value: unknown,
+  fieldName: string,
+  normalize: (item: Record<string, unknown>, index: number) => T,
+) {
+  if (value == null) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`${fieldName} must be an array.`);
+  }
+  return value.map((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error(`${fieldName}[${index}] must be an object.`);
+    }
+    return normalize(item as Record<string, unknown>, index);
+  });
+}
+
+export function normalizePocketGenesCatalogMoreInformation(
+  value: unknown,
+): SupportServiceMoreInformation | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("moreInformation must be an object.");
+  }
+  const information = value as Record<string, unknown>;
+  assertCatalogKeys(
+    information,
+    [
+      "frequentQuestions",
+      "keyInsights",
+      "scientificFacts",
+      "usefulLinks",
+      "sampleLink",
+      "bulletSegments",
+      "technicalInformationFacts",
+      "biologicalSampleRequirements",
+      "websiteUrl",
+    ],
+    "moreInformation",
+  );
+  const titleDescriptionItems = (fieldName: string, fieldValue: unknown) =>
+    optionalCatalogArray(fieldValue, fieldName, (item, index) => {
+      assertCatalogKeys(item, ["title", "description"], `${fieldName}[${index}]`);
+      return {
+        title: requiredCatalogString(
+          item.title,
+          `${fieldName}[${index}].title`,
+        ),
+        description: requiredCatalogString(
+          item.description,
+          `${fieldName}[${index}].description`,
+        ),
+      };
+    });
+
+  return {
+    frequentQuestions: optionalCatalogArray(
+      information.frequentQuestions,
+      "moreInformation.frequentQuestions",
+      (item, index) => {
+        assertCatalogKeys(
+          item,
+          ["question", "answer"],
+          `moreInformation.frequentQuestions[${index}]`,
+        );
+        return {
+          question: requiredCatalogString(
+            item.question,
+            `moreInformation.frequentQuestions[${index}].question`,
+          ),
+          answer: requiredCatalogString(
+            item.answer,
+            `moreInformation.frequentQuestions[${index}].answer`,
+          ),
+        };
+      },
+    ),
+    keyInsights: titleDescriptionItems(
+      "moreInformation.keyInsights",
+      information.keyInsights,
+    ),
+    scientificFacts: titleDescriptionItems(
+      "moreInformation.scientificFacts",
+      information.scientificFacts,
+    ),
+    usefulLinks: optionalCatalogArray(
+      information.usefulLinks,
+      "moreInformation.usefulLinks",
+      (item, index) => {
+        assertCatalogKeys(
+          item,
+          ["title", "url"],
+          `moreInformation.usefulLinks[${index}]`,
+        );
+        return {
+          title: requiredCatalogString(
+            item.title,
+            `moreInformation.usefulLinks[${index}].title`,
+          ),
+          url: requiredCatalogHttpsUrl(
+            item.url,
+            `moreInformation.usefulLinks[${index}].url`,
+          ),
+        };
+      },
+    ),
+    sampleLink:
+      information.sampleLink == null
+        ? undefined
+        : (() => {
+            const item = record(information.sampleLink);
+            assertCatalogKeys(
+              item,
+              ["title", "description", "buttonTitle", "url"],
+              "moreInformation.sampleLink",
+            );
+            return {
+              title: requiredCatalogString(
+                item.title,
+                "moreInformation.sampleLink.title",
+              ),
+              description: requiredCatalogString(
+                item.description,
+                "moreInformation.sampleLink.description",
+              ),
+              buttonTitle: requiredCatalogString(
+                item.buttonTitle,
+                "moreInformation.sampleLink.buttonTitle",
+              ),
+              url: requiredCatalogHttpsUrl(
+                item.url,
+                "moreInformation.sampleLink.url",
+              ),
+            };
+          })(),
+    bulletSegments: optionalCatalogArray(
+      information.bulletSegments,
+      "moreInformation.bulletSegments",
+      (item, index) => {
+        assertCatalogKeys(
+          item,
+          ["title", "description", "imageUrl"],
+          `moreInformation.bulletSegments[${index}]`,
+        );
+        return {
+          title: requiredCatalogString(
+            item.title,
+            `moreInformation.bulletSegments[${index}].title`,
+          ),
+          description: requiredCatalogString(
+            item.description,
+            `moreInformation.bulletSegments[${index}].description`,
+          ),
+          imageUrl: requiredCatalogHttpsUrl(
+            item.imageUrl,
+            `moreInformation.bulletSegments[${index}].imageUrl`,
+          ),
+        };
+      },
+    ),
+    technicalInformationFacts: optionalCatalogArray(
+      information.technicalInformationFacts,
+      "moreInformation.technicalInformationFacts",
+      (item, index) => {
+        const fieldName = `moreInformation.technicalInformationFacts[${index}]`;
+        assertCatalogKeys(
+          item,
+          ["title", "description", "subitems"],
+          fieldName,
+        );
+        if (!Array.isArray(item.subitems)) {
+          throw new Error(`${fieldName}.subitems must be an array.`);
+        }
+        return {
+          title: requiredCatalogString(item.title, `${fieldName}.title`),
+          description: requiredCatalogString(
+            item.description,
+            `${fieldName}.description`,
+          ),
+          subitems: item.subitems.map((subitem, subitemIndex) =>
+            requiredCatalogString(
+              subitem,
+              `${fieldName}.subitems[${subitemIndex}]`,
+            ),
+          ),
+        };
+      },
+    ),
+    biologicalSampleRequirements: optionalCatalogArray(
+      information.biologicalSampleRequirements,
+      "moreInformation.biologicalSampleRequirements",
+      (item, index) => {
+        const fieldName = `moreInformation.biologicalSampleRequirements[${index}]`;
+        assertCatalogKeys(
+          item,
+          ["title", "description", "instructions"],
+          fieldName,
+        );
+        return {
+          title: requiredCatalogString(item.title, `${fieldName}.title`),
+          description: requiredCatalogString(
+            item.description,
+            `${fieldName}.description`,
+          ),
+          instructions: requiredCatalogString(
+            item.instructions,
+            `${fieldName}.instructions`,
+          ),
+        };
+      },
+    ),
+    websiteUrl:
+      information.websiteUrl == null
+        ? undefined
+        : requiredCatalogHttpsUrl(
+            information.websiteUrl,
+            "moreInformation.websiteUrl",
+          ),
+  };
 }
 
 function normalizeStage(value: string): SupportServiceStage {
@@ -231,6 +489,9 @@ export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
           : undefined,
       turnaround: cleanString(commercialTerms.turnaround),
     },
+    moreInformation: normalizePocketGenesCatalogMoreInformation(
+      service.moreInformation,
+    ),
   } satisfies SupportServiceOfferInput & {
     value: string;
     label: string;

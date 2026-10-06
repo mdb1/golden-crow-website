@@ -62,6 +62,7 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { FileJsonWizard } from "@/components/file-storage/file-json-wizard";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { PublisherPortalEmptyState } from "@/components/publisher-portal-empty-state";
+import { ServiceOfferMoreInformationEditor } from "@/components/god-mode/service-offer-more-information-editor";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -137,6 +138,7 @@ import {
   SUPPORT_SERVICE_OFFER_STATUSES,
   SUPPORT_SERVICE_STAGES,
   SUPPORT_SERVICE_TRANSACTION_STATUSES,
+  isSupportServiceMoreInformationHttpsUrl,
   mutationModeLabel,
   offerStatusLabel,
   stageLabel,
@@ -147,6 +149,7 @@ import {
   type SupportServiceInputSlot,
   type SupportServiceIdAvailability,
   type SupportServiceMutationMode,
+  type SupportServiceMoreInformation,
   type SupportServiceOfferInput,
   type SupportServiceOfferRecord,
   type SupportServiceOfferUpdateInput,
@@ -226,6 +229,7 @@ type OfferFormState = {
   acceptedConditionsText: string;
   scopeRulesText: string;
   commercialTerms: SupportServiceCommercialTerms;
+  moreInformation: SupportServiceMoreInformation;
 };
 
 type ObjectRefDraft = {
@@ -507,6 +511,10 @@ const SERVICE_OFFER_WIZARD_STEPS = [
   {
     title: "Service presentation",
     description: "Explain what the requester receives and what you do.",
+  },
+  {
+    title: "More information",
+    description: "Build optional rich sections for the service detail experience.",
   },
   {
     title: "Request form",
@@ -999,6 +1007,146 @@ function serviceOutputSlots(slots: SupportServiceOutputSlot[]) {
   );
 }
 
+function moreInformationFormValue(
+  value: SupportServiceMoreInformation | null | undefined,
+): SupportServiceMoreInformation {
+  return {
+    frequentQuestions: value?.frequentQuestions?.map((item) => ({ ...item })),
+    keyInsights: value?.keyInsights?.map((item) => ({ ...item })),
+    scientificFacts: value?.scientificFacts?.map((item) => ({ ...item })),
+    usefulLinks: value?.usefulLinks?.map((item) => ({ ...item })),
+    sampleLink: value?.sampleLink ? { ...value.sampleLink } : undefined,
+    bulletSegments: value?.bulletSegments?.map((item) => ({ ...item })),
+    technicalInformationFacts: value?.technicalInformationFacts?.map(
+      (item) => ({ ...item, subitems: [...item.subitems] }),
+    ),
+    biologicalSampleRequirements:
+      value?.biologicalSampleRequirements?.map((item) => ({ ...item })),
+    websiteUrl: value?.websiteUrl ?? undefined,
+  };
+}
+
+function normalizedMoreInformationPayload(
+  value: SupportServiceMoreInformation,
+): SupportServiceMoreInformation | undefined {
+  const requiredText = (text: string, label: string) => {
+    const normalized = text.trim();
+    if (!normalized) {
+      throw new Error(`${label} is required.`);
+    }
+    return normalized;
+  };
+  const httpsUrl = (url: string, label: string) => {
+    const normalized = requiredText(url, label);
+    if (!isSupportServiceMoreInformationHttpsUrl(normalized)) {
+      throw new Error(`${label} must be a valid HTTPS URL.`);
+    }
+    return normalized;
+  };
+  const frequentQuestions = value.frequentQuestions?.map((item, index) => ({
+    question: requiredText(
+      item.question,
+      `Frequent question ${index + 1} question`,
+    ),
+    answer: requiredText(
+      item.answer,
+      `Frequent question ${index + 1} answer`,
+    ),
+  }));
+  const titleDescriptionItems = (
+    items: Array<{ title: string; description: string }> | null | undefined,
+    label: string,
+  ) =>
+    items?.map((item, index) => ({
+      title: requiredText(item.title, `${label} ${index + 1} title`),
+      description: requiredText(
+        item.description,
+        `${label} ${index + 1} description`,
+      ),
+    }));
+  const keyInsights = titleDescriptionItems(value.keyInsights, "Key insight");
+  const scientificFacts = titleDescriptionItems(
+    value.scientificFacts,
+    "Scientific fact",
+  );
+  const usefulLinks = value.usefulLinks?.map((item, index) => ({
+    title: requiredText(item.title, `Useful link ${index + 1} title`),
+    url: httpsUrl(item.url, `Useful link ${index + 1} URL`),
+  }));
+  const sampleLink = value.sampleLink
+    ? {
+        title: requiredText(value.sampleLink.title, "Sample link title"),
+        description: requiredText(
+          value.sampleLink.description,
+          "Sample link description",
+        ),
+        buttonTitle: requiredText(
+          value.sampleLink.buttonTitle,
+          "Sample link button title",
+        ),
+        url: httpsUrl(value.sampleLink.url, "Sample link URL"),
+      }
+    : undefined;
+  const bulletSegments = value.bulletSegments?.map((item, index) => ({
+    title: requiredText(item.title, `Illustrated segment ${index + 1} title`),
+    description: requiredText(
+      item.description,
+      `Illustrated segment ${index + 1} description`,
+    ),
+    imageUrl: httpsUrl(
+      item.imageUrl,
+      `Illustrated segment ${index + 1} image URL`,
+    ),
+  }));
+  const technicalInformationFacts = value.technicalInformationFacts?.map(
+    (item, index) => ({
+      title: requiredText(item.title, `Technical fact ${index + 1} title`),
+      description: requiredText(
+        item.description,
+        `Technical fact ${index + 1} description`,
+      ),
+      subitems: item.subitems.map((subitem, subitemIndex) =>
+        requiredText(
+          subitem,
+          `Technical fact ${index + 1} supporting point ${subitemIndex + 1}`,
+        ),
+      ),
+    }),
+  );
+  const biologicalSampleRequirements =
+    value.biologicalSampleRequirements?.map((item, index) => ({
+      title: requiredText(item.title, `Sample requirement ${index + 1} title`),
+      description: requiredText(
+        item.description,
+        `Sample requirement ${index + 1} description`,
+      ),
+      instructions: requiredText(
+        item.instructions,
+        `Sample requirement ${index + 1} instructions`,
+      ),
+    }));
+  const websiteUrl = value.websiteUrl?.trim()
+    ? httpsUrl(value.websiteUrl, "Website URL")
+    : undefined;
+  const normalized = {
+    ...(frequentQuestions?.length ? { frequentQuestions } : {}),
+    ...(keyInsights?.length ? { keyInsights } : {}),
+    ...(scientificFacts?.length ? { scientificFacts } : {}),
+    ...(usefulLinks?.length ? { usefulLinks } : {}),
+    ...(sampleLink ? { sampleLink } : {}),
+    ...(bulletSegments?.length ? { bulletSegments } : {}),
+    ...(technicalInformationFacts?.length
+      ? { technicalInformationFacts }
+      : {}),
+    ...(biologicalSampleRequirements?.length
+      ? { biologicalSampleRequirements }
+      : {}),
+    ...(websiteUrl ? { websiteUrl } : {}),
+  } satisfies SupportServiceMoreInformation;
+
+  return Object.keys(normalized).length ? normalized : undefined;
+}
+
 function defaultOfferForm(): OfferFormState {
   return {
     serviceId: "pgs_",
@@ -1029,6 +1177,7 @@ function defaultOfferForm(): OfferFormState {
       pricingModel: "not_specified",
       price: { currency: "ARS" },
     },
+    moreInformation: {},
   };
 }
 
@@ -1137,6 +1286,7 @@ function offerFormFromCatalog(
       price: { ...catalogOffer.commercialTerms.price },
       turnaround: catalogOffer.commercialTerms.turnaround,
     },
+    moreInformation: moreInformationFormValue(catalogOffer.moreInformation),
   };
 }
 
@@ -1190,6 +1340,7 @@ function offerFormFromRecord(
       pricingModel: "not_specified",
       price: { currency: "ARS" },
     },
+    moreInformation: moreInformationFormValue(record.moreInformation),
   };
 }
 
@@ -1514,6 +1665,9 @@ function offerSnapshotFromOffer(
     acceptedConditions: [...offer.acceptedConditions],
     scopeRules: [...offer.scopeRules],
     commercialTerms: offer.commercialTerms,
+    moreInformation: offer.moreInformation
+      ? moreInformationFormValue(offer.moreInformation)
+      : offer.moreInformation,
   };
 }
 
@@ -1965,6 +2119,7 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
       : undefined,
     scopeRules: scopeRules.length ? scopeRules : undefined,
     commercialTerms: commercialTermsPayload(form.commercialTerms),
+    moreInformation: normalizedMoreInformationPayload(form.moreInformation),
   };
 }
 
@@ -4117,14 +4272,14 @@ export function SupportServiceOfferWorkbench({
       }
     }
 
-    if (stepIndex === 8 && candidateForm.stages.length === 0) {
+    if (stepIndex === 9 && candidateForm.stages.length === 0) {
       return t("Select at least one stage before continuing.");
     }
 
     if (stepIndex >= 4) {
       try {
         offerPayloadFromForm(
-          stepIndex < 8 && candidateForm.stages.length === 0
+          stepIndex < 9 && candidateForm.stages.length === 0
             ? { ...candidateForm, stages: ["test_planning"] }
             : candidateForm,
         );
@@ -4140,7 +4295,7 @@ export function SupportServiceOfferWorkbench({
 
   function advanceWizard() {
     const shouldIgnoreEmptyForm =
-      wizardStepIndex === 4 &&
+      wizardStepIndex === 5 &&
       form.supportsFormShape &&
       form.formShape.fields.length === 0;
     const candidateForm = shouldIgnoreEmptyForm
@@ -4450,6 +4605,19 @@ export function SupportServiceOfferWorkbench({
                 ) : null}
 
                 {wizardStepIndex === 4 ? (
+                  <ServiceOfferMoreInformationEditor
+                    value={form.moreInformation}
+                    presentation="wizard"
+                    onChange={(moreInformation) =>
+                      setForm((current) => ({
+                        ...current,
+                        moreInformation,
+                      }))
+                    }
+                  />
+                ) : null}
+
+                {wizardStepIndex === 5 ? (
                   <FormShapeEditor
                     form={form}
                     setForm={setForm}
@@ -4459,15 +4627,15 @@ export function SupportServiceOfferWorkbench({
                   />
                 ) : null}
 
-                {wizardStepIndex === 5 ? (
+                {wizardStepIndex === 6 ? (
                   <SlotEditors form={form} setForm={setForm} layout="stack" />
                 ) : null}
 
-                {wizardStepIndex === 6 ? (
+                {wizardStepIndex === 7 ? (
                   <TermsEditor form={form} setForm={setForm} layout="stack" />
                 ) : null}
 
-                {wizardStepIndex === 7 ? (
+                {wizardStepIndex === 8 ? (
                   <div
                     data-testid="service-offer-wizard-conditions-layout"
                     className="grid gap-8 [&>section]:m-0"
@@ -4517,7 +4685,7 @@ export function SupportServiceOfferWorkbench({
                   </div>
                 ) : null}
 
-                {wizardStepIndex === 8 ? (
+                {wizardStepIndex === 9 ? (
                   <StagePipeline
                     value={form.stages}
                     predictedValue={predictedStages}
@@ -4538,7 +4706,7 @@ export function SupportServiceOfferWorkbench({
                   />
                 ) : null}
 
-                {wizardStepIndex === 9 ? (
+                {wizardStepIndex === 10 ? (
                   <WizardOfferReview
                     form={form}
                     preparationStatus={serviceIdValidationStatus}
@@ -5011,6 +5179,12 @@ export function SupportServiceOfferWorkbench({
             </Field>
           </div>
         </Section>
+        <ServiceOfferMoreInformationEditor
+          value={form.moreInformation}
+          onChange={(moreInformation) =>
+            setForm((current) => ({ ...current, moreInformation }))
+          }
+        />
         <FormShapeEditor
           form={form}
           setForm={setForm}
@@ -5173,6 +5347,79 @@ function WizardReviewClause({
   );
 }
 
+function WizardMoreInformationReview({
+  information,
+}: {
+  information: SupportServiceMoreInformation;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const groups = [
+    {
+      label: "Frequent questions",
+      items: information.frequentQuestions?.map((item) => item.question) ?? [],
+    },
+    {
+      label: "Key insights",
+      items: information.keyInsights?.map((item) => item.title) ?? [],
+    },
+    {
+      label: "Scientific facts",
+      items: information.scientificFacts?.map((item) => item.title) ?? [],
+    },
+    {
+      label: "Useful links",
+      items: information.usefulLinks?.map((item) => item.title) ?? [],
+    },
+    {
+      label: "Sample link",
+      items: information.sampleLink ? [information.sampleLink.title] : [],
+    },
+    {
+      label: "Illustrated segments",
+      items: information.bulletSegments?.map((item) => item.title) ?? [],
+    },
+    {
+      label: "Technical information",
+      items:
+        information.technicalInformationFacts?.map((item) => item.title) ?? [],
+    },
+    {
+      label: "Biological sample requirements",
+      items:
+        information.biologicalSampleRequirements?.map((item) => item.title) ??
+        [],
+    },
+  ].filter((group) => group.items.length > 0);
+
+  if (!groups.length && !information.websiteUrl?.trim()) {
+    return <p className="italic text-slate-500">{t("Not provided")}</p>;
+  }
+
+  return (
+    <div className="grid gap-5">
+      {groups.map((group) => (
+        <div key={group.label}>
+          <h4 className="font-semibold text-slate-950">{t(group.label)}</h4>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {group.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      {information.websiteUrl?.trim() ? (
+        <div>
+          <h4 className="font-semibold text-slate-950">{t("Service website")}</h4>
+          <p className="mt-2 break-all font-mono text-sm">
+            {information.websiteUrl.trim()}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function WizardOfferReview({
   form,
   preparationStatus,
@@ -5323,7 +5570,11 @@ function WizardOfferReview({
           </div>
         </WizardReviewClause>
 
-        <WizardReviewClause number="3" title={t("Inputs and outputs")}>
+        <WizardReviewClause number="3" title={t("More information")}>
+          <WizardMoreInformationReview information={form.moreInformation} />
+        </WizardReviewClause>
+
+        <WizardReviewClause number="4" title={t("Inputs and outputs")}>
           <div>
             <h4 className="font-semibold text-slate-950">{t("Request form")}</h4>
             <p className="mt-1 text-sm text-slate-600">
@@ -5420,7 +5671,7 @@ function WizardOfferReview({
           </div>
         </WizardReviewClause>
 
-        <WizardReviewClause number="4" title={t("Commercial terms")}>
+        <WizardReviewClause number="5" title={t("Commercial terms")}>
           <dl className="divide-y divide-slate-200 border-y border-slate-200">
             <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5">
               <dt className="font-semibold text-slate-900">{t("Pricing")}</dt>
@@ -5439,7 +5690,7 @@ function WizardOfferReview({
           </dl>
         </WizardReviewClause>
 
-        <WizardReviewClause number="5" title={t("Conditions and limitations")}>
+        <WizardReviewClause number="6" title={t("Conditions and limitations")}>
           <div>
             <h4 className="font-semibold text-slate-950">
               {t("Acceptance conditions")}
@@ -5470,7 +5721,7 @@ function WizardOfferReview({
           </div>
         </WizardReviewClause>
 
-        <WizardReviewClause number="6" title={t("Stage pipeline")}>
+        <WizardReviewClause number="7" title={t("Stage pipeline")}>
           <ol className="divide-y divide-slate-200 border-y border-slate-200">
             {selectedStages.map((stage, index) => (
               <li

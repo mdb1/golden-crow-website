@@ -426,6 +426,58 @@ const baseOffer = {
   createdByEmail: "god@example.com",
 };
 
+const completeMoreInformation = {
+  frequentQuestions: [
+    {
+      question: "How should I prepare?",
+      answer: "Follow the instructions sent by the provider.",
+    },
+  ],
+  keyInsights: [
+    {
+      title: "Actionable results",
+      description: "The service focuses on findings that can guide care.",
+    },
+  ],
+  scientificFacts: [
+    {
+      title: "Validated workflow",
+      description: "The analysis follows a documented scientific workflow.",
+    },
+  ],
+  usefulLinks: [
+    { title: "Preparation guide", url: "https://example.org/preparation" },
+  ],
+  sampleLink: {
+    title: "Example report",
+    description: "Review an example of the delivered result.",
+    buttonTitle: "View example",
+    url: "https://example.org/sample-report",
+  },
+  bulletSegments: [
+    {
+      title: "Clear delivery",
+      description: "Results are organized for practical review.",
+      imageUrl: "https://example.org/images/delivery.png",
+    },
+  ],
+  technicalInformationFacts: [
+    {
+      title: "Pipeline",
+      description: "Quality-controlled processing and interpretation.",
+      subitems: ["Quality control", "Expert review"],
+    },
+  ],
+  biologicalSampleRequirements: [
+    {
+      title: "Blood sample",
+      description: "A whole-blood sample is accepted.",
+      instructions: "Use the collection kit supplied by the provider.",
+    },
+  ],
+  websiteUrl: "https://example.org/services/report",
+};
+
 const existingOfferContractAcknowledgement = {
   acknowledgesExistingTransactionContracts: true,
 } as const;
@@ -613,6 +665,62 @@ describe("support service repository versions", () => {
         },
       }),
     ).rejects.toThrow("generated from the selected provider name");
+  });
+
+  it("persists the complete canonical moreInformation map", async () => {
+    const { createSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const offer = await createSupportServiceOffer(context, {
+      ...baseOffer,
+      serviceId: "pgs_pocket_genes_12345",
+      formShape: {
+        ...baseOffer.formShape,
+        id: "pgfs_pocket_genes_12345",
+      },
+      moreInformation: completeMoreInformation,
+    });
+
+    expect(offer.moreInformation).toEqual(completeMoreInformation);
+    const stored = [...collectionStore("service_offers").values()].find(
+      (entry) => entry.serviceId === "pgs_pocket_genes_12345",
+    );
+    expect(stored?.moreInformation).toEqual(completeMoreInformation);
+    expect(stored).not.toHaveProperty("more_information");
+    expect(JSON.stringify(stored?.moreInformation)).not.toContain(
+      "frequent_questions",
+    );
+  });
+
+  it.each([
+    ["snake-case keys", { frequent_questions: [] }],
+    [
+      "unknown child keys",
+      { frequentQuestions: [{ question: "Question", answer: "Answer", note: "No" }] },
+    ],
+    [
+      "empty required item text",
+      { keyInsights: [{ title: " ", description: "Description" }] },
+    ],
+    ["non-HTTPS URLs", { websiteUrl: "http://example.org" }],
+    ["invalid DNS labels", { websiteUrl: "https://bad..example.org" }],
+  ])("rejects moreInformation with %s", async (_label, moreInformation) => {
+    const { createSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createSupportServiceOffer(context, {
+        ...baseOffer,
+        serviceId: "pgs_pocket_genes_12345",
+        formShape: {
+          ...baseOffer.formShape,
+          id: "pgfs_pocket_genes_12345",
+        },
+        moreInformation: moreInformation as never,
+      }),
+    ).rejects.toThrow();
   });
 
   it("keeps the service ID immutable after creation", async () => {
@@ -4726,6 +4834,10 @@ describe("support service canonical transaction creation", () => {
   });
 
   it("atomically writes the canonical root and requester/provider summaries", async () => {
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      moreInformation: completeMoreInformation,
+    });
     const { createSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
@@ -4742,6 +4854,7 @@ describe("support service canonical transaction creation", () => {
       serviceVersion: baseOffer.serviceVersion,
       isHighlightedOffer: false,
       isProfessionalOffer: true,
+      moreInformation: completeMoreInformation,
     });
     expect(created.offerSnapshot).not.toHaveProperty(
       "promotionalBannerImageUrl",
