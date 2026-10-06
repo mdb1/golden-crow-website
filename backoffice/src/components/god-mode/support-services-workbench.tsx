@@ -842,8 +842,13 @@ function compactTurnaround(value: string | undefined) {
     return `${compactMatch[1]}${compactMatch[2]}`;
   }
 
+  const isoMatch = normalized.match(/^p(?:t)?([1-9]\d*)([wdhm])$/);
+  if (isoMatch) {
+    return `${isoMatch[1]}${isoMatch[2]}`;
+  }
+
   const textMatch = normalized.match(
-    /^([1-9]\d*)\s*(?:business\s*)?(week|weeks|w|day|days|d|hour|hours|h|minute|minutes|min|mins|m)\b/,
+    /([1-9]\d*)\s*(?:business\s*)?(weeks?|wks?|w|semanas?|sem|days?|d|d[ií]as?|hours?|hrs?|h|horas?|minutes?|mins?|m|minutos?)(?![a-záéíóúüñ])/,
   );
   if (!textMatch) {
     return undefined;
@@ -851,11 +856,20 @@ function compactTurnaround(value: string | undefined) {
 
   const unitText = textMatch[2];
   const unit: TurnaroundUnit =
-    unitText.startsWith("week") || unitText === "w"
+    unitText.startsWith("week") ||
+    unitText.startsWith("wk") ||
+    unitText.startsWith("sem") ||
+    unitText === "w"
       ? "w"
-      : unitText.startsWith("day") || unitText === "d"
+      : unitText.startsWith("day") ||
+          unitText.startsWith("dí") ||
+          unitText.startsWith("di") ||
+          unitText === "d"
         ? "d"
-        : unitText.startsWith("hour") || unitText === "h"
+        : unitText.startsWith("hour") ||
+            unitText.startsWith("hr") ||
+            unitText.startsWith("hora") ||
+            unitText === "h"
           ? "h"
           : "m";
 
@@ -881,6 +895,23 @@ function formatTurnaround(amount: string, unit: TurnaroundUnit) {
   }
 
   return `${parsed}${unit}`;
+}
+
+function commercialTermsFormValue(
+  value: SupportServiceCommercialTerms | undefined,
+): SupportServiceCommercialTerms {
+  if (!value) {
+    return {
+      pricingModel: "not_specified",
+      price: { currency: "ARS" },
+    };
+  }
+
+  return {
+    ...value,
+    price: value.price ? { ...value.price } : undefined,
+    turnaround: compactTurnaround(value.turnaround),
+  };
 }
 
 function slugKey(value: string) {
@@ -1293,12 +1324,12 @@ function offerFormFromCatalog(
     ),
     acceptedConditionsText: catalogOffer.acceptedConditions.join("\n"),
     scopeRulesText: catalogOffer.scopeRules.join("\n"),
-    commercialTerms: {
+    commercialTerms: commercialTermsFormValue({
       pricingModel:
         catalogOffer.commercialTerms.pricingModel ?? "not_specified",
       price: { ...catalogOffer.commercialTerms.price },
       turnaround: catalogOffer.commercialTerms.turnaround,
-    },
+    }),
     moreInformation: moreInformationFormValue(catalogOffer.moreInformation),
   };
 }
@@ -1349,10 +1380,7 @@ function offerFormFromRecord(
     ),
     acceptedConditionsText: record.acceptedConditions.join("\n"),
     scopeRulesText: record.scopeRules.join("\n"),
-    commercialTerms: record.commercialTerms ?? {
-      pricingModel: "not_specified",
-      price: { currency: "ARS" },
-    },
+    commercialTerms: commercialTermsFormValue(record.commercialTerms),
     moreInformation: moreInformationFormValue(record.moreInformation),
   };
 }
@@ -8696,6 +8724,20 @@ function TermsEditor({
     });
   }
 
+  function updateTurnaroundUnit(unit: string) {
+    if (!TURNAROUND_UNITS.some((option) => option.value === unit)) {
+      return;
+    }
+    const nextUnit = unit as TurnaroundUnit;
+    setTurnaroundUnitDraft(nextUnit);
+    if (!turnaround.amount) {
+      return;
+    }
+    updateTerms({
+      turnaround: formatTurnaround(turnaround.amount, nextUnit),
+    });
+  }
+
   return (
     <Section title="Commercial terms">
       <div
@@ -8777,6 +8819,7 @@ function TermsEditor({
         <Field label="Turnaround">
           <div className="grid grid-cols-[minmax(0,1fr)_9rem] gap-2">
             <Input
+              data-testid="service-offer-turnaround-amount"
               value={turnaround.amount}
               onChange={(event) =>
                 updateTurnaround(event.target.value, selectedTurnaroundUnit)
@@ -8789,9 +8832,7 @@ function TermsEditor({
             />
             <Select
               value={selectedTurnaroundUnit}
-              onValueChange={(unit) =>
-                updateTurnaround(turnaround.amount, unit as TurnaroundUnit)
-              }
+              onValueChange={updateTurnaroundUnit}
             >
               <SelectTrigger>
                 <SelectValue />

@@ -2343,6 +2343,67 @@ describe("support services workbenches", () => {
     });
   });
 
+  it("canonicalizes a loaded legacy turnaround before any commercial-term edit", async () => {
+    const offerWithLegacyTurnaround: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      commercialTerms: {
+        ...hiddenOffer.commercialTerms,
+        turnaround: "Entrega estimada: 2 semanas",
+      },
+    };
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        return { offer: { ...offerWithLegacyTurnaround, ...payload } };
+      }
+      if (
+        String(path).includes("provider-siblings") ||
+        String(path).includes("?limit=")
+      ) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: offerWithLegacyTurnaround };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="edit"
+        offerId={offerWithLegacyTurnaround.id}
+      />,
+    );
+
+    await screen.findByDisplayValue(offerWithLegacyTurnaround.name);
+    await waitFor(() => {
+      expect(
+        (
+          screen.getByTestId(
+            "service-offer-turnaround-amount",
+          ) as HTMLInputElement
+        ).value,
+      ).toBe("2");
+      expect(
+        Array.from(
+          document.querySelectorAll('[data-slot="select-trigger"]'),
+        ).map((element) => element.textContent),
+      ).toContain("Weeks");
+    });
+
+    fireEvent.click(
+      document.getElementById("service-offer-hidden-from-search")!,
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
+
+    await waitFor(() => {
+      const putCall = sdkFetchMock.mock.calls.find(
+        ([, init]) => init?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const payload = JSON.parse(String(putCall?.[1]?.body));
+      expect(payload.commercialTerms.turnaround).toBe("2w");
+    });
+  });
+
   it("saves offer discovery flags and a promotional banner URL with exact camelCase keys", async () => {
     sdkFetchMock.mockImplementation(async (path, init) => {
       if (init?.method === "PUT") {
