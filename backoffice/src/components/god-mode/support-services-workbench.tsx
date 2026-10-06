@@ -139,6 +139,7 @@ import {
   SUPPORT_SERVICE_STAGES,
   SUPPORT_SERVICE_TRANSACTION_STATUSES,
   isSupportServiceMoreInformationHttpsUrl,
+  isSupportServiceMoreInformationImageDataUrl,
   mutationModeLabel,
   offerStatusLabel,
   stageLabel,
@@ -1087,17 +1088,29 @@ function normalizedMoreInformationPayload(
         url: httpsUrl(value.sampleLink.url, "Sample link URL"),
       }
     : undefined;
-  const bulletSegments = value.bulletSegments?.map((item, index) => ({
-    title: requiredText(item.title, `Illustrated segment ${index + 1} title`),
-    description: requiredText(
-      item.description,
-      `Illustrated segment ${index + 1} description`,
-    ),
-    imageUrl: httpsUrl(
-      item.imageUrl,
-      `Illustrated segment ${index + 1} image URL`,
-    ),
-  }));
+  const bulletSegments = value.bulletSegments?.map((item, index) => {
+    const label = `Illustrated segment ${index + 1}`;
+    const imageUrl = item.imageUrl?.trim() ?? "";
+    const imageUploadDataUrl = item.imageUploadDataUrl ?? "";
+    if (Boolean(imageUrl) === Boolean(imageUploadDataUrl)) {
+      throw new Error(
+        `${label} requires either an image URL or an uploaded image.`,
+      );
+    }
+    if (
+      imageUploadDataUrl &&
+      !isSupportServiceMoreInformationImageDataUrl(imageUploadDataUrl)
+    ) {
+      throw new Error(`${label} uploaded image is invalid or too large.`);
+    }
+    return {
+      title: requiredText(item.title, `${label} title`),
+      description: requiredText(item.description, `${label} description`),
+      ...(imageUrl
+        ? { imageUrl: httpsUrl(imageUrl, `${label} image URL`) }
+        : { imageUploadDataUrl }),
+    };
+  });
   const technicalInformationFacts = value.technicalInformationFacts?.map(
     (item, index) => ({
       title: requiredText(item.title, `Technical fact ${index + 1} title`),

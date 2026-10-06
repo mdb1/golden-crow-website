@@ -1901,6 +1901,13 @@ describe("support services workbenches", () => {
         technicalInformationFacts: [
           { title: "Pipeline", description: "Validated.", subitems: [] },
         ],
+        bulletSegments: [
+          {
+            title: "Uploaded illustration",
+            description: "Embedded catalog image.",
+            imageUploadDataUrl: "data:image/png;base64,AAAA",
+          },
+        ],
       }),
     ).toEqual({
       usefulLinks: [
@@ -1908,6 +1915,13 @@ describe("support services workbenches", () => {
       ],
       technicalInformationFacts: [
         { title: "Pipeline", description: "Validated.", subitems: [] },
+      ],
+      bulletSegments: [
+        {
+          title: "Uploaded illustration",
+          description: "Embedded catalog image.",
+          imageUploadDataUrl: "data:image/png;base64,AAAA",
+        },
       ],
     });
     expect(() =>
@@ -1918,6 +1932,18 @@ describe("support services workbenches", () => {
         websiteUrl: "https://bad..example.org",
       }),
     ).toThrow("valid lowercase HTTPS URL");
+    expect(() =>
+      normalizePocketGenesCatalogMoreInformation({
+        bulletSegments: [
+          {
+            title: "Two sources",
+            description: "Invalid.",
+            imageUrl: "https://example.org/image.png",
+            imageUploadDataUrl: "data:image/png;base64,AAAA",
+          },
+        ],
+      }),
+    ).toThrow("exactly one");
   });
 
   it("starts a new offer with no input or output slots", () => {
@@ -2485,6 +2511,50 @@ describe("support services workbenches", () => {
       ).textContent,
     ).toContain("Use the collection kit supplied by the provider.");
 
+    openMoreInformationSection("Illustrated segments");
+    fireEvent.click(
+      within(editor).getByRole("button", {
+        name: "Add illustrated segment",
+      }),
+    );
+    const illustratedSegmentDialog = await screen.findByRole("dialog", {
+      name: "Add illustrated segment",
+    });
+    fireEvent.change(
+      within(illustratedSegmentDialog).getByLabelText("Title"),
+      { target: { value: "Uploaded workflow" } },
+    );
+    fireEvent.change(
+      within(illustratedSegmentDialog).getByLabelText("Description"),
+      { target: { value: "An illustration uploaded from this device." } },
+    );
+    fireEvent.change(
+      within(illustratedSegmentDialog).getByLabelText("Upload image file"),
+      {
+        target: {
+          files: [
+            new File(["illustrated-segment"], "workflow.png", {
+              type: "image/png",
+            }),
+          ],
+        },
+      },
+    );
+    expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
+    expect(
+      within(illustratedSegmentDialog).queryByLabelText("Image URL"),
+    ).toBeNull();
+    fireEvent.click(
+      within(illustratedSegmentDialog).getByRole("button", {
+        name: "Add item",
+      }),
+    );
+    expect(
+      within(editor).getAllByTestId(
+        "more-information-bulletSegments-item",
+      ),
+    ).toHaveLength(2);
+
     openMoreInformationSection("Useful links");
     fireEvent.click(
       within(editor).getByRole("button", { name: "Add useful link" }),
@@ -2517,6 +2587,16 @@ describe("support services workbenches", () => {
       const payload = JSON.parse(String(putCall?.[1]?.body));
       expect(payload.moreInformation).toEqual({
         ...completeMoreInformation,
+        bulletSegments: [
+          ...completeMoreInformation.bulletSegments,
+          {
+            title: "Uploaded workflow",
+            description: "An illustration uploaded from this device.",
+            imageUploadDataUrl: expect.stringMatching(
+              /^data:image\/png;base64,/,
+            ),
+          },
+        ],
         usefulLinks: [
           ...completeMoreInformation.usefulLinks,
           {

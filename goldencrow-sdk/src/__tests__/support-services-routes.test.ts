@@ -373,6 +373,33 @@ describe("support service admin routes", () => {
     );
   });
 
+  it("accepts uploaded image data instead of an image URL for illustrated segments", async () => {
+    const fastify = await buildTestServer();
+    const imageUploadDataUrl =
+      "data:image/png;base64,aWxsdXN0cmF0ZWQtc2VnbWVudA==";
+    const moreInformation = {
+      bulletSegments: [
+        {
+          title: "Uploaded illustration",
+          description: "This segment uses embedded image data.",
+          imageUploadDataUrl,
+        },
+      ],
+    };
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: { ...validOfferPayload, moreInformation },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
+      bootstrapContext,
+      expect.objectContaining({ moreInformation }),
+    );
+  });
+
   it.each([
     ["a snake-case section", { frequent_questions: [] }],
     [
@@ -384,6 +411,27 @@ describe("support service admin routes", () => {
       { usefulLinks: [{ title: "Guide", url: "http://example.org/guide" }] },
     ],
     ["a malformed host", { websiteUrl: "https://bad..example.org" }],
+    [
+      "both illustrated-segment image sources",
+      {
+        bulletSegments: [
+          {
+            title: "Two sources",
+            description: "This must be rejected.",
+            imageUrl: "https://example.org/image.png",
+            imageUploadDataUrl: "data:image/png;base64,AAAA",
+          },
+        ],
+      },
+    ],
+    [
+      "no illustrated-segment image source",
+      {
+        bulletSegments: [
+          { title: "No source", description: "This must be rejected." },
+        ],
+      },
+    ],
   ])("rejects moreInformation with %s", async (_label, moreInformation) => {
     const fastify = await buildTestServer();
 

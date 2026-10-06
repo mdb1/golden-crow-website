@@ -201,9 +201,27 @@ const MoreInformationBulletSegmentSchema = z
   .object({
     title: MoreInformationTextSchema,
     description: MoreInformationTextSchema,
-    imageUrl: MoreInformationHttpsUrlSchema,
+    imageUrl: MoreInformationHttpsUrlSchema.optional(),
+    imageUploadDataUrl: z
+      .string()
+      .min(1)
+      .max(SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH)
+      .regex(
+        /^data:image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/,
+        "Illustrated segment upload must be a PNG, JPG, WebP, SVG, or ICO data URL.",
+      )
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (Boolean(value.imageUrl) === Boolean(value.imageUploadDataUrl)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Illustrated segments require exactly one of imageUrl or imageUploadDataUrl.",
+      });
+    }
+  });
 const MoreInformationTechnicalFactSchema = MoreInformationFactSchema.extend({
   subitems: z.array(MoreInformationTextSchema),
 }).strict();

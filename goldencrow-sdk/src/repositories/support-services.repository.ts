@@ -197,7 +197,8 @@ export interface SupportServiceMoreInformation {
   bulletSegments?: Array<{
     title: string;
     description: string;
-    imageUrl: string;
+    imageUrl?: string;
+    imageUploadDataUrl?: string;
   }> | null;
   technicalInformationFacts?: Array<{
     title: string;
@@ -1478,6 +1479,23 @@ function moreInformationHttpsUrl(value: unknown, label: string) {
   return value;
 }
 
+function moreInformationImageUploadDataUrl(value: unknown, label: string) {
+  if (
+    typeof value !== "string" ||
+    value !== value.trim() ||
+    value.length > SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH ||
+    !/^data:image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/.test(
+      value,
+    )
+  ) {
+    throw new AdminRepositoryError(
+      `${label} must be a supported base64 image data URL up to ${SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH} characters.`,
+      400,
+    );
+  }
+  return value;
+}
+
 function moreInformationItem(
   value: unknown,
   label: string,
@@ -1622,21 +1640,38 @@ function normalizeMoreInformation(
     sampleLink,
     bulletSegments: normalizeArray(
       "bulletSegments",
-      ["title", "description", "imageUrl"],
-      (item, index) => ({
-        title: requiredMoreInformationString(
-          item.title,
-          `Service offer moreInformation.bulletSegments item ${index + 1} title`,
-        ),
-        description: requiredMoreInformationString(
-          item.description,
-          `Service offer moreInformation.bulletSegments item ${index + 1} description`,
-        ),
-        imageUrl: moreInformationHttpsUrl(
-          item.imageUrl,
-          `Service offer moreInformation.bulletSegments item ${index + 1} imageUrl`,
-        ),
-      }),
+      ["title", "description", "imageUrl", "imageUploadDataUrl"],
+      (item, index) => {
+        const label = `Service offer moreInformation.bulletSegments item ${index + 1}`;
+        const hasImageUrl = item.imageUrl !== undefined;
+        const hasImageUploadDataUrl = item.imageUploadDataUrl !== undefined;
+        if (hasImageUrl === hasImageUploadDataUrl) {
+          throw new AdminRepositoryError(
+            `${label} must contain exactly one of imageUrl or imageUploadDataUrl.`,
+            400,
+          );
+        }
+        return {
+          title: requiredMoreInformationString(item.title, `${label} title`),
+          description: requiredMoreInformationString(
+            item.description,
+            `${label} description`,
+          ),
+          ...(hasImageUrl
+            ? {
+                imageUrl: moreInformationHttpsUrl(
+                  item.imageUrl,
+                  `${label} imageUrl`,
+                ),
+              }
+            : {
+                imageUploadDataUrl: moreInformationImageUploadDataUrl(
+                  item.imageUploadDataUrl,
+                  `${label} imageUploadDataUrl`,
+                ),
+              }),
+        };
+      },
     ),
     technicalInformationFacts: normalizeArray(
       "technicalInformationFacts",
@@ -2189,6 +2224,7 @@ const CHANGE_LOG_FIELD_LABELS: Record<
     buttonTitle: "button title",
     url: "URL",
     imageUrl: "image URL",
+    imageUploadDataUrl: "uploaded image",
     subitems: "supporting points",
     instructions: "instructions",
     id: "ID",
@@ -2256,6 +2292,7 @@ const CHANGE_LOG_FIELD_LABELS: Record<
     buttonTitle: "texto del botón",
     url: "URL",
     imageUrl: "URL de imagen",
+    imageUploadDataUrl: "imagen cargada",
     subitems: "puntos de apoyo",
     instructions: "instrucciones",
     id: "ID",
@@ -2403,7 +2440,10 @@ function describeChangeLogValue(
     return String(value);
   }
   if (typeof value === "string") {
-    if (path.at(-1) === "promotionalBannerImageUploadDataUrl") {
+    if (
+      path.at(-1) === "promotionalBannerImageUploadDataUrl" ||
+      path.at(-1) === "imageUploadDataUrl"
+    ) {
       const digest = createHash("sha256").update(value).digest("hex");
       const size = Buffer.byteLength(value);
       return language === "es"

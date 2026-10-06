@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type ReactNode,
+} from "react";
 import {
   Binary,
   CircleHelp,
@@ -10,11 +17,14 @@ import {
   ImageIcon,
   Lightbulb,
   Link2,
+  Loader2,
   Microscope,
   Pencil,
   Plus,
   TestTube2,
   Trash2,
+  UploadCloud,
+  XCircle,
   type LucideIcon,
 } from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -40,6 +50,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { appText } from "@/lib/language";
 import {
   isSupportServiceMoreInformationHttpsUrl,
+  isSupportServiceMoreInformationImageDataUrl,
   type SupportServiceBiologicalSampleRequirement,
   type SupportServiceBulletSegment,
   type SupportServiceFrequentQuestion,
@@ -49,6 +60,10 @@ import {
   type SupportServiceTechnicalInformationFact,
   type SupportServiceUsefulLink,
 } from "@/lib/support-services";
+import {
+  SUPPORT_SERVICE_MORE_INFORMATION_IMAGE_UPLOAD_MAX_BYTES,
+  processSupportServiceImageUpload,
+} from "@/lib/support-service-image-upload";
 import { cn } from "@/lib/utils";
 
 type MoreInformationItemKind =
@@ -74,6 +89,7 @@ type MoreInformationItemDraft = {
   url: string;
   buttonTitle: string;
   imageUrl: string;
+  imageUploadDataUrl: string;
   subitemsText: string;
   instructions: string;
 };
@@ -86,6 +102,7 @@ const EMPTY_ITEM_DRAFT: MoreInformationItemDraft = {
   url: "",
   buttonTitle: "",
   imageUrl: "",
+  imageUploadDataUrl: "",
   subitemsText: "",
   instructions: "",
 };
@@ -363,7 +380,11 @@ function InformationItemCard({
   const title = "question" in item ? item.question : item.title;
   const description =
     "answer" in item ? item.answer : "description" in item ? item.description : "";
-  const url = "url" in item ? item.url : "imageUrl" in item ? item.imageUrl : "";
+  const illustratedSegment =
+    kind === "bulletSegments" ? (item as SupportServiceBulletSegment) : null;
+  const imageSource =
+    illustratedSegment?.imageUrl ?? illustratedSegment?.imageUploadDataUrl ?? "";
+  const url = "url" in item ? item.url : illustratedSegment?.imageUrl ?? "";
 
   return (
     <article
@@ -371,11 +392,11 @@ function InformationItemCard({
       className="group overflow-hidden rounded-xl border border-violet-100/90 bg-white shadow-sm transition hover:border-violet-200 hover:shadow-md dark:border-violet-400/16 dark:bg-slate-950/45"
     >
       <div className="flex gap-3 p-4">
-        {kind === "bulletSegments" && "imageUrl" in item ? (
+        {kind === "bulletSegments" && imageSource ? (
           <div className="h-16 w-20 shrink-0 overflow-hidden rounded-lg border border-violet-100 bg-violet-50 dark:border-violet-400/16 dark:bg-violet-500/10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={item.imageUrl}
+              src={imageSource}
               alt=""
               className="h-full w-full object-cover"
             />
@@ -395,6 +416,12 @@ function InformationItemCard({
           {kind === "sampleLink" && "buttonTitle" in item ? (
             <Badge variant="secondary" className="mt-3">
               {item.buttonTitle}
+            </Badge>
+          ) : null}
+          {kind === "bulletSegments" &&
+          illustratedSegment?.imageUploadDataUrl ? (
+            <Badge variant="secondary" className="mt-3">
+              {t("Using uploaded image")}
             </Badge>
           ) : null}
           {kind === "technicalInformationFacts" && "subitems" in item ? (
@@ -575,10 +602,25 @@ export function ServiceOfferMoreInformationEditor({
         };
         onChange({ ...value, sampleLink: item });
       } else if (kind === "bulletSegments") {
+        const imageUrl = draft.imageUrl.trim();
+        const imageUploadDataUrl = draft.imageUploadDataUrl;
+        if (Boolean(imageUrl) === Boolean(imageUploadDataUrl)) {
+          throw new Error(
+            t("Use an image URL or upload a PNG, JPG, or WebP file."),
+          );
+        }
+        if (
+          imageUploadDataUrl &&
+          !isSupportServiceMoreInformationImageDataUrl(imageUploadDataUrl)
+        ) {
+          throw new Error(t("The uploaded image is invalid or too large."));
+        }
         const item: SupportServiceBulletSegment = {
           title: required(draft.title, "Title"),
           description: required(draft.description, "Description"),
-          imageUrl: httpsUrl(draft.imageUrl, "Image URL"),
+          ...(imageUrl
+            ? { imageUrl: httpsUrl(imageUrl, "Image URL") }
+            : { imageUploadDataUrl }),
         };
         onChange({
           ...value,
@@ -828,6 +870,96 @@ function MoreInformationItemDialog({
   const editing = target?.index !== undefined;
   const label = kind ? dialogLabel(kind) : "item";
   const fieldId = (field: string) => `more-information-${kind ?? "item"}-${field}`;
+  const uploadTokenRef = useRef(0);
+  const draftRef = useRef(draft);
+  const [imageUploadPending, setImageUploadPending] = useState(false);
+  const [imageUploadStatus, setImageUploadStatus] = useState("");
+  const [imageDragging, setImageDragging] = useState(false);
+  const hasImageUrl = Boolean(draft.imageUrl.trim());
+  const hasUploadedImage = Boolean(draft.imageUploadDataUrl);
+  const imagePreviewSource = draft.imageUrl.trim() || draft.imageUploadDataUrl;
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    uploadTokenRef.current += 1;
+    setImageUploadPending(false);
+    setImageUploadStatus("");
+    setImageDragging(false);
+  }, [target]);
+
+  async function handleImageFile(file: File | null | undefined) {
+    if (!file || hasImageUrl || imageUploadPending) {
+      return;
+    }
+
+    uploadTokenRef.current += 1;
+    const token = uploadTokenRef.current;
+    setImageUploadPending(true);
+    setImageDragging(false);
+    setImageUploadStatus(
+      t(
+        file.size > SUPPORT_SERVICE_MORE_INFORMATION_IMAGE_UPLOAD_MAX_BYTES
+          ? "Compressing image..."
+          : "Loading image...",
+      ),
+    );
+    try {
+      const processed = await processSupportServiceImageUpload(file);
+      if (uploadTokenRef.current !== token) {
+        return;
+      }
+      onDraftChange({
+        ...draftRef.current,
+        imageUrl: "",
+        imageUploadDataUrl: processed.dataUrl,
+      });
+      setImageUploadStatus(
+        t(
+          processed.compressed
+            ? "Image compressed and ready."
+            : "Uploaded image ready.",
+        ),
+      );
+    } catch (uploadError) {
+      if (uploadTokenRef.current !== token) {
+        return;
+      }
+      setImageUploadStatus(
+        t(
+          uploadError instanceof Error &&
+            uploadError.message === "IMAGE_TYPE_UNSUPPORTED"
+            ? "Only PNG, JPG, or WebP images can be uploaded here."
+            : "We could not compress this image under 600 KB. Reduce it and upload a smaller version.",
+        ),
+      );
+    } finally {
+      if (uploadTokenRef.current === token) {
+        setImageUploadPending(false);
+      }
+    }
+  }
+
+  function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    void handleImageFile(file);
+  }
+
+  function handleImageDrag(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    if (!hasImageUrl && !imageUploadPending) {
+      setImageDragging(true);
+    }
+  }
+
+  function handleImageDrop(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    setImageDragging(false);
+    void handleImageFile(event.dataTransfer.files?.[0]);
+  }
 
   return (
     <Dialog
@@ -938,17 +1070,146 @@ function MoreInformationItemDialog({
           ) : null}
 
           {kind === "bulletSegments" ? (
-            <EditorField label={t("Image URL")} htmlFor={fieldId("image-url")}>
-              <Input
-                id={fieldId("image-url")}
-                type="url"
-                value={draft.imageUrl}
-                onChange={(event) =>
-                  onDraftChange({ ...draft, imageUrl: event.target.value })
-                }
-                placeholder="https://example.com/image.png"
-              />
-            </EditorField>
+            <div
+              data-testid="illustrated-segment-image-editor"
+              className="grid gap-3 rounded-xl border border-fuchsia-100 bg-fuchsia-50/40 p-4 dark:border-fuchsia-400/20 dark:bg-fuchsia-500/6"
+            >
+              <p className="text-xs leading-5 text-muted-foreground">
+                {t(
+                  "Use an image URL or upload a PNG, JPG, or WebP file. Large files are compressed before saving.",
+                )}
+              </p>
+
+              {imagePreviewSource ? (
+                <div className="overflow-hidden rounded-xl border border-fuchsia-100 bg-background dark:border-fuchsia-400/20">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imagePreviewSource}
+                    alt=""
+                    className="max-h-56 w-full object-cover"
+                  />
+                </div>
+              ) : null}
+
+              {!hasUploadedImage ? (
+                <EditorField
+                  label={t("Image URL")}
+                  htmlFor={fieldId("image-url")}
+                >
+                  <div className="flex gap-2">
+                    <Input
+                      id={fieldId("image-url")}
+                      type="url"
+                      value={draft.imageUrl}
+                      onChange={(event) => {
+                        const imageUrl = event.target.value;
+                        onDraftChange({
+                          ...draft,
+                          imageUrl,
+                          imageUploadDataUrl: imageUrl.trim()
+                            ? ""
+                            : draft.imageUploadDataUrl,
+                        });
+                        if (imageUrl.trim()) {
+                          setImageUploadStatus("");
+                        }
+                      }}
+                      placeholder="https://example.com/image.png"
+                    />
+                    {hasImageUrl ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        aria-label={t("Clear image URL")}
+                        onClick={() =>
+                          onDraftChange({ ...draft, imageUrl: "" })
+                        }
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    ) : null}
+                  </div>
+                </EditorField>
+              ) : null}
+
+              {!hasImageUrl ? (
+                <label
+                  htmlFor={fieldId("image-upload")}
+                  onDragEnter={handleImageDrag}
+                  onDragOver={handleImageDrag}
+                  onDragLeave={(event) => {
+                    event.preventDefault();
+                    setImageDragging(false);
+                  }}
+                  onDrop={handleImageDrop}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-3 rounded-xl border border-dashed bg-background/70 px-4 py-3 transition hover:border-fuchsia-400 dark:border-fuchsia-400/30",
+                    imageDragging
+                      ? "border-fuchsia-500 bg-fuchsia-50 dark:bg-fuchsia-500/12"
+                      : "border-fuchsia-200",
+                    imageUploadPending && "cursor-progress opacity-75",
+                  )}
+                >
+                  <input
+                    id={fieldId("image-upload")}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    aria-label={t("Upload image file")}
+                    disabled={imageUploadPending}
+                    onChange={handleImageUpload}
+                    className="sr-only"
+                  />
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-fuchsia-200">
+                    {imageUploadPending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <UploadCloud className="h-5 w-5" />
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-foreground">
+                      {t(
+                        hasUploadedImage
+                          ? "Replace uploaded image"
+                          : "Upload image file",
+                      )}
+                    </span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      {t(
+                        "PNG, JPG, or WebP up to 600 KB. Drop it here or choose a file.",
+                      )}
+                    </span>
+                  </span>
+                </label>
+              ) : null}
+
+              {hasUploadedImage ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="justify-self-start"
+                  onClick={() => {
+                    uploadTokenRef.current += 1;
+                    setImageUploadPending(false);
+                    setImageUploadStatus("");
+                    onDraftChange({ ...draft, imageUploadDataUrl: "" });
+                  }}
+                >
+                  <XCircle className="h-4 w-4" />
+                  {t("Remove uploaded image")}
+                </Button>
+              ) : null}
+
+              {imageUploadStatus ? (
+                <p
+                  role="status"
+                  className="text-xs font-medium leading-5 text-fuchsia-800 dark:text-fuchsia-200"
+                >
+                  {imageUploadStatus}
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           {kind === "technicalInformationFacts" ? (
@@ -995,7 +1256,7 @@ function MoreInformationItemDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             {t("Cancel")}
           </Button>
-          <Button type="button" onClick={onSave}>
+          <Button type="button" onClick={onSave} disabled={imageUploadPending}>
             {t(editing ? "Save changes" : "Add item")}
           </Button>
         </DialogFooter>

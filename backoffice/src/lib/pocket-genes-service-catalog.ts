@@ -11,7 +11,10 @@ import type {
   SupportServicePricingModel,
   SupportServiceStage,
 } from "@/lib/support-services";
-import { isSupportServiceMoreInformationHttpsUrl } from "@/lib/support-services";
+import {
+  isSupportServiceMoreInformationHttpsUrl,
+  isSupportServiceMoreInformationImageDataUrl,
+} from "@/lib/support-services";
 import {
   isSupportServiceCategoryKey,
   type SupportServiceCategoryKey,
@@ -84,6 +87,19 @@ function requiredCatalogHttpsUrl(value: unknown, fieldName: string) {
     throw new Error(`${fieldName} must be a valid lowercase HTTPS URL.`);
   }
   return url;
+}
+
+function requiredCatalogImageUploadDataUrl(
+  value: unknown,
+  fieldName: string,
+) {
+  if (
+    typeof value !== "string" ||
+    !isSupportServiceMoreInformationImageDataUrl(value)
+  ) {
+    throw new Error(`${fieldName} must be a supported base64 image data URL.`);
+  }
+  return value;
 }
 
 function assertCatalogKeys(
@@ -246,22 +262,39 @@ export function normalizePocketGenesCatalogMoreInformation(
       (item, index) => {
         assertCatalogKeys(
           item,
-          ["title", "description", "imageUrl"],
+          ["title", "description", "imageUrl", "imageUploadDataUrl"],
           `moreInformation.bulletSegments[${index}]`,
         );
+        const fieldName = `moreInformation.bulletSegments[${index}]`;
+        const hasImageUrl = item.imageUrl !== undefined;
+        const hasImageUploadDataUrl = item.imageUploadDataUrl !== undefined;
+        if (hasImageUrl === hasImageUploadDataUrl) {
+          throw new Error(
+            `${fieldName} must contain exactly one of imageUrl or imageUploadDataUrl.`,
+          );
+        }
         return {
           title: requiredCatalogString(
             item.title,
-            `moreInformation.bulletSegments[${index}].title`,
+            `${fieldName}.title`,
           ),
           description: requiredCatalogString(
             item.description,
-            `moreInformation.bulletSegments[${index}].description`,
+            `${fieldName}.description`,
           ),
-          imageUrl: requiredCatalogHttpsUrl(
-            item.imageUrl,
-            `moreInformation.bulletSegments[${index}].imageUrl`,
-          ),
+          ...(hasImageUrl
+            ? {
+                imageUrl: requiredCatalogHttpsUrl(
+                  item.imageUrl,
+                  `${fieldName}.imageUrl`,
+                ),
+              }
+            : {
+                imageUploadDataUrl: requiredCatalogImageUploadDataUrl(
+                  item.imageUploadDataUrl,
+                  `${fieldName}.imageUploadDataUrl`,
+                ),
+              }),
         };
       },
     ),

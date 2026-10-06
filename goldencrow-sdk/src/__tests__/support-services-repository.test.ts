@@ -693,6 +693,39 @@ describe("support service repository versions", () => {
     );
   });
 
+  it("persists illustrated segments with uploaded image data", async () => {
+    const { createSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const imageUploadDataUrl =
+      "data:image/png;base64,aWxsdXN0cmF0ZWQtc2VnbWVudA==";
+    const moreInformation = {
+      bulletSegments: [
+        {
+          title: "Uploaded illustration",
+          description: "This segment uses embedded image data.",
+          imageUploadDataUrl,
+        },
+      ],
+    };
+
+    const offer = await createSupportServiceOffer(context, {
+      ...baseOffer,
+      serviceId: "pgs_pocket_genes_12345",
+      formShape: {
+        ...baseOffer.formShape,
+        id: "pgfs_pocket_genes_12345",
+      },
+      moreInformation,
+    });
+
+    expect(offer.moreInformation).toEqual(moreInformation);
+    const stored = [...collectionStore("service_offers").values()].find(
+      (entry) => entry.serviceId === "pgs_pocket_genes_12345",
+    );
+    expect(stored?.moreInformation).toEqual(moreInformation);
+  });
+
   it.each([
     ["snake-case keys", { frequent_questions: [] }],
     [
@@ -705,6 +738,27 @@ describe("support service repository versions", () => {
     ],
     ["non-HTTPS URLs", { websiteUrl: "http://example.org" }],
     ["invalid DNS labels", { websiteUrl: "https://bad..example.org" }],
+    [
+      "both illustrated-segment image sources",
+      {
+        bulletSegments: [
+          {
+            title: "Two sources",
+            description: "This must be rejected.",
+            imageUrl: "https://example.org/image.png",
+            imageUploadDataUrl: "data:image/png;base64,AAAA",
+          },
+        ],
+      },
+    ],
+    [
+      "no illustrated-segment image source",
+      {
+        bulletSegments: [
+          { title: "No source", description: "This must be rejected." },
+        ],
+      },
+    ],
   ])("rejects moreInformation with %s", async (_label, moreInformation) => {
     const { createSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
@@ -1066,6 +1120,34 @@ describe("support service repository versions", () => {
       collectionStore("service_offers").get("offer-1")
         ?.changeLogHistoryByVersion,
     ).toEqual(second.changeLogHistoryByVersion);
+  });
+
+  it("summarizes illustrated-segment image data safely in the change log", async () => {
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const imageUploadDataUrl =
+      "data:image/png;base64,aWxsdXN0cmF0ZWQtc2VnbWVudA==";
+
+    const offer = await updateSupportServiceOffer(context, "offer-1", {
+      ...baseOffer,
+      ...existingOfferContractAcknowledgement,
+      moreInformation: {
+        bulletSegments: [
+          {
+            title: "Uploaded illustration",
+            description: "This segment uses embedded image data.",
+            imageUploadDataUrl,
+          },
+        ],
+      },
+    });
+
+    const transition = offer.changeLogHistoryByVersion?.v3_to_v4;
+    expect(transition?.en).toContain("uploaded image of");
+    expect(transition?.en).toContain("SHA-256");
+    expect(transition?.en).not.toContain(imageUploadDataUrl);
+    expect(transition?.es).not.toContain(imageUploadDataUrl);
   });
 
   it("rejects client-authored change-log history", async () => {

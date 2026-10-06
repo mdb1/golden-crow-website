@@ -470,6 +470,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Profile image is required.": "La imagen del perfil es obligatoria.",
   "Use an image URL or upload a PNG, JPG, or WebP file. Large files are compressed before saving.":
     "Usá una URL de imagen o subí un archivo PNG, JPG o WebP. Los archivos grandes se comprimen antes de guardar.",
+  "Use an image URL or upload a PNG, JPG, or WebP file.":
+    "Usá una URL de imagen o subí un archivo PNG, JPG o WebP.",
+  "The uploaded image is invalid or too large.":
+    "La imagen subida no es válida o es demasiado grande.",
   "Upload image file": "Subir imagen",
   "Replace uploaded image": "Reemplazar imagen subida",
   "Using uploaded image": "Usando imagen subida",

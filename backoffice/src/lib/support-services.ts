@@ -148,7 +148,8 @@ export interface SupportServiceSampleLink {
 export interface SupportServiceBulletSegment {
   title: string;
   description: string;
-  imageUrl: string;
+  imageUrl?: string;
+  imageUploadDataUrl?: string;
 }
 
 export interface SupportServiceTechnicalInformationFact
@@ -219,6 +220,20 @@ export function isSupportServiceMoreInformationHttpsUrl(value: string) {
   } catch {
     return false;
   }
+}
+
+export const SUPPORT_SERVICE_MORE_INFORMATION_IMAGE_DATA_URL_MAX_LENGTH =
+  900_000;
+
+export function isSupportServiceMoreInformationImageDataUrl(value: string) {
+  return (
+    value === value.trim() &&
+    value.length <=
+      SUPPORT_SERVICE_MORE_INFORMATION_IMAGE_DATA_URL_MAX_LENGTH &&
+    /^data:image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/.test(
+      value,
+    )
+  );
 }
 
 export interface SupportServiceOfferInput {
