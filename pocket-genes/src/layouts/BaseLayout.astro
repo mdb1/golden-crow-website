@@ -21,6 +21,8 @@ interface Props {
   socialImageWidth?: number;
   socialImageHeight?: number;
   socialImageType?: string;
+  /** Ruta canónica si la página no es la suya propia (p. ej. un redirect). Default: la URL actual. */
+  canonicalPath?: string;
 }
 
 const {
@@ -41,6 +43,7 @@ const {
   socialImageWidth = 1200,
   socialImageHeight = 1200,
   socialImageType = 'image/png',
+  canonicalPath,
 } = Astro.props;
 const lang = (Astro.currentLocale || defaultLang) as Lang;
 const t = useTranslations(Astro.currentLocale);
@@ -67,6 +70,16 @@ const esPath = pathWithoutLocale;
 const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
 const absoluteAssetUrl = (assetPath: string) =>
   assetPath.startsWith('http://') || assetPath.startsWith('https://') ? assetPath : `${siteBase}${assetPath}`;
+// Canonical (Search Console: «Duplicate without user-selected canonical»). GitHub Pages sirve
+// la misma página como /x, /x/ y /x/index.html; declaramos SIEMPRE la forma con barra final,
+// que es la que emite el build (format: directory) y la que usan hreflang y og:url.
+function normalizeCanonical(path: string) {
+  let p = path.replace(/index\.html$/, '');
+  if (!p.startsWith('/')) p = `/${p}`;
+  if (!p.endsWith('/') && !/\.[a-z0-9]+$/i.test(p)) p = `${p}/`;
+  return p;
+}
+const canonicalUrl = `${siteBase}${normalizeCanonical(canonicalPath ?? Astro.url.pathname)}`;
 const faviconType = faviconHref.endsWith('.ico') ? 'image/x-icon' : 'image/png';
 ---
 
@@ -80,7 +93,8 @@ const faviconType = faviconHref.endsWith('.ico') ? 'image/x-icon' : 'image/png';
   <meta property="og:type" content="website" />
   <meta property="og:title" content={title} />
   {description && <meta property="og:description" content={description} />}
-  <meta property="og:url" content={`${siteBase}${Astro.url.pathname}`} />
+  <meta property="og:url" content={canonicalUrl} />
+  <link rel="canonical" href={canonicalUrl} />
   <meta property="og:image" content={absoluteAssetUrl(socialImage)} />
   <meta property="og:image:width" content={String(socialImageWidth)} />
   <meta property="og:image:height" content={String(socialImageHeight)} />
