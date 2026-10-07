@@ -5,13 +5,11 @@
 // - El "por qué" va primero (R1): abre por el dolor del coach — la planilla, las
 //   capturas, enterarse en la próxima consulta — y recién después lista funciones.
 // - Decir la verdad (R8): cada tarjeta es algo que la app o el panel hacen HOY.
-//   Lo que no está publicado lleva su etiqueta: lo social de 1.6 es «Nuevo», lo de
-//   la épica social v2 (#1190: actividad, kudos, desafíos, estadísticas de
-//   creador, tendencias) sale en la 1.7 y dice «Llega en 1.7». Nutricionista y
+//   Todo lo social (1.6 y la épica social v2 #1190 de la 1.7) y el modo coach
+//   (épica gc-fitness#1211, 1.8) ya están en las tiendas: no llevan etiqueta de
+//   versión. Sólo la sección más reciente (modo coach) dice «Nuevo». Nutricionista y
 //   kinesiólogo son «Próximamente»; viandas y antropometrías son «A medida» —
-//   se conversan, no se prometen.
-// - El modo coach de la app (épica gc-fitness#1211, C14 #1250) sale en la 1.8 y dice
-//   «Llega en 1.8» hasta que esa versión esté en las tiendas. Sus capturas son NATIVAS:
+//   se conversan, no se prometen. Las capturas del modo coach son NATIVAS:
 //   salen de `scripts/marketing-capture.sh coach` (GC_MKT_LANG=es|en) en gc-fitness,
 //   con el fixture de marketing, y viven en `public/gc-fitness/screenshots/coach/<lang>/`.
 import type { Lang } from '../i18n/ui';
@@ -84,10 +82,10 @@ const pages: Record<Lang, ProductStoryPageData> = {
     sections: [
       {
         id: 'modo-coach',
-        badge: 'Llega en 1.8',
+        badge: 'Nuevo',
         eyebrow: 'El modo coach',
         title: 'Tu panel, también en el bolsillo',
-        body: 'Con la 1.8, entrás a GC Fitness con tu cuenta de coach y la app se convierte en la tuya: tus clientes, sus semanas y sus mensajes, en el teléfono. Lo que hacés ahí aparece en el panel, y al revés.',
+        body: 'Entrás a GC Fitness con tu cuenta de coach y la app se convierte en la tuya: tus clientes, sus semanas y sus mensajes, en el teléfono. Lo que hacés ahí aparece en el panel, y al revés.',
         wide: true,
         items: [
           {
@@ -269,62 +267,50 @@ const pages: Record<Lang, ProductStoryPageData> = {
         wide: true,
         items: [
           {
-            badge: 'Nuevo',
             title: 'Perfiles y seguir gente',
             body: 'Perfil con @usuario, público o privado. Tus clientes se siguen entre ellos, y los perfiles privados aprueban cada solicitud.',
           },
           {
-            badge: 'Nuevo',
             title: 'Rutinas públicas',
             body: 'Una rutina publicada lleva el nombre de quien la creó. Cualquiera la guarda con un toque, desde la app o desde un link compartido.',
           },
           {
-            badge: 'Nuevo',
             title: 'Feed de rutinas',
             body: 'Lo que publica la gente que seguís, en un feed, más sugerencias de a quién seguir según cómo entrenás.',
           },
           {
-            badge: 'Nuevo',
             title: 'Comentarios y ♥',
             body: 'En cada rutina publicada, con aviso al autor.',
           },
           {
-            badge: 'Nuevo',
             title: 'Mensajes directos',
             body: 'Entre personas que se siguen mutuamente, además del chat con el coach.',
           },
           {
-            badge: 'Llega en 1.7',
             title: 'Compartir entrenamientos',
             body: 'Al terminar, tus clientes pueden compartir el entreno con sus seguidores: rutina, duración, volumen y récords. Nunca sus datos de salud.',
           },
           {
-            badge: 'Llega en 1.7',
             title: '«De tu gente» en el Inicio',
             body: 'Lo que entrenó la gente que seguís, apenas abrís la app.',
           },
           {
-            badge: 'Llega en 1.7',
             title: 'Kudos 💪',
             body: 'Un toque para felicitar a un amigo por su entreno. El reconocimiento también es adherencia.',
           },
           {
-            badge: 'Llega en 1.7',
             title: 'Desafíos entre amigos',
             body: 'Cantidad de entrenos, volumen, el peso más alto en un ejercicio, o volumen y series por grupo muscular. Totales o semanales, con fechas, hasta 50 amigos y tabla de posiciones.',
           },
           {
-            badge: 'Llega en 1.7',
             title: 'Perfil con actividad',
             body: 'Entrenos del mes y racha de semanas, a la vista de quienes siguen a cada uno.',
           },
           {
-            badge: 'Llega en 1.7',
             title: 'Estadísticas para creadores',
             body: 'Quien publica una rutina ve cuántas personas la guardaron y cuántas veces la entrenaron.',
           },
           {
-            badge: 'Llega en 1.7',
             title: 'Descubrir gente',
             body: 'Las rutinas y las personas que más se están guardando, para encontrar a quién seguir.',
           },
@@ -458,10 +444,10 @@ const pages: Record<Lang, ProductStoryPageData> = {
     sections: [
       {
         id: 'coach-mode',
-        badge: 'Coming in 1.8',
+        badge: 'New',
         eyebrow: 'Coach mode',
         title: 'Your dashboard, in your pocket too',
-        body: 'With 1.8, you sign in to GC Fitness with your coach account and the app becomes yours: your clients, their weeks and their messages, on your phone. What you do there shows up in the dashboard, and the other way around.',
+        body: 'You sign in to GC Fitness with your coach account and the app becomes yours: your clients, their weeks and their messages, on your phone. What you do there shows up in the dashboard, and the other way around.',
         wide: true,
         items: [
           {
@@ -643,62 +629,50 @@ const pages: Record<Lang, ProductStoryPageData> = {
         wide: true,
         items: [
           {
-            badge: 'New',
             title: 'Profiles and following',
             body: 'A profile with an @handle, public or private. Your clients follow each other, and private profiles approve every request.',
           },
           {
-            badge: 'New',
             title: 'Public routines',
             body: 'A published routine carries its creator’s name. Anyone can save it in one tap, from the app or from a shared link.',
           },
           {
-            badge: 'New',
             title: 'Routine feed',
             body: 'What the people you follow publish, in one feed, plus suggestions of who to follow based on how you train.',
           },
           {
-            badge: 'New',
             title: 'Comments and ♥',
             body: 'On every published routine, with a notification to the author.',
           },
           {
-            badge: 'New',
             title: 'Direct messages',
             body: 'Between people who follow each other, on top of the chat with their coach.',
           },
           {
-            badge: 'Coming in 1.7',
             title: 'Sharing workouts',
             body: 'When they finish, your clients can share the workout with their followers: routine, duration, volume and records. Never their health data.',
           },
           {
-            badge: 'Coming in 1.7',
             title: '“From your people” on Home',
             body: 'What the people you follow trained, as soon as you open the app.',
           },
           {
-            badge: 'Coming in 1.7',
             title: 'Kudos 💪',
             body: 'One tap to cheer a friend’s workout. Recognition is adherence too.',
           },
           {
-            badge: 'Coming in 1.7',
             title: 'Challenges between friends',
             body: 'Number of workouts, volume, heaviest weight on an exercise, or volume and sets per muscle group. Total or weekly, with dates, up to 50 friends and a leaderboard.',
           },
           {
-            badge: 'Coming in 1.7',
             title: 'Profiles with activity',
             body: 'Workouts this month and weekly streak, visible to each person’s followers.',
           },
           {
-            badge: 'Coming in 1.7',
             title: 'Creator stats',
             body: 'Whoever publishes a routine sees how many people saved it and how many times it was trained.',
           },
           {
-            badge: 'Coming in 1.7',
             title: 'Discover people',
             body: 'The routines and people being saved the most, to find who to follow.',
           },
