@@ -3,6 +3,7 @@
 import {
   computeDurationSeconds,
   computeTotalVolumeKg,
+  countsBodyweight,
   countWorkingSets,
   defaultBodyweightFactor,
   isBodyweight,
@@ -140,14 +141,15 @@ describe("set-type aware volume (#565 — all types count)", () => {
 
 // #1197 — twin of the iOS / Android `WorkoutVolume` body-weight cases.
 describe("body weight in volume (#1197)", () => {
-  it("a stamped bodyweight set loads weight + body weight", () => {
+  it("a stamped bodyweight set loads weight + body weight (1.8.1: only unloaded reps sets)", () => {
     expect(computeTotalVolumeKg([set({ reps: 10, bodyweightKg: 80 })])).toBe(800);
+    // 1.8.1: external kilos ⇒ only the kilos; time set ⇒ never body weight.
     expect(
       computeTotalVolumeKg([set({ weightKg: 10, reps: 5, bodyweightKg: 80 })]),
-    ).toBe(450);
+    ).toBe(50);
     expect(
       computeTotalVolumeKg([set({ durationSeconds: 90, bodyweightKg: 80 })]),
-    ).toBe(120);
+    ).toBe(0);
     expect(computeTotalVolumeKg([set({ reps: 10 })])).toBe(0);
   });
 
@@ -175,12 +177,12 @@ describe("body-weight fraction (#1307)", () => {
     expect(setLoadKg({ weightKg: 0, bodyweightKg: 80 })).toBe(80);
   });
 
-  it("(weight 10, bw 80, factor 0.95, reps 5) → 430", () => {
+  it("(weight 10, bw 80, factor 0.95, reps 5) → 50 (1.8.1: a loaded set ignores the stamp)", () => {
     expect(
       computeTotalVolumeKg([
         set({ weightKg: 10, reps: 5, bodyweightKg: 80, bodyweightFactor: 0.95 }),
       ]),
-    ).toBe(430);
+    ).toBe(50);
   });
 
   it("a factor without a body weight is inert", () => {
@@ -189,13 +191,12 @@ describe("body-weight fraction (#1307)", () => {
     ).toBe(20);
   });
 
-  it("time set: factor × bw × minutes", () => {
-    // 0.65 × 80 = 52 kg for 90 s → 78
+  it("time set: never adds body weight (1.8.1) — only the external load × minutes", () => {
     expect(
       computeTotalVolumeKg([
         set({ durationSeconds: 90, bodyweightKg: 80, bodyweightFactor: 0.65 }),
       ]),
-    ).toBe(78);
+    ).toBe(0);
   });
 
   it("equipment none, primary chest, no field → 0.65", () => {
@@ -292,9 +293,75 @@ describe("body-weight fraction (#1307)", () => {
         bodyweight_kg: 80,
         bodyweight_factor: 0.95,
       }),
-    ).toBe(430);
+    ).toBe(50);
+    expect(
+      wireSetVolumeKg({
+        weight_kg: 0,
+        reps: 0,
+        duration_seconds: 80,
+        bodyweight_kg: 80,
+        bodyweight_factor: 0.65,
+      }),
+    ).toBe(0);
     expect(
       wireSetVolumeKg({ weight_kg: 20, reps: 10, duration_seconds: 90 }),
     ).toBe(30);
+  });
+});
+
+// 1.8.1 — body weight only on an UNLOADED REPS set. Same cases as iOS /
+// Android `WorkoutVolume`, functions `countedSets` and scripts/lib.cjs.
+describe("body weight only on unloaded reps sets (1.8.1)", () => {
+  it("countsBodyweight: reps set with no external weight only", () => {
+    expect(countsBodyweight({ weightKg: 0, durationSeconds: null })).toBe(true);
+    expect(countsBodyweight({ weightKg: 0, durationSeconds: 0 })).toBe(true);
+    expect(countsBodyweight({ weightKg: 36, durationSeconds: null })).toBe(false);
+    expect(countsBodyweight({ weightKg: 0, durationSeconds: 80 })).toBe(false);
+  });
+
+  it("(a) 36 kg × 11 stamped 80 / 0.65 → 396; load 36", () => {
+    const loaded = set({ weightKg: 36, reps: 11, bodyweightKg: 80, bodyweightFactor: 0.65 });
+    expect(computeTotalVolumeKg([loaded])).toBe(396);
+    expect(setLoadKg(loaded)).toBe(36);
+  });
+
+  it("(b) 0 kg × 10 stamped 80 / 0.95 → 760", () => {
+    expect(
+      computeTotalVolumeKg([set({ reps: 10, bodyweightKg: 80, bodyweightFactor: 0.95 })]),
+    ).toBe(760);
+  });
+
+  it("(c) time 80 s stamped, weight 0 → 0", () => {
+    expect(
+      computeTotalVolumeKg([
+        set({ durationSeconds: 80, bodyweightKg: 80, bodyweightFactor: 0.65 }),
+      ]),
+    ).toBe(0);
+  });
+
+  it("(d) stamping skips the loaded set and the time set", () => {
+    const sets = [
+      set({ exerciseId: "curl", weightKg: 36, reps: 11 }),
+      set({ exerciseId: "curl", reps: 10 }),
+      set({ exerciseId: "curl", durationSeconds: 80 }),
+    ];
+    const stamped = stampingBodyweight(sets, 80, new Map([["curl", 0.65]]));
+    expect(stamped.map((s) => s.bodyweightKg ?? null)).toEqual([null, 80, null]);
+    expect(stamped.map((s) => s.bodyweightFactor ?? null)).toEqual([null, 0.65, null]);
+    expect(computeTotalVolumeKg(stamped)).toBe(396 + 520);
+  });
+
+  it("(e) legacy stamp (no factor) on a loaded set → external only", () => {
+    expect(
+      computeTotalVolumeKg([set({ weightKg: 36, reps: 11, bodyweightKg: 80 })]),
+    ).toBe(396);
+    expect(wireSetLoadKg({ weight_kg: 36, bodyweight_kg: 80 })).toBe(36);
+  });
+
+  it("(f) the prod capture: 9/11/11 × 36 kg stamped → 1116, not 2877", () => {
+    const sets = [9, 11, 11].map((reps) =>
+      set({ weightKg: 36, reps, bodyweightKg: 80, bodyweightFactor: 0.65 }),
+    );
+    expect(computeTotalVolumeKg(sets)).toBe(1116);
   });
 });

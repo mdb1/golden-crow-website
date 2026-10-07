@@ -179,6 +179,7 @@ type DetailSet = WorkoutLogDetail["sets"][number];
 function cardSetLoadKg(s: DetailSet): number {
   return setLoadKg({
     weightKg: s.weight ?? 0,
+    durationSeconds: s.metric === "time" ? (s.durationSeconds ?? 0) : null,
     bodyweightKg: s.bodyweightKg ?? null,
     bodyweightFactor: s.bodyweightFactor ?? null,
   });
