@@ -1494,6 +1494,8 @@ export function TwoPQRecordWorkbench({
     : "";
   const storedFileId = detail?.record.stored_file_id?.trim() ?? "";
   const hasStoredFileId = Boolean(storedFileId);
+  const canViewCasePublicationInfrastructure =
+    adminContext.role !== "institution_doctor";
   const hasFileStorageAccess = isGlobalAdminRole(adminContext.role);
   const canOpenPublishFileStorageModal =
     areaKey === "cases" &&
@@ -7056,7 +7058,9 @@ export function TwoPQRecordWorkbench({
             </section>
           ))}
 
-          {areaKey === "cases" && mode !== "create" ? (
+          {areaKey === "cases" &&
+          mode !== "create" &&
+          canViewCasePublicationInfrastructure ? (
             <section className="overflow-hidden rounded-[1.45rem] border border-indigo-200/80 bg-[linear-gradient(135deg,rgba(250,245,255,0.96),rgba(238,242,255,0.92))] shadow-[0_18px_46px_rgba(129,140,248,0.14)] dark:border-indigo-300/18 dark:bg-[linear-gradient(135deg,rgba(49,46,129,0.28),rgba(30,27,75,0.2))] dark:shadow-none">
               <div className="flex flex-col gap-4 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
@@ -7111,7 +7115,10 @@ export function TwoPQRecordWorkbench({
             </section>
           ) : null}
 
-          {areaKey === "cases" && mode !== "create" && hasThreeLetterCode ? (
+          {areaKey === "cases" &&
+          mode !== "create" &&
+          hasThreeLetterCode &&
+          canViewCasePublicationInfrastructure ? (
             <section className={FILE_STORAGE_SECTION_CLASSNAME}>
               <div
                 className={`flex flex-col gap-4 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between ${
@@ -7317,7 +7324,8 @@ export function TwoPQRecordWorkbench({
           {areaKey === "cases" &&
           mode !== "create" &&
           hasThreeLetterCode &&
-          hasStoredFileId ? (
+          hasStoredFileId &&
+          canViewCasePublicationInfrastructure ? (
             <section className={REPORT_CODE_PUBLISH_SECTION_CLASSNAME}>
               <div
                 className={`flex flex-col gap-4 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between ${
@@ -7565,7 +7573,9 @@ export function TwoPQRecordWorkbench({
             </section>
           ) : null}
 
-          {areaKey === "cases" && mode !== "create" ? (
+          {areaKey === "cases" &&
+          mode !== "create" &&
+          canViewCasePublicationInfrastructure ? (
             <section className={LINKED_SERVICE_TRANSACTION_SECTION_CLASSNAME}>
               <div className="flex flex-col gap-4 border-b border-violet-200/70 px-5 py-5 lg:flex-row lg:items-start lg:justify-between dark:border-violet-300/16">
                 <div className="flex min-w-0 items-start gap-3">

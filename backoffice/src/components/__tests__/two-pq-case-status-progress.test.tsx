@@ -63,6 +63,7 @@ function deferred<T>() {
 function renderWorkbench(
   workbenchDetail: TwoPQDetailRecord = detail,
   isBootstrap = false,
+  role: "full_admin" | "institution_doctor" = "full_admin",
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -74,7 +75,10 @@ function renderWorkbench(
           value={{
             email: "admin@example.com",
             uid: "admin-1",
-            role: "full_admin",
+            role,
+            institutionId:
+              role === "institution_doctor" ? "institution-1" : undefined,
+            doctorId: role === "institution_doctor" ? "doctor-1" : undefined,
             isBootstrap,
             canAccessBackoffice: true,
             canAccessPatientPortal: false,
@@ -146,6 +150,35 @@ describe("2PQ case-status progress modal", () => {
         .getByRole("link", { name: "Open transaction" })
         .getAttribute("href"),
     ).toBe("/god-mode/service-transactions/pgr_2pq_case_00022");
+  });
+
+  it("hides publication infrastructure and the linked transaction from doctors", () => {
+    renderWorkbench(
+      {
+        ...detail,
+        record: {
+          ...detail.record,
+          stored_file_id: "stored-file-1",
+        },
+      },
+      false,
+      "institution_doctor",
+    );
+
+    expect(
+      screen.queryByRole("heading", {
+        name: "Automatic file and code synchronization",
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "Publish to File Storage" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "Publish as report code" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "Linked service transaction" }),
+    ).toBeNull();
   });
 
   it("opens immediately and refreshes only after the operator finishes", async () => {
