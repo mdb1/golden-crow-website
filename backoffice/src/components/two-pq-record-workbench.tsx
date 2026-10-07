@@ -1494,6 +1494,10 @@ export function TwoPQRecordWorkbench({
     : "";
   const storedFileId = detail?.record.stored_file_id?.trim() ?? "";
   const hasStoredFileId = Boolean(storedFileId);
+  const isDoctorCaseDetailReadOnly =
+    adminContext.role === "institution_doctor" &&
+    areaKey === "cases" &&
+    mode !== "create";
   const canUseCaseAdministrativeControls =
     adminContext.role !== "institution_doctor";
   const hasFileStorageAccess = isGlobalAdminRole(adminContext.role);
@@ -6079,168 +6083,180 @@ export function TwoPQRecordWorkbench({
             ) : null}
             <div className="flex flex-wrap gap-2">
               <HeaderUnclutterButton />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setState(sourceState)}
-                disabled={!changed || pendingAction !== null}
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                {t("Reset")}
-              </Button>
-              {mode === "create" ? null : (
+              {isDoctorCaseDetailReadOnly ? null : (
                 <>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => void handleReplace()}
-                    disabled={!canReplace || !changed || pendingAction !== null}
+                    onClick={() => setState(sourceState)}
+                    disabled={!changed || pendingAction !== null}
                   >
-                    <Save className="h-3.5 w-3.5" />
-                    {pendingAction === "replace"
-                      ? t("Replacing...")
-                      : t("Replace")}
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {t("Reset")}
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => void handleUpdate()}
-                    disabled={!canUpdate || !changed || pendingAction !== null}
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                    {pendingAction === "update"
-                      ? t("Updating...")
-                      : t("Update")}
-                  </Button>
-                  {canDelete ? (
-                    <AlertDialog
-                      open={deleteDialogOpen}
-                      onOpenChange={(open) => {
-                        setDeleteDialogOpen(open);
-                        if (!open && pendingAction !== "delete") {
-                          setDeleteLinkedSamplings(false);
+                  {mode === "create" ? null : (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleReplace()}
+                        disabled={
+                          !canReplace || !changed || pendingAction !== null
                         }
-                      }}
-                    >
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          disabled={pendingAction !== null}
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                        {pendingAction === "replace"
+                          ? t("Replacing...")
+                          : t("Replace")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleUpdate()}
+                        disabled={
+                          !canUpdate || !changed || pendingAction !== null
+                        }
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                        {pendingAction === "update"
+                          ? t("Updating...")
+                          : t("Update")}
+                      </Button>
+                      {canDelete ? (
+                        <AlertDialog
+                          open={deleteDialogOpen}
+                          onOpenChange={(open) => {
+                            setDeleteDialogOpen(open);
+                            if (!open && pendingAction !== "delete") {
+                              setDeleteLinkedSamplings(false);
+                            }
+                          }}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          {t("Delete")}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogMedia className="bg-destructive/12 text-destructive">
-                            <AlertTriangle className="h-5 w-5" />
-                          </AlertDialogMedia>
-                          <AlertDialogTitle>
-                            {t("Delete record?")}
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            {areaKey === "cases"
-                              ? t(
-                                  "This deletes the case. By default, linked biopsies are kept and only unlinked from this case.",
-                                )
-                              : t(
-                                  "This removes the Firestore document from",
-                                )}{" "}
-                            {areaKey === "cases" ? null : (
-                              <code>{area.collectionKey}</code>
-                            )}
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        {areaKey === "cases" ? (
-                          <div className="space-y-3 rounded-[1.25rem] border border-destructive/16 bg-destructive/8 px-4 py-4">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-semibold text-foreground">
-                                  {t("Associated biopsies")}
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {linkedSamplings.length === 0
-                                    ? t(
-                                        "No linked biopsies are currently attached to this case.",
-                                      )
-                                    : `${linkedSamplings.length} ${t("linked biopsies will be unlinked unless you choose to delete them too.")}`}
-                                </p>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              disabled={pendingAction !== null}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              {t("Delete")}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogMedia className="bg-destructive/12 text-destructive">
+                                <AlertTriangle className="h-5 w-5" />
+                              </AlertDialogMedia>
+                              <AlertDialogTitle>
+                                {t("Delete record?")}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {areaKey === "cases"
+                                  ? t(
+                                      "This deletes the case. By default, linked biopsies are kept and only unlinked from this case.",
+                                    )
+                                  : t(
+                                      "This removes the Firestore document from",
+                                    )}{" "}
+                                {areaKey === "cases" ? null : (
+                                  <code>{area.collectionKey}</code>
+                                )}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            {areaKey === "cases" ? (
+                              <div className="space-y-3 rounded-[1.25rem] border border-destructive/16 bg-destructive/8 px-4 py-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-foreground">
+                                      {t("Associated biopsies")}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                      {linkedSamplings.length === 0
+                                        ? t(
+                                            "No linked biopsies are currently attached to this case.",
+                                          )
+                                        : `${linkedSamplings.length} ${t("linked biopsies will be unlinked unless you choose to delete them too.")}`}
+                                    </p>
+                                  </div>
+                                  <Badge
+                                    variant={
+                                      linkedSamplings.length > 0
+                                        ? "destructive"
+                                        : "outline"
+                                    }
+                                  >
+                                    {linkedSamplings.length}
+                                  </Badge>
+                                </div>
+                                <label
+                                  htmlFor="delete-linked-samplings"
+                                  className={`flex items-start gap-3 rounded-[1rem] border border-border/70 bg-background/78 px-3 py-3 text-sm shadow-sm ${
+                                    linkedSamplings.length === 0
+                                      ? "cursor-not-allowed opacity-60"
+                                      : "cursor-pointer"
+                                  }`}
+                                >
+                                  <Checkbox
+                                    id="delete-linked-samplings"
+                                    checked={deleteLinkedSamplings}
+                                    disabled={linkedSamplings.length === 0}
+                                    onCheckedChange={(checked) =>
+                                      setDeleteLinkedSamplings(checked === true)
+                                    }
+                                    className="mt-0.5"
+                                  />
+                                  <span>
+                                    <span className="block font-semibold text-foreground">
+                                      {t("Delete associated biopsies too")}
+                                    </span>
+                                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                                      {t(
+                                        "If selected, every biopsy currently linked to this case will be removed instead of only being unlinked.",
+                                      )}
+                                    </span>
+                                  </span>
+                                </label>
                               </div>
-                              <Badge
-                                variant={
-                                  linkedSamplings.length > 0
-                                    ? "destructive"
-                                    : "outline"
+                            ) : null}
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>
+                                {t("Cancel")}
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                variant="destructive"
+                                onClick={() =>
+                                  void handleDelete({ deleteLinkedSamplings })
                                 }
                               >
-                                {linkedSamplings.length}
-                              </Badge>
-                            </div>
-                            <label
-                              htmlFor="delete-linked-samplings"
-                              className={`flex items-start gap-3 rounded-[1rem] border border-border/70 bg-background/78 px-3 py-3 text-sm shadow-sm ${
-                                linkedSamplings.length === 0
-                                  ? "cursor-not-allowed opacity-60"
-                                  : "cursor-pointer"
-                              }`}
-                            >
-                              <Checkbox
-                                id="delete-linked-samplings"
-                                checked={deleteLinkedSamplings}
-                                disabled={linkedSamplings.length === 0}
-                                onCheckedChange={(checked) =>
-                                  setDeleteLinkedSamplings(checked === true)
-                                }
-                                className="mt-0.5"
-                              />
-                              <span>
-                                <span className="block font-semibold text-foreground">
-                                  {t("Delete associated biopsies too")}
-                                </span>
-                                <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                                  {t(
-                                    "If selected, every biopsy currently linked to this case will be removed instead of only being unlinked.",
-                                  )}
-                                </span>
-                              </span>
-                            </label>
-                          </div>
-                        ) : null}
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
-                          <AlertDialogAction
-                            variant="destructive"
-                            onClick={() =>
-                              void handleDelete({ deleteLinkedSamplings })
-                            }
-                          >
-                            {areaKey === "cases" && deleteLinkedSamplings
-                              ? t("Delete case and biopsies")
-                              : t("Delete record")}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  ) : null}
+                                {areaKey === "cases" && deleteLinkedSamplings
+                                  ? t("Delete case and biopsies")
+                                  : t("Delete record")}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      ) : null}
+                    </>
+                  )}
                 </>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="brand">{t("Create")}</Badge>
-          <Badge variant={canReplace ? "brand" : "outline"}>
-            {t("Replace")}
-          </Badge>
-          <Badge variant={canUpdate ? "success" : "outline"}>
-            {t("Update")}
-          </Badge>
-          <Badge variant={canDelete ? "destructive" : "outline"}>
-            {t("Delete")}
-          </Badge>
-        </div>
+        {isDoctorCaseDetailReadOnly ? null : (
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="brand">{t("Create")}</Badge>
+            <Badge variant={canReplace ? "brand" : "outline"}>
+              {t("Replace")}
+            </Badge>
+            <Badge variant={canUpdate ? "success" : "outline"}>
+              {t("Update")}
+            </Badge>
+            <Badge variant={canDelete ? "destructive" : "outline"}>
+              {t("Delete")}
+            </Badge>
+          </div>
+        )}
 
         {mode === "create" ? (
           <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:px-0">
@@ -6941,6 +6957,13 @@ export function TwoPQRecordWorkbench({
                         : field.optionSource === "patients"
                           ? patientOptions
                           : field.options;
+                  const rawFieldValue = state[field.key].trim();
+                  const visualFieldValue =
+                    field.type === "select"
+                      ? (options ?? []).find(
+                          (option) => option.value === rawFieldValue,
+                        )?.label ?? rawFieldValue
+                      : rawFieldValue;
                   const disabled =
                     pendingAction !== null ||
                     pendingCaseLabelCorrection ||
@@ -6963,7 +6986,13 @@ export function TwoPQRecordWorkbench({
                       <Label htmlFor={`${area.key}-${field.key}`}>
                         {field.label}
                       </Label>
-                      {field.type === "textarea" ? (
+                      {isDoctorCaseDetailReadOnly ? (
+                        <div className="border-l-2 border-border/70 py-1 pl-3">
+                          <p className="whitespace-pre-wrap break-words text-sm font-medium text-foreground">
+                            {visualFieldValue || t("Not available")}
+                          </p>
+                        </div>
+                      ) : field.type === "textarea" ? (
                         <Textarea
                           id={`${area.key}-${field.key}`}
                           value={state[field.key]}
@@ -7046,23 +7075,25 @@ export function TwoPQRecordWorkbench({
                                 .
                               </p>
                             </div>
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() =>
-                                void handleCorrectCaseLabelToThreeLetterCode()
-                              }
-                              disabled={
-                                pendingCaseLabelCorrection ||
-                                pendingAction !== null
-                              }
-                              className="h-9 shrink-0 border border-amber-300/90 bg-[linear-gradient(180deg,rgba(254,249,195,0.98),rgba(253,230,138,0.98))] px-4 text-amber-950 shadow-[0_10px_24px_rgba(251,191,36,0.2)] hover:brightness-[1.02] dark:border-amber-300/30 dark:bg-[linear-gradient(180deg,rgba(146,64,14,0.92),rgba(202,138,4,0.9))] dark:text-amber-50 dark:shadow-none"
-                            >
-                              {pendingCaseLabelCorrection ? (
-                                <LoaderCircle className="h-4 w-4 animate-spin" />
-                              ) : null}
-                              {t("Correct")}
-                            </Button>
+                            {canUseCaseAdministrativeControls ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() =>
+                                  void handleCorrectCaseLabelToThreeLetterCode()
+                                }
+                                disabled={
+                                  pendingCaseLabelCorrection ||
+                                  pendingAction !== null
+                                }
+                                className="h-9 shrink-0 border border-amber-300/90 bg-[linear-gradient(180deg,rgba(254,249,195,0.98),rgba(253,230,138,0.98))] px-4 text-amber-950 shadow-[0_10px_24px_rgba(251,191,36,0.2)] hover:brightness-[1.02] dark:border-amber-300/30 dark:bg-[linear-gradient(180deg,rgba(146,64,14,0.92),rgba(202,138,4,0.9))] dark:text-amber-50 dark:shadow-none"
+                              >
+                                {pendingCaseLabelCorrection ? (
+                                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                                ) : null}
+                                {t("Correct")}
+                              </Button>
+                            ) : null}
                           </div>
                         </div>
                       ) : null}

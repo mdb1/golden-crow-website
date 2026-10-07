@@ -247,10 +247,19 @@ describe("2PQ case-status progress modal", () => {
     expect(screen.getAllByText("Awaiting pick up").length).toBeGreaterThan(0);
     expect(screen.getAllByText("BATCH-00001").length).toBeGreaterThan(0);
     expect(screen.getAllByText("SAMPLING-00001").length).toBeGreaterThan(0);
-    const caseStatusSelect = screen
-      .getAllByRole("combobox")
-      .find((element) => element.textContent?.includes("Awaiting pick up"));
-    expect(caseStatusSelect?.hasAttribute("disabled")).toBe(true);
+    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
+    for (const action of ["Reset", "Replace", "Update", "Delete"]) {
+      expect(screen.queryByRole("button", { name: action })).toBeNull();
+    }
+  });
+
+  it("keeps the case form interactive for full admins", () => {
+    renderWorkbench();
+
+    expect(screen.getAllByRole("textbox").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("combobox").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Update" })).toBeTruthy();
   });
 
   it("opens immediately and refreshes only after the operator finishes", async () => {
