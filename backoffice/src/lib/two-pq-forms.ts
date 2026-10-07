@@ -1,3 +1,5 @@
+import type { AdminRole } from "@/lib/admin-areas";
+
 export type TwoPQFormType = "study_request" | "sample" | "withdrawal_request";
 
 export const DEFAULT_OBSERVATIONS_VALUE = "Sin observaciones";
@@ -238,6 +240,13 @@ export const TWO_PQ_FORM_ROUTES: Record<TwoPQFormType, string> = {
   sample: "/2pq-dashboard/forms/sample/new",
   withdrawal_request: "/2pq-dashboard/forms/withdrawal-request/new",
 };
+
+export function canCreateTwoPQFormType(
+  role: AdminRole,
+  formType: TwoPQFormType,
+) {
+  return !(role === "institution_operator" && formType === "sample");
+}
 
 export function shouldShowAutomaticPatientPortalAccessStep(
   formType: TwoPQFormType,

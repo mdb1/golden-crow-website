@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import { TwoPQFormFlow } from "@/components/two-pq-form-flow";
-import { getTwoPQFormTypeFromSlug } from "@/lib/two-pq-forms";
+import { getAdminContextServer } from "@/lib/admin-context-server";
+import {
+  canCreateTwoPQFormType,
+  getTwoPQFormTypeFromSlug,
+} from "@/lib/two-pq-forms";
 import { getTwoPQFormDraft, getTwoPQFormLookupData } from "@/lib/two-pq-server";
 
 export default async function NewTwoPQFormPage({
@@ -14,6 +18,11 @@ export default async function NewTwoPQFormPage({
   const { draft: draftParam } = await searchParams;
   const formType = getTwoPQFormTypeFromSlug(formKind);
   if (!formType) {
+    notFound();
+  }
+
+  const adminContext = await getAdminContextServer();
+  if (!canCreateTwoPQFormType(adminContext.role, formType)) {
     notFound();
   }
 

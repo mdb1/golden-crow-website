@@ -24,6 +24,7 @@ import {
   translateTwoPQAreaConfig,
 } from "@/lib/two-pq-areas";
 import {
+  canCreateTwoPQFormType,
   TWO_PQ_FORM_LABELS,
   TWO_PQ_FORM_ROUTES,
   type TwoPQFormDraftRecord,
@@ -113,7 +114,8 @@ export function TwoPQDashboardHome({
     secondaryAreas.length <= 1
       ? "grid max-w-xl gap-4"
       : "grid gap-4 md:grid-cols-2 xl:grid-cols-3";
-  const draftHref = formDraft
+  const draftHref =
+    formDraft && canCreateTwoPQFormType(adminContext.role, formDraft.formType)
     ? `${TWO_PQ_FORM_ROUTES[formDraft.formType]}?draft=1`
     : null;
   const assignableRoleOptions = getAssignableRoleOptions(adminContext.role);
@@ -265,15 +267,17 @@ export function TwoPQDashboardHome({
                   Completar formulario de solicitud de estudio
                 </Link>
               </Button>
-              <Button
-                className="min-h-11 w-full justify-center whitespace-normal rounded-xl bg-indigo-600 px-5 text-left leading-snug text-white shadow-[0_14px_32px_rgba(79,70,229,0.2)] hover:bg-indigo-700 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"
-                asChild
-              >
-                <Link href="/2pq-dashboard/forms/sample/new">
-                  <ClipboardList className="size-4" />
-                  Completar formulario de muestra
-                </Link>
-              </Button>
+              {canCreateTwoPQFormType(adminContext.role, "sample") ? (
+                <Button
+                  className="min-h-11 w-full justify-center whitespace-normal rounded-xl bg-indigo-600 px-5 text-left leading-snug text-white shadow-[0_14px_32px_rgba(79,70,229,0.2)] hover:bg-indigo-700 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"
+                  asChild
+                >
+                  <Link href="/2pq-dashboard/forms/sample/new">
+                    <ClipboardList className="size-4" />
+                    Completar formulario de muestra
+                  </Link>
+                </Button>
+              ) : null}
               <Button
                 className="min-h-11 w-full justify-center whitespace-normal rounded-xl bg-indigo-600 px-5 text-left leading-snug text-white shadow-[0_14px_32px_rgba(79,70,229,0.2)] hover:bg-indigo-700 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"
                 asChild

@@ -27,6 +27,7 @@ import {
 } from "./two-pq.repository.js";
 import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
 import { cascadeTwoPQCaseStatusToSamplingChildren } from "./two-pq-sampling-status.repository.js";
+import { canCreateTwoPQFormType } from "../lib/two-pq-form-access.js";
 import type {
   AdminContext,
   DoctorRecord,
@@ -1953,6 +1954,13 @@ export async function upsertTwoPQFormDraftForContext(
   context: AdminContext,
   payload: TwoPQFormDraftInput,
 ): Promise<TwoPQFormDraftRecord> {
+  if (!canCreateTwoPQFormType(context.role, payload.formType)) {
+    throw new AdminRepositoryError(
+      "Institution operators cannot create sample forms.",
+      403,
+    );
+  }
+
   const authorEmail = normalizeEmail(context.email, "Form draft author email");
   const authorUid = normalizeRequiredString(
     context.uid,
@@ -2060,6 +2068,13 @@ export async function createTwoPQFormForContext(
   context: AdminContext,
   payload: TwoPQFormInput,
 ): Promise<TwoPQFormRecord> {
+  if (!canCreateTwoPQFormType(context.role, payload.formType)) {
+    throw new AdminRepositoryError(
+      "Institution operators cannot create sample forms.",
+      403,
+    );
+  }
+
   const authorEmail = normalizeEmail(context.email, "Form author email");
   const authorUid = normalizeRequiredString(context.uid, "Form author uid");
 

@@ -10,12 +10,14 @@ import { TwoPQFormsList } from "@/components/two-pq-forms-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  canCreateTwoPQFormType,
   TWO_PQ_FORM_LABELS,
   TWO_PQ_FORM_ROUTES,
   type TwoPQFormsOrder,
   type TwoPQFormType,
 } from "@/lib/two-pq-forms";
 import { appText } from "@/lib/language";
+import { getAdminContextServer } from "@/lib/admin-context-server";
 import { getServerAppLanguage } from "@/lib/server-language";
 import { getTwoPQFormDraft, getTwoPQFormsPage } from "@/lib/two-pq-server";
 
@@ -78,7 +80,7 @@ export default async function TwoPQFormsPage({
     createdTo: createdTo ?? "",
     order: formsOrder,
   } as const;
-  const [formsPage, formDraft] = await Promise.all([
+  const [formsPage, formDraft, adminContext] = await Promise.all([
     getTwoPQFormsPage({
       includeArchived,
       formType,
@@ -89,8 +91,10 @@ export default async function TwoPQFormsPage({
       order: formsOrder,
     }),
     getTwoPQFormDraft(),
+    getAdminContextServer(),
   ]);
-  const draftHref = formDraft
+  const draftHref =
+    formDraft && canCreateTwoPQFormType(adminContext.role, formDraft.formType)
     ? `${TWO_PQ_FORM_ROUTES[formDraft.formType]}?draft=1`
     : null;
   const renderPageActions = () => (
