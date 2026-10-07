@@ -17,10 +17,15 @@ import {
 } from "../lib/favicon.js";
 import { identifyPgiNativeModel } from "../lib/pgi-native-schema.js";
 import { serializedPgoObjectSchemaError } from "../lib/pgo-object-schema.js";
-import { TWO_PQ_REPORT_OWNER_EMAIL } from "../lib/two-pq-report-owner.js";
+import {
+  TWO_PQ_REPORT_OWNER_EMAIL,
+  TWO_PQ_REPORT_OWNER_ID,
+  TWO_PQ_REPORT_OWNER_NAME,
+} from "../lib/two-pq-report-owner.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import type {
   AdminContext,
+  TwoPQFormRecord,
   TwoPQLinkedServiceTransactionSnapshot,
 } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
@@ -55,6 +60,173 @@ const MAX_DEFERRED_SERVICE_TRANSACTIONS_PER_EMAIL = 5;
 export const TWO_PQ_CASE_SERVICE_OFFER_ID = "rhTE3dfB8Ovhf86lY3Z5";
 export const TWO_PQ_CASE_SERVICE_ID = "pgs_2pq_74399";
 export const TWO_PQ_CASE_SERVICE_PROVIDER_ID = "kfFtJlLuyW6deXW2Im3S";
+const TWO_PQ_STUDY_REQUEST_FORM_SHAPE_ID = "pgfs_2pq_74399";
+
+const TWO_PQ_STUDY_REQUEST_FORM_FIELDS = [
+  {
+    key: "source_study_request_form_id",
+    label: "Formulario de solicitud de estudio",
+    type: "identifier",
+    required: true,
+  },
+  { key: "patient_id", label: "ID del paciente", type: "identifier", required: true },
+  { key: "institution_id", label: "ID de la institución", type: "identifier", required: true },
+  { key: "doctor_id", label: "ID del médico", type: "identifier", required: true },
+  { key: "patient_email", label: "Email del paciente", type: "email", required: true },
+  { key: "patient_full_name", label: "Nombre del paciente", type: "text", required: true },
+  {
+    key: "patient_medical_record_number",
+    label: "Número de historia clínica",
+    type: "text",
+    required: false,
+  },
+  { key: "patient_birth_date", label: "Fecha de nacimiento", type: "date", required: false },
+  { key: "patient_sex", label: "Sexo", type: "text", required: false },
+  {
+    key: "patient_status",
+    label: "Estado del paciente",
+    type: "enum",
+    required: true,
+    options: [
+      { value: "active", label: "Activo" },
+      { value: "inactive", label: "Inactivo" },
+    ],
+  },
+  { key: "patient_notes", label: "Observaciones del paciente", type: "long_text", required: false },
+  { key: "partner_full_name", label: "Nombre de la pareja", type: "text", required: false },
+  {
+    key: "partner_medical_record_number",
+    label: "Número de historia clínica de la pareja",
+    type: "text",
+    required: false,
+  },
+  { key: "partner_birth_date", label: "Fecha de nacimiento de la pareja", type: "date", required: false },
+  { key: "partner_notes", label: "Observaciones de la pareja", type: "long_text", required: false },
+  {
+    key: "sperm_gamete_source",
+    label: "Origen de espermatozoides",
+    type: "enum",
+    required: false,
+    options: [
+      { value: "propio", label: "Propio" },
+      { value: "donado", label: "Donado" },
+    ],
+  },
+  {
+    key: "oocyte_gamete_source",
+    label: "Origen de ovocitos",
+    type: "enum",
+    required: false,
+    options: [
+      { value: "propio", label: "Propio" },
+      { value: "donado", label: "Donado" },
+    ],
+  },
+  { key: "male_factor", label: "Factor masculino", type: "boolean", required: true },
+  {
+    key: "previous_miscarriages_count",
+    label: "Abortos previos",
+    type: "enum",
+    required: true,
+    options: [
+      { value: "0", label: "0" },
+      { value: "1", label: "1" },
+      { value: "2", label: "2" },
+      { value: "3_or_more", label: "3 o más" },
+      { value: "recurrent", label: "Recurrentes" },
+    ],
+  },
+  { key: "other_background", label: "Otros antecedentes", type: "long_text", required: true },
+  { key: "karyotype", label: "Cuenta con información de cariotipo", type: "boolean", required: true },
+  { key: "karyotype_result", label: "Resultado de cariotipo", type: "long_text", required: false },
+  { key: "karyotype_file_name", label: "Nombre del archivo de cariotipo", type: "text", required: false },
+  { key: "karyotype_file_type", label: "Tipo del archivo de cariotipo", type: "text", required: false },
+  {
+    key: "karyotype_file_size",
+    label: "Tamaño del archivo de cariotipo",
+    type: "positive_integer",
+    required: false,
+  },
+  { key: "pgt_a_fast", label: "PGT-A FAST", type: "boolean", required: true },
+  {
+    key: "pgt_a_fast_reports_mosaicism",
+    label: "PGT-A FAST informa mosaicismos",
+    type: "boolean",
+    required: false,
+  },
+  {
+    key: "pgt_a_fast_reports_sex",
+    label: "PGT-A FAST informa sexo",
+    type: "boolean",
+    required: false,
+  },
+  { key: "pgt_a_standard", label: "PGT-A STANDARD", type: "boolean", required: true },
+  {
+    key: "pgt_a_standard_reports_mosaicism",
+    label: "PGT-A STANDARD informa mosaicismos",
+    type: "boolean",
+    required: false,
+  },
+  {
+    key: "pgt_a_standard_reports_sex",
+    label: "PGT-A STANDARD informa sexo",
+    type: "boolean",
+    required: false,
+  },
+  { key: "pgt_sr", label: "PGT-SR", type: "boolean", required: true },
+  {
+    key: "pgt_sr_reports_mosaicism",
+    label: "PGT-SR informa mosaicismos",
+    type: "boolean",
+    required: false,
+  },
+  {
+    key: "pgt_sr_reports_sex",
+    label: "PGT-SR informa sexo",
+    type: "boolean",
+    required: false,
+  },
+  { key: "institution_code", label: "Código de la institución", type: "text", required: false },
+  { key: "institution_name", label: "Nombre de la institución", type: "text", required: true },
+  { key: "institution_legal_name", label: "Razón social", type: "text", required: false },
+  {
+    key: "institution_contact_email",
+    label: "Email de contacto de la institución",
+    type: "email",
+    required: false,
+  },
+  {
+    key: "institution_contact_phone",
+    label: "Teléfono de contacto de la institución",
+    type: "text",
+    required: false,
+  },
+  { key: "institution_address", label: "Dirección de la institución", type: "address", required: false },
+  { key: "institution_city", label: "Ciudad de la institución", type: "text", required: false },
+  { key: "institution_state", label: "Provincia de la institución", type: "text", required: false },
+  { key: "institution_country", label: "País de la institución", type: "text", required: false },
+  {
+    key: "institution_notes",
+    label: "Observaciones de la institución",
+    type: "long_text",
+    required: false,
+  },
+] as const;
+
+const TWO_PQ_STUDY_REQUEST_FORM_SHAPE = {
+  id: TWO_PQ_STUDY_REQUEST_FORM_SHAPE_ID,
+  version: 1,
+  allowUnknownFields: false,
+  fields: TWO_PQ_STUDY_REQUEST_FORM_FIELDS,
+};
+
+const TWO_PQ_STUDY_REQUEST_FORM_INPUT_SLOT = {
+  role: "form",
+  objectType: "pgo_form",
+  acceptedTypes: ["pgo_form"],
+  required: true,
+  cardinality: { min: 1, max: 1 },
+};
 
 export const SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH =
   900_000;
@@ -319,6 +491,21 @@ export interface SupportServiceTransactionInputSlot {
   fileStorageId?: string;
   objectOwnerId?: string;
 }
+
+export type TwoPQStudyRequestFormSource = Pick<
+  TwoPQFormRecord,
+  | "id"
+  | "formType"
+  | "institutionId"
+  | "doctorId"
+  | "selectedPatientId"
+  | "patientInformation"
+  | "medicalInformation"
+  | "previousGeneticTests"
+  | "requestedTest"
+  | "institutionInformation"
+  | "createdAt"
+>;
 
 export interface SupportServiceTransactionOutputObjectSnapshot {
   role: string;
@@ -6490,6 +6677,7 @@ export async function updateSupportServiceOffer(
   context: AdminContext,
   offerId: string,
   input: SupportServiceOfferInput,
+  options: { expectedCurrentServiceVersion?: number } = {},
 ) {
   const accessScope = requireSupportServicesAccess(context);
   if (input.acknowledgesExistingTransactionContracts !== true) {
@@ -6535,6 +6723,15 @@ export async function updateSupportServiceOffer(
       offerId,
       snapshot.data() ?? {},
     );
+    if (
+      options.expectedCurrentServiceVersion !== undefined &&
+      previousRecord.serviceVersion !== options.expectedCurrentServiceVersion
+    ) {
+      throw new AdminRepositoryError(
+        "Service offer changed before the requested contract update could be applied.",
+        409,
+      );
+    }
     assertSupportServicesRecordAccess(
       accessScope,
       previousRecord,
@@ -7239,7 +7436,7 @@ export async function createSupportServiceTransaction(
   });
 }
 
-function twoPQCaseServiceTransactionRequestId(caseId: string) {
+function normalizedTwoPQCaseId(caseId: string) {
   const normalizedCaseId = cleanString(caseId)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
@@ -7250,7 +7447,664 @@ function twoPQCaseServiceTransactionRequestId(caseId: string) {
       400,
     );
   }
+  return normalizedCaseId;
+}
+
+function twoPQCaseServiceTransactionRequestId(caseId: string) {
+  const normalizedCaseId = normalizedTwoPQCaseId(caseId);
   return `pgr_2pq_${normalizedCaseId}`;
+}
+
+function hasCanonicalTwoPQStudyRequestFormContract(
+  offer: SupportServiceOfferRecord,
+) {
+  const expectedShape = normalizeFormShape(
+    TWO_PQ_STUDY_REQUEST_FORM_SHAPE,
+  );
+  const currentShape = offer.formShape
+    ? normalizeFormShape(offer.formShape)
+    : undefined;
+  const expectedInputs = normalizeOfferInputSlots([
+    TWO_PQ_STUDY_REQUEST_FORM_INPUT_SLOT,
+  ]);
+  return (
+    Boolean(currentShape) &&
+    stableString(comparableFormShape(currentShape)) ===
+      stableString(comparableFormShape(expectedShape)) &&
+    stableString(offer.inputSlots) === stableString(expectedInputs)
+  );
+}
+
+function twoPQOfferUpdateInput(
+  offer: SupportServiceOfferRecord,
+): SupportServiceOfferInput {
+  return {
+    serviceId: offer.serviceId,
+    serviceVersion: offer.serviceVersion,
+    name: offer.name,
+    serviceCategory: offer.serviceCategory,
+    providerKind: offer.providerKind,
+    providerId: offer.providerId,
+    providerName: offer.providerName,
+    stages: offer.stages,
+    status: offer.status,
+    isHiddenFromSearch: offer.isHiddenFromSearch,
+    isHighlightedOffer: offer.isHighlightedOffer,
+    isProfessionalOffer: offer.isProfessionalOffer,
+    promotionalBannerImageUrl: offer.promotionalBannerImageUrl,
+    promotionalBannerImageUploadDataUrl:
+      offer.promotionalBannerImageUploadDataUrl,
+    description: offer.description,
+    providerWork: offer.providerWork,
+    formShape: TWO_PQ_STUDY_REQUEST_FORM_SHAPE,
+    inputSlots: [TWO_PQ_STUDY_REQUEST_FORM_INPUT_SLOT],
+    outputSlots: offer.outputSlots,
+    acceptedConditions: offer.acceptedConditions,
+    scopeRules: offer.scopeRules,
+    commercialTerms: offer.commercialTerms,
+    moreInformation: offer.moreInformation,
+    acknowledgesExistingTransactionContracts: true,
+  };
+}
+
+async function loadCanonicalTwoPQCaseServiceOffer() {
+  const snapshot = await getOfferSnapshot(TWO_PQ_CASE_SERVICE_OFFER_ID);
+  if (!snapshot) {
+    throw new AdminRepositoryError(
+      "Configured 2PQ service offer does not exist.",
+      409,
+    );
+  }
+  const offer = toOfferRecord(snapshot.id, snapshot.data() ?? {}, {
+    requirePresentationFlags: true,
+  });
+  if (
+    offer.serviceId !== TWO_PQ_CASE_SERVICE_ID ||
+    offer.providerKind !== "organization" ||
+    offer.providerId !== TWO_PQ_CASE_SERVICE_PROVIDER_ID
+  ) {
+    throw new AdminRepositoryError(
+      "Configured 2PQ service offer has an unexpected service or provider identity.",
+      409,
+    );
+  }
+  return offer;
+}
+
+async function ensureTwoPQStudyRequestFormContract(
+  context: AdminContext,
+) {
+  const current = await loadCanonicalTwoPQCaseServiceOffer();
+  if (hasCanonicalTwoPQStudyRequestFormContract(current)) {
+    return current;
+  }
+  if (current.formShape || current.inputSlots.length > 0) {
+    throw new AdminRepositoryError(
+      "Configured 2PQ service offer has an incompatible request-form contract.",
+      409,
+    );
+  }
+
+  const systemContext: AdminContext = {
+    ...context,
+    email: TWO_PQ_REPORT_OWNER_EMAIL,
+    uid: TWO_PQ_REPORT_OWNER_ID,
+    role: "full_admin",
+    isBootstrap: true,
+    canAccessBackoffice: true,
+  };
+  try {
+    const updated = await updateSupportServiceOffer(
+      systemContext,
+      current.id,
+      twoPQOfferUpdateInput(current),
+      { expectedCurrentServiceVersion: current.serviceVersion },
+    );
+    if (!hasCanonicalTwoPQStudyRequestFormContract(updated)) {
+      throw new AdminRepositoryError(
+        "Configured 2PQ service offer could not be upgraded to its request-form contract.",
+        409,
+      );
+    }
+    return updated;
+  } catch (error) {
+    if (!(error instanceof AdminRepositoryError) || error.statusCode !== 409) {
+      throw error;
+    }
+    const reloaded = await loadCanonicalTwoPQCaseServiceOffer();
+    if (hasCanonicalTwoPQStudyRequestFormContract(reloaded)) {
+      return reloaded;
+    }
+    throw error;
+  }
+}
+
+function formSourceValue(
+  source: Record<string, unknown>,
+  key: string,
+) {
+  const value = source[key];
+  if (value === null || value === undefined || value === "") {
+    return undefined;
+  }
+  return value;
+}
+
+function positiveIntegerFromUnknown(value: unknown) {
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(number) && number > 0 ? number : undefined;
+}
+
+function twoPQStudyRequestFormAnswerValues(
+  source: TwoPQStudyRequestFormSource,
+) {
+  if (source.formType !== "study_request") {
+    throw new AdminRepositoryError(
+      "A 2PQ case must be linked to a study request form.",
+      400,
+    );
+  }
+  const patient = optionalRecord(source.patientInformation);
+  const medical = optionalRecord(source.medicalInformation);
+  const previousTests = optionalRecord(source.previousGeneticTests);
+  const requestedTest = optionalRecord(source.requestedTest);
+  const institution = optionalRecord(source.institutionInformation);
+  const patientId =
+    cleanString(source.selectedPatientId) || cleanString(patient.patientId);
+
+  return new Map<string, unknown>([
+    ["source_study_request_form_id", cleanString(source.id)],
+    ["patient_id", patientId],
+    ["institution_id", cleanString(source.institutionId)],
+    ["doctor_id", cleanString(source.doctorId)],
+    ["patient_email", formSourceValue(patient, "email")],
+    ["patient_full_name", formSourceValue(patient, "fullName")],
+    [
+      "patient_medical_record_number",
+      formSourceValue(patient, "medicalRecordNumber"),
+    ],
+    ["patient_birth_date", formSourceValue(patient, "birthDate")],
+    ["patient_sex", formSourceValue(patient, "sex")],
+    ["patient_status", formSourceValue(patient, "status")],
+    ["patient_notes", formSourceValue(patient, "notes")],
+    ["partner_full_name", formSourceValue(patient, "partnerFullName")],
+    [
+      "partner_medical_record_number",
+      formSourceValue(patient, "partnerMedicalRecordNumber"),
+    ],
+    ["partner_birth_date", formSourceValue(patient, "partnerBirthDate")],
+    ["partner_notes", formSourceValue(patient, "partnerNotes")],
+    ["sperm_gamete_source", formSourceValue(medical, "spermGameteSource")],
+    ["oocyte_gamete_source", formSourceValue(medical, "oocyteGameteSource")],
+    ["male_factor", formSourceValue(medical, "maleFactor")],
+    [
+      "previous_miscarriages_count",
+      formSourceValue(medical, "previousMiscarriagesCount"),
+    ],
+    ["other_background", formSourceValue(medical, "otherBackground")],
+    ["karyotype", formSourceValue(previousTests, "karyotype")],
+    [
+      "karyotype_result",
+      formSourceValue(previousTests, "karyotypeResult"),
+    ],
+    [
+      "karyotype_file_name",
+      formSourceValue(previousTests, "karyotypeFileName"),
+    ],
+    [
+      "karyotype_file_type",
+      formSourceValue(previousTests, "karyotypeFileType"),
+    ],
+    [
+      "karyotype_file_size",
+      positiveIntegerFromUnknown(previousTests.karyotypeFileSize),
+    ],
+    ["pgt_a_fast", formSourceValue(requestedTest, "pgtAFast")],
+    [
+      "pgt_a_fast_reports_mosaicism",
+      formSourceValue(requestedTest, "pgtAFastReportsMosaicism"),
+    ],
+    [
+      "pgt_a_fast_reports_sex",
+      formSourceValue(requestedTest, "pgtAFastReportsSex"),
+    ],
+    ["pgt_a_standard", formSourceValue(requestedTest, "pgtAStandard")],
+    [
+      "pgt_a_standard_reports_mosaicism",
+      formSourceValue(requestedTest, "pgtAStandardReportsMosaicism"),
+    ],
+    [
+      "pgt_a_standard_reports_sex",
+      formSourceValue(requestedTest, "pgtAStandardReportsSex"),
+    ],
+    ["pgt_sr", formSourceValue(requestedTest, "pgtSr")],
+    [
+      "pgt_sr_reports_mosaicism",
+      formSourceValue(requestedTest, "pgtSrReportsMosaicism"),
+    ],
+    [
+      "pgt_sr_reports_sex",
+      formSourceValue(requestedTest, "pgtSrReportsSex"),
+    ],
+    ["institution_code", formSourceValue(institution, "code")],
+    ["institution_name", formSourceValue(institution, "name")],
+    ["institution_legal_name", formSourceValue(institution, "legalName")],
+    [
+      "institution_contact_email",
+      formSourceValue(institution, "contactEmail"),
+    ],
+    [
+      "institution_contact_phone",
+      formSourceValue(institution, "contactPhone"),
+    ],
+    ["institution_address", formSourceValue(institution, "address")],
+    ["institution_city", formSourceValue(institution, "city")],
+    ["institution_state", formSourceValue(institution, "state")],
+    ["institution_country", formSourceValue(institution, "country")],
+    ["institution_notes", formSourceValue(institution, "notes")],
+  ]);
+}
+
+function twoPQStudyRequestFormContent(
+  offer: SupportServiceOfferRecord,
+  source: TwoPQStudyRequestFormSource,
+) {
+  const formShape = normalizeFormShape(offer.formShape);
+  if (!formShape) {
+    throw new AdminRepositoryError(
+      "Configured 2PQ service offer is missing its request form shape.",
+      409,
+    );
+  }
+  const values = twoPQStudyRequestFormAnswerValues(source);
+  const fields = formShape.fields.flatMap((field) => {
+    const value = values.get(field.key);
+    return value === undefined ? [] : [{ key: field.key, value }];
+  });
+  const snapshotFields = formShape.fields.map((field) =>
+    withoutUndefined({
+      key: field.key,
+      label: field.label,
+      type: field.type,
+      required: field.required,
+      options: field.options,
+      helpInfoText: field.helpInfoText,
+    }),
+  );
+  const serializedFields = snapshotFields.map((field) => {
+    const { helpInfoText, ...serializedField } = field;
+    return withoutUndefined({
+      ...serializedField,
+      help_info_text: helpInfoText,
+    });
+  });
+  const serialized = {
+    form_shape: { fields: serializedFields },
+    fields,
+  };
+  const schemaError = serializedPgoObjectSchemaError(
+    FORM_OBJECT_TYPE,
+    serialized,
+  );
+  if (schemaError) {
+    throw new AdminRepositoryError(
+      `The linked 2PQ study request cannot be converted to pgo_form: ${schemaError}.`,
+      400,
+    );
+  }
+  return {
+    snapshotData: {
+      formShape: { fields: snapshotFields },
+      fields,
+    },
+    serialized,
+  };
+}
+
+type ProvisionedTwoPQStudyRequestForm = {
+  input: SupportServiceTransactionInputSlot;
+  uploadedObjectId: string;
+  fileStorageId: string;
+  objectCode: string;
+};
+
+async function provisionTwoPQStudyRequestForm(
+  context: AdminContext,
+  offer: SupportServiceOfferRecord,
+  input: {
+    caseId: string;
+    studyRequestForm: TwoPQStudyRequestFormSource;
+  },
+): Promise<ProvisionedTwoPQStudyRequestForm> {
+  const providerData = await assertOfferProviderExists(offer);
+  const providerOwnerId = await resolveAuthoritativeProviderOwner(
+    offer,
+    providerData,
+    (reference) => reference.get(),
+  );
+  if (providerOwnerId !== TWO_PQ_REPORT_OWNER_ID) {
+    throw new AdminRepositoryError(
+      `The 2PQ service provider authoritative owner must be ${TWO_PQ_REPORT_OWNER_ID}.`,
+      409,
+    );
+  }
+
+  const normalizedCaseId = normalizedTwoPQCaseId(input.caseId);
+  const requestId = twoPQCaseServiceTransactionRequestId(input.caseId);
+  const objectId = `obj_2pq_${normalizedCaseId}_study_request_form`;
+  const uploadedObjectId = `pgo_2pq_${normalizedCaseId}_study_request_form_object`;
+  const fileStorageId = `pgo_2pq_${normalizedCaseId}_study_request_form`;
+  const fileName = `${normalizedCaseId}_study_request.pgo_form.json`;
+  const sourceCreatedAt = dateFromUnknown(
+    input.studyRequestForm.createdAt,
+    "Study request createdAt",
+    true,
+  );
+  if (!sourceCreatedAt) {
+    throw new AdminRepositoryError(
+      "The linked 2PQ study request must have a valid creation timestamp.",
+      400,
+    );
+  }
+  const createdAt = sourceCreatedAt.toISOString();
+  const content = twoPQStudyRequestFormContent(
+    offer,
+    input.studyRequestForm,
+  );
+  const fileContent = JSON.stringify(content.serialized);
+  const contentSha256 = createHash("sha256")
+    .update(fileContent)
+    .digest("hex");
+  const contentSizeBytes = Buffer.byteLength(fileContent, "utf8");
+  const objectRef = adminDb
+    .collection(UPLOADED_OBJECTS_COLLECTION)
+    .doc(uploadedObjectId);
+  const fileRef = adminDb
+    .collection(FILE_STORAGE_COLLECTION)
+    .doc(fileStorageId);
+  const ownerRef = adminDb
+    .collection(OBJECT_OWNERS_COLLECTION)
+    .doc(TWO_PQ_REPORT_OWNER_ID);
+  const ownerCommunityRef = adminDb
+    .collection(COMMUNITY_USERS_COLLECTION)
+    .doc(TWO_PQ_REPORT_OWNER_ID);
+  const codeCandidates = randomObjectCodeCandidates();
+
+  const objectCode = await adminDb.runTransaction(
+    async (firestoreTransaction) => {
+      const [existingObject, existingFile, owner, ownerCommunity] =
+        await Promise.all([
+          firestoreTransaction.get(objectRef),
+          firestoreTransaction.get(fileRef),
+          firestoreTransaction.get(ownerRef),
+          firestoreTransaction.get(ownerCommunityRef),
+        ]);
+      if (!owner.exists || !ownerCommunity.exists) {
+        throw new AdminRepositoryError(
+          "The fixed 2PQ object owner account is not available.",
+          409,
+        );
+      }
+
+      if (existingObject.exists) {
+        const existingData = existingObject.data() ?? {};
+        const existingObjectCode = cleanString(existingData.object_code);
+        if (!existingObjectCode || !existingFile.exists) {
+          throw new AdminRepositoryError(
+            "The existing 2PQ request-form object is incomplete.",
+            409,
+          );
+        }
+        const existingCodeRef = adminDb
+          .collection(OBJECT_CODES_COLLECTION)
+          .doc(existingObjectCode);
+        const existingCode = await firestoreTransaction.get(existingCodeRef);
+        const existingFileData = existingFile.data() ?? {};
+        if (
+          !existingCode.exists ||
+          cleanString(existingCode.data()?.uploaded_object_id) !==
+            uploadedObjectId ||
+          cleanString(existingCode.data()?.owner_id) !==
+            TWO_PQ_REPORT_OWNER_ID ||
+          cleanString(existingData.object_type) !== FORM_OBJECT_TYPE ||
+          cleanString(existingData.object_id) !== objectId ||
+          Number(existingData.object_revision) !== 1 ||
+          cleanString(existingData.linked_file_id) !== fileStorageId ||
+          cleanString(existingData.object_owner_id) !==
+            TWO_PQ_REPORT_OWNER_ID ||
+          cleanString(existingData.service_transaction_id) !== requestId ||
+          cleanString(existingData.source_2pq_form_id) !==
+            input.studyRequestForm.id ||
+          cleanString(existingData.content_sha256) !== contentSha256 ||
+          Number(existingData.content_size_bytes) !== contentSizeBytes ||
+          cleanString(existingFileData.linked_object_code) !==
+            existingObjectCode ||
+          cleanString(existingFileData.file_type) !== FORM_OBJECT_TYPE ||
+          cleanString(existingFileData.owner_community_user_id) !==
+            TWO_PQ_REPORT_OWNER_ID ||
+          cleanString(existingFileData.provider_id) !== offer.providerId ||
+          cleanString(existingFileData.file_content) !== fileContent
+        ) {
+          throw new AdminRepositoryError(
+            "The existing 2PQ request-form object conflicts with the linked study request.",
+            409,
+          );
+        }
+        const ownedObjects = stringValueArray(
+          ownerCommunity.data()?.owned_objects,
+        );
+        if (!ownedObjects.includes(uploadedObjectId)) {
+          firestoreTransaction.set(
+            ownerCommunityRef,
+            {
+              owned_objects: [...ownedObjects, uploadedObjectId],
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
+        }
+        return existingObjectCode;
+      }
+      if (existingFile.exists) {
+        throw new AdminRepositoryError(
+          "The deterministic 2PQ request-form file ID is already in use.",
+          409,
+        );
+      }
+
+      const candidateSnapshots = await Promise.all(
+        codeCandidates.map((candidate) =>
+          firestoreTransaction.get(
+            adminDb.collection(OBJECT_CODES_COLLECTION).doc(candidate),
+          ),
+        ),
+      );
+      const availableIndex = candidateSnapshots.findIndex(
+        (candidate) => !candidate.exists,
+      );
+      if (availableIndex < 0) {
+        throw new AdminRepositoryError(
+          "Could not allocate a unique 9-digit object code for the 2PQ request form.",
+          503,
+        );
+      }
+      const selectedObjectCode = codeCandidates[availableIndex]!;
+      const objectCodeRef = adminDb
+        .collection(OBJECT_CODES_COLLECTION)
+        .doc(selectedObjectCode);
+      const ownerData = owner.data() ?? {};
+      const ownerCommunityData = ownerCommunity.data() ?? {};
+      const ownerName =
+        cleanString(ownerData.owner_name) ||
+        cleanString(ownerCommunityData.fullName) ||
+        cleanString(ownerCommunityData.name) ||
+        TWO_PQ_REPORT_OWNER_NAME;
+      const ownerEmail =
+        cleanString(ownerData.owner_contact_email) ||
+        cleanString(ownerCommunityData.email) ||
+        TWO_PQ_REPORT_OWNER_EMAIL;
+      const ownedObjects = stringValueArray(
+        ownerCommunityData.owned_objects,
+      );
+
+      firestoreTransaction.set(objectCodeRef, {
+        uploaded_object_id: uploadedObjectId,
+        owner_id: TWO_PQ_REPORT_OWNER_ID,
+      });
+      firestoreTransaction.set(objectRef, {
+        schema_version: 1,
+        object_code: selectedObjectCode,
+        object_type: FORM_OBJECT_TYPE,
+        object_id: objectId,
+        object_revision: 1,
+        file_name: fileName,
+        download_url: null,
+        linked_file_id: fileStorageId,
+        content_sha256: contentSha256,
+        content_size_bytes: contentSizeBytes,
+        upload_version_count: 1,
+        tracking_progress_status: "document_ready",
+        object_owner_id: TWO_PQ_REPORT_OWNER_ID,
+        owner_community_user_id: TWO_PQ_REPORT_OWNER_ID,
+        owner_public_profile_id: TWO_PQ_REPORT_OWNER_ID,
+        owner_name: ownerName,
+        owner_email: ownerEmail,
+        provider_id: offer.providerId,
+        provider_kind: offer.providerKind,
+        provider_name: offer.providerName,
+        service_transaction_id: requestId,
+        offer_id: offer.id,
+        input_role: "form",
+        source_2pq_form_id: input.studyRequestForm.id,
+        source_2pq_case_id: input.caseId,
+        date_created: FieldValue.serverTimestamp(),
+        date_modified: FieldValue.serverTimestamp(),
+        created_by_email: context.email,
+        updated_by_email: context.email,
+      });
+      firestoreTransaction.set(fileRef, {
+        schema_version: 1,
+        file_name: fileName,
+        file_type: FORM_OBJECT_TYPE,
+        file_content: fileContent,
+        content_sha256: contentSha256,
+        content_size_bytes: contentSizeBytes,
+        linked_object_code: selectedObjectCode,
+        owner_community_user_id: TWO_PQ_REPORT_OWNER_ID,
+        provider_id: offer.providerId,
+        service_transaction_id: requestId,
+        offer_id: offer.id,
+        input_role: "form",
+        source_2pq_form_id: input.studyRequestForm.id,
+        source_2pq_case_id: input.caseId,
+        tracking_progress_status: "document_ready",
+        upload_version_count: 1,
+        creation_date: FieldValue.serverTimestamp(),
+        last_modified_date: FieldValue.serverTimestamp(),
+        created_by_email: context.email,
+        updated_by_email: context.email,
+      });
+      firestoreTransaction.set(
+        ownerCommunityRef,
+        {
+          owned_objects: [...new Set([...ownedObjects, uploadedObjectId])],
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      return selectedObjectCode;
+    },
+  );
+
+  return {
+    input: {
+      role: "form",
+      objectRef: { objectId, revision: 1 },
+      objectType: FORM_OBJECT_TYPE,
+      objectSnapshot: {
+        objectId,
+        objectType: FORM_OBJECT_TYPE,
+        schemaVersion: "1.0.0",
+        revision: 1,
+        createdAt,
+        createdBy: TWO_PQ_REPORT_OWNER_ID,
+        data: content.snapshotData,
+      },
+      objectCode,
+      uploadedObjectId,
+      fileStorageId,
+      objectOwnerId: TWO_PQ_REPORT_OWNER_ID,
+    },
+    uploadedObjectId,
+    fileStorageId,
+    objectCode,
+  };
+}
+
+async function cleanupFailedTwoPQStudyRequestFormProvision(
+  caseId: string,
+  provisioned: ProvisionedTwoPQStudyRequestForm,
+) {
+  const requestId = twoPQCaseServiceTransactionRequestId(caseId);
+  const transactionRef = adminDb
+    .collection(SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(requestId);
+  const objectRef = adminDb
+    .collection(UPLOADED_OBJECTS_COLLECTION)
+    .doc(provisioned.uploadedObjectId);
+  const fileRef = adminDb
+    .collection(FILE_STORAGE_COLLECTION)
+    .doc(provisioned.fileStorageId);
+  const codeRef = adminDb
+    .collection(OBJECT_CODES_COLLECTION)
+    .doc(provisioned.objectCode);
+  const ownerCommunityRef = adminDb
+    .collection(COMMUNITY_USERS_COLLECTION)
+    .doc(TWO_PQ_REPORT_OWNER_ID);
+
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const [transaction, object, file, code] = await Promise.all([
+      firestoreTransaction.get(transactionRef),
+      firestoreTransaction.get(objectRef),
+      firestoreTransaction.get(fileRef),
+      firestoreTransaction.get(codeRef),
+    ]);
+    if (transaction.exists) {
+      return;
+    }
+    const objectData = object.data() ?? {};
+    const fileData = file.data() ?? {};
+    const codeData = code.data() ?? {};
+    const ownsProvision =
+      (!object.exists ||
+        (cleanString(objectData.service_transaction_id) === requestId &&
+          cleanString(objectData.source_2pq_case_id) === caseId &&
+          cleanString(objectData.object_owner_id) ===
+            TWO_PQ_REPORT_OWNER_ID)) &&
+      (!file.exists ||
+        (cleanString(fileData.service_transaction_id) === requestId &&
+          cleanString(fileData.source_2pq_case_id) === caseId &&
+          cleanString(fileData.owner_community_user_id) ===
+            TWO_PQ_REPORT_OWNER_ID)) &&
+      (!code.exists ||
+        (cleanString(codeData.uploaded_object_id) ===
+          provisioned.uploadedObjectId &&
+          cleanString(codeData.owner_id) === TWO_PQ_REPORT_OWNER_ID));
+    if (!ownsProvision) {
+      return;
+    }
+    if (object.exists) firestoreTransaction.delete(objectRef);
+    if (file.exists) firestoreTransaction.delete(fileRef);
+    if (code.exists) firestoreTransaction.delete(codeRef);
+    firestoreTransaction.set(
+      ownerCommunityRef,
+      {
+        owned_objects: FieldValue.arrayRemove(provisioned.uploadedObjectId),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
 }
 
 export async function getTwoPQCaseLinkedServiceTransactionSnapshot(
@@ -7306,6 +8160,7 @@ export async function createTwoPQCaseServiceTransaction(
     threeLetterCode: string;
     doctorEmail: string;
     requestedAtClient: string;
+    studyRequestForm: TwoPQStudyRequestFormSource;
   },
 ) {
   const threeLetterCode = cleanString(input.threeLetterCode).toUpperCase();
@@ -7328,35 +8183,70 @@ export async function createTwoPQCaseServiceTransaction(
   }
 
   const requestId = twoPQCaseServiceTransactionRequestId(input.caseId);
-  return createSupportServiceTransactionWithPolicy(
-    context,
-    {
-      name: `Solicitud de estudio de ${threeLetterCode}`,
-      requestId,
-      offerId: TWO_PQ_CASE_SERVICE_OFFER_ID,
-      status: "received",
-      requestedByUserEmail,
-      requestedAtClient: input.requestedAtClient,
-      requestRevision: 1,
-      idempotencyKey: `2pq-case:${cleanString(input.caseId)}:${TWO_PQ_CASE_SERVICE_OFFER_ID}`,
-      inputs: [],
-      outputObjects: [],
-      outputReports: [],
-      missingRequiredInputRoles: [],
-      issues: [],
-      offerSnapshot: {},
-      providerSnapshot: {},
-      contractSource: "2pq_case_creation",
-      attachmentsPending: false,
-    },
-    {
-      requireGodModeAccess: false,
-      enforceRequesterAdmission: false,
-      expectedServiceId: TWO_PQ_CASE_SERVICE_ID,
-      expectedProviderId: TWO_PQ_CASE_SERVICE_PROVIDER_ID,
-      expectedProviderKind: "organization",
-    },
-  );
+  const existingSnapshot = await getTransactionSnapshot(requestId);
+  if (existingSnapshot) {
+    const existing = toTransactionRecord(
+      existingSnapshot.id,
+      existingSnapshot.data() ?? {},
+    );
+    if (
+      existing.requestId !== requestId ||
+      existing.offerId !== TWO_PQ_CASE_SERVICE_OFFER_ID ||
+      existing.serviceId !== TWO_PQ_CASE_SERVICE_ID ||
+      existing.providerId !== TWO_PQ_CASE_SERVICE_PROVIDER_ID ||
+      existing.contractSource !== "2pq_case_creation"
+    ) {
+      throw new AdminRepositoryError(
+        "The deterministic 2PQ request ID is already bound to another service transaction.",
+        409,
+      );
+    }
+    return existing;
+  }
+
+  const offer = await ensureTwoPQStudyRequestFormContract(context);
+  const provisioned = await provisionTwoPQStudyRequestForm(context, offer, {
+    caseId: input.caseId,
+    studyRequestForm: input.studyRequestForm,
+  });
+  try {
+    return await createSupportServiceTransactionWithPolicy(
+      context,
+      {
+        name: `Solicitud de estudio de ${threeLetterCode}`,
+        requestId,
+        offerId: TWO_PQ_CASE_SERVICE_OFFER_ID,
+        serviceVersion: offer.serviceVersion,
+        status: "received",
+        requestedByUserEmail,
+        requestedAtClient: input.requestedAtClient,
+        requestRevision: 1,
+        idempotencyKey: `2pq-case:${cleanString(input.caseId)}:${TWO_PQ_CASE_SERVICE_OFFER_ID}`,
+        inputs: [provisioned.input],
+        outputObjects: [],
+        outputReports: [],
+        missingRequiredInputRoles: [],
+        issues: [],
+        offerSnapshot: {},
+        providerSnapshot: {},
+        contractSource: "2pq_case_creation",
+        attachmentsPending: false,
+      },
+      {
+        requireGodModeAccess: false,
+        enforceRequesterAdmission: false,
+        expectedServiceId: TWO_PQ_CASE_SERVICE_ID,
+        expectedProviderId: TWO_PQ_CASE_SERVICE_PROVIDER_ID,
+        expectedProviderKind: "organization",
+      },
+    );
+  } catch (error) {
+    await cleanupFailedTwoPQStudyRequestFormProvision(
+      input.caseId,
+      provisioned,
+    );
+    throw error;
+  }
 }
 
 type SupportServiceOutputAttachmentPolicy = {

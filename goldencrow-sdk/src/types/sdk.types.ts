@@ -352,6 +352,7 @@ export interface TwoPQRecord {
   institutionId: string;
   doctorId: string;
   patientId?: string;
+  linkedStudyRequestFormId?: string;
   parent_batch?: string;
   parent_case?: string;
   children_cases?: string[];

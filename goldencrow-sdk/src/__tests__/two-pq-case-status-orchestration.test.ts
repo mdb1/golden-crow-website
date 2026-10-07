@@ -14,6 +14,24 @@ const mockCascadeTwoPQCaseStatusToSamplingChildren = jest.fn();
 const mockSynchronizeTwoPQCasesFilesAndCodes = jest.fn();
 const mockCreateTwoPQCaseServiceTransaction = jest.fn();
 
+const linkedStudyRequestForm = {
+  id: "FORM-00041",
+  formType: "study_request" as const,
+  institutionId: "INST-00001",
+  doctorId: "DOC-00001",
+  selectedPatientId: "PAT-00001",
+  patientInformation: {
+    patientId: "PAT-00001",
+    institutionId: "INST-00001",
+    doctorId: "DOC-00001",
+  },
+  medicalInformation: {},
+  previousGeneticTests: {},
+  requestedTest: {},
+  institutionInformation: {},
+  createdAt: "2026-09-28T09:00:00.000Z",
+};
+
 function collectionStore(name: string) {
   let store = collections.get(name);
   if (!store) {
@@ -187,6 +205,13 @@ describe("2PQ case status update orchestration", () => {
       fullName: "Doctor",
       status: "active",
     });
+    collectionStore("patients").set("PAT-00001", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      email: "patient@example.com",
+      fullName: "Patient",
+      status: "active",
+    });
     collectionStore("2pq_case").set("CASE-00001", {
       areaKey: "cases",
       collectionKey: "2pq_case",
@@ -285,12 +310,18 @@ describe("2PQ case status update orchestration", () => {
       institutionId: "INST-00001",
     };
 
-    const created = await createTwoPQRecordForContext(context, "cases", {
-      institutionId: "INST-00001",
-      doctorId: "DOC-00001",
-      caseLabel: "ABCXXX",
-      caseStatus: "intake",
-    });
+    const created = await createTwoPQRecordForContext(
+      context,
+      "cases",
+      {
+        institutionId: "INST-00001",
+        doctorId: "DOC-00001",
+        patientId: "PAT-00001",
+        caseLabel: "ABCXXX",
+        caseStatus: "intake",
+      },
+      { studyRequestForm: linkedStudyRequestForm },
+    );
 
     expect(created.id).toBe("CASE-00002");
     expect(mockCreateTwoPQCaseServiceTransaction).toHaveBeenCalledWith(
@@ -300,6 +331,7 @@ describe("2PQ case status update orchestration", () => {
         threeLetterCode: "ABC",
         doctorEmail: "doctor@example.com",
         requestedAtClient: expect.any(String),
+        studyRequestForm: linkedStudyRequestForm,
       },
     );
     expect(
@@ -310,8 +342,43 @@ describe("2PQ case status update orchestration", () => {
     expect(collectionStore("2pq_case").get("CASE-00002")).toMatchObject({
       doctorId: "DOC-00001",
       institutionId: "INST-00001",
+      patientId: "PAT-00001",
+      linkedStudyRequestFormId: "FORM-00041",
       should_automatically_sync_files_and_codes: true,
     });
+  });
+
+  it("rejects direct case creation without a linked study request", async () => {
+    const { createTwoPQRecordForContext } = await import(
+      "../repositories/two-pq.repository.js"
+    );
+
+    await expect(
+      createTwoPQRecordForContext(
+        {
+          email: "admin@example.com",
+          uid: "admin-1",
+          role: "full_admin",
+          isBootstrap: false,
+          canAccessBackoffice: true,
+          canAccessPatientPortal: false,
+          canAccessPGFlex: false,
+          projectAccess: ["mydnamap"],
+        },
+        "cases",
+        {
+          institutionId: "INST-00001",
+          doctorId: "DOC-00001",
+          patientId: "PAT-00001",
+          caseLabel: "ABCXXX",
+          caseStatus: "intake",
+        },
+      ),
+    ).rejects.toThrow(
+      "A 2PQ case can only be created from a linked study request form.",
+    );
+    expect(collectionStore("2pq_case").has("CASE-00002")).toBe(false);
+    expect(mockCreateTwoPQCaseServiceTransaction).not.toHaveBeenCalled();
   });
 
   it("rolls a new case back when its mandatory service transaction fails", async () => {
@@ -339,9 +406,11 @@ describe("2PQ case status update orchestration", () => {
         {
           institutionId: "INST-00001",
           doctorId: "DOC-00001",
+          patientId: "PAT-00001",
           caseLabel: "ABCXXX",
           caseStatus: "intake",
         },
+        { studyRequestForm: linkedStudyRequestForm },
       ),
     ).rejects.toThrow("Configured 2PQ offer is unavailable");
     expect(collectionStore("2pq_case").has("CASE-00002")).toBe(false);

@@ -250,6 +250,10 @@ jest.mock("firebase-admin/firestore", () => ({
     static serverTimestamp() {
       return new Date("2026-09-16T12:00:00.000Z");
     }
+
+    static arrayRemove(value: unknown) {
+      return { operation: "arrayRemove", value };
+    }
   },
   Timestamp: class TimestampStub {
     constructor(private readonly date: Date) {}
@@ -425,6 +429,113 @@ const baseOffer = {
   createdAt: "2026-09-15T12:00:00.000Z",
   createdByEmail: "god@example.com",
 };
+
+const twoPQOwnerId = "c3x313CE2oZwIXVRxDHBQR31RlR2";
+
+function twoPQStudyRequestForm() {
+  return {
+    id: "FORM-00041",
+    formType: "study_request" as const,
+    institutionId: "INST-00001",
+    doctorId: "DOC-00001",
+    selectedPatientId: "PAT-00001",
+    patientInformation: {
+      patientId: "PAT-00001",
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      email: "patient@example.com",
+      fullName: "Patient Example",
+      medicalRecordNumber: "MRN-41",
+      birthDate: "1988-04-10",
+      sex: "female",
+      status: "active",
+      notes: "Sin observaciones",
+      partnerFullName: "Partner Example",
+    },
+    medicalInformation: {
+      spermGameteSource: "propio",
+      oocyteGameteSource: "propio",
+      maleFactor: false,
+      previousMiscarriagesCount: "0",
+      otherBackground: "Sin observaciones",
+    },
+    previousGeneticTests: {
+      karyotype: false,
+      karyotypeResult: "Normal",
+      karyotypeFileName: "cariotipo.pdf",
+      karyotypeFileType: "application/pdf",
+      karyotypeFileSize: "1200",
+      karyotypeFileContent: "must-not-be-copied",
+    },
+    requestedTest: {
+      pgtAFast: true,
+      pgtAFastReportsMosaicism: true,
+      pgtAFastReportsSex: false,
+      pgtAStandard: false,
+      pgtSr: false,
+    },
+    institutionInformation: {
+      code: "INST",
+      name: "Institution",
+      legalName: "Institution SA",
+      contactEmail: "contact@institution.example",
+      contactPhone: "+541112345678",
+      address: "Street 123",
+      city: "Buenos Aires",
+      state: "CABA",
+      country: "Argentina",
+      notes: "Sin observaciones",
+    },
+    createdAt: "2026-09-28T20:00:00.000Z",
+  };
+}
+
+function seedLegacyTwoPQOffer() {
+  const providerId = "kfFtJlLuyW6deXW2Im3S";
+  const offerId = "rhTE3dfB8Ovhf86lY3Z5";
+  seedDoc("feed_organizations", providerId, {
+    name: "2pq",
+    status: "active",
+    ownerCommunityUserId: twoPQOwnerId,
+    requestedServiceTransactions: [],
+  });
+  seedDoc("object_owners", twoPQOwnerId, {
+    owner_name: "2pq",
+    owner_contact_email: "info@2pq.life",
+    status: "active",
+  });
+  seedDoc("community_users", twoPQOwnerId, {
+    status: "active",
+    email: "info@2pq.life",
+    owned_objects: [],
+  });
+  seedDoc("service_offers", offerId, {
+    ...baseOffer,
+    serviceId: "pgs_2pq_74399",
+    serviceVersion: 3,
+    name: "Solicitud de PGT",
+    providerId,
+    providerName: "2pq",
+    isHiddenFromSearch: true,
+    isHighlightedOffer: false,
+    isProfessionalOffer: false,
+    description: "Solicitud gestionada a traves del sistema 2pq sync.",
+    shortContract: "none -> pdf_report:pdf_report",
+    providerWork: "Procesar la muestra biologica y generar un informe de PGT.",
+    formShape: undefined,
+    inputSlots: [],
+    outputSlots: [
+      {
+        role: "pdf_report",
+        objectType: "pgo_pdf_report",
+        mutationMode: "new_object",
+      },
+    ],
+    acceptedConditions: ["Consentimiento informado completado."],
+    stages: ["test_planning", "wet_lab", "bioinformatics"],
+  });
+  return { providerId, offerId };
+}
 
 const completeMoreInformation = {
   frequentQuestions: [
@@ -4680,6 +4791,9 @@ describe("support service canonical transaction creation", () => {
   beforeEach(() => {
     jest.resetModules();
     collections.clear();
+    mockRandomInt.mockReset();
+    let nextObjectCode = 300_000_000;
+    mockRandomInt.mockImplementation(() => nextObjectCode++);
     seedDoc("feed_organizations", "feed-org-1", {
       name: "Pocket Genes",
       status: "active",
@@ -4729,52 +4843,12 @@ describe("support service canonical transaction creation", () => {
   });
 
   it("creates one deferred transaction from the canonical 2PQ offer for the doctor email", async () => {
-    const providerId = "kfFtJlLuyW6deXW2Im3S";
-    const offerId = "rhTE3dfB8Ovhf86lY3Z5";
+    const { providerId, offerId } = seedLegacyTwoPQOffer();
     const doctorEmail = "doctor@clinic.example";
     const existingDeferredIds = Array.from(
       { length: 5 },
       (_, index) => `pgr_existing_2pq_${index + 1}`,
     );
-    seedDoc("feed_organizations", providerId, {
-      name: "2pq",
-      status: "active",
-      ownerCommunityUserId: providerId,
-      requestedServiceTransactions: [],
-    });
-    seedDoc("object_owners", providerId, {
-      owner_name: "2pq",
-      owner_contact_email: "info@2pq.life",
-      status: "active",
-    });
-    seedDoc("community_users", providerId, {
-      status: "active",
-    });
-    seedDoc("service_offers", offerId, {
-      ...baseOffer,
-      serviceId: "pgs_2pq_74399",
-      serviceVersion: 3,
-      name: "Solicitud de PGT",
-      providerId,
-      providerName: "2pq",
-      isHiddenFromSearch: true,
-      isHighlightedOffer: false,
-      isProfessionalOffer: false,
-      description: "Solicitud gestionada a traves del sistema 2pq sync.",
-      shortContract: "none -> pdf_report:pdf_report",
-      providerWork: "Procesar la muestra biologica y generar un informe de PGT.",
-      formShape: undefined,
-      inputSlots: [],
-      outputSlots: [
-        {
-          role: "pdf_report",
-          objectType: "pgo_pdf_report",
-          mutationMode: "new_object",
-        },
-      ],
-      acceptedConditions: ["Consentimiento informado completado."],
-      stages: ["test_planning", "wet_lab", "bioinformatics"],
-    });
     const deferredIndexId = Buffer.from(doctorEmail, "utf8").toString(
       "base64url",
     );
@@ -4799,6 +4873,7 @@ describe("support service canonical transaction creation", () => {
       threeLetterCode: "abc",
       doctorEmail: " Doctor@Clinic.Example ",
       requestedAtClient: "2026-09-28T22:00:00.000Z",
+      studyRequestForm: twoPQStudyRequestForm(),
     };
 
     const created = await createTwoPQCaseServiceTransaction(
@@ -4818,7 +4893,7 @@ describe("support service canonical transaction creation", () => {
       requestId: "pgr_2pq_case_00022",
       offerId,
       serviceId: "pgs_2pq_74399",
-      serviceVersion: 3,
+      serviceVersion: 4,
       providerId,
       providerKind: "organization",
       status: "received",
@@ -4834,7 +4909,7 @@ describe("support service canonical transaction creation", () => {
       offerId,
       offerName: "Solicitud de PGT",
       serviceId: "pgs_2pq_74399",
-      serviceVersion: 3,
+      serviceVersion: 4,
       providerId,
       providerName: "2pq",
       status: "received",
@@ -4849,6 +4924,53 @@ describe("support service canonical transaction creation", () => {
     ).toMatchObject({
       name: "Solicitud de estudio de ABC",
       offerSnapshot: { name: "Solicitud de PGT" },
+      inputs: [
+        expect.objectContaining({
+          role: "form",
+          objectType: "pgo_form",
+          objectOwnerId: twoPQOwnerId,
+          uploadedObjectId:
+            "pgo_2pq_case_00022_study_request_form_object",
+          fileStorageId: "pgo_2pq_case_00022_study_request_form",
+        }),
+      ],
+    });
+    const storedForm = collectionStore("file_storage").get(
+      "pgo_2pq_case_00022_study_request_form",
+    );
+    const storedFormContent = JSON.parse(
+      String(storedForm?.file_content),
+    ) as Record<string, unknown>;
+    expect(storedForm).toMatchObject({
+      file_type: "pgo_form",
+      owner_community_user_id: twoPQOwnerId,
+      provider_id: providerId,
+      source_2pq_form_id: "FORM-00041",
+      source_2pq_case_id: "CASE-00022",
+    });
+    expect(JSON.stringify(storedFormContent)).not.toContain(
+      "must-not-be-copied",
+    );
+    expect(
+      collectionStore("uploaded_objects").get(
+        "pgo_2pq_case_00022_study_request_form_object",
+      ),
+    ).toMatchObject({
+      object_type: "pgo_form",
+      object_owner_id: twoPQOwnerId,
+      owner_community_user_id: twoPQOwnerId,
+      owner_public_profile_id: twoPQOwnerId,
+      source_2pq_form_id: "FORM-00041",
+      service_transaction_id: "pgr_2pq_case_00022",
+    });
+    expect(
+      collectionStore("service_offers").get(offerId),
+    ).toMatchObject({
+      serviceVersion: 4,
+      formShape: expect.objectContaining({ id: "pgfs_2pq_74399" }),
+      inputSlots: [
+        expect.objectContaining({ role: "form", objectType: "pgo_form" }),
+      ],
     });
     expect(
       collectionStore("deferred_service_transactions").get(deferredIndexId),
@@ -4871,6 +4993,103 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
+  it("keeps a historical 2PQ transaction on its frozen inputless contract", async () => {
+    const requestId = "pgr_2pq_case_00019";
+    seedDoc("service_transactions", requestId, {
+      schemaVersion: 1,
+      name: "Solicitud de PGT",
+      requestId,
+      offerId: "rhTE3dfB8Ovhf86lY3Z5",
+      serviceId: "pgs_2pq_74399",
+      serviceVersion: 3,
+      providerId: "kfFtJlLuyW6deXW2Im3S",
+      providerKind: "organization",
+      status: "received",
+      requestedByUserEmail: "doctor@clinic.example",
+      requestedAt: "2026-09-20T10:00:00.000Z",
+      requestedAtClient: "2026-09-20T10:00:00.000Z",
+      requestRevision: 1,
+      idempotencyKey:
+        "2pq-case:CASE-00019:rhTE3dfB8Ovhf86lY3Z5",
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      missingRequiredInputRoles: [],
+      issues: [],
+      offerSnapshot: {},
+      providerSnapshot: {},
+      contractSource: "2pq_case_creation",
+      attachmentsPending: false,
+      createdAt: "2026-09-20T10:00:00.000Z",
+      updatedAt: "2026-09-20T10:00:00.000Z",
+    });
+    const { createTwoPQCaseServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const existing = await createTwoPQCaseServiceTransaction(context, {
+      caseId: "CASE-00019",
+      threeLetterCode: "OLD",
+      doctorEmail: "doctor@clinic.example",
+      requestedAtClient: "2026-09-20T10:00:00.000Z",
+      studyRequestForm: twoPQStudyRequestForm(),
+    });
+
+    expect(existing).toMatchObject({
+      requestId,
+      serviceVersion: 3,
+      inputs: [],
+    });
+    expect(
+      collectionStore("file_storage").has(
+        "pgo_2pq_case_00019_study_request_form",
+      ),
+    ).toBe(false);
+    expect(
+      collectionStore("service_offers").has("rhTE3dfB8Ovhf86lY3Z5"),
+    ).toBe(false);
+  });
+
+  it("removes the provisioned pgo_form when transaction admission fails", async () => {
+    seedLegacyTwoPQOffer();
+    const doctorEmail = "doctor@clinic.example";
+    const requestId = "pgr_2pq_case_00024";
+    const deferredIndexId = Buffer.from(doctorEmail, "utf8").toString(
+      "base64url",
+    );
+    seedDoc("deferred_service_transactions", deferredIndexId, {
+      email: doctorEmail,
+      deferred_transaction_ids: [requestId],
+    });
+    const { createTwoPQCaseServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createTwoPQCaseServiceTransaction(context, {
+        caseId: "CASE-00024",
+        threeLetterCode: "ABC",
+        doctorEmail,
+        requestedAtClient: "2026-09-28T22:00:00.000Z",
+        studyRequestForm: twoPQStudyRequestForm(),
+      }),
+    ).rejects.toThrow(
+      "Deferred requester index already contains this service transaction.",
+    );
+    expect(collectionStore("service_transactions").has(requestId)).toBe(false);
+    expect(
+      collectionStore("uploaded_objects").has(
+        "pgo_2pq_case_00024_study_request_form_object",
+      ),
+    ).toBe(false);
+    expect(
+      collectionStore("file_storage").has(
+        "pgo_2pq_case_00024_study_request_form",
+      ),
+    ).toBe(false);
+    expect(collectionStore("object_codes").has("300000000")).toBe(false);
+  });
+
   it("rejects a 2PQ transaction when the case has no canonical three-letter code", async () => {
     const { createTwoPQCaseServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
@@ -4882,6 +5101,7 @@ describe("support service canonical transaction creation", () => {
         threeLetterCode: "PGT-A",
         doctorEmail: "doctor@clinic.example",
         requestedAtClient: "2026-09-28T22:00:00.000Z",
+        studyRequestForm: twoPQStudyRequestForm(),
       }),
     ).rejects.toThrow(
       "The 2PQ case must have a valid three-letter code before creating its service transaction.",

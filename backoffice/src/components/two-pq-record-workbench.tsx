@@ -1258,8 +1258,9 @@ export function TwoPQRecordWorkbench({
     adminContext.role === "institution_operator" ||
     adminContext.role === "institution_laboratory_staff";
   const shouldBlockDirectCreateForArea = (targetAreaKey: TwoPQAreaKey) =>
-    directCreateMustUseFormRole &&
-    FORM_REQUESTED_DIRECT_CREATE_AREAS.has(targetAreaKey);
+    targetAreaKey === "cases" ||
+    (directCreateMustUseFormRole &&
+      FORM_REQUESTED_DIRECT_CREATE_AREAS.has(targetAreaKey));
   const directCreateRequiresForm =
     mode === "create" && shouldBlockDirectCreateForArea(areaKey);
   const batchArea = translateTwoPQAreaConfig(

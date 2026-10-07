@@ -2523,13 +2523,18 @@ export async function createTwoPQFormForContext(
         payload.samplingInformation,
         linkedCaseLabel,
       );
-      const createdCase = await createTwoPQRecordForContext(context, "cases", {
-        ...normalizedCaseInformation,
-        three_letter_code: sampleBoxCode,
-        institutionId,
-        doctorId,
-        patientId: patientIdForLinkedRecords,
-      });
+      const createdCase = await createTwoPQRecordForContext(
+        context,
+        "cases",
+        {
+          ...normalizedCaseInformation,
+          three_letter_code: sampleBoxCode,
+          institutionId,
+          doctorId,
+          patientId: patientIdForLinkedRecords,
+        },
+        { studyRequestForm: linkedStudyRequestForm! },
+      );
       selectedCaseId = createdCase.id;
       linkedCaseId = createdCase.id;
       caseInformation = caseRecordToFormInformation(createdCase);

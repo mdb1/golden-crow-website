@@ -45,9 +45,10 @@ export default async function TwoPQAreaPage({
       entry.role === adminContext.role && entry.capabilities.includes("create"),
   );
   const directCreateRequiresForm =
-    (adminContext.role === "institution_operator" ||
+    area.key === "cases" ||
+    ((adminContext.role === "institution_operator" ||
       adminContext.role === "institution_laboratory_staff") &&
-    FORM_REQUESTED_CREATE_AREAS.has(area.key);
+      FORM_REQUESTED_CREATE_AREAS.has(area.key));
 
   return (
     <div className="flex flex-col gap-6">

@@ -13,6 +13,7 @@ import type { TwoPQCaseStatusProgressReporter } from "./two-pq-case-status-opera
 import {
   createTwoPQCaseServiceTransaction,
   getTwoPQCaseLinkedServiceTransactionSnapshot,
+  type TwoPQStudyRequestFormSource,
 } from "./support-services.repository.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import { resolveMissingTwoPQAssignedEntities } from "../lib/two-pq-assignment-integrity.js";
@@ -711,6 +712,9 @@ function toTwoPQRecord(
   }
 
   if (areaKey === "cases") {
+    record.linkedStudyRequestFormId = normalizeOptionalString(
+      data.linkedStudyRequestFormId,
+    );
     record.should_automatically_sync_files_and_codes =
       data.should_automatically_sync_files_and_codes !== false;
   }
@@ -1760,8 +1764,15 @@ export async function listTwoPQRecordsForContext(
 export async function createTwoPQRecordForContext(
   context: AdminContext,
   areaKey: TwoPQAreaKey,
-  payload: TwoPQMutationInput
+  payload: TwoPQMutationInput,
+  options: { studyRequestForm?: TwoPQStudyRequestFormSource } = {},
 ): Promise<TwoPQRecord> {
+  if (areaKey === "cases" && !options.studyRequestForm) {
+    throw new AdminRepositoryError(
+      "A 2PQ case can only be created from a linked study request form.",
+      400,
+    );
+  }
   validateAreaSpecificPayload(areaKey, payload);
   validateRequiredFields(areaKey, payload);
   const scopedIds = resolveScopedIds(context, null, payload);
@@ -1772,6 +1783,27 @@ export async function createTwoPQRecordForContext(
 
   if (!canCreateTwoPQRecord(context, scopedIds.institutionId, scopedIds.doctorId)) {
     throw new AdminRepositoryError("You cannot create records in this scope.", 403);
+  }
+
+  const studyRequestForm = options.studyRequestForm;
+  if (areaKey === "cases" && studyRequestForm) {
+    const linkedPatientId =
+      normalizeOptionalString(studyRequestForm.selectedPatientId) ??
+      normalizeOptionalString(studyRequestForm.patientInformation.patientId);
+    const requestedPatientId = normalizeOptionalString(payload.patientId);
+    if (
+      studyRequestForm.formType !== "study_request" ||
+      !normalizeOptionalString(studyRequestForm.id) ||
+      studyRequestForm.institutionId !== scopedIds.institutionId ||
+      studyRequestForm.doctorId !== scopedIds.doctorId ||
+      !linkedPatientId ||
+      linkedPatientId !== requestedPatientId
+    ) {
+      throw new AdminRepositoryError(
+        "The linked study request form must match the case institution, doctor, and patient.",
+        400,
+      );
+    }
   }
 
   const linkedEntities = await validateLinkedEntities({
@@ -1821,6 +1853,9 @@ export async function createTwoPQRecordForContext(
     areaKey === "sampling" ? normalizeOptionalString(payload.parent_case) : undefined;
   const writeDocument: TwoPQRecord & { batchId?: string; caseId?: string } = {
     ...document,
+    ...(areaKey === "cases" && studyRequestForm
+      ? { linkedStudyRequestFormId: studyRequestForm.id }
+      : {}),
     ...(requestedBatchId ? { parent_batch: requestedBatchId, batchId: requestedBatchId } : {}),
     ...(requestedCaseId ? { parent_case: requestedCaseId, caseId: requestedCaseId } : {}),
     createdByEmail: context.email,
@@ -1873,6 +1908,7 @@ export async function createTwoPQRecordForContext(
         threeLetterCode: caseThreeLetterCodeForServiceTransaction(writeDocument),
         doctorEmail: linkedEntities.doctor.authEmail,
         requestedAtClient: now,
+        studyRequestForm: studyRequestForm!,
       });
     } catch (error) {
       try {
