@@ -1369,6 +1369,34 @@ describe("support services workbenches", () => {
     expect(screen.queryByText("Form shape ID")).toBeNull();
     expect(screen.queryByText("Form shape version")).toBeNull();
     expect(screen.getByRole("button", { name: "Add field" })).toBeTruthy();
+    const requestFormTable = screen.getByRole("table");
+    expect(
+      within(requestFormTable).getByRole("columnheader", { name: "Key" }),
+    ).toBeTruthy();
+    expect(
+      within(requestFormTable).getByRole("columnheader", { name: "Label" }),
+    ).toBeTruthy();
+    expect(
+      within(requestFormTable).getByRole("columnheader", { name: "Type" }),
+    ).toBeTruthy();
+    expect(
+      within(requestFormTable).getByRole("columnheader", { name: "Actions" }),
+    ).toBeTruthy();
+    expect(
+      within(requestFormTable).queryByRole("columnheader", {
+        name: "Required",
+      }),
+    ).toBeNull();
+    expect(
+      within(requestFormTable).queryByRole("columnheader", {
+        name: "Help info",
+      }),
+    ).toBeNull();
+    expect(
+      within(requestFormTable).queryByRole("columnheader", {
+        name: "Options",
+      }),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(

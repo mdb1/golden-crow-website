@@ -8018,9 +8018,13 @@ function FormShapeEditor({
                   <TableHead>{t("Key")}</TableHead>
                   <TableHead>{t("Label")}</TableHead>
                   <TableHead>{t("Type")}</TableHead>
-                  <TableHead>{t("Required")}</TableHead>
-                  <TableHead>{t("Help info")}</TableHead>
-                  <TableHead>{t("Options")}</TableHead>
+                  {presentation === "form" ? (
+                    <>
+                      <TableHead>{t("Required")}</TableHead>
+                      <TableHead>{t("Help info")}</TableHead>
+                      <TableHead>{t("Options")}</TableHead>
+                    </>
+                  ) : null}
                   <TableHead className="text-right">{t("Actions")}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -8040,19 +8044,25 @@ function FormShapeEditor({
                         )?.label ?? field.type,
                       )}
                     </TableCell>
-                    <TableCell>
-                      {field.required ? (
-                        <Badge variant="outline">{t("Required")}</Badge>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {field.helpInfoText || "-"}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {splitLines(field.optionsText).length || "-"}
-                    </TableCell>
+                    {presentation === "form" ? (
+                      <>
+                        <TableCell>
+                          {field.required ? (
+                            <Badge variant="outline">{t("Required")}</Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">
+                              -
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {field.helpInfoText || "-"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {splitLines(field.optionsText).length || "-"}
+                        </TableCell>
+                      </>
+                    ) : null}
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
