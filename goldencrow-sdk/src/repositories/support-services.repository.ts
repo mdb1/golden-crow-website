@@ -60,7 +60,7 @@ const MAX_DEFERRED_SERVICE_TRANSACTIONS_PER_EMAIL = 5;
 export const TWO_PQ_CASE_SERVICE_OFFER_ID = "rhTE3dfB8Ovhf86lY3Z5";
 export const TWO_PQ_CASE_SERVICE_ID = "pgs_2pq_74399";
 export const TWO_PQ_CASE_SERVICE_PROVIDER_ID = "kfFtJlLuyW6deXW2Im3S";
-const TWO_PQ_STUDY_REQUEST_FORM_SHAPE_ID = "pgfs_2pq_74399";
+export const TWO_PQ_STUDY_REQUEST_FORM_SHAPE_ID = "pgfs_2pq_74399";
 
 const TWO_PQ_STUDY_REQUEST_FORM_FIELDS = [
   {
@@ -6937,6 +6937,7 @@ type SupportServiceTransactionCreationPolicy = {
   expectedServiceId?: string;
   expectedProviderId?: string;
   expectedProviderKind?: SupportServiceProviderKind;
+  requireCanonicalTwoPQContract?: boolean;
 };
 
 async function createSupportServiceTransactionWithPolicy(
@@ -7072,6 +7073,9 @@ async function createSupportServiceTransactionWithPolicy(
       `Configured service offer must use providerKind ${policy.expectedProviderKind}.`,
       409,
     );
+  }
+  if (policy.requireCanonicalTwoPQContract) {
+    assertCanonicalTwoPQCaseServiceOffer(offer);
   }
   for (const [supplied, expected, label] of [
     [input.serviceId, offer.serviceId, "serviceId"],
@@ -7475,6 +7479,78 @@ function hasCanonicalTwoPQStudyRequestFormContract(
   );
 }
 
+function assertTwoPQCaseServiceOfferIdentity(
+  offer: SupportServiceOfferRecord,
+) {
+  if (
+    offer.id !== TWO_PQ_CASE_SERVICE_OFFER_ID ||
+    offer.serviceId !== TWO_PQ_CASE_SERVICE_ID ||
+    offer.providerKind !== "organization" ||
+    offer.providerId !== TWO_PQ_CASE_SERVICE_PROVIDER_ID
+  ) {
+    throw new AdminRepositoryError(
+      `The canonical 2PQ offer ${TWO_PQ_CASE_SERVICE_OFFER_ID} must bind serviceId ${TWO_PQ_CASE_SERVICE_ID} to provider ${TWO_PQ_CASE_SERVICE_PROVIDER_ID}.`,
+      409,
+    );
+  }
+}
+
+function assertCanonicalTwoPQCaseServiceOffer(
+  offer: SupportServiceOfferRecord,
+) {
+  assertTwoPQCaseServiceOfferIdentity(offer);
+  if (!hasCanonicalTwoPQStudyRequestFormContract(offer)) {
+    throw new AdminRepositoryError(
+      `The canonical 2PQ service ${TWO_PQ_CASE_SERVICE_ID} must use formShape.id ${TWO_PQ_STUDY_REQUEST_FORM_SHAPE_ID} and exactly one required form / pgo_form input slot.`,
+      409,
+    );
+  }
+}
+
+function assertCanonicalTwoPQCaseServiceTransaction(
+  transaction: SupportServiceTransactionRecord,
+) {
+  if (
+    transaction.offerId !== TWO_PQ_CASE_SERVICE_OFFER_ID ||
+    transaction.serviceId !== TWO_PQ_CASE_SERVICE_ID ||
+    transaction.providerKind !== "organization" ||
+    transaction.providerId !== TWO_PQ_CASE_SERVICE_PROVIDER_ID ||
+    transaction.contractSource !== "2pq_case_creation"
+  ) {
+    throw new AdminRepositoryError(
+      "The new 2PQ service transaction does not match the canonical offer, service, provider, and contract source.",
+      409,
+    );
+  }
+
+  const frozenOffer = offerFromFrozenTransaction(transaction);
+  assertCanonicalTwoPQCaseServiceOffer(frozenOffer);
+  const [formInput] = transaction.inputs;
+  const objectSnapshot = optionalRecord(formInput?.objectSnapshot);
+  const snapshotData = optionalRecord(objectSnapshot.data);
+  const snapshotShape = optionalRecord(snapshotData.formShape);
+  const frozenShape = optionalRecord(transaction.offerSnapshot.formShape);
+  const sourceFormAnswer = optionalRecordArray(snapshotData.fields).find(
+    (field) => cleanString(field.key) === "source_study_request_form_id",
+  );
+  if (
+    transaction.inputs.length !== 1 ||
+    !formInput ||
+    formInput.role !== "form" ||
+    formInput.objectType !== FORM_OBJECT_TYPE ||
+    cleanString(objectSnapshot.objectType) !== FORM_OBJECT_TYPE ||
+    stableString(snapshotShape.fields) !== stableString(frozenShape.fields) ||
+    !cleanString(sourceFormAnswer?.value) ||
+    transaction.missingRequiredInputRoles.length > 0 ||
+    transaction.attachmentsPending
+  ) {
+    throw new AdminRepositoryError(
+      `The new 2PQ service transaction must freeze ${TWO_PQ_CASE_SERVICE_ID} with formShape.id ${TWO_PQ_STUDY_REQUEST_FORM_SHAPE_ID} and exactly one filled form / pgo_form input.`,
+      409,
+    );
+  }
+}
+
 function twoPQOfferUpdateInput(
   offer: SupportServiceOfferRecord,
 ): SupportServiceOfferInput {
@@ -7518,16 +7594,7 @@ async function loadCanonicalTwoPQCaseServiceOffer() {
   const offer = toOfferRecord(snapshot.id, snapshot.data() ?? {}, {
     requirePresentationFlags: true,
   });
-  if (
-    offer.serviceId !== TWO_PQ_CASE_SERVICE_ID ||
-    offer.providerKind !== "organization" ||
-    offer.providerId !== TWO_PQ_CASE_SERVICE_PROVIDER_ID
-  ) {
-    throw new AdminRepositoryError(
-      "Configured 2PQ service offer has an unexpected service or provider identity.",
-      409,
-    );
-  }
+  assertTwoPQCaseServiceOfferIdentity(offer);
   return offer;
 }
 
@@ -8210,7 +8277,7 @@ export async function createTwoPQCaseServiceTransaction(
     studyRequestForm: input.studyRequestForm,
   });
   try {
-    return await createSupportServiceTransactionWithPolicy(
+    const transaction = await createSupportServiceTransactionWithPolicy(
       context,
       {
         name: `Solicitud de estudio de ${threeLetterCode}`,
@@ -8238,8 +8305,11 @@ export async function createTwoPQCaseServiceTransaction(
         expectedServiceId: TWO_PQ_CASE_SERVICE_ID,
         expectedProviderId: TWO_PQ_CASE_SERVICE_PROVIDER_ID,
         expectedProviderKind: "organization",
+        requireCanonicalTwoPQContract: true,
       },
     );
+    assertCanonicalTwoPQCaseServiceTransaction(transaction);
+    return transaction;
   } catch (error) {
     await cleanupFailedTwoPQStudyRequestFormProvision(
       input.caseId,

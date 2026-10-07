@@ -4899,6 +4899,20 @@ describe("support service canonical transaction creation", () => {
       status: "received",
       requestedByUserEmail: doctorEmail,
       contractSource: "2pq_case_creation",
+      offerSnapshot: expect.objectContaining({
+        offerId,
+        serviceId: "pgs_2pq_74399",
+        formShape: expect.objectContaining({ id: "pgfs_2pq_74399" }),
+        inputSlots: [
+          expect.objectContaining({
+            role: "form",
+            objectType: "pgo_form",
+            acceptedTypes: ["pgo_form"],
+            required: true,
+            cardinality: { min: 1, max: 1 },
+          }),
+        ],
+      }),
     });
     expect(created).not.toHaveProperty("requestedByUserId");
     expect(retried.id).toBe(created.id);
@@ -4932,6 +4946,17 @@ describe("support service canonical transaction creation", () => {
           uploadedObjectId:
             "pgo_2pq_case_00022_study_request_form_object",
           fileStorageId: "pgo_2pq_case_00022_study_request_form",
+          objectSnapshot: expect.objectContaining({
+            objectType: "pgo_form",
+            data: expect.objectContaining({
+              fields: expect.arrayContaining([
+                {
+                  key: "source_study_request_form_id",
+                  value: "FORM-00041",
+                },
+              ]),
+            }),
+          }),
         }),
       ],
     });
@@ -4991,6 +5016,48 @@ describe("support service canonical transaction creation", () => {
         }),
       ],
     });
+  });
+
+  it("rejects every new 2PQ transaction when the canonical service and form IDs no longer match", async () => {
+    const { offerId } = seedLegacyTwoPQOffer();
+    const { createTwoPQCaseServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const firstInput = {
+      caseId: "CASE-00030",
+      threeLetterCode: "ABC",
+      doctorEmail: "doctor@clinic.example",
+      requestedAtClient: "2026-09-28T22:00:00.000Z",
+      studyRequestForm: twoPQStudyRequestForm(),
+    };
+
+    await createTwoPQCaseServiceTransaction(context, firstInput);
+    const canonicalOffer = collectionStore("service_offers").get(offerId)!;
+    seedDoc("service_offers", offerId, {
+      ...canonicalOffer,
+      formShape: {
+        ...(canonicalOffer.formShape as Record<string, unknown>),
+        id: "pgfs_wrong_2pq_74399",
+      },
+    });
+
+    await expect(
+      createTwoPQCaseServiceTransaction(context, {
+        ...firstInput,
+        caseId: "CASE-00031",
+        threeLetterCode: "DEF",
+      }),
+    ).rejects.toThrow(
+      "Form shape ID must be pgfs_2pq_74399.",
+    );
+    expect(
+      collectionStore("service_transactions").has("pgr_2pq_case_00031"),
+    ).toBe(false);
+    expect(
+      collectionStore("file_storage").has(
+        "pgo_2pq_case_00031_study_request_form",
+      ),
+    ).toBe(false);
   });
 
   it("keeps a historical 2PQ transaction on its frozen inputless contract", async () => {
