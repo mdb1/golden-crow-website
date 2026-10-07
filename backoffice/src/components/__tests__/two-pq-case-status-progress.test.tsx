@@ -1,7 +1,13 @@
 /** @jest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { AdminContextProvider } from "@/components/admin-context-provider";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { TwoPQRecordWorkbench } from "@/components/two-pq-record-workbench";
@@ -179,6 +185,72 @@ describe("2PQ case-status progress modal", () => {
     expect(
       screen.queryByRole("heading", { name: "Linked service transaction" }),
     ).toBeNull();
+  });
+
+  it("keeps case status, code, batch, and samplings read-only for doctors", () => {
+    renderWorkbench(
+      {
+        ...detail,
+        record: {
+          ...detail.record,
+          three_letter_code: "CAN",
+          caseStatus: "awaiting_pick_up",
+        },
+        linkedBatch: {
+          id: "BATCH-00001",
+          areaKey: "sequencing",
+          collectionKey: "2pq_sequencing",
+          institutionId: "institution-1",
+          doctorId: "doctor-1",
+          platform: "NovaSeq",
+          createdAt: "2026-09-27T10:00:00.000Z",
+          updatedAt: "2026-09-28T10:00:00.000Z",
+          canReplace: true,
+          canUpdate: true,
+          canDelete: true,
+        },
+        linkedSamplings: [
+          {
+            id: "SAMPLING-00001",
+            areaKey: "sampling",
+            collectionKey: "2pq_sampling",
+            institutionId: "institution-1",
+            doctorId: "doctor-1",
+            sampleId: "CAN001",
+            createdAt: "2026-09-27T10:00:00.000Z",
+            updatedAt: "2026-09-28T10:00:00.000Z",
+            canReplace: true,
+            canUpdate: true,
+            canDelete: true,
+          },
+        ],
+      },
+      false,
+      "institution_doctor",
+    );
+
+    for (const heading of [
+      "Three letter code",
+      "Case status",
+      "Linked Batch",
+      "Linked samplings",
+    ]) {
+      const section = screen.getByRole("heading", { name: heading }).closest(
+        "section",
+      );
+      expect(section).not.toBeNull();
+      expect(within(section!).queryAllByRole("button")).toHaveLength(0);
+      expect(within(section!).queryAllByRole("link")).toHaveLength(0);
+    }
+
+    expect(screen.getByText("CAN is active for this case.")).toBeTruthy();
+    expect(screen.getAllByText("Awaiting pick up").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("BATCH-00001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("SAMPLING-00001").length).toBeGreaterThan(0);
+    const caseStatusSelect = screen
+      .getAllByRole("combobox")
+      .find((element) => element.textContent?.includes("Awaiting pick up"));
+    expect(caseStatusSelect?.hasAttribute("disabled")).toBe(true);
   });
 
   it("opens immediately and refreshes only after the operator finishes", async () => {

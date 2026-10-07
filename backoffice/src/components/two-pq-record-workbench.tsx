@@ -1494,7 +1494,7 @@ export function TwoPQRecordWorkbench({
     : "";
   const storedFileId = detail?.record.stored_file_id?.trim() ?? "";
   const hasStoredFileId = Boolean(storedFileId);
-  const canViewCasePublicationInfrastructure =
+  const canUseCaseAdministrativeControls =
     adminContext.role !== "institution_doctor";
   const hasFileStorageAccess = isGlobalAdminRole(adminContext.role);
   const canOpenPublishFileStorageModal =
@@ -6406,37 +6406,41 @@ export function TwoPQRecordWorkbench({
                 <RelationSection
                   title={t("Linked Batch")}
                   actions={
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openRelationDialog("case-parent-batch")}
-                        disabled={
-                          !canManageRelations ||
-                          pendingRelationRecordId !== null
-                        }
-                        className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                      >
-                        <Link2 className="h-3.5 w-3.5" />
-                        {linkedBatch ? t("Change batch") : t("Link batch")}
-                      </Button>
-                      {linkedBatch ? (
+                    canUseCaseAdministrativeControls ? (
+                      <>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => void handleUnlinkBatchFromCase()}
+                          onClick={() =>
+                            openRelationDialog("case-parent-batch")
+                          }
                           disabled={
                             !canManageRelations ||
-                            pendingRelationRecordId === linkedBatch.id
+                            pendingRelationRecordId !== null
                           }
                           className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                         >
-                          {pendingRelationRecordId === linkedBatch.id
-                            ? t("Unlinking...")
-                            : t("Unlink")}
+                          <Link2 className="h-3.5 w-3.5" />
+                          {linkedBatch ? t("Change batch") : t("Link batch")}
                         </Button>
-                      ) : null}
-                    </>
+                        {linkedBatch ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void handleUnlinkBatchFromCase()}
+                            disabled={
+                              !canManageRelations ||
+                              pendingRelationRecordId === linkedBatch.id
+                            }
+                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                          >
+                            {pendingRelationRecordId === linkedBatch.id
+                              ? t("Unlinking...")
+                              : t("Unlink")}
+                          </Button>
+                        ) : null}
+                      </>
+                    ) : undefined
                   }
                 >
                   {linkedBatch ? (
@@ -6448,17 +6452,19 @@ export function TwoPQRecordWorkbench({
                       )}
                       translate={t}
                       actions={
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          asChild
-                          className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                        >
-                          <Link href={getRecordHref(linkedBatch)}>
-                            {t("Open")}
-                            <ArrowUpRight className="h-3.5 w-3.5" />
-                          </Link>
-                        </Button>
+                        canUseCaseAdministrativeControls ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                          >
+                            <Link href={getRecordHref(linkedBatch)}>
+                              {t("Open")}
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                        ) : undefined
                       }
                     />
                   ) : (
@@ -6479,7 +6485,7 @@ export function TwoPQRecordWorkbench({
                           "Create this case first to start linking samplings.",
                         )}
                       </span>
-                    ) : (
+                    ) : canUseCaseAdministrativeControls ? (
                       <>
                         <Button
                           variant="outline"
@@ -6555,7 +6561,7 @@ export function TwoPQRecordWorkbench({
                           </Button>
                         )}
                       </>
-                    )
+                    ) : undefined
                   }
                 >
                   {mode === "create" ? (
@@ -6577,35 +6583,37 @@ export function TwoPQRecordWorkbench({
                           badge={t("Sampling")}
                           translate={t}
                           actions={
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
-                                className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                              >
-                                <Link href={getRecordHref(record)}>
-                                  {t("Open")}
-                                  <ArrowUpRight className="h-3.5 w-3.5" />
-                                </Link>
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  void handleUnlinkExistingSampling(record)
-                                }
-                                disabled={
-                                  !canManageRelations ||
-                                  pendingRelationRecordId === record.id
-                                }
-                                className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                              >
-                                {pendingRelationRecordId === record.id
-                                  ? t("Unlinking...")
-                                  : t("Unlink")}
-                              </Button>
-                            </>
+                            canUseCaseAdministrativeControls ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
+                                  className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                                >
+                                  <Link href={getRecordHref(record)}>
+                                    {t("Open")}
+                                    <ArrowUpRight className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    void handleUnlinkExistingSampling(record)
+                                  }
+                                  disabled={
+                                    !canManageRelations ||
+                                    pendingRelationRecordId === record.id
+                                  }
+                                  className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                                >
+                                  {pendingRelationRecordId === record.id
+                                    ? t("Unlinking...")
+                                    : t("Unlink")}
+                                </Button>
+                              </>
+                            ) : undefined
                           }
                         />
                       ))}
@@ -6703,41 +6711,43 @@ export function TwoPQRecordWorkbench({
                     </Badge>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openThreeLetterCodeModal("manual")}
-                    disabled={pendingThreeLetterCodeAction}
-                    className={THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME}
-                  >
-                    {hasThreeLetterCode ? t("Edit") : t("Add manually")}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => openThreeLetterCodeModal("random")}
-                    disabled={pendingThreeLetterCodeAction}
-                    className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    {t("Generate random")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openThreeLetterCodeModal("remove")}
-                    disabled={
-                      !hasThreeLetterCode || pendingThreeLetterCodeAction
-                    }
-                    className={THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    {t("Remove")}
-                  </Button>
-                </div>
+                {canUseCaseAdministrativeControls ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openThreeLetterCodeModal("manual")}
+                      disabled={pendingThreeLetterCodeAction}
+                      className={THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME}
+                    >
+                      {hasThreeLetterCode ? t("Edit") : t("Add manually")}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => openThreeLetterCodeModal("random")}
+                      disabled={pendingThreeLetterCodeAction}
+                      className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      {t("Generate random")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openThreeLetterCodeModal("remove")}
+                      disabled={
+                        !hasThreeLetterCode || pendingThreeLetterCodeAction
+                      }
+                      className={THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {t("Remove")}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
 
               <div className="grid gap-4 px-5 py-5 lg:grid-cols-[auto,1fr] lg:items-center">
@@ -6803,25 +6813,27 @@ export function TwoPQRecordWorkbench({
                     {t("Case status")}
                   </h3>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => void handleAdvanceCaseStatus()}
-                  disabled={
-                    !canUpdate ||
-                    !nextCaseStatusOption ||
-                    pendingAction !== null ||
-                    pendingCaseStatusAdvance
-                  }
-                  className={CASE_STATUS_TRACK_PRIMARY_BUTTON_CLASSNAME}
-                >
-                  {pendingCaseStatusAdvance ? (
-                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  )}
-                  {caseStatusAdvanceLabel}
-                </Button>
+                {canUseCaseAdministrativeControls ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void handleAdvanceCaseStatus()}
+                    disabled={
+                      !canUpdate ||
+                      !nextCaseStatusOption ||
+                      pendingAction !== null ||
+                      pendingCaseStatusAdvance
+                    }
+                    className={CASE_STATUS_TRACK_PRIMARY_BUTTON_CLASSNAME}
+                  >
+                    {pendingCaseStatusAdvance ? (
+                      <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    )}
+                    {caseStatusAdvanceLabel}
+                  </Button>
+                ) : null}
               </div>
 
               <div className="px-5 py-5">
@@ -6934,7 +6946,10 @@ export function TwoPQRecordWorkbench({
                     pendingCaseLabelCorrection ||
                     (field.key === "institutionId" &&
                       Boolean(scopedInstitutionId)) ||
-                    (field.key === "doctorId" && Boolean(scopedDoctorId));
+                    (field.key === "doctorId" && Boolean(scopedDoctorId)) ||
+                    (areaKey === "cases" &&
+                      field.key === "caseStatus" &&
+                      !canUseCaseAdministrativeControls);
 
                   return (
                     <div
@@ -7060,7 +7075,7 @@ export function TwoPQRecordWorkbench({
 
           {areaKey === "cases" &&
           mode !== "create" &&
-          canViewCasePublicationInfrastructure ? (
+          canUseCaseAdministrativeControls ? (
             <section className="overflow-hidden rounded-[1.45rem] border border-indigo-200/80 bg-[linear-gradient(135deg,rgba(250,245,255,0.96),rgba(238,242,255,0.92))] shadow-[0_18px_46px_rgba(129,140,248,0.14)] dark:border-indigo-300/18 dark:bg-[linear-gradient(135deg,rgba(49,46,129,0.28),rgba(30,27,75,0.2))] dark:shadow-none">
               <div className="flex flex-col gap-4 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
@@ -7118,7 +7133,7 @@ export function TwoPQRecordWorkbench({
           {areaKey === "cases" &&
           mode !== "create" &&
           hasThreeLetterCode &&
-          canViewCasePublicationInfrastructure ? (
+          canUseCaseAdministrativeControls ? (
             <section className={FILE_STORAGE_SECTION_CLASSNAME}>
               <div
                 className={`flex flex-col gap-4 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between ${
@@ -7325,7 +7340,7 @@ export function TwoPQRecordWorkbench({
           mode !== "create" &&
           hasThreeLetterCode &&
           hasStoredFileId &&
-          canViewCasePublicationInfrastructure ? (
+          canUseCaseAdministrativeControls ? (
             <section className={REPORT_CODE_PUBLISH_SECTION_CLASSNAME}>
               <div
                 className={`flex flex-col gap-4 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between ${
@@ -7575,7 +7590,7 @@ export function TwoPQRecordWorkbench({
 
           {areaKey === "cases" &&
           mode !== "create" &&
-          canViewCasePublicationInfrastructure ? (
+          canUseCaseAdministrativeControls ? (
             <section className={LINKED_SERVICE_TRANSACTION_SECTION_CLASSNAME}>
               <div className="flex flex-col gap-4 border-b border-violet-200/70 px-5 py-5 lg:flex-row lg:items-start lg:justify-between dark:border-violet-300/16">
                 <div className="flex min-w-0 items-start gap-3">
