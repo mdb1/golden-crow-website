@@ -1494,9 +1494,9 @@ export function TwoPQRecordWorkbench({
     : "";
   const storedFileId = detail?.record.stored_file_id?.trim() ?? "";
   const hasStoredFileId = Boolean(storedFileId);
-  const isDoctorCaseDetailReadOnly =
+  const isDoctorRecordDetailReadOnly =
     adminContext.role === "institution_doctor" &&
-    areaKey === "cases" &&
+    (areaKey === "cases" || areaKey === "sampling") &&
     mode !== "create";
   const canUseCaseAdministrativeControls =
     adminContext.role !== "institution_doctor";
@@ -6083,7 +6083,7 @@ export function TwoPQRecordWorkbench({
             ) : null}
             <div className="flex flex-wrap gap-2">
               <HeaderUnclutterButton />
-              {isDoctorCaseDetailReadOnly ? null : (
+              {isDoctorRecordDetailReadOnly ? null : (
                 <>
                   <Button
                     variant="outline"
@@ -6243,7 +6243,7 @@ export function TwoPQRecordWorkbench({
           </div>
         </div>
 
-        {isDoctorCaseDetailReadOnly ? null : (
+        {isDoctorRecordDetailReadOnly ? null : (
           <div className="flex flex-wrap gap-2">
             <Badge variant="brand">{t("Create")}</Badge>
             <Badge variant={canReplace ? "brand" : "outline"}>
@@ -6642,39 +6642,43 @@ export function TwoPQRecordWorkbench({
                 <RelationSection
                   title={t("Linked Case")}
                   actions={
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          openRelationDialog("sampling-parent-case")
-                        }
-                        disabled={
-                          !canManageRelations ||
-                          pendingRelationRecordId !== null
-                        }
-                        className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                      >
-                        <Link2 className="h-3.5 w-3.5" />
-                        {linkedCase ? t("Change case") : t("Link case")}
-                      </Button>
-                      {linkedCase ? (
+                    canUseCaseAdministrativeControls ? (
+                      <>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => void handleUnlinkCaseFromSampling()}
+                          onClick={() =>
+                            openRelationDialog("sampling-parent-case")
+                          }
                           disabled={
                             !canManageRelations ||
-                            pendingRelationRecordId === linkedCase.id
+                            pendingRelationRecordId !== null
                           }
                           className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                         >
-                          {pendingRelationRecordId === linkedCase.id
-                            ? t("Unlinking...")
-                            : t("Unlink")}
+                          <Link2 className="h-3.5 w-3.5" />
+                          {linkedCase ? t("Change case") : t("Link case")}
                         </Button>
-                      ) : null}
-                    </>
+                        {linkedCase ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              void handleUnlinkCaseFromSampling()
+                            }
+                            disabled={
+                              !canManageRelations ||
+                              pendingRelationRecordId === linkedCase.id
+                            }
+                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                          >
+                            {pendingRelationRecordId === linkedCase.id
+                              ? t("Unlinking...")
+                              : t("Unlink")}
+                          </Button>
+                        ) : null}
+                      </>
+                    ) : undefined
                   }
                 >
                   {linkedCase ? (
@@ -6686,17 +6690,19 @@ export function TwoPQRecordWorkbench({
                       )}
                       translate={t}
                       actions={
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          asChild
-                          className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                        >
-                          <Link href={getRecordHref(linkedCase)}>
-                            {t("Open")}
-                            <ArrowUpRight className="h-3.5 w-3.5" />
-                          </Link>
-                        </Button>
+                        canUseCaseAdministrativeControls ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                          >
+                            <Link href={getRecordHref(linkedCase)}>
+                              {t("Open")}
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                        ) : undefined
                       }
                     />
                   ) : (
@@ -6986,7 +6992,7 @@ export function TwoPQRecordWorkbench({
                       <Label htmlFor={`${area.key}-${field.key}`}>
                         {field.label}
                       </Label>
-                      {isDoctorCaseDetailReadOnly ? (
+                      {isDoctorRecordDetailReadOnly ? (
                         <div className="border-l-2 border-border/70 py-1 pl-3">
                           <p className="whitespace-pre-wrap break-words text-sm font-medium text-foreground">
                             {visualFieldValue || t("Not available")}
