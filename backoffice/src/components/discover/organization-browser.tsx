@@ -137,6 +137,20 @@ function badgeGroup(labels: string[], limit = 3): BadgeGroup {
   };
 }
 
+function prioritizeVerifiedIndividuals(
+  publishers: PublisherRecord[],
+  isIndividual: boolean,
+) {
+  if (!isIndividual) {
+    return publishers;
+  }
+
+  return [
+    ...publishers.filter((publisher) => publisher.verified),
+    ...publishers.filter((publisher) => !publisher.verified),
+  ];
+}
+
 function measuredWidth(element: HTMLElement | null) {
   if (!element) {
     return 0;
@@ -387,7 +401,7 @@ function DiscoverPublisherBrowser({
     const normalizedQuery = query.trim().toLowerCase();
     const selectedCountryCode = countryCode.trim().toUpperCase();
 
-    return publishers.filter((publisher) => {
+    const matchingPublishers = publishers.filter((publisher) => {
       const organization = publisher as DiscoverOrganizationRecord;
       const individual = publisher as DiscoverIndividualRecord;
       const currentType = isIndividual
@@ -461,6 +475,8 @@ function DiscoverPublisherBrowser({
         categoryMatches
       );
     });
+
+    return prioritizeVerifiedIndividuals(matchingPublishers, isIndividual);
   }, [
     categoryProvider,
     countryCode,

@@ -168,6 +168,77 @@ describe("DiscoverOrganizationBrowser", () => {
     );
   });
 
+  it("preserves the source order for organizations", () => {
+    render(
+      <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
+        <DiscoverOrganizationBrowser
+          initialOrganizations={[
+            organization({
+              id: "unverified-org",
+              name: "Unverified Organization",
+              verified: false,
+            }),
+            organization({
+              id: "verified-org",
+              name: "Verified Organization",
+              verified: true,
+            }),
+          ]}
+          initialNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    expect(
+      screen
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual(["Unverified Organization", "Verified Organization"]);
+  });
+
+  it("shows verified individual publishers first with stable group ordering", () => {
+    render(
+      <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
+        <DiscoverIndividualBrowser
+          initialIndividuals={[
+            individual({
+              id: "unverified-first",
+              name: "Unverified First",
+              verified: false,
+            }),
+            individual({
+              id: "verified-first",
+              name: "Verified First",
+              verified: true,
+            }),
+            individual({
+              id: "verified-second",
+              name: "Verified Second",
+              verified: true,
+            }),
+            individual({
+              id: "unverified-second",
+              name: "Unverified Second",
+              verified: false,
+            }),
+          ]}
+          initialNextCursor={null}
+        />
+      </AppLanguageProvider>,
+    );
+
+    expect(
+      screen
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual([
+      "Verified First",
+      "Verified Second",
+      "Unverified First",
+      "Unverified Second",
+    ]);
+  });
+
   it("renders country pills in a row below organization categories", () => {
     render(
       <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
