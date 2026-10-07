@@ -194,6 +194,7 @@ const frozenOfferSnapshot = {
 
 const deliveredTransaction: SupportServiceTransactionRecord = {
   id: "pgr_frozen_1",
+  name: "Frozen service transaction",
   schemaVersion: 1,
   requestId: "pgr_frozen_1",
   offerId: "offer-frozen",

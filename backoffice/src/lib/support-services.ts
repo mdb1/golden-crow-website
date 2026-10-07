@@ -427,6 +427,7 @@ export interface SupportServiceTransactionInput {
 export interface SupportServiceTransactionRecord
   extends SupportServiceTransactionInput {
   id: string;
+  name: string;
   schemaVersion: number;
   serviceVersion: number;
   status: SupportServiceTransactionStatus;

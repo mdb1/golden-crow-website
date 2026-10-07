@@ -426,6 +426,24 @@ function normalizeThreeLetterCode(value: unknown) {
   return uppercased;
 }
 
+function caseThreeLetterCodeForServiceTransaction(record: TwoPQRecord) {
+  const storedCode = normalizeThreeLetterCode(record.three_letter_code);
+  if (storedCode) {
+    return storedCode;
+  }
+
+  const caseLabel = normalizeOptionalString(record.caseLabel)?.toUpperCase();
+  const caseLabelMatch = caseLabel?.match(/^([A-Z]{3})XXX$/);
+  if (caseLabelMatch?.[1]) {
+    return caseLabelMatch[1];
+  }
+
+  throw new AdminRepositoryError(
+    "The 2PQ case must have a valid three-letter code before creating its service transaction.",
+    400,
+  );
+}
+
 function normalizeFieldValue(field: keyof TwoPQMutationInput, value: unknown) {
   if (field === "three_letter_code") {
     return normalizeThreeLetterCode(value);
@@ -1852,6 +1870,7 @@ export async function createTwoPQRecordForContext(
     try {
       await createTwoPQCaseServiceTransaction(context, {
         caseId: recordId,
+        threeLetterCode: caseThreeLetterCodeForServiceTransaction(writeDocument),
         doctorEmail: linkedEntities.doctor.authEmail,
         requestedAtClient: now,
       });

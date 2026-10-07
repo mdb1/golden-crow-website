@@ -117,6 +117,7 @@ export interface TwoPQListItem extends TwoPQRecord {
 
 export interface TwoPQLinkedServiceTransactionSnapshot {
   id: string;
+  name: string;
   requestId: string;
   offerId: string;
   offerName: string;

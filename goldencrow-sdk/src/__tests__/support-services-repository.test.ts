@@ -4796,6 +4796,7 @@ describe("support service canonical transaction creation", () => {
     };
     const transactionInput = {
       caseId: "CASE-00022",
+      threeLetterCode: "abc",
       doctorEmail: " Doctor@Clinic.Example ",
       requestedAtClient: "2026-09-28T22:00:00.000Z",
     };
@@ -4813,6 +4814,7 @@ describe("support service canonical transaction creation", () => {
 
     expect(created).toMatchObject({
       id: "pgr_2pq_case_00022",
+      name: "Solicitud de estudio de ABC",
       requestId: "pgr_2pq_case_00022",
       offerId,
       serviceId: "pgs_2pq_74399",
@@ -4827,6 +4829,7 @@ describe("support service canonical transaction creation", () => {
     expect(retried.id).toBe(created.id);
     expect(linkedSnapshot).toEqual({
       id: "pgr_2pq_case_00022",
+      name: "Solicitud de estudio de ABC",
       requestId: "pgr_2pq_case_00022",
       offerId,
       offerName: "Solicitud de PGT",
@@ -4842,6 +4845,12 @@ describe("support service canonical transaction creation", () => {
     });
     expect(collectionStore("service_transactions").size).toBe(1);
     expect(
+      collectionStore("service_transactions").get("pgr_2pq_case_00022"),
+    ).toMatchObject({
+      name: "Solicitud de estudio de ABC",
+      offerSnapshot: { name: "Solicitud de PGT" },
+    });
+    expect(
       collectionStore("deferred_service_transactions").get(deferredIndexId),
     ).toEqual({
       email: doctorEmail,
@@ -4854,11 +4863,30 @@ describe("support service canonical transaction creation", () => {
       requestedServiceTransactions: [
         expect.objectContaining({
           serviceTransactionId: "pgr_2pq_case_00022",
+          serviceName: "Solicitud de estudio de ABC",
           offerId,
           status: "received",
         }),
       ],
     });
+  });
+
+  it("rejects a 2PQ transaction when the case has no canonical three-letter code", async () => {
+    const { createTwoPQCaseServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createTwoPQCaseServiceTransaction(context, {
+        caseId: "CASE-00023",
+        threeLetterCode: "PGT-A",
+        doctorEmail: "doctor@clinic.example",
+        requestedAtClient: "2026-09-28T22:00:00.000Z",
+      }),
+    ).rejects.toThrow(
+      "The 2PQ case must have a valid three-letter code before creating its service transaction.",
+    );
+    expect(collectionStore("service_transactions").size).toBe(0);
   });
 
   it("returns no linked 2PQ service transaction snapshot for a historical case without one", async () => {
@@ -4930,6 +4958,7 @@ describe("support service canonical transaction creation", () => {
     );
 
     expect(created.id).toBe("pgr_new_report_1");
+    expect(created.name).toBe(baseOffer.name);
     expect(created.offerSnapshot).toMatchObject({
       offerId: "offer-1",
       serviceId: baseOffer.serviceId,
@@ -4961,6 +4990,7 @@ describe("support service canonical transaction creation", () => {
     const stored = collectionStore("service_transactions").get(
       "pgr_new_report_1",
     );
+    expect(stored).toMatchObject({ name: baseOffer.name });
     expect(stored).not.toHaveProperty("output_objects");
     expect(stored).not.toHaveProperty("output_reports");
     expect(collectionStore("community_users").get("new-user")).toMatchObject({

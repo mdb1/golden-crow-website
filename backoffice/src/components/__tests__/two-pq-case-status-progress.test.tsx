@@ -119,6 +119,7 @@ describe("2PQ case-status progress modal", () => {
         ...detail,
         linkedServiceTransaction: {
           id: "pgr_2pq_case_00022",
+          name: "Solicitud de estudio de CAN",
           requestId: "pgr_2pq_case_00022",
           offerId: "rhTE3dfB8Ovhf86lY3Z5",
           offerName: "Solicitud de PGT",
@@ -136,6 +137,7 @@ describe("2PQ case-status progress modal", () => {
     );
 
     expect(screen.getByText("pgr_2pq_case_00022")).toBeTruthy();
+    expect(screen.getByText("Solicitud de estudio de CAN")).toBeTruthy();
     expect(screen.getByText("Solicitud de PGT")).toBeTruthy();
     expect(screen.getByText("doctor@clinic.example")).toBeTruthy();
     expect(screen.getByText("Received")).toBeTruthy();

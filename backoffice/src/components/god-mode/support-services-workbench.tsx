@@ -3231,6 +3231,7 @@ function PublisherSupportServiceRows({
               );
             })
           : transactions.map((transaction) => {
+              const transactionName = transaction.name?.trim() ?? "";
               const serviceName =
                 typeof transaction.offerSnapshot?.name === "string"
                   ? transaction.offerSnapshot.name.trim()
@@ -3266,7 +3267,7 @@ function PublisherSupportServiceRows({
 
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">
-                      {serviceName || transaction.serviceId}
+                      {transactionName || serviceName || transaction.serviceId}
                     </p>
                     <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
                       {transaction.serviceId} · v{transaction.serviceVersion}

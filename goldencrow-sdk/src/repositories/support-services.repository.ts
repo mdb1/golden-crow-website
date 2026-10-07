@@ -359,6 +359,7 @@ export type SupportServiceOutputObjectUploadRecord =
     );
 
 export interface SupportServiceTransactionInput {
+  name?: string;
   requestId?: string;
   offerId?: string;
   serviceId?: string;
@@ -385,6 +386,7 @@ export interface SupportServiceTransactionInput {
 
 export interface SupportServiceTransactionRecord {
   id: string;
+  name: string;
   schemaVersion: number;
   requestId: string;
   offerId: string;
@@ -2068,6 +2070,7 @@ function transactionDocument(input: SupportServiceTransactionInput) {
 
   return withoutUndefined({
     schemaVersion: 1,
+    name: cleanString(input.name),
     requestId,
     offerId,
     serviceId,
@@ -2094,7 +2097,7 @@ function transactionDocument(input: SupportServiceTransactionInput) {
       "attachmentsPending",
     ),
     normalizedName: normalizeName(
-      `${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
+      `${cleanString(input.name)} ${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
     ),
   });
 }
@@ -3149,6 +3152,9 @@ function validateTransactionDocument(
     preservedInputs?: readonly SupportServiceTransactionInputSlot[];
   } = {},
 ) {
+  if (!document.name) {
+    throw new AdminRepositoryError("Transaction name is required.", 400);
+  }
   if (!/^pgr_[a-z0-9_]+$/.test(document.requestId)) {
     throw new AdminRepositoryError(
       "Request ID must use the pgr_* convention.",
@@ -5310,9 +5316,16 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
   const requestedByUserEmail = cleanString(
     data.requestedByUserEmail,
   ).toLowerCase();
+  const offerSnapshot = optionalRecord(data.offerSnapshot);
+  const name =
+    cleanString(data.name) ||
+    cleanString(offerSnapshot.name) ||
+    serviceId ||
+    requestId;
 
   return withoutUndefined({
     id,
+    name,
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     requestId,
@@ -5333,7 +5346,7 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
     outputReports: outputReportsFromUnknown(data.outputReports),
     missingRequiredInputRoles: cleanStringArray(data.missingRequiredInputRoles),
     issues: unknownArray(data.issues),
-    offerSnapshot: optionalRecord(data.offerSnapshot),
+    offerSnapshot,
     providerSnapshot: optionalRecord(data.providerSnapshot),
     contractSource: cleanString(data.contractSource),
     attachmentsPending: strictBoolean(
@@ -5343,7 +5356,7 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
     normalizedName:
       cleanString(data.normalizedName) ||
       normalizeName(
-        `${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
+        `${name} ${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
       ),
     createdAt: timestampToIso(data.createdAt),
     updatedAt: timestampToIso(data.updatedAt),
@@ -5386,6 +5399,12 @@ function toTransactionAdminRecord(
   const requestedByUserEmail = cleanString(
     data.requestedByUserEmail,
   ).toLowerCase();
+  const offerSnapshot = optionalRecord(data.offerSnapshot);
+  const name =
+    cleanString(data.name) ||
+    cleanString(offerSnapshot.name) ||
+    serviceId ||
+    requestId;
 
   for (const [key, label] of [
     ["requestId", "requestId"],
@@ -5462,6 +5481,7 @@ function toTransactionAdminRecord(
   // read, and malformed optional arrays are represented as empty arrays.
   return withoutUndefined({
     id,
+    name,
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     requestId,
@@ -5492,7 +5512,7 @@ function toTransactionAdminRecord(
     ),
     missingRequiredInputRoles: cleanStringArray(data.missingRequiredInputRoles),
     issues: unknownArray(data.issues),
-    offerSnapshot: optionalRecord(data.offerSnapshot),
+    offerSnapshot,
     providerSnapshot: optionalRecord(data.providerSnapshot),
     contractSource: cleanString(data.contractSource),
     attachmentsPending:
@@ -5502,7 +5522,7 @@ function toTransactionAdminRecord(
     normalizedName:
       cleanString(data.normalizedName) ||
       normalizeName(
-        `${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
+        `${name} ${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
       ),
     createdAt: timestampToIso(data.createdAt),
     updatedAt,
@@ -6039,7 +6059,7 @@ function transactionSummary(
   return withoutUndefined({
     serviceTransactionId: document.requestId,
     offerId: document.offerId,
-    serviceName: offer.name,
+    serviceName: document.name,
     providerName: cleanString(providerSnapshot.name),
     providerKind: document.providerKind,
     providerImageUrl: cleanString(providerSnapshot.imageUrl) || undefined,
@@ -6079,6 +6099,7 @@ function rejectImmutableTransactionChanges(
   previous: SupportServiceTransactionRecord,
 ) {
   const stringChecks: Array<[unknown, unknown, string]> = [
+    [input.name, previous.name, "name"],
     [input.requestId, previous.requestId, "requestId"],
     [input.offerId, previous.offerId, "offerId"],
     [input.serviceId, previous.serviceId, "serviceId"],
@@ -6899,6 +6920,7 @@ async function createSupportServiceTransactionWithPolicy(
   );
   const initialDocument = transactionDocument({
     ...input,
+    name: cleanString(input.name) || offer.name,
     requestId,
     offerId: offer.id,
     serviceId: offer.serviceId,
@@ -7261,6 +7283,7 @@ export async function getTwoPQCaseLinkedServiceTransactionSnapshot(
 
   return {
     id: transaction.id,
+    name: transaction.name,
     requestId: transaction.requestId,
     offerId: transaction.offerId,
     offerName: cleanString(transaction.offerSnapshot.name),
@@ -7280,10 +7303,18 @@ export async function createTwoPQCaseServiceTransaction(
   context: AdminContext,
   input: {
     caseId: string;
+    threeLetterCode: string;
     doctorEmail: string;
     requestedAtClient: string;
   },
 ) {
+  const threeLetterCode = cleanString(input.threeLetterCode).toUpperCase();
+  if (!/^[A-Z]{3}$/.test(threeLetterCode)) {
+    throw new AdminRepositoryError(
+      "The 2PQ case must have a valid three-letter code before creating its service transaction.",
+      400,
+    );
+  }
   const requestedByUserEmail = cleanString(input.doctorEmail).toLowerCase();
   if (
     !requestedByUserEmail ||
@@ -7300,6 +7331,7 @@ export async function createTwoPQCaseServiceTransaction(
   return createSupportServiceTransactionWithPolicy(
     context,
     {
+      name: `Solicitud de estudio de ${threeLetterCode}`,
       requestId,
       offerId: TWO_PQ_CASE_SERVICE_OFFER_ID,
       status: "received",
@@ -8039,6 +8071,7 @@ async function persistSupportServiceTransactionUpdate(
       providerId: previous.providerId,
       providerKind: previous.providerKind,
       status: input.status ?? previous.status,
+      name: previous.name,
       requestedByUserId: previous.requestedByUserId,
       requestedByUserEmail: previous.requestedByUserEmail,
       requestedAt: previous.requestedAt,

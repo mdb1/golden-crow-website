@@ -7622,7 +7622,10 @@ export function TwoPQRecordWorkbench({
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-950/48 dark:text-violet-50/56">
                       {t("Transaction")}
                     </p>
-                    <p className="mt-2 break-all font-mono text-sm font-medium text-violet-950 dark:text-violet-50">
+                    <p className="mt-2 text-sm font-semibold text-violet-950 dark:text-violet-50">
+                      {linkedServiceTransaction.name}
+                    </p>
+                    <p className="mt-1 break-all font-mono text-xs font-medium text-violet-950/62 dark:text-violet-50/66">
                       {linkedServiceTransaction.requestId}
                     </p>
                     <Badge

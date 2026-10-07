@@ -297,6 +297,7 @@ describe("2PQ case status update orchestration", () => {
       context,
       {
         caseId: "CASE-00002",
+        threeLetterCode: "ABC",
         doctorEmail: "doctor@example.com",
         requestedAtClient: expect.any(String),
       },
