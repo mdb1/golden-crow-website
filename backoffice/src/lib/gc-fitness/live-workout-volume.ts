@@ -25,6 +25,15 @@
 //     counts it at 1.0 (the #1197 rule). The factor comes from the exercise's
 //     `bodyweightLoadFactor`, else a default by primary muscle group for
 //     bodyweight/none equipment, else 0 (see `resolveBodyweightLoadFactor`).
+//   - 1.8.1 (gc-fitness docs/VOLUME.md): body weight counts ONLY on a REPS set
+//     (no positive duration) with NO external weight (weightKg <= 0) — see
+//     `countsBodyweight`. A loaded set counts only its kilos (a weighted
+//     pull-up is underestimated — accepted); a time set never adds body
+//     weight. Applied on READ (`setLoadKg` ignores a stamp on a set that
+//     doesn't qualify, so 1.8.0 logs read right without migrating data) and
+//     on WRITE (`stampingBodyweight` skips those sets). Why: custom exercises
+//     default to equipment "bodyweight", so a 36 kg cable curl loaded
+//     36 + 0.65 × BW.
 //
 // ⚠️ `workout_logs.total_volume_kg` is FROZEN at finalize and read directly by
 // the volume-trend charts, so pre-#565 logs keep their warm-up-excluded totals
@@ -36,13 +45,30 @@ import type { SessionSetLog } from "./live-workout-types";
 export const LEGACY_BODYWEIGHT_FACTOR = 1;
 
 /**
+ * 1.8.1 — whether a set may add body weight to its load: a REPS set (no
+ * positive duration) with NO external weight. Twin of
+ * `WorkoutVolume.countsBodyweight` (iOS / Android) and functions'
+ * `countsBodyweight`.
+ */
+export function countsBodyweight(
+  set: Pick<SessionSetLog, "weightKg" | "durationSeconds">,
+): boolean {
+  return (set.durationSeconds ?? 0) <= 0 && set.weightKg <= 0;
+}
+
+/**
  * #1307 — external weight + the counted fraction of the stamped body weight.
+ * 1.8.1: a stamp on a set that isn't `countsBodyweight` is ignored ⇒ weightKg.
  * Twin of `WorkoutVolume.setLoadKg` (iOS / Android) and functions'
  * `countedSets`.
  */
 export function setLoadKg(
-  set: Pick<SessionSetLog, "weightKg" | "bodyweightKg" | "bodyweightFactor">,
+  set: Pick<
+    SessionSetLog,
+    "weightKg" | "durationSeconds" | "bodyweightKg" | "bodyweightFactor"
+  >,
 ): number {
+  if (!countsBodyweight(set)) return set.weightKg;
   const bodyweight = set.bodyweightKg ?? 0;
   if (!(bodyweight > 0)) return set.weightKg;
   const factor = set.bodyweightFactor ?? LEGACY_BODYWEIGHT_FACTOR;
@@ -76,7 +102,9 @@ export function computeTotalVolumeKg(sets: SessionSetLog[]): number {
  * holds the resolved factor per exercise (see `resolveBodyweightLoadFactor`);
  * an exercise absent from it, or with factor ≤ 0, is not stamped. Sets that
  * already carry a body-weight stamp keep it untouched, and every set is
- * returned untouched when no positive body weight is known. Twin of
+ * returned untouched when no positive body weight is known. 1.8.1: a set
+ * that isn't `countsBodyweight` (external weight, or a time set) is never
+ * stamped. Twin of
  * `WorkoutVolume.stampingBodyweight` (iOS / Android).
  */
 export function stampingBodyweight(
@@ -88,7 +116,7 @@ export function stampingBodyweight(
     return sets;
   }
   return sets.map((set) => {
-    if (set.bodyweightKg != null) return set;
+    if (set.bodyweightKg != null || !countsBodyweight(set)) return set;
     const factor = factorsByExerciseId.get(set.exerciseId) ?? 0;
     return factor > 0 ? { ...set, bodyweightKg, bodyweightFactor: factor } : set;
   });
@@ -183,6 +211,7 @@ function wireNumber(value: unknown): number | null {
 /** Decode the load inputs of a raw wire set (snake_case, camel fallback). */
 export function wireSetLoadInputs(raw: Record<string, unknown>): {
   weightKg: number;
+  durationSeconds: number | null;
   bodyweightKg: number | null;
   bodyweightFactor: number | null;
 } {
@@ -190,6 +219,7 @@ export function wireSetLoadInputs(raw: Record<string, unknown>): {
   const factor = wireNumber(raw.bodyweight_factor ?? raw.bodyweightFactor);
   return {
     weightKg: wireNumber(raw.weight_kg ?? raw.weightKg ?? raw.weight) ?? 0,
+    durationSeconds: wireNumber(raw.duration_seconds ?? raw.durationSeconds),
     bodyweightKg: bw !== null && bw > 0 ? bw : null,
     bodyweightFactor: factor !== null && factor >= 0 ? factor : null,
   };
@@ -202,11 +232,9 @@ export function wireSetLoadKg(raw: Record<string, unknown>): number {
 
 /** #1307 — volume of a raw wire set (see `setVolumeKg`). */
 export function wireSetVolumeKg(raw: Record<string, unknown>): number {
-  const duration = wireNumber(raw.duration_seconds ?? raw.durationSeconds);
   return setVolumeKg({
     ...wireSetLoadInputs(raw),
     reps: wireNumber(raw.reps) ?? 0,
-    durationSeconds: duration,
   });
 }
 
