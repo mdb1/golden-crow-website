@@ -1710,6 +1710,127 @@ describe("support services workbenches", () => {
     ).toBeNull();
   });
 
+  it("imports an exact request-form CSV, shows its rules, and enables the canonical form slot", async () => {
+    let savedPayload: Record<string, unknown> | undefined;
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body)) as Record<
+          string,
+          unknown
+        >;
+        savedPayload = payload;
+        return {
+          offer: {
+            ...hiddenOffer,
+            ...payload,
+            serviceVersion: hiddenOffer.serviceVersion + 1,
+            formShape: {
+              ...(payload.formShape as Record<string, unknown>),
+              version: 1,
+            },
+          },
+        };
+      }
+      if (String(path).includes("?limit=")) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: hiddenOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
+      "es",
+    );
+
+    const importButton = await screen.findByRole("button", {
+      name: "Importar desde CSV",
+    });
+    expect(importButton).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reglas de importación" }),
+    );
+    const rules = await screen.findByRole("dialog", {
+      name: "Reglas de importación",
+    });
+    expect(
+      within(rules).getByText(
+        "key,label,type,required,helpInfoText,options",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(rules)
+        .getByRole("link", { name: "Descargar CSV 2PQ" })
+        .getAttribute("href"),
+    ).toBe("/templates/formulario-solicitud-estudio-2pq.csv");
+    fireEvent.click(within(rules).getByRole("button", { name: "Cerrar" }));
+
+    const csv = [
+      "key,label,type,required,helpInfoText,options",
+      "patient_full_name,Nombre del paciente,text,true,,",
+      'patient_status,Estado del paciente,enum,true,,"[{""value"":""active"",""label"":""Activo""},{""value"":""inactive"",""label"":""Inactivo""}]"',
+    ].join("\n");
+    const file = new File([csv], "formulario.csv", { type: "text/csv" });
+    Object.defineProperty(file, "text", {
+      value: jest.fn().mockResolvedValue(csv),
+    });
+    fireEvent.change(screen.getByTestId("service-form-csv-input"), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() => {
+      const alert = screen.queryByRole("alert");
+      if (alert) {
+        throw new Error(`CSV import alert: ${alert.textContent}`);
+      }
+      expect(
+        screen.queryByTestId("service-form-csv-import-status"),
+      ).toBeTruthy();
+    });
+    expect(
+      screen.getByTestId("service-form-csv-import-status").textContent,
+    ).toContain("CSV cargado: 2 campos");
+    expect(screen.getByText("patient_full_name")).toBeTruthy();
+    expect(screen.getByText("patient_status")).toBeTruthy();
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Guardar cambios" })[0],
+    );
+    await acknowledgeExistingOfferContract("es");
+    await waitFor(() => expect(savedPayload).toBeDefined());
+    expect(savedPayload?.formShape).toEqual(
+      expect.objectContaining({
+        allowUnknownFields: false,
+        fields: [
+          expect.objectContaining({
+            key: "patient_full_name",
+            type: "text",
+            required: true,
+          }),
+          expect.objectContaining({
+            key: "patient_status",
+            type: "enum",
+            required: true,
+            options: [
+              { value: "active", label: "Activo" },
+              { value: "inactive", label: "Inactivo" },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(savedPayload?.inputSlots).toEqual(
+      expect.arrayContaining([
+        {
+          role: "form",
+          objectType: "pgo_form",
+          acceptedTypes: ["pgo_form"],
+          required: true,
+          cardinality: { min: 1, max: 1 },
+        },
+      ]),
+    );
+  });
+
   it("uses a wide, bilingual single-select registry modal and persists only its key", async () => {
     sdkFetchMock.mockImplementation(async (path, init) => {
       if (init?.method === "PUT") {

@@ -133,6 +133,13 @@ import type {
 import { appText } from "@/lib/language";
 import { publisherPortalServiceTransactionsByServiceIdRoute } from "@/lib/publisher-portal-routes";
 import {
+  SUPPORT_SERVICE_FORM_CSV_HEADER,
+  SUPPORT_SERVICE_FORM_CSV_MAX_BYTES,
+  TWO_PQ_STUDY_REQUEST_FORM_CSV_PATH,
+  normalizeSupportServiceFormField,
+  parseSupportServiceFormCsv,
+} from "@/lib/support-service-form-csv";
+import {
   SUPPORT_SERVICE_FORM_FIELD_TYPES,
   SUPPORT_SERVICE_MUTATION_MODES,
   SUPPORT_SERVICE_OFFER_STATUSES,
@@ -750,85 +757,22 @@ function parseOptionsText(value: string) {
   });
 }
 
-const FORM_FIELD_KEY_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
-
 function normalizedFormField(
   field: FormFieldDraft,
   existingKeys: ReadonlySet<string> = new Set<string>(),
 ): SupportServiceFormField {
-  const key = field.key.trim();
-  const label = field.label.trim();
-  if (!FORM_FIELD_KEY_PATTERN.test(key)) {
-    throw new Error(
-      "Form field keys must start with a lowercase letter, use only lowercase letters, numbers, or underscores, and contain at most 64 characters.",
-    );
-  }
-  if (existingKeys.has(key)) {
-    throw new Error(`Duplicate form field key: ${key}.`);
-  }
-  if (!label) {
-    throw new Error(`Form field ${key} needs a label.`);
-  }
-  if (label.length > 120) {
-    throw new Error(`Form field ${key} label cannot exceed 120 characters.`);
-  }
-  if (
-    !SUPPORT_SERVICE_FORM_FIELD_TYPES.some(
-      (option) => option.value === field.type,
-    )
-  ) {
-    throw new Error(`Form field ${key} has an unsupported type.`);
-  }
-
-  const helpInfoText = field.helpInfoText?.trim();
-  if (helpInfoText && helpInfoText.length > 500) {
-    throw new Error(
-      `Form field ${key} help info cannot exceed 500 characters.`,
-    );
-  }
-
   const isEnum = field.type === "enum" || field.type === "multi_enum";
-  const options = isEnum ? parseOptionsText(field.optionsText) : undefined;
-  if (isEnum && options?.length === 0) {
-    throw new Error(`Field ${key} needs enum options.`);
-  }
-  if (options && options.length > 100) {
-    throw new Error(`Form field ${key} cannot declare more than 100 options.`);
-  }
-
-  const optionValues = new Set<string>();
-  for (const option of options ?? []) {
-    if (!option.value || !option.label) {
-      throw new Error(
-        `Form field ${key} options need a nonempty value and label.`,
-      );
-    }
-    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(option.value)) {
-      throw new Error(
-        `Form field ${key} option values may use only letters, numbers, dots, underscores, colons, or hyphens and contain at most 128 characters.`,
-      );
-    }
-    if (option.label.length > 120) {
-      throw new Error(
-        `Form field ${key} option labels cannot exceed 120 characters.`,
-      );
-    }
-    if (optionValues.has(option.value)) {
-      throw new Error(
-        `Form field ${key} has duplicate option value ${option.value}.`,
-      );
-    }
-    optionValues.add(option.value);
-  }
-
-  return {
-    key,
-    label,
-    type: field.type,
-    required: field.required,
-    helpInfoText: helpInfoText || undefined,
-    options,
-  };
+  return normalizeSupportServiceFormField(
+    {
+      key: field.key,
+      label: field.label,
+      type: field.type,
+      required: field.required,
+      helpInfoText: field.helpInfoText,
+      options: isEnum ? parseOptionsText(field.optionsText) : undefined,
+    },
+    existingKeys,
+  );
 }
 
 function compactTurnaround(value: string | undefined) {
@@ -7814,6 +7758,12 @@ function FormShapeEditor({
     draft: FormFieldDraft;
   } | null>(null);
   const [fieldError, setFieldError] = useState("");
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [importRulesOpen, setImportRulesOpen] = useState(false);
+  const [csvImportError, setCsvImportError] = useState("");
+  const [importedFieldCount, setImportedFieldCount] = useState<number | null>(
+    null,
+  );
 
   function setSupportsFormShape(supportsFormShape: boolean) {
     setForm((current) => ({
@@ -7913,6 +7863,40 @@ function FormShapeEditor({
     setFieldDialog(null);
   }
 
+  async function importFieldsFromCsv(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) {
+      return;
+    }
+
+    setCsvImportError("");
+    setImportedFieldCount(null);
+    if (file.size > SUPPORT_SERVICE_FORM_CSV_MAX_BYTES) {
+      setCsvImportError(t("CSV file exceeds the 512 KiB limit."));
+      return;
+    }
+
+    try {
+      const fields = parseSupportServiceFormCsv(await file.text());
+      setForm((current) => ({
+        ...current,
+        supportsFormShape: true,
+        formShape: {
+          ...current.formShape,
+          fields: formFieldsFromRecord(fields),
+        },
+        inputSlots: withFormInputSlot(current.inputSlots),
+      }));
+      setImportedFieldCount(fields.length);
+    } catch (error) {
+      setCsvImportError(
+        error instanceof Error ? error.message : t("Could not import CSV."),
+      );
+    }
+  }
+
   return (
     <Section title="Form input" hideTitle={presentation === "wizard"}>
       {presentation === "wizard" ? (
@@ -7979,6 +7963,53 @@ function FormShapeEditor({
           </label>
         </div>
       )}
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          ref={csvInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          aria-label={t("CSV file")}
+          data-testid="service-form-csv-input"
+          className="sr-only"
+          onChange={(event) => void importFieldsFromCsv(event)}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => csvInputRef.current?.click()}
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+        >
+          <UploadCloud className="h-4 w-4" />
+          <span>{t("Import from CSV")}</span>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setImportRulesOpen(true)}
+          className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+        >
+          <FileText className="h-4 w-4" />
+          <span>{t("Import rules")}</span>
+        </Button>
+      </div>
+      {csvImportError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {t("Could not import CSV.")} {csvImportError}
+        </p>
+      ) : null}
+      {importedFieldCount != null ? (
+        <p
+          role="status"
+          data-testid="service-form-csv-import-status"
+          className="text-sm text-emerald-700 dark:text-emerald-300"
+        >
+          {t("CSV loaded:")} {importedFieldCount} {t("fields")}.
+          {" "}
+          {t("Save changes to persist the imported form and create the next offer version.")}
+        </p>
+      ) : null}
       {!form.supportsFormShape ? null : (
         <>
           {presentation === "form" ? (
@@ -8221,6 +8252,172 @@ function FormShapeEditor({
           </Dialog>
         </>
       )}
+      <Dialog open={importRulesOpen} onOpenChange={setImportRulesOpen}>
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{t("Import rules")}</DialogTitle>
+            <DialogDescription>
+              {t("Rules for request-form CSV imports.")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-5 text-sm">
+            <section className="grid gap-2">
+              <h3 className="font-heading font-semibold">
+                {t("Exact header")}
+              </h3>
+              <code className="overflow-x-auto rounded-lg border bg-muted/35 p-3 font-mono text-xs">
+                {SUPPORT_SERVICE_FORM_CSV_HEADER}
+              </code>
+              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+                <li>
+                  {t(
+                    "Use UTF-8 comma-separated CSV. The first row must match the exact header above.",
+                  )}
+                </li>
+                <li>
+                  {t(
+                    "Use one row per form field. Row order becomes form field order.",
+                  )}
+                </li>
+                <li>
+                  {t(
+                    "Quote cells containing commas, double quotes, or line breaks. Escape a double quote as two double quotes.",
+                  )}
+                </li>
+              </ul>
+            </section>
+
+            <section className="grid gap-2">
+              <h3 className="font-heading font-semibold">
+                {t("Column rules")}
+              </h3>
+              <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("Column")}</TableHead>
+                      <TableHead>{t("Rule")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-mono">key</TableCell>
+                      <TableCell>
+                        {t(
+                          "Required and unique. Start with a lowercase letter; then use only lowercase letters, numbers, or underscores. Maximum 64 characters.",
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-mono">label</TableCell>
+                      <TableCell>
+                        {t("Required text. Maximum 120 characters.")}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-mono">type</TableCell>
+                      <TableCell>
+                        {t("Required. Use one exact accepted type listed below.")}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-mono">required</TableCell>
+                      <TableCell>
+                        {t("Use exactly lower-case true or false.")}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-mono">helpInfoText</TableCell>
+                      <TableCell>
+                        {t("Optional text. Maximum 500 characters.")}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-mono">options</TableCell>
+                      <TableCell>
+                        {t(
+                          "Required only for enum and multi_enum. Use a nonempty JSON array of objects containing only value and label. Leave blank for every other type.",
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+
+            <section className="grid gap-2">
+              <h3 className="font-heading font-semibold">
+                {t("Accepted field types")}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {SUPPORT_SERVICE_FORM_FIELD_TYPES.map((option) => (
+                  <Badge key={option.value} variant="outline" className="font-mono">
+                    {option.value}
+                  </Badge>
+                ))}
+              </div>
+            </section>
+
+            <section className="grid gap-2">
+              <h3 className="font-heading font-semibold">
+                {t("Options JSON example")}
+              </h3>
+              <code className="overflow-x-auto rounded-lg border bg-muted/35 p-3 font-mono text-xs">
+                {'[{"value":"active","label":"Activo"},{"value":"inactive","label":"Inactivo"}]'}
+              </code>
+              <p className="text-muted-foreground">
+                {t(
+                  "Inside CSV, quote the entire options cell and escape each JSON double quote by doubling it.",
+                )}
+              </p>
+            </section>
+
+            <section className="grid gap-2">
+              <h3 className="font-heading font-semibold">
+                {t("Import behavior")}
+              </h3>
+              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+                <li>
+                  {t(
+                    "The entire CSV is validated before any field changes. A single invalid row rejects the complete import.",
+                  )}
+                </li>
+                <li>
+                  {t(
+                    "Imported fields replace the current request-form fields; offer identity, outputs, and commercial terms are unchanged.",
+                  )}
+                </li>
+                <li>
+                  {t(
+                    "Importing automatically enables the request form and its required form / pgo_form input slot.",
+                  )}
+                </li>
+                <li>
+                  {t(
+                    "The import remains an unsaved edit until Save changes completes successfully.",
+                  )}
+                </li>
+              </ul>
+            </section>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setImportRulesOpen(false)}
+              className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+            >
+              {t("Close")}
+            </Button>
+            <Button asChild className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}>
+              <a href={TWO_PQ_STUDY_REQUEST_FORM_CSV_PATH} download>
+                <Download className="h-4 w-4" />
+                {t("Download 2PQ CSV")}
+              </a>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Section>
   );
 }

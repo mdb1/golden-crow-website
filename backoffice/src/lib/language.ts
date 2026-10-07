@@ -5036,6 +5036,50 @@ const SPANISH_TEXT: Record<string, string> = {
   "Form input": "Entrada de formulario",
   "Form inputs are managed by Support form input.":
     "Las entradas de formulario se gestionan con Soportar entrada de formulario.",
+  "Import from CSV": "Importar desde CSV",
+  "Rules for request-form CSV imports.":
+    "Reglas para importar campos del formulario de solicitud desde CSV.",
+  "Exact header": "Encabezado exacto",
+  "Use UTF-8 comma-separated CSV. The first row must match the exact header above.":
+    "Usá un CSV UTF-8 separado por comas. La primera fila debe coincidir exactamente con el encabezado anterior.",
+  "Use one row per form field. Row order becomes form field order.":
+    "Usá una fila por campo. El orden de las filas se convierte en el orden de los campos.",
+  "Quote cells containing commas, double quotes, or line breaks. Escape a double quote as two double quotes.":
+    "Poné entre comillas las celdas que contengan comas, comillas dobles o saltos de línea. Escapá una comilla doble duplicándola.",
+  "Column rules": "Reglas de las columnas",
+  Column: "Columna",
+  Rule: "Regla",
+  "Required and unique. Start with a lowercase letter; then use only lowercase letters, numbers, or underscores. Maximum 64 characters.":
+    "Obligatoria y única. Debe comenzar con una letra minúscula y continuar solo con letras minúsculas, números o guiones bajos. Máximo 64 caracteres.",
+  "Required text. Maximum 120 characters.":
+    "Texto obligatorio. Máximo 120 caracteres.",
+  "Required. Use one exact accepted type listed below.":
+    "Obligatorio. Usá exactamente uno de los tipos aceptados que se listan abajo.",
+  "Use exactly lower-case true or false.":
+    "Usá exactamente true o false en minúsculas.",
+  "Optional text. Maximum 500 characters.":
+    "Texto opcional. Máximo 500 caracteres.",
+  "Required only for enum and multi_enum. Use a nonempty JSON array of objects containing only value and label. Leave blank for every other type.":
+    "Obligatoria solo para enum y multi_enum. Usá un array JSON no vacío de objetos que contengan únicamente value y label. Dejala vacía para cualquier otro tipo.",
+  "Accepted field types": "Tipos de campo aceptados",
+  "Options JSON example": "Ejemplo de JSON para options",
+  "Inside CSV, quote the entire options cell and escape each JSON double quote by doubling it.":
+    "Dentro del CSV, encerrá toda la celda options entre comillas y escapá cada comilla doble del JSON duplicándola.",
+  "The entire CSV is validated before any field changes. A single invalid row rejects the complete import.":
+    "Todo el CSV se valida antes de cambiar los campos. Una sola fila inválida rechaza la importación completa.",
+  "Imported fields replace the current request-form fields; offer identity, outputs, and commercial terms are unchanged.":
+    "Los campos importados reemplazan los campos actuales del formulario; la identidad, las salidas y los términos comerciales de la oferta no cambian.",
+  "Importing automatically enables the request form and its required form / pgo_form input slot.":
+    "La importación habilita automáticamente el formulario y su slot de entrada obligatorio form / pgo_form.",
+  "The import remains an unsaved edit until Save changes completes successfully.":
+    "La importación queda como una edición sin guardar hasta que Guardar cambios finaliza correctamente.",
+  "Download 2PQ CSV": "Descargar CSV 2PQ",
+  "Could not import CSV.": "No se pudo importar el CSV.",
+  "CSV loaded:": "CSV cargado:",
+  "CSV file exceeds the 512 KiB limit.":
+    "El archivo CSV supera el límite de 512 KiB.",
+  "Save changes to persist the imported form and create the next offer version.":
+    "Guardá los cambios para persistir el formulario importado y crear la siguiente versión de la oferta.",
   "Form shape ID": "ID del formulario de solicitud",
   "Form shape version": "Versión del formulario de solicitud",
   Hours: "Horas",
