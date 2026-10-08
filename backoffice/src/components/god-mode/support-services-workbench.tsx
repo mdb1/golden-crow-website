@@ -22,6 +22,7 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
+  BadgeDollarSign,
   Binary,
   BriefcaseBusiness,
   Building2,
@@ -30,6 +31,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleAlert,
+  Clock3,
   ClipboardList,
   Copy,
   Download,
@@ -237,6 +239,7 @@ type OfferFormState = {
   acceptedConditionsText: string;
   scopeRulesText: string;
   commercialTerms: SupportServiceCommercialTerms;
+  showsEstimatedTurnaround: boolean;
   moreInformation: SupportServiceMoreInformation;
 };
 
@@ -1165,6 +1168,7 @@ function defaultOfferForm(): OfferFormState {
       pricingModel: "not_specified",
       price: { currency: "ARS" },
     },
+    showsEstimatedTurnaround: false,
     moreInformation: {},
   };
 }
@@ -1274,6 +1278,9 @@ function offerFormFromCatalog(
       price: { ...catalogOffer.commercialTerms.price },
       turnaround: catalogOffer.commercialTerms.turnaround,
     }),
+    showsEstimatedTurnaround: Boolean(
+      compactTurnaround(catalogOffer.commercialTerms.turnaround),
+    ),
     moreInformation: moreInformationFormValue(catalogOffer.moreInformation),
   };
 }
@@ -1325,6 +1332,9 @@ function offerFormFromRecord(
     acceptedConditionsText: record.acceptedConditions.join("\n"),
     scopeRulesText: record.scopeRules.join("\n"),
     commercialTerms: commercialTermsFormValue(record.commercialTerms),
+    showsEstimatedTurnaround: Boolean(
+      compactTurnaround(record.commercialTerms?.turnaround),
+    ),
     moreInformation: moreInformationFormValue(record.moreInformation),
   };
 }
@@ -2026,6 +2036,12 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
     }
   }
   const pricingModel = form.commercialTerms.pricingModel ?? "not_specified";
+  if (
+    form.showsEstimatedTurnaround &&
+    !compactTurnaround(form.commercialTerms.turnaround)
+  ) {
+    throw new Error("Enter an approximate delivery time.");
+  }
   if (pricingModel === "fixed") {
     if (!Number.isFinite(form.commercialTerms.price?.amount)) {
       throw new Error("Fixed price amount must be numeric.");
@@ -2103,7 +2119,11 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
       ? acceptedConditions
       : undefined,
     scopeRules: scopeRules.length ? scopeRules : undefined,
-    commercialTerms: commercialTermsPayload(form.commercialTerms),
+    commercialTerms: commercialTermsPayload(
+      form.showsEstimatedTurnaround
+        ? form.commercialTerms
+        : { ...form.commercialTerms, turnaround: undefined },
+    ),
     moreInformation: normalizedMoreInformationPayload(form.moreInformation),
   };
 }
@@ -9087,6 +9107,21 @@ function TermsEditor({
     });
   }
 
+  function updateTurnaroundVisibility(value: string) {
+    if (value !== "not_specified" && value !== "estimated") {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      showsEstimatedTurnaround: value === "estimated",
+      commercialTerms:
+        value === "estimated"
+          ? current.commercialTerms
+          : { ...current.commercialTerms, turnaround: undefined },
+    }));
+  }
+
   function updateTurnaroundUnit(unit: string) {
     if (!TURNAROUND_UNITS.some((option) => option.value === unit)) {
       return;
@@ -9106,110 +9141,171 @@ function TermsEditor({
       <div
         data-testid="service-offer-terms-layout"
         className={cn(
-          "grid gap-4",
-          layout === "columns" && "lg:grid-cols-3",
+          "grid gap-5",
+          layout === "columns" && "xl:grid-cols-2",
         )}
       >
-        <Field label="Pricing">
-          <Select value={pricingModel} onValueChange={updatePricingModel}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="not_specified">
-                {t("Not specified")}
-              </SelectItem>
-              <SelectItem value="free">{t("Free")}</SelectItem>
-              <SelectItem value="fixed">{t("Fixed price")}</SelectItem>
-              <SelectItem value="calculated_after_submission">
-                {t("Calculated after submission")}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-        {pricingModel === "fixed" ? (
-          <>
-            <Field label="Price amount">
-              <Input
-                value={form.commercialTerms.price?.amount ?? 0}
-                onChange={(event) =>
-                  updateTerms({
-                    price: {
-                      amount: Number(event.target.value),
-                    },
-                  })
-                }
-                type="number"
-                min={0}
-              />
-            </Field>
-            <Field label="Currency">
-              <Select
-                value={form.commercialTerms.price?.currency || "ARS"}
-                onValueChange={(currency) =>
-                  updateTerms({
-                    price: { currency },
-                  })
-                }
-              >
+        <section
+          data-testid="service-offer-pricing-card"
+          className="grid content-start gap-5 rounded-2xl border border-sky-100 bg-[linear-gradient(145deg,rgba(240,249,255,0.82),rgba(255,255,255,0.94))] p-5 shadow-sm dark:border-sky-400/15 dark:bg-[linear-gradient(145deg,rgba(14,116,144,0.12),rgba(2,6,23,0.42))]"
+        >
+          <div className="flex items-center gap-3 border-b border-sky-100 pb-4 dark:border-sky-400/15">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-100 text-sky-700 dark:bg-sky-400/10 dark:text-sky-200">
+              <BadgeDollarSign className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <h4 className="font-heading text-base font-semibold text-foreground">
+              {t("Pricing and explanation")}
+            </h4>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Pricing">
+              <Select value={pricingModel} onValueChange={updatePricingModel}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {["ARS", "USD", "EUR"].map((currency) => (
-                    <SelectItem key={currency} value={currency}>
-                      {currency}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="not_specified">
+                    {t("Not specified")}
+                  </SelectItem>
+                  <SelectItem value="free">{t("Free")}</SelectItem>
+                  <SelectItem value="fixed">{t("Fixed price")}</SelectItem>
+                  <SelectItem value="calculated_after_submission">
+                    {t("Calculated after submission")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </Field>
-          </>
-        ) : null}
-        {pricingModel === "calculated_after_submission" ? (
-          <Field label="Price summary">
-            <Input
-              value={form.commercialTerms.price?.summary ?? ""}
-              onChange={(event) =>
-                updateTerms({
-                  price: { summary: event.target.value },
-                })
-              }
-              placeholder={t("Calculated after submission")}
-            />
-          </Field>
-        ) : null}
-        <Field label="Turnaround">
-          <div className="grid grid-cols-[minmax(0,1fr)_9rem] gap-2">
-            <Input
-              data-testid="service-offer-turnaround-amount"
-              value={turnaround.amount}
-              onChange={(event) =>
-                updateTurnaround(event.target.value, selectedTurnaroundUnit)
-              }
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              placeholder="2"
-            />
+            {pricingModel === "fixed" ? (
+              <>
+                <Field label="Price amount">
+                  <Input
+                    value={form.commercialTerms.price?.amount ?? 0}
+                    onChange={(event) =>
+                      updateTerms({
+                        price: {
+                          amount: Number(event.target.value),
+                        },
+                      })
+                    }
+                    type="number"
+                    min={0}
+                  />
+                </Field>
+                <Field label="Currency">
+                  <Select
+                    value={form.commercialTerms.price?.currency || "ARS"}
+                    onValueChange={(currency) =>
+                      updateTerms({
+                        price: { currency },
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["ARS", "USD", "EUR"].map((currency) => (
+                        <SelectItem key={currency} value={currency}>
+                          {currency}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </>
+            ) : null}
+            {pricingModel === "calculated_after_submission" ? (
+              <Field label="Price summary">
+                <Input
+                  value={form.commercialTerms.price?.summary ?? ""}
+                  onChange={(event) =>
+                    updateTerms({
+                      price: { summary: event.target.value },
+                    })
+                  }
+                  placeholder={t("Calculated after submission")}
+                />
+              </Field>
+            ) : null}
+          </div>
+        </section>
+
+        <section
+          data-testid="service-offer-turnaround-card"
+          className="grid content-start gap-5 rounded-2xl border border-violet-100 bg-[linear-gradient(145deg,rgba(245,243,255,0.88),rgba(255,255,255,0.94))] p-5 shadow-sm dark:border-violet-400/15 dark:bg-[linear-gradient(145deg,rgba(124,58,237,0.12),rgba(2,6,23,0.42))]"
+        >
+          <div className="flex items-center gap-3 border-b border-violet-100 pb-4 dark:border-violet-400/15">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-400/10 dark:text-violet-200">
+              <Clock3 className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <h4 className="font-heading text-base font-semibold text-foreground">
+              {t("Delivery time")}
+            </h4>
+          </div>
+
+          <Field label="Turnaround">
             <Select
-              value={selectedTurnaroundUnit}
-              onValueChange={updateTurnaroundUnit}
+              value={
+                form.showsEstimatedTurnaround ? "estimated" : "not_specified"
+              }
+              onValueChange={updateTurnaroundVisibility}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TURNAROUND_UNITS.map((unit) => (
-                  <SelectItem key={unit.value} value={unit.value}>
-                    {t(unit.label)}
-                  </SelectItem>
-                ))}
+                <SelectItem value="not_specified">
+                  {t("Not specified")}
+                </SelectItem>
+                <SelectItem value="estimated">
+                  {t("Show approximate delivery time")}
+                </SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </Field>
+          </Field>
+
+          {form.showsEstimatedTurnaround ? (
+            <div
+              data-testid="service-offer-turnaround-fields"
+              className="grid gap-4 rounded-xl border border-violet-100/80 bg-white/72 p-4 shadow-inner dark:border-violet-400/12 dark:bg-slate-950/28 sm:grid-cols-[minmax(0,1fr)_9rem]"
+            >
+              <Field label="Amount">
+                <Input
+                  data-testid="service-offer-turnaround-amount"
+                  value={turnaround.amount}
+                  onChange={(event) =>
+                    updateTurnaround(event.target.value, selectedTurnaroundUnit)
+                  }
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  placeholder="2"
+                  required
+                />
+              </Field>
+              <Field label="Unit">
+                <Select
+                  value={selectedTurnaroundUnit}
+                  onValueChange={updateTurnaroundUnit}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TURNAROUND_UNITS.map((unit) => (
+                      <SelectItem key={unit.value} value={unit.value}>
+                        {t(unit.label)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+          ) : null}
+        </section>
       </div>
     </Section>
   );

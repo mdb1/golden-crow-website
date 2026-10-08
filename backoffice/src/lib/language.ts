@@ -4996,6 +4996,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Choose professional provider": "Elegí profesional proveedor",
   "Choose provider": "Elegí proveedor",
   "Commercial terms": "Términos comerciales",
+  "Pricing and explanation": "Precio y explicación",
+  "Delivery time": "Tiempo de entrega",
+  "Show approximate delivery time": "Mostrar tiempo aproximado",
+  "Enter an approximate delivery time.":
+    "Ingresá un tiempo aproximado de entrega.",
+  Amount: "Cantidad",
+  Unit: "Unidad",
   "Configure one form field for the support service request form.":
     "Configurá un campo para el formulario de solicitud del servicio de soporte.",
   Contract: "Contrato",

@@ -1458,6 +1458,66 @@ describe("support services workbenches", () => {
     ).toBe(false);
     expect(appText("es", "Price summary")).toBe("Explicación del precio");
 
+    const pricingCard = screen.getByTestId("service-offer-pricing-card");
+    const turnaroundCard = screen.getByTestId(
+      "service-offer-turnaround-card",
+    );
+    expect(
+      within(pricingCard).getByText("Pricing and explanation"),
+    ).toBeTruthy();
+    expect(within(turnaroundCard).getByText("Delivery time")).toBeTruthy();
+    expect(
+      within(turnaroundCard).getByRole("combobox", { name: "Turnaround" })
+        .textContent,
+    ).toContain("Not specified");
+    expect(
+      within(turnaroundCard).queryByTestId(
+        "service-offer-turnaround-fields",
+      ),
+    ).toBeNull();
+
+    fireEvent.click(
+      within(turnaroundCard).getByRole("combobox", { name: "Turnaround" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("option", {
+        name: "Show approximate delivery time",
+      }),
+    );
+
+    const turnaroundFields = within(turnaroundCard).getByTestId(
+      "service-offer-turnaround-fields",
+    );
+    expect(
+      within(turnaroundFields)
+        .getByTestId("service-offer-turnaround-amount")
+        .hasAttribute("required"),
+    ).toBe(true);
+    expect(
+      within(turnaroundFields)
+        .getByRole("combobox", { name: "Unit" })
+        .getAttribute("aria-required"),
+    ).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByText("Enter an approximate delivery time."),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Commercial terms" }),
+    ).toBeTruthy();
+
+    fireEvent.change(
+      within(turnaroundFields).getByTestId(
+        "service-offer-turnaround-amount",
+      ),
+      { target: { value: "2" } },
+    );
+    fireEvent.click(
+      within(turnaroundFields).getByRole("combobox", { name: "Unit" }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name: "Weeks" }));
+
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
       screen.getByRole("heading", {
@@ -2206,7 +2266,7 @@ describe("support services workbenches", () => {
     expect(
       screen
         .getByTestId("service-offer-terms-layout")
-        .classList.contains("lg:grid-cols-3"),
+        .classList.contains("xl:grid-cols-2"),
     ).toBe(true);
     expect(
       screen.getByText(
@@ -2614,6 +2674,64 @@ describe("support services workbenches", () => {
       expect(putCall).toBeTruthy();
       const payload = JSON.parse(String(putCall?.[1]?.body));
       expect(payload.commercialTerms.turnaround).toBe("2w");
+    });
+  });
+
+  it("clears an existing turnaround when delivery time is set to not specified", async () => {
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        return { offer: { ...hiddenOffer, ...payload } };
+      }
+      if (
+        String(path).includes("provider-siblings") ||
+        String(path).includes("?limit=")
+      ) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: hiddenOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
+    );
+
+    await screen.findByDisplayValue(hiddenOffer.name);
+    const turnaroundCard = await screen.findByTestId(
+      "service-offer-turnaround-card",
+    );
+    expect(
+      (
+        within(turnaroundCard).getByTestId(
+          "service-offer-turnaround-amount",
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("1");
+
+    fireEvent.click(
+      within(turnaroundCard).getByRole("combobox", { name: "Turnaround" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("option", { name: "Not specified" }),
+    );
+
+    expect(
+      within(turnaroundCard).queryByTestId(
+        "service-offer-turnaround-fields",
+      ),
+    ).toBeNull();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
+
+    await waitFor(() => {
+      const putCall = sdkFetchMock.mock.calls.find(
+        ([, init]) => init?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const payload = JSON.parse(String(putCall?.[1]?.body));
+      expect(payload.commercialTerms).not.toHaveProperty("turnaround");
+      expect(payload).not.toHaveProperty("showsEstimatedTurnaround");
     });
   });
 
