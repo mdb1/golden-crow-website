@@ -5018,6 +5018,102 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
+  it("recovers a missing case form link from a form linked to the same case", async () => {
+    seedLegacyTwoPQOffer();
+    seedDoc("2pq_case", "CASE-00053", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      patientId: "PAT-00001",
+      linkedStudyRequestFormId: null,
+    });
+    seedDoc("2pq_forms", "FORM-00041", twoPQStudyRequestForm());
+    seedDoc("2pq_forms", "FORM-00053", {
+      id: "FORM-00053",
+      formType: "sample",
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      selectedPatientId: "PAT-00001",
+      selectedCaseId: "CASE-00053",
+      linkedCaseId: "CASE-00053",
+      linkedStudyRequestFormId: "FORM-00041",
+      createdAt: "2026-09-29T20:00:00.000Z",
+    });
+    const { createTwoPQCaseServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const created = await createTwoPQCaseServiceTransaction(context, {
+      caseId: "CASE-00053",
+      threeLetterCode: "BEH",
+      doctorEmail: "doctor@clinic.example",
+      requestedAtClient: "2026-09-29T20:00:00.000Z",
+      studyRequestForm: null,
+    });
+
+    expect(created.inputs[0]?.objectSnapshot).toMatchObject({
+      data: {
+        fields: expect.arrayContaining([
+          {
+            key: "source_study_request_form_id",
+            value: "FORM-00041",
+          },
+        ]),
+      },
+    });
+    expect(collectionStore("2pq_case").get("CASE-00053")).toMatchObject({
+      linkedStudyRequestFormId: "FORM-00041",
+    });
+  });
+
+  it("uses and persists the latest compatible study request as the final fallback", async () => {
+    seedLegacyTwoPQOffer();
+    seedDoc("2pq_case", "CASE-00054", {
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      linkedStudyRequestFormId: null,
+    });
+    seedDoc("2pq_forms", "FORM-00040", {
+      ...twoPQStudyRequestForm(),
+      id: "FORM-00040",
+      createdAt: "2026-09-27T20:00:00.000Z",
+    });
+    seedDoc("2pq_forms", "FORM-00042", {
+      ...twoPQStudyRequestForm(),
+      id: "FORM-00042",
+      createdAt: "2026-09-29T20:00:00.000Z",
+    });
+    seedDoc("2pq_forms", "FORM-OTHER", {
+      ...twoPQStudyRequestForm(),
+      id: "FORM-OTHER",
+      institutionId: "INST-OTHER",
+      createdAt: "2026-09-30T20:00:00.000Z",
+    });
+    const { createTwoPQCaseServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const created = await createTwoPQCaseServiceTransaction(context, {
+      caseId: "CASE-00054",
+      threeLetterCode: "NEW",
+      doctorEmail: "doctor@clinic.example",
+      requestedAtClient: "2026-09-30T20:00:00.000Z",
+    });
+
+    expect(created.inputs[0]?.objectSnapshot).toMatchObject({
+      data: {
+        fields: expect.arrayContaining([
+          {
+            key: "source_study_request_form_id",
+            value: "FORM-00042",
+          },
+        ]),
+      },
+    });
+    expect(collectionStore("2pq_case").get("CASE-00054")).toMatchObject({
+      linkedStudyRequestFormId: "FORM-00042",
+    });
+  });
+
   it("rejects every new 2PQ transaction when the canonical service and form IDs no longer match", async () => {
     const { offerId } = seedLegacyTwoPQOffer();
     const { createTwoPQCaseServiceTransaction } = await import(

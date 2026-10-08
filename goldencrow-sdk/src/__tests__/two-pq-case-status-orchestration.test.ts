@@ -291,6 +291,10 @@ describe("2PQ case status update orchestration", () => {
     ).toBeLessThan(
       mockSynchronizeTwoPQCasesFilesAndCodes.mock.invocationCallOrder[0]!,
     );
+    expect(collectionStore("2pq_case").get("CASE-00001")).toMatchObject({
+      caseStatus: "lab_processing",
+      linkedStudyRequestFormId: null,
+    });
   });
 
   it("creates the deferred service transaction before auto-syncing a new case", async () => {

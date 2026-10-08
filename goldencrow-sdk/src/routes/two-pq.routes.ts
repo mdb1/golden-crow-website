@@ -271,7 +271,7 @@ const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
   }),
   z.object({
     formType: z.literal("sample"),
-    linkedStudyRequestFormId: z.string(),
+    linkedStudyRequestFormId: z.string().nullable(),
     selectedPatientId: z.string().optional(),
     selectedInstitutionId: z.string().optional(),
     selectedCaseId: z.string().optional(),

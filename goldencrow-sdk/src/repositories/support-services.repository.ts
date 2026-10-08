@@ -46,6 +46,8 @@ const UPLOADED_REPORTS_COLLECTION = "uploaded_reports";
 const OBJECT_OWNERS_COLLECTION = "object_owners";
 const FILE_STORAGE_COLLECTION = "file_storage";
 const COMMUNITY_USERS_COLLECTION = "community_users";
+const TWO_PQ_CASES_COLLECTION = "2pq_case";
+const TWO_PQ_FORMS_COLLECTION = "2pq_forms";
 const REQUESTED_TRANSACTIONS_FIELD = "requestedServiceTransactions";
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = 20;
@@ -8220,6 +8222,163 @@ export async function getTwoPQCaseLinkedServiceTransactionSnapshot(
   };
 }
 
+function twoPQStudyRequestFormFromSnapshot(
+  snapshot: DocumentSnapshot,
+): TwoPQStudyRequestFormSource | null {
+  const data = snapshot.data() ?? {};
+  if (cleanString(data.formType) !== "study_request") {
+    return null;
+  }
+
+  return {
+    id: snapshot.id,
+    formType: "study_request",
+    institutionId: cleanString(data.institutionId),
+    doctorId: cleanString(data.doctorId),
+    selectedPatientId: cleanString(data.selectedPatientId) || undefined,
+    patientInformation: optionalRecord(data.patientInformation),
+    medicalInformation: optionalRecord(data.medicalInformation),
+    previousGeneticTests: optionalRecord(data.previousGeneticTests),
+    requestedTest: optionalRecord(data.requestedTest),
+    institutionInformation: optionalRecord(data.institutionInformation),
+    createdAt: cleanString(data.createdAt),
+  };
+}
+
+function twoPQStudyRequestFormPatientId(
+  form: TwoPQStudyRequestFormSource,
+) {
+  return (
+    cleanString(form.selectedPatientId) ||
+    cleanString(optionalRecord(form.patientInformation).patientId)
+  );
+}
+
+function isCompatibleTwoPQStudyRequestForm(
+  form: TwoPQStudyRequestFormSource,
+  caseData: Record<string, unknown>,
+) {
+  const institutionId = cleanString(caseData.institutionId);
+  const doctorId = cleanString(caseData.doctorId);
+  const patientId = cleanString(caseData.patientId);
+  const createdAt = Date.parse(cleanString(form.createdAt));
+  return (
+    form.formType === "study_request" &&
+    Boolean(cleanString(form.id)) &&
+    !Number.isNaN(createdAt) &&
+    (!institutionId || form.institutionId === institutionId) &&
+    (!doctorId || form.doctorId === doctorId) &&
+    (!patientId || twoPQStudyRequestFormPatientId(form) === patientId)
+  );
+}
+
+async function resolveTwoPQStudyRequestFormFallback(
+  caseId: string,
+): Promise<TwoPQStudyRequestFormSource> {
+  const caseRef = adminDb.collection(TWO_PQ_CASES_COLLECTION).doc(caseId);
+  const caseSnapshot = await caseRef.get();
+  if (!caseSnapshot.exists) {
+    throw new AdminRepositoryError(
+      "The 2PQ case does not exist, so its study request form cannot be resolved.",
+      404,
+    );
+  }
+  const caseData = caseSnapshot.data() ?? {};
+  const forms = adminDb.collection(TWO_PQ_FORMS_COLLECTION);
+  const loadCompatibleStudyRequest = async (formId: string) => {
+    const snapshot = await forms.doc(formId).get();
+    if (!snapshot.exists) {
+      return null;
+    }
+    const form = twoPQStudyRequestFormFromSnapshot(snapshot);
+    return form && isCompatibleTwoPQStudyRequestForm(form, caseData)
+      ? form
+      : null;
+  };
+
+  const directFormId = cleanString(caseData.linkedStudyRequestFormId);
+  if (directFormId) {
+    const directForm = await loadCompatibleStudyRequest(directFormId);
+    if (directForm) {
+      return directForm;
+    }
+  }
+
+  const linkedFormSnapshots = await Promise.all([
+    forms.where("linkedCaseId", "==", caseId).limit(20).get(),
+    forms.where("selectedCaseId", "==", caseId).limit(20).get(),
+  ]);
+  const referencedStudyRequestIds = Array.from(
+    new Set(
+      linkedFormSnapshots
+        .flatMap((snapshot) => snapshot.docs)
+        .sort(
+          (left, right) =>
+            Date.parse(cleanString(right.data().createdAt)) -
+            Date.parse(cleanString(left.data().createdAt)),
+        )
+        .map((snapshot) =>
+          cleanString(snapshot.data().linkedStudyRequestFormId),
+        )
+        .filter(Boolean),
+    ),
+  );
+  for (const referencedFormId of referencedStudyRequestIds) {
+    const referencedForm = await loadCompatibleStudyRequest(referencedFormId);
+    if (referencedForm) {
+      await caseRef.set(
+        { linkedStudyRequestFormId: referencedForm.id },
+        { merge: true },
+      );
+      return referencedForm;
+    }
+  }
+
+  const patientId = cleanString(caseData.patientId);
+  if (patientId) {
+    const patientForms = await forms
+      .where("selectedPatientId", "==", patientId)
+      .limit(50)
+      .get();
+    const matchingPatientForm = patientForms.docs
+      .map(twoPQStudyRequestFormFromSnapshot)
+      .filter((form): form is TwoPQStudyRequestFormSource => Boolean(form))
+      .filter((form) => isCompatibleTwoPQStudyRequestForm(form, caseData))
+      .sort(
+        (left, right) =>
+          Date.parse(right.createdAt) - Date.parse(left.createdAt),
+      )[0];
+    if (matchingPatientForm) {
+      await caseRef.set(
+        { linkedStudyRequestFormId: matchingPatientForm.id },
+        { merge: true },
+      );
+      return matchingPatientForm;
+    }
+  }
+
+  const latestForms = await forms
+    .orderBy("createdAt", "desc")
+    .limit(100)
+    .get();
+  const latestCompatibleForm = latestForms.docs
+    .map(twoPQStudyRequestFormFromSnapshot)
+    .filter((form): form is TwoPQStudyRequestFormSource => form !== null)
+    .find((form) => isCompatibleTwoPQStudyRequestForm(form, caseData));
+  if (!latestCompatibleForm) {
+    throw new AdminRepositoryError(
+      "The 2PQ case has no linked or compatible study request form for pgo_form provisioning.",
+      409,
+    );
+  }
+
+  await caseRef.set(
+    { linkedStudyRequestFormId: latestCompatibleForm.id },
+    { merge: true },
+  );
+  return latestCompatibleForm;
+}
+
 export async function createTwoPQCaseServiceTransaction(
   context: AdminContext,
   input: {
@@ -8227,7 +8386,7 @@ export async function createTwoPQCaseServiceTransaction(
     threeLetterCode: string;
     doctorEmail: string;
     requestedAtClient: string;
-    studyRequestForm: TwoPQStudyRequestFormSource;
+    studyRequestForm?: TwoPQStudyRequestFormSource | null;
   },
 ) {
   const threeLetterCode = cleanString(input.threeLetterCode).toUpperCase();
@@ -8271,10 +8430,13 @@ export async function createTwoPQCaseServiceTransaction(
     return existing;
   }
 
+  const studyRequestForm =
+    input.studyRequestForm ??
+    (await resolveTwoPQStudyRequestFormFallback(input.caseId));
   const offer = await ensureTwoPQStudyRequestFormContract(context);
   const provisioned = await provisionTwoPQStudyRequestForm(context, offer, {
     caseId: input.caseId,
-    studyRequestForm: input.studyRequestForm,
+    studyRequestForm,
   });
   try {
     const transaction = await createSupportServiceTransactionWithPolicy(

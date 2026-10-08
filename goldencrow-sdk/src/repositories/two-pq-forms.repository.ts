@@ -208,7 +208,7 @@ type SamplingInformationInput = {
 
 type TwoPQFormInput = {
   formType: TwoPQFormType;
-  linkedStudyRequestFormId?: string;
+  linkedStudyRequestFormId?: string | null;
   linkedCaseIds?: string[];
   selectedPatientId?: string;
   selectedInstitutionId?: string;
@@ -739,9 +739,8 @@ function toTwoPQFormRecord(
     patientEmail: normalizeOptionalString(data.patientEmail),
     institutionName: normalizeOptionalString(data.institutionName),
     requestedTestName: normalizeOptionalString(data.requestedTestName),
-    linkedStudyRequestFormId: normalizeOptionalString(
-      data.linkedStudyRequestFormId,
-    ),
+    linkedStudyRequestFormId:
+      normalizeOptionalString(data.linkedStudyRequestFormId) ?? null,
     linkedCaseIds: normalizeStringArray(data.linkedCaseIds),
     selectedCaseId: normalizeOptionalString(data.selectedCaseId),
     selectedRequestingDoctorId: normalizeOptionalString(

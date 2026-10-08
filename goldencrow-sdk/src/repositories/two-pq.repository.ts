@@ -712,9 +712,8 @@ function toTwoPQRecord(
   }
 
   if (areaKey === "cases") {
-    record.linkedStudyRequestFormId = normalizeOptionalString(
-      data.linkedStudyRequestFormId,
-    );
+    record.linkedStudyRequestFormId =
+      normalizeOptionalString(data.linkedStudyRequestFormId) ?? null;
     record.should_automatically_sync_files_and_codes =
       data.should_automatically_sync_files_and_codes !== false;
   }
@@ -954,7 +953,14 @@ function applyMutation(
 }
 
 function buildStoredRecordDocument(nextRecord: TwoPQRecord): Record<string, unknown> {
-  const document: Record<string, unknown> = { ...nextRecord };
+  const document = Object.fromEntries(
+    Object.entries(nextRecord).filter(([, value]) => value !== undefined),
+  );
+
+  if (nextRecord.areaKey === "cases") {
+    document.linkedStudyRequestFormId =
+      normalizeOptionalString(nextRecord.linkedStudyRequestFormId) ?? null;
+  }
 
   if (nextRecord.parent_batch) {
     document.batchId = nextRecord.parent_batch;
