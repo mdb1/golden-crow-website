@@ -1,10 +1,28 @@
 import {
+  canArchiveTwoPQForms,
   DEFAULT_OBSERVATIONS_VALUE,
   formatBiopsySampleIdForDisplay,
   getWithdrawalRequestTitle,
   normalizeObservationsValue,
   shouldShowAutomaticPatientPortalAccessStep,
 } from "@/lib/two-pq-forms";
+
+describe("canArchiveTwoPQForms", () => {
+  it.each([
+    "institution_doctor",
+    "institution_operator",
+    "institution_laboratory_staff",
+  ] as const)("blocks archive access for %s", (role) => {
+    expect(canArchiveTwoPQForms(role)).toBe(false);
+  });
+
+  it.each(["full_admin", "2pq_admin", "institution_admin"] as const)(
+    "keeps archive access for %s",
+    (role) => {
+      expect(canArchiveTwoPQForms(role)).toBe(true);
+    },
+  );
+});
 
 describe("shouldShowAutomaticPatientPortalAccessStep", () => {
   it("shows the step only when a study request creates a patient", () => {

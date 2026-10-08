@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { AdminContextProvider } from "@/components/admin-context-provider";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { TwoPQFormsList } from "@/components/two-pq-forms-list";
-import type { AdminContextRecord } from "@/lib/admin-areas";
+import type { AdminContextRecord, AdminRole } from "@/lib/admin-areas";
 import type { TwoPQFormRecord } from "@/lib/two-pq-forms";
 import { sdkFetch } from "@/lib/sdk-client";
 
@@ -51,10 +51,20 @@ const form: TwoPQFormRecord = {
   updatedAt: "2026-09-29T12:00:00.000Z",
 };
 
-function renderList(forms: TwoPQFormRecord[] = [form]) {
+function renderList(
+  forms: TwoPQFormRecord[] = [form],
+  role: AdminRole = "full_admin",
+) {
   render(
     <AppLanguageProvider initialLanguage="en">
-      <AdminContextProvider value={adminContext}>
+      <AdminContextProvider
+        value={{
+          ...adminContext,
+          role,
+          institutionId: role === "full_admin" ? undefined : "INST-00001",
+          doctorId: role === "institution_doctor" ? "DOC-00001" : undefined,
+        }}
+      >
         <TwoPQFormsList forms={forms} allowMutations />
       </AdminContextProvider>
     </AppLanguageProvider>,
@@ -113,6 +123,33 @@ describe("TwoPQFormsList actions", () => {
     ).not.toBeInTheDocument();
     expect(
       within(row!).getByRole("button", { name: "Delete" }),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    "institution_doctor",
+    "institution_operator",
+    "institution_laboratory_staff",
+  ] as const)("does not offer Archive to %s", (role) => {
+    renderList([form], role);
+
+    const row = screen.getByText(form.id).closest("article");
+    expect(row).not.toBeNull();
+    expect(
+      within(row!).queryByRole("button", { name: "Archive" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(row!).getByRole("link", { name: "Open" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps Archive available to institution administrators", () => {
+    renderList([form], "institution_admin");
+
+    const row = screen.getByText(form.id).closest("article");
+    expect(row).not.toBeNull();
+    expect(
+      within(row!).getByRole("button", { name: "Archive" }),
     ).toBeInTheDocument();
   });
 });

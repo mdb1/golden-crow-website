@@ -1,4 +1,7 @@
-import { canCreateTwoPQFormType } from "../lib/two-pq-form-access";
+import {
+  canArchiveTwoPQForms,
+  canCreateTwoPQFormType,
+} from "../lib/two-pq-form-access";
 
 describe("2PQ form creation access", () => {
   it("blocks sample forms for institution operators", () => {
@@ -18,4 +21,21 @@ describe("2PQ form creation access", () => {
     expect(canCreateTwoPQFormType("institution_admin", "sample")).toBe(true);
     expect(canCreateTwoPQFormType("full_admin", "sample")).toBe(true);
   });
+});
+
+describe("2PQ form archive access", () => {
+  it.each([
+    "institution_doctor",
+    "institution_operator",
+    "institution_laboratory_staff",
+  ] as const)("blocks archive access for %s", (role) => {
+    expect(canArchiveTwoPQForms(role)).toBe(false);
+  });
+
+  it.each(["full_admin", "2pq_admin", "institution_admin"] as const)(
+    "keeps archive access for %s",
+    (role) => {
+      expect(canArchiveTwoPQForms(role)).toBe(true);
+    },
+  );
 });

@@ -27,7 +27,10 @@ import {
 } from "./two-pq.repository.js";
 import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
 import { cascadeTwoPQCaseStatusToSamplingChildren } from "./two-pq-sampling-status.repository.js";
-import { canCreateTwoPQFormType } from "../lib/two-pq-form-access.js";
+import {
+  canArchiveTwoPQForms,
+  canCreateTwoPQFormType,
+} from "../lib/two-pq-form-access.js";
 import type {
   AdminContext,
   DoctorRecord,
@@ -2012,6 +2015,10 @@ export async function archiveTwoPQFormForContext(
   context: AdminContext,
   formId: string,
 ): Promise<TwoPQFormRecord> {
+  if (!canArchiveTwoPQForms(context.role)) {
+    throw new AdminRepositoryError("You cannot archive forms.", 403);
+  }
+
   const normalizedFormId = normalizeRequiredString(formId, "Form id");
   const reference = adminDb.collection(FORMS_COLLECTION).doc(normalizedFormId);
   const snapshot = await reference.get();
