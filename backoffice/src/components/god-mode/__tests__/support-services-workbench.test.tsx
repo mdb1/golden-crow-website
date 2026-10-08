@@ -1144,7 +1144,24 @@ describe("support services workbenches", () => {
   });
 
   it("guides publisher offer creation through focused wizard steps", async () => {
-    sdkFetchMock.mockImplementation(async (path) => {
+    let createPayload: Record<string, unknown> | undefined;
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (
+        String(path) === "/admin/support-services/offers" &&
+        init?.method === "POST"
+      ) {
+        const payload = JSON.parse(String(init.body)) as Record<string, unknown>;
+        createPayload = payload;
+        return {
+          offer: {
+            ...hiddenOffer,
+            ...payload,
+            id: "wizard-offer",
+            acceptedConditions: payload.acceptedConditions ?? [],
+            scopeRules: payload.scopeRules ?? [],
+          },
+        };
+      }
       const serviceId = new URL(
         String(path),
         "https://backoffice.example",
@@ -1172,7 +1189,8 @@ describe("support services workbenches", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Offer identity" }),
     ).toBeTruthy();
-    expect(screen.getByText("Step 1 of 11")).toBeTruthy();
+    expect(screen.getByText("Step 1 of 10")).toBeTruthy();
+    expect(screen.queryByText("Inputs and outputs")).toBeNull();
     expect(screen.queryByText("Publisher Org · publisher-org-1")).toBeNull();
     expect(screen.queryByText("Provider kind")).toBeNull();
     expect(screen.queryByText("Service ID")).toBeNull();
@@ -1401,17 +1419,10 @@ describe("support services workbenches", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
-      screen.getByRole("heading", { level: 1, name: "Inputs and outputs" }),
+      screen.getByRole("heading", { level: 1, name: "Commercial terms" }),
     ).toBeTruthy();
-    expect(
-      screen
-        .getByTestId("service-offer-slot-layout")
-        .classList.contains("xl:grid-cols-2"),
-    ).toBe(false);
-    expect(screen.getByText("No input slots defined.")).toBeTruthy();
-    expect(screen.getByText("pdf_report")).toBeTruthy();
-    expect(screen.getByText("PDF report")).toBeTruthy();
-    expect(screen.getByText("New object")).toBeTruthy();
+    expect(screen.queryByTestId("service-offer-slot-layout")).toBeNull();
+    expect(screen.queryByText("Inputs and outputs")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(
@@ -1438,19 +1449,9 @@ describe("support services workbenches", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
-      screen.getByRole("heading", { level: 1, name: "Inputs and outputs" }),
-    ).toBeTruthy();
-    expect(screen.queryByText("No input slots defined.")).toBeNull();
-    expect(
-      within(screen.getByTestId("service-offer-slot-layout")).getByText(
-        "Form",
-      ),
-    ).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(
       screen.getByRole("heading", { level: 1, name: "Commercial terms" }),
     ).toBeTruthy();
+    expect(screen.queryByTestId("service-offer-slot-layout")).toBeNull();
     expect(
       screen
         .getByTestId("service-offer-terms-layout")
@@ -1665,6 +1666,7 @@ describe("support services workbenches", () => {
     ).toBeTruthy();
     expect(within(review).getByText("Request reason")).toBeTruthy();
     expect(within(review).getByText("How should I prepare?")).toBeTruthy();
+    expect(within(review).getAllByText("Form").length).toBeGreaterThan(0);
     expect(within(review).getByText("pdf_report")).toBeTruthy();
     expect(within(review).getByText("PDF report")).toBeTruthy();
     expect(
@@ -1703,6 +1705,27 @@ describe("support services workbenches", () => {
     expect(appText("es", "Service offer contract summary")).toBe(
       "Resumen contractual de la oferta de servicio",
     );
+
+    fireEvent.click(
+      within(actionFooter).getByRole("button", { name: "Save draft" }),
+    );
+    await waitFor(() => expect(createPayload).toBeDefined());
+    expect(createPayload?.inputSlots).toEqual([
+      {
+        role: "form",
+        objectType: "pgo_form",
+        acceptedTypes: ["pgo_form"],
+        required: true,
+        cardinality: { min: 1, max: 1 },
+      },
+    ]);
+    expect(createPayload?.outputSlots).toEqual([
+      {
+        role: "pdf_report",
+        objectType: "pgo_pdf_report",
+        mutationMode: "new_object",
+      },
+    ]);
   });
 
   it("shows lock affordances and no delete action on publisher transaction detail", async () => {

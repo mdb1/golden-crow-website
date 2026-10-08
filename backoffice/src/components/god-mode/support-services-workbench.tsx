@@ -532,10 +532,6 @@ const SERVICE_OFFER_WIZARD_STEPS = [
     description: "Optionally collect structured information with the service request.",
   },
   {
-    title: "Inputs and outputs",
-    description: "Define the Pocket Genes objects received and produced by this service.",
-  },
-  {
     title: "Commercial terms",
     description: "Set optional pricing and delivery-time information.",
   },
@@ -980,6 +976,22 @@ function defaultOutputSlot(): SupportServiceOutputSlot {
   };
 }
 
+function defaultWizardOutputSlot(): SupportServiceOutputSlot {
+  return {
+    role: "pdf_report",
+    objectType: DEFAULT_OUTPUT_OBJECT_TYPE,
+    mutationMode: "new_object",
+  };
+}
+
+function simplifiedWizardContract(form: OfferFormState): OfferFormState {
+  return {
+    ...form,
+    inputSlots: form.supportsFormShape ? [defaultFormInputSlot()] : [],
+    outputSlots: [defaultWizardOutputSlot()],
+  };
+}
+
 function serviceOutputSlots(slots: SupportServiceOutputSlot[]) {
   return slots.filter(
     (slot) => slot.objectType && slot.objectType !== FORM_OBJECT_TYPE,
@@ -1182,13 +1194,7 @@ function initialOfferForm(
     return initialForm;
   }
 
-  const outputSlots: SupportServiceOutputSlot[] = [
-    {
-      role: "pdf_report",
-      objectType: DEFAULT_OUTPUT_OBJECT_TYPE,
-      mutationMode: "new_object",
-    },
-  ];
+  const outputSlots = [defaultWizardOutputSlot()];
 
   return {
     ...initialForm,
@@ -4076,7 +4082,8 @@ export function SupportServiceOfferWorkbench({
       const previousFormShapeVersion = form.supportsFormShape
         ? form.formShape.version
         : null;
-      const basePayload = offerPayloadFromForm({ ...form, status });
+      const payloadForm = isWizard ? simplifiedWizardContract(form) : form;
+      const basePayload = offerPayloadFromForm({ ...payloadForm, status });
       const payload = hasPersistedOffer
         ? ({
             ...basePayload,
@@ -4278,14 +4285,14 @@ export function SupportServiceOfferWorkbench({
       }
     }
 
-    if (stepIndex === 9 && candidateForm.stages.length === 0) {
+    if (stepIndex === 8 && candidateForm.stages.length === 0) {
       return t("Select at least one stage before continuing.");
     }
 
     if (stepIndex >= 4) {
       try {
         offerPayloadFromForm(
-          stepIndex < 9 && candidateForm.stages.length === 0
+          stepIndex < 8 && candidateForm.stages.length === 0
             ? { ...candidateForm, stages: ["test_planning"] }
             : candidateForm,
         );
@@ -4304,7 +4311,7 @@ export function SupportServiceOfferWorkbench({
       wizardStepIndex === 5 &&
       form.supportsFormShape &&
       form.formShape.fields.length === 0;
-    const candidateForm = shouldIgnoreEmptyForm
+    let candidateForm = shouldIgnoreEmptyForm
       ? {
           ...form,
           supportsFormShape: false,
@@ -4312,13 +4319,16 @@ export function SupportServiceOfferWorkbench({
           inputSlots: withoutFormInputSlots(form.inputSlots),
         }
       : form;
+    if (wizardStepIndex === 5) {
+      candidateForm = simplifiedWizardContract(candidateForm);
+    }
     const message = validateWizardStep(wizardStepIndex, candidateForm);
     if (message) {
       setWizardValidationMessage(message);
       return;
     }
 
-    if (shouldIgnoreEmptyForm) {
+    if (shouldIgnoreEmptyForm || wizardStepIndex === 5) {
       setForm(candidateForm);
     }
     setWizardValidationMessage("");
@@ -4634,14 +4644,10 @@ export function SupportServiceOfferWorkbench({
                 ) : null}
 
                 {wizardStepIndex === 6 ? (
-                  <SlotEditors form={form} setForm={setForm} layout="stack" />
-                ) : null}
-
-                {wizardStepIndex === 7 ? (
                   <TermsEditor form={form} setForm={setForm} layout="stack" />
                 ) : null}
 
-                {wizardStepIndex === 8 ? (
+                {wizardStepIndex === 7 ? (
                   <div
                     data-testid="service-offer-wizard-conditions-layout"
                     className="grid gap-8 [&>section]:m-0"
@@ -4691,7 +4697,7 @@ export function SupportServiceOfferWorkbench({
                   </div>
                 ) : null}
 
-                {wizardStepIndex === 9 ? (
+                {wizardStepIndex === 8 ? (
                   <StagePipeline
                     value={form.stages}
                     predictedValue={predictedStages}
@@ -4712,7 +4718,7 @@ export function SupportServiceOfferWorkbench({
                   />
                 ) : null}
 
-                {wizardStepIndex === 10 ? (
+                {wizardStepIndex === 9 ? (
                   <WizardOfferReview
                     form={form}
                     preparationStatus={serviceIdValidationStatus}
