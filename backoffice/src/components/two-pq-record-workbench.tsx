@@ -1494,12 +1494,16 @@ export function TwoPQRecordWorkbench({
     : "";
   const storedFileId = detail?.record.stored_file_id?.trim() ?? "";
   const hasStoredFileId = Boolean(storedFileId);
-  const isDoctorRecordDetailReadOnly =
-    adminContext.role === "institution_doctor" &&
+  const hasReadOnlyTwoPQOperationalRole =
+    adminContext.role === "institution_doctor" ||
+    adminContext.role === "institution_operator" ||
+    adminContext.role === "institution_laboratory_staff";
+  const isRestrictedRoleRecordDetailReadOnly =
+    hasReadOnlyTwoPQOperationalRole &&
     (areaKey === "cases" || areaKey === "sampling") &&
     mode !== "create";
   const canUseCaseAdministrativeControls =
-    adminContext.role !== "institution_doctor";
+    !hasReadOnlyTwoPQOperationalRole;
   const hasFileStorageAccess = isGlobalAdminRole(adminContext.role);
   const canOpenPublishFileStorageModal =
     areaKey === "cases" &&
@@ -6083,7 +6087,7 @@ export function TwoPQRecordWorkbench({
             ) : null}
             <div className="flex flex-wrap gap-2">
               <HeaderUnclutterButton />
-              {isDoctorRecordDetailReadOnly ? null : (
+              {isRestrictedRoleRecordDetailReadOnly ? null : (
                 <>
                   <Button
                     variant="outline"
@@ -6243,7 +6247,7 @@ export function TwoPQRecordWorkbench({
           </div>
         </div>
 
-        {isDoctorRecordDetailReadOnly ? null : (
+        {isRestrictedRoleRecordDetailReadOnly ? null : (
           <div className="flex flex-wrap gap-2">
             <Badge variant="brand">{t("Create")}</Badge>
             <Badge variant={canReplace ? "brand" : "outline"}>
@@ -6992,7 +6996,7 @@ export function TwoPQRecordWorkbench({
                       <Label htmlFor={`${area.key}-${field.key}`}>
                         {field.label}
                       </Label>
-                      {isDoctorRecordDetailReadOnly ? (
+                      {isRestrictedRoleRecordDetailReadOnly ? (
                         <div className="border-l-2 border-border/70 py-1 pl-3">
                           <p className="whitespace-pre-wrap break-words text-sm font-medium text-foreground">
                             {visualFieldValue || t("Not available")}

@@ -66,10 +66,17 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+const READ_ONLY_TWO_PQ_ROLES = [
+  "institution_doctor",
+  "institution_operator",
+  "institution_laboratory_staff",
+] as const;
+type WorkbenchRole = "full_admin" | (typeof READ_ONLY_TWO_PQ_ROLES)[number];
+
 function renderWorkbench(
   workbenchDetail: TwoPQDetailRecord = detail,
   isBootstrap = false,
-  role: "full_admin" | "institution_doctor" = "full_admin",
+  role: WorkbenchRole = "full_admin",
   areaKey: "cases" | "sampling" = "cases",
 ) {
   const queryClient = new QueryClient({
@@ -84,7 +91,7 @@ function renderWorkbench(
             uid: "admin-1",
             role,
             institutionId:
-              role === "institution_doctor" ? "institution-1" : undefined,
+              role === "full_admin" ? undefined : "institution-1",
             doctorId: role === "institution_doctor" ? "doctor-1" : undefined,
             isBootstrap,
             canAccessBackoffice: true,
@@ -159,101 +166,109 @@ describe("2PQ case-status progress modal", () => {
     ).toBe("/god-mode/service-transactions/pgr_2pq_case_00022");
   });
 
-  it("hides publication infrastructure and the linked transaction from doctors", () => {
-    renderWorkbench(
-      {
-        ...detail,
-        record: {
-          ...detail.record,
-          stored_file_id: "stored-file-1",
+  it.each(READ_ONLY_TWO_PQ_ROLES)(
+    "hides publication infrastructure and the linked transaction from %s",
+    (role) => {
+      renderWorkbench(
+        {
+          ...detail,
+          record: {
+            ...detail.record,
+            stored_file_id: "stored-file-1",
+          },
         },
-      },
-      false,
-      "institution_doctor",
-    );
+        false,
+        role,
+      );
 
-    expect(
-      screen.queryByRole("heading", {
-        name: "Automatic file and code synchronization",
-      }),
-    ).toBeNull();
-    expect(
-      screen.queryByRole("heading", { name: "Publish to File Storage" }),
-    ).toBeNull();
-    expect(
-      screen.queryByRole("heading", { name: "Publish as report code" }),
-    ).toBeNull();
-    expect(
-      screen.queryByRole("heading", { name: "Linked service transaction" }),
-    ).toBeNull();
-  });
+      expect(
+        screen.queryByRole("heading", {
+          name: "Automatic file and code synchronization",
+        }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("heading", { name: "Publish to File Storage" }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("heading", { name: "Publish as report code" }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("heading", {
+          name: "Linked service transaction",
+        }),
+      ).toBeNull();
+    },
+  );
 
-  it("keeps case status, code, batch, and samplings read-only for doctors", () => {
-    renderWorkbench(
-      {
-        ...detail,
-        record: {
-          ...detail.record,
-          three_letter_code: "CAN",
-          caseStatus: "awaiting_pick_up",
-        },
-        linkedBatch: {
-          id: "BATCH-00001",
-          areaKey: "sequencing",
-          collectionKey: "2pq_sequencing",
-          institutionId: "institution-1",
-          doctorId: "doctor-1",
-          platform: "NovaSeq",
-          createdAt: "2026-09-27T10:00:00.000Z",
-          updatedAt: "2026-09-28T10:00:00.000Z",
-          canReplace: true,
-          canUpdate: true,
-          canDelete: true,
-        },
-        linkedSamplings: [
-          {
-            id: "SAMPLING-00001",
-            areaKey: "sampling",
-            collectionKey: "2pq_sampling",
+  it.each(READ_ONLY_TWO_PQ_ROLES)(
+    "keeps case status, code, batch, and samplings read-only for %s",
+    (role) => {
+      renderWorkbench(
+        {
+          ...detail,
+          record: {
+            ...detail.record,
+            three_letter_code: "CAN",
+            caseStatus: "awaiting_pick_up",
+          },
+          linkedBatch: {
+            id: "BATCH-00001",
+            areaKey: "sequencing",
+            collectionKey: "2pq_sequencing",
             institutionId: "institution-1",
             doctorId: "doctor-1",
-            sampleId: "CAN001",
+            platform: "NovaSeq",
             createdAt: "2026-09-27T10:00:00.000Z",
             updatedAt: "2026-09-28T10:00:00.000Z",
             canReplace: true,
             canUpdate: true,
             canDelete: true,
           },
-        ],
-      },
-      false,
-      "institution_doctor",
-    );
-
-    for (const heading of [
-      "Three letter code",
-      "Case status",
-      "Linked Batch",
-      "Linked samplings",
-    ]) {
-      const section = screen.getByRole("heading", { name: heading }).closest(
-        "section",
+          linkedSamplings: [
+            {
+              id: "SAMPLING-00001",
+              areaKey: "sampling",
+              collectionKey: "2pq_sampling",
+              institutionId: "institution-1",
+              doctorId: "doctor-1",
+              sampleId: "CAN001",
+              createdAt: "2026-09-27T10:00:00.000Z",
+              updatedAt: "2026-09-28T10:00:00.000Z",
+              canReplace: true,
+              canUpdate: true,
+              canDelete: true,
+            },
+          ],
+        },
+        false,
+        role,
       );
-      expect(section).not.toBeNull();
-      expect(within(section!).queryAllByRole("button")).toHaveLength(0);
-      expect(within(section!).queryAllByRole("link")).toHaveLength(0);
-    }
 
-    expect(screen.getByText("CAN is active for this case.")).toBeTruthy();
-    expect(screen.getAllByText("Awaiting pick up").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("BATCH-00001").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("SAMPLING-00001").length).toBeGreaterThan(0);
-    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
-    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
-    for (const action of ["Reset", "Replace", "Update", "Delete"]) {
-      expect(screen.queryByRole("button", { name: action })).toBeNull();
-    }
-  });
+      for (const heading of [
+        "Three letter code",
+        "Case status",
+        "Linked Batch",
+        "Linked samplings",
+      ]) {
+        const section = screen.getByRole("heading", { name: heading }).closest(
+          "section",
+        );
+        expect(section).not.toBeNull();
+        expect(within(section!).queryAllByRole("button")).toHaveLength(0);
+        expect(within(section!).queryAllByRole("link")).toHaveLength(0);
+      }
+
+      expect(screen.getByText("CAN is active for this case.")).toBeTruthy();
+      expect(screen.getAllByText("Awaiting pick up").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("BATCH-00001").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("SAMPLING-00001").length).toBeGreaterThan(0);
+      expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+      expect(screen.queryAllByRole("combobox")).toHaveLength(0);
+      for (const action of ["Reset", "Replace", "Update", "Delete"]) {
+        expect(screen.queryByRole("button", { name: action })).toBeNull();
+      }
+    },
+  );
 
   it("keeps the case form interactive for full admins", () => {
     renderWorkbench();
@@ -263,67 +278,72 @@ describe("2PQ case-status progress modal", () => {
     expect(screen.getByRole("button", { name: "Update" })).toBeTruthy();
   });
 
-  it("renders sampling details and the linked case without actions for doctors", () => {
-    renderWorkbench(
-      {
-        record: {
-          id: "SAMP-00113",
-          areaKey: "sampling",
-          collectionKey: "2pq_sampling",
-          institutionId: "institution-1",
-          doctorId: "doctor-1",
-          parent_case: "CASE-00025",
-          caseLabel: "BEHXXX",
-          sampleId: "BEH001",
-          sampleType: "Blood",
-          processingStatus: "awaiting_reception",
-          createdAt: "2026-09-28T10:00:00.000Z",
-          updatedAt: "2026-09-28T11:00:00.000Z",
-          canReplace: true,
-          canUpdate: true,
-          canDelete: true,
+  it.each(READ_ONLY_TWO_PQ_ROLES)(
+    "renders sampling details and the linked case without actions for %s",
+    (role) => {
+      renderWorkbench(
+        {
+          record: {
+            id: "SAMP-00113",
+            areaKey: "sampling",
+            collectionKey: "2pq_sampling",
+            institutionId: "institution-1",
+            doctorId: "doctor-1",
+            parent_case: "CASE-00025",
+            caseLabel: "BEHXXX",
+            sampleId: "BEH001",
+            sampleType: "Blood",
+            processingStatus: "awaiting_reception",
+            createdAt: "2026-09-28T10:00:00.000Z",
+            updatedAt: "2026-09-28T11:00:00.000Z",
+            canReplace: true,
+            canUpdate: true,
+            canDelete: true,
+          },
+          institution: null,
+          doctor: null,
+          patient: null,
+          linkedBatch: null,
+          linkedCase: {
+            id: "CASE-00025",
+            areaKey: "cases",
+            collectionKey: "2pq_case",
+            institutionId: "institution-1",
+            doctorId: "doctor-1",
+            caseLabel: "BEHXXX",
+            caseStatus: "awaiting_pick_up",
+            createdAt: "2026-09-27T10:00:00.000Z",
+            updatedAt: "2026-09-28T10:00:00.000Z",
+            canReplace: true,
+            canUpdate: true,
+            canDelete: true,
+          },
+          linkedCases: [],
+          linkedSamplings: [],
+          linkedServiceTransaction: null,
         },
-        institution: null,
-        doctor: null,
-        patient: null,
-        linkedBatch: null,
-        linkedCase: {
-          id: "CASE-00025",
-          areaKey: "cases",
-          collectionKey: "2pq_case",
-          institutionId: "institution-1",
-          doctorId: "doctor-1",
-          caseLabel: "BEHXXX",
-          caseStatus: "awaiting_pick_up",
-          createdAt: "2026-09-27T10:00:00.000Z",
-          updatedAt: "2026-09-28T10:00:00.000Z",
-          canReplace: true,
-          canUpdate: true,
-          canDelete: true,
-        },
-        linkedCases: [],
-        linkedSamplings: [],
-        linkedServiceTransaction: null,
-      },
-      false,
-      "institution_doctor",
-      "sampling",
-    );
+        false,
+        role,
+        "sampling",
+      );
 
-    const linkedCaseSection = screen
-      .getByRole("heading", { name: "Linked Case" })
-      .closest("section");
-    expect(linkedCaseSection).not.toBeNull();
-    expect(within(linkedCaseSection!).queryAllByRole("button")).toHaveLength(0);
-    expect(within(linkedCaseSection!).queryAllByRole("link")).toHaveLength(0);
-    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
-    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
-    for (const action of ["Reset", "Replace", "Update", "Delete"]) {
-      expect(screen.queryByRole("button", { name: action })).toBeNull();
-    }
-    expect(screen.getAllByText("CASE-00025").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("BEH001").length).toBeGreaterThan(0);
-  });
+      const linkedCaseSection = screen
+        .getByRole("heading", { name: "Linked Case" })
+        .closest("section");
+      expect(linkedCaseSection).not.toBeNull();
+      expect(within(linkedCaseSection!).queryAllByRole("button")).toHaveLength(
+        0,
+      );
+      expect(within(linkedCaseSection!).queryAllByRole("link")).toHaveLength(0);
+      expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+      expect(screen.queryAllByRole("combobox")).toHaveLength(0);
+      for (const action of ["Reset", "Replace", "Update", "Delete"]) {
+        expect(screen.queryByRole("button", { name: action })).toBeNull();
+      }
+      expect(screen.getAllByText("CASE-00025").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("BEH001").length).toBeGreaterThan(0);
+    },
+  );
 
   it("opens immediately and refreshes only after the operator finishes", async () => {
     const mutation = deferred<Record<string, unknown>>();
