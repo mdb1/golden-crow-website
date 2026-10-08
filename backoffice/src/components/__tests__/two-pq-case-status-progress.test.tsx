@@ -394,6 +394,9 @@ describe("2PQ case-status progress modal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
     await waitFor(() => expect(routerRefresh).toHaveBeenCalledTimes(1));
+    expect(
+      screen.queryByRole("heading", { name: "Everything is up to date" }),
+    ).toBeNull();
   });
 
   it("keeps a failed partial process visible until Finish refreshes it", async () => {
@@ -413,5 +416,10 @@ describe("2PQ case-status progress modal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
     await waitFor(() => expect(routerRefresh).toHaveBeenCalledTimes(1));
+    expect(
+      screen.queryByRole("heading", {
+        name: "Case update finished with an error",
+      }),
+    ).toBeNull();
   });
 });

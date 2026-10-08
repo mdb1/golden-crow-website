@@ -63,6 +63,7 @@ export default async function TwoPQAreaDetailPage({
         }
       >
         <TwoPQRecordWorkbench
+          key={`${detail.record.id}:${detail.record.updatedAt}`}
           areaKey={area.key}
           detail={detail}
           institutions={lookupData.institutions}

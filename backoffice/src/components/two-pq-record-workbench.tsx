@@ -2149,7 +2149,7 @@ export function TwoPQRecordWorkbench({
     setIsErrorLogOpen(true);
   }
 
-  function handleCaseStatusUpdateFinish() {
+  function handleCaseStatusUpdateDismiss() {
     if (
       !caseStatusUpdateProcess ||
       caseStatusUpdateProcess.status === "running"
@@ -5782,7 +5782,7 @@ export function TwoPQRecordWorkbench({
             ) : (
               <Button
                 type="button"
-                onClick={handleCaseStatusUpdateFinish}
+                onClick={handleCaseStatusUpdateDismiss}
                 className={`${THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
               >
                 <CheckCircle2 className="h-4 w-4" />
