@@ -50,7 +50,11 @@ const PATIENT_FIELDS: FieldSpec[] = [
   { key: "notes", label: "Notes" },
   { key: "partnerFullName", label: "Pareja" },
   { key: "partnerMedicalRecordNumber", label: "DNI pareja" },
-  { key: "partnerBirthDate", label: "Fecha de nacimiento pareja", type: "date" },
+  {
+    key: "partnerBirthDate",
+    label: "Fecha de nacimiento pareja",
+    type: "date",
+  },
   { key: "partnerNotes", label: "Notas pareja" },
 ];
 
@@ -80,7 +84,11 @@ const STUDY_MEDICAL_FIELDS: FieldSpec[] = [
 ];
 
 const STUDY_PREVIOUS_TEST_FIELDS: FieldSpec[] = [
-  { key: "karyotype", label: "Tiene informacion de cariotipo?", type: "boolean" },
+  {
+    key: "karyotype",
+    label: "Tiene informacion de cariotipo?",
+    type: "boolean",
+  },
   { key: "karyotypeFileName", label: "Archivo cariotipo" },
   { key: "karyotypeFileType", label: "Tipo archivo cariotipo" },
   { key: "karyotypeFileSize", label: "Tamaño archivo cariotipo" },
@@ -192,7 +200,7 @@ function isYesAnswer(value: unknown) {
 }
 
 function selectedRequestedTestKeyFromRecord(
-  data: Record<string, unknown> | undefined
+  data: Record<string, unknown> | undefined,
 ) {
   if (!data) return "";
   if (isYesAnswer(data.pgtAFast)) return "pgtAFast";
@@ -203,7 +211,8 @@ function selectedRequestedTestKeyFromRecord(
   const testName = getTextValue(data, "testName")?.toUpperCase() ?? "";
   if (testName.includes("FAST")) return "pgtAFast";
   if (testName.includes("STANDARD")) return "pgtAStandard";
-  if (testName.includes("PGT SR") || testName.includes("PGT-SR")) return "pgtSr";
+  if (testName.includes("PGT SR") || testName.includes("PGT-SR"))
+    return "pgtSr";
   if (testName.includes("PGT A") || testName.includes("PGT-A")) return "pgtA";
   return "";
 }
@@ -211,7 +220,7 @@ function selectedRequestedTestKeyFromRecord(
 function requestedTestSegmentRequestedValue(
   data: Record<string, unknown> | undefined,
   segment: (typeof REQUESTED_TEST_SEGMENTS)[number],
-  selectedKey: string
+  selectedKey: string,
 ) {
   const directValue = data?.[segment.requestedKey];
   if (directValue !== null && typeof directValue !== "undefined") {
@@ -224,9 +233,10 @@ function requestedTestSegmentReportValue(
   data: Record<string, unknown> | undefined,
   segment: (typeof REQUESTED_TEST_SEGMENTS)[number],
   selectedKey: string,
-  report: "Mosaicism" | "Sex"
+  report: "Mosaicism" | "Sex",
 ) {
-  const fieldKey = report === "Mosaicism" ? segment.mosaicismKey : segment.sexKey;
+  const fieldKey =
+    report === "Mosaicism" ? segment.mosaicismKey : segment.sexKey;
   const directValue = data?.[fieldKey];
   if (directValue !== null && typeof directValue !== "undefined") {
     return directValue;
@@ -259,7 +269,7 @@ function formatValue(
   value: unknown,
   language: AppLanguage,
   t: (text: string) => string,
-  type?: FieldSpec["type"]
+  type?: FieldSpec["type"],
 ) {
   if (value === null || typeof value === "undefined" || value === "") {
     return t("Not provided");
@@ -350,7 +360,12 @@ function DetailSection({
                 {t(field.label)}
               </dt>
               <dd className="mt-1 min-h-8 whitespace-pre-wrap break-words border-b border-black/12 pb-2 text-sm leading-6 text-black">
-                {formatValue(getDetailFieldValue(data, field), language, t, field.type)}
+                {formatValue(
+                  getDetailFieldValue(data, field),
+                  language,
+                  t,
+                  field.type,
+                )}
               </dd>
             </div>
           );
@@ -395,7 +410,7 @@ function RequestedTestDetailSection({
                   value: requestedTestSegmentRequestedValue(
                     data,
                     segment,
-                    selectedKey
+                    selectedKey,
                   ),
                 },
                 {
@@ -404,7 +419,7 @@ function RequestedTestDetailSection({
                     data,
                     segment,
                     selectedKey,
-                    "Mosaicism"
+                    "Mosaicism",
                   ),
                 },
                 {
@@ -413,7 +428,7 @@ function RequestedTestDetailSection({
                     data,
                     segment,
                     selectedKey,
-                    "Sex"
+                    "Sex",
                   ),
                 },
               ].map((field) => (
@@ -488,7 +503,7 @@ function SamplingInformationTableSection({
                         sampling[field.key],
                         language,
                         t,
-                        field.type
+                        field.type,
                       )}
                     </td>
                   ))}
@@ -509,7 +524,7 @@ function getTextValue(data: Record<string, unknown> | undefined, key: string) {
 
 function getDetailFieldValue(
   data: Record<string, unknown> | undefined,
-  field: FieldSpec
+  field: FieldSpec,
 ) {
   if (field.key !== "address") {
     return data?.[field.key];
@@ -560,8 +575,12 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
                   {t("Box code")}
                 </p>
                 <p className="font-heading text-3xl font-semibold text-emerald-950 dark:text-emerald-50">
-                  {displayCaseLabel(getTextValue(form.caseInformation, "caseLabel")) ||
-                    displayCaseLabel(getTextValue(form.caseInformation, "three_letter_code")) ||
+                  {displayCaseLabel(
+                    getTextValue(form.caseInformation, "caseLabel"),
+                  ) ||
+                    displayCaseLabel(
+                      getTextValue(form.caseInformation, "three_letter_code"),
+                    ) ||
                     form.linkedCaseId}
                 </p>
                 <p className="font-mono text-xs text-emerald-900/70 dark:text-emerald-100/70">
@@ -569,7 +588,9 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
                 </p>
               </div>
               <Button variant="outline" size="sm" asChild>
-                <Link href={`/2pq-dashboard/cases/${encodeURIComponent(form.linkedCaseId)}`}>
+                <Link
+                  href={`/2pq-dashboard/cases/${encodeURIComponent(form.linkedCaseId)}`}
+                >
                   {t("Open")}
                   <ArrowRight className="size-3.5" />
                 </Link>
@@ -599,21 +620,28 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
                   </p>
                   <dl className="mt-3 grid gap-2 text-sm md:grid-cols-3">
                     {SAMPLING_INFORMATION_FIELDS.filter(
-                      (field) => field.key !== "sampleId"
+                      (field) => field.key !== "sampleId",
                     ).map((field) => (
                       <div key={field.key}>
                         <dt className="text-xs font-semibold uppercase text-emerald-900/62 dark:text-emerald-100/62">
                           {t(field.label)}
                         </dt>
                         <dd className="mt-0.5 whitespace-pre-wrap text-emerald-950 dark:text-emerald-50">
-                          {formatValue(sampling[field.key], language, t, field.type)}
+                          {formatValue(
+                            sampling[field.key],
+                            language,
+                            t,
+                            field.type,
+                          )}
                         </dd>
                       </div>
                     ))}
                   </dl>
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/2pq-dashboard/sampling/${encodeURIComponent(samplingId)}`}>
+                  <Link
+                    href={`/2pq-dashboard/sampling/${encodeURIComponent(samplingId)}`}
+                  >
                     {t("Open")}
                     <ArrowRight className="size-3.5" />
                   </Link>
@@ -645,74 +673,77 @@ function WithdrawalCasesSection({ form }: { form: TwoPQFormRecord }) {
         </h2>
       </div>
       <div className="mt-4 grid gap-3">
-        {(cases.length > 0 ? cases : linkedCaseIds.map((caseId) => ({ id: caseId }))).map(
-          (caseRecord, index) => {
-            const caseId = getTextValue(caseRecord, "id") ?? linkedCaseIds[index];
-            const caseLabel =
-              displayCaseLabel(getTextValue(caseRecord, "caseLabel")) ||
-              getTextValue(caseRecord, "three_letter_code") ||
-              caseId;
+        {(cases.length > 0
+          ? cases
+          : linkedCaseIds.map((caseId) => ({ id: caseId }))
+        ).map((caseRecord, index) => {
+          const caseId = getTextValue(caseRecord, "id") ?? linkedCaseIds[index];
+          const caseLabel =
+            displayCaseLabel(getTextValue(caseRecord, "caseLabel")) ||
+            getTextValue(caseRecord, "three_letter_code") ||
+            caseId;
 
-            return (
-              <div
-                key={`${caseId}-${index}`}
-                className="rounded-xl border border-emerald-200 bg-white/72 px-4 py-3 dark:border-emerald-300/20 dark:bg-emerald-950/24"
-              >
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="font-heading text-2xl font-semibold text-emerald-950 dark:text-emerald-50">
-                      {caseLabel}
-                    </p>
-                    <dl className="mt-3 grid gap-2 text-sm md:grid-cols-3">
-                      {[
-                        {
-                          label: t("Previous status"),
-                          value: formatValue(
-                            getTextValue(caseRecord, "previousCaseStatus"),
-                            language,
-                            t,
-                            "caseStatus"
-                          ),
-                        },
-                        {
-                          label: t("New status"),
-                          value: formatValue(
-                            getTextValue(caseRecord, "caseStatus") ??
-                              "awaiting_pick_up",
-                            language,
-                            t,
-                            "caseStatus"
-                          ),
-                        },
-                        {
-                          label: t("Case ID"),
-                          value: caseId ?? t("Not provided"),
-                        },
-                      ].map((field) => (
-                        <div key={field.label}>
-                          <dt className="text-xs font-semibold uppercase text-emerald-900/62 dark:text-emerald-100/62">
-                            {field.label}
-                          </dt>
-                          <dd className="mt-0.5 whitespace-pre-wrap text-emerald-950 dark:text-emerald-50">
-                            {field.value}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </div>
-                  {caseId ? (
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/2pq-dashboard/cases/${encodeURIComponent(caseId)}`}>
-                        {t("Open")}
-                        <ArrowRight className="size-3.5" />
-                      </Link>
-                    </Button>
-                  ) : null}
+          return (
+            <div
+              key={`${caseId}-${index}`}
+              className="rounded-xl border border-emerald-200 bg-white/72 px-4 py-3 dark:border-emerald-300/20 dark:bg-emerald-950/24"
+            >
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <p className="font-heading text-2xl font-semibold text-emerald-950 dark:text-emerald-50">
+                    {caseLabel}
+                  </p>
+                  <dl className="mt-3 grid gap-2 text-sm md:grid-cols-3">
+                    {[
+                      {
+                        label: t("Previous status"),
+                        value: formatValue(
+                          getTextValue(caseRecord, "previousCaseStatus"),
+                          language,
+                          t,
+                          "caseStatus",
+                        ),
+                      },
+                      {
+                        label: t("New status"),
+                        value: formatValue(
+                          getTextValue(caseRecord, "caseStatus") ??
+                            "awaiting_pick_up",
+                          language,
+                          t,
+                          "caseStatus",
+                        ),
+                      },
+                      {
+                        label: t("Case ID"),
+                        value: caseId ?? t("Not provided"),
+                      },
+                    ].map((field) => (
+                      <div key={field.label}>
+                        <dt className="text-xs font-semibold uppercase text-emerald-900/62 dark:text-emerald-100/62">
+                          {field.label}
+                        </dt>
+                        <dd className="mt-0.5 whitespace-pre-wrap text-emerald-950 dark:text-emerald-50">
+                          {field.value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
                 </div>
+                {caseId ? (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link
+                      href={`/2pq-dashboard/cases/${encodeURIComponent(caseId)}`}
+                    >
+                      {t("Open")}
+                      <ArrowRight className="size-3.5" />
+                    </Link>
+                  </Button>
+                ) : null}
               </div>
-            );
-          }
-        )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -721,7 +752,9 @@ function WithdrawalCasesSection({ form }: { form: TwoPQFormRecord }) {
 function PatientLinkSection({ form }: { form: TwoPQFormRecord }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
-  const patientId = form.selectedPatientId ?? getTextValue(form.patientInformation, "patientId");
+  const patientId =
+    form.selectedPatientId ??
+    getTextValue(form.patientInformation, "patientId");
 
   return (
     <section className="rounded-2xl border border-sky-200/80 bg-sky-50/72 px-5 py-5 shadow-[0_16px_38px_rgba(14,165,233,0.12)] dark:border-sky-300/24 dark:bg-sky-950/20">
@@ -732,11 +765,15 @@ function PatientLinkSection({ form }: { form: TwoPQFormRecord }) {
           </span>
           <div className="min-w-0">
             <h2 className="font-heading text-xl font-semibold text-sky-950 dark:text-sky-50">
-              {form.patientName ?? getTextValue(form.patientInformation, "fullName") ?? t("Scoped patient")}
+              {form.patientName ??
+                getTextValue(form.patientInformation, "fullName") ??
+                t("Scoped patient")}
             </h2>
             {!patientId ? (
               <p className="mt-1 text-sm text-sky-950/72 dark:text-sky-50/74">
-                {t("This legacy form does not have a scoped patient link stored.")}
+                {t(
+                  "This legacy form does not have a scoped patient link stored.",
+                )}
               </p>
             ) : null}
             {patientId ? (
@@ -781,8 +818,10 @@ function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
           </span>
           <div className="min-w-0">
             <h2 className="font-heading text-xl font-semibold text-violet-950 dark:text-violet-50">
-              {getTextValue(form.sampleInformation, "requestingDoctorFullName") ??
-                t("Requesting doctor")}
+              {getTextValue(
+                form.sampleInformation,
+                "requestingDoctorFullName",
+              ) ?? t("Requesting doctor")}
             </h2>
             {!requestingDoctorId ? (
               <p className="mt-1 text-sm text-violet-950/72 dark:text-violet-50/74">
@@ -798,7 +837,9 @@ function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
         </div>
         {requestingDoctorId ? (
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/areas/doctors/${encodeURIComponent(requestingDoctorId)}`}>
+            <Link
+              href={`/areas/doctors/${encodeURIComponent(requestingDoctorId)}`}
+            >
               {t("Open doctor")}
               <ArrowRight className="size-3.5" />
             </Link>
@@ -842,7 +883,9 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
           </Link>
         </Button>
         <Button variant="outline" size="sm" asChild>
-          <Link href={TWO_PQ_FORM_ROUTES[form.formType]}>{t("New similar form")}</Link>
+          <Link href={TWO_PQ_FORM_ROUTES[form.formType]}>
+            {t("New similar form")}
+          </Link>
         </Button>
       </div>
 
@@ -865,7 +908,9 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
             <Badge variant="outline">
               <span className="font-mono">{form.id}</span>
             </Badge>
-            <Badge variant="brand">{t(TWO_PQ_FORM_LABELS[form.formType])}</Badge>
+            <Badge variant="brand">
+              {t(TWO_PQ_FORM_LABELS[form.formType])}
+            </Badge>
             <Badge variant="outline">
               <CalendarDays className="mr-1 size-3.5" />
               {formatDate(form.createdAt, language, true)}
@@ -903,16 +948,13 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
               createdAt: form.createdAt,
               updatedAt: form.updatedAt,
               linkedCaseCount: String(
-                form.linkedCaseIds?.length ?? form.withdrawalCases?.length ?? 0
+                form.linkedCaseIds?.length ?? form.withdrawalCases?.length ?? 0,
               ),
             }}
           />
         </>
       ) : form.formType === "sample" ? (
         <>
-          <LinkedRecordsSection form={form} />
-          <PatientLinkSection form={form} />
-          <RequestingDoctorLinkSection form={form} />
           <DetailSection
             title={t("Linked study request form")}
             fields={SAMPLE_LINKED_STUDY_REQUEST_FIELDS}
@@ -941,7 +983,12 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
               data={form.caseInformation}
             />
           ) : null}
-          <SamplingInformationTableSection samplings={form.samplingInformation} />
+          <SamplingInformationTableSection
+            samplings={form.samplingInformation}
+          />
+          <LinkedRecordsSection form={form} />
+          <PatientLinkSection form={form} />
+          <RequestingDoctorLinkSection form={form} />
         </>
       ) : (
         <>
