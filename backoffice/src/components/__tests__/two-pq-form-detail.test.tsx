@@ -69,6 +69,31 @@ const studyRequestForm: TwoPQFormRecord = {
   updatedAt: "2026-10-08T12:00:00.000Z",
 };
 
+const withdrawalForm: TwoPQFormRecord = {
+  id: "FORM-00052",
+  formType: "withdrawal_request",
+  collectionKey: "2pq_forms",
+  institutionId: "institution-1",
+  doctorId: "doctor-1",
+  institutionName: "Example clinic",
+  linkedCaseIds: ["CASE-00025"],
+  patientInformation: {},
+  requestedTest: {},
+  withdrawalCases: [
+    {
+      id: "CASE-00025",
+      caseLabel: "BEHXXX",
+      reportCode: "BEHXXX",
+      previousCaseStatus: "processing",
+      caseStatus: "awaiting_pick_up",
+      linkedStudyRequest: "FORM-00047",
+      linkedBiopsyForm: "FORM-00053",
+    },
+  ],
+  createdAt: "2026-10-08T12:00:00.000Z",
+  updatedAt: "2026-10-08T12:00:00.000Z",
+};
+
 describe("TwoPQFormDetail", () => {
   beforeEach(() => {
     mockRefresh.mockReset();
@@ -138,5 +163,24 @@ describe("TwoPQFormDetail", () => {
       await screen.findByText("No biopsy form is linked yet."),
     ).toBeInTheDocument();
     expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows each withdrawal report code with its study request and biopsy links", () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <TwoPQFormDetail form={withdrawalForm} />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByText("BEHXXX")).toBeInTheDocument();
+    expect(screen.getByText("FORM-00047")).toBeInTheDocument();
+    expect(screen.getByText("FORM-00053")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Open/i })).toHaveLength(3);
+    expect(
+      document.querySelector('a[href="/2pq-dashboard/forms/FORM-00047"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('a[href="/2pq-dashboard/forms/FORM-00053"]'),
+    ).toBeInTheDocument();
   });
 });

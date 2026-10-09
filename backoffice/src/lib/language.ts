@@ -2559,10 +2559,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Store withdrawal request form": "Guardar formulario de solicitud de retiro",
   "Persist the withdrawal request with its linked case snapshot.":
     "Persistir la solicitud de retiro con el snapshot de casos vinculados.",
-  "Link withdrawal request back to study forms":
-    "Vincular la solicitud de retiro con las solicitudes de estudio",
-  "Store this withdrawal request in linkedWithdrawalRequest on every study request associated with the selected report codes.":
-    "Guardar esta solicitud de retiro en linkedWithdrawalRequest de cada solicitud de estudio asociada con los códigos de informe seleccionados.",
+  "Link withdrawal request back to related forms":
+    "Vincular la solicitud de retiro con los formularios relacionados",
+  "Store this withdrawal request on every study request and biopsy form associated with the selected report codes.":
+    "Guardar esta solicitud de retiro en cada solicitud de estudio y formulario de biopsias asociado con los códigos de informe seleccionados.",
   "Create sampling": "Crear muestreo",
   "Link this sampling to": "Vincular este muestreo a",
   "collection date, reception date, run ID, and QC status stay nil.":
@@ -2803,6 +2803,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Saving draft": "Guardando borrador",
   "Pick existing patient": "Elegir paciente existente",
   "Linked study request form": "Formulario de solicitud linkeado",
+  "Linked withdrawal request": "Solicitud de retiro vinculada",
   "Linked biopsy form": "Formulario de biopsias vinculado",
   "A study request can be linked to one biopsy form at a time.":
     "Una solicitud de estudio puede estar vinculada a un solo formulario de biopsias a la vez.",

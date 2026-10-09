@@ -113,7 +113,8 @@ const STUDY_PREVIOUS_TEST_FIELDS: FieldSpec[] = [
 ];
 
 const SAMPLE_LINKED_STUDY_REQUEST_FIELDS: FieldSpec[] = [
-  { key: "linkedStudyRequestFormId", label: "Linked study request form" },
+  { key: "studyRequestForm", label: "Linked study request form" },
+  { key: "withdrawalRequest", label: "Linked withdrawal request" },
   { key: "createdAt", label: "Form creation date", type: "datetime" },
   { key: "updatedAt", label: "Last update", type: "datetime" },
 ];
@@ -700,6 +701,19 @@ function WithdrawalCasesSection({ form }: { form: TwoPQFormRecord }) {
             displayCaseLabel(getTextValue(caseRecord, "caseLabel")) ||
             getTextValue(caseRecord, "three_letter_code") ||
             caseId;
+          const rawReportCode =
+            getTextValue(caseRecord, "reportCode") ??
+            getTextValue(caseRecord, "three_letter_code");
+          const reportCode = rawReportCode
+            ? rawReportCode.toUpperCase().endsWith("XXX")
+              ? rawReportCode.toUpperCase()
+              : `${rawReportCode.toUpperCase()}XXX`
+            : caseLabel;
+          const linkedStudyRequest = getTextValue(
+            caseRecord,
+            "linkedStudyRequest",
+          );
+          const linkedBiopsyForm = getTextValue(caseRecord, "linkedBiopsyForm");
 
           return (
             <div
@@ -708,9 +722,14 @@ function WithdrawalCasesSection({ form }: { form: TwoPQFormRecord }) {
             >
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                  <p className="font-heading text-2xl font-semibold text-emerald-950 dark:text-emerald-50">
-                    {caseLabel}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-heading text-2xl font-semibold text-emerald-950 dark:text-emerald-50">
+                      {reportCode}
+                    </p>
+                    {caseLabel && caseLabel !== reportCode ? (
+                      <Badge variant="outline">{caseLabel}</Badge>
+                    ) : null}
+                  </div>
                   <dl className="mt-3 grid gap-2 text-sm md:grid-cols-3">
                     {[
                       {
@@ -747,6 +766,46 @@ function WithdrawalCasesSection({ form }: { form: TwoPQFormRecord }) {
                       </div>
                     ))}
                   </dl>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    {[
+                      {
+                        label: t("Study request"),
+                        value: linkedStudyRequest,
+                        classes:
+                          "border-sky-200 bg-sky-50/80 text-sky-950 dark:border-sky-300/20 dark:bg-sky-950/24 dark:text-sky-50",
+                      },
+                      {
+                        label: t("Biopsy form"),
+                        value: linkedBiopsyForm,
+                        classes:
+                          "border-cyan-200 bg-cyan-50/80 text-cyan-950 dark:border-cyan-300/20 dark:bg-cyan-950/24 dark:text-cyan-50",
+                      },
+                    ].map((relationship) => (
+                      <div
+                        key={relationship.label}
+                        className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-3 ${relationship.classes}`}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-wide opacity-65">
+                            {relationship.label}
+                          </p>
+                          <p className="mt-1 truncate font-mono text-sm font-semibold">
+                            {relationship.value ?? t("Not linked")}
+                          </p>
+                        </div>
+                        {relationship.value ? (
+                          <Button variant="outline" size="sm" asChild>
+                            <Link
+                              href={`/2pq-dashboard/forms/${encodeURIComponent(relationship.value)}`}
+                            >
+                              {t("Open")}
+                              <ArrowRight className="size-3.5" />
+                            </Link>
+                          </Button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 {caseId ? (
                   <Button variant="outline" size="sm" asChild>
@@ -1184,7 +1243,8 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
   const t = (text: string) => appText(language, text);
   const authorEmail = form.authorEmail ?? form.createdByEmail;
   const sampleLinkedStudyRequestData: Record<string, unknown> = {
-    linkedStudyRequestFormId: form.linkedStudyRequestFormId,
+    studyRequestForm: form.studyRequestForm ?? form.linkedStudyRequestFormId,
+    withdrawalRequest: form.withdrawalRequest,
     createdAt: form.createdAt,
     updatedAt: form.updatedAt,
   };

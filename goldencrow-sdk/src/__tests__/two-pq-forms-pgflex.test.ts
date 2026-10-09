@@ -361,6 +361,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       collectionKey: "2pq_forms",
       institutionId: "inst-1",
       doctorId: "doctor-1",
+      linkedBiopsyForm: "FORM-00038",
       linkedWithdrawalRequest: null,
       patientInformation: {},
       requestedTest: {},
@@ -373,11 +374,27 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       collectionKey: "2pq_forms",
       institutionId: "inst-1",
       doctorId: "doctor-1",
+      linkedBiopsyForm: "FORM-00039",
       linkedWithdrawalRequest: null,
       patientInformation: {},
       requestedTest: {},
       createdAt: "2026-08-29T11:00:00.000Z",
       updatedAt: "2026-08-29T11:00:00.000Z",
+    });
+    mockDocs.set("2pq_forms/FORM-00038", {
+      id: "FORM-00038",
+      formType: "sample",
+      collectionKey: "2pq_forms",
+      institutionId: "inst-1",
+      doctorId: "doctor-1",
+      linkedCaseId: "case-a",
+      linkedStudyRequestFormId: "FORM-00031",
+      studyRequestForm: "FORM-00031",
+      withdrawalRequest: null,
+      patientInformation: {},
+      requestedTest: {},
+      createdAt: "2026-08-30T10:00:00.000Z",
+      updatedAt: "2026-08-30T10:00:00.000Z",
     });
     mockDocs.set("2pq_forms/FORM-00039", {
       id: "FORM-00039",
@@ -387,6 +404,8 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       doctorId: "doctor-1",
       linkedCaseId: "case-b",
       linkedStudyRequestFormId: "FORM-00032",
+      studyRequestForm: "FORM-00032",
+      withdrawalRequest: null,
       patientInformation: {},
       requestedTest: {},
       createdAt: "2026-08-30T11:00:00.000Z",
@@ -485,6 +504,20 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       formType: "withdrawal_request",
       linkedCaseIds: ["case-a", "case-b"],
       institutionId: "inst-1",
+      withdrawalCases: [
+        expect.objectContaining({
+          id: "case-a",
+          reportCode: "ABCXXX",
+          linkedStudyRequest: "FORM-00031",
+          linkedBiopsyForm: "FORM-00038",
+        }),
+        expect.objectContaining({
+          id: "case-b",
+          reportCode: "DEFXXX",
+          linkedStudyRequest: "FORM-00032",
+          linkedBiopsyForm: "FORM-00039",
+        }),
+      ],
     });
     expect(mockDocs.get("2pq_case/case-a")).toMatchObject({
       caseStatus: "awaiting_pick_up",
@@ -496,6 +529,14 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     });
     expect(mockDocs.get("2pq_forms/FORM-00032")).toMatchObject({
       linkedWithdrawalRequest: "FORM-00041",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00038")).toMatchObject({
+      studyRequestForm: "FORM-00031",
+      withdrawalRequest: "FORM-00041",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00039")).toMatchObject({
+      studyRequestForm: "FORM-00032",
+      withdrawalRequest: "FORM-00041",
     });
     expect(pgflexEvent).toMatchObject({
       identifier: "Clinica Norte - 31-08-2026-03:45PM",
@@ -563,6 +604,41 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
         timeRequested: "2026-08-31T15:45:00.000Z",
       },
     );
+  });
+
+  it("resolves per-code form links for an existing withdrawal detail", async () => {
+    const { getTwoPQFormForContext } =
+      await import("../repositories/two-pq-forms.repository");
+    mockDocs.set("2pq_forms/FORM-00052", {
+      id: "FORM-00052",
+      formType: "withdrawal_request",
+      collectionKey: "2pq_forms",
+      institutionId: "inst-1",
+      doctorId: "doctor-1",
+      linkedCaseIds: ["case-a", "case-b"],
+      withdrawalCases: [{ id: "case-a" }, { id: "case-b" }],
+      patientInformation: {},
+      requestedTest: {},
+      createdAt: "2026-08-31T15:45:00.000Z",
+      updatedAt: "2026-08-31T15:45:00.000Z",
+    });
+
+    const form = await getTwoPQFormForContext(fullAdminContext, "FORM-00052");
+
+    expect(form.withdrawalCases).toEqual([
+      expect.objectContaining({
+        id: "case-a",
+        reportCode: "ABCXXX",
+        linkedStudyRequest: "FORM-00031",
+        linkedBiopsyForm: "FORM-00038",
+      }),
+      expect.objectContaining({
+        id: "case-b",
+        reportCode: "DEFXXX",
+        linkedStudyRequest: "FORM-00032",
+        linkedBiopsyForm: "FORM-00039",
+      }),
+    ]);
   });
 
   it("falls back to the newest active dispatcher when no preferred dispatcher exists", async () => {
@@ -673,7 +749,35 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     });
   });
 
-  it("clears study-request backlinks when the withdrawal form is deleted", async () => {
+  it("rejects a withdrawal when one linked biopsy already belongs to another withdrawal", async () => {
+    const { createTwoPQFormForContext } =
+      await import("../repositories/two-pq-forms.repository");
+    mockDocs.set("2pq_forms/FORM-00038", {
+      ...mockDocs.get("2pq_forms/FORM-00038"),
+      withdrawalRequest: "FORM-00012",
+    });
+
+    await expect(
+      createTwoPQFormForContext(fullAdminContext, {
+        formType: "withdrawal_request",
+        linkedCaseIds: ["case-a", "case-b"],
+        institutionInformation: {
+          name: "Clinica Norte",
+          address: "Av. Corrientes 123",
+          city: "CABA",
+          state: "Buenos Aires",
+          country: "Argentina",
+        },
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message:
+        "Biopsy form FORM-00038 is already linked to withdrawal request FORM-00012.",
+    });
+    expect(mockDocs.has("2pq_forms/FORM-00041")).toBe(false);
+  });
+
+  it("clears study-request and biopsy backlinks when the withdrawal form is deleted", async () => {
     const { deleteTwoPQFormForContext } =
       await import("../repositories/two-pq-forms.repository");
     mockDocs.set("2pq_forms/FORM-00041", {
@@ -696,6 +800,14 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       ...mockDocs.get("2pq_forms/FORM-00032"),
       linkedWithdrawalRequest: "FORM-00041",
     });
+    mockDocs.set("2pq_forms/FORM-00038", {
+      ...mockDocs.get("2pq_forms/FORM-00038"),
+      withdrawalRequest: "FORM-00041",
+    });
+    mockDocs.set("2pq_forms/FORM-00039", {
+      ...mockDocs.get("2pq_forms/FORM-00039"),
+      withdrawalRequest: "FORM-00041",
+    });
 
     await expect(
       deleteTwoPQFormForContext(fullAdminContext, "FORM-00041"),
@@ -706,6 +818,12 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     });
     expect(mockDocs.get("2pq_forms/FORM-00032")).toMatchObject({
       linkedWithdrawalRequest: null,
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00038")).toMatchObject({
+      withdrawalRequest: null,
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00039")).toMatchObject({
+      withdrawalRequest: null,
     });
   });
 
@@ -812,6 +930,8 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     expect(mockDocs.get("2pq_forms/FORM-00041")).toMatchObject({
       formType: "sample",
       linkedStudyRequestFormId: "FORM-00040",
+      studyRequestForm: "FORM-00040",
+      withdrawalRequest: null,
     });
 
     await expect(
@@ -871,9 +991,11 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     expect(replaced.linkedBiopsyForm).toBe("FORM-00042");
     expect(mockDocs.get("2pq_forms/FORM-00041")).toMatchObject({
       linkedStudyRequestFormId: null,
+      studyRequestForm: null,
     });
     expect(mockDocs.get("2pq_forms/FORM-00042")).toMatchObject({
       linkedStudyRequestFormId: "FORM-00040",
+      studyRequestForm: "FORM-00040",
     });
 
     const removed = await updateTwoPQStudyRequestBiopsyLinkForContext(
@@ -888,12 +1010,15 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     });
     expect(mockDocs.get("2pq_forms/FORM-00042")).toMatchObject({
       linkedStudyRequestFormId: null,
+      studyRequestForm: null,
     });
   });
 
   it("lists only study requests that have no current or legacy biopsy link", async () => {
     const { listTwoPQFormsForContext } =
       await import("../repositories/two-pq-forms.repository");
+    mockDocs.delete("2pq_forms/FORM-00038");
+    mockDocs.delete("2pq_forms/FORM-00039");
     const baseStudyRequest = {
       formType: "study_request",
       collectionKey: "2pq_forms",

@@ -1,1 +1,1 @@
-export const BACKOFFICE_VERSION = "3.345";
+export const BACKOFFICE_VERSION = "3.346";
