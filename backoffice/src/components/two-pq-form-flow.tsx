@@ -94,8 +94,7 @@ type StepValidationState = Partial<Record<StepKey, StepValidationStatus>>;
 type FormStorageProcessingStatus = "pending" | "running" | "success" | "error";
 type WholeDataValidationStatus = "running" | "success" | "error";
 type PreviewValidationStatus =
-  | WholeDataValidationStatus
-  | "draft-checkpoint-error";
+  WholeDataValidationStatus | "draft-checkpoint-error";
 
 type FormStorageProcessingStep = {
   id: string;
@@ -199,7 +198,7 @@ const VALIDATION_FIELD_LABELS: Record<string, string> = {
   "previousGeneticTests.karyotype": "Has karyotype information?",
   "previousGeneticTests.karyotypeResult": "Karyotype result",
   "previousGeneticTests.karyotypeFileContent": "Karyotype file",
-  "requestedTest": "Requested test",
+  requestedTest: "Requested test",
   "requestedTest.pgtAFast": "PGT-A FAST",
   "requestedTest.pgtAFastReportsMosaicism": "PGT-A FAST reports mosaicism",
   "requestedTest.pgtAFastReportsSex": "PGT-A FAST reports sex",
@@ -269,7 +268,6 @@ const PREVIOUS_MISCARRIAGES_OPTIONS = [
   { value: "3_or_more", label: "3 or more (recurrent)" },
 ];
 
-
 const SAMPLE_TYPE_OPTIONS = [
   { value: "biopsia de trofoectodermo", label: "Trophectoderm biopsy" },
   {
@@ -308,11 +306,12 @@ const REQUIRED_BIOPSY_TABLE_COLUMNS = [
   "cellsVisualized",
 ] as const satisfies readonly (keyof SamplingInformationFormState)[];
 
-type RequiredBiopsyTableColumnKey = (typeof REQUIRED_BIOPSY_TABLE_COLUMNS)[number];
+type RequiredBiopsyTableColumnKey =
+  (typeof REQUIRED_BIOPSY_TABLE_COLUMNS)[number];
 
-const REQUIRED_BIOPSY_TABLE_COLUMN_SET = new Set<keyof SamplingInformationFormState>(
-  REQUIRED_BIOPSY_TABLE_COLUMNS
-);
+const REQUIRED_BIOPSY_TABLE_COLUMN_SET = new Set<
+  keyof SamplingInformationFormState
+>(REQUIRED_BIOPSY_TABLE_COLUMNS);
 
 enum BiopsyTableCellValidationKind {
   MissingRequiredValue = "missing_required_value",
@@ -358,7 +357,10 @@ const PROCESSING_OPTIONS = [
 const BOX_CODE_PATTERN = /^[A-Z]{3}$/;
 
 function normalizeBoxCodeInput(value: string) {
-  return value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, 3);
 }
 
 function normalizeBoxCodeForValidation(value: string) {
@@ -438,7 +440,7 @@ function wait(ms: number) {
 function pendingProcessingStep(
   id: string,
   label: string,
-  detail: string
+  detail: string,
 ): FormStorageProcessingStep {
   return {
     id,
@@ -451,19 +453,19 @@ function pendingProcessingStep(
 function buildFormStorageProcessingSteps(
   flowState: FlowState,
   formType: TwoPQFormType,
-  language: AppLanguage
+  language: AppLanguage,
 ): FormStorageProcessingStep[] {
   const t = (text: string) => appText(language, text);
   const sharedSteps = [
     pendingProcessingStep(
       "validate-payload",
       t("Validate form payload"),
-      t("Confirm every required field across the current form is complete.")
+      t("Confirm every required field across the current form is complete."),
     ),
     pendingProcessingStep(
       "save-draft",
       t("Save temporary draft checkpoint"),
-      t("Persist the final in-progress state before handing it to storage.")
+      t("Persist the final in-progress state before handing it to storage."),
     ),
   ];
 
@@ -477,19 +479,19 @@ function buildFormStorageProcessingSteps(
           : t("Create scoped patient"),
         flowState.selectedPatientId
           ? `${t("Use patient")} ${flowState.selectedPatientId} ${t("as the form patient.")}`
-          : t("Create the scoped patient from step 1 and link it to the form.")
+          : t("Create the scoped patient from step 1 and link it to the form."),
       ),
       ...(shouldShowAutomaticPatientPortalAccessStep(
         formType,
-        flowState.selectedPatientId
+        flowState.selectedPatientId,
       )
         ? [
             pendingProcessingStep(
               "patient-portal-access",
               t("Create patient portal credentials"),
               t(
-                "Create the patient role, temporary password, and Firebase account for the new patient."
-              )
+                "Create the patient role, temporary password, and Firebase account for the new patient.",
+              ),
             ),
           ]
         : []),
@@ -500,17 +502,19 @@ function buildFormStorageProcessingSteps(
           : t("Create scoped institution"),
         flowState.selectedInstitutionId
           ? `${t("Use institution")} ${flowState.selectedInstitutionId} ${t("for the request.")}`
-          : t("Create the institution details provided in the request.")
+          : t("Create the institution details provided in the request."),
       ),
       pendingProcessingStep(
         "store-form",
         t("Store joined 2PQ form"),
-        t("Persist the final form document with patient, institution, and test payloads.")
+        t(
+          "Persist the final form document with patient, institution, and test payloads.",
+        ),
       ),
       pendingProcessingStep(
         "clean-draft",
         t("Clean temporary draft"),
-        t("Remove the one-user temporary draft after storage succeeds.")
+        t("Remove the one-user temporary draft after storage succeeds."),
       ),
     ];
   }
@@ -521,22 +525,22 @@ function buildFormStorageProcessingSteps(
       pendingProcessingStep(
         "linked-cases",
         t("Link selected 2PQ cases"),
-        `${t("Use")} ${flowState.linkedWithdrawalCaseIds.length} ${t("selected cases for this withdrawal request.")}`
+        `${t("Use")} ${flowState.linkedWithdrawalCaseIds.length} ${t("selected cases for this withdrawal request.")}`,
       ),
       pendingProcessingStep(
         "case-status",
         t("Mark cases awaiting pick up"),
-        t("Update every selected case from Entered to Awaiting pick up.")
+        t("Update every selected case from Entered to Awaiting pick up."),
       ),
       pendingProcessingStep(
         "store-form",
         t("Store withdrawal request form"),
-        t("Persist the withdrawal request with its linked case snapshot.")
+        t("Persist the withdrawal request with its linked case snapshot."),
       ),
       pendingProcessingStep(
         "clean-draft",
         t("Clean temporary draft"),
-        t("Remove the one-user temporary draft after storage succeeds.")
+        t("Remove the one-user temporary draft after storage succeeds."),
       ),
     ];
   }
@@ -550,8 +554,8 @@ function buildFormStorageProcessingSteps(
     pendingProcessingStep(
       `sampling-${index}`,
       `${t("Create sampling")} ${sampling.sampleId || index + 1}`,
-      `${t("Link this sampling to")} ${caseLabel}; ${t("collection date, reception date, run ID, and QC status stay nil.")}`
-    )
+      `${t("Link this sampling to")} ${caseLabel}; ${t("collection date, reception date, run ID, and QC status stay nil.")}`,
+    ),
   );
 
   return [
@@ -561,7 +565,7 @@ function buildFormStorageProcessingSteps(
       t("Link study request form"),
       flowState.linkedStudyRequestFormId
         ? `${t("Use form")} ${flowState.linkedStudyRequestFormId} ${t("as the linked study request.")}`
-        : t("Confirm the sample has a linked study request form.")
+        : t("Confirm the sample has a linked study request form."),
     ),
     pendingProcessingStep(
       "patient",
@@ -570,14 +574,17 @@ function buildFormStorageProcessingSteps(
         : t("Create scoped patient"),
       flowState.selectedPatientId
         ? `${t("Use patient")} ${flowState.selectedPatientId} ${t("as the sample patient.")}`
-        : t("Create the scoped patient from step 1 and link it to the stored form.")
+        : t(
+            "Create the scoped patient from step 1 and link it to the stored form.",
+          ),
     ),
     pendingProcessingStep(
       "requesting-doctor",
       t("Link selected requesting doctor"),
       `${t("Use doctor")} ${
-        flowState.selectedRequestingDoctorId || flowState.patientInformation.doctorId
-      } ${t("as requesting doctor.")}`
+        flowState.selectedRequestingDoctorId ||
+        flowState.patientInformation.doctorId
+      } ${t("as requesting doctor.")}`,
     ),
     pendingProcessingStep(
       "case",
@@ -587,26 +594,35 @@ function buildFormStorageProcessingSteps(
       flowState.selectedCaseId
         ? `${t("Use case")} ${flowState.selectedCaseId} ${t("after confirming it matches box code")} ${boxCode}.`
         : t(
-            "Create the case from the 2PQ case step and attach it to the patient, institution, and doctor."
-          )
+            "Create the case from the 2PQ case step and attach it to the patient, institution, and doctor.",
+          ),
     ),
     pendingProcessingStep(
       "box-code",
       t("Bind three-letter box code"),
       boxCode
         ? `${t("Store box code")} ${boxCode} ${t("as the case three_letter_code and keep the form linked to it.")}`
-        : t("Store the validated box code as the case three_letter_code.")
+        : t("Store the validated box code as the case three_letter_code."),
     ),
     ...samplingSteps,
     pendingProcessingStep(
       "store-form",
       t("Store joined 2PQ form"),
-      t("Persist the form with linked study request, patient, case, sample, and sampling records.")
+      t(
+        "Persist the form with linked study request, patient, case, sample, and sampling records.",
+      ),
+    ),
+    pendingProcessingStep(
+      "link-biopsy-form",
+      t("Link biopsy form back to study request"),
+      flowState.linkedStudyRequestFormId
+        ? `${t("Store this biopsy form in linkedBiopsyForm on")} ${flowState.linkedStudyRequestFormId}.`
+        : t("Store this biopsy form on its linked study request."),
     ),
     pendingProcessingStep(
       "clean-draft",
       t("Clean temporary draft"),
-      t("Remove the one-user temporary draft after the final form is stored.")
+      t("Remove the one-user temporary draft after the final form is stored."),
     ),
   ];
 }
@@ -627,7 +643,7 @@ function emptyInstitution(): InstitutionInformationFormState {
 }
 
 function withdrawalProvinceDistrictFromInstitutionState(
-  value: string
+  value: string,
 ): PGFlexRouteOriginProvinceDistrict {
   return value.trim() === "Provincia de Buenos Aires"
     ? "Provincia de Buenos Aires"
@@ -635,23 +651,23 @@ function withdrawalProvinceDistrictFromInstitutionState(
 }
 
 function withdrawalOriginPartsFromInstitutionInformation(
-  institutionInformation: InstitutionInformationFormState
+  institutionInformation: InstitutionInformationFormState,
 ): PGFlexRouteOriginParts {
   return {
     address: institutionInformation.address,
     locality: institutionInformation.city,
     provinceDistrict: withdrawalProvinceDistrictFromInstitutionState(
-      institutionInformation.state
+      institutionInformation.state,
     ),
     country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
   };
 }
 
 function institutionInformationWithWithdrawalAddressDefaults(
-  institutionInformation: InstitutionInformationFormState
+  institutionInformation: InstitutionInformationFormState,
 ): InstitutionInformationFormState {
   const parts = withdrawalOriginPartsFromInstitutionInformation(
-    institutionInformation
+    institutionInformation,
   );
 
   return {
@@ -664,15 +680,16 @@ function institutionInformationWithWithdrawalAddressDefaults(
 }
 
 function withWithdrawalInstitutionAddressDefaults(
-  flowState: FlowState
+  flowState: FlowState,
 ): FlowState {
   const institutionInformation =
     institutionInformationWithWithdrawalAddressDefaults(
-      flowState.institutionInformation
+      flowState.institutionInformation,
     );
 
   if (
-    institutionInformation.address === flowState.institutionInformation.address &&
+    institutionInformation.address ===
+      flowState.institutionInformation.address &&
     institutionInformation.city === flowState.institutionInformation.city &&
     institutionInformation.state === flowState.institutionInformation.state &&
     institutionInformation.country === flowState.institutionInformation.country
@@ -716,7 +733,9 @@ function withCaseDefaultsForBoxCode(flowState: FlowState): FlowState {
     return flowState;
   }
 
-  const defaults = newCaseDefaultsForBoxCode(flowState.sampleInformation.boxCode);
+  const defaults = newCaseDefaultsForBoxCode(
+    flowState.sampleInformation.boxCode,
+  );
   const currentCase = flowState.caseInformation;
   const nextCase = {
     ...currentCase,
@@ -762,7 +781,7 @@ function emptySampling(): SamplingInformationFormState {
 function generatedSamplingSampleId(
   boxCode: string,
   index: number,
-  rowCount: number
+  rowCount: number,
 ) {
   const normalizedBoxCode = normalizeBoxCodeInput(boxCode);
   if (!normalizedBoxCode) {
@@ -780,7 +799,9 @@ function generatedSamplingSampleId(
 
 function isEmbryoSamplingRow(index: number, biopsyCountValue: string) {
   const biopsyCount = Number(biopsyCountValue);
-  return Number.isInteger(biopsyCount) && biopsyCount > 0 && index < biopsyCount;
+  return (
+    Number.isInteger(biopsyCount) && biopsyCount > 0 && index < biopsyCount
+  );
 }
 
 function isDiscardedSampling(sampling: SamplingInformationFormState) {
@@ -789,7 +810,7 @@ function isDiscardedSampling(sampling: SamplingInformationFormState) {
 
 function biopsyTableCellErrorKey(
   rowIndex: number,
-  column: RequiredBiopsyTableColumnKey
+  column: RequiredBiopsyTableColumnKey,
 ) {
   return `samplingInformation.${rowIndex}.${column}`;
 }
@@ -820,7 +841,7 @@ function isBiopsyEmptyFieldFallbackValue(value: string) {
 
 function validateBiopsyTableRequiredCells(
   flowState: FlowState,
-  language: AppLanguage
+  language: AppLanguage,
 ) {
   const t = (text: string) => appText(language, text);
   const issues: BiopsyTableRequiredCellIssue[] = [];
@@ -896,14 +917,16 @@ function validateBiopsyTableRequiredCells(
 function appendBiopsyTableRequiredCellErrors(
   errors: FieldErrors,
   flowState: FlowState,
-  language: AppLanguage
+  language: AppLanguage,
 ) {
   validateBiopsyTableRequiredCells(flowState, language).forEach((issue) => {
     errors[issue.fieldKey] = issue.message;
   });
 }
 
-function withMissingBiopsyTableCellsSetToFallback(flowState: FlowState): FlowState {
+function withMissingBiopsyTableCellsSetToFallback(
+  flowState: FlowState,
+): FlowState {
   let changed = false;
   const samplingInformation = flowState.samplingInformation.map((sampling) => {
     if (isDiscardedSampling(sampling)) {
@@ -925,7 +948,7 @@ function withMissingBiopsyTableCellsSetToFallback(flowState: FlowState): FlowSta
 }
 
 function generatedSamplingProcessingStatus(
-  sampling: SamplingInformationFormState | undefined
+  sampling: SamplingInformationFormState | undefined,
 ) {
   const currentStatus = sampling?.processingStatus.trim();
   return currentStatus || "awaiting_reception";
@@ -961,14 +984,19 @@ function selectedRequestedTestKey(requestedTest: RequestedTestFormState) {
 }
 
 function requestedTestKeyLabel(key: string) {
-  return REQUESTED_STUDY_TEST_OPTIONS.find((option) => option.value === key)?.label ?? "";
+  return (
+    REQUESTED_STUDY_TEST_OPTIONS.find((option) => option.value === key)
+      ?.label ?? ""
+  );
 }
 
 function caseTypeForRequestedTestKey(key: string) {
   return REQUESTED_TEST_TO_CASE_TYPE[key] ?? "";
 }
 
-function requestedTestKeyFromRecord(record: Record<string, unknown> | undefined) {
+function requestedTestKeyFromRecord(
+  record: Record<string, unknown> | undefined,
+) {
   if (!record) return "";
   if (answerToFormValue(record.pgtSr) === "si") return "pgtSr";
   if (answerToFormValue(record.pgtAStandard) === "si") return "pgtAStandard";
@@ -982,7 +1010,7 @@ function requestedTestKeyFromRecord(record: Record<string, unknown> | undefined)
 
 function requestedTestToFormState(
   record: Record<string, unknown> | undefined,
-  fallback: RequestedTestFormState
+  fallback: RequestedTestFormState,
 ): RequestedTestFormState {
   if (!record) {
     return fallback;
@@ -991,11 +1019,13 @@ function requestedTestToFormState(
   return {
     ...fallback,
     pgtAFast: answerToFormValue(record.pgtAFast),
-    pgtAFastReportsMosaicism: answerToFormValue(record.pgtAFastReportsMosaicism),
+    pgtAFastReportsMosaicism: answerToFormValue(
+      record.pgtAFastReportsMosaicism,
+    ),
     pgtAFastReportsSex: answerToFormValue(record.pgtAFastReportsSex),
     pgtAStandard: answerToFormValue(record.pgtAStandard),
     pgtAStandardReportsMosaicism: answerToFormValue(
-      record.pgtAStandardReportsMosaicism
+      record.pgtAStandardReportsMosaicism,
     ),
     pgtAStandardReportsSex: answerToFormValue(record.pgtAStandardReportsSex),
     pgtSr: answerToFormValue(record.pgtSr),
@@ -1011,7 +1041,7 @@ function requestedTestToFormState(
 
 function withRequestedStudyTestSelection(
   current: RequestedTestFormState,
-  selectedKey: string
+  selectedKey: string,
 ): RequestedTestFormState {
   const pgtAFastSelected = selectedKey === "pgtAFast";
   const pgtAStandardSelected = selectedKey === "pgtAStandard";
@@ -1057,12 +1087,12 @@ function withGeneratedSamplingTable(flowState: FlowState): FlowState {
         sampleId: generatedSamplingSampleId(
           flowState.sampleInformation.boxCode,
           index,
-          rowCount
+          rowCount,
         ),
         sampleType: flowState.sampleInformation.sampleType,
         processingStatus: isEmbryoSamplingRow(
           index,
-          flowState.sampleInformation.biopsyCount
+          flowState.sampleInformation.biopsyCount,
         )
           ? generatedSamplingProcessingStatus(existingSampling)
           : "awaiting_reception",
@@ -1203,20 +1233,20 @@ function validationStatusFor(errors: FieldErrors): StepValidationStatus {
 }
 
 function mergeDraftSection<T extends object>(base: T, value: unknown): T {
-  return isRecord(value) ? { ...base, ...value } as T : base;
+  return isRecord(value) ? ({ ...base, ...value } as T) : base;
 }
 
 function mergePatientInformationDraft(
   base: PatientInformationFormState,
-  value: unknown
+  value: unknown,
 ): PatientInformationFormState {
   const merged = mergeDraftSection(base, value);
   const hasLegacyPartnerInformation = Boolean(
     merged.partnerFirstName.trim() ||
-      merged.partnerLastName.trim() ||
-      merged.partnerMedicalRecordNumber.trim() ||
-      merged.partnerBirthDate.trim() ||
-      merged.partnerNotes.trim()
+    merged.partnerLastName.trim() ||
+    merged.partnerMedicalRecordNumber.trim() ||
+    merged.partnerBirthDate.trim() ||
+    merged.partnerNotes.trim(),
   );
   const mergedWithPartnerFlag = {
     ...merged,
@@ -1246,20 +1276,21 @@ function mergePatientInformationDraft(
       ? mergedWithPartnerFlag.fullName
       : joinNameParts(
           mergedWithPartnerFlag.firstName,
-          mergedWithPartnerFlag.lastName
+          mergedWithPartnerFlag.lastName,
         ),
   };
 }
 
 function mergeInstitutionInformationDraft(
   base: InstitutionInformationFormState,
-  value: unknown
+  value: unknown,
 ): InstitutionInformationFormState {
   const merged = mergeDraftSection(base, value);
   const legacyValue = isRecord(value)
     ? getInstitutionAddress(value as Partial<InstitutionListItem>)
     : "";
-  const mergedAddress = typeof merged.address === "string" ? merged.address : "";
+  const mergedAddress =
+    typeof merged.address === "string" ? merged.address : "";
 
   return {
     code: merged.code,
@@ -1277,13 +1308,16 @@ function mergeInstitutionInformationDraft(
 
 function mergeSampleInformationDraft(
   base: SampleInformationFormState,
-  value: unknown
+  value: unknown,
 ): SampleInformationFormState {
   const merged = mergeDraftSection(base, value);
   const mergedWithProcessDate = merged.processDate.trim()
     ? merged
     : { ...merged, processDate: todayDateInputValue() };
-  if (!isRecord(value) || mergedWithProcessDate.requestingDoctorFullName.trim()) {
+  if (
+    !isRecord(value) ||
+    mergedWithProcessDate.requestingDoctorFullName.trim()
+  ) {
     return mergedWithProcessDate;
   }
 
@@ -1303,7 +1337,7 @@ function mergeSampleInformationDraft(
 }
 
 function mergeSamplingInformationDraft(
-  value: unknown
+  value: unknown,
 ): SamplingInformationFormState {
   const merged = mergeDraftSection(emptySampling(), value);
 
@@ -1323,7 +1357,7 @@ function mergeSamplingInformationDraft(
 
 function hydrateDraftState(
   defaultState: FlowState,
-  draft: TwoPQFormDraftRecord | null | undefined
+  draft: TwoPQFormDraftRecord | null | undefined,
 ): FlowState {
   if (!draft?.state || !isRecord(draft.state)) {
     return defaultState;
@@ -1334,7 +1368,8 @@ function hydrateDraftState(
     ...defaultState,
     linkedWithdrawalCaseIds: Array.isArray(draftState.linkedWithdrawalCaseIds)
       ? draftState.linkedWithdrawalCaseIds.filter(
-          (caseId): caseId is string => typeof caseId === "string" && Boolean(caseId)
+          (caseId): caseId is string =>
+            typeof caseId === "string" && Boolean(caseId),
         )
       : defaultState.linkedWithdrawalCaseIds,
     linkedStudyRequestFormId:
@@ -1359,37 +1394,37 @@ function hydrateDraftState(
         : defaultState.selectedRequestingDoctorId,
     patientInformation: mergePatientInformationDraft(
       defaultState.patientInformation,
-      draftState.patientInformation
+      draftState.patientInformation,
     ),
     medicalInformation: mergeDraftSection(
       defaultState.medicalInformation,
-      draftState.medicalInformation
+      draftState.medicalInformation,
     ),
     previousGeneticTests: mergeDraftSection(
       defaultState.previousGeneticTests,
-      draftState.previousGeneticTests
+      draftState.previousGeneticTests,
     ),
     requestedTest: mergeDraftSection(
       defaultState.requestedTest,
-      draftState.requestedTest
+      draftState.requestedTest,
     ),
     institutionInformation: mergeInstitutionInformationDraft(
       defaultState.institutionInformation,
-      draftState.institutionInformation
+      draftState.institutionInformation,
     ),
     sampleInformation: mergeSampleInformationDraft(
       defaultState.sampleInformation,
-      draftState.sampleInformation
+      draftState.sampleInformation,
     ),
     caseInformation: mergeDraftSection(
       defaultState.caseInformation,
-      draftState.caseInformation
+      draftState.caseInformation,
     ),
     samplingInformation:
       Array.isArray(draftState.samplingInformation) &&
       draftState.samplingInformation.length > 0
         ? draftState.samplingInformation.map((entry) =>
-            mergeSamplingInformationDraft(entry)
+            mergeSamplingInformationDraft(entry),
           )
         : defaultState.samplingInformation,
     samplingTableGenerated:
@@ -1401,14 +1436,14 @@ function hydrateDraftState(
 
 function withDefaultObservations(
   flowState: FlowState,
-  formType: TwoPQFormType
+  formType: TwoPQFormType,
 ): FlowState {
   if (formType !== "study_request") {
     return flowState;
   }
 
   const otherBackground = normalizeObservationsValue(
-    flowState.medicalInformation.otherBackground
+    flowState.medicalInformation.otherBackground,
   );
   if (otherBackground === flowState.medicalInformation.otherBackground) {
     return flowState;
@@ -1425,7 +1460,7 @@ function withDefaultObservations(
 
 function resolveDraftStepIndex(
   draft: TwoPQFormDraftRecord | null | undefined,
-  steps: StepKey[]
+  steps: StepKey[],
 ) {
   if (!draft) {
     return 0;
@@ -1447,20 +1482,24 @@ function validateStepFields(
   step: StepKey,
   flowState: FlowState,
   formType: TwoPQFormType,
-  language: AppLanguage
+  language: AppLanguage,
 ): FieldErrors {
   const errors: FieldErrors = {};
   const t = (text: string) => appText(language, text);
 
   if (step === "linkedWithdrawalCases") {
     if (flowState.linkedWithdrawalCaseIds.length === 0) {
-      errors.linkedWithdrawalCaseIds = t("Select at least one linked 2PQ case.");
+      errors.linkedWithdrawalCaseIds = t(
+        "Select at least one linked 2PQ case.",
+      );
     }
   }
 
   if (step === "linkedStudyRequest") {
     if (!flowState.linkedStudyRequestFormId.trim()) {
-      errors.linkedStudyRequestFormId = t("Select a linked study request form.");
+      errors.linkedStudyRequestFormId = t(
+        "Select a linked study request form.",
+      );
     }
   }
 
@@ -1479,57 +1518,72 @@ function validateStepFields(
     }
     if (formType === "study_request") {
       if (!flowState.patientInformation.firstName.trim()) {
-        errors["patientInformation.firstName"] =
-          t("Patient first name is required.");
+        errors["patientInformation.firstName"] = t(
+          "Patient first name is required.",
+        );
       }
       if (!flowState.patientInformation.lastName.trim()) {
-        errors["patientInformation.lastName"] =
-          t("Patient last name is required.");
+        errors["patientInformation.lastName"] = t(
+          "Patient last name is required.",
+        );
       }
     } else if (!flowState.patientInformation.fullName.trim()) {
-      errors["patientInformation.fullName"] = t("Patient full name is required.");
+      errors["patientInformation.fullName"] = t(
+        "Patient full name is required.",
+      );
     }
     if (
       flowState.patientInformation.birthDate &&
       !optionalValidDateInput(flowState.patientInformation.birthDate)
     ) {
-      errors["patientInformation.birthDate"] = t("Birth date must be a valid date.");
+      errors["patientInformation.birthDate"] = t(
+        "Birth date must be a valid date.",
+      );
     }
     if (
       flowState.patientInformation.includesPartnerInformation &&
       flowState.patientInformation.partnerBirthDate &&
       !optionalValidDateInput(flowState.patientInformation.partnerBirthDate)
     ) {
-      errors["patientInformation.partnerBirthDate"] =
-        t("Partner birth date must be a valid date.");
+      errors["patientInformation.partnerBirthDate"] = t(
+        "Partner birth date must be a valid date.",
+      );
     }
   }
 
   if (step === "medicalInformation") {
     const validGameteSourceValues = new Set(
-      GAMETE_SOURCE_OPTIONS.map((option) => option.value)
+      GAMETE_SOURCE_OPTIONS.map((option) => option.value),
     );
     const spermGameteSource = flowState.medicalInformation.spermGameteSource;
     const oocyteGameteSource = flowState.medicalInformation.oocyteGameteSource;
     if (spermGameteSource && !validGameteSourceValues.has(spermGameteSource)) {
-      errors["medicalInformation.spermGameteSource"] =
-        t("Sperm gamete source is not valid.");
+      errors["medicalInformation.spermGameteSource"] = t(
+        "Sperm gamete source is not valid.",
+      );
     }
-    if (oocyteGameteSource && !validGameteSourceValues.has(oocyteGameteSource)) {
-      errors["medicalInformation.oocyteGameteSource"] =
-        t("Oocyte gamete source is not valid.");
+    if (
+      oocyteGameteSource &&
+      !validGameteSourceValues.has(oocyteGameteSource)
+    ) {
+      errors["medicalInformation.oocyteGameteSource"] = t(
+        "Oocyte gamete source is not valid.",
+      );
     }
     if (!flowState.medicalInformation.previousMiscarriagesCount) {
-      errors["medicalInformation.previousMiscarriagesCount"] =
-        t("Select previous miscarriages.");
+      errors["medicalInformation.previousMiscarriagesCount"] = t(
+        "Select previous miscarriages.",
+      );
     } else if (
       !PREVIOUS_MISCARRIAGES_OPTIONS.some(
         (option) =>
-          option.value === flowState.medicalInformation.previousMiscarriagesCount
+          option.value ===
+          flowState.medicalInformation.previousMiscarriagesCount,
       )
     ) {
-      errors["medicalInformation.previousMiscarriagesCount"] =
-        t("Previous miscarriages selection is not valid.");
+      errors["medicalInformation.previousMiscarriagesCount"] = t(
+        "Previous miscarriages selection is not valid.",
+      );
     }
     if (!flowState.medicalInformation.maleFactor) {
       errors["medicalInformation.maleFactor"] = t("Select male factor.");
@@ -1538,15 +1592,17 @@ function validateStepFields(
 
   if (step === "previousGeneticTests") {
     if (!flowState.previousGeneticTests.karyotype) {
-      errors["previousGeneticTests.karyotype"] =
-        t("Select whether there is karyotype information.");
+      errors["previousGeneticTests.karyotype"] = t(
+        "Select whether there is karyotype information.",
+      );
     }
     if (
       flowState.previousGeneticTests.karyotype === "si" &&
       !flowState.previousGeneticTests.karyotypeFileContent.trim()
     ) {
-      errors["previousGeneticTests.karyotypeFileContent"] =
-        t("Attach the karyotype file.");
+      errors["previousGeneticTests.karyotypeFileContent"] = t(
+        "Attach the karyotype file.",
+      );
     }
   }
 
@@ -1589,12 +1645,14 @@ function validateStepFields(
     requestedStudyTests.forEach((test) => {
       if (test.value === "si") {
         if (!test.mosaicismValue) {
-          errors[`requestedTest.${test.mosaicismKey}`] =
-            t(`Select ${test.label} reports mosaicism.`);
+          errors[`requestedTest.${test.mosaicismKey}`] = t(
+            `Select ${test.label} reports mosaicism.`,
+          );
         }
         if (!test.sexValue) {
-          errors[`requestedTest.${test.sexKey}`] =
-            t(`Select ${test.label} reports sex.`);
+          errors[`requestedTest.${test.sexKey}`] = t(
+            `Select ${test.label} reports sex.`,
+          );
         }
       }
     });
@@ -1605,15 +1663,17 @@ function validateStepFields(
 
     if (formType === "study_request") {
       if (!flowState.previousGeneticTests.karyotype) {
-        errors["previousGeneticTests.karyotype"] =
-          t("Select whether there is karyotype information.");
+        errors["previousGeneticTests.karyotype"] = t(
+          "Select whether there is karyotype information.",
+        );
       }
       if (
         flowState.previousGeneticTests.karyotype === "si" &&
         !flowState.previousGeneticTests.karyotypeFileContent.trim()
       ) {
-        errors["previousGeneticTests.karyotypeFileContent"] =
-          t("Attach the karyotype file.");
+        errors["previousGeneticTests.karyotypeFileContent"] = t(
+          "Attach the karyotype file.",
+        );
       }
 
       return errors;
@@ -1622,17 +1682,20 @@ function validateStepFields(
 
   if (step === "institutionInformation") {
     if (!flowState.institutionInformation.name.trim()) {
-      errors["institutionInformation.name"] = t("Institution name is required.");
+      errors["institutionInformation.name"] = t(
+        "Institution name is required.",
+      );
     }
     if (!optionalValidEmail(flowState.institutionInformation.contactEmail)) {
-      errors["institutionInformation.contactEmail"] =
-        t("Enter a valid institution contact email.");
+      errors["institutionInformation.contactEmail"] = t(
+        "Enter a valid institution contact email.",
+      );
     }
     if (formType === "withdrawal_request") {
       const addressValidationMessage = validatePGFlexRouteOriginParts(
         withdrawalOriginPartsFromInstitutionInformation(
-          flowState.institutionInformation
-        )
+          flowState.institutionInformation,
+        ),
       );
 
       if (addressValidationMessage) {
@@ -1646,29 +1709,34 @@ function validateStepFields(
       errors["sampleInformation.sampleType"] = t("Sample type is required.");
     } else if (
       !SAMPLE_TYPE_OPTIONS.some(
-        (option) => option.value === flowState.sampleInformation.sampleType
+        (option) => option.value === flowState.sampleInformation.sampleType,
       )
     ) {
       errors["sampleInformation.sampleType"] = t("Sample type is not valid.");
     }
     if (!flowState.sampleInformation.processedByFirstName.trim()) {
-      errors["sampleInformation.processedByFirstName"] =
-        t("First name is required.");
+      errors["sampleInformation.processedByFirstName"] = t(
+        "First name is required.",
+      );
     }
     if (!flowState.sampleInformation.processedByLastName.trim()) {
-      errors["sampleInformation.processedByLastName"] =
-        t("Last name is required.");
+      errors["sampleInformation.processedByLastName"] = t(
+        "Last name is required.",
+      );
     }
     if (!flowState.sampleInformation.processDate.trim()) {
       errors["sampleInformation.processDate"] = t("Process date is required.");
     } else if (!isValidDateInput(flowState.sampleInformation.processDate)) {
-      errors["sampleInformation.processDate"] = t("Process date must be a valid date.");
+      errors["sampleInformation.processDate"] = t(
+        "Process date must be a valid date.",
+      );
     }
     if (!flowState.sampleInformation.boxCode.trim()) {
       errors["sampleInformation.boxCode"] = t("Box code is required.");
     } else if (!isValidBoxCode(flowState.sampleInformation.boxCode)) {
-      errors["sampleInformation.boxCode"] =
-        t("Box code must be exactly three letters (A-Z).");
+      errors["sampleInformation.boxCode"] = t(
+        "Box code must be exactly three letters (A-Z).",
+      );
     }
     const biopsyCount = Number(flowState.sampleInformation.biopsyCount);
     if (
@@ -1682,7 +1750,8 @@ function validateStepFields(
 
   if (step === "doctorInformation") {
     const requestingDoctorId =
-      flowState.selectedRequestingDoctorId || flowState.patientInformation.doctorId;
+      flowState.selectedRequestingDoctorId ||
+      flowState.patientInformation.doctorId;
     if (!requestingDoctorId.trim()) {
       errors.selectedRequestingDoctorId = t("Requesting doctor is required.");
     }
@@ -1699,7 +1768,7 @@ function validateStepFields(
       errors["caseInformation.caseStatus"] = t("Select a 2PQ case status.");
     } else if (
       !CASE_STATUS_OPTIONS.some(
-        (option) => option.value === normalizedCaseStatus
+        (option) => option.value === normalizedCaseStatus,
       )
     ) {
       errors["caseInformation.caseStatus"] = t("Case status is not valid.");
@@ -1708,7 +1777,7 @@ function validateStepFields(
       errors["caseInformation.caseType"] = t("Select a 2PQ case type.");
     } else if (
       !SAMPLE_CASE_TYPE_OPTIONS.some(
-        (option) => option.value === flowState.caseInformation.caseType
+        (option) => option.value === flowState.caseInformation.caseType,
       )
     ) {
       errors["caseInformation.caseType"] = t("Case type is not valid.");
@@ -1719,20 +1788,23 @@ function validateStepFields(
     if (
       flowState.caseInformation.priority &&
       !PRIORITY_OPTIONS.some(
-        (option) => option.value === flowState.caseInformation.priority
+        (option) => option.value === flowState.caseInformation.priority,
       )
     ) {
       errors["caseInformation.priority"] = t("Priority is not valid.");
     }
     if (!flowState.caseInformation.requestedAt.trim()) {
-      errors["caseInformation.requestedAt"] =
-        t("Requested at is required for a new 2PQ case.");
+      errors["caseInformation.requestedAt"] = t(
+        "Requested at is required for a new 2PQ case.",
+      );
     }
     if (
       flowState.caseInformation.requestedAt &&
       !optionalValidDateInput(flowState.caseInformation.requestedAt)
     ) {
-      errors["caseInformation.requestedAt"] = t("Requested at must be a valid date.");
+      errors["caseInformation.requestedAt"] = t(
+        "Requested at must be a valid date.",
+      );
     }
     if (
       flowState.caseInformation.dueAt &&
@@ -1759,7 +1831,7 @@ function validateStepFields(
       flowState.samplingInformation.length !== biopsyCount + 2
     ) {
       errors.samplingTableGenerated = t(
-        "Sampling table row count must match number of biopsies plus two."
+        "Sampling table row count must match number of biopsies plus two.",
       );
     }
     if (flowState.samplingInformation.length === 0) {
@@ -1771,7 +1843,8 @@ function validateStepFields(
       const trimmedSampleId = sampling.sampleId.trim();
       const normalizedSampleId = trimmedSampleId.toLowerCase();
       if (!trimmedSampleId) {
-        errors[`samplingInformation.${index}.sampleId`] = `${row}: ${t("Sample ID is required.")}`;
+        errors[`samplingInformation.${index}.sampleId`] =
+          `${row}: ${t("Sample ID is required.")}`;
       } else if (sampleIds.has(normalizedSampleId)) {
         errors[`samplingInformation.${index}.sampleId`] =
           `${row}: ${t("Sample ID must be unique in this form.")}`;
@@ -1787,7 +1860,7 @@ function validateStepFields(
           `${row}: ${t("Select processing status.")}`;
       } else if (
         !PROCESSING_OPTIONS.some(
-          (option) => option.value === sampling.processingStatus
+          (option) => option.value === sampling.processingStatus,
         )
       ) {
         errors[`samplingInformation.${index}.processingStatus`] =
@@ -1808,14 +1881,16 @@ function buildInitialStepValidation(
   steps: StepKey[],
   stepIndex: number,
   formType: TwoPQFormType,
-  language: AppLanguage
+  language: AppLanguage,
 ): StepValidationState {
-  return steps.slice(0, stepIndex).reduce<StepValidationState>((statuses, step) => {
-    statuses[step] = validationStatusFor(
-      validateStepFields(step, flowState, formType, language)
-    );
-    return statuses;
-  }, {});
+  return steps
+    .slice(0, stepIndex)
+    .reduce<StepValidationState>((statuses, step) => {
+      statuses[step] = validationStatusFor(
+        validateStepFields(step, flowState, formType, language),
+      );
+      return statuses;
+    }, {});
 }
 
 function validationFieldLabel(fieldKey: string, language: AppLanguage) {
@@ -1901,7 +1976,7 @@ function validateWholeDocument({
     addIssue(
       "patientInformation",
       "patientInformation.institutionId",
-      t("Selected institution is not available in the current lookup data.")
+      t("Selected institution is not available in the current lookup data."),
     );
   }
 
@@ -1909,27 +1984,31 @@ function validateWholeDocument({
     addIssue(
       "patientInformation",
       "patientInformation.doctorId",
-      t("Selected doctor is not available in the current lookup data.")
+      t("Selected doctor is not available in the current lookup data."),
     );
   }
 
-  if (selectedDoctor && institutionId && selectedDoctor.institutionId !== institutionId) {
+  if (
+    selectedDoctor &&
+    institutionId &&
+    selectedDoctor.institutionId !== institutionId
+  ) {
     addIssue(
       "patientInformation",
       "patientInformation.doctorId",
-      t("Selected doctor must belong to the selected institution.")
+      t("Selected doctor must belong to the selected institution."),
     );
   }
 
   if (flowState.selectedPatientId) {
     const selectedPatient = patients.find(
-      (patient) => patient.id === flowState.selectedPatientId
+      (patient) => patient.id === flowState.selectedPatientId,
     );
     if (!selectedPatient) {
       addIssue(
         "patientInformation",
         "selectedPatientId",
-        t("Selected patient is not available in the current lookup data.")
+        t("Selected patient is not available in the current lookup data."),
       );
     } else if (
       selectedPatient.institutionId !== institutionId ||
@@ -1938,7 +2017,9 @@ function validateWholeDocument({
       addIssue(
         "patientInformation",
         "selectedPatientId",
-        t("Selected patient must belong to the selected institution and doctor.")
+        t(
+          "Selected patient must belong to the selected institution and doctor.",
+        ),
       );
     }
   }
@@ -1948,69 +2029,73 @@ function validateWholeDocument({
       addIssue(
         "linkedWithdrawalCases",
         "linkedWithdrawalCaseIds",
-        t("Select at least one linked 2PQ case.")
+        t("Select at least one linked 2PQ case."),
       );
     }
 
     const linkedCases = flowState.linkedWithdrawalCaseIds
       .map((caseId) => cases.find((caseRecord) => caseRecord.id === caseId))
       .filter((caseRecord): caseRecord is TwoPQListItem => Boolean(caseRecord));
-    const linkedCaseIds = new Set(linkedCases.map((caseRecord) => caseRecord.id));
+    const linkedCaseIds = new Set(
+      linkedCases.map((caseRecord) => caseRecord.id),
+    );
     flowState.linkedWithdrawalCaseIds.forEach((caseId) => {
       if (!linkedCaseIds.has(caseId)) {
         addIssue(
           "linkedWithdrawalCases",
           "linkedWithdrawalCaseIds",
-          t("Selected 2PQ case is not available in the current lookup data.")
+          t("Selected 2PQ case is not available in the current lookup data."),
         );
       }
     });
     const institutionIds = new Set(
-      linkedCases.map((caseRecord) => caseRecord.institutionId)
+      linkedCases.map((caseRecord) => caseRecord.institutionId),
     );
     if (institutionIds.size > 1) {
       addIssue(
         "linkedWithdrawalCases",
         "linkedWithdrawalCaseIds",
-        t("All selected 2PQ cases must belong to the same institution.")
+        t("All selected 2PQ cases must belong to the same institution."),
       );
     }
   }
 
   if (formType === "study_request" && flowState.selectedInstitutionId) {
     const requestInstitution = institutions.find(
-      (institution) => institution.id === flowState.selectedInstitutionId
+      (institution) => institution.id === flowState.selectedInstitutionId,
     );
     if (!requestInstitution) {
       addIssue(
         "institutionInformation",
         "selectedInstitutionId",
-        t("Selected institution is not available in the current lookup data.")
+        t("Selected institution is not available in the current lookup data."),
       );
     } else if (institutionId && requestInstitution.id !== institutionId) {
       addIssue(
         "institutionInformation",
         "selectedInstitutionId",
-        t("Selected institution must match the form institution scope.")
+        t("Selected institution must match the form institution scope."),
       );
     }
   }
 
   if (formType === "sample") {
     const linkedStudyRequestForm = studyRequestForms.find(
-      (form) => form.id === flowState.linkedStudyRequestFormId
+      (form) => form.id === flowState.linkedStudyRequestFormId,
     );
     if (!flowState.linkedStudyRequestFormId) {
       addIssue(
         "linkedStudyRequest",
         "linkedStudyRequestFormId",
-        t("Select a linked study request form.")
+        t("Select a linked study request form."),
       );
     } else if (!linkedStudyRequestForm) {
       addIssue(
         "linkedStudyRequest",
         "linkedStudyRequestFormId",
-        t("Linked study request form is not available in the current lookup data.")
+        t(
+          "Linked study request form is not available in the current lookup data.",
+        ),
       );
     } else {
       const linkedPatientId =
@@ -2026,7 +2111,9 @@ function validateWholeDocument({
         addIssue(
           "linkedStudyRequest",
           "linkedStudyRequestFormId",
-          t("Linked study request form must match the patient institution and doctor.")
+          t(
+            "Linked study request form must match the patient institution and doctor.",
+          ),
         );
       }
       if (
@@ -2037,48 +2124,54 @@ function validateWholeDocument({
         addIssue(
           "linkedStudyRequest",
           "linkedStudyRequestFormId",
-          t("Linked study request form must match the selected patient.")
+          t("Linked study request form must match the selected patient."),
         );
       }
     }
 
-    const boxCode = normalizeBoxCodeForValidation(flowState.sampleInformation.boxCode);
+    const boxCode = normalizeBoxCodeForValidation(
+      flowState.sampleInformation.boxCode,
+    );
     const selectedRequestingDoctorId =
       flowState.selectedRequestingDoctorId || doctorId;
     if (!selectedRequestingDoctorId) {
       addIssue(
         "doctorInformation",
         "selectedRequestingDoctorId",
-        t("Requesting doctor is required.")
+        t("Requesting doctor is required."),
       );
     } else {
       const requestingDoctor = doctors.find(
-        (doctor) => doctor.id === selectedRequestingDoctorId
+        (doctor) => doctor.id === selectedRequestingDoctorId,
       );
       if (!requestingDoctor) {
         addIssue(
           "doctorInformation",
           "selectedRequestingDoctorId",
-          t("Selected requesting doctor is not available in the current lookup data.")
+          t(
+            "Selected requesting doctor is not available in the current lookup data.",
+          ),
         );
       } else if (requestingDoctor.institutionId !== institutionId) {
         addIssue(
           "doctorInformation",
           "selectedRequestingDoctorId",
-          t("Selected requesting doctor must belong to the selected institution.")
+          t(
+            "Selected requesting doctor must belong to the selected institution.",
+          ),
         );
       }
     }
 
     if (flowState.selectedCaseId) {
       const selectedCase = cases.find(
-        (caseRecord) => caseRecord.id === flowState.selectedCaseId
+        (caseRecord) => caseRecord.id === flowState.selectedCaseId,
       );
       if (!selectedCase) {
         addIssue(
           "caseInformation",
           "selectedCaseId",
-          t("Selected 2PQ case is not available in the current lookup data.")
+          t("Selected 2PQ case is not available in the current lookup data."),
         );
       } else {
         if (
@@ -2088,14 +2181,18 @@ function validateWholeDocument({
           addIssue(
             "caseInformation",
             "selectedCaseId",
-            t("Selected 2PQ case must belong to the selected institution and doctor.")
+            t(
+              "Selected 2PQ case must belong to the selected institution and doctor.",
+            ),
           );
         }
         if (!flowState.selectedPatientId && selectedCase.patientId) {
           addIssue(
             "caseInformation",
             "selectedCaseId",
-            t("Selected 2PQ case is already linked to an existing patient. Pick that patient or create a new case.")
+            t(
+              "Selected 2PQ case is already linked to an existing patient. Pick that patient or create a new case.",
+            ),
           );
         }
         if (
@@ -2106,29 +2203,34 @@ function validateWholeDocument({
           addIssue(
             "caseInformation",
             "selectedCaseId",
-            t("Selected 2PQ case must belong to the selected patient.")
+            t("Selected 2PQ case must belong to the selected patient."),
           );
         }
         if (
           isValidBoxCode(boxCode) &&
-          normalizeBoxCodeForValidation(selectedCase.three_letter_code ?? "") !== boxCode
+          normalizeBoxCodeForValidation(
+            selectedCase.three_letter_code ?? "",
+          ) !== boxCode
         ) {
           addIssue(
             "caseInformation",
             "selectedCaseId",
-            t("Selected 2PQ case must match the validated box code.")
+            t("Selected 2PQ case must match the validated box code."),
           );
         }
       }
     } else if (
       isValidBoxCode(boxCode) &&
       flowState.caseInformation.caseLabel.trim() &&
-      !flowState.caseInformation.caseLabel.trim().toUpperCase().startsWith(boxCode)
+      !flowState.caseInformation.caseLabel
+        .trim()
+        .toUpperCase()
+        .startsWith(boxCode)
     ) {
       addIssue(
         "caseInformation",
         "caseInformation.caseLabel",
-        t("Case label must start with the validated box code.")
+        t("Case label must start with the validated box code."),
       );
     }
   }
@@ -2137,7 +2239,9 @@ function validateWholeDocument({
     next[step] = invalidSteps.has(step) ? "invalid" : "valid";
     return next;
   }, {});
-  const firstInvalidStepIndex = steps.findIndex((step) => invalidSteps.has(step));
+  const firstInvalidStepIndex = steps.findIndex((step) =>
+    invalidSteps.has(step),
+  );
 
   return {
     fieldErrors,
@@ -2147,7 +2251,9 @@ function validateWholeDocument({
   };
 }
 
-function patientToFormState(patient: PatientListItem): PatientInformationFormState {
+function patientToFormState(
+  patient: PatientListItem,
+): PatientInformationFormState {
   const splitName = splitFullName(patient.fullName);
 
   return {
@@ -2181,7 +2287,7 @@ function formDoctorId(form: TwoPQFormRecord) {
 }
 
 function studyRequestPatientToFormState(
-  form: TwoPQFormRecord
+  form: TwoPQFormRecord,
 ): PatientInformationFormState {
   const patientInformation = form.patientInformation;
   const fullName =
@@ -2194,7 +2300,8 @@ function studyRequestPatientToFormState(
     institutionId: form.institutionId,
     doctorId: formDoctorId(form),
     email: stringField(patientInformation, "email") || form.patientEmail || "",
-    firstName: stringField(patientInformation, "firstName") || splitName.firstName,
+    firstName:
+      stringField(patientInformation, "firstName") || splitName.firstName,
     lastName: stringField(patientInformation, "lastName") || splitName.lastName,
     fullName,
     medicalRecordNumber: stringField(patientInformation, "medicalRecordNumber"),
@@ -2207,25 +2314,25 @@ function studyRequestPatientToFormState(
     notes: stringField(patientInformation, "notes"),
     includesPartnerInformation: Boolean(
       partnerFullName ||
-        stringField(patientInformation, "partnerMedicalRecordNumber") ||
-        stringField(patientInformation, "partnerBirthDate") ||
-        stringField(patientInformation, "partnerNotes")
+      stringField(patientInformation, "partnerMedicalRecordNumber") ||
+      stringField(patientInformation, "partnerBirthDate") ||
+      stringField(patientInformation, "partnerNotes"),
     ),
     partnerFirstName: splitPartnerName.firstName,
     partnerLastName: splitPartnerName.lastName,
     partnerMedicalRecordNumber: stringField(
       patientInformation,
-      "partnerMedicalRecordNumber"
+      "partnerMedicalRecordNumber",
     ),
     partnerBirthDate: toDateInputValue(
-      stringField(patientInformation, "partnerBirthDate")
+      stringField(patientInformation, "partnerBirthDate"),
     ),
     partnerNotes: stringField(patientInformation, "partnerNotes"),
   };
 }
 
 function institutionToFormState(
-  institution: InstitutionListItem
+  institution: InstitutionListItem,
 ): InstitutionInformationFormState {
   return {
     code: institution.code ?? "",
@@ -2243,7 +2350,7 @@ function institutionToFormState(
 
 export function applyScopedInstitutionSelection(
   flowState: FlowState,
-  institution: InstitutionListItem | undefined
+  institution: InstitutionListItem | undefined,
 ): FlowState {
   if (!institution) {
     return flowState;
@@ -2264,10 +2371,10 @@ export function applyPatientInstitutionSelection(
   flowState: FlowState,
   institutionId: string,
   institution: InstitutionListItem | undefined,
-  doctors: DoctorListItem[]
+  doctors: DoctorListItem[],
 ): FlowState {
   const nextDoctors = doctors.filter(
-    (doctor) => doctor.institutionId === institutionId
+    (doctor) => doctor.institutionId === institutionId,
   );
   const scopedState = institution
     ? applyScopedInstitutionSelection(flowState, institution)
@@ -2289,7 +2396,7 @@ export function applyPatientInstitutionSelection(
       ...scopedState.patientInformation,
       institutionId,
       doctorId: nextDoctors.some(
-        (doctor) => doctor.id === flowState.patientInformation.doctorId
+        (doctor) => doctor.id === flowState.patientInformation.doctorId,
       )
         ? flowState.patientInformation.doctorId
         : "",
@@ -2379,11 +2486,15 @@ function BoxCodeField({
               variant="outline"
               className="border-emerald-200 bg-white/72 text-emerald-900 dark:border-emerald-300/22 dark:bg-emerald-400/10 dark:text-emerald-100"
             >
-              {isComplete ? translate("Validated") : translate("Required first")}
+              {isComplete
+                ? translate("Validated")
+                : translate("Required first")}
             </Badge>
           </div>
           <div className="max-w-xl space-y-2">
-            <Label htmlFor="form-box-code">{translate("Three-letter code")}</Label>
+            <Label htmlFor="form-box-code">
+              {translate("Three-letter code")}
+            </Label>
             <Input
               id="form-box-code"
               value={displayedValue}
@@ -2405,7 +2516,7 @@ function BoxCodeField({
             <FieldError id="form-box-code-error" message={error} />
             <p className="text-xs font-medium text-emerald-950/72 dark:text-emerald-50/74">
               {translate(
-                "Exactly three letters. Numbers and special characters are not accepted."
+                "Exactly three letters. Numbers and special characters are not accepted.",
               )}
             </p>
           </div>
@@ -2424,11 +2535,14 @@ function BoxCodeVisualizer({ code }: { code: string }) {
   const normalizedCode = normalizeBoxCodeInput(code);
   const glyphs = Array.from(
     { length: 3 },
-    (_, index) => normalizedCode[index] ?? "-"
+    (_, index) => normalizedCode[index] ?? "-",
   );
 
   return (
-    <div className="flex items-center gap-2.5" aria-label={`Caja code ${normalizedCode}`}>
+    <div
+      className="flex items-center gap-2.5"
+      aria-label={`Caja code ${normalizedCode}`}
+    >
       {glyphs.map((glyph, index) => (
         <div
           key={`${glyph}-${index}`}
@@ -2470,7 +2584,7 @@ function BoxCodeLinkCard({
           </h3>
           <p className="max-w-2xl text-sm text-emerald-950/72 dark:text-emerald-50/74">
             {translate(
-              "This sample request will be linked to the validated three-letter caja code. It is shown read-only here before the 2PQ case is created or selected."
+              "This sample request will be linked to the validated three-letter caja code. It is shown read-only here before the 2PQ case is created or selected.",
             )}
           </p>
         </div>
@@ -2664,10 +2778,15 @@ export function TwoPQFormFlow({
   const { language } = useAppLanguage();
   const router = useRouter();
   const t = (text: string) => appText(language, text);
-  const matchingDraft = initialDraft?.formType === formType ? initialDraft : null;
+  const availableStudyRequestForms = studyRequestForms.filter(
+    (form) => !form.linkedBiopsyForm,
+  );
+  const matchingDraft =
+    initialDraft?.formType === formType ? initialDraft : null;
   const scopedInstitutionId =
-    isInstitutionManagerRole(adminContext.role) || adminContext.role === "institution_doctor"
-      ? adminContext.institutionId ?? ""
+    isInstitutionManagerRole(adminContext.role) ||
+    adminContext.role === "institution_doctor"
+      ? (adminContext.institutionId ?? "")
       : "";
   const shouldSkipStudyRequestInstitutionStep =
     formType === "study_request" &&
@@ -2682,23 +2801,26 @@ export function TwoPQFormFlow({
         ? SAMPLE_STEPS
         : WITHDRAWAL_REQUEST_STEPS;
   const scopedDoctorId =
-    adminContext.role === "institution_doctor" ? adminContext.doctorId ?? "" : "";
+    adminContext.role === "institution_doctor"
+      ? (adminContext.doctorId ?? "")
+      : "";
   const defaultInstitutionId =
-    scopedInstitutionId || (institutions.length === 1 ? institutions[0]?.id ?? "" : "");
+    scopedInstitutionId ||
+    (institutions.length === 1 ? (institutions[0]?.id ?? "") : "");
   const defaultDoctorId =
     scopedDoctorId ||
     (doctors.length === 1 && doctors[0]?.institutionId === defaultInstitutionId
-      ? doctors[0]?.id ?? ""
+      ? (doctors[0]?.id ?? "")
       : "");
 
   function withdrawalInstitutionSnapshot(caseRecord: TwoPQListItem) {
     const institution = institutions.find(
-      (candidate) => candidate.id === caseRecord.institutionId
+      (candidate) => candidate.id === caseRecord.institutionId,
     );
 
     return institution
       ? institutionInformationWithWithdrawalAddressDefaults(
-          institutionToFormState(institution)
+          institutionToFormState(institution),
         )
       : institutionInformationWithWithdrawalAddressDefaults({
           ...emptyInstitution(),
@@ -2708,7 +2830,7 @@ export function TwoPQFormFlow({
 
   function withWithdrawalInstitutionScope(
     flowState: FlowState,
-    linkedCaseIds: string[]
+    linkedCaseIds: string[],
   ): FlowState {
     const linkedCase = linkedCaseIds
       .map((caseId) => cases.find((caseRecord) => caseRecord.id === caseId))
@@ -2719,9 +2841,10 @@ export function TwoPQFormFlow({
         ...flowState,
         linkedWithdrawalCaseIds: linkedCaseIds,
         selectedInstitutionId: "",
-        institutionInformation: institutionInformationWithWithdrawalAddressDefaults(
-          emptyInstitution()
-        ),
+        institutionInformation:
+          institutionInformationWithWithdrawalAddressDefaults(
+            emptyInstitution(),
+          ),
         patientInformation: {
           ...flowState.patientInformation,
           institutionId: "",
@@ -2741,7 +2864,7 @@ export function TwoPQFormFlow({
       institutionInformation: shouldLoadInstitutionSnapshot
         ? withdrawalInstitutionSnapshot(linkedCase)
         : institutionInformationWithWithdrawalAddressDefaults(
-            flowState.institutionInformation
+            flowState.institutionInformation,
           ),
       patientInformation: {
         ...flowState.patientInformation,
@@ -2753,53 +2876,50 @@ export function TwoPQFormFlow({
 
   const initialStepIndex = useMemo(
     () => resolveDraftStepIndex(matchingDraft, steps),
-    [matchingDraft, steps]
+    [matchingDraft, steps],
   );
-  const initialFlowState = useMemo(
-    () => {
-      const hydratedState = hydrateDraftState(
-        buildInitialState(defaultInstitutionId, defaultDoctorId),
-        matchingDraft
-      );
-      const selectedInitialInstitutionId =
-        hydratedState.selectedInstitutionId ||
-        hydratedState.patientInformation.institutionId;
-      const selectedInitialInstitution = selectedInitialInstitutionId
-        ? institutions.find(
-            (institution) => institution.id === selectedInitialInstitutionId
-          )
-        : undefined;
-      const shouldApplyInitialInstitution =
-        Boolean(selectedInitialInstitution) &&
-        (Boolean(scopedInstitutionId) ||
-          Boolean(hydratedState.selectedInstitutionId) ||
-          !matchingDraft ||
-          !hydratedState.institutionInformation.name.trim());
-
-      const scopedState = shouldApplyInitialInstitution
-        ? applyScopedInstitutionSelection(
-            hydratedState,
-            selectedInitialInstitution
-          )
-        : hydratedState;
-
-      return formType === "withdrawal_request"
-        ? withWithdrawalInstitutionScope(
-            scopedState,
-            scopedState.linkedWithdrawalCaseIds
-          )
-        : scopedState;
-    },
-    [
-      cases,
-      defaultDoctorId,
-      defaultInstitutionId,
-      formType,
-      institutions,
+  const initialFlowState = useMemo(() => {
+    const hydratedState = hydrateDraftState(
+      buildInitialState(defaultInstitutionId, defaultDoctorId),
       matchingDraft,
-      scopedInstitutionId,
-    ]
-  );
+    );
+    const selectedInitialInstitutionId =
+      hydratedState.selectedInstitutionId ||
+      hydratedState.patientInformation.institutionId;
+    const selectedInitialInstitution = selectedInitialInstitutionId
+      ? institutions.find(
+          (institution) => institution.id === selectedInitialInstitutionId,
+        )
+      : undefined;
+    const shouldApplyInitialInstitution =
+      Boolean(selectedInitialInstitution) &&
+      (Boolean(scopedInstitutionId) ||
+        Boolean(hydratedState.selectedInstitutionId) ||
+        !matchingDraft ||
+        !hydratedState.institutionInformation.name.trim());
+
+    const scopedState = shouldApplyInitialInstitution
+      ? applyScopedInstitutionSelection(
+          hydratedState,
+          selectedInitialInstitution,
+        )
+      : hydratedState;
+
+    return formType === "withdrawal_request"
+      ? withWithdrawalInstitutionScope(
+          scopedState,
+          scopedState.linkedWithdrawalCaseIds,
+        )
+      : scopedState;
+  }, [
+    cases,
+    defaultDoctorId,
+    defaultInstitutionId,
+    formType,
+    institutions,
+    matchingDraft,
+    scopedInstitutionId,
+  ]);
 
   const [stepIndex, setStepIndex] = useState(initialStepIndex);
   const [pending, setPending] = useState(false);
@@ -2810,24 +2930,25 @@ export function TwoPQFormFlow({
     useState<StudyRequestPatientMode>(() =>
       formType === "study_request" && initialFlowState.selectedPatientId
         ? "yes"
-        : ""
+        : "",
     );
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [stepValidation, setStepValidation] = useState<StepValidationState>(() =>
-    buildInitialStepValidation(
-      initialFlowState,
-      steps,
-      initialStepIndex,
-      formType,
-      language
-    )
+  const [stepValidation, setStepValidation] = useState<StepValidationState>(
+    () =>
+      buildInitialStepValidation(
+        initialFlowState,
+        steps,
+        initialStepIndex,
+        formType,
+        language,
+      ),
   );
   const [storageProcessingSteps, setStorageProcessingSteps] = useState<
     FormStorageProcessingStep[]
   >([]);
-  const [storageProcessingError, setStorageProcessingError] = useState<string | null>(
-    null
-  );
+  const [storageProcessingError, setStorageProcessingError] = useState<
+    string | null
+  >(null);
   const [wholeDataValidationReport, setWholeDataValidationReport] =
     useState<WholeDataValidationReport | null>(null);
   const [previewValidationReport, setPreviewValidationReport] =
@@ -2842,13 +2963,13 @@ export function TwoPQFormFlow({
   const availableDoctors = doctors.filter((doctor) =>
     state.patientInformation.institutionId
       ? doctor.institutionId === state.patientInformation.institutionId
-      : true
+      : true,
   );
   const selectedInstitution = institutions.find(
-    (institution) => institution.id === state.patientInformation.institutionId
+    (institution) => institution.id === state.patientInformation.institutionId,
   );
   const selectedDoctor = doctors.find(
-    (doctor) => doctor.id === state.patientInformation.doctorId
+    (doctor) => doctor.id === state.patientInformation.doctorId,
   );
   const requestingDoctorId =
     state.selectedRequestingDoctorId || state.patientInformation.doctorId;
@@ -2856,7 +2977,7 @@ export function TwoPQFormFlow({
     ? doctors.find((doctor) => doctor.id === requestingDoctorId)
     : null;
   const selectedPatient = patients.find(
-    (patient) => patient.id === state.selectedPatientId
+    (patient) => patient.id === state.selectedPatientId,
   );
   const isStudyRequestPatientStep =
     formType === "study_request" && currentStep === "patientInformation";
@@ -2868,8 +2989,8 @@ export function TwoPQFormFlow({
     (studyRequestPatientMode === "yes" && Boolean(state.selectedPatientId));
   const studyRequestPatientFormReadOnly =
     isStudyRequestPatientStep && studyRequestPatientMode === "yes";
-  const selectedStudyRequestForm = studyRequestForms.find(
-    (form) => form.id === state.linkedStudyRequestFormId
+  const selectedStudyRequestForm = availableStudyRequestForms.find(
+    (form) => form.id === state.linkedStudyRequestFormId,
   );
   const selectedWithdrawalCases = state.linkedWithdrawalCaseIds
     .map((caseId) => cases.find((caseRecord) => caseRecord.id === caseId))
@@ -2903,7 +3024,7 @@ export function TwoPQFormFlow({
   const selectedStudyRequestDoctor = selectedStudyRequestDoctorId
     ? doctors.find((doctor) => doctor.id === selectedStudyRequestDoctorId)
     : null;
-  const studyRequestFormOptions = studyRequestForms.map((form) => {
+  const studyRequestFormOptions = availableStudyRequestForms.map((form) => {
     const linkedDoctorId = formDoctorId(form);
     const linkedDoctor = linkedDoctorId
       ? doctors.find((doctor) => doctor.id === linkedDoctorId)
@@ -2912,7 +3033,9 @@ export function TwoPQFormFlow({
     return {
       value: form.id,
       label: [
-        form.patientName || stringField(form.patientInformation, "fullName") || form.id,
+        form.patientName ||
+          stringField(form.patientInformation, "fullName") ||
+          form.id,
         form.requestedTestName,
         linkedDoctor?.fullName || linkedDoctorId,
         form.createdAt ? toDateInputValue(form.createdAt) : "",
@@ -2953,16 +3076,18 @@ export function TwoPQFormFlow({
     (option) => ({
       value: option.value,
       label: t(option.label),
-    })
+    }),
   );
   const sampleCaseTypeOptions = SAMPLE_CASE_TYPE_OPTIONS.map((option) => ({
     value: option.value,
     label: t(option.label),
   }));
-  const requestedStudyTestOptions = REQUESTED_STUDY_TEST_OPTIONS.map((option) => ({
-    value: option.value,
-    label: option.label,
-  }));
+  const requestedStudyTestOptions = REQUESTED_STUDY_TEST_OPTIONS.map(
+    (option) => ({
+      value: option.value,
+      label: option.label,
+    }),
+  );
   const biopsyCountOptions = BIOPSY_COUNT_OPTIONS.map((option) => ({
     value: option.value,
     label: option.label,
@@ -2985,13 +3110,13 @@ export function TwoPQFormFlow({
   }));
   const selectedRequestedTest = selectedRequestedTestKey(state.requestedTest);
   const selectedStudyRequestOriginalTest = requestedTestKeyFromRecord(
-    selectedStudyRequestForm?.requestedTest
+    selectedStudyRequestForm?.requestedTest,
   );
   const sampleRequestedTestChanged = Boolean(
     formType === "sample" &&
-      selectedStudyRequestOriginalTest &&
-      selectedRequestedTest &&
-      selectedStudyRequestOriginalTest !== selectedRequestedTest
+    selectedStudyRequestOriginalTest &&
+    selectedRequestedTest &&
+    selectedStudyRequestOriginalTest !== selectedRequestedTest,
   );
   const selectedCaseType = caseTypeForRequestedTestKey(selectedRequestedTest);
   const notProvidedLabel = t("Not provided");
@@ -2999,15 +3124,17 @@ export function TwoPQFormFlow({
     value?.trim() || notProvidedLabel;
   const previewOptionValue = (
     options: Array<{ value: string; label: string }>,
-    value: string | undefined | null
+    value: string | undefined | null,
   ) => {
     const normalizedValue = value?.trim();
     if (!normalizedValue) {
       return notProvidedLabel;
     }
 
-    return options.find((option) => option.value === normalizedValue)?.label ??
-      normalizedValue;
+    return (
+      options.find((option) => option.value === normalizedValue)?.label ??
+      normalizedValue
+    );
   };
   const previewDateValue = (value: string | undefined | null) => {
     const normalizedValue = value?.trim();
@@ -3097,7 +3224,11 @@ export function TwoPQFormFlow({
         label: t("Status"),
         value: selectedRequestingDoctor
           ? previewValue(
-              t(selectedRequestingDoctor.status === "inactive" ? "Inactive" : "Active")
+              t(
+                selectedRequestingDoctor.status === "inactive"
+                  ? "Inactive"
+                  : "Active",
+              ),
             )
           : previewValue(""),
       },
@@ -3162,34 +3293,34 @@ export function TwoPQFormFlow({
         : t("No"),
     },
   ];
-  const partnerPreviewFields: PreviewField[] =
-    state.patientInformation.includesPartnerInformation
-      ? [
-          {
-            label: t("Partner first name"),
-            value: previewValue(state.patientInformation.partnerFirstName),
-          },
-          {
-            label: t("Partner last name"),
-            value: previewValue(state.patientInformation.partnerLastName),
-          },
-          {
-            label: t("Partner DNI"),
-            value: previewValue(
-              state.patientInformation.partnerMedicalRecordNumber
-            ),
-          },
-          {
-            label: t("Partner birth date"),
-            value: previewDateValue(state.patientInformation.partnerBirthDate),
-          },
-          {
-            label: t("Partner notes"),
-            value: previewValue(state.patientInformation.partnerNotes),
-            wide: true,
-          },
-        ]
-      : [];
+  const partnerPreviewFields: PreviewField[] = state.patientInformation
+    .includesPartnerInformation
+    ? [
+        {
+          label: t("Partner first name"),
+          value: previewValue(state.patientInformation.partnerFirstName),
+        },
+        {
+          label: t("Partner last name"),
+          value: previewValue(state.patientInformation.partnerLastName),
+        },
+        {
+          label: t("Partner DNI"),
+          value: previewValue(
+            state.patientInformation.partnerMedicalRecordNumber,
+          ),
+        },
+        {
+          label: t("Partner birth date"),
+          value: previewDateValue(state.patientInformation.partnerBirthDate),
+        },
+        {
+          label: t("Partner notes"),
+          value: previewValue(state.patientInformation.partnerNotes),
+          wide: true,
+        },
+      ]
+    : [];
   const patientInformationSummarySection: PreviewSectionData = {
     title: t("Patient data"),
     fields: [...patientPreviewFields, ...partnerPreviewFields],
@@ -3203,25 +3334,28 @@ export function TwoPQFormFlow({
           label: t("Previous miscarriages"),
           value: previewOptionValue(
             previousMiscarriagesOptions,
-            state.medicalInformation.previousMiscarriagesCount
+            state.medicalInformation.previousMiscarriagesCount,
           ),
         },
         {
           label: t("Male factor"),
-          value: previewOptionValue(yesNoOptions, state.medicalInformation.maleFactor),
+          value: previewOptionValue(
+            yesNoOptions,
+            state.medicalInformation.maleFactor,
+          ),
         },
         {
           label: t("Sperm"),
           value: previewOptionValue(
             gameteSourceOptions,
-            state.medicalInformation.spermGameteSource
+            state.medicalInformation.spermGameteSource,
           ),
         },
         {
           label: t("Oocytes"),
           value: previewOptionValue(
             gameteSourceOptions,
-            state.medicalInformation.oocyteGameteSource
+            state.medicalInformation.oocyteGameteSource,
           ),
         },
         {
@@ -3248,7 +3382,7 @@ export function TwoPQFormFlow({
                 ? state.requestedTest.pgtAStandardReportsMosaicism
                 : selectedRequestedTest === "pgtSr"
                   ? state.requestedTest.pgtSrReportsMosaicism
-                  : ""
+                  : "",
           ),
         },
         {
@@ -3261,14 +3395,14 @@ export function TwoPQFormFlow({
                 ? state.requestedTest.pgtAStandardReportsSex
                 : selectedRequestedTest === "pgtSr"
                   ? state.requestedTest.pgtSrReportsSex
-                  : ""
+                  : "",
           ),
         },
         {
           label: t("Has karyotype information?"),
           value: previewOptionValue(
             yesNoOptions,
-            state.previousGeneticTests.karyotype
+            state.previousGeneticTests.karyotype,
           ),
         },
         {
@@ -3282,7 +3416,7 @@ export function TwoPQFormFlow({
         {
           label: t("Karyotype file size"),
           value: previewFileSizeValue(
-            state.previousGeneticTests.karyotypeFileSize
+            state.previousGeneticTests.karyotypeFileSize,
           ),
         },
       ],
@@ -3355,7 +3489,9 @@ export function TwoPQFormFlow({
         },
         {
           label: t("Original requested test"),
-          value: previewValue(requestedTestKeyLabel(selectedStudyRequestOriginalTest)),
+          value: previewValue(
+            requestedTestKeyLabel(selectedStudyRequestOriginalTest),
+          ),
         },
       ],
     },
@@ -3388,8 +3524,8 @@ export function TwoPQFormFlow({
             state.patientInformation.fullName ||
               joinNameParts(
                 state.patientInformation.firstName,
-                state.patientInformation.lastName
-              )
+                state.patientInformation.lastName,
+              ),
           ),
         },
         {
@@ -3411,7 +3547,9 @@ export function TwoPQFormFlow({
         },
         {
           label: t("Original requested test"),
-          value: previewValue(requestedTestKeyLabel(selectedStudyRequestOriginalTest)),
+          value: previewValue(
+            requestedTestKeyLabel(selectedStudyRequestOriginalTest),
+          ),
         },
         {
           label: t("Reports mosaicism"),
@@ -3423,7 +3561,7 @@ export function TwoPQFormFlow({
                 ? state.requestedTest.pgtAStandardReportsMosaicism
                 : selectedRequestedTest === "pgtSr"
                   ? state.requestedTest.pgtSrReportsMosaicism
-                  : ""
+                  : "",
           ),
         },
         {
@@ -3436,16 +3574,16 @@ export function TwoPQFormFlow({
                 ? state.requestedTest.pgtAStandardReportsSex
                 : selectedRequestedTest === "pgtSr"
                   ? state.requestedTest.pgtSrReportsSex
-                  : ""
+                  : "",
           ),
         },
         {
           label: t("Change warning"),
           value: sampleRequestedTestChanged
             ? `${t(
-                "The biopsy form test is different from the linked study request test."
+                "The biopsy form test is different from the linked study request test.",
               )} ${t(
-                "The newly selected test in this biopsy form will be used as the final decision to continue processing the sample."
+                "The newly selected test in this biopsy form will be used as the final decision to continue processing the sample.",
               )}`
             : t("No changes from linked study request."),
           wide: true,
@@ -3461,7 +3599,10 @@ export function TwoPQFormFlow({
         },
         {
           label: t("Sample type"),
-          value: previewOptionValue(sampleTypeOptions, state.sampleInformation.sampleType),
+          value: previewOptionValue(
+            sampleTypeOptions,
+            state.sampleInformation.sampleType,
+          ),
         },
         {
           label: t("Process date"),
@@ -3472,8 +3613,8 @@ export function TwoPQFormFlow({
           value: previewValue(
             joinNameParts(
               state.sampleInformation.processedByFirstName,
-              state.sampleInformation.processedByLastName
-            )
+              state.sampleInformation.processedByLastName,
+            ),
           ),
         },
         {
@@ -3488,7 +3629,9 @@ export function TwoPQFormFlow({
       fields: [
         {
           label: t("Case label"),
-          value: previewValue(displayCaseLabel(state.caseInformation.caseLabel)),
+          value: previewValue(
+            displayCaseLabel(state.caseInformation.caseLabel),
+          ),
         },
         {
           label: t("Case status"),
@@ -3496,16 +3639,19 @@ export function TwoPQFormFlow({
         },
         {
           label: t("Case type"),
-          value: previewValue(state.caseInformation.caseType || selectedCaseType),
+          value: previewValue(
+            state.caseInformation.caseType || selectedCaseType,
+          ),
         },
         {
           label: t("Priority"),
-          value: state.caseInformation.priority || selectedCaseType
-            ? (state.caseInformation.priority ||
-                priorityForSampleCaseType(selectedCaseType)) === "urgent"
-              ? t("Urgent")
-              : t("Routine")
-            : notProvidedLabel,
+          value:
+            state.caseInformation.priority || selectedCaseType
+              ? (state.caseInformation.priority ||
+                  priorityForSampleCaseType(selectedCaseType)) === "urgent"
+                ? t("Urgent")
+                : t("Routine")
+              : notProvidedLabel,
         },
         {
           label: t("Requested at"),
@@ -3577,11 +3723,11 @@ export function TwoPQFormFlow({
                   caseRecord.id,
                 `${t("Current status")}: ${previewOptionValue(
                   caseStatusOptions,
-                  normalizeTwoPQCaseStatus(caseRecord.caseStatus)
+                  normalizeTwoPQCaseStatus(caseRecord.caseStatus),
                 )}`,
                 `${t("New status")}: ${previewOptionValue(
                   caseStatusOptions,
-                  TwoPQCaseStatus.AwaitingPickUp
+                  TwoPQCaseStatus.AwaitingPickUp,
                 )}`,
                 caseRecord.patientName
                   ? `${t("Patient")}: ${caseRecord.patientName}`
@@ -3607,7 +3753,7 @@ export function TwoPQFormFlow({
         {
           label: t("Case status update"),
           value: t(
-            "When this form is signed, every selected case will be marked as Awaiting pick up."
+            "When this form is signed, every selected case will be marked as Awaiting pick up.",
           ),
           wide: true,
         },
@@ -3620,17 +3766,17 @@ export function TwoPQFormFlow({
       language === "es"
         ? `${stepIndex + 1} de ${steps.length}`
         : `${stepIndex + 1} of ${steps.length}`,
-    [language, stepIndex, steps.length]
+    [language, stepIndex, steps.length],
   );
   const restoredFromDraft = Boolean(matchingDraft);
   const storageProcessingCompletedCount = storageProcessingSteps.filter(
-    (step) => step.status === "success"
+    (step) => step.status === "success",
   ).length;
   const storageProcessingBlockedCount = storageProcessingSteps.filter(
-    (step) => step.status === "error"
+    (step) => step.status === "error",
   ).length;
   const storageProcessingPendingCount = storageProcessingSteps.filter(
-    (step) => step.status === "pending"
+    (step) => step.status === "pending",
   ).length;
   const storageProcessingPercent =
     storageProcessingSteps.length > 0
@@ -3641,12 +3787,12 @@ export function TwoPQFormFlow({
             Math.round(
               (storageProcessingCompletedCount /
                 Math.max(storageProcessingSteps.length, 1)) *
-                100
-            )
+                100,
+            ),
           )
       : 0;
   const runningStorageStep = storageProcessingSteps.find(
-    (step) => step.status === "running"
+    (step) => step.status === "running",
   );
   const previewValidationSteps =
     formType === "sample"
@@ -3694,16 +3840,16 @@ export function TwoPQFormFlow({
 
   function updateStorageProcessingStep(
     stepId: string,
-    status: FormStorageProcessingStatus
+    status: FormStorageProcessingStatus,
   ) {
     setStorageProcessingSteps((current) =>
-      current.map((step) => (step.id === stepId ? { ...step, status } : step))
+      current.map((step) => (step.id === stepId ? { ...step, status } : step)),
     );
   }
 
   async function runStorageProcessingStep(
     stepId: string,
-    action?: () => Promise<void>
+    action?: () => Promise<void>,
   ) {
     updateStorageProcessingStep(stepId, "running");
     try {
@@ -3728,11 +3874,11 @@ export function TwoPQFormFlow({
   async function persistDraftSnapshot(
     nextStepIndex: number,
     nextState: FlowState = state,
-    options: { quiet?: boolean; errorMessage?: string } = {}
+    options: { quiet?: boolean; errorMessage?: string } = {},
   ) {
     const boundedStepIndex = Math.min(
       Math.max(nextStepIndex, 0),
-      steps.length - 1
+      steps.length - 1,
     );
     const nextStep = steps[boundedStepIndex] ?? steps[0];
 
@@ -3774,7 +3920,7 @@ export function TwoPQFormFlow({
   }, []);
 
   function updatePatientInformation(
-    patch: Partial<PatientInformationFormState>
+    patch: Partial<PatientInformationFormState>,
   ) {
     setState((current) => ({
       ...current,
@@ -3785,7 +3931,9 @@ export function TwoPQFormFlow({
     }));
   }
 
-  function updatePartnerInformationIncluded(includesPartnerInformation: boolean) {
+  function updatePartnerInformationIncluded(
+    includesPartnerInformation: boolean,
+  ) {
     updatePatientInformation(
       includesPartnerInformation
         ? { includesPartnerInformation }
@@ -3796,29 +3944,35 @@ export function TwoPQFormFlow({
             partnerMedicalRecordNumber: "",
             partnerBirthDate: "",
             partnerNotes: "",
-          }
+          },
     );
   }
 
   function buildPatientInformationSubmission(
-    patientInformation: PatientInformationFormState
+    patientInformation: PatientInformationFormState,
   ) {
     const fullName =
       formType === "study_request"
-        ? joinNameParts(patientInformation.firstName, patientInformation.lastName)
+        ? joinNameParts(
+            patientInformation.firstName,
+            patientInformation.lastName,
+          )
         : patientInformation.fullName.trim() ||
-          joinNameParts(patientInformation.firstName, patientInformation.lastName);
+          joinNameParts(
+            patientInformation.firstName,
+            patientInformation.lastName,
+          );
     const partnerFullName = joinNameParts(
       patientInformation.partnerFirstName,
-      patientInformation.partnerLastName
+      patientInformation.partnerLastName,
     );
     const hasPartnerInformation = Boolean(
       formType === "study_request" &&
-        patientInformation.includesPartnerInformation &&
-        (partnerFullName ||
-          patientInformation.partnerMedicalRecordNumber.trim() ||
-          patientInformation.partnerBirthDate.trim() ||
-          patientInformation.partnerNotes.trim())
+      patientInformation.includesPartnerInformation &&
+      (partnerFullName ||
+        patientInformation.partnerMedicalRecordNumber.trim() ||
+        patientInformation.partnerBirthDate.trim() ||
+        patientInformation.partnerNotes.trim()),
     );
 
     return {
@@ -3849,7 +4003,7 @@ export function TwoPQFormFlow({
   }
 
   function updateInstitutionInformation(
-    patch: Partial<InstitutionInformationFormState>
+    patch: Partial<InstitutionInformationFormState>,
   ) {
     setState((current) => ({
       ...current,
@@ -3860,7 +4014,9 @@ export function TwoPQFormFlow({
     }));
   }
 
-  function updateMedicalInformation(patch: Partial<MedicalInformationFormState>) {
+  function updateMedicalInformation(
+    patch: Partial<MedicalInformationFormState>,
+  ) {
     setState((current) => ({
       ...current,
       medicalInformation: { ...current.medicalInformation, ...patch },
@@ -3868,7 +4024,7 @@ export function TwoPQFormFlow({
   }
 
   function updatePreviousGeneticTests(
-    patch: Partial<PreviousGeneticTestsFormState>
+    patch: Partial<PreviousGeneticTestsFormState>,
   ) {
     setState((current) => ({
       ...current,
@@ -3896,7 +4052,7 @@ export function TwoPQFormFlow({
     setState((current) => {
       const requestedTest = withRequestedStudyTestSelection(
         current.requestedTest,
-        selectedKey
+        selectedKey,
       );
       const caseType = caseTypeForRequestedTestKey(selectedKey);
       return {
@@ -3981,7 +4137,7 @@ export function TwoPQFormFlow({
   function removeWithdrawalCase(caseId: string) {
     setState((current) => {
       const linkedWithdrawalCaseIds = current.linkedWithdrawalCaseIds.filter(
-        (linkedCaseId) => linkedCaseId !== caseId
+        (linkedCaseId) => linkedCaseId !== caseId,
       );
 
       return withWithdrawalInstitutionScope(
@@ -3989,13 +4145,15 @@ export function TwoPQFormFlow({
           ...current,
           linkedWithdrawalCaseIds,
         },
-        linkedWithdrawalCaseIds
+        linkedWithdrawalCaseIds,
       );
     });
   }
 
   function selectLinkedStudyRequestForm(formId: string) {
-    const linkedForm = studyRequestForms.find((form) => form.id === formId);
+    const linkedForm = availableStudyRequestForms.find(
+      (form) => form.id === formId,
+    );
     if (!linkedForm) {
       setState((current) => ({
         ...current,
@@ -4013,16 +4171,17 @@ export function TwoPQFormFlow({
 
     const linkedPatientInformation = studyRequestPatientToFormState(linkedForm);
     const linkedInstitution = institutions.find(
-      (institution) => institution.id === linkedForm.institutionId
+      (institution) => institution.id === linkedForm.institutionId,
     );
     const linkedPatientId =
       linkedForm.selectedPatientId ||
       stringField(linkedForm.patientInformation, "patientId");
     const linkedRequestedTest = requestedTestToFormState(
       linkedForm.requestedTest,
-      buildInitialState(defaultInstitutionId, defaultDoctorId).requestedTest
+      buildInitialState(defaultInstitutionId, defaultDoctorId).requestedTest,
     );
-    const linkedRequestedTestKey = selectedRequestedTestKey(linkedRequestedTest);
+    const linkedRequestedTestKey =
+      selectedRequestedTestKey(linkedRequestedTest);
     const linkedCaseType = caseTypeForRequestedTestKey(linkedRequestedTestKey);
 
     setState((current) => ({
@@ -4036,7 +4195,10 @@ export function TwoPQFormFlow({
       patientInformation: linkedPatientInformation,
       institutionInformation: linkedInstitution
         ? institutionToFormState(linkedInstitution)
-        : mergeDraftSection(emptyInstitution(), linkedForm.institutionInformation),
+        : mergeDraftSection(
+            emptyInstitution(),
+            linkedForm.institutionInformation,
+          ),
       requestedTest: linkedRequestedTest,
       caseInformation: {
         ...withCaseDefaultsForBoxCode({
@@ -4079,9 +4241,9 @@ export function TwoPQFormFlow({
     setFieldErrors((current) =>
       Object.fromEntries(
         Object.entries(current).filter(
-          ([key]) => !isStepErrorKey(key, "samplingInformation")
-        )
-      )
+          ([key]) => !isStepErrorKey(key, "samplingInformation"),
+        ),
+      ),
     );
     setStepValidation((current) => {
       const next = { ...current };
@@ -4092,13 +4254,14 @@ export function TwoPQFormFlow({
 
   function updateSamplingInformation(
     index: number,
-    patch: Partial<SamplingInformationFormState>
+    patch: Partial<SamplingInformationFormState>,
   ) {
     clearSamplingTableValidationState();
     setState((current) => ({
       ...current,
-      samplingInformation: current.samplingInformation.map((entry, entryIndex) =>
-        entryIndex === index ? { ...entry, ...patch } : entry
+      samplingInformation: current.samplingInformation.map(
+        (entry, entryIndex) =>
+          entryIndex === index ? { ...entry, ...patch } : entry,
       ),
     }));
   }
@@ -4127,7 +4290,8 @@ export function TwoPQFormFlow({
   }
 
   function defaultPatientInformationForStudyRequest() {
-    return buildInitialState(defaultInstitutionId, defaultDoctorId).patientInformation;
+    return buildInitialState(defaultInstitutionId, defaultDoctorId)
+      .patientInformation;
   }
 
   function selectStudyRequestPatientMode(nextMode: string) {
@@ -4137,9 +4301,9 @@ export function TwoPQFormFlow({
     setFieldErrors((current) =>
       Object.fromEntries(
         Object.entries(current).filter(
-          ([key]) => !isStepErrorKey(key, "patientInformation")
-        )
-      )
+          ([key]) => !isStepErrorKey(key, "patientInformation"),
+        ),
+      ),
     );
     setStepValidation((current) => {
       const next = { ...current };
@@ -4160,14 +4324,17 @@ export function TwoPQFormFlow({
   function selectPatient(patientId: string) {
     const patient = patients.find((candidate) => candidate.id === patientId);
     const patientInstitution = patient
-      ? institutions.find((institution) => institution.id === patient.institutionId)
+      ? institutions.find(
+          (institution) => institution.id === patient.institutionId,
+        )
       : null;
     setState((current) => ({
       ...current,
       selectedPatientId: patientId,
       selectedCaseId: "",
       selectedRequestingDoctorId: "",
-      selectedInstitutionId: patientInstitution?.id ?? current.selectedInstitutionId,
+      selectedInstitutionId:
+        patientInstitution?.id ?? current.selectedInstitutionId,
       institutionInformation: patientInstitution
         ? institutionToFormState(patientInstitution)
         : current.institutionInformation,
@@ -4186,9 +4353,9 @@ export function TwoPQFormFlow({
     setFieldErrors((current) =>
       Object.fromEntries(
         Object.entries(current).filter(
-          ([key]) => !isStepErrorKey(key, "patientInformation")
-        )
-      )
+          ([key]) => !isStepErrorKey(key, "patientInformation"),
+        ),
+      ),
     );
     setStepValidation((current) => {
       const next = { ...current };
@@ -4198,9 +4365,16 @@ export function TwoPQFormFlow({
   }
 
   function selectInstitution(institutionId: string) {
-    const institution = institutions.find((candidate) => candidate.id === institutionId);
+    const institution = institutions.find(
+      (candidate) => candidate.id === institutionId,
+    );
     setState((current) =>
-      applyPatientInstitutionSelection(current, institutionId, institution, doctors)
+      applyPatientInstitutionSelection(
+        current,
+        institutionId,
+        institution,
+        doctors,
+      ),
     );
   }
 
@@ -4230,10 +4404,10 @@ export function TwoPQFormFlow({
 
   function biopsyTableCellVisualState(
     index: number,
-    key: keyof SamplingInformationFormState
+    key: keyof SamplingInformationFormState,
   ) {
     const kind = biopsyTableCellValidationKindForFieldError(
-      `samplingInformation.${index}.${key}`
+      `samplingInformation.${index}.${key}`,
     );
 
     if (kind === BiopsyTableCellValidationKind.MissingRequiredValue) {
@@ -4249,7 +4423,7 @@ export function TwoPQFormFlow({
 
   function biopsyTableCellFieldError(
     index: number,
-    key: keyof SamplingInformationFormState
+    key: keyof SamplingInformationFormState,
   ) {
     const fieldKey = `samplingInformation.${index}.${key}`;
     return biopsyTableCellVisualState(index, key) ===
@@ -4258,7 +4432,10 @@ export function TwoPQFormFlow({
       : undefined;
   }
 
-  function samplingCellClass(index: number, key: keyof SamplingInformationFormState) {
+  function samplingCellClass(
+    index: number,
+    key: keyof SamplingInformationFormState,
+  ) {
     const visualState = biopsyTableCellVisualState(index, key);
 
     return [
@@ -4276,7 +4453,7 @@ export function TwoPQFormFlow({
 
   function spreadsheetInputClass(
     index: number,
-    key: keyof SamplingInformationFormState
+    key: keyof SamplingInformationFormState,
   ) {
     const visualState = biopsyTableCellVisualState(index, key);
 
@@ -4292,13 +4469,13 @@ export function TwoPQFormFlow({
 
   function focusBiopsyTableCell(
     rowIndex: number,
-    key: keyof SamplingInformationFormState
+    key: keyof SamplingInformationFormState,
   ) {
     const cell = document.querySelector<HTMLElement>(
-      `[data-biopsy-cell="${rowIndex}:${key}"]`
+      `[data-biopsy-cell="${rowIndex}:${key}"]`,
     );
     const focusable = cell?.querySelector<HTMLElement>(
-      "input, textarea, button, [role='combobox'], [tabindex]:not([tabindex='-1'])"
+      "input, textarea, button, [role='combobox'], [tabindex]:not([tabindex='-1'])",
     );
     focusable?.focus();
   }
@@ -4306,7 +4483,7 @@ export function TwoPQFormFlow({
   function handleBiopsyCellKeyDown(
     event: KeyboardEvent<HTMLElement>,
     rowIndex: number,
-    key: keyof SamplingInformationFormState
+    key: keyof SamplingInformationFormState,
   ) {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
       return;
@@ -4324,7 +4501,7 @@ export function TwoPQFormFlow({
   function setStepErrors(step: StepKey, errors: FieldErrors) {
     setFieldErrors((current) => ({
       ...Object.fromEntries(
-        Object.entries(current).filter(([key]) => !isStepErrorKey(key, step))
+        Object.entries(current).filter(([key]) => !isStepErrorKey(key, step)),
       ),
       ...errors,
     }));
@@ -4352,7 +4529,9 @@ export function TwoPQFormFlow({
 
     if (!studyRequestPatientMode) {
       return {
-        selectedPatientId: t("Select whether the form uses a pre-existing patient."),
+        selectedPatientId: t(
+          "Select whether the form uses a pre-existing patient.",
+        ),
       };
     }
 
@@ -4363,7 +4542,12 @@ export function TwoPQFormFlow({
     }
 
     if (studyRequestPatientMode === "no") {
-      return validateStepFields("patientInformation", state, formType, language);
+      return validateStepFields(
+        "patientInformation",
+        state,
+        formType,
+        language,
+      );
     }
 
     return {};
@@ -4382,7 +4566,9 @@ export function TwoPQFormFlow({
       return Boolean(state.selectedPatientId);
     }
 
-    return !hasErrors(validateStepFields("patientInformation", state, formType, language));
+    return !hasErrors(
+      validateStepFields("patientInformation", state, formType, language),
+    );
   }
 
   function validateBiopsyTableBeforePreview(flowState: FlowState) {
@@ -4440,14 +4626,16 @@ export function TwoPQFormFlow({
     setStepIndex(previewStepIndex);
   }
 
-  async function validateAndContinueToPreview(validationState: FlowState = state) {
+  async function validateAndContinueToPreview(
+    validationState: FlowState = state,
+  ) {
     if (previewStepIndex < 0) {
       return;
     }
 
     const normalizedWithObservations = withDefaultObservations(
       validationState,
-      formType
+      formType,
     );
     const normalizedValidationState =
       formType === "withdrawal_request"
@@ -4473,7 +4661,7 @@ export function TwoPQFormFlow({
       doctors,
       patients,
       cases,
-      studyRequestForms,
+      studyRequestForms: availableStudyRequestForms,
     });
     setFieldErrors(wholeValidation.fieldErrors);
     setStepValidation((current) => ({
@@ -4500,7 +4688,7 @@ export function TwoPQFormFlow({
     try {
       await persistDraftSnapshot(previewStepIndex, normalizedValidationState, {
         errorMessage: t(
-          "Preview validation passed, but the draft checkpoint could not be saved."
+          "Preview validation passed, but the draft checkpoint could not be saved.",
         ),
       });
       setPreviewValidationReport(null);
@@ -4560,7 +4748,7 @@ export function TwoPQFormFlow({
       currentStep,
       stateForValidation,
       formType,
-      language
+      language,
     );
     setStepErrors(currentStep, errors);
     if (hasErrors(errors)) {
@@ -4581,7 +4769,7 @@ export function TwoPQFormFlow({
             withCaseDefaultsForBoxCode({
               ...stateForValidation,
               selectedCaseId: "",
-            })
+            }),
           )
         : steps[nextStepIndex] === "caseInformation"
           ? withCaseDefaultsForBoxCode({
@@ -4601,7 +4789,7 @@ export function TwoPQFormFlow({
   async function selectStep(nextStepIndex: number) {
     const boundedStepIndex = Math.min(
       Math.max(nextStepIndex, 0),
-      steps.length - 1
+      steps.length - 1,
     );
     if (boundedStepIndex === stepIndex) {
       return;
@@ -4681,10 +4869,10 @@ export function TwoPQFormFlow({
     const submissionBaseState = withDefaultObservations(
       formType === "sample"
         ? withGeneratedSamplingTable(
-            withCaseDefaultsForBoxCode({ ...state, selectedCaseId: "" })
+            withCaseDefaultsForBoxCode({ ...state, selectedCaseId: "" }),
           )
         : state,
-      formType
+      formType,
     );
     const submissionState =
       formType === "withdrawal_request"
@@ -4721,7 +4909,7 @@ export function TwoPQFormFlow({
       doctors,
       patients,
       cases,
-      studyRequestForms,
+      studyRequestForms: availableStudyRequestForms,
     });
     setFieldErrors(wholeValidation.fieldErrors);
     setStepValidation(wholeValidation.stepValidation);
@@ -4749,17 +4937,19 @@ export function TwoPQFormFlow({
     const nextStorageProcessingSteps = buildFormStorageProcessingSteps(
       submissionState,
       formType,
-      language
+      language,
     );
     const remoteProcessingStepIds = nextStorageProcessingSteps
       .map((step) => step.id)
-      .filter((stepId) => stepId !== "validate-payload" && stepId !== "save-draft");
+      .filter(
+        (stepId) => stepId !== "validate-payload" && stepId !== "save-draft",
+      );
     setStorageProcessingSteps(nextStorageProcessingSteps);
 
     try {
       await runStorageProcessingStep("validate-payload", async () => wait(160));
       await runStorageProcessingStep("save-draft", async () =>
-        persistDraftSnapshot(stepIndex, submissionState)
+        persistDraftSnapshot(stepIndex, submissionState),
       );
 
       const body =
@@ -4769,7 +4959,7 @@ export function TwoPQFormFlow({
               selectedPatientId: submissionState.selectedPatientId,
               selectedInstitutionId: submissionState.selectedInstitutionId,
               patientInformation: buildPatientInformationSubmission(
-                submissionState.patientInformation
+                submissionState.patientInformation,
               ),
               medicalInformation: submissionState.medicalInformation,
               previousGeneticTests: submissionState.previousGeneticTests,
@@ -4782,27 +4972,28 @@ export function TwoPQFormFlow({
                 linkedCaseIds: submissionState.linkedWithdrawalCaseIds,
                 institutionInformation: submissionState.institutionInformation,
               }
-          : {
-              formType,
-              linkedStudyRequestFormId: submissionState.linkedStudyRequestFormId,
-              selectedPatientId: submissionState.selectedPatientId,
-              selectedCaseId: submissionState.selectedCaseId,
-              selectedRequestingDoctorId:
-                submissionState.selectedRequestingDoctorId ||
-                submissionState.patientInformation.doctorId,
-              patientInformation: buildPatientInformationSubmission(
-                submissionState.patientInformation
-              ),
-              requestedTest: submissionState.requestedTest,
-              sampleInformation: submissionState.sampleInformation,
-              caseInformation: {
-                ...submissionState.caseInformation,
-                caseStatus: normalizeTwoPQCaseStatus(
-                  submissionState.caseInformation.caseStatus,
+            : {
+                formType,
+                linkedStudyRequestFormId:
+                  submissionState.linkedStudyRequestFormId,
+                selectedPatientId: submissionState.selectedPatientId,
+                selectedCaseId: submissionState.selectedCaseId,
+                selectedRequestingDoctorId:
+                  submissionState.selectedRequestingDoctorId ||
+                  submissionState.patientInformation.doctorId,
+                patientInformation: buildPatientInformationSubmission(
+                  submissionState.patientInformation,
                 ),
-              },
-              samplingInformation: submissionState.samplingInformation,
-            };
+                requestedTest: submissionState.requestedTest,
+                sampleInformation: submissionState.sampleInformation,
+                caseInformation: {
+                  ...submissionState.caseInformation,
+                  caseStatus: normalizeTwoPQCaseStatus(
+                    submissionState.caseInformation.caseStatus,
+                  ),
+                },
+                samplingInformation: submissionState.samplingInformation,
+              };
       const firstRemoteStepId = remoteProcessingStepIds[0];
       if (firstRemoteStepId) {
         updateStorageProcessingStep(firstRemoteStepId, "running");
@@ -4821,14 +5012,14 @@ export function TwoPQFormFlow({
       });
       await wait(700);
       router.push(
-        `/2pq-dashboard/forms?createdId=${response.form.id}&createdType=${formType}`
+        `/2pq-dashboard/forms?createdId=${response.form.id}&createdType=${formType}`,
       );
       router.refresh();
     } catch (error) {
       setStorageProcessingSteps((current) =>
         current.map((step) =>
-          step.status === "running" ? { ...step, status: "error" } : step
-        )
+          step.status === "running" ? { ...step, status: "error" } : step,
+        ),
       );
       const errorMessage =
         error instanceof Error && error.message.trim()
@@ -4844,11 +5035,11 @@ export function TwoPQFormFlow({
     }
   }
 
-  const samplingTableValidationEntries = Object.entries(fieldErrors).filter(([key]) =>
-    key.startsWith("samplingInformation.")
+  const samplingTableValidationEntries = Object.entries(fieldErrors).filter(
+    ([key]) => key.startsWith("samplingInformation."),
   );
   const samplingTableValidationMessages = samplingTableValidationEntries.map(
-    ([, message]) => message
+    ([, message]) => message,
   );
   const showSamplingTableValidationCard =
     currentStep === "samplingInformation" &&
@@ -4858,12 +5049,13 @@ export function TwoPQFormFlow({
     samplingTableValidationEntries.every(
       ([fieldKey]) =>
         biopsyTableCellValidationKindForFieldError(fieldKey) ===
-        BiopsyTableCellValidationKind.MissingRequiredValue
+        BiopsyTableCellValidationKind.MissingRequiredValue,
     );
   const visibleSamplingValidationMessages =
     samplingTableValidationMessages.slice(0, 6);
   const hiddenSamplingValidationCount =
-    samplingTableValidationMessages.length - visibleSamplingValidationMessages.length;
+    samplingTableValidationMessages.length -
+    visibleSamplingValidationMessages.length;
 
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col gap-5 overflow-x-hidden">
@@ -4877,7 +5069,7 @@ export function TwoPQFormFlow({
             <DialogTitle>{t("Doctor is required")}</DialogTitle>
             <DialogDescription>
               {t(
-                "The patient must always belong to a doctor from the institution. The doctor signs the document and is responsible for the form, so this field cannot be empty."
+                "The patient must always belong to a doctor from the institution. The doctor signs the document and is responsible for the form, so this field cannot be empty.",
               )}
             </DialogDescription>
           </DialogHeader>
@@ -4904,7 +5096,9 @@ export function TwoPQFormFlow({
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={withdrawalCaseSearch}
-                onChange={(event) => setWithdrawalCaseSearch(event.target.value)}
+                onChange={(event) =>
+                  setWithdrawalCaseSearch(event.target.value)
+                }
                 placeholder={t("Three-letter code")}
                 className="pl-9"
               />
@@ -4935,7 +5129,7 @@ export function TwoPQFormFlow({
                             caseRecord.doctorName,
                             `${t("Status")}: ${previewOptionValue(
                               caseStatusOptions,
-                              normalizeTwoPQCaseStatus(caseRecord.caseStatus)
+                              normalizeTwoPQCaseStatus(caseRecord.caseStatus),
                             )}`,
                           ])}
                         </p>
@@ -4986,7 +5180,7 @@ export function TwoPQFormFlow({
                 </DialogTitle>
                 <DialogDescription className="mt-2 text-sm">
                   {t(
-                    "The form validates the completed steps before opening the read-only preview."
+                    "The form validates the completed steps before opening the read-only preview.",
                   )}
                 </DialogDescription>
               </div>
@@ -5020,7 +5214,9 @@ export function TwoPQFormFlow({
               <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/75 px-4 py-4 text-sm text-emerald-900 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
                 <CheckCircle2 className="h-4 w-4" />
                 {draftPending
-                  ? t("Completed steps passed validation. Saving draft checkpoint.")
+                  ? t(
+                      "Completed steps passed validation. Saving draft checkpoint.",
+                    )
                   : t("Completed steps passed validation. Opening preview.")}
               </div>
             ) : null}
@@ -5082,10 +5278,12 @@ export function TwoPQFormFlow({
                   <div className="flex gap-3">
                     <CircleX className="mt-0.5 h-5 w-5 shrink-0" />
                     <div>
-                      <p className="font-semibold">{t("Draft checkpoint failed")}</p>
+                      <p className="font-semibold">
+                        {t("Draft checkpoint failed")}
+                      </p>
                       <p className="mt-1 text-sm text-amber-950/74 dark:text-amber-100/74">
                         {t(
-                          "The information passed validation, but the draft checkpoint failed. You can open the preview anyway; final submission will try to save again and may show the same backend error."
+                          "The information passed validation, but the draft checkpoint failed. You can open the preview anyway; final submission will try to save again and may show the same backend error.",
                         )}
                       </p>
                     </div>
@@ -5166,7 +5364,7 @@ export function TwoPQFormFlow({
             </DialogTitle>
             <DialogDescription className="text-indigo-950/68 dark:text-indigo-50/72">
               {t(
-                "Phase 1 validates the whole document. Phase 2 stores the scoped records and linked 2PQ entities."
+                "Phase 1 validates the whole document. Phase 2 stores the scoped records and linked 2PQ entities.",
               )}
             </DialogDescription>
           </DialogHeader>
@@ -5180,233 +5378,236 @@ export function TwoPQFormFlow({
                   : "",
               ].join(" ")}
             >
-            {wholeDataValidationReport ? (
-              <div className="rounded-[1.5rem] border border-indigo-100 bg-white/78 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-950/52 dark:text-indigo-50/58">
-                      {t("Phase 1")}
-                    </p>
-                    <h3 className="mt-2 font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
-                      {t("Whole data validation")}
-                    </h3>
-                    <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/72">
-                      {wholeDataValidationReport.status === "running"
-                        ? t(
-                            "Checking required fields, formats, linked records, and cross-step consistency."
-                          )
-                        : wholeDataValidationReport.status === "success"
+              {wholeDataValidationReport ? (
+                <div className="rounded-[1.5rem] border border-indigo-100 bg-white/78 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-950/52 dark:text-indigo-50/58">
+                        {t("Phase 1")}
+                      </p>
+                      <h3 className="mt-2 font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
+                        {t("Whole data validation")}
+                      </h3>
+                      <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/72">
+                        {wholeDataValidationReport.status === "running"
                           ? t(
-                              "No missing or malformed data was found. Storage processing can continue."
+                              "Checking required fields, formats, linked records, and cross-step consistency.",
                             )
-                          : t("Fix these issues before storage processing starts.")}
-                    </p>
+                          : wholeDataValidationReport.status === "success"
+                            ? t(
+                                "No missing or malformed data was found. Storage processing can continue.",
+                              )
+                            : t(
+                                "Fix these issues before storage processing starts.",
+                              )}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={
+                        wholeDataValidationReport.status === "success"
+                          ? "success"
+                          : wholeDataValidationReport.status === "error"
+                            ? "destructive"
+                            : "brand"
+                      }
+                      className={
+                        wholeDataValidationReport.status === "running"
+                          ? "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-100"
+                          : undefined
+                      }
+                    >
+                      {t(wholeDataValidationReport.status)}
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={
-                      wholeDataValidationReport.status === "success"
-                        ? "success"
-                        : wholeDataValidationReport.status === "error"
-                          ? "destructive"
-                          : "brand"
-                    }
-                    className={
-                      wholeDataValidationReport.status === "running"
-                        ? "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-100"
-                        : undefined
-                    }
-                  >
-                    {t(wholeDataValidationReport.status)}
-                  </Badge>
-                </div>
 
-                {wholeDataValidationReport.status === "running" ? (
-                  <div className="mt-5 flex items-center gap-3 rounded-[1.15rem] border border-indigo-100 bg-indigo-50/70 px-4 py-4 text-sm text-indigo-950/72 dark:border-indigo-300/16 dark:bg-indigo-400/10 dark:text-indigo-50/72">
-                    <Loader2 className="h-4 w-4 animate-spin text-indigo-700 dark:text-indigo-200" />
-                    {t("Running whole document validation.")}
-                  </div>
-                ) : null}
+                  {wholeDataValidationReport.status === "running" ? (
+                    <div className="mt-5 flex items-center gap-3 rounded-[1.15rem] border border-indigo-100 bg-indigo-50/70 px-4 py-4 text-sm text-indigo-950/72 dark:border-indigo-300/16 dark:bg-indigo-400/10 dark:text-indigo-50/72">
+                      <Loader2 className="h-4 w-4 animate-spin text-indigo-700 dark:text-indigo-200" />
+                      {t("Running whole document validation.")}
+                    </div>
+                  ) : null}
 
-                {wholeDataValidationReport.status === "success" ? (
-                  <div className="mt-5 flex items-center gap-3 rounded-[1.15rem] border border-emerald-200 bg-emerald-50/75 px-4 py-4 text-sm text-emerald-900 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
-                    <CheckCircle2 className="h-4 w-4" />
-                    {t("Whole data validation passed.")}
-                  </div>
-                ) : null}
+                  {wholeDataValidationReport.status === "success" ? (
+                    <div className="mt-5 flex items-center gap-3 rounded-[1.15rem] border border-emerald-200 bg-emerald-50/75 px-4 py-4 text-sm text-emerald-900 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
+                      <CheckCircle2 className="h-4 w-4" />
+                      {t("Whole data validation passed.")}
+                    </div>
+                  ) : null}
 
-                {wholeDataValidationReport.status === "error" ? (
-                  <div className="mt-5 grid gap-3">
-                    {wholeDataValidationReport.issues.map((issue, index) => (
-                      <div
-                        key={issue.id}
-                        className="rounded-[1.15rem] border border-red-200 bg-red-50/82 px-4 py-4 text-red-950 dark:border-red-300/22 dark:bg-red-950/22 dark:text-red-100"
-                      >
-                        <div className="flex gap-3">
-                          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-200 bg-white text-xs font-semibold text-red-700 dark:border-red-300/24 dark:bg-red-400/10 dark:text-red-100">
-                            {index + 1}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-sm font-semibold">
-                                {issue.stepLabel}
-                              </p>
-                              <span className="text-xs text-red-950/48 dark:text-red-100/54">
-                                /
-                              </span>
-                              <p className="text-sm font-semibold">
-                                {issue.fieldLabel}
+                  {wholeDataValidationReport.status === "error" ? (
+                    <div className="mt-5 grid gap-3">
+                      {wholeDataValidationReport.issues.map((issue, index) => (
+                        <div
+                          key={issue.id}
+                          className="rounded-[1.15rem] border border-red-200 bg-red-50/82 px-4 py-4 text-red-950 dark:border-red-300/22 dark:bg-red-950/22 dark:text-red-100"
+                        >
+                          <div className="flex gap-3">
+                            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-200 bg-white text-xs font-semibold text-red-700 dark:border-red-300/24 dark:bg-red-400/10 dark:text-red-100">
+                              {index + 1}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-semibold">
+                                  {issue.stepLabel}
+                                </p>
+                                <span className="text-xs text-red-950/48 dark:text-red-100/54">
+                                  /
+                                </span>
+                                <p className="text-sm font-semibold">
+                                  {issue.fieldLabel}
+                                </p>
+                              </div>
+                              <p className="mt-1 text-sm text-red-950/72 dark:text-red-100/72">
+                                {issue.message}
                               </p>
                             </div>
-                            <p className="mt-1 text-sm text-red-950/72 dark:text-red-100/72">
-                              {issue.message}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {storageProcessingSteps.length > 0 ? (
+                <div className="space-y-5">
+                  <div className="rounded-[1.5rem] border border-indigo-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-950/52 dark:text-indigo-50/58">
+                          {t("Phase 2")}
+                        </p>
+                        <h3 className="mt-2 font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
+                          {t("2PQ form storage processing")}
+                        </h3>
+                        <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/72">
+                          {storageProcessingError
+                            ? t("Storage paused on the blocked checklist item.")
+                            : storedFormId
+                              ? `${t("Form")} ${storedFormId} ${t("stored. Redirecting to forms.")}`
+                              : runningStorageStep
+                                ? runningStorageStep.detail
+                                : t("Preparing the storage checklist.")}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="border-indigo-200 bg-white/72 text-indigo-950 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50"
+                      >
+                        {storageProcessingPercent}%
+                      </Badge>
+                    </div>
+                    <div className="mt-4 h-3 overflow-hidden rounded-full bg-indigo-100/90 dark:bg-indigo-950/50">
+                      <div
+                        className="h-full rounded-full bg-[linear-gradient(90deg,rgba(79,70,229,0.94),rgba(14,165,233,0.92))] transition-[width] duration-300"
+                        style={{ width: `${storageProcessingPercent}%` }}
+                      />
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
+                          {t("Completed")}
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
+                          {storageProcessingCompletedCount}
+                        </p>
+                      </div>
+                      <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
+                          {t("Pending")}
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
+                          {storageProcessingPendingCount}
+                        </p>
+                      </div>
+                      <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
+                          {t("Blocked")}
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
+                          {storageProcessingBlockedCount}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {storageProcessingError ? (
+                    <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
+                      {storageProcessingError}
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-3 2xl:grid-cols-2">
+                    {storageProcessingSteps.map((step, index) => (
+                      <div
+                        key={step.id}
+                        className="rounded-[1.25rem] border border-indigo-100 bg-white/76 px-4 py-4 shadow-[0_12px_30px_rgba(224,231,255,0.58)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none"
+                      >
+                        <div className="flex gap-3">
+                          <div
+                            className={[
+                              "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border",
+                              step.status === "success"
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-200"
+                                : step.status === "error"
+                                  ? "border-red-200 bg-red-50 text-red-700 dark:border-red-300/20 dark:bg-red-400/10 dark:text-red-200"
+                                  : step.status === "running"
+                                    ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-300/20 dark:bg-indigo-400/10 dark:text-indigo-200"
+                                    : "border-indigo-100 bg-white text-indigo-400 dark:border-indigo-300/16 dark:bg-indigo-950/20 dark:text-indigo-200/58",
+                            ].join(" ")}
+                          >
+                            {step.status === "success" ? (
+                              <CheckCircle2 className="h-4 w-4" />
+                            ) : step.status === "error" ? (
+                              <CircleX className="h-4 w-4" />
+                            ) : step.status === "running" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CircleDashed className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-heading text-sm font-semibold text-indigo-950 dark:text-indigo-50">
+                                {step.label}
+                              </p>
+                              <Badge
+                                variant={
+                                  step.status === "success"
+                                    ? "success"
+                                    : step.status === "error"
+                                      ? "destructive"
+                                      : step.status === "running"
+                                        ? "brand"
+                                        : "outline"
+                                }
+                                className={
+                                  step.status === "running"
+                                    ? "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-100"
+                                    : undefined
+                                }
+                              >
+                                {t(step.status)}
+                              </Badge>
+                              <span className="font-mono text-xs text-indigo-950/46 dark:text-indigo-50/48">
+                                {String(index + 1).padStart(2, "0")}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm text-indigo-950/64 dark:text-indigo-50/66">
+                              {step.detail}
                             </p>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {storageProcessingSteps.length > 0 ? (
-            <div className="space-y-5">
-            <div className="rounded-[1.5rem] border border-indigo-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-950/52 dark:text-indigo-50/58">
-                    {t("Phase 2")}
-                  </p>
-                  <h3 className="mt-2 font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
-                    {t("2PQ form storage processing")}
-                  </h3>
-                  <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/72">
-                    {storageProcessingError
-                      ? t("Storage paused on the blocked checklist item.")
-                      : storedFormId
-                        ? `${t("Form")} ${storedFormId} ${t("stored. Redirecting to forms.")}`
-                        : runningStorageStep
-                          ? runningStorageStep.detail
-                          : t("Preparing the storage checklist.")}
-                  </p>
                 </div>
-                <Badge
-                  variant="outline"
-                  className="border-indigo-200 bg-white/72 text-indigo-950 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50"
-                >
-                  {storageProcessingPercent}%
-                </Badge>
-              </div>
-              <div className="mt-4 h-3 overflow-hidden rounded-full bg-indigo-100/90 dark:bg-indigo-950/50">
-                <div
-                  className="h-full rounded-full bg-[linear-gradient(90deg,rgba(79,70,229,0.94),rgba(14,165,233,0.92))] transition-[width] duration-300"
-                  style={{ width: `${storageProcessingPercent}%` }}
-                />
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
-                    {t("Completed")}
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
-                    {storageProcessingCompletedCount}
-                  </p>
-                </div>
-                <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
-                    {t("Pending")}
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
-                    {storageProcessingPendingCount}
-                  </p>
-                </div>
-                <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
-                    {t("Blocked")}
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
-                    {storageProcessingBlockedCount}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {storageProcessingError ? (
-              <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
-                {storageProcessingError}
-              </div>
-            ) : null}
-
-            <div className="grid gap-3 2xl:grid-cols-2">
-              {storageProcessingSteps.map((step, index) => (
-                <div
-                  key={step.id}
-                  className="rounded-[1.25rem] border border-indigo-100 bg-white/76 px-4 py-4 shadow-[0_12px_30px_rgba(224,231,255,0.58)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none"
-                >
-                  <div className="flex gap-3">
-                    <div
-                      className={[
-                        "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border",
-                        step.status === "success"
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-200"
-                          : step.status === "error"
-                            ? "border-red-200 bg-red-50 text-red-700 dark:border-red-300/20 dark:bg-red-400/10 dark:text-red-200"
-                            : step.status === "running"
-                              ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-300/20 dark:bg-indigo-400/10 dark:text-indigo-200"
-                              : "border-indigo-100 bg-white text-indigo-400 dark:border-indigo-300/16 dark:bg-indigo-950/20 dark:text-indigo-200/58",
-                      ].join(" ")}
-                    >
-                      {step.status === "success" ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : step.status === "error" ? (
-                        <CircleX className="h-4 w-4" />
-                      ) : step.status === "running" ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CircleDashed className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-heading text-sm font-semibold text-indigo-950 dark:text-indigo-50">
-                          {step.label}
-                        </p>
-                        <Badge
-                          variant={
-                            step.status === "success"
-                              ? "success"
-                              : step.status === "error"
-                                ? "destructive"
-                                : step.status === "running"
-                                  ? "brand"
-                                  : "outline"
-                          }
-                          className={
-                            step.status === "running"
-                              ? "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-100"
-                              : undefined
-                          }
-                        >
-                          {t(step.status)}
-                        </Badge>
-                        <span className="font-mono text-xs text-indigo-950/46 dark:text-indigo-50/48">
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-indigo-950/64 dark:text-indigo-50/66">
-                        {step.detail}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            </div>
-            ) : null}
+              ) : null}
             </div>
           </div>
 
-          {wholeDataValidationReport?.status === "error" || storageProcessingError ? (
+          {wholeDataValidationReport?.status === "error" ||
+          storageProcessingError ? (
             <DialogFooter className="gap-3 border-indigo-100/90 bg-white/55 px-6 py-5 dark:border-indigo-300/14 dark:bg-indigo-950/16">
               <Button
                 type="button"
@@ -5451,7 +5652,9 @@ export function TwoPQFormFlow({
             {restoredFromDraft ? (
               <Badge variant="rose">{t("Recovered draft")}</Badge>
             ) : null}
-            {draftPending ? <Badge variant="outline">{t("Saving draft")}</Badge> : null}
+            {draftPending ? (
+              <Badge variant="outline">{t("Saving draft")}</Badge>
+            ) : null}
             <Badge variant="outline">{progressLabel}</Badge>
           </div>
         </div>
@@ -5495,10 +5698,10 @@ export function TwoPQFormFlow({
                 className={stepButtonClass}
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <span className={stepNumberClass}>
-                    {index + 1}
+                  <span className={stepNumberClass}>{index + 1}</span>
+                  <span className="min-w-0 truncate">
+                    {t(STEP_LABELS[step])}
                   </span>
-                  <span className="min-w-0 truncate">{t(STEP_LABELS[step])}</span>
                 </span>
                 {completed ? (
                   <CheckCircle2 className="size-4 text-white" />
@@ -5520,7 +5723,7 @@ export function TwoPQFormFlow({
                     {t(
                       selectedWithdrawalCases.length === 1
                         ? "box requested for pick up"
-                        : "boxes requested for pick up"
+                        : "boxes requested for pick up",
                     )}
                   </h3>
                 </div>
@@ -5562,11 +5765,11 @@ export function TwoPQFormFlow({
                             caseRecord.doctorName,
                             `${t("Current status")}: ${previewOptionValue(
                               caseStatusOptions,
-                              normalizeTwoPQCaseStatus(caseRecord.caseStatus)
+                              normalizeTwoPQCaseStatus(caseRecord.caseStatus),
                             )}`,
                             `${t("New status")}: ${previewOptionValue(
                               caseStatusOptions,
-                              TwoPQCaseStatus.AwaitingPickUp
+                              TwoPQCaseStatus.AwaitingPickUp,
                             )}`,
                           ])}
                         </p>
@@ -5610,7 +5813,7 @@ export function TwoPQFormFlow({
                     {selectedStudyRequestForm.patientName ||
                       stringField(
                         selectedStudyRequestForm.patientInformation,
-                        "fullName"
+                        "fullName",
                       ) ||
                       t("Not provided")}
                   </p>
@@ -5658,7 +5861,7 @@ export function TwoPQFormFlow({
                   <p className="mt-1 font-medium">
                     {selectedStudyRequestForm.createdAt
                       ? previewDateValue(
-                          toDateInputValue(selectedStudyRequestForm.createdAt)
+                          toDateInputValue(selectedStudyRequestForm.createdAt),
                         )
                       : t("Not provided")}
                   </p>
@@ -5672,337 +5875,411 @@ export function TwoPQFormFlow({
           <>
             {formType === "sample" ? (
               <div className="grid gap-4 md:grid-cols-2">
-              {[
-                [t("Linked study request form"), state.linkedStudyRequestFormId],
-                [t("Institution"), selectedInstitution?.name ?? state.patientInformation.institutionId],
-                [t("Doctor"), selectedDoctor?.fullName ?? state.patientInformation.doctorId],
-                [t("Email"), state.patientInformation.email],
-                [t("Patient DNI"), state.patientInformation.medicalRecordNumber],
-                [
-                  t("Full name"),
-                  state.patientInformation.fullName ||
-                    joinNameParts(
-                      state.patientInformation.firstName,
-                      state.patientInformation.lastName
-                    ),
-                ],
-                [t("Birth date"), previewDateValue(state.patientInformation.birthDate)],
-                [t("Study creation date"), linkedStudyCreatedDate],
-              ].map(([label, value]) => (
-                <div
-                  key={label}
-                  className="rounded-xl border border-border/70 bg-background/60 px-4 py-3"
-                >
-                  <p className="text-xs font-semibold uppercase text-muted-foreground">
-                    {label}
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap break-words text-sm font-medium">
-                    {value || t("Not provided")}
-                  </p>
-                </div>
-              ))}
+                {[
+                  [
+                    t("Linked study request form"),
+                    state.linkedStudyRequestFormId,
+                  ],
+                  [
+                    t("Institution"),
+                    selectedInstitution?.name ??
+                      state.patientInformation.institutionId,
+                  ],
+                  [
+                    t("Doctor"),
+                    selectedDoctor?.fullName ??
+                      state.patientInformation.doctorId,
+                  ],
+                  [t("Email"), state.patientInformation.email],
+                  [
+                    t("Patient DNI"),
+                    state.patientInformation.medicalRecordNumber,
+                  ],
+                  [
+                    t("Full name"),
+                    state.patientInformation.fullName ||
+                      joinNameParts(
+                        state.patientInformation.firstName,
+                        state.patientInformation.lastName,
+                      ),
+                  ],
+                  [
+                    t("Birth date"),
+                    previewDateValue(state.patientInformation.birthDate),
+                  ],
+                  [t("Study creation date"), linkedStudyCreatedDate],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-xl border border-border/70 bg-background/60 px-4 py-3"
+                  >
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">
+                      {label}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm font-medium">
+                      {value || t("Not provided")}
+                    </p>
+                  </div>
+                ))}
               </div>
             ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <Label>{t("Does this form use a pre-existing patient?")}</Label>
-              <OptionSelectField
-                options={STUDY_REQUEST_PATIENT_MODE_OPTIONS.map((option) => ({
-                  value: option.value,
-                  label: t(option.label),
-                }))}
-                value={studyRequestPatientMode}
-                onChange={selectStudyRequestPatientMode}
-                placeholder={t("Not set")}
-                emptyLabel={t("Not set")}
-              />
-              {!studyRequestPatientMode ? (
-                <FieldError message={errorFor("selectedPatientId")} />
-              ) : null}
-            </div>
-            {shouldShowStudyRequestPatientPicker ? (
-              <div className="space-y-2 md:col-span-2">
-                <Label>{t("Pick patient")}</Label>
-                <OptionSelectField
-                  options={patientOptions}
-                  value={state.selectedPatientId}
-                  onChange={selectPatient}
-                  placeholder={t("Select patient")}
-                  emptyLabel={t("Not set")}
-                />
-                <FieldError message={errorFor("selectedPatientId")} />
-              </div>
-            ) : null}
-            {shouldShowStudyRequestPatientForm ? (
-              studyRequestPatientFormReadOnly ? (
-                <div className="md:col-span-2 rounded-sm bg-white px-6 py-6 text-black shadow-sm ring-1 ring-black/10">
-                  <PreviewPaperSection section={patientInformationSummarySection} />
-                </div>
-              ) : (
-                <>
-            <div className="space-y-2">
-              <Label>{t("Institution")}</Label>
-              <OptionSelectField
-                options={institutionOptions}
-                value={state.patientInformation.institutionId}
-                onChange={(institutionId) => {
-                  const institution = institutions.find(
-                    (candidate) => candidate.id === institutionId
-                  );
-                  setState((current) =>
-                    applyPatientInstitutionSelection(
-                      current,
-                      institutionId,
-                      institution,
-                      doctors
-                    )
-                  );
-                }}
-                placeholder={t("Select institution")}
-                emptyLabel={t("No institution")}
-                disabled={
-                  Boolean(scopedInstitutionId) ||
-                  studyRequestPatientFormReadOnly
-                }
-              />
-              <FieldError message={errorFor("patientInformation.institutionId")} />
-            </div>
-            <div className="space-y-2">
-              <Label>{t("Doctor")}</Label>
-              <OptionSelectField
-                options={doctorOptions}
-                value={state.patientInformation.doctorId}
-                onChange={(doctorId) =>
-                  setState((current) => ({
-                    ...current,
-                    selectedCaseId: "",
-                    patientInformation: {
-                      ...current.patientInformation,
-                      doctorId,
-                    },
-                  }))
-                }
-                placeholder={t("Select doctor")}
-                emptyLabel={t("No doctor")}
-                disabled={
-                  Boolean(scopedDoctorId) ||
-                  studyRequestPatientFormReadOnly
-                }
-              />
-              <FieldError message={errorFor("patientInformation.doctorId")} />
-            </div>
-            <Field
-              id="form-patient-email"
-              label={
-                formType === "study_request"
-                  ? (
-                      <span className="flex flex-col items-start gap-1 leading-snug">
-                        <span>{t("Patient email")}</span>
-                        <strong className="text-xs font-bold text-amber-700 dark:text-amber-300">
-                          ({t(
-                            "IMPORTANT: THIS MUST BE CORRECT BECAUSE THE CREDENTIALS TO UPLOAD THE INFORMED CONSENT WILL BE SENT TO THIS EMAIL ADDRESS",
-                          )})
-                        </strong>
-                      </span>
-                    )
-                  : t("Email")
-              }
-              value={state.patientInformation.email}
-              onChange={(email) => updatePatientInformation({ email })}
-              error={errorFor("patientInformation.email")}
-              readOnly={studyRequestPatientFormReadOnly}
-            />
-            {formType === "study_request" ? (
-              <>
-                <Field
-                  id="form-patient-dni"
-                  label={t("Patient DNI")}
-                  value={state.patientInformation.medicalRecordNumber}
-                  onChange={(medicalRecordNumber) =>
-                    updatePatientInformation({ medicalRecordNumber })
-                  }
-                  readOnly={studyRequestPatientFormReadOnly}
-                />
-                <Field
-                  id="form-patient-first-name"
-                  label={t("Patient first name")}
-                  value={state.patientInformation.firstName}
-                  onChange={(firstName) => updatePatientInformation({ firstName })}
-                  error={errorFor("patientInformation.firstName")}
-                  readOnly={studyRequestPatientFormReadOnly}
-                />
-                <Field
-                  id="form-patient-last-name"
-                  label={t("Patient last name")}
-                  value={state.patientInformation.lastName}
-                  onChange={(lastName) => updatePatientInformation({ lastName })}
-                  error={errorFor("patientInformation.lastName")}
-                  readOnly={studyRequestPatientFormReadOnly}
-                />
-                <Field
-                  id="form-patient-birth-date"
-                  label={t("Patient birth date")}
-                  type="date"
-                  value={state.patientInformation.birthDate}
-                  onChange={(birthDate) => updatePatientInformation({ birthDate })}
-                  error={errorFor("patientInformation.birthDate")}
-                  readOnly={studyRequestPatientFormReadOnly}
-                />
-                <div className="md:col-span-2">
-                  <TextAreaField
-                    id="form-patient-notes"
-                    label={t("Patient notes")}
-                    value={state.patientInformation.notes}
-                    onChange={(notes) => updatePatientInformation({ notes })}
-                    readOnly={studyRequestPatientFormReadOnly}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>
+                    {t("Does this form use a pre-existing patient?")}
+                  </Label>
+                  <OptionSelectField
+                    options={STUDY_REQUEST_PATIENT_MODE_OPTIONS.map(
+                      (option) => ({
+                        value: option.value,
+                        label: t(option.label),
+                      }),
+                    )}
+                    value={studyRequestPatientMode}
+                    onChange={selectStudyRequestPatientMode}
+                    placeholder={t("Not set")}
+                    emptyLabel={t("Not set")}
                   />
+                  {!studyRequestPatientMode ? (
+                    <FieldError message={errorFor("selectedPatientId")} />
+                  ) : null}
                 </div>
-                <section className="md:col-span-2">
-                  <div className="border-y border-border/70 py-5">
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        id="form-includes-partner-information"
-                        checked={
-                          state.patientInformation.includesPartnerInformation
-                        }
-                        onCheckedChange={(checked) =>
-                          updatePartnerInformationIncluded(checked === true)
-                        }
-                        disabled={studyRequestPatientFormReadOnly}
+                {shouldShowStudyRequestPatientPicker ? (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>{t("Pick patient")}</Label>
+                    <OptionSelectField
+                      options={patientOptions}
+                      value={state.selectedPatientId}
+                      onChange={selectPatient}
+                      placeholder={t("Select patient")}
+                      emptyLabel={t("Not set")}
+                    />
+                    <FieldError message={errorFor("selectedPatientId")} />
+                  </div>
+                ) : null}
+                {shouldShowStudyRequestPatientForm ? (
+                  studyRequestPatientFormReadOnly ? (
+                    <div className="md:col-span-2 rounded-sm bg-white px-6 py-6 text-black shadow-sm ring-1 ring-black/10">
+                      <PreviewPaperSection
+                        section={patientInformationSummarySection}
                       />
-                      <Label
-                        htmlFor="form-includes-partner-information"
-                        className="cursor-pointer font-medium text-foreground"
-                      >
-                        {t("Includes partner information")}
-                      </Label>
                     </div>
-                    {state.patientInformation.includesPartnerInformation ? (
-                      <div className="mt-5">
-                        <h3 className="font-heading text-lg font-semibold text-foreground">
-                          {t("Partner")}
-                        </h3>
-                        <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label>{t("Institution")}</Label>
+                        <OptionSelectField
+                          options={institutionOptions}
+                          value={state.patientInformation.institutionId}
+                          onChange={(institutionId) => {
+                            const institution = institutions.find(
+                              (candidate) => candidate.id === institutionId,
+                            );
+                            setState((current) =>
+                              applyPatientInstitutionSelection(
+                                current,
+                                institutionId,
+                                institution,
+                                doctors,
+                              ),
+                            );
+                          }}
+                          placeholder={t("Select institution")}
+                          emptyLabel={t("No institution")}
+                          disabled={
+                            Boolean(scopedInstitutionId) ||
+                            studyRequestPatientFormReadOnly
+                          }
+                        />
+                        <FieldError
+                          message={errorFor("patientInformation.institutionId")}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t("Doctor")}</Label>
+                        <OptionSelectField
+                          options={doctorOptions}
+                          value={state.patientInformation.doctorId}
+                          onChange={(doctorId) =>
+                            setState((current) => ({
+                              ...current,
+                              selectedCaseId: "",
+                              patientInformation: {
+                                ...current.patientInformation,
+                                doctorId,
+                              },
+                            }))
+                          }
+                          placeholder={t("Select doctor")}
+                          emptyLabel={t("No doctor")}
+                          disabled={
+                            Boolean(scopedDoctorId) ||
+                            studyRequestPatientFormReadOnly
+                          }
+                        />
+                        <FieldError
+                          message={errorFor("patientInformation.doctorId")}
+                        />
+                      </div>
+                      <Field
+                        id="form-patient-email"
+                        label={
+                          formType === "study_request" ? (
+                            <span className="flex flex-col items-start gap-1 leading-snug">
+                              <span>{t("Patient email")}</span>
+                              <strong className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                                (
+                                {t(
+                                  "IMPORTANT: THIS MUST BE CORRECT BECAUSE THE CREDENTIALS TO UPLOAD THE INFORMED CONSENT WILL BE SENT TO THIS EMAIL ADDRESS",
+                                )}
+                                )
+                              </strong>
+                            </span>
+                          ) : (
+                            t("Email")
+                          )
+                        }
+                        value={state.patientInformation.email}
+                        onChange={(email) =>
+                          updatePatientInformation({ email })
+                        }
+                        error={errorFor("patientInformation.email")}
+                        readOnly={studyRequestPatientFormReadOnly}
+                      />
+                      {formType === "study_request" ? (
+                        <>
                           <Field
-                            id="form-partner-first-name"
-                            label={t("Partner first name")}
-                            value={state.patientInformation.partnerFirstName}
-                            onChange={(partnerFirstName) =>
-                              updatePatientInformation({ partnerFirstName })
+                            id="form-patient-dni"
+                            label={t("Patient DNI")}
+                            value={state.patientInformation.medicalRecordNumber}
+                            onChange={(medicalRecordNumber) =>
+                              updatePatientInformation({ medicalRecordNumber })
                             }
                             readOnly={studyRequestPatientFormReadOnly}
                           />
                           <Field
-                            id="form-partner-last-name"
-                            label={t("Partner last name")}
-                            value={state.patientInformation.partnerLastName}
-                            onChange={(partnerLastName) =>
-                              updatePatientInformation({ partnerLastName })
+                            id="form-patient-first-name"
+                            label={t("Patient first name")}
+                            value={state.patientInformation.firstName}
+                            onChange={(firstName) =>
+                              updatePatientInformation({ firstName })
                             }
+                            error={errorFor("patientInformation.firstName")}
                             readOnly={studyRequestPatientFormReadOnly}
                           />
                           <Field
-                            id="form-partner-dni"
-                            label={t("Partner DNI")}
-                            value={
-                              state.patientInformation
-                                .partnerMedicalRecordNumber
+                            id="form-patient-last-name"
+                            label={t("Patient last name")}
+                            value={state.patientInformation.lastName}
+                            onChange={(lastName) =>
+                              updatePatientInformation({ lastName })
                             }
-                            onChange={(partnerMedicalRecordNumber) =>
-                              updatePatientInformation({
-                                partnerMedicalRecordNumber,
-                              })
-                            }
+                            error={errorFor("patientInformation.lastName")}
                             readOnly={studyRequestPatientFormReadOnly}
                           />
                           <Field
-                            id="form-partner-birth-date"
-                            label={t("Partner birth date")}
+                            id="form-patient-birth-date"
+                            label={t("Patient birth date")}
                             type="date"
-                            value={state.patientInformation.partnerBirthDate}
-                            onChange={(partnerBirthDate) =>
-                              updatePatientInformation({ partnerBirthDate })
+                            value={state.patientInformation.birthDate}
+                            onChange={(birthDate) =>
+                              updatePatientInformation({ birthDate })
                             }
-                            error={errorFor(
-                              "patientInformation.partnerBirthDate"
-                            )}
+                            error={errorFor("patientInformation.birthDate")}
                             readOnly={studyRequestPatientFormReadOnly}
                           />
                           <div className="md:col-span-2">
                             <TextAreaField
-                              id="form-partner-notes"
-                              label={t("Partner notes")}
-                              value={state.patientInformation.partnerNotes}
-                              onChange={(partnerNotes) =>
-                                updatePatientInformation({ partnerNotes })
+                              id="form-patient-notes"
+                              label={t("Patient notes")}
+                              value={state.patientInformation.notes}
+                              onChange={(notes) =>
+                                updatePatientInformation({ notes })
                               }
                               readOnly={studyRequestPatientFormReadOnly}
                             />
                           </div>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-              </>
-            ) : (
-              <>
-                <Field
-                  id="form-patient-full-name"
-                  label={t("Full name")}
-                  value={state.patientInformation.fullName}
-                  onChange={(fullName) => updatePatientInformation({ fullName })}
-                  error={errorFor("patientInformation.fullName")}
-                />
-                <Field
-                  id="form-patient-mrn"
-                  label={t("Medical record number")}
-                  value={state.patientInformation.medicalRecordNumber}
-                  onChange={(medicalRecordNumber) =>
-                    updatePatientInformation({ medicalRecordNumber })
-                  }
-                />
-                <Field
-                  id="form-patient-birth-date"
-                  label={t("Birth date")}
-                  type="date"
-                  value={state.patientInformation.birthDate}
-                  onChange={(birthDate) => updatePatientInformation({ birthDate })}
-                  error={errorFor("patientInformation.birthDate")}
-                />
-                <Field
-                  id="form-patient-sex"
-                  label={t("Sex / gender")}
-                  value={state.patientInformation.sex}
-                  onChange={(sex) => updatePatientInformation({ sex })}
-                />
-                <div className="space-y-2">
-                  <Label>{t("Status")}</Label>
-                  <OptionSelectField
-                    options={personStatusOptions}
-                    value={state.patientInformation.status}
-                    onChange={(status) =>
-                      updatePatientInformation({
-                        status: status === "inactive" ? "inactive" : "active",
-                      })
-                    }
-                    placeholder={t("Select status")}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <TextAreaField
-                    id="form-patient-notes"
-                    label={t("Notes")}
-                    value={state.patientInformation.notes}
-                    onChange={(notes) => updatePatientInformation({ notes })}
-                  />
-                </div>
-              </>
-            )}
-                </>
-              )
-            ) : null}
-          </div>
+                          <section className="md:col-span-2">
+                            <div className="border-y border-border/70 py-5">
+                              <div className="flex items-center gap-3">
+                                <Checkbox
+                                  id="form-includes-partner-information"
+                                  checked={
+                                    state.patientInformation
+                                      .includesPartnerInformation
+                                  }
+                                  onCheckedChange={(checked) =>
+                                    updatePartnerInformationIncluded(
+                                      checked === true,
+                                    )
+                                  }
+                                  disabled={studyRequestPatientFormReadOnly}
+                                />
+                                <Label
+                                  htmlFor="form-includes-partner-information"
+                                  className="cursor-pointer font-medium text-foreground"
+                                >
+                                  {t("Includes partner information")}
+                                </Label>
+                              </div>
+                              {state.patientInformation
+                                .includesPartnerInformation ? (
+                                <div className="mt-5">
+                                  <h3 className="font-heading text-lg font-semibold text-foreground">
+                                    {t("Partner")}
+                                  </h3>
+                                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                                    <Field
+                                      id="form-partner-first-name"
+                                      label={t("Partner first name")}
+                                      value={
+                                        state.patientInformation
+                                          .partnerFirstName
+                                      }
+                                      onChange={(partnerFirstName) =>
+                                        updatePatientInformation({
+                                          partnerFirstName,
+                                        })
+                                      }
+                                      readOnly={studyRequestPatientFormReadOnly}
+                                    />
+                                    <Field
+                                      id="form-partner-last-name"
+                                      label={t("Partner last name")}
+                                      value={
+                                        state.patientInformation.partnerLastName
+                                      }
+                                      onChange={(partnerLastName) =>
+                                        updatePatientInformation({
+                                          partnerLastName,
+                                        })
+                                      }
+                                      readOnly={studyRequestPatientFormReadOnly}
+                                    />
+                                    <Field
+                                      id="form-partner-dni"
+                                      label={t("Partner DNI")}
+                                      value={
+                                        state.patientInformation
+                                          .partnerMedicalRecordNumber
+                                      }
+                                      onChange={(partnerMedicalRecordNumber) =>
+                                        updatePatientInformation({
+                                          partnerMedicalRecordNumber,
+                                        })
+                                      }
+                                      readOnly={studyRequestPatientFormReadOnly}
+                                    />
+                                    <Field
+                                      id="form-partner-birth-date"
+                                      label={t("Partner birth date")}
+                                      type="date"
+                                      value={
+                                        state.patientInformation
+                                          .partnerBirthDate
+                                      }
+                                      onChange={(partnerBirthDate) =>
+                                        updatePatientInformation({
+                                          partnerBirthDate,
+                                        })
+                                      }
+                                      error={errorFor(
+                                        "patientInformation.partnerBirthDate",
+                                      )}
+                                      readOnly={studyRequestPatientFormReadOnly}
+                                    />
+                                    <div className="md:col-span-2">
+                                      <TextAreaField
+                                        id="form-partner-notes"
+                                        label={t("Partner notes")}
+                                        value={
+                                          state.patientInformation.partnerNotes
+                                        }
+                                        onChange={(partnerNotes) =>
+                                          updatePatientInformation({
+                                            partnerNotes,
+                                          })
+                                        }
+                                        readOnly={
+                                          studyRequestPatientFormReadOnly
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          </section>
+                        </>
+                      ) : (
+                        <>
+                          <Field
+                            id="form-patient-full-name"
+                            label={t("Full name")}
+                            value={state.patientInformation.fullName}
+                            onChange={(fullName) =>
+                              updatePatientInformation({ fullName })
+                            }
+                            error={errorFor("patientInformation.fullName")}
+                          />
+                          <Field
+                            id="form-patient-mrn"
+                            label={t("Medical record number")}
+                            value={state.patientInformation.medicalRecordNumber}
+                            onChange={(medicalRecordNumber) =>
+                              updatePatientInformation({ medicalRecordNumber })
+                            }
+                          />
+                          <Field
+                            id="form-patient-birth-date"
+                            label={t("Birth date")}
+                            type="date"
+                            value={state.patientInformation.birthDate}
+                            onChange={(birthDate) =>
+                              updatePatientInformation({ birthDate })
+                            }
+                            error={errorFor("patientInformation.birthDate")}
+                          />
+                          <Field
+                            id="form-patient-sex"
+                            label={t("Sex / gender")}
+                            value={state.patientInformation.sex}
+                            onChange={(sex) =>
+                              updatePatientInformation({ sex })
+                            }
+                          />
+                          <div className="space-y-2">
+                            <Label>{t("Status")}</Label>
+                            <OptionSelectField
+                              options={personStatusOptions}
+                              value={state.patientInformation.status}
+                              onChange={(status) =>
+                                updatePatientInformation({
+                                  status:
+                                    status === "inactive"
+                                      ? "inactive"
+                                      : "active",
+                                })
+                              }
+                              placeholder={t("Select status")}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <TextAreaField
+                              id="form-patient-notes"
+                              label={t("Notes")}
+                              value={state.patientInformation.notes}
+                              onChange={(notes) =>
+                                updatePatientInformation({ notes })
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )
+                ) : null}
+              </div>
             )}
           </>
         ) : null}
@@ -6044,7 +6321,9 @@ export function TwoPQFormFlow({
                       emptyLabel={t("Not set")}
                     />
                     <FieldError
-                      message={errorFor("medicalInformation.oocyteGameteSource")}
+                      message={errorFor(
+                        "medicalInformation.oocyteGameteSource",
+                      )}
                     />
                   </div>
                 </div>
@@ -6053,7 +6332,9 @@ export function TwoPQFormFlow({
             <YesNoField
               label={t("Male factor")}
               value={state.medicalInformation.maleFactor}
-              onChange={(maleFactor) => updateMedicalInformation({ maleFactor })}
+              onChange={(maleFactor) =>
+                updateMedicalInformation({ maleFactor })
+              }
               error={errorFor("medicalInformation.maleFactor")}
               options={yesNoOptions}
               placeholder={t("Select")}
@@ -6070,14 +6351,16 @@ export function TwoPQFormFlow({
                 emptyLabel={t("Not set")}
               />
               <FieldError
-                message={errorFor("medicalInformation.previousMiscarriagesCount")}
+                message={errorFor(
+                  "medicalInformation.previousMiscarriagesCount",
+                )}
               />
             </div>
             <div className="md:col-span-2">
               {state.medicalInformation.maleFactor === "si" ? (
                 <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-300/24 dark:bg-amber-950/20 dark:text-amber-50">
                   {t(
-                    "Male factor is selected. Specify the type of male factor in observations."
+                    "Male factor is selected. Specify the type of male factor in observations.",
                   )}
                 </div>
               ) : null}
@@ -6117,7 +6400,9 @@ export function TwoPQFormFlow({
                         name: state.previousGeneticTests.karyotypeFileName,
                         type: state.previousGeneticTests.karyotypeFileType,
                         size:
-                          Number(state.previousGeneticTests.karyotypeFileSize) || 0,
+                          Number(
+                            state.previousGeneticTests.karyotypeFileSize,
+                          ) || 0,
                         content:
                           state.previousGeneticTests.karyotypeFileContent,
                       }
@@ -6190,7 +6475,9 @@ export function TwoPQFormFlow({
                       selectedRequestedTest === "pgtAFast"
                         ? errorFor("requestedTest.pgtAFastReportsMosaicism")
                         : selectedRequestedTest === "pgtAStandard"
-                          ? errorFor("requestedTest.pgtAStandardReportsMosaicism")
+                          ? errorFor(
+                              "requestedTest.pgtAStandardReportsMosaicism",
+                            )
                           : errorFor("requestedTest.pgtSrReportsMosaicism")
                     }
                     options={yesNoOptions}
@@ -6304,14 +6591,14 @@ export function TwoPQFormFlow({
               {sampleRequestedTestChanged ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-300/24 dark:bg-amber-950/20 dark:text-amber-50">
                   {t(
-                    "The biopsy form test is different from the linked study request test."
+                    "The biopsy form test is different from the linked study request test.",
                   )}{" "}
                   {t("Original requested test")}:{" "}
                   {requestedTestKeyLabel(selectedStudyRequestOriginalTest) ||
                     t("Not provided")}
                   .{" "}
                   {t(
-                    "The newly selected test in this biopsy form will be used as the final decision to continue processing the sample."
+                    "The newly selected test in this biopsy form will be used as the final decision to continue processing the sample.",
                   )}
                 </div>
               ) : null}
@@ -6344,7 +6631,9 @@ export function TwoPQFormFlow({
                         selectedRequestedTest === "pgtAFast"
                           ? errorFor("requestedTest.pgtAFastReportsMosaicism")
                           : selectedRequestedTest === "pgtAStandard"
-                            ? errorFor("requestedTest.pgtAStandardReportsMosaicism")
+                            ? errorFor(
+                                "requestedTest.pgtAStandardReportsMosaicism",
+                              )
                             : errorFor("requestedTest.pgtSrReportsMosaicism")
                       }
                       options={yesNoOptions}
@@ -6387,14 +6676,24 @@ export function TwoPQFormFlow({
               ) : null}
               <div className="grid gap-3 rounded-xl border border-border/70 bg-background/58 p-4 md:grid-cols-2">
                 {[
-                  [t("Original requested test"), requestedTestKeyLabel(selectedStudyRequestOriginalTest)],
-                  [t("Selected requested test"), requestedTestKeyLabel(selectedRequestedTest)],
-                  [t("Case type"), state.caseInformation.caseType || selectedCaseType],
+                  [
+                    t("Original requested test"),
+                    requestedTestKeyLabel(selectedStudyRequestOriginalTest),
+                  ],
+                  [
+                    t("Selected requested test"),
+                    requestedTestKeyLabel(selectedRequestedTest),
+                  ],
+                  [
+                    t("Case type"),
+                    state.caseInformation.caseType || selectedCaseType,
+                  ],
                   [
                     t("Priority"),
                     state.caseInformation.priority || selectedCaseType
                       ? (state.caseInformation.priority ||
-                          priorityForSampleCaseType(selectedCaseType)) === "urgent"
+                          priorityForSampleCaseType(selectedCaseType)) ===
+                        "urgent"
                         ? t("Urgent")
                         : t("Routine")
                       : "",
@@ -6485,7 +6784,7 @@ export function TwoPQFormFlow({
                   idPrefix="form-institution"
                   legend={t("Withdrawal pickup address")}
                   parts={withdrawalOriginPartsFromInstitutionInformation(
-                    state.institutionInformation
+                    state.institutionInformation,
                   )}
                   translate={t}
                   onChange={(parts) =>
@@ -6563,7 +6862,7 @@ export function TwoPQFormFlow({
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-black/70">
                   {t(
-                    "This preview is read-only. Go back to previous steps to make changes before signing."
+                    "This preview is read-only. Go back to previous steps to make changes before signing.",
                   )}
                 </p>
               </div>
@@ -6636,7 +6935,7 @@ export function TwoPQFormFlow({
                                 sampling.sampleId,
                                 previewOptionValue(
                                   processingOptions,
-                                  sampling.processingStatus
+                                  sampling.processingStatus,
                                 ),
                                 sampling.internalCode,
                                 sampling.embryoStageDay,
@@ -6645,7 +6944,7 @@ export function TwoPQFormFlow({
                                 sampling.biopsiedCells,
                                 previewOptionValue(
                                   yesNoOptions,
-                                  sampling.cellsVisualized
+                                  sampling.cellsVisualized,
                                 ),
                                 sampling.notes,
                               ].map((value, valueIndex) => (
@@ -6671,7 +6970,7 @@ export function TwoPQFormFlow({
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-black/70">
                   {t(
-                    "By signing, the responsible doctor confirms the information shown here."
+                    "By signing, the responsible doctor confirms the information shown here.",
                   )}
                 </p>
               </div>
@@ -6690,7 +6989,7 @@ export function TwoPQFormFlow({
               </Button>
               <p className="text-sm leading-6 text-indigo-950/78 dark:text-indigo-50/78">
                 {t(
-                  "After submission, the form cannot be changed. If you find an error after sending it, contact 2PQ directly so they can correct it."
+                  "After submission, the form cannot be changed. If you find an error after sending it, contact 2PQ directly so they can correct it.",
                 )}
               </p>
               <Button
@@ -6736,7 +7035,9 @@ export function TwoPQFormFlow({
                       }
                       placeholder={t("Select")}
                     />
-                    <FieldError message={errorFor("sampleInformation.sampleType")} />
+                    <FieldError
+                      message={errorFor("sampleInformation.sampleType")}
+                    />
                   </div>
                   <Field
                     id="form-process-date"
@@ -6793,7 +7094,9 @@ export function TwoPQFormFlow({
                     placeholder={t("Not set")}
                     emptyLabel={t("Not set")}
                   />
-                  <FieldError message={errorFor("sampleInformation.biopsyCount")} />
+                  <FieldError
+                    message={errorFor("sampleInformation.biopsyCount")}
+                  />
                 </div>
               </div>
             </section>
@@ -6811,7 +7114,10 @@ export function TwoPQFormFlow({
 
         {currentStep === "caseInformation" ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <BoxCodeLinkCard code={state.sampleInformation.boxCode} translate={t} />
+            <BoxCodeLinkCard
+              code={state.sampleInformation.boxCode}
+              translate={t}
+            />
             <div className="space-y-2">
               <Label htmlFor="form-case-label">{t("Case label")}</Label>
               <Input
@@ -6823,11 +7129,7 @@ export function TwoPQFormFlow({
             </div>
             <div className="space-y-2">
               <Label htmlFor="form-case-status">{t("Case status")}</Label>
-              <Input
-                id="form-case-status"
-                value={t("Entered")}
-                disabled
-              />
+              <Input id="form-case-status" value={t("Entered")} disabled />
               <FieldError message={errorFor("caseInformation.caseStatus")} />
             </div>
             <div className="space-y-2">
@@ -6856,7 +7158,9 @@ export function TwoPQFormFlow({
               <FieldError message={errorFor("caseInformation.priority")} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="form-case-requested-at">{t("Requested at")}</Label>
+              <Label htmlFor="form-case-requested-at">
+                {t("Requested at")}
+              </Label>
               <Input
                 id="form-case-requested-at"
                 type="date"
@@ -6882,259 +7186,303 @@ export function TwoPQFormFlow({
               <>
                 <div className="block w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-sm border border-slate-300 bg-white text-slate-950 shadow-sm">
                   <table className="min-w-[94rem] border-collapse bg-white text-sm">
-                  <thead className="bg-slate-100 text-left text-xs uppercase text-slate-700">
-                    <tr>
-                      <th className="min-w-36 border border-slate-300 px-3 py-2">
-                        {t("Sample ID")}
-                      </th>
-                      <th className="min-w-28 border border-slate-300 px-3 py-2 text-center">
-                        {t("Discarded")}
-                      </th>
-                      <th className="min-w-44 border border-slate-300 px-3 py-2">
-                        {t("Internal code")}
-                      </th>
-                      <th className="min-w-44 border border-slate-300 px-3 py-2">
-                        {t("Stage day 5, 6 or 7")} *
-                      </th>
-                      <th className="min-w-40 border border-slate-300 px-3 py-2">
-                        {t("Morphology")} *
-                      </th>
-                      <th className="min-w-36 border border-slate-300 px-3 py-2">
-                        {t("Sent uL")} *
-                      </th>
-                      <th className="min-w-44 border border-slate-300 px-3 py-2">
-                        {t("Biopsied cells")} *
-                      </th>
-                      <th className="min-w-44 border border-slate-300 px-3 py-2">
-                        {t("Cells visualized?")} *
-                      </th>
-                      <th className="min-w-80 border border-slate-300 px-3 py-2">
-                        {t("Comments")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {state.samplingInformation.map((sampling, index) => {
-                      const canDiscardSampling = isEmbryoSamplingRow(
-                        index,
-                        state.sampleInformation.biopsyCount
-                      );
-                      const samplingIsDiscarded = isDiscardedSampling(sampling);
-
-                      return (
-                      <tr
-                        key={index}
-                        className={
-                          samplingIsDiscarded
-                            ? "bg-slate-100 text-slate-500"
-                            : undefined
-                        }
-                      >
-                        <td className="border border-slate-300 bg-slate-50 px-3 py-2 align-top font-mono text-xs font-semibold text-slate-900">
-                          {sampling.sampleId
-                            ? formatBiopsySampleIdForDisplay(sampling.sampleId)
-                            : t("Not provided")}
-                          <FieldError
-                            message={errorFor(
-                              `samplingInformation.${index}.sampleId`
-                            )}
-                          />
-                        </td>
-                        <td className="border border-slate-300 bg-slate-50 px-3 py-2 align-middle text-center">
-                          {canDiscardSampling ? (
-                            <div className="flex justify-center">
-                              <Checkbox
-                                checked={samplingIsDiscarded}
-                                onCheckedChange={(checked) =>
-                                  updateSamplingDiscarded(index, checked === true)
-                                }
-                                aria-label={`${t("Discarded")} ${sampling.sampleId}`}
-                              />
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400">-</span>
-                          )}
-                        </td>
-                        <td
-                          className="border border-slate-300 p-0 align-top"
-                          data-biopsy-cell={`${index}:internalCode`}
-                          onKeyDownCapture={(event) =>
-                            handleBiopsyCellKeyDown(event, index, "internalCode")
-                          }
-                        >
-                          <Input
-                            id={`form-sampling-internal-code-${index}`}
-                            value={sampling.internalCode}
-                            onChange={(event) =>
-                              updateSamplingInformation(index, {
-                                internalCode: event.target.value,
-                              })
-                            }
-                            className="h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
-                          />
-                        </td>
-                        <td
-                          className={samplingCellClass(index, "embryoStageDay")}
-                          data-biopsy-cell={`${index}:embryoStageDay`}
-                          onKeyDownCapture={(event) =>
-                            handleBiopsyCellKeyDown(
-                              event,
-                              index,
-                              "embryoStageDay"
-                            )
-                          }
-                        >
-                          <Input
-                            id={`form-sampling-stage-day-${index}`}
-                            value={sampling.embryoStageDay}
-                            maxLength={BIOPSY_EMPTY_FIELD_FALLBACK_VALUE.length}
-                            inputMode="numeric"
-                            onChange={(event) =>
-                              updateSamplingInformation(index, {
-                                embryoStageDay: event.target.value.slice(0, 1),
-                              })
-                            }
-                            className={spreadsheetInputClass(
-                              index,
-                              "embryoStageDay"
-                            )}
-                          />
-                          <FieldError
-                            message={biopsyTableCellFieldError(
-                              index,
-                              "embryoStageDay"
-                            )}
-                          />
-                        </td>
-                        <td
-                          className={samplingCellClass(index, "morphology")}
-                          data-biopsy-cell={`${index}:morphology`}
-                          onKeyDownCapture={(event) =>
-                            handleBiopsyCellKeyDown(event, index, "morphology")
-                          }
-                        >
-                          <Input
-                            id={`form-sampling-morphology-${index}`}
-                            value={sampling.morphology}
-                            maxLength={BIOPSY_EMPTY_FIELD_FALLBACK_VALUE.length}
-                            onChange={(event) =>
-                              updateSamplingInformation(index, {
-                                morphology: event.target.value,
-                              })
-                            }
-                            className={spreadsheetInputClass(index, "morphology")}
-                          />
-                          <FieldError
-                            message={biopsyTableCellFieldError(
-                              index,
-                              "morphology"
-                            )}
-                          />
-                        </td>
-                        <td
-                          className={samplingCellClass(index, "sentUl")}
-                          data-biopsy-cell={`${index}:sentUl`}
-                          onKeyDownCapture={(event) =>
-                            handleBiopsyCellKeyDown(event, index, "sentUl")
-                          }
-                        >
-                          <Input
-                            id={`form-sampling-sent-ul-${index}`}
-                            value={sampling.sentUl}
-                            inputMode="decimal"
-                            onChange={(event) =>
-                              updateSamplingInformation(index, {
-                                sentUl: event.target.value,
-                              })
-                            }
-                            className={spreadsheetInputClass(index, "sentUl")}
-                          />
-                          <FieldError
-                            message={biopsyTableCellFieldError(index, "sentUl")}
-                          />
-                        </td>
-                        <td
-                          className={samplingCellClass(index, "biopsiedCells")}
-                          data-biopsy-cell={`${index}:biopsiedCells`}
-                          onKeyDownCapture={(event) =>
-                            handleBiopsyCellKeyDown(
-                              event,
-                              index,
-                              "biopsiedCells"
-                            )
-                          }
-                        >
-                          <Input
-                            id={`form-sampling-biopsied-cells-${index}`}
-                            value={sampling.biopsiedCells}
-                            inputMode="numeric"
-                            onChange={(event) =>
-                              updateSamplingInformation(index, {
-                                biopsiedCells: event.target.value,
-                              })
-                            }
-                            className={spreadsheetInputClass(index, "biopsiedCells")}
-                          />
-                          <FieldError
-                            message={biopsyTableCellFieldError(
-                              index,
-                              "biopsiedCells"
-                            )}
-                          />
-                        </td>
-                        <td
-                          className={samplingCellClass(index, "cellsVisualized")}
-                          data-biopsy-cell={`${index}:cellsVisualized`}
-                          onKeyDownCapture={(event) =>
-                            handleBiopsyCellKeyDown(
-                              event,
-                              index,
-                              "cellsVisualized"
-                            )
-                          }
-                        >
-                          <OptionSelectField
-                            options={biopsyCellsVisualizedOptions}
-                            value={sampling.cellsVisualized}
-                            onChange={(cellsVisualized) =>
-                              updateSamplingInformation(index, {
-                                cellsVisualized,
-                              })
-                            }
-                            placeholder={t("Not set")}
-                            emptyLabel={t("Not set")}
-                          />
-                          <FieldError
-                            message={biopsyTableCellFieldError(
-                              index,
-                              "cellsVisualized"
-                            )}
-                          />
-                        </td>
-                        <td
-                          className="border border-slate-300 p-0 align-top"
-                          data-biopsy-cell={`${index}:notes`}
-                          onKeyDownCapture={(event) =>
-                            handleBiopsyCellKeyDown(event, index, "notes")
-                          }
-                        >
-                          <Textarea
-                            id={`form-sampling-notes-${index}`}
-                            value={sampling.notes}
-                            onChange={(event) =>
-                              updateSamplingInformation(index, {
-                                notes: event.target.value,
-                              })
-                            }
-                            rows={2}
-                            className="min-h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
-                          />
-                        </td>
+                    <thead className="bg-slate-100 text-left text-xs uppercase text-slate-700">
+                      <tr>
+                        <th className="min-w-36 border border-slate-300 px-3 py-2">
+                          {t("Sample ID")}
+                        </th>
+                        <th className="min-w-28 border border-slate-300 px-3 py-2 text-center">
+                          {t("Discarded")}
+                        </th>
+                        <th className="min-w-44 border border-slate-300 px-3 py-2">
+                          {t("Internal code")}
+                        </th>
+                        <th className="min-w-44 border border-slate-300 px-3 py-2">
+                          {t("Stage day 5, 6 or 7")} *
+                        </th>
+                        <th className="min-w-40 border border-slate-300 px-3 py-2">
+                          {t("Morphology")} *
+                        </th>
+                        <th className="min-w-36 border border-slate-300 px-3 py-2">
+                          {t("Sent uL")} *
+                        </th>
+                        <th className="min-w-44 border border-slate-300 px-3 py-2">
+                          {t("Biopsied cells")} *
+                        </th>
+                        <th className="min-w-44 border border-slate-300 px-3 py-2">
+                          {t("Cells visualized?")} *
+                        </th>
+                        <th className="min-w-80 border border-slate-300 px-3 py-2">
+                          {t("Comments")}
+                        </th>
                       </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {state.samplingInformation.map((sampling, index) => {
+                        const canDiscardSampling = isEmbryoSamplingRow(
+                          index,
+                          state.sampleInformation.biopsyCount,
+                        );
+                        const samplingIsDiscarded =
+                          isDiscardedSampling(sampling);
+
+                        return (
+                          <tr
+                            key={index}
+                            className={
+                              samplingIsDiscarded
+                                ? "bg-slate-100 text-slate-500"
+                                : undefined
+                            }
+                          >
+                            <td className="border border-slate-300 bg-slate-50 px-3 py-2 align-top font-mono text-xs font-semibold text-slate-900">
+                              {sampling.sampleId
+                                ? formatBiopsySampleIdForDisplay(
+                                    sampling.sampleId,
+                                  )
+                                : t("Not provided")}
+                              <FieldError
+                                message={errorFor(
+                                  `samplingInformation.${index}.sampleId`,
+                                )}
+                              />
+                            </td>
+                            <td className="border border-slate-300 bg-slate-50 px-3 py-2 align-middle text-center">
+                              {canDiscardSampling ? (
+                                <div className="flex justify-center">
+                                  <Checkbox
+                                    checked={samplingIsDiscarded}
+                                    onCheckedChange={(checked) =>
+                                      updateSamplingDiscarded(
+                                        index,
+                                        checked === true,
+                                      )
+                                    }
+                                    aria-label={`${t("Discarded")} ${sampling.sampleId}`}
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-400">
+                                  -
+                                </span>
+                              )}
+                            </td>
+                            <td
+                              className="border border-slate-300 p-0 align-top"
+                              data-biopsy-cell={`${index}:internalCode`}
+                              onKeyDownCapture={(event) =>
+                                handleBiopsyCellKeyDown(
+                                  event,
+                                  index,
+                                  "internalCode",
+                                )
+                              }
+                            >
+                              <Input
+                                id={`form-sampling-internal-code-${index}`}
+                                value={sampling.internalCode}
+                                onChange={(event) =>
+                                  updateSamplingInformation(index, {
+                                    internalCode: event.target.value,
+                                  })
+                                }
+                                className="h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
+                              />
+                            </td>
+                            <td
+                              className={samplingCellClass(
+                                index,
+                                "embryoStageDay",
+                              )}
+                              data-biopsy-cell={`${index}:embryoStageDay`}
+                              onKeyDownCapture={(event) =>
+                                handleBiopsyCellKeyDown(
+                                  event,
+                                  index,
+                                  "embryoStageDay",
+                                )
+                              }
+                            >
+                              <Input
+                                id={`form-sampling-stage-day-${index}`}
+                                value={sampling.embryoStageDay}
+                                maxLength={
+                                  BIOPSY_EMPTY_FIELD_FALLBACK_VALUE.length
+                                }
+                                inputMode="numeric"
+                                onChange={(event) =>
+                                  updateSamplingInformation(index, {
+                                    embryoStageDay: event.target.value.slice(
+                                      0,
+                                      1,
+                                    ),
+                                  })
+                                }
+                                className={spreadsheetInputClass(
+                                  index,
+                                  "embryoStageDay",
+                                )}
+                              />
+                              <FieldError
+                                message={biopsyTableCellFieldError(
+                                  index,
+                                  "embryoStageDay",
+                                )}
+                              />
+                            </td>
+                            <td
+                              className={samplingCellClass(index, "morphology")}
+                              data-biopsy-cell={`${index}:morphology`}
+                              onKeyDownCapture={(event) =>
+                                handleBiopsyCellKeyDown(
+                                  event,
+                                  index,
+                                  "morphology",
+                                )
+                              }
+                            >
+                              <Input
+                                id={`form-sampling-morphology-${index}`}
+                                value={sampling.morphology}
+                                maxLength={
+                                  BIOPSY_EMPTY_FIELD_FALLBACK_VALUE.length
+                                }
+                                onChange={(event) =>
+                                  updateSamplingInformation(index, {
+                                    morphology: event.target.value,
+                                  })
+                                }
+                                className={spreadsheetInputClass(
+                                  index,
+                                  "morphology",
+                                )}
+                              />
+                              <FieldError
+                                message={biopsyTableCellFieldError(
+                                  index,
+                                  "morphology",
+                                )}
+                              />
+                            </td>
+                            <td
+                              className={samplingCellClass(index, "sentUl")}
+                              data-biopsy-cell={`${index}:sentUl`}
+                              onKeyDownCapture={(event) =>
+                                handleBiopsyCellKeyDown(event, index, "sentUl")
+                              }
+                            >
+                              <Input
+                                id={`form-sampling-sent-ul-${index}`}
+                                value={sampling.sentUl}
+                                inputMode="decimal"
+                                onChange={(event) =>
+                                  updateSamplingInformation(index, {
+                                    sentUl: event.target.value,
+                                  })
+                                }
+                                className={spreadsheetInputClass(
+                                  index,
+                                  "sentUl",
+                                )}
+                              />
+                              <FieldError
+                                message={biopsyTableCellFieldError(
+                                  index,
+                                  "sentUl",
+                                )}
+                              />
+                            </td>
+                            <td
+                              className={samplingCellClass(
+                                index,
+                                "biopsiedCells",
+                              )}
+                              data-biopsy-cell={`${index}:biopsiedCells`}
+                              onKeyDownCapture={(event) =>
+                                handleBiopsyCellKeyDown(
+                                  event,
+                                  index,
+                                  "biopsiedCells",
+                                )
+                              }
+                            >
+                              <Input
+                                id={`form-sampling-biopsied-cells-${index}`}
+                                value={sampling.biopsiedCells}
+                                inputMode="numeric"
+                                onChange={(event) =>
+                                  updateSamplingInformation(index, {
+                                    biopsiedCells: event.target.value,
+                                  })
+                                }
+                                className={spreadsheetInputClass(
+                                  index,
+                                  "biopsiedCells",
+                                )}
+                              />
+                              <FieldError
+                                message={biopsyTableCellFieldError(
+                                  index,
+                                  "biopsiedCells",
+                                )}
+                              />
+                            </td>
+                            <td
+                              className={samplingCellClass(
+                                index,
+                                "cellsVisualized",
+                              )}
+                              data-biopsy-cell={`${index}:cellsVisualized`}
+                              onKeyDownCapture={(event) =>
+                                handleBiopsyCellKeyDown(
+                                  event,
+                                  index,
+                                  "cellsVisualized",
+                                )
+                              }
+                            >
+                              <OptionSelectField
+                                options={biopsyCellsVisualizedOptions}
+                                value={sampling.cellsVisualized}
+                                onChange={(cellsVisualized) =>
+                                  updateSamplingInformation(index, {
+                                    cellsVisualized,
+                                  })
+                                }
+                                placeholder={t("Not set")}
+                                emptyLabel={t("Not set")}
+                              />
+                              <FieldError
+                                message={biopsyTableCellFieldError(
+                                  index,
+                                  "cellsVisualized",
+                                )}
+                              />
+                            </td>
+                            <td
+                              className="border border-slate-300 p-0 align-top"
+                              data-biopsy-cell={`${index}:notes`}
+                              onKeyDownCapture={(event) =>
+                                handleBiopsyCellKeyDown(event, index, "notes")
+                              }
+                            >
+                              <Textarea
+                                id={`form-sampling-notes-${index}`}
+                                value={sampling.notes}
+                                onChange={(event) =>
+                                  updateSamplingInformation(index, {
+                                    notes: event.target.value,
+                                  })
+                                }
+                                rows={2}
+                                className="min-h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
                 <p className="px-3 py-2 text-xs text-slate-600">
                   {t("(*): Required field")}
@@ -7162,14 +7510,14 @@ export function TwoPQFormFlow({
                       {t(
                         samplingTableHasOnlyMissingRequiredCells
                           ? "Empty required biopsy cells can be filled with Not set before opening preview."
-                          : "Complete every required cell and fix cells that do not match their validation criteria before opening preview."
+                          : "Complete every required cell and fix cells that do not match their validation criteria before opening preview.",
                       )}
                     </p>
                     <ul className="mt-3 list-disc space-y-1 pl-5 text-xs">
                       {visibleSamplingValidationMessages.map(
                         (message, issueIndex) => (
                           <li key={`${message}-${issueIndex}`}>{message}</li>
-                        )
+                        ),
                       )}
                       {hiddenSamplingValidationCount > 0 ? (
                         <li>
@@ -7181,7 +7529,9 @@ export function TwoPQFormFlow({
                     {samplingTableHasOnlyMissingRequiredCells ? (
                       <Button
                         type="button"
-                        onClick={continueToPreviewWithBiopsyMissingFieldsFallback}
+                        onClick={
+                          continueToPreviewWithBiopsyMissingFieldsFallback
+                        }
                         className="mt-4 bg-amber-700 text-white hover:bg-amber-800"
                       >
                         {t("Continue anyway")}
@@ -7199,67 +7549,74 @@ export function TwoPQFormFlow({
         ) : null}
 
         {currentStep === "previewAndSignature" ? null : (
-        <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-muted-foreground">
-            {formType === "withdrawal_request"
-              ? `${selectedWithdrawalCases.length} ${t("cases selected")}`
-              : selectedInstitution?.name ?? state.institutionInformation.name
-                ? `${t("Institution")}: ${
-                    selectedInstitution?.name ?? state.institutionInformation.name
-                  }`
-                : t("No institution selected")}{" "}
-            {formType !== "withdrawal_request" && selectedDoctor
-              ? `· ${t("Doctor")}: ${selectedDoctor.fullName}`
-              : ""}
-          </div>
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => void selectStep(stepIndex - 1)}
-              disabled={stepIndex === 0 || pending || draftPending}
-            >
-              <ArrowLeft className="size-4" />
-              {t("Previous")}
-            </Button>
-            {stepIndex === steps.length - 1 ? (
+          <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-muted-foreground">
+              {formType === "withdrawal_request"
+                ? `${selectedWithdrawalCases.length} ${t("cases selected")}`
+                : (selectedInstitution?.name ??
+                    state.institutionInformation.name)
+                  ? `${t("Institution")}: ${
+                      selectedInstitution?.name ??
+                      state.institutionInformation.name
+                    }`
+                  : t("No institution selected")}{" "}
+              {formType !== "withdrawal_request" && selectedDoctor
+                ? `· ${t("Doctor")}: ${selectedDoctor.fullName}`
+                : ""}
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
               <Button
-                onClick={() => void submitForm()}
-                disabled={pending || draftPending}
-                className="bg-indigo-600 text-white hover:bg-indigo-700"
+                variant="outline"
+                onClick={() => void selectStep(stepIndex - 1)}
+                disabled={stepIndex === 0 || pending || draftPending}
               >
-                {pending ? <FileText className="size-4 animate-pulse" /> : <Save className="size-4" />}
-                {pending ? t("Storing...") : t("Store form")}
+                <ArrowLeft className="size-4" />
+                {t("Previous")}
               </Button>
-            ) : (
-              <Button
-                onClick={() => void goNext()}
-                disabled={
-                  pending ||
-                  draftPending ||
-                  !canContinueFromCurrentStep() ||
-                  (currentStep === "sampleInformation" &&
-                    formType === "sample" &&
-                    !state.sampleInformation.biopsyCount)
-                }
-                className={
-                  !canContinueFromCurrentStep() ||
-                  (currentStep === "sampleInformation" &&
-                    formType === "sample" &&
-                    !state.sampleInformation.biopsyCount)
-                    ? "bg-muted text-muted-foreground hover:bg-muted"
-                    : "bg-indigo-600 text-white hover:bg-indigo-700"
-                }
-              >
-                {currentStepContinuesToPreview
-                  ? t("Continue to preview")
-                  : currentStep === "sampleInformation" && formType === "sample"
-                    ? t("Generate table")
-                    : t("Continue")}
-                <ArrowRight className="size-4" />
-              </Button>
-            )}
+              {stepIndex === steps.length - 1 ? (
+                <Button
+                  onClick={() => void submitForm()}
+                  disabled={pending || draftPending}
+                  className="bg-indigo-600 text-white hover:bg-indigo-700"
+                >
+                  {pending ? (
+                    <FileText className="size-4 animate-pulse" />
+                  ) : (
+                    <Save className="size-4" />
+                  )}
+                  {pending ? t("Storing...") : t("Store form")}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => void goNext()}
+                  disabled={
+                    pending ||
+                    draftPending ||
+                    !canContinueFromCurrentStep() ||
+                    (currentStep === "sampleInformation" &&
+                      formType === "sample" &&
+                      !state.sampleInformation.biopsyCount)
+                  }
+                  className={
+                    !canContinueFromCurrentStep() ||
+                    (currentStep === "sampleInformation" &&
+                      formType === "sample" &&
+                      !state.sampleInformation.biopsyCount)
+                      ? "bg-muted text-muted-foreground hover:bg-muted"
+                      : "bg-indigo-600 text-white hover:bg-indigo-700"
+                  }
+                >
+                  {currentStepContinuesToPreview
+                    ? t("Continue to preview")
+                    : currentStep === "sampleInformation" &&
+                        formType === "sample"
+                      ? t("Generate table")
+                      : t("Continue")}
+                  <ArrowRight className="size-4" />
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
         )}
       </section>
     </div>

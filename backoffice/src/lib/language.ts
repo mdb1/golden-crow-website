@@ -1010,7 +1010,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add optional schedule details when the event needs times, timezone, duration, or country-specific hours.":
     "Agregá detalles opcionales de agenda cuando el evento necesite horarios, zona horaria, duración o franjas por país.",
   "Configure regional times": "Configurar horarios regionales",
-  "Classification": "Clasificación",
+  Classification: "Clasificación",
   "Add optional labels that help readers understand the event format, type, and status.":
     "Agregá etiquetas opcionales para que los lectores entiendan el formato, tipo y estado del evento.",
   "Event kind": "Tipo de evento",
@@ -1070,8 +1070,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Use HTTPS, or mailto for contact organizer.":
     "Usá HTTPS, o mailto para contacto con el organizador.",
   "Button URL is required.": "La URL del botón es obligatoria.",
-  "Use each action type only once.":
-    "Usá cada tipo de acción una sola vez.",
+  "Use each action type only once.": "Usá cada tipo de acción una sola vez.",
   "Repeated type": "Tipo repetido",
   "Invalid URL": "URL inválida",
   "No URL": "Sin URL",
@@ -1210,8 +1209,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Las URLs de acciones del evento deben usar HTTPS. Contactar al organizador puede usar mailto.",
   "Use each event action type only once.":
     "Usá cada tipo de acción del evento una sola vez.",
-  "Choose a valid daily start time.":
-    "Elegí una hora diaria de inicio válida.",
+  "Choose a valid daily start time.": "Elegí una hora diaria de inicio válida.",
   "Choose a valid daily end time.": "Elegí una hora diaria de fin válida.",
   "Timezone must be a valid IANA timezone.":
     "La zona horaria debe ser una zona horaria IANA válida.",
@@ -2801,6 +2799,33 @@ const SPANISH_TEXT: Record<string, string> = {
   "Saving draft": "Guardando borrador",
   "Pick existing patient": "Elegir paciente existente",
   "Linked study request form": "Formulario de solicitud linkeado",
+  "Linked biopsy form": "Formulario de biopsias vinculado",
+  "A study request can be linked to one biopsy form at a time.":
+    "Una solicitud de estudio puede estar vinculada a un solo formulario de biopsias a la vez.",
+  "Change biopsy form": "Cambiar formulario de biopsias",
+  "Choose biopsy form": "Elegir formulario de biopsias",
+  "Biopsy form linked": "Formulario de biopsias vinculado",
+  "Remove link": "Quitar vínculo",
+  "No biopsy form is linked yet.":
+    "Todavía no hay un formulario de biopsias vinculado.",
+  "Choose a biopsy form": "Elegir un formulario de biopsias",
+  "Search by form ID, patient, test, doctor, or institution. Only unassigned biopsy forms can be linked.":
+    "Buscá por ID de formulario, paciente, test, médico o institución. Solo se pueden vincular formularios de biopsias no asignados.",
+  "Search biopsy forms...": "Buscar formularios de biopsias...",
+  "Loading biopsy forms...": "Cargando formularios de biopsias...",
+  "Currently linked": "Vinculado actualmente",
+  "Patient not specified": "Paciente sin especificar",
+  "Link biopsy form": "Vincular formulario de biopsias",
+  "No available biopsy forms match this search.":
+    "No hay formularios de biopsias disponibles que coincidan con la búsqueda.",
+  "Unable to load biopsy forms.":
+    "No se pudieron cargar los formularios de biopsias.",
+  "Unable to update the biopsy form link.":
+    "No se pudo actualizar el vínculo con el formulario de biopsias.",
+  "Biopsy form linked successfully.":
+    "El formulario de biopsias se vinculó correctamente.",
+  "Biopsy form link removed.":
+    "Se quitó el vínculo con el formulario de biopsias.",
   "Select linked study request form":
     "Seleccionar formulario de solicitud linkeado",
   "Link study request form": "Vincular formulario de solicitud",
@@ -2810,6 +2835,12 @@ const SPANISH_TEXT: Record<string, string> = {
     "Confirmar que la muestra tiene un formulario de solicitud linkeado.",
   "Persist the form with linked study request, patient, case, sample, and sampling records.":
     "Persistir el formulario con solicitud linkeada, paciente, caso, muestra y registros de muestreo.",
+  "Link biopsy form back to study request":
+    "Vincular formulario de biopsias con la solicitud",
+  "Store this biopsy form in linkedBiopsyForm on":
+    "Guardar este formulario de biopsias en linkedBiopsyForm de",
+  "Store this biopsy form on its linked study request.":
+    "Guardar este formulario de biopsias en su solicitud de estudio vinculada.",
   "Select patient": "Seleccionar paciente",
   "Pick patient": "Elegir paciente",
   "Manual patient information": "Información manual de paciente",
@@ -3057,8 +3088,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Everything is up to date": "Todo está actualizado",
   "The full status-change sequence completed successfully.":
     "La secuencia completa del cambio de estado finalizó correctamente.",
-  "The sequence could not be completed":
-    "No se pudo completar la secuencia",
+  "The sequence could not be completed": "No se pudo completar la secuencia",
   "Not applicable": "No aplica",
   "Please wait while every dependent record is updated.":
     "Esperá mientras se actualizan todos los registros dependientes.",
@@ -4938,8 +4968,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Gestioná las transacciones vinculadas a tus ofertas de servicio.",
   "Manage requests linked to your service offers.":
     "Gestioná las solicitudes vinculadas a tus ofertas de servicio.",
-  "Manage this service transaction.":
-    "Gestioná esta transacción de servicio.",
+  "Manage this service transaction.": "Gestioná esta transacción de servicio.",
   "Pocket Genes service request transactions.":
     "Transacciones de solicitudes de servicio Pocket Genes.",
   "A form input requires an enabled form shape.":
@@ -4989,7 +5018,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Cardinality must use valid whole numbers.":
     "La cardinalidad debe usar números enteros válidos.",
   "Choose active service offer": "Elegí una oferta de servicio activa",
-  "Choose an existing service offer.": "Elegí una oferta de servicio existente.",
+  "Choose an existing service offer.":
+    "Elegí una oferta de servicio existente.",
   "Choose one Pocket-Genes-Wiki template to prefill editable fields.":
     "Elegí una plantilla de Pocket-Genes-Wiki para precargar campos editables.",
   "Choose organization provider": "Elegí organización proveedora",
@@ -5117,18 +5147,14 @@ const SPANISH_TEXT: Record<string, string> = {
   "No output slots defined.": "No hay slots de salida definidos.",
   "No output files are required for this service.":
     "Este servicio no requiere archivos de salida.",
-  "One acceptance condition per line":
-    "Una condición de aceptación por línea",
-  "One service limitation per line":
-    "Una limitación del servicio por línea",
+  "One acceptance condition per line": "Una condición de aceptación por línea",
+  "One service limitation per line": "Una limitación del servicio por línea",
   "No provider selected": "Sin proveedor seleccionado",
   "No providers found in the loaded page.":
     "No se encontraron proveedores en la página cargada.",
   "No records found.": "No se encontraron registros.",
-  "No service offers yet":
-    "Todavía no publicaste ofertas de servicio",
-  "No service requests yet":
-    "Todavía no recibiste solicitudes de servicio",
+  "No service offers yet": "Todavía no publicaste ofertas de servicio",
+  "No service requests yet": "Todavía no recibiste solicitudes de servicio",
   "No service offers match your filters":
     "Ninguna oferta de servicio coincide con los filtros",
   "No service requests match your filters":
@@ -5197,8 +5223,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Choose an output object source.":
     "Elegí un origen para el objeto de salida.",
   "File ID is required.": "El ID del archivo es obligatorio.",
-  "Use a valid HTTPS download URL.":
-    "Usá una URL de descarga HTTPS válida.",
+  "Use a valid HTTPS download URL.": "Usá una URL de descarga HTTPS válida.",
   "Choose where the finalized PGO content should be loaded from.":
     "Elegí desde dónde cargar el contenido PGO finalizado.",
   "Provide a public download URL. The SDK validates the downloaded content against the exact PGO type before creating a ready object.":
@@ -5239,7 +5264,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Terminal service transactions cannot be edited.":
     "Las transacciones de servicio finalizadas no se pueden editar.",
   "Optional report codes": "Códigos de informe opcionales",
-  "One 6-character report code per line": "Un código de informe de 6 caracteres por línea",
+  "One 6-character report code per line":
+    "Un código de informe de 6 caracteres por línea",
   "Reports may accompany a delivery, but they are not validated as service contract outputs.":
     "Los informes pueden acompañar una entrega, pero no se validan como salidas obligatorias del contrato del servicio.",
   "Linked output reports": "Informes de salida vinculados",
@@ -5281,10 +5307,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Este informe no está listo para vincular.",
   "Linking report...": "Vinculando informe...",
   "Link selected report": "Vincular informe seleccionado",
-  "Report linked to the transaction.":
-    "Informe vinculado a la transacción.",
-  "Report removed from the transaction.":
-    "Informe quitado de la transacción.",
+  "Report linked to the transaction.": "Informe vinculado a la transacción.",
+  "Report removed from the transaction.": "Informe quitado de la transacción.",
   "Remove this report from the transaction?":
     "¿Quitar este informe de la transacción?",
   "Delivered is accepted only after every code resolves to a ready uploaded object of the promised type.":
@@ -5330,8 +5354,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Apply user": "Aplicar usuario",
   "Choose a requester or enter a requester email.":
     "Elegí un solicitante o ingresá un email del solicitante.",
-  "Requester email must be valid.":
-    "El email del solicitante debe ser válido.",
+  "Requester email must be valid.": "El email del solicitante debe ser válido.",
   "Requested at": "Solicitado el",
   Required: "Obligatorio",
   Revision: "Revisión",
@@ -5353,8 +5376,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Generando y verificando el ID de servicio...",
   "Service ID is available.": "El ID de servicio está disponible.",
   "Service ID already exists.": "El ID de servicio ya existe.",
-  "Service ID could not be validated.":
-    "No se pudo validar el ID de servicio.",
+  "Service ID could not be validated.": "No se pudo validar el ID de servicio.",
   "Service ID is fixed for this existing offer.":
     "El ID de servicio es fijo para esta oferta existente.",
   "Regenerate service ID": "Regenerar ID de servicio",
@@ -5434,8 +5456,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Transacciones activas por versión de la oferta",
   "Counts include every transaction linked to this offer. Finished transactions are the total minus the active transactions.":
     "Los conteos incluyen todas las transacciones vinculadas a esta oferta. Las transacciones finalizadas son el total menos las transacciones activas.",
-  "No transactions for this offer.":
-    "No hay transacciones para esta oferta.",
+  "No transactions for this offer.": "No hay transacciones para esta oferta.",
   "No active transactions for this offer.":
     "No hay transacciones activas para esta oferta.",
   "Current contract": "Contrato actual",
@@ -5478,7 +5499,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Test planning": "Planificación de estudio",
   Text: "Texto",
   Transaction: "Transacción",
-  "Turnaround": "Tiempo de entrega",
+  Turnaround: "Tiempo de entrega",
   "Turnaround must be a duration like 2w, 1d, 3h, or 15m.":
     "El tiempo de entrega debe ser una duración como 2w, 1d, 3h o 15m.",
   "Client request time": "Hora de solicitud del cliente",
@@ -5571,16 +5592,14 @@ const SPANISH_TEXT: Record<string, string> = {
     "La publicación se detuvo. Revisá los requisitos de la oferta de servicio e intentá de nuevo.",
   "This service offer is now published.":
     "Esta oferta de servicio ya está publicada.",
-  "This input type is already added.":
-    "Este tipo de entrada ya está agregado.",
+  "This input type is already added.": "Este tipo de entrada ya está agregado.",
   "A form shape requires exactly one pgo_form input slot.":
     "Una forma de formulario requiere exactamente un slot de entrada pgo_form.",
   "A pgo_form input slot requires a form shape.":
     "Un slot de entrada pgo_form requiere una forma de formulario.",
   "Every form field needs a key and label.":
     "Cada campo de formulario necesita clave y etiqueta.",
-  "Every input slot needs a role.":
-    "Cada slot de entrada necesita un rol.",
+  "Every input slot needs a role.": "Cada slot de entrada necesita un rol.",
   "Every input slot needs one object type.":
     "Cada slot de entrada necesita un tipo de objeto.",
   "Every output slot needs a role and object type.":

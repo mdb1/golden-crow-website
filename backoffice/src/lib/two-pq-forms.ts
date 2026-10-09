@@ -177,6 +177,7 @@ export interface TwoPQFormRecord {
   institutionName?: string;
   requestedTestName?: string;
   linkedStudyRequestFormId?: string | null;
+  linkedBiopsyForm?: string | null;
   linkedCaseIds?: string[];
   selectedCaseId?: string;
   selectedRequestingDoctorId?: string;
@@ -258,7 +259,7 @@ export function canArchiveTwoPQForms(role: AdminRole) {
 
 export function shouldShowAutomaticPatientPortalAccessStep(
   formType: TwoPQFormType,
-  selectedPatientId?: string | null
+  selectedPatientId?: string | null,
 ) {
   return formType === "study_request" && !selectedPatientId?.trim();
 }
@@ -272,7 +273,10 @@ export function getTwoPQFormTypeFromSlug(slug: string): TwoPQFormType | null {
 
 type FormDisplayLanguage = "en" | "es";
 
-function getStringField(data: Record<string, unknown> | undefined, key: string) {
+function getStringField(
+  data: Record<string, unknown> | undefined,
+  key: string,
+) {
   const value = data?.[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
@@ -312,12 +316,14 @@ function formatConjoinedList(items: string[], language: FormDisplayLanguage) {
 
   const head = items.slice(0, -1).join(", ");
   const last = items[items.length - 1];
-  return language === "es" ? `${head}${connector}${last}` : `${head},${connector}${last}`;
+  return language === "es"
+    ? `${head}${connector}${last}`
+    : `${head},${connector}${last}`;
 }
 
 export function getWithdrawalRequestTitle(
   form: Pick<TwoPQFormRecord, "linkedCaseIds" | "withdrawalCases">,
-  language: FormDisplayLanguage
+  language: FormDisplayLanguage,
 ) {
   const uniqueCodes = new Set<string>();
 
@@ -335,7 +341,8 @@ export function getWithdrawalRequestTitle(
     }
   }
 
-  const prefix = language === "es" ? "Solicitud de retiro de" : "Withdrawal request for";
+  const prefix =
+    language === "es" ? "Solicitud de retiro de" : "Withdrawal request for";
   const codes = Array.from(uniqueCodes);
   if (codes.length === 0) {
     return language === "es" ? "Solicitud de retiro" : "Withdrawal request";
@@ -346,11 +353,14 @@ export function getWithdrawalRequestTitle(
 
 export function getTwoPQFormDisplayTitle(
   form: TwoPQFormRecord,
-  language: FormDisplayLanguage
+  language: FormDisplayLanguage,
 ) {
   if (form.formType === "withdrawal_request") {
     return getWithdrawalRequestTitle(form, language);
   }
 
-  return form.patientName ?? (language === "es" ? "Paciente sin nombre" : "Unnamed patient");
+  return (
+    form.patientName ??
+    (language === "es" ? "Paciente sin nombre" : "Unnamed patient")
+  );
 }

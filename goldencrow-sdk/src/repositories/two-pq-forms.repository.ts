@@ -234,6 +234,7 @@ type TwoPQFormDraftInput = {
 type ListTwoPQFormsOptions = {
   includeArchived?: boolean;
   formType?: TwoPQFormType;
+  availableForBiopsy?: boolean;
   limit?: number;
   cursor?: string;
   search?: string;
@@ -360,6 +361,7 @@ function formSearchHaystack(form: TwoPQFormRecord) {
         form.selectedCaseId,
         form.selectedRequestingDoctorId,
         form.linkedStudyRequestFormId,
+        form.linkedBiopsyForm,
         form.authorEmail,
         form.createdByEmail,
         ...(form.linkedCaseIds ?? []),
@@ -427,6 +429,12 @@ function formMatchesListFilters(
     return false;
   }
   if (options.formType && form.formType !== options.formType) {
+    return false;
+  }
+  if (
+    options.availableForBiopsy &&
+    (form.formType !== "study_request" || Boolean(form.linkedBiopsyForm))
+  ) {
     return false;
   }
   if (createdFrom && form.createdAt < createdFrom) {
@@ -741,6 +749,7 @@ function toTwoPQFormRecord(
     requestedTestName: normalizeOptionalString(data.requestedTestName),
     linkedStudyRequestFormId:
       normalizeOptionalString(data.linkedStudyRequestFormId) ?? null,
+    linkedBiopsyForm: normalizeOptionalString(data.linkedBiopsyForm) ?? null,
     linkedCaseIds: normalizeStringArray(data.linkedCaseIds),
     selectedCaseId: normalizeOptionalString(data.selectedCaseId),
     selectedRequestingDoctorId: normalizeOptionalString(
@@ -1775,6 +1784,165 @@ function canViewTwoPQForm(
   return false;
 }
 
+async function legacyLinkedBiopsyFormsByStudyRequestId(
+  forms: TwoPQFormRecord[],
+) {
+  const studyRequestIds = forms
+    .filter(
+      (form) => form.formType === "study_request" && !form.linkedBiopsyForm,
+    )
+    .map((form) => form.id);
+  const linkedByStudyRequestId = new Map<string, string>();
+
+  for (let index = 0; index < studyRequestIds.length; index += 30) {
+    const chunk = studyRequestIds.slice(index, index + 30);
+    if (chunk.length === 0) {
+      continue;
+    }
+    const snapshot = await adminDb
+      .collection(FORMS_COLLECTION)
+      .where("linkedStudyRequestFormId", "in", chunk)
+      .limit(Math.min(Math.max(chunk.length * 2, 20), 100))
+      .get();
+    const biopsyForms = snapshot.docs
+      .map((document) =>
+        toTwoPQFormRecord(
+          document.id,
+          document.data() as Record<string, unknown>,
+        ),
+      )
+      .filter((form) => form.formType === "sample")
+      .sort(
+        (left, right) =>
+          left.createdAt.localeCompare(right.createdAt) ||
+          left.id.localeCompare(right.id),
+      );
+    for (const biopsyForm of biopsyForms) {
+      const studyRequestId = biopsyForm.linkedStudyRequestFormId;
+      if (studyRequestId && !linkedByStudyRequestId.has(studyRequestId)) {
+        linkedByStudyRequestId.set(studyRequestId, biopsyForm.id);
+      }
+    }
+  }
+
+  return linkedByStudyRequestId;
+}
+
+async function withResolvedLegacyBiopsyLinks(forms: TwoPQFormRecord[]) {
+  const legacyLinks = await legacyLinkedBiopsyFormsByStudyRequestId(forms);
+  return forms.map((form) => {
+    const linkedBiopsyForm =
+      form.linkedBiopsyForm ?? legacyLinks.get(form.id) ?? null;
+    return linkedBiopsyForm === form.linkedBiopsyForm
+      ? form
+      : { ...form, linkedBiopsyForm };
+  });
+}
+
+async function claimStudyRequestForBiopsyForm(
+  context: AdminContext,
+  studyRequest: TwoPQFormRecord,
+  biopsyFormId: string,
+) {
+  const legacyLinks = await legacyLinkedBiopsyFormsByStudyRequestId([
+    studyRequest,
+  ]);
+  const legacyBiopsyFormId = legacyLinks.get(studyRequest.id);
+  const reference = adminDb.collection(FORMS_COLLECTION).doc(studyRequest.id);
+  const linkedBiopsyForm = await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError(
+        "Linked study request form was not found.",
+        404,
+      );
+    }
+    const current = toTwoPQFormRecord(
+      snapshot.id,
+      snapshot.data() as Record<string, unknown>,
+    );
+    if (current.formType !== "study_request") {
+      throw new AdminRepositoryError(
+        "Linked form must be a study request form.",
+        400,
+      );
+    }
+    if (!canViewTwoPQForm(context, current)) {
+      throw new AdminRepositoryError(
+        "You cannot use this study request form.",
+        403,
+      );
+    }
+
+    const existingBiopsyFormId =
+      current.linkedBiopsyForm ?? legacyBiopsyFormId ?? null;
+    if (existingBiopsyFormId && existingBiopsyFormId !== biopsyFormId) {
+      if (!current.linkedBiopsyForm && legacyBiopsyFormId) {
+        transaction.set(
+          reference,
+          {
+            linkedBiopsyForm: legacyBiopsyFormId,
+            updatedAt: new Date().toISOString(),
+            updatedByEmail: context.email,
+            updatedByUid: context.uid,
+          },
+          { merge: true },
+        );
+      }
+      return existingBiopsyFormId;
+    }
+
+    transaction.set(
+      reference,
+      {
+        linkedBiopsyForm: biopsyFormId,
+        updatedAt: new Date().toISOString(),
+        updatedByEmail: context.email,
+        updatedByUid: context.uid,
+      },
+      { merge: true },
+    );
+    return biopsyFormId;
+  });
+
+  if (linkedBiopsyForm !== biopsyFormId) {
+    throw new AdminRepositoryError(
+      `Study request form ${studyRequest.id} is already linked to biopsy form ${linkedBiopsyForm}.`,
+      409,
+    );
+  }
+}
+
+async function releaseStudyRequestBiopsyFormClaim(
+  context: AdminContext,
+  studyRequestFormId: string,
+  biopsyFormId: string,
+) {
+  const reference = adminDb
+    .collection(FORMS_COLLECTION)
+    .doc(studyRequestFormId);
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (
+      !snapshot.exists ||
+      normalizeOptionalString(snapshot.data()?.linkedBiopsyForm) !==
+        biopsyFormId
+    ) {
+      return;
+    }
+    transaction.set(
+      reference,
+      {
+        linkedBiopsyForm: null,
+        updatedAt: new Date().toISOString(),
+        updatedByEmail: context.email,
+        updatedByUid: context.uid,
+      },
+      { merge: true },
+    );
+  });
+}
+
 export async function listTwoPQFormsForContext(
   context: AdminContext,
   options: ListTwoPQFormsOptions = {},
@@ -1838,11 +2006,13 @@ export async function listTwoPQFormsForContext(
       }
 
       scanned += snapshot.size;
-      for (const doc of snapshot.docs) {
-        const form = toTwoPQFormRecord(
-          doc.id,
-          doc.data() as Record<string, unknown>,
-        );
+      const windowForms = snapshot.docs.map((doc) =>
+        toTwoPQFormRecord(doc.id, doc.data() as Record<string, unknown>),
+      );
+      const resolvedForms = options.availableForBiopsy
+        ? await withResolvedLegacyBiopsyLinks(windowForms)
+        : windowForms;
+      for (const form of resolvedForms) {
         if (
           formMatchesListFilters(
             form,
@@ -1853,7 +2023,7 @@ export async function listTwoPQFormsForContext(
             createdTo,
           )
         ) {
-          accepted.push({ form, cursor: doc.id });
+          accepted.push({ form, cursor: form.id });
           if (accepted.length >= safeLimit) {
             break;
           }
@@ -1927,7 +2097,184 @@ export async function getTwoPQFormForContext(
     throw new AdminRepositoryError("You cannot view this form.", 403);
   }
 
-  return form;
+  const [resolvedForm] =
+    form.formType === "study_request" && !form.linkedBiopsyForm
+      ? await withResolvedLegacyBiopsyLinks([form])
+      : [form];
+
+  return resolvedForm ?? form;
+}
+
+export async function updateTwoPQStudyRequestBiopsyLinkForContext(
+  context: AdminContext,
+  formId: string,
+  linkedBiopsyForm: string | null,
+): Promise<TwoPQFormRecord> {
+  const normalizedFormId = normalizeRequiredString(formId, "Form id");
+  const normalizedBiopsyFormId =
+    normalizeOptionalString(linkedBiopsyForm) ?? null;
+  const currentForm = await getTwoPQFormForContext(context, normalizedFormId);
+  if (currentForm.formType !== "study_request") {
+    throw new AdminRepositoryError(
+      "Only study request forms can configure a linked biopsy form.",
+      400,
+    );
+  }
+
+  if (normalizedBiopsyFormId) {
+    const conflictingLinks = await adminDb
+      .collection(FORMS_COLLECTION)
+      .where("linkedBiopsyForm", "==", normalizedBiopsyFormId)
+      .limit(2)
+      .get();
+    if (
+      conflictingLinks.docs.some((document) => document.id !== normalizedFormId)
+    ) {
+      throw new AdminRepositoryError(
+        `Biopsy form ${normalizedBiopsyFormId} is already linked to another study request form.`,
+        409,
+      );
+    }
+  }
+
+  const studyRequestRef = adminDb
+    .collection(FORMS_COLLECTION)
+    .doc(normalizedFormId);
+  await adminDb.runTransaction(async (transaction) => {
+    const studyRequestSnapshot = await transaction.get(studyRequestRef);
+    if (!studyRequestSnapshot.exists) {
+      throw new AdminRepositoryError("Form not found.", 404);
+    }
+    const latestStudyRequest = toTwoPQFormRecord(
+      studyRequestSnapshot.id,
+      studyRequestSnapshot.data() as Record<string, unknown>,
+    );
+    if (
+      latestStudyRequest.formType !== "study_request" ||
+      !canViewTwoPQForm(context, latestStudyRequest)
+    ) {
+      throw new AdminRepositoryError(
+        "You cannot configure this study request form.",
+        403,
+      );
+    }
+
+    const previousBiopsyFormId =
+      latestStudyRequest.linkedBiopsyForm ??
+      currentForm.linkedBiopsyForm ??
+      null;
+    const previousBiopsyRef = previousBiopsyFormId
+      ? adminDb.collection(FORMS_COLLECTION).doc(previousBiopsyFormId)
+      : null;
+    const nextBiopsyRef = normalizedBiopsyFormId
+      ? adminDb.collection(FORMS_COLLECTION).doc(normalizedBiopsyFormId)
+      : null;
+    const references = [previousBiopsyRef, nextBiopsyRef].filter(
+      (reference, index, all): reference is NonNullable<typeof reference> =>
+        Boolean(reference) &&
+        all.findIndex((candidate) => candidate?.id === reference?.id) === index,
+    );
+    const biopsySnapshots = await Promise.all(
+      references.map((reference) => transaction.get(reference)),
+    );
+    const biopsyById = new Map(
+      biopsySnapshots.map((snapshot) => [snapshot.id, snapshot]),
+    );
+    const nextBiopsySnapshot = normalizedBiopsyFormId
+      ? biopsyById.get(normalizedBiopsyFormId)
+      : undefined;
+    if (normalizedBiopsyFormId && !nextBiopsySnapshot?.exists) {
+      throw new AdminRepositoryError(
+        "Selected biopsy form was not found.",
+        404,
+      );
+    }
+    if (normalizedBiopsyFormId && nextBiopsySnapshot) {
+      const nextBiopsy = toTwoPQFormRecord(
+        nextBiopsySnapshot.id,
+        nextBiopsySnapshot.data() as Record<string, unknown>,
+      );
+      if (nextBiopsy.formType !== "sample") {
+        throw new AdminRepositoryError(
+          "Selected form must be a biopsy form.",
+          400,
+        );
+      }
+      if (!canViewTwoPQForm(context, nextBiopsy)) {
+        throw new AdminRepositoryError("You cannot use this biopsy form.", 403);
+      }
+      if (
+        nextBiopsy.institutionId !== latestStudyRequest.institutionId ||
+        nextBiopsy.doctorId !== latestStudyRequest.doctorId ||
+        (nextBiopsy.selectedPatientId &&
+          latestStudyRequest.selectedPatientId &&
+          nextBiopsy.selectedPatientId !== latestStudyRequest.selectedPatientId)
+      ) {
+        throw new AdminRepositoryError(
+          "Selected biopsy form must belong to the same institution, doctor, and patient.",
+          400,
+        );
+      }
+      if (
+        nextBiopsy.linkedStudyRequestFormId &&
+        nextBiopsy.linkedStudyRequestFormId !== normalizedFormId
+      ) {
+        throw new AdminRepositoryError(
+          `Biopsy form ${normalizedBiopsyFormId} is already linked to study request form ${nextBiopsy.linkedStudyRequestFormId}.`,
+          409,
+        );
+      }
+    }
+
+    const now = new Date().toISOString();
+    if (
+      previousBiopsyFormId &&
+      previousBiopsyFormId !== normalizedBiopsyFormId
+    ) {
+      const previousSnapshot = biopsyById.get(previousBiopsyFormId);
+      if (
+        previousSnapshot?.exists &&
+        normalizeOptionalString(
+          previousSnapshot.data()?.linkedStudyRequestFormId,
+        ) === normalizedFormId
+      ) {
+        transaction.set(
+          previousSnapshot.ref,
+          {
+            linkedStudyRequestFormId: null,
+            updatedAt: now,
+            updatedByEmail: context.email,
+            updatedByUid: context.uid,
+          },
+          { merge: true },
+        );
+      }
+    }
+    if (normalizedBiopsyFormId && nextBiopsySnapshot) {
+      transaction.set(
+        nextBiopsySnapshot.ref,
+        {
+          linkedStudyRequestFormId: normalizedFormId,
+          updatedAt: now,
+          updatedByEmail: context.email,
+          updatedByUid: context.uid,
+        },
+        { merge: true },
+      );
+    }
+    transaction.set(
+      studyRequestRef,
+      {
+        linkedBiopsyForm: normalizedBiopsyFormId,
+        updatedAt: now,
+        updatedByEmail: context.email,
+        updatedByUid: context.uid,
+      },
+      { merge: true },
+    );
+  });
+
+  return getTwoPQFormForContext(context, normalizedFormId);
 }
 
 export async function getTwoPQFormDraftForContext(
@@ -2064,6 +2411,36 @@ export async function deleteTwoPQFormForContext(
   const snapshot = await reference.get();
   if (!snapshot.exists) {
     throw new AdminRepositoryError("Form not found.", 404);
+  }
+
+  const form = toTwoPQFormRecord(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>,
+  );
+  if (form.formType === "study_request") {
+    const resolvedForm = await getTwoPQFormForContext(
+      context,
+      normalizedFormId,
+    );
+    if (resolvedForm.linkedBiopsyForm) {
+      await updateTwoPQStudyRequestBiopsyLinkForContext(
+        context,
+        normalizedFormId,
+        null,
+      );
+    }
+  } else if (form.formType === "sample" && form.linkedStudyRequestFormId) {
+    const studyRequest = await getTwoPQFormForContext(
+      context,
+      form.linkedStudyRequestFormId,
+    );
+    if (studyRequest.linkedBiopsyForm === normalizedFormId) {
+      await updateTwoPQStudyRequestBiopsyLinkForContext(
+        context,
+        studyRequest.id,
+        null,
+      );
+    }
   }
 
   await reference.delete();
@@ -2455,205 +2832,249 @@ export async function createTwoPQFormForContext(
     payload.requestedTest ?? {},
     payload.formType,
   );
-  let selectedCaseId = normalizeOptionalString(payload.selectedCaseId);
-  let linkedCaseId: string | undefined;
-  let linkedSamplingIds: string[] | undefined;
-  let caseInformation: Record<string, unknown> | undefined;
-  let samplingInformation: Record<string, unknown>[] | undefined;
-
+  const formId = await getNextFormId();
+  let claimedStudyRequestFormId: string | null = null;
   if (payload.formType === "sample") {
-    if (!normalizedSampleInformation) {
-      throw new AdminRepositoryError("Sample information is required.", 400);
+    if (!linkedStudyRequestForm) {
+      throw new AdminRepositoryError(
+        "Linked study request form is required.",
+        400,
+      );
     }
-    const sampleBoxCode = normalizedSampleInformation.boxCode;
-    let patientIdForLinkedRecords = selectedPatientId;
-    let linkedCaseLabel: string;
-    let normalizedSamplingInformation: ReturnType<
-      typeof normalizeSamplingInformationList
-    >;
-
-    if (selectedCaseId) {
-      const caseDetail = await getTwoPQDetailForContext(
-        context,
-        "cases",
-        selectedCaseId,
-      );
-      const caseRecord = caseDetail.record;
-      if (
-        caseRecord.institutionId !== institutionId ||
-        caseRecord.doctorId !== doctorId
-      ) {
-        throw new AdminRepositoryError(
-          "Selected 2PQ case must belong to the selected institution and doctor.",
-          400,
-        );
-      }
-      if (
-        patientIdForLinkedRecords &&
-        caseRecord.patientId &&
-        caseRecord.patientId !== patientIdForLinkedRecords
-      ) {
-        throw new AdminRepositoryError(
-          "Selected 2PQ case must belong to the selected patient.",
-          400,
-        );
-      }
-
-      linkedCaseId = caseRecord.id;
-      patientIdForLinkedRecords =
-        patientIdForLinkedRecords ?? caseRecord.patientId;
-      linkedCaseLabel = normalizeRequiredString(
-        caseRecord.caseLabel,
-        "Linked case label",
-      );
-      const linkedCaseBoxCode = normalizeOptionalString(
-        caseRecord.three_letter_code,
-      )?.toUpperCase();
-      if (linkedCaseBoxCode !== sampleBoxCode) {
-        throw new AdminRepositoryError(
-          "Selected 2PQ case must match CODIGO CAJA.",
-          400,
-        );
-      }
-      caseInformation = caseRecordToFormInformation(caseRecord);
-      normalizedSamplingInformation = normalizeSamplingInformationList(
-        payload.samplingInformation,
-        linkedCaseLabel,
-      );
-    } else {
-      const normalizedCaseInformation = normalizeCaseInformation(
-        payload.caseInformation,
-      );
-      linkedCaseLabel = normalizedCaseInformation.caseLabel;
-      normalizedSamplingInformation = normalizeSamplingInformationList(
-        payload.samplingInformation,
-        linkedCaseLabel,
-      );
-      const createdCase = await createTwoPQRecordForContext(
-        context,
-        "cases",
-        {
-          ...normalizedCaseInformation,
-          three_letter_code: sampleBoxCode,
-          institutionId,
-          doctorId,
-          patientId: patientIdForLinkedRecords,
-        },
-        { studyRequestForm: linkedStudyRequestForm! },
-      );
-      selectedCaseId = createdCase.id;
-      linkedCaseId = createdCase.id;
-      caseInformation = caseRecordToFormInformation(createdCase);
-    }
-
-    const createdSamplingRecords = [];
-    for (const samplingEntry of normalizedSamplingInformation) {
-      const createdSampling = await createTwoPQRecordForContext(
-        context,
-        "sampling",
-        {
-          ...samplingEntry,
-          institutionId,
-          doctorId,
-          patientId: patientIdForLinkedRecords,
-          parent_case: linkedCaseId,
-        },
-      );
-      createdSamplingRecords.push(createdSampling);
-    }
-
-    linkedSamplingIds = createdSamplingRecords.map((record) => record.id);
-    samplingInformation = createdSamplingRecords.map((record) =>
-      samplingRecordToFormInformation(record),
+    await claimStudyRequestForBiopsyForm(
+      context,
+      linkedStudyRequestForm,
+      formId,
     );
+    claimedStudyRequestFormId = linkedStudyRequestForm.id;
   }
 
-  const now = new Date().toISOString();
-  const formId = await getNextFormId();
-  const baseDocument = {
-    id: formId,
-    formType: payload.formType,
-    collectionKey: FORMS_COLLECTION,
-    institutionId,
-    doctorId,
-    selectedPatientId: selectedPatientId ?? null,
-    selectedInstitutionId: selectedInstitutionId ?? null,
-    selectedRequestingDoctorId: selectedRequestingDoctorId ?? null,
-    patientName: patientInformation.fullName,
-    patientEmail: patientInformation.email,
-    institutionName: selectedInstitution?.name ?? null,
-    requestedTestName: getRequestedTestName(requestedTest, payload.formType),
-    linkedStudyRequestFormId: linkedStudyRequestFormId ?? null,
-    selectedCaseId: selectedCaseId ?? null,
-    linkedCaseId: linkedCaseId ?? null,
-    linkedSamplingIds: linkedSamplingIds ?? [],
-    patientInformation: {
-      ...patientInformation,
-      patientId: selectedPatientId,
+  try {
+    let selectedCaseId = normalizeOptionalString(payload.selectedCaseId);
+    let linkedCaseId: string | undefined;
+    let linkedSamplingIds: string[] | undefined;
+    let caseInformation: Record<string, unknown> | undefined;
+    let samplingInformation: Record<string, unknown>[] | undefined;
+
+    if (payload.formType === "sample") {
+      if (!normalizedSampleInformation) {
+        throw new AdminRepositoryError("Sample information is required.", 400);
+      }
+      const sampleBoxCode = normalizedSampleInformation.boxCode;
+      let patientIdForLinkedRecords = selectedPatientId;
+      let linkedCaseLabel: string;
+      let normalizedSamplingInformation: ReturnType<
+        typeof normalizeSamplingInformationList
+      >;
+
+      if (selectedCaseId) {
+        const caseDetail = await getTwoPQDetailForContext(
+          context,
+          "cases",
+          selectedCaseId,
+        );
+        const caseRecord = caseDetail.record;
+        if (
+          caseRecord.institutionId !== institutionId ||
+          caseRecord.doctorId !== doctorId
+        ) {
+          throw new AdminRepositoryError(
+            "Selected 2PQ case must belong to the selected institution and doctor.",
+            400,
+          );
+        }
+        if (
+          patientIdForLinkedRecords &&
+          caseRecord.patientId &&
+          caseRecord.patientId !== patientIdForLinkedRecords
+        ) {
+          throw new AdminRepositoryError(
+            "Selected 2PQ case must belong to the selected patient.",
+            400,
+          );
+        }
+
+        linkedCaseId = caseRecord.id;
+        patientIdForLinkedRecords =
+          patientIdForLinkedRecords ?? caseRecord.patientId;
+        linkedCaseLabel = normalizeRequiredString(
+          caseRecord.caseLabel,
+          "Linked case label",
+        );
+        const linkedCaseBoxCode = normalizeOptionalString(
+          caseRecord.three_letter_code,
+        )?.toUpperCase();
+        if (linkedCaseBoxCode !== sampleBoxCode) {
+          throw new AdminRepositoryError(
+            "Selected 2PQ case must match CODIGO CAJA.",
+            400,
+          );
+        }
+        caseInformation = caseRecordToFormInformation(caseRecord);
+        normalizedSamplingInformation = normalizeSamplingInformationList(
+          payload.samplingInformation,
+          linkedCaseLabel,
+        );
+      } else {
+        const normalizedCaseInformation = normalizeCaseInformation(
+          payload.caseInformation,
+        );
+        linkedCaseLabel = normalizedCaseInformation.caseLabel;
+        normalizedSamplingInformation = normalizeSamplingInformationList(
+          payload.samplingInformation,
+          linkedCaseLabel,
+        );
+        const createdCase = await createTwoPQRecordForContext(
+          context,
+          "cases",
+          {
+            ...normalizedCaseInformation,
+            three_letter_code: sampleBoxCode,
+            institutionId,
+            doctorId,
+            patientId: patientIdForLinkedRecords,
+          },
+          { studyRequestForm: linkedStudyRequestForm! },
+        );
+        selectedCaseId = createdCase.id;
+        linkedCaseId = createdCase.id;
+        caseInformation = caseRecordToFormInformation(createdCase);
+      }
+
+      const createdSamplingRecords = [];
+      for (const samplingEntry of normalizedSamplingInformation) {
+        const createdSampling = await createTwoPQRecordForContext(
+          context,
+          "sampling",
+          {
+            ...samplingEntry,
+            institutionId,
+            doctorId,
+            patientId: patientIdForLinkedRecords,
+            parent_case: linkedCaseId,
+          },
+        );
+        createdSamplingRecords.push(createdSampling);
+      }
+
+      linkedSamplingIds = createdSamplingRecords.map((record) => record.id);
+      samplingInformation = createdSamplingRecords.map((record) =>
+        samplingRecordToFormInformation(record),
+      );
+    }
+
+    const now = new Date().toISOString();
+    const baseDocument = {
+      id: formId,
+      formType: payload.formType,
+      collectionKey: FORMS_COLLECTION,
       institutionId,
       doctorId,
-    },
-    requestedTest,
-    createdAt: now,
-    updatedAt: now,
-    authorEmail,
-    authorUid,
-    createdByEmail: authorEmail,
-    createdByUid: authorUid,
-    updatedByEmail: authorEmail,
-    updatedByUid: authorUid,
-  };
+      selectedPatientId: selectedPatientId ?? null,
+      selectedInstitutionId: selectedInstitutionId ?? null,
+      selectedRequestingDoctorId: selectedRequestingDoctorId ?? null,
+      patientName: patientInformation.fullName,
+      patientEmail: patientInformation.email,
+      institutionName: selectedInstitution?.name ?? null,
+      requestedTestName: getRequestedTestName(requestedTest, payload.formType),
+      linkedStudyRequestFormId: linkedStudyRequestFormId ?? null,
+      selectedCaseId: selectedCaseId ?? null,
+      linkedCaseId: linkedCaseId ?? null,
+      linkedSamplingIds: linkedSamplingIds ?? [],
+      patientInformation: {
+        ...patientInformation,
+        patientId: selectedPatientId,
+        institutionId,
+        doctorId,
+      },
+      requestedTest,
+      createdAt: now,
+      updatedAt: now,
+      authorEmail,
+      authorUid,
+      createdByEmail: authorEmail,
+      createdByUid: authorUid,
+      updatedByEmail: authorEmail,
+      updatedByUid: authorUid,
+    };
 
-  const document =
-    payload.formType === "study_request"
-      ? {
-          ...baseDocument,
-          medicalInformation: normalizeMedicalInformation(
-            payload.medicalInformation,
-            payload.formType,
-          ),
-          previousGeneticTests: normalizePreviousGeneticTests(
-            payload.previousGeneticTests,
-            payload.formType,
-          ),
-          institutionInformation: normalizeInstitutionInformation(
-            payload.institutionInformation ?? {
-              name: selectedInstitution?.name,
-              code: selectedInstitution?.code,
-              legalName: selectedInstitution?.legalName,
-              contactEmail: selectedInstitution?.contactEmail,
-              contactPhone: selectedInstitution?.contactPhone,
-              address: selectedInstitution?.address,
-              city: selectedInstitution?.city,
-              state: selectedInstitution?.state,
-              country: selectedInstitution?.country,
-              notes: selectedInstitution?.notes,
-            },
-          ),
-        }
-      : {
-          ...baseDocument,
-          sampleInformation: normalizedSampleInformation,
-          caseInformation: caseInformation ?? null,
-          samplingInformation: samplingInformation ?? [],
-        };
+    const document =
+      payload.formType === "study_request"
+        ? {
+            ...baseDocument,
+            linkedBiopsyForm: null,
+            medicalInformation: normalizeMedicalInformation(
+              payload.medicalInformation,
+              payload.formType,
+            ),
+            previousGeneticTests: normalizePreviousGeneticTests(
+              payload.previousGeneticTests,
+              payload.formType,
+            ),
+            institutionInformation: normalizeInstitutionInformation(
+              payload.institutionInformation ?? {
+                name: selectedInstitution?.name,
+                code: selectedInstitution?.code,
+                legalName: selectedInstitution?.legalName,
+                contactEmail: selectedInstitution?.contactEmail,
+                contactPhone: selectedInstitution?.contactPhone,
+                address: selectedInstitution?.address,
+                city: selectedInstitution?.city,
+                state: selectedInstitution?.state,
+                country: selectedInstitution?.country,
+                notes: selectedInstitution?.notes,
+              },
+            ),
+          }
+        : {
+            ...baseDocument,
+            sampleInformation: normalizedSampleInformation,
+            caseInformation: caseInformation ?? null,
+            samplingInformation: samplingInformation ?? [],
+          };
 
-  await adminDb.collection(FORMS_COLLECTION).doc(formId).set(document);
-  await adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid).delete();
+    const batch = adminDb.batch();
+    batch.set(adminDb.collection(FORMS_COLLECTION).doc(formId), document);
+    batch.delete(adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid));
+    await batch.commit();
+    claimedStudyRequestFormId = null;
 
-  if (automaticConsentEmail) {
-    try {
-      await sendInformedConsentEmail(
-        automaticConsentEmail.patient,
-        automaticConsentEmail.temporaryPassword,
-      );
-    } catch (error) {
-      console.error(
-        "Unable to send automatic informed consent email after study request submission.",
-        error,
-      );
+    if (automaticConsentEmail) {
+      try {
+        await sendInformedConsentEmail(
+          automaticConsentEmail.patient,
+          automaticConsentEmail.temporaryPassword,
+        );
+      } catch (error) {
+        console.error(
+          "Unable to send automatic informed consent email after study request submission.",
+          error,
+        );
+      }
     }
-  }
 
-  return toTwoPQFormRecord(formId, document);
+    return toTwoPQFormRecord(formId, document);
+  } catch (error) {
+    if (claimedStudyRequestFormId) {
+      try {
+        await releaseStudyRequestBiopsyFormClaim(
+          context,
+          claimedStudyRequestFormId,
+          formId,
+        );
+      } catch (releaseError) {
+        const creationMessage =
+          error instanceof Error ? error.message : "Unknown biopsy form error";
+        const releaseMessage =
+          releaseError instanceof Error
+            ? releaseError.message
+            : "Unknown linkage rollback error";
+        throw new AdminRepositoryError(
+          `Biopsy form creation failed and its study-request claim could not be released. Creation: ${creationMessage}. Rollback: ${releaseMessage}.`,
+          500,
+        );
+      }
+    }
+    throw error;
+  }
 }

@@ -12,6 +12,7 @@ const mockCompleteOperation = jest.fn();
 const mockFailOperation = jest.fn();
 const mockGetOperation = jest.fn();
 const mockDeleteTwoPQCaseStepForContext = jest.fn();
+const mockUpdateTwoPQStudyRequestBiopsyLinkForContext = jest.fn();
 
 jest.mock("../repositories/two-pq.repository.js", () => ({
   createTwoPQRecordForContext: jest.fn(),
@@ -34,6 +35,8 @@ jest.mock("../repositories/two-pq-forms.repository.js", () => ({
   getTwoPQFormDraftForContext: jest.fn(),
   getTwoPQFormForContext: jest.fn(),
   listTwoPQFormsForContext: jest.fn(),
+  updateTwoPQStudyRequestBiopsyLinkForContext:
+    mockUpdateTwoPQStudyRequestBiopsyLinkForContext,
   upsertTwoPQFormDraftForContext: jest.fn(),
 }));
 
@@ -52,16 +55,13 @@ jest.mock("../repositories/two-pq-case-deletion.repository.js", () => ({
   deleteTwoPQCaseStepForContext: mockDeleteTwoPQCaseStepForContext,
 }));
 
-jest.mock(
-  "../repositories/two-pq-case-status-operation.repository.js",
-  () => ({
-    beginTwoPQCaseStatusOperation: mockBeginOperation,
-    completeTwoPQCaseStatusOperation: mockCompleteOperation,
-    failTwoPQCaseStatusOperation: mockFailOperation,
-    getTwoPQCaseStatusOperation: mockGetOperation,
-    updateTwoPQCaseStatusOperation: mockUpdateOperation,
-  }),
-);
+jest.mock("../repositories/two-pq-case-status-operation.repository.js", () => ({
+  beginTwoPQCaseStatusOperation: mockBeginOperation,
+  completeTwoPQCaseStatusOperation: mockCompleteOperation,
+  failTwoPQCaseStatusOperation: mockFailOperation,
+  getTwoPQCaseStatusOperation: mockGetOperation,
+  updateTwoPQCaseStatusOperation: mockUpdateOperation,
+}));
 
 const adminContext: AdminContext = {
   email: "admin@example.com",
@@ -143,13 +143,11 @@ describe("2PQ case-status progress routes", () => {
       targetCaseStatus: "lab_processing",
       actorEmail: "admin@example.com",
     });
-    expect(mockUpdateOperation).toHaveBeenCalledWith(
-      "operation-123456789",
-      { step: "case", status: "success" },
-    );
-    expect(mockCompleteOperation).toHaveBeenCalledWith(
-      "operation-123456789",
-    );
+    expect(mockUpdateOperation).toHaveBeenCalledWith("operation-123456789", {
+      step: "case",
+      status: "success",
+    });
+    expect(mockCompleteOperation).toHaveBeenCalledWith("operation-123456789");
     expect(response.json()).toMatchObject({
       record: { id: "CASE-00022", caseStatus: "lab_processing" },
       operation: { status: "success" },
@@ -224,6 +222,33 @@ describe("2PQ case-status progress routes", () => {
 
     expect(response.statusCode).toBe(400);
     expect(mockDeleteTwoPQCaseStepForContext).not.toHaveBeenCalled();
+    await fastify.close();
+  });
+
+  it("updates the single linked biopsy form through the dedicated route", async () => {
+    mockUpdateTwoPQStudyRequestBiopsyLinkForContext.mockResolvedValue({
+      id: "FORM-00047",
+      formType: "study_request",
+      linkedBiopsyForm: "FORM-00053",
+    });
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "PATCH",
+      url: "/2pq/forms/FORM-00047/linked-biopsy-form",
+      payload: { linkedBiopsyForm: "FORM-00053" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(
+      mockUpdateTwoPQStudyRequestBiopsyLinkForContext,
+    ).toHaveBeenCalledWith(adminContext, "FORM-00047", "FORM-00053");
+    expect(response.json()).toEqual({
+      form: {
+        id: "FORM-00047",
+        formType: "study_request",
+        linkedBiopsyForm: "FORM-00053",
+      },
+    });
     await fastify.close();
   });
 });

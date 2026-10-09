@@ -1,4 +1,8 @@
-import type { DoctorListItem, InstitutionListItem, PatientListItem } from "@/lib/admin-areas";
+import type {
+  DoctorListItem,
+  InstitutionListItem,
+  PatientListItem,
+} from "@/lib/admin-areas";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import type {
   TwoPQFormDraftRecord,
@@ -10,11 +14,14 @@ import type {
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 export async function getTwoPQLookupData() {
-  const [institutionsPayload, doctorsPayload, patientsPayload] = await Promise.all([
-    sdkFetchServer<{ institutions: InstitutionListItem[] }>("/areas/institutions"),
-    sdkFetchServer<{ doctors: DoctorListItem[] }>("/areas/doctors"),
-    sdkFetchServer<{ patients: PatientListItem[] }>("/areas/patients"),
-  ]);
+  const [institutionsPayload, doctorsPayload, patientsPayload] =
+    await Promise.all([
+      sdkFetchServer<{ institutions: InstitutionListItem[] }>(
+        "/areas/institutions",
+      ),
+      sdkFetchServer<{ doctors: DoctorListItem[] }>("/areas/doctors"),
+      sdkFetchServer<{ patients: PatientListItem[] }>("/areas/patients"),
+    ]);
 
   return {
     institutions: institutionsPayload.institutions.map((institution) => ({
@@ -36,7 +43,7 @@ export async function getTwoPQLookupData() {
 }
 
 export async function getTwoPQFormLookupData(
-  options: { includeStudyRequestForms?: boolean } = {}
+  options: { includeStudyRequestForms?: boolean } = {},
 ) {
   const [
     institutionsPayload,
@@ -45,13 +52,15 @@ export async function getTwoPQFormLookupData(
     casesPayload,
     studyRequestFormsPayload,
   ] = await Promise.all([
-    sdkFetchServer<{ institutions: InstitutionListItem[] }>("/areas/institutions"),
+    sdkFetchServer<{ institutions: InstitutionListItem[] }>(
+      "/areas/institutions",
+    ),
     sdkFetchServer<{ doctors: DoctorListItem[] }>("/areas/doctors"),
     sdkFetchServer<{ patients: PatientListItem[] }>("/areas/patients"),
     sdkFetchServer<{ records: TwoPQListItem[] }>("/2pq/cases"),
     options.includeStudyRequestForms
       ? sdkFetchServer<{ forms: TwoPQFormRecord[] }>(
-          "/2pq/forms?formType=study_request&limit=20"
+          "/2pq/forms?formType=study_request&availableForBiopsy=1&limit=20",
         )
       : Promise.resolve({ forms: [] }),
   ]);
@@ -61,7 +70,9 @@ export async function getTwoPQFormLookupData(
     doctors: doctorsPayload.doctors,
     patients: patientsPayload.patients,
     cases: casesPayload.records,
-    studyRequestForms: studyRequestFormsPayload.forms,
+    studyRequestForms: studyRequestFormsPayload.forms.filter(
+      (form) => !form.linkedBiopsyForm,
+    ),
   };
 }
 
@@ -75,7 +86,7 @@ export async function getTwoPQForms(
     createdTo?: string;
     order?: TwoPQFormsOrder;
     cursor?: string;
-  } = {}
+  } = {},
 ) {
   const payload = await getTwoPQFormsPage(options);
   return payload.forms;
@@ -91,7 +102,7 @@ export async function getTwoPQFormsPage(
     createdTo?: string;
     order?: TwoPQFormsOrder;
     cursor?: string;
-  } = {}
+  } = {},
 ) {
   const params = new URLSearchParams();
   if (options.includeArchived) {
@@ -119,9 +130,7 @@ export async function getTwoPQFormsPage(
     params.set("cursor", options.cursor);
   }
   const query = params.size > 0 ? `?${params.toString()}` : "";
-  const payload = await sdkFetchServer<TwoPQFormsPage>(
-    `/2pq/forms${query}`
-  );
+  const payload = await sdkFetchServer<TwoPQFormsPage>(`/2pq/forms${query}`);
   return {
     forms: payload.forms,
     nextCursor: payload.nextCursor ?? null,
@@ -131,14 +140,14 @@ export async function getTwoPQFormsPage(
 
 export async function getTwoPQFormDraft() {
   const payload = await sdkFetchServer<{ draft: TwoPQFormDraftRecord | null }>(
-    "/2pq/form-draft"
+    "/2pq/form-draft",
   );
   return payload.draft;
 }
 
 export async function getTwoPQForm(formId: string) {
   const payload = await sdkFetchServer<{ form: TwoPQFormRecord }>(
-    `/2pq/forms/${encodeURIComponent(formId)}`
+    `/2pq/forms/${encodeURIComponent(formId)}`,
   );
   return payload.form;
 }

@@ -1,17 +1,34 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  CheckCircle2,
   CircleDot,
   ClipboardList,
   FileText,
+  Link2,
+  Loader2,
+  Search,
+  Trash2,
   UserRound,
 } from "lucide-react";
+import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useAppLanguage } from "@/components/app-language-provider";
 import {
   TWO_PQ_FORM_LABELS,
@@ -22,6 +39,7 @@ import {
 import { getTwoPQCaseStatusLabel } from "@/lib/two-pq-areas";
 import { compactList } from "@/lib/moderation-utils";
 import { appText, type AppLanguage } from "@/lib/language";
+import { sdkFetch } from "@/lib/sdk-client";
 
 type FieldSpec = {
   key: string;
@@ -796,6 +814,317 @@ function PatientLinkSection({ form }: { form: TwoPQFormRecord }) {
   );
 }
 
+function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
+  const { language } = useAppLanguage();
+  const router = useRouter();
+  const t = (text: string) => appText(language, text);
+  const [linkedBiopsyForm, setLinkedBiopsyForm] = useState(
+    form.linkedBiopsyForm ?? null,
+  );
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [candidates, setCandidates] = useState<TwoPQFormRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<ActionToastState | null>(null);
+
+  if (form.formType !== "study_request") {
+    return null;
+  }
+
+  async function loadCandidates(searchValue = search) {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        formType: "sample",
+        limit: "20",
+      });
+      if (searchValue.trim()) {
+        params.set("search", searchValue.trim());
+      }
+      const payload = await sdkFetch<{ forms: TwoPQFormRecord[] }>(
+        `/2pq/forms?${params.toString()}`,
+      );
+      setCandidates(
+        payload.forms.filter(
+          (candidate) =>
+            !candidate.linkedStudyRequestFormId ||
+            candidate.linkedStudyRequestFormId === form.id,
+        ),
+      );
+    } catch (candidateError) {
+      setError(
+        candidateError instanceof Error
+          ? candidateError.message
+          : t("Unable to load biopsy forms."),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openPicker() {
+    setDialogOpen(true);
+    void loadCandidates("");
+  }
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void loadCandidates();
+  }
+
+  async function updateLink(nextBiopsyFormId: string | null) {
+    setSavingId(nextBiopsyFormId ?? "remove");
+    setError(null);
+    try {
+      const payload = await sdkFetch<{ form: TwoPQFormRecord }>(
+        `/2pq/forms/${encodeURIComponent(form.id)}/linked-biopsy-form`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ linkedBiopsyForm: nextBiopsyFormId }),
+        },
+      );
+      setLinkedBiopsyForm(payload.form.linkedBiopsyForm ?? null);
+      setDialogOpen(false);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: nextBiopsyFormId
+          ? t("Biopsy form linked successfully.")
+          : t("Biopsy form link removed."),
+      });
+      router.refresh();
+    } catch (updateError) {
+      const message =
+        updateError instanceof Error
+          ? updateError.message
+          : t("Unable to update the biopsy form link.");
+      setError(message);
+      setToast({ id: Date.now(), tone: "error", message });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  return (
+    <>
+      <ActionToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        language={language}
+      />
+      <section className="overflow-hidden rounded-2xl border border-cyan-200/80 bg-gradient-to-br from-emerald-50/92 via-cyan-50/84 to-sky-50/92 shadow-[0_18px_46px_rgba(8,145,178,0.14)] dark:border-cyan-300/24 dark:from-emerald-950/28 dark:via-cyan-950/24 dark:to-sky-950/28">
+        <div className="flex flex-col gap-4 border-b border-cyan-200/70 px-5 py-5 sm:flex-row sm:items-center sm:justify-between dark:border-cyan-300/18">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/82 text-cyan-700 shadow-sm dark:bg-cyan-400/12 dark:text-cyan-200">
+              <Link2 className="size-5" />
+            </span>
+            <div>
+              <h2 className="font-heading text-xl font-semibold text-cyan-950 dark:text-cyan-50">
+                {t("Linked biopsy form")}
+              </h2>
+              <p className="mt-1 text-sm text-cyan-950/68 dark:text-cyan-50/68">
+                {t(
+                  "A study request can be linked to one biopsy form at a time.",
+                )}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={openPicker}
+          >
+            <Search className="size-3.5" />
+            {linkedBiopsyForm
+              ? t("Change biopsy form")
+              : t("Choose biopsy form")}
+          </Button>
+        </div>
+
+        <div className="px-5 py-5">
+          {linkedBiopsyForm ? (
+            <div className="flex flex-col gap-4 rounded-2xl border border-emerald-200/90 bg-white/78 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-emerald-300/20 dark:bg-emerald-950/24">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-200">
+                  <CheckCircle2 className="size-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-50">
+                    {t("Biopsy form linked")}
+                  </p>
+                  <p className="mt-1 truncate font-mono text-xs text-emerald-900/72 dark:text-emerald-100/72">
+                    {linkedBiopsyForm}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    href={`/2pq-dashboard/forms/${encodeURIComponent(linkedBiopsyForm)}`}
+                  >
+                    {t("Open")}
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  disabled={savingId !== null}
+                  onClick={() => void updateLink(null)}
+                >
+                  {savingId === "remove" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-3.5" />
+                  )}
+                  {t("Remove link")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-cyan-300/80 bg-white/52 px-5 py-6 text-center dark:border-cyan-300/24 dark:bg-cyan-950/16">
+              <p className="text-sm font-medium text-cyan-950 dark:text-cyan-50">
+                {t("No biopsy form is linked yet.")}
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!savingId) {
+            setDialogOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[88vh] overflow-hidden p-0 sm:max-w-4xl">
+          <DialogHeader className="border-b border-cyan-100 bg-cyan-50/70 px-6 py-5 text-left dark:border-cyan-300/16 dark:bg-cyan-950/22">
+            <DialogTitle className="font-heading text-2xl">
+              {t("Choose a biopsy form")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                "Search by form ID, patient, test, doctor, or institution. Only unassigned biopsy forms can be linked.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 py-5">
+            <form className="flex gap-2" onSubmit={submitSearch}>
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t("Search biopsy forms...")}
+                autoFocus
+              />
+              <Button type="submit" variant="outline" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Search className="size-4" />
+                )}
+                {t("Search")}
+              </Button>
+            </form>
+
+            {error ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            ) : null}
+
+            <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
+              {loading ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  {t("Loading biopsy forms...")}
+                </div>
+              ) : candidates.length ? (
+                candidates.map((candidate) => {
+                  const selected = linkedBiopsyForm === candidate.id;
+                  return (
+                    <article
+                      key={candidate.id}
+                      className="grid gap-4 rounded-2xl border border-border/80 bg-background/82 p-4 shadow-sm md:grid-cols-[1fr_auto] md:items-center"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={selected ? "brand" : "outline"}>
+                            <span className="font-mono">{candidate.id}</span>
+                          </Badge>
+                          {selected ? (
+                            <Badge variant="outline">
+                              {t("Currently linked")}
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <h3 className="mt-3 font-heading text-lg font-semibold">
+                          {candidate.patientName ||
+                            getTextValue(
+                              candidate.patientInformation,
+                              "fullName",
+                            ) ||
+                            t("Patient not specified")}
+                        </h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {compactList([
+                            candidate.requestedTestName,
+                            candidate.institutionName,
+                            candidate.createdAt
+                              ? formatDate(candidate.createdAt, language, true)
+                              : undefined,
+                          ])}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        disabled={selected || savingId !== null}
+                        onClick={() => void updateLink(candidate.id)}
+                      >
+                        {savingId === candidate.id ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : selected ? (
+                          <CheckCircle2 className="size-4" />
+                        ) : (
+                          <Link2 className="size-4" />
+                        )}
+                        {selected ? t("Linked") : t("Link biopsy form")}
+                      </Button>
+                    </article>
+                  );
+                })
+              ) : (
+                <div className="rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
+                  {t("No available biopsy forms match this search.")}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={savingId !== null}
+              onClick={() => setDialogOpen(false)}
+            >
+              {t("Close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -992,6 +1321,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
         </>
       ) : (
         <>
+          <LinkedBiopsyFormSection form={form} />
           <PatientLinkSection form={form} />
           <DetailSection
             title={t("Patient information")}

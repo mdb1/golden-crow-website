@@ -10,10 +10,12 @@ type MockDocumentRef = {
 };
 type MockQueryOperation =
   | { type: "where"; fieldPath: string; operator: string; value: unknown }
-  | { type: "limit"; count: number };
+  | { type: "limit"; count: number }
+  | { type: "orderBy"; fieldPath: string; direction: "asc" | "desc" };
 type MockQuery = {
   doc: (id: string) => MockDocumentRef;
   where: jest.Mock;
+  orderBy: jest.Mock;
   limit: jest.Mock;
   get: jest.Mock;
 };
@@ -27,6 +29,7 @@ const mockGetUserByEmail = jest.fn();
 const mockSendPGFlexLogisticsAssignmentEmail = jest.fn();
 const mockSynchronizeTwoPQCasesFilesAndCodes = jest.fn();
 const mockCascadeTwoPQCaseStatusToSamplingChildren = jest.fn();
+const mockCreateTwoPQRecordForContext = jest.fn();
 
 function docKey(ref: MockDocumentRef) {
   return `${ref.collectionName}/${ref.id}`;
@@ -41,6 +44,7 @@ function makeDocRef(collectionName: string, id: string): MockDocumentRef {
       return {
         exists: Boolean(data),
         id,
+        ref,
         data: () => data,
       };
     }),
@@ -85,7 +89,26 @@ function applyQueryOperations(
         return value === operation.value;
       }
 
+      if (operation.operator === "in" && Array.isArray(operation.value)) {
+        return operation.value.includes(value);
+      }
+
       throw new Error(`Unsupported mock where operator: ${operation.operator}`);
+    });
+  }
+
+  const orderOperation = operations.find(
+    (
+      operation,
+    ): operation is Extract<MockQueryOperation, { type: "orderBy" }> =>
+      operation.type === "orderBy",
+  );
+  if (orderOperation) {
+    docs.sort((left, right) => {
+      const comparison = String(
+        left.data[orderOperation.fieldPath] ?? "",
+      ).localeCompare(String(right.data[orderOperation.fieldPath] ?? ""));
+      return orderOperation.direction === "asc" ? comparison : -comparison;
     });
   }
 
@@ -101,6 +124,7 @@ function applyQueryOperations(
   return docs.map((doc) => ({
     exists: true,
     id: doc.id,
+    ref: makeDocRef(collectionName, doc.id),
     data: () => doc.data,
   }));
 }
@@ -122,13 +146,24 @@ function makeQuery(
         return makeQuery(collectionName, [...operations, operation]);
       },
     ),
+    orderBy: jest.fn(
+      (fieldPath: string, direction: "asc" | "desc" = "asc"): MockQuery => {
+        const operation: MockQueryOperation = {
+          type: "orderBy",
+          fieldPath,
+          direction,
+        };
+        return makeQuery(collectionName, [...operations, operation]);
+      },
+    ),
     limit: jest.fn((count: number): MockQuery => {
       const operation: MockQueryOperation = { type: "limit", count };
       return makeQuery(collectionName, [...operations, operation]);
     }),
-    get: jest.fn(async () => ({
-      docs: applyQueryOperations(collectionName, operations),
-    })),
+    get: jest.fn(async () => {
+      const docs = applyQueryOperations(collectionName, operations);
+      return { docs, size: docs.length, empty: docs.length === 0 };
+    }),
   };
 }
 
@@ -181,6 +216,7 @@ const mockDb = {
         get: (ref: MockDocumentRef) => Promise<{
           exists: boolean;
           id: string;
+          ref: MockDocumentRef;
           data: () => MockDocData | undefined;
         }>;
         set: (
@@ -225,7 +261,7 @@ jest.mock("../repositories/roles.repository.js", () => ({
 }));
 
 jest.mock("../repositories/two-pq.repository.js", () => ({
-  createTwoPQRecordForContext: jest.fn(),
+  createTwoPQRecordForContext: mockCreateTwoPQRecordForContext,
   getTwoPQDetailForContext: jest.fn(),
 }));
 
@@ -242,8 +278,7 @@ jest.mock("../lib/pgflex-dispatcher-email.js", () => ({
 }));
 
 jest.mock("../repositories/two-pq-auto-sync.repository.js", () => ({
-  synchronizeTwoPQCasesFilesAndCodes:
-    mockSynchronizeTwoPQCasesFilesAndCodes,
+  synchronizeTwoPQCasesFilesAndCodes: mockSynchronizeTwoPQCasesFilesAndCodes,
 }));
 
 jest.mock("../repositories/two-pq-sampling-status.repository.js", () => ({
@@ -274,6 +309,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     mockSendPGFlexLogisticsAssignmentEmail.mockReset();
     mockSynchronizeTwoPQCasesFilesAndCodes.mockClear();
     mockCascadeTwoPQCaseStatusToSamplingChildren.mockClear();
+    mockCreateTwoPQRecordForContext.mockReset();
 
     mockDocs.set("admin_sequences/2pq_forms", { current: 40 });
     mockDocs.set("institutions/inst-1", {
@@ -283,6 +319,19 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       city: "CABA",
       state: "Buenos Aires",
       country: "Argentina",
+    });
+    mockDocs.set("doctors/doctor-1", {
+      institutionId: "inst-1",
+      fullName: "Dra. Test",
+      authEmail: "doctor@example.com",
+      status: "active",
+    });
+    mockDocs.set("patients/patient-1", {
+      institutionId: "inst-1",
+      doctorId: "doctor-1",
+      email: "patient@example.com",
+      fullName: "Paciente Uno",
+      status: "active",
     });
     mockDocs.set("2pq_case/case-a", {
       institutionId: "inst-1",
@@ -392,24 +441,22 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       ["case-a", "case-b"],
       "admin@example.com",
     );
-    expect(mockCascadeTwoPQCaseStatusToSamplingChildren).toHaveBeenNthCalledWith(
-      1,
-      {
-        caseId: "case-a",
-        previousCaseStatus: "processing",
-        nextCaseStatus: "awaiting_pick_up",
-        actorEmail: "admin@example.com",
-      },
-    );
-    expect(mockCascadeTwoPQCaseStatusToSamplingChildren).toHaveBeenNthCalledWith(
-      2,
-      {
-        caseId: "case-b",
-        previousCaseStatus: "processing",
-        nextCaseStatus: "awaiting_pick_up",
-        actorEmail: "admin@example.com",
-      },
-    );
+    expect(
+      mockCascadeTwoPQCaseStatusToSamplingChildren,
+    ).toHaveBeenNthCalledWith(1, {
+      caseId: "case-a",
+      previousCaseStatus: "processing",
+      nextCaseStatus: "awaiting_pick_up",
+      actorEmail: "admin@example.com",
+    });
+    expect(
+      mockCascadeTwoPQCaseStatusToSamplingChildren,
+    ).toHaveBeenNthCalledWith(2, {
+      caseId: "case-b",
+      previousCaseStatus: "processing",
+      nextCaseStatus: "awaiting_pick_up",
+      actorEmail: "admin@example.com",
+    });
     expect(
       mockCascadeTwoPQCaseStatusToSamplingChildren.mock.invocationCallOrder[1]!,
     ).toBeLessThan(
@@ -507,5 +554,238 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       dispatcherFirebaseId: "dispatcher-b",
       dispatcherEmail: "bravo@example.com",
     });
+  });
+
+  it("claims the study request when creating a biopsy form and rejects a second biopsy", async () => {
+    const { createTwoPQFormForContext } =
+      await import("../repositories/two-pq-forms.repository");
+
+    mockDocs.set("2pq_forms/FORM-00040", {
+      id: "FORM-00040",
+      formType: "study_request",
+      collectionKey: "2pq_forms",
+      institutionId: "inst-1",
+      doctorId: "doctor-1",
+      selectedPatientId: "patient-1",
+      selectedInstitutionId: "inst-1",
+      patientName: "Paciente Uno",
+      patientEmail: "patient@example.com",
+      institutionName: "Clinica Norte",
+      requestedTestName: "PGT-A FAST",
+      linkedBiopsyForm: null,
+      patientInformation: {
+        patientId: "patient-1",
+        institutionId: "inst-1",
+        doctorId: "doctor-1",
+        email: "patient@example.com",
+        fullName: "Paciente Uno",
+        status: "active" as const,
+      },
+      requestedTest: {
+        pgtAFast: true,
+        pgtAFastReportsMosaicism: false,
+        pgtAFastReportsSex: false,
+        pgtAStandard: false,
+        pgtSr: false,
+      },
+      createdAt: "2026-08-30T10:00:00.000Z",
+      updatedAt: "2026-08-30T10:00:00.000Z",
+    });
+    mockCreateTwoPQRecordForContext.mockImplementation(
+      async (_context, area: string, input: MockDocData) =>
+        area === "cases"
+          ? {
+              id: "case-created",
+              ...input,
+            }
+          : {
+              id: "sampling-created",
+              ...input,
+            },
+    );
+
+    const input = {
+      formType: "sample" as const,
+      linkedStudyRequestFormId: "FORM-00040",
+      selectedPatientId: "patient-1",
+      selectedInstitutionId: "inst-1",
+      selectedRequestingDoctorId: "doctor-1",
+      patientInformation: {
+        institutionId: "inst-1",
+        doctorId: "doctor-1",
+        email: "patient@example.com",
+        fullName: "Paciente Uno",
+        status: "active" as const,
+      },
+      requestedTest: {
+        pgtAFast: true,
+        pgtAFastReportsMosaicism: false,
+        pgtAFastReportsSex: false,
+        pgtAStandard: false,
+        pgtSr: false,
+      },
+      sampleInformation: {
+        sampleType: "biopsia de trofoectodermo",
+        processedByFirstName: "Ana",
+        processedByLastName: "Lab",
+        processDate: "2026-08-31",
+        boxCode: "ABC",
+        biopsyCount: "1",
+      },
+      caseInformation: {
+        caseLabel: "ABCXXX",
+        caseStatus: "entered",
+      },
+      samplingInformation: [
+        {
+          sampleId: "ABC001",
+          sampleType: "biopsia de trofoectodermo",
+          processingStatus: "awaiting_reception",
+          embryoStageDay: "5",
+          morphology: "AA",
+          sentUl: "5",
+          biopsiedCells: "6",
+          cellsVisualized: true,
+        },
+      ],
+    };
+
+    const form = await createTwoPQFormForContext(fullAdminContext, input);
+
+    expect(form.id).toBe("FORM-00041");
+    expect(mockDocs.get("2pq_forms/FORM-00040")).toMatchObject({
+      linkedBiopsyForm: "FORM-00041",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00041")).toMatchObject({
+      formType: "sample",
+      linkedStudyRequestFormId: "FORM-00040",
+    });
+
+    await expect(
+      createTwoPQFormForContext(fullAdminContext, input),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message:
+        "Study request form FORM-00040 is already linked to biopsy form FORM-00041.",
+    });
+    expect(mockCreateTwoPQRecordForContext).toHaveBeenCalledTimes(2);
+  });
+
+  it("atomically replaces and removes the single biopsy link", async () => {
+    const { updateTwoPQStudyRequestBiopsyLinkForContext } =
+      await import("../repositories/two-pq-forms.repository");
+
+    const commonForm = {
+      collectionKey: "2pq_forms",
+      institutionId: "inst-1",
+      doctorId: "doctor-1",
+      selectedPatientId: "patient-1",
+      patientName: "Paciente Uno",
+      patientInformation: {
+        patientId: "patient-1",
+        institutionId: "inst-1",
+        doctorId: "doctor-1",
+      },
+      requestedTest: { pgtAFast: true },
+      createdAt: "2026-08-30T10:00:00.000Z",
+      updatedAt: "2026-08-30T10:00:00.000Z",
+    };
+    mockDocs.set("2pq_forms/FORM-00040", {
+      ...commonForm,
+      id: "FORM-00040",
+      formType: "study_request",
+      linkedBiopsyForm: "FORM-00041",
+    });
+    mockDocs.set("2pq_forms/FORM-00041", {
+      ...commonForm,
+      id: "FORM-00041",
+      formType: "sample",
+      linkedStudyRequestFormId: "FORM-00040",
+    });
+    mockDocs.set("2pq_forms/FORM-00042", {
+      ...commonForm,
+      id: "FORM-00042",
+      formType: "sample",
+      linkedStudyRequestFormId: null,
+    });
+
+    const replaced = await updateTwoPQStudyRequestBiopsyLinkForContext(
+      fullAdminContext,
+      "FORM-00040",
+      "FORM-00042",
+    );
+
+    expect(replaced.linkedBiopsyForm).toBe("FORM-00042");
+    expect(mockDocs.get("2pq_forms/FORM-00041")).toMatchObject({
+      linkedStudyRequestFormId: null,
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00042")).toMatchObject({
+      linkedStudyRequestFormId: "FORM-00040",
+    });
+
+    const removed = await updateTwoPQStudyRequestBiopsyLinkForContext(
+      fullAdminContext,
+      "FORM-00040",
+      null,
+    );
+
+    expect(removed.linkedBiopsyForm).toBeNull();
+    expect(mockDocs.get("2pq_forms/FORM-00040")).toMatchObject({
+      linkedBiopsyForm: null,
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00042")).toMatchObject({
+      linkedStudyRequestFormId: null,
+    });
+  });
+
+  it("lists only study requests that have no current or legacy biopsy link", async () => {
+    const { listTwoPQFormsForContext } =
+      await import("../repositories/two-pq-forms.repository");
+    const baseStudyRequest = {
+      formType: "study_request",
+      collectionKey: "2pq_forms",
+      institutionId: "inst-1",
+      doctorId: "doctor-1",
+      patientInformation: {},
+      requestedTest: {},
+      createdAt: "2026-08-30T10:00:00.000Z",
+      updatedAt: "2026-08-30T10:00:00.000Z",
+    };
+    mockDocs.set("2pq_forms/FORM-00031", {
+      ...baseStudyRequest,
+      id: "FORM-00031",
+      linkedBiopsyForm: null,
+    });
+    mockDocs.set("2pq_forms/FORM-00032", {
+      ...baseStudyRequest,
+      id: "FORM-00032",
+      linkedBiopsyForm: "FORM-00041",
+    });
+    mockDocs.set("2pq_forms/FORM-00033", {
+      ...baseStudyRequest,
+      id: "FORM-00033",
+    });
+    mockDocs.set("2pq_forms/FORM-00034", {
+      ...baseStudyRequest,
+      id: "FORM-00034",
+      linkedBiopsyForm: null,
+    });
+    mockDocs.set("2pq_forms/FORM-00043", {
+      ...baseStudyRequest,
+      id: "FORM-00043",
+      formType: "sample",
+      linkedStudyRequestFormId: "FORM-00033",
+    });
+
+    const result = await listTwoPQFormsForContext(fullAdminContext, {
+      formType: "study_request",
+      availableForBiopsy: true,
+      limit: 20,
+    });
+
+    expect(result.forms.map((form) => form.id).sort()).toEqual([
+      "FORM-00031",
+      "FORM-00034",
+    ]);
   });
 });

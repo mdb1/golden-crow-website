@@ -10,6 +10,7 @@ import {
   getTwoPQFormDraftForContext,
   getTwoPQFormForContext,
   listTwoPQFormsForContext,
+  updateTwoPQStudyRequestBiopsyLinkForContext,
   upsertTwoPQFormDraftForContext,
 } from "../repositories/two-pq-forms.repository.js";
 import {
@@ -296,12 +297,19 @@ const TwoPQFormDraftMutationSchema = z.object({
   state: z.record(z.string(), z.unknown()),
 });
 
+const TwoPQStudyRequestBiopsyLinkMutationSchema = z.object({
+  linkedBiopsyForm: z.string().min(1).nullable(),
+});
+
 const TwoPQFormsQuerySchema = z.object({
   includeArchived: z.string().optional(),
-  formType: z.enum(["study_request", "sample", "withdrawal_request"]).optional(),
+  formType: z
+    .enum(["study_request", "sample", "withdrawal_request"])
+    .optional(),
   limit: z.string().optional(),
   cursor: z.string().optional(),
   search: z.string().optional(),
+  availableForBiopsy: z.string().optional(),
   createdFrom: z.string().optional(),
   createdTo: z.string().optional(),
   order: z.enum(["newest", "oldest"]).optional(),
@@ -332,10 +340,12 @@ function parseQueryLimit(value: string | undefined) {
 
 function buildUnexpectedRouteErrorPayload(
   error: unknown,
-  request: Pick<FastifyRequest, "method" | "url" | "params" | "query" | "body">
+  request: Pick<FastifyRequest, "method" | "url" | "params" | "query" | "body">,
 ) {
   const baseError =
-    error instanceof Error ? error : new Error(typeof error === "string" ? error : "Unexpected error");
+    error instanceof Error
+      ? error
+      : new Error(typeof error === "string" ? error : "Unexpected error");
 
   return {
     error: baseError.message || "Unexpected internal error.",
@@ -355,7 +365,7 @@ function buildUnexpectedRouteErrorPayload(
 function sendTwoPQRouteError(
   request: FastifyRequest,
   reply: FastifyReply,
-  error: unknown
+  error: unknown,
 ) {
   if (isAdminRepositoryError(error)) {
     return reply.status(error.statusCode).send({
@@ -379,7 +389,7 @@ function sendTwoPQRouteError(
       err: error,
       request: payload.request,
     },
-    "Unhandled 2PQ route error"
+    "Unhandled 2PQ route error",
   );
   return reply.status(500).send(payload);
 }
@@ -389,7 +399,9 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
 
   f.get("/2pq/form-draft", async (request, reply) => {
     if (!request.adminContext) {
-      return reply.status(401).send({ error: "No authenticated admin context" });
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
     }
 
     try {
@@ -409,24 +421,28 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const draft = await upsertTwoPQFormDraftForContext(
           request.adminContext,
-          request.body
+          request.body,
         );
         return reply.send({ draft });
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.delete("/2pq/form-draft", async (request, reply) => {
     if (!request.adminContext) {
-      return reply.status(401).send({ error: "No authenticated admin context" });
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
     }
 
     try {
@@ -446,13 +462,18 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const forms = await listTwoPQFormsForContext(request.adminContext, {
           includeArchived: parseBooleanQueryFlag(request.query.includeArchived),
           formType: request.query.formType,
+          availableForBiopsy: parseBooleanQueryFlag(
+            request.query.availableForBiopsy,
+          ),
           limit: parseQueryLimit(request.query.limit),
           cursor: request.query.cursor,
           search: request.query.search,
@@ -464,7 +485,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.post(
@@ -476,19 +497,21 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const form = await createTwoPQFormForContext(
           request.adminContext,
-          request.body
+          request.body,
         );
         return reply.status(201).send({ form });
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.get(
@@ -502,19 +525,51 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const form = await getTwoPQFormForContext(
           request.adminContext,
-          request.params.formId
+          request.params.formId,
         );
         return reply.send({ form });
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
+  );
+
+  f.patch(
+    "/2pq/forms/:formId/linked-biopsy-form",
+    {
+      schema: {
+        params: z.object({
+          formId: z.string().min(1),
+        }),
+        body: TwoPQStudyRequestBiopsyLinkMutationSchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const form = await updateTwoPQStudyRequestBiopsyLinkForContext(
+          request.adminContext,
+          request.params.formId,
+          request.body.linkedBiopsyForm,
+        );
+        return reply.send({ form });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    },
   );
 
   f.patch(
@@ -528,19 +583,21 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const form = await archiveTwoPQFormForContext(
           request.adminContext,
-          request.params.formId
+          request.params.formId,
         );
         return reply.send({ form });
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.delete(
@@ -554,19 +611,21 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const result = await deleteTwoPQFormForContext(
           request.adminContext,
-          request.params.formId
+          request.params.formId,
         );
         return reply.send(result);
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.get(
@@ -587,16 +646,18 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       const records = await listTwoPQRecordsForContext(
         request.adminContext,
         request.params.areaKey,
-        request.query
+        request.query,
       );
       return reply.send({ records });
-    }
+    },
   );
 
   f.post(
@@ -611,20 +672,22 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const record = await createTwoPQRecordForContext(
           request.adminContext,
           request.params.areaKey,
-          request.body
+          request.body,
         );
         return reply.send({ record });
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.get(
@@ -638,7 +701,9 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
@@ -675,7 +740,9 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
@@ -712,20 +779,22 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const detail = await getTwoPQDetailForContext(
           request.adminContext,
           request.params.areaKey,
-          request.params.recordId
+          request.params.recordId,
         );
         return reply.send(detail);
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.put(
@@ -741,7 +810,9 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
@@ -749,13 +820,13 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           request.adminContext,
           request.params.areaKey,
           request.params.recordId,
-          request.body
+          request.body,
         );
         return reply.send({ record });
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.patch(
@@ -771,7 +842,9 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       const requestedOperationId = caseStatusOperationIdFromRequest(request);
@@ -831,7 +904,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         }
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.delete(
@@ -849,7 +922,9 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
@@ -881,7 +956,9 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
@@ -890,14 +967,16 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           request.params.areaKey,
           request.params.recordId,
           {
-            deleteLinkedSamplings: parseBooleanQueryFlag(request.query.deleteLinkedSamplings),
-          }
+            deleteLinkedSamplings: parseBooleanQueryFlag(
+              request.query.deleteLinkedSamplings,
+            ),
+          },
         );
         return reply.send(result);
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.post(
@@ -912,20 +991,22 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const result = await linkCaseToBatchForContext(
           request.adminContext,
           request.params.batchId,
-          request.params.caseId
+          request.params.caseId,
         );
         return reply.send(result);
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.delete(
@@ -940,20 +1021,22 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const result = await unlinkCaseFromBatchForContext(
           request.adminContext,
           request.params.batchId,
-          request.params.caseId
+          request.params.caseId,
         );
         return reply.send(result);
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.post(
@@ -968,20 +1051,22 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const result = await linkSamplingToCaseForContext(
           request.adminContext,
           request.params.caseId,
-          request.params.samplingId
+          request.params.samplingId,
         );
         return reply.send(result);
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 
   f.delete(
@@ -996,19 +1081,21 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       if (!request.adminContext) {
-        return reply.status(401).send({ error: "No authenticated admin context" });
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
       }
 
       try {
         const result = await unlinkSamplingFromCaseForContext(
           request.adminContext,
           request.params.caseId,
-          request.params.samplingId
+          request.params.samplingId,
         );
         return reply.send(result);
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }
-    }
+    },
   );
 }
