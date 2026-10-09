@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { sdkFetch } from "@/lib/sdk-client";
 import { DnaReport } from "@/app/(dashboard)/reports/columns";
 import {
@@ -24,16 +25,18 @@ interface DeleteReportResult {
 
 interface ReportDeleteDialogProps {
   report: DnaReport;
-  redirectTo?: string;
+  redirectTo?: string | null;
+  trigger?: ReactNode;
 }
 
 export function ReportDeleteDialog({
   report,
   redirectTo = "/reports",
+  trigger,
 }: ReportDeleteDialogProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [storageWarning, setStorageWarning] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -42,20 +45,43 @@ export function ReportDeleteDialog({
       }),
     onSuccess: (result) => {
       if (!result.storageDeleted) {
-        // Known gap from Phase 2 SDK — storage path unconfirmed; not an error
-        setStorageWarning(true);
+        toast.warning(
+          "Report deleted. Its associated storage file may still need manual cleanup."
+        );
+      } else {
+        toast.success(`Report ${report.code} deleted.`);
       }
       queryClient.invalidateQueries({ queryKey: ["reports"] });
-      router.push(redirectTo);
+      queryClient.invalidateQueries({ queryKey: ["report-codes-browser"] });
+      setOpen(false);
+      if (redirectTo) {
+        router.push(redirectTo);
+      }
+    },
+    onError: () => {
+      toast.error("The report could not be deleted. Please try again.");
     },
   });
 
   return (
-    <AlertDialog>
+    <AlertDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && mutation.isPending) {
+          return;
+        }
+        if (nextOpen) {
+          mutation.reset();
+        }
+        setOpen(nextOpen);
+      }}
+    >
       <AlertDialogTrigger asChild>
-        <Button variant="destructive" size="sm">
-          Delete Report
-        </Button>
+        {trigger ?? (
+          <Button variant="destructive" size="sm">
+            Delete Report
+          </Button>
+        )}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -66,22 +92,21 @@ export function ReportDeleteDialog({
             be deleted automatically. This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {storageWarning && (
-          <p className="text-sm text-muted-foreground px-2">
-            Report deleted. The associated storage file may still exist and
-            must be removed manually from Firebase Storage.
-          </p>
-        )}
         {mutation.error && (
           <p className="text-sm text-destructive px-2">
             Delete failed. Please try again.
           </p>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={mutation.isPending}>
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            onClick={() => mutation.mutate()}
+            onClick={(event) => {
+              event.preventDefault();
+              mutation.mutate();
+            }}
             disabled={mutation.isPending}
           >
             {mutation.isPending ? "Deleting..." : "Delete"}

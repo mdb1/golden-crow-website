@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, RefreshCcw, Search } from "lucide-react";
+import { ArrowRight, RefreshCcw, Search, Trash2 } from "lucide-react";
+import { ReportDeleteDialog } from "@/components/reports/report-delete-dialog";
 import { ReportPill } from "@/components/reports/report-pill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -236,13 +237,23 @@ export function ReportCodesBrowser() {
                   {formatDateTime(report.createdAt) ?? "No timestamp"}
                 </div>
 
-                <div className="flex lg:justify-end">
+                <div className="flex flex-wrap gap-2 lg:justify-end">
                   <Button variant="outline" size="sm" asChild>
                     <Link href={`/reports/${report.id}?from=report-codes`}>
                       Open report
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   </Button>
+                  <ReportDeleteDialog
+                    report={report}
+                    redirectTo={null}
+                    trigger={
+                      <Button variant="destructive" size="sm">
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </Button>
+                    }
+                  />
                 </div>
               </div>
             );
