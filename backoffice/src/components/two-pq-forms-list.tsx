@@ -736,9 +736,11 @@ export function TwoPQFormsList({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                  <Badge variant={formVisuals.badgeVariant}>
-                    {formTypeLabel(form.formType, t)}
-                  </Badge>
+                  {!showCoJoinedSequence ? (
+                    <Badge variant={formVisuals.badgeVariant}>
+                      {formTypeLabel(form.formType, t)}
+                    </Badge>
+                  ) : null}
                   {isArchived ? (
                     <Badge variant="warning">{t("Archived")}</Badge>
                   ) : null}

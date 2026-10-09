@@ -189,6 +189,9 @@ describe("TwoPQFormsList actions", () => {
     expect(
       screen.getByLabelText("Co-joined form sequence"),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Study request", { selector: '[data-slot="badge"]' }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Study: Linked")).toHaveTextContent("1");
     expect(screen.getByLabelText("Study: Linked")).toHaveAttribute(
       "data-state",
@@ -299,6 +302,9 @@ describe("TwoPQFormsList actions", () => {
       expect(
         screen.queryByLabelText("Co-joined form sequence"),
       ).not.toBeInTheDocument();
+      expect(
+        screen.getByText("Study request", { selector: '[data-slot="badge"]' }),
+      ).toBeInTheDocument();
     },
   );
 });
