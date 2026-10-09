@@ -2,6 +2,11 @@ import type { ModerationDocumentRecord } from "./moderation-types";
 import { getBoolean, getString, pickFirstString } from "./moderation-utils";
 
 export type ReportProviderFormat = "mdm" | "ag" | "vcf" | "pdf" | "2pq";
+export type UploadedReportAccessMode =
+  | "download_url"
+  | "linked_file"
+  | "both"
+  | "none";
 export type TrackingProgressStatusValue =
   | "waiting_on_patient"
   | "sample_taken"
@@ -126,6 +131,31 @@ export function parseUploadedReportRecord(
 export function isReportReadyToDownload(report: UploadedReportRecord) {
   const trimmed = report.downloadUrl.trim().toLowerCase();
   return Boolean(trimmed) && trimmed !== "null";
+}
+
+export function getUploadedReportAccessMode(
+  downloadUrl: string | null | undefined,
+  linkedFileId: string | null | undefined
+): UploadedReportAccessMode {
+  const normalizedDownloadUrl = downloadUrl?.trim().toLowerCase() ?? "";
+  const normalizedLinkedFileId = linkedFileId?.trim().toLowerCase() ?? "";
+  const hasDownloadUrl = Boolean(
+    normalizedDownloadUrl && normalizedDownloadUrl !== "null"
+  );
+  const hasLinkedFile = Boolean(
+    normalizedLinkedFileId && normalizedLinkedFileId !== "null"
+  );
+
+  if (hasDownloadUrl && hasLinkedFile) {
+    return "both";
+  }
+  if (hasDownloadUrl) {
+    return "download_url";
+  }
+  if (hasLinkedFile) {
+    return "linked_file";
+  }
+  return "none";
 }
 
 export function resolveEditableReportOwnerId(report: UploadedReportRecord) {

@@ -25,7 +25,11 @@ import {
   getReportSourceMeta,
   getReportStatusColor,
 } from "@/lib/moderation-utils";
-import { parseReportCodeRecord } from "@/lib/report-admin";
+import {
+  getUploadedReportAccessMode,
+  parseReportCodeRecord,
+  type UploadedReportAccessMode,
+} from "@/lib/report-admin";
 
 type EditableReportCodeState = {
   ownerId: string;
@@ -37,6 +41,33 @@ const SOURCE_DESCRIPTIONS: Record<AdminReportRecord["source"], string> = {
   ActyonGenomics: "Report from ActyonGenomics laboratory partner.",
   vcf: "Variant Call Format file - raw genomic variant data.",
   "2pq": "2PQ stored snapshot linked through file storage and report-code resolution.",
+};
+
+const ACCESS_MODE_COPY: Record<
+  UploadedReportAccessMode,
+  { label: string; description: string; color: string }
+> = {
+  download_url: {
+    label: "Direct download URL",
+    description: "This report is delivered directly through its published URL.",
+    color: "#5FAE6A",
+  },
+  linked_file: {
+    label: "File Storage document",
+    description: "This report is delivered from its linked File Storage document.",
+    color: "#4E8FBB",
+  },
+  both: {
+    label: "Direct URL + linked file",
+    description:
+      "Both references are present. The direct URL is the active download source and the File Storage document remains linked.",
+    color: "#C17A21",
+  },
+  none: {
+    label: "Not configured",
+    description: "This report has no download URL or linked File Storage document.",
+    color: "#FF9E2C",
+  },
 };
 
 function toEditableState(document: ModerationDocumentRecord): EditableReportCodeState {
@@ -80,6 +111,15 @@ export function ReportDetailWorkbench({
   const effectiveOwnerId = state.ownerId.trim() || report.userId || "";
   const effectiveUploadedReportId =
     state.uploadedReportId.trim() || report.uploadedReportId || "";
+  const accessMode = getUploadedReportAccessMode(
+    report.downloadUrl,
+    report.linkedFileId
+  );
+  const accessModeCopy = ACCESS_MODE_COPY[accessMode];
+  const hasDownloadUrlAccess =
+    accessMode === "download_url" || accessMode === "both";
+  const hasLinkedFileAccess =
+    accessMode === "linked_file" || accessMode === "both";
 
   const changedFields = useMemo(() => {
     const changes: string[] = [];
@@ -240,6 +280,10 @@ export function ReportDetailWorkbench({
             label={effectiveUploadedReportId ? "Linked upload" : "No upload"}
             color={effectiveUploadedReportId ? "#5FAE6A" : "#FF9E2C"}
           />
+          <ReportPill
+            label={`Access: ${accessModeCopy.label}`}
+            color={accessModeCopy.color}
+          />
         </div>
 
         <ReportOwnerWarning
@@ -348,18 +392,56 @@ export function ReportDetailWorkbench({
                   </dd>
                 </div>
               </dl>
-              {report.downloadUrl ? (
-                <a
-                  href={report.downloadUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-4 block break-all text-xs text-primary underline-offset-4 hover:underline"
-                >
-                  {report.downloadUrl}
-                </a>
-              ) : (
-                <p className="mt-4 text-xs text-muted-foreground">No download URL published.</p>
-              )}
+              <div className="mt-4 rounded-xl border border-border/70 bg-card/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Report access method
+                  </p>
+                  <ReportPill
+                    label={accessModeCopy.label}
+                    color={accessModeCopy.color}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {accessModeCopy.description}
+                </p>
+                {accessMode !== "none" ? (
+                  <dl className="mt-3 flex flex-col gap-3 border-t border-border/60 pt-3 text-sm">
+                    {hasDownloadUrlAccess && report.downloadUrl ? (
+                      <div className="space-y-1">
+                        <dt className="text-xs text-muted-foreground">Download URL</dt>
+                        <dd>
+                          <a
+                            href={report.downloadUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block break-all text-xs text-primary underline-offset-4 hover:underline"
+                          >
+                            {report.downloadUrl}
+                          </a>
+                        </dd>
+                      </div>
+                    ) : null}
+                    {hasLinkedFileAccess && report.linkedFileId ? (
+                      <div className="space-y-1">
+                        <dt className="text-xs text-muted-foreground">
+                          Linked File Storage ID
+                        </dt>
+                        <dd>
+                          <Link
+                            href={`/collections/file_storage/${encodeURIComponent(
+                              report.linkedFileId
+                            )}`}
+                            className="break-all font-mono text-xs text-primary underline-offset-4 hover:underline"
+                          >
+                            {report.linkedFileId}
+                          </Link>
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                ) : null}
+              </div>
             </div>
 
             <div className="rounded-2xl border border-border/80 bg-muted/30 p-4">

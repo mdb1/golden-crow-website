@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcw, Save } from "lucide-react";
+import { ExternalLink, RotateCcw, Save } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { DeveloperRawEditor } from "@/components/developer-raw-editor";
 import { ReportPill } from "@/components/reports/report-pill";
@@ -27,12 +27,14 @@ import {
   getReportStatusColor,
 } from "@/lib/moderation-utils";
 import {
+  getUploadedReportAccessMode,
   isReportReadyToDownload,
   parseUploadedReportRecord,
   REPORT_PROVIDER_FORMAT_OPTIONS,
   resolveEditableReportOwnerId,
   TRACKING_PROGRESS_STATUS_OPTIONS,
   type ReportProviderFormat,
+  type UploadedReportAccessMode,
 } from "@/lib/report-admin";
 
 type EditableUploadedReportState = {
@@ -55,6 +57,35 @@ type UploadedReportFieldKey =
   | "downloadUrl"
   | "providerFormat"
   | "ownerEmail";
+
+const ACCESS_MODE_COPY: Record<
+  UploadedReportAccessMode,
+  { label: string; description: string; color: string }
+> = {
+  download_url: {
+    label: "Direct download URL",
+    description: "The report is delivered directly through the published URL below.",
+    color: "#5FAE6A",
+  },
+  linked_file: {
+    label: "File Storage document",
+    description:
+      "The report is delivered from the linked File Storage document. A separate download URL is not required.",
+    color: "#4E8FBB",
+  },
+  both: {
+    label: "Direct URL + linked file",
+    description:
+      "Both references are present. The direct URL is used first, while the File Storage document remains linked.",
+    color: "#C17A21",
+  },
+  none: {
+    label: "Not configured",
+    description:
+      "Publish a direct download URL or link this uploaded report through the File Storage workflow.",
+    color: "#FF9E2C",
+  },
+};
 
 function toEditableProviderFormat(value: string): ReportProviderFormat | "" {
   switch (value.trim().toLowerCase()) {
@@ -177,18 +208,35 @@ export function UploadedReportWorkbench({
     state.reportOwnerId.trim() ||
     state.ownerCommunityUserId.trim() ||
     resolveEditableReportOwnerId(report);
-  const isReady = isReportReadyToDownload(report);
+  const accessMode = getUploadedReportAccessMode(
+    state.downloadUrl,
+    report.linkedFileId
+  );
+  const accessModeCopy = ACCESS_MODE_COPY[accessMode];
+  const isReady = accessMode !== "none";
+  const hasLinkedFileAccess =
+    accessMode === "linked_file" || accessMode === "both";
+  const hadPublishedDownloadUrl = isReportReadyToDownload(report);
   const isProviderFormatLocked = isReady && Boolean(report.providerFormat.trim());
   const nextUploadVersionCount = useMemo(() => {
     const trimmedDownloadUrl = state.downloadUrl.trim();
     const currentDownloadUrl = report.downloadUrl.trim();
 
-    if (isReady && trimmedDownloadUrl && trimmedDownloadUrl !== currentDownloadUrl) {
+    if (
+      hadPublishedDownloadUrl &&
+      trimmedDownloadUrl &&
+      trimmedDownloadUrl !== currentDownloadUrl
+    ) {
       return (report.uploadVersionCount ?? 1) + 1;
     }
 
     return report.uploadVersionCount ?? 1;
-  }, [isReady, report.downloadUrl, report.uploadVersionCount, state.downloadUrl]);
+  }, [
+    hadPublishedDownloadUrl,
+    report.downloadUrl,
+    report.uploadVersionCount,
+    state.downloadUrl,
+  ]);
 
   const changedFields = useMemo(() => {
     const changes: string[] = [];
@@ -398,8 +446,8 @@ export function UploadedReportWorkbench({
             />
           ) : null}
           <ReportPill
-            label={isReady ? "Download ready" : "Awaiting upload"}
-            color={isReady ? "#5FAE6A" : "#FF9E2C"}
+            label={`Access: ${accessModeCopy.label}`}
+            color={accessModeCopy.color}
           />
           <ReportPill label={`v${nextUploadVersionCount}`} color="#8E80B8" />
         </div>
@@ -515,24 +563,75 @@ export function UploadedReportWorkbench({
               )}
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="download-url">Download URL</Label>
-              <Input
-                id="download-url"
-                value={state.downloadUrl}
-                aria-invalid={Boolean(fieldErrors.downloadUrl)}
-                placeholder="https://..."
-                onChange={(event) =>
-                  setState((current) => ({ ...current, downloadUrl: event.target.value }))
-                }
-              />
-              {fieldErrors.downloadUrl ? (
-                <p className="text-xs text-destructive">{fieldErrors.downloadUrl}</p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Saving a new download URL on an existing uploaded report increments the version count.
-                </p>
-              )}
+            <div className="space-y-4 rounded-2xl border border-border/80 bg-muted/25 p-4 md:col-span-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    Report access method
+                  </p>
+                  <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                    {accessModeCopy.description}
+                  </p>
+                </div>
+                <ReportPill
+                  label={accessModeCopy.label}
+                  color={accessModeCopy.color}
+                />
+              </div>
+
+              {hasLinkedFileAccess && report.linkedFileId ? (
+                <div className="space-y-2 border-t border-border/60 pt-4">
+                  <Label htmlFor="linked-file-id">Linked File Storage ID</Label>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      id="linked-file-id"
+                      value={report.linkedFileId}
+                      readOnly
+                      className="font-mono text-xs"
+                    />
+                    <Button variant="outline" size="sm" asChild>
+                      <Link
+                        href={`/collections/file_storage/${encodeURIComponent(
+                          report.linkedFileId
+                        )}`}
+                      >
+                        Open File Storage
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    This canonical link is managed by the File Storage workflow.
+                  </p>
+                </div>
+              ) : null}
+
+              {accessMode !== "linked_file" ? (
+                <div className="space-y-2 border-t border-border/60 pt-4">
+                  <Label htmlFor="download-url">Direct download URL</Label>
+                  <Input
+                    id="download-url"
+                    value={state.downloadUrl}
+                    aria-invalid={Boolean(fieldErrors.downloadUrl)}
+                    placeholder="https://..."
+                    onChange={(event) =>
+                      setState((current) => ({
+                        ...current,
+                        downloadUrl: event.target.value,
+                      }))
+                    }
+                  />
+                  {fieldErrors.downloadUrl ? (
+                    <p className="text-xs text-destructive">
+                      {fieldErrors.downloadUrl}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Saving a new direct URL on an existing URL-backed report increments the version count.
+                    </p>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2">
