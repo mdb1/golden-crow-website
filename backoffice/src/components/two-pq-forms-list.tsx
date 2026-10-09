@@ -180,81 +180,83 @@ function CoJoinedFormSequence({
       number: 1,
       label: t("Study"),
       formId: form.id,
-      linkedClass:
-        "border-sky-600 bg-sky-600 text-white shadow-[0_8px_20px_rgba(2,132,199,0.24)] dark:border-sky-300 dark:bg-sky-300 dark:text-sky-950",
     },
     {
       number: 2,
       label: t("Biopsy"),
       formId: form.linkedBiopsyForm ?? null,
-      linkedClass:
-        "border-emerald-600 bg-emerald-600 text-white shadow-[0_8px_20px_rgba(5,150,105,0.24)] dark:border-emerald-300 dark:bg-emerald-300 dark:text-emerald-950",
     },
     {
       number: 3,
       label: t("Withdrawal"),
       formId: form.linkedWithdrawalRequest ?? null,
-      linkedClass:
-        "border-amber-600 bg-amber-600 text-white shadow-[0_8px_20px_rgba(217,119,6,0.24)] dark:border-amber-300 dark:bg-amber-300 dark:text-amber-950",
     },
   ];
 
   return (
     <div
       aria-label={t("Co-joined form sequence")}
-      className="mt-4 rounded-2xl border border-sky-200/80 bg-white/72 px-3 py-4 dark:border-sky-300/18 dark:bg-sky-950/24"
+      className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-950"
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_1.5rem_minmax(0,1fr)_1.5rem_minmax(0,1fr)] items-start sm:grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)_3rem_minmax(0,1fr)]">
+      <div className="grid grid-cols-3 gap-1">
         {steps.map((step, index) => {
           const isLinked = Boolean(step.formId);
+          const segmentClass = cn(
+            "flex min-h-20 min-w-0 flex-col items-center justify-center px-5 py-3 text-center outline-none transition-[filter,transform] focus-visible:brightness-110 sm:min-h-24 sm:px-8",
+            isLinked
+              ? "bg-emerald-600 text-white shadow-[0_8px_22px_rgba(5,150,105,0.2)] hover:bg-emerald-500 active:scale-[0.99] dark:bg-emerald-500 dark:hover:bg-emerald-400"
+              : "cursor-default bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300",
+          );
+          const segmentStyle = {
+            clipPath:
+              index === 0
+                ? "polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%)"
+                : "polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%, 18px 50%)",
+          };
           const content = (
             <>
+              <span className="flex items-baseline justify-center gap-1.5">
+                <span className="text-lg font-bold sm:text-xl">
+                  {step.number}
+                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide sm:text-sm">
+                  {step.label}
+                </span>
+              </span>
               <span
-                aria-label={`${step.label}: ${isLinked ? t("Linked") : t("Not linked")}`}
                 className={cn(
-                  "flex size-10 items-center justify-center rounded-full border-2 text-sm font-bold transition-transform",
+                  "mt-1 max-w-full truncate font-mono text-[9px] sm:text-xs",
                   isLinked
-                    ? step.linkedClass
-                    : "border-dashed border-muted-foreground/35 bg-background text-muted-foreground/55",
-                  isLinked && "group-hover/step:-translate-y-0.5",
+                    ? "text-white/82"
+                    : "text-slate-500 dark:text-slate-300",
                 )}
               >
-                {step.number}
-              </span>
-              <span className="mt-2 text-center text-xs font-semibold text-foreground">
-                {step.label}
-              </span>
-              <span className="mt-0.5 max-w-full truncate font-mono text-[10px] text-muted-foreground sm:text-xs">
                 {step.formId ?? t("Not linked")}
               </span>
             </>
           );
 
-          return (
-            <div key={step.number} className="contents">
-              {step.formId ? (
-                <Link
-                  href={`/2pq-dashboard/forms/${encodeURIComponent(step.formId)}`}
-                  className="group/step flex min-w-0 flex-col items-center rounded-xl px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {content}
-                </Link>
-              ) : (
-                <div className="flex min-w-0 flex-col items-center px-1 py-1">
-                  {content}
-                </div>
-              )}
-              {index < steps.length - 1 ? (
-                <div
-                  aria-hidden="true"
-                  className={cn(
-                    "mt-5 h-0.5 w-full",
-                    steps[index + 1]?.formId
-                      ? "bg-sky-400/80 dark:bg-sky-300/60"
-                      : "border-t-2 border-dashed border-muted-foreground/25",
-                  )}
-                />
-              ) : null}
+          const accessibilityLabel = `${step.label}: ${isLinked ? t("Linked") : t("Not linked")}`;
+          return step.formId ? (
+            <Link
+              key={step.number}
+              href={`/2pq-dashboard/forms/${encodeURIComponent(step.formId)}`}
+              aria-label={accessibilityLabel}
+              data-state="linked"
+              className={segmentClass}
+              style={segmentStyle}
+            >
+              {content}
+            </Link>
+          ) : (
+            <div
+              key={step.number}
+              aria-label={accessibilityLabel}
+              data-state="empty"
+              className={segmentClass}
+              style={segmentStyle}
+            >
+              {content}
             </div>
           );
         })}

@@ -189,8 +189,20 @@ describe("TwoPQFormsList actions", () => {
       screen.getByLabelText("Co-joined form sequence"),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Study: Linked")).toHaveTextContent("1");
+    expect(screen.getByLabelText("Study: Linked")).toHaveAttribute(
+      "data-state",
+      "linked",
+    );
     expect(screen.getByLabelText("Biopsy: Linked")).toHaveTextContent("2");
+    expect(screen.getByLabelText("Biopsy: Linked")).toHaveAttribute(
+      "data-state",
+      "linked",
+    );
     expect(screen.getByLabelText("Withdrawal: Linked")).toHaveTextContent("3");
+    expect(screen.getByLabelText("Withdrawal: Linked")).toHaveAttribute(
+      "data-state",
+      "linked",
+    );
     expect(
       document.querySelector('a[href="/2pq-dashboard/forms/FORM-00002"]'),
     ).toBeInTheDocument();
@@ -216,8 +228,16 @@ describe("TwoPQFormsList actions", () => {
 
     expect(screen.getByLabelText("Study: Linked")).toBeInTheDocument();
     expect(screen.getByLabelText("Biopsy: Not linked")).toHaveTextContent("2");
+    expect(screen.getByLabelText("Biopsy: Not linked")).toHaveAttribute(
+      "data-state",
+      "empty",
+    );
     expect(screen.getByLabelText("Withdrawal: Not linked")).toHaveTextContent(
       "3",
+    );
+    expect(screen.getByLabelText("Withdrawal: Not linked")).toHaveAttribute(
+      "data-state",
+      "empty",
     );
   });
 
