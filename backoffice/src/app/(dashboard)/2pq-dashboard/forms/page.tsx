@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, FileClock } from "lucide-react";
+import { ArrowLeft, FileClock, Plus } from "lucide-react";
 import {
   HeaderUnclutterButton,
   HeaderUnclutterScope,
@@ -118,6 +118,14 @@ export default async function TwoPQFormsPage({
       : null;
   const renderPageActions = () => (
     <>
+      {canCreateTwoPQFormType(adminContext.role, "study_request") ? (
+        <Button variant="default" size="sm" asChild>
+          <Link href={TWO_PQ_FORM_ROUTES.study_request}>
+            <Plus className="size-3.5" />
+            {t("New study request")}
+          </Link>
+        </Button>
+      ) : null}
       {formDraft && draftHref ? (
         <Button variant="default" size="sm" asChild>
           <Link href={draftHref}>

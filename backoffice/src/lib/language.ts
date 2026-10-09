@@ -3933,6 +3933,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "New sampling record": "Alta de muestreo",
   "New sequencing batch": "Alta de lote de secuenciación",
   "New similar form": "Nuevo formulario similar",
+  "New study request": "Nueva solicitud de estudio",
   "New value": "Nuevo valor",
   No: "No",
   "No access": "Sin acceso",
