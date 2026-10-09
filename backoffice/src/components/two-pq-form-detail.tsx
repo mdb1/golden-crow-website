@@ -6,6 +6,7 @@ import { type FormEvent, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  AlertTriangle,
   CalendarDays,
   CheckCircle2,
   CircleDot,
@@ -880,6 +881,12 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
   const [linkedBiopsyForm, setLinkedBiopsyForm] = useState(
     form.linkedBiopsyForm ?? null,
   );
+  const [suggestedBiopsyForm, setSuggestedBiopsyForm] = useState(
+    form.suggestedBiopsyForm ?? null,
+  );
+  const [biopsyLinkState, setBiopsyLinkState] = useState(
+    form.biopsyLinkState ?? (form.linkedBiopsyForm ? "cohesive" : "none"),
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [candidates, setCandidates] = useState<TwoPQFormRecord[]>([]);
@@ -907,10 +914,10 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
         `/2pq/forms?${params.toString()}`,
       );
       setCandidates(
-        payload.forms.filter(
-          (candidate) =>
-            !candidate.linkedStudyRequestFormId ||
-            candidate.linkedStudyRequestFormId === form.id,
+        payload.forms.filter((candidate) =>
+          [candidate.studyRequestForm, candidate.linkedStudyRequestFormId]
+            .filter((formId): formId is string => Boolean(formId))
+            .every((formId) => formId === form.id),
         ),
       );
     } catch (candidateError) {
@@ -935,6 +942,10 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
   }
 
   async function updateLink(nextBiopsyFormId: string | null) {
+    const repairingMismatch =
+      nextBiopsyFormId !== null &&
+      (biopsyLinkState === "missing_study_property" ||
+        biopsyLinkState === "missing_biopsy_backlink");
     setSavingId(nextBiopsyFormId ?? "remove");
     setError(null);
     try {
@@ -946,13 +957,20 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
         },
       );
       setLinkedBiopsyForm(payload.form.linkedBiopsyForm ?? null);
+      setSuggestedBiopsyForm(payload.form.suggestedBiopsyForm ?? null);
+      setBiopsyLinkState(
+        payload.form.biopsyLinkState ??
+          (payload.form.linkedBiopsyForm ? "cohesive" : "none"),
+      );
       setDialogOpen(false);
       setToast({
         id: Date.now(),
         tone: "success",
-        message: nextBiopsyFormId
-          ? t("Biopsy form linked successfully.")
-          : t("Biopsy form link removed."),
+        message: repairingMismatch
+          ? t("Bilateral biopsy link repaired.")
+          : nextBiopsyFormId
+            ? t("Biopsy form linked successfully.")
+            : t("Biopsy form link removed."),
       });
       router.refresh();
     } catch (updateError) {
@@ -966,6 +984,13 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
       setSavingId(null);
     }
   }
+
+  const hasLinkMismatch =
+    biopsyLinkState !== "none" && biopsyLinkState !== "cohesive";
+  const repairableLinkMismatch =
+    biopsyLinkState === "missing_study_property" ||
+    biopsyLinkState === "missing_biopsy_backlink";
+  const repairTarget = linkedBiopsyForm ?? suggestedBiopsyForm;
 
   return (
     <>
@@ -1005,6 +1030,68 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
         </div>
 
         <div className="px-5 py-5">
+          {hasLinkMismatch ? (
+            <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-amber-300/80 bg-amber-50 px-4 py-4 text-amber-950 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-300/28 dark:bg-amber-950/28 dark:text-amber-50">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-500/14 text-amber-700 dark:text-amber-200">
+                  <AlertTriangle className="size-5" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">
+                    {t("Biopsy link mismatch")}
+                  </p>
+                  <p className="mt-1 text-sm text-amber-900/76 dark:text-amber-100/76">
+                    {biopsyLinkState === "missing_study_property"
+                      ? t(
+                          "The biopsy points to this study request, but the study request does not store the biopsy link.",
+                        )
+                      : biopsyLinkState === "missing_biopsy_backlink"
+                        ? t(
+                            "The study request stores this biopsy, but the biopsy does not point back to the study request.",
+                          )
+                        : biopsyLinkState === "missing_biopsy"
+                          ? t(
+                              "The study request stores a biopsy form that no longer exists.",
+                            )
+                          : t(
+                              "Multiple or conflicting biopsy links were found. Review them before choosing the correct form.",
+                            )}
+                  </p>
+                </div>
+              </div>
+              {repairableLinkMismatch && repairTarget ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="shrink-0 bg-amber-700 text-white hover:bg-amber-800"
+                  disabled={savingId !== null}
+                  onClick={() => void updateLink(repairTarget)}
+                >
+                  {savingId === repairTarget ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Link2 className="size-3.5" />
+                  )}
+                  {t("Repair bilateral link")}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={openPicker}
+                >
+                  <Search className="size-3.5" />
+                  {t("Review links")}
+                </Button>
+              )}
+            </div>
+          ) : null}
+
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-900/64 dark:text-cyan-100/64">
+            {t("Actual linked biopsy form")}
+          </p>
           {linkedBiopsyForm ? (
             <div className="flex flex-col gap-4 rounded-2xl border border-emerald-200/90 bg-white/78 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-emerald-300/20 dark:bg-emerald-950/24">
               <div className="flex min-w-0 items-center gap-3">
@@ -1013,7 +1100,7 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-50">
-                    {t("Biopsy form linked")}
+                    {t("Stored in the study request")}
                   </p>
                   <p className="mt-1 truncate font-mono text-xs text-emerald-900/72 dark:text-emerald-100/72">
                     {linkedBiopsyForm}
@@ -1049,10 +1136,43 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
           ) : (
             <div className="rounded-2xl border border-dashed border-cyan-300/80 bg-white/52 px-5 py-6 text-center dark:border-cyan-300/24 dark:bg-cyan-950/16">
               <p className="text-sm font-medium text-cyan-950 dark:text-cyan-50">
-                {t("No biopsy form is linked yet.")}
+                {t("No biopsy form is stored in linkedBiopsyForm.")}
               </p>
             </div>
           )}
+
+          {suggestedBiopsyForm && suggestedBiopsyForm !== linkedBiopsyForm ? (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-amber-800/72 dark:text-amber-100/72">
+                {t("Suggested biopsy form")}
+              </p>
+              <div className="flex flex-col gap-4 rounded-2xl border border-amber-300/80 bg-amber-50/82 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-300/24 dark:bg-amber-950/22">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-500/14 text-amber-700 dark:text-amber-200">
+                    <AlertTriangle className="size-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-amber-950 dark:text-amber-50">
+                      {t(
+                        "This biopsy points back to this study request, but it is not the stored linked biopsy form.",
+                      )}
+                    </p>
+                    <p className="mt-1 truncate font-mono text-xs text-amber-900/72 dark:text-amber-100/72">
+                      {suggestedBiopsyForm}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    href={`/2pq-dashboard/forms/${encodeURIComponent(suggestedBiopsyForm)}`}
+                  >
+                    {t("Open")}
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -1109,6 +1229,7 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
               ) : candidates.length ? (
                 candidates.map((candidate) => {
                   const selected = linkedBiopsyForm === candidate.id;
+                  const suggested = suggestedBiopsyForm === candidate.id;
                   return (
                     <article
                       key={candidate.id}
@@ -1123,6 +1244,9 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
                             <Badge variant="outline">
                               {t("Currently linked")}
                             </Badge>
+                          ) : null}
+                          {suggested ? (
+                            <Badge variant="outline">{t("Suggested")}</Badge>
                           ) : null}
                         </div>
                         <h3 className="mt-3 font-heading text-lg font-semibold">

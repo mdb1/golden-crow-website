@@ -1014,6 +1014,80 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     });
   });
 
+  it("keeps a reverse-only biopsy link as a suggestion until it is repaired", async () => {
+    const {
+      getTwoPQFormForContext,
+      updateTwoPQStudyRequestBiopsyLinkForContext,
+    } = await import("../repositories/two-pq-forms.repository");
+    mockDocs.set("2pq_forms/FORM-00031", {
+      ...mockDocs.get("2pq_forms/FORM-00031"),
+      linkedBiopsyForm: null,
+    });
+
+    const mismatched = await getTwoPQFormForContext(
+      fullAdminContext,
+      "FORM-00031",
+    );
+
+    expect(mismatched).toMatchObject({
+      linkedBiopsyForm: null,
+      suggestedBiopsyForm: "FORM-00038",
+      biopsyLinkState: "missing_study_property",
+    });
+
+    const repaired = await updateTwoPQStudyRequestBiopsyLinkForContext(
+      fullAdminContext,
+      "FORM-00031",
+      "FORM-00038",
+    );
+
+    expect(repaired).toMatchObject({
+      linkedBiopsyForm: "FORM-00038",
+      suggestedBiopsyForm: null,
+      biopsyLinkState: "cohesive",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00031")).toMatchObject({
+      linkedBiopsyForm: "FORM-00038",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00038")).toMatchObject({
+      linkedStudyRequestFormId: "FORM-00031",
+      studyRequestForm: "FORM-00031",
+    });
+  });
+
+  it("detects and repairs a biopsy form that is missing its backlink", async () => {
+    const {
+      getTwoPQFormForContext,
+      updateTwoPQStudyRequestBiopsyLinkForContext,
+    } = await import("../repositories/two-pq-forms.repository");
+    mockDocs.set("2pq_forms/FORM-00038", {
+      ...mockDocs.get("2pq_forms/FORM-00038"),
+      linkedStudyRequestFormId: null,
+      studyRequestForm: null,
+    });
+
+    const mismatched = await getTwoPQFormForContext(
+      fullAdminContext,
+      "FORM-00031",
+    );
+    expect(mismatched).toMatchObject({
+      linkedBiopsyForm: "FORM-00038",
+      suggestedBiopsyForm: null,
+      biopsyLinkState: "missing_biopsy_backlink",
+    });
+
+    const repaired = await updateTwoPQStudyRequestBiopsyLinkForContext(
+      fullAdminContext,
+      "FORM-00031",
+      "FORM-00038",
+    );
+    expect(repaired.biopsyLinkState).toBe("cohesive");
+    expect(mockDocs.get("2pq_forms/FORM-00038")).toMatchObject({
+      linkedStudyRequestFormId: "FORM-00031",
+      studyRequestForm: "FORM-00031",
+    });
+  });
+
   it("lists only study requests that have no current or legacy biopsy link", async () => {
     const { listTwoPQFormsForContext } =
       await import("../repositories/two-pq-forms.repository");

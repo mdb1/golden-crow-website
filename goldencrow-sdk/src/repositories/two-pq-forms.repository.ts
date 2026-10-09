@@ -2058,6 +2058,131 @@ async function withResolvedLegacyBiopsyLinks(forms: TwoPQFormRecord[]) {
   });
 }
 
+async function biopsyFormsPointingToStudyRequest(
+  context: AdminContext,
+  studyRequestFormId: string,
+) {
+  const biopsyFormsById = new Map<string, TwoPQFormRecord>();
+  for (const field of [
+    "linkedStudyRequestFormId",
+    "studyRequestForm",
+  ] as const) {
+    const snapshot = await adminDb
+      .collection(FORMS_COLLECTION)
+      .where(field, "==", studyRequestFormId)
+      .limit(20)
+      .get();
+    for (const document of snapshot.docs) {
+      const biopsyForm = toTwoPQFormRecord(
+        document.id,
+        document.data() as Record<string, unknown>,
+      );
+      if (
+        biopsyForm.formType === "sample" &&
+        canViewTwoPQForm(context, biopsyForm)
+      ) {
+        biopsyFormsById.set(biopsyForm.id, biopsyForm);
+      }
+    }
+  }
+  return [...biopsyFormsById.values()].sort(
+    (left, right) =>
+      left.createdAt.localeCompare(right.createdAt) ||
+      left.id.localeCompare(right.id),
+  );
+}
+
+async function withBiopsyLinkDiagnostics(
+  context: AdminContext,
+  form: TwoPQFormRecord,
+): Promise<TwoPQFormRecord> {
+  if (form.formType !== "study_request") {
+    return form;
+  }
+
+  const reverseLinkedBiopsies = await biopsyFormsPointingToStudyRequest(
+    context,
+    form.id,
+  );
+  const reverseLinkedIds = reverseLinkedBiopsies.map((biopsy) => biopsy.id);
+  const actualBiopsyFormId = form.linkedBiopsyForm ?? null;
+
+  if (!actualBiopsyFormId) {
+    const suggestedBiopsy = reverseLinkedBiopsies[0];
+    const suggestedBacklinkIds = new Set(
+      suggestedBiopsy
+        ? [
+            suggestedBiopsy.studyRequestForm,
+            suggestedBiopsy.linkedStudyRequestFormId,
+          ].filter((value): value is string => Boolean(value))
+        : [],
+    );
+    const hasSingleSafeSuggestion =
+      reverseLinkedIds.length === 1 &&
+      suggestedBacklinkIds.size === 1 &&
+      suggestedBacklinkIds.has(form.id);
+    return {
+      ...form,
+      linkedBiopsyForm: null,
+      suggestedBiopsyForm: hasSingleSafeSuggestion
+        ? (reverseLinkedIds[0] ?? null)
+        : null,
+      biopsyLinkState:
+        reverseLinkedIds.length === 0
+          ? "none"
+          : hasSingleSafeSuggestion
+            ? "missing_study_property"
+            : "conflict",
+    };
+  }
+
+  const actualBiopsySnapshot = await adminDb
+    .collection(FORMS_COLLECTION)
+    .doc(actualBiopsyFormId)
+    .get();
+  if (!actualBiopsySnapshot.exists) {
+    return {
+      ...form,
+      suggestedBiopsyForm: reverseLinkedIds[0] ?? null,
+      biopsyLinkState: "missing_biopsy",
+    };
+  }
+
+  const actualBiopsy = toTwoPQFormRecord(
+    actualBiopsySnapshot.id,
+    actualBiopsySnapshot.data() as Record<string, unknown>,
+  );
+  const backlinkIds = new Set(
+    [
+      actualBiopsy.studyRequestForm,
+      actualBiopsy.linkedStudyRequestFormId,
+    ].filter((value): value is string => Boolean(value)),
+  );
+  const otherReverseLink = reverseLinkedIds.find(
+    (biopsyFormId) => biopsyFormId !== actualBiopsyFormId,
+  );
+  if (
+    actualBiopsy.formType !== "sample" ||
+    !canViewTwoPQForm(context, actualBiopsy) ||
+    backlinkIds.size > 1 ||
+    (backlinkIds.size === 1 && !backlinkIds.has(form.id)) ||
+    otherReverseLink
+  ) {
+    return {
+      ...form,
+      suggestedBiopsyForm: otherReverseLink ?? null,
+      biopsyLinkState: "conflict",
+    };
+  }
+
+  return {
+    ...form,
+    suggestedBiopsyForm: null,
+    biopsyLinkState:
+      backlinkIds.size === 0 ? "missing_biopsy_backlink" : "cohesive",
+  };
+}
+
 async function withResolvedWithdrawalCaseLinks(form: TwoPQFormRecord) {
   const linkedCaseIds = form.linkedCaseIds ?? [];
   if (form.formType !== "withdrawal_request" || linkedCaseIds.length === 0) {
@@ -2354,12 +2479,11 @@ export async function getTwoPQFormForContext(
     throw new AdminRepositoryError("You cannot view this form.", 403);
   }
 
-  const [resolvedForm] =
-    form.formType === "study_request" && !form.linkedBiopsyForm
-      ? await withResolvedLegacyBiopsyLinks([form])
-      : [form];
-
-  return withResolvedWithdrawalCaseLinks(resolvedForm ?? form);
+  const formWithBiopsyDiagnostics = await withBiopsyLinkDiagnostics(
+    context,
+    form,
+  );
+  return withResolvedWithdrawalCaseLinks(formWithBiopsyDiagnostics);
 }
 
 export async function updateTwoPQStudyRequestBiopsyLinkForContext(
@@ -2419,6 +2543,7 @@ export async function updateTwoPQStudyRequestBiopsyLinkForContext(
     const previousBiopsyFormId =
       latestStudyRequest.linkedBiopsyForm ??
       currentForm.linkedBiopsyForm ??
+      currentForm.suggestedBiopsyForm ??
       null;
     const previousBiopsyRef = previousBiopsyFormId
       ? adminDb.collection(FORMS_COLLECTION).doc(previousBiopsyFormId)
@@ -2684,7 +2809,7 @@ export async function deleteTwoPQFormForContext(
       context,
       normalizedFormId,
     );
-    if (resolvedForm.linkedBiopsyForm) {
+    if (resolvedForm.linkedBiopsyForm || resolvedForm.suggestedBiopsyForm) {
       await updateTwoPQStudyRequestBiopsyLinkForContext(
         context,
         normalizedFormId,

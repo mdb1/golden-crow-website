@@ -1,6 +1,13 @@
 import type { AdminRole } from "@/lib/admin-areas";
 
 export type TwoPQFormType = "study_request" | "sample" | "withdrawal_request";
+export type TwoPQBiopsyLinkState =
+  | "none"
+  | "cohesive"
+  | "missing_study_property"
+  | "missing_biopsy_backlink"
+  | "missing_biopsy"
+  | "conflict";
 export type TwoPQFormsTypeFilter =
   TwoPQFormType | "study_request_cojoined" | "all";
 
@@ -182,6 +189,8 @@ export interface TwoPQFormRecord {
   studyRequestForm?: string | null;
   withdrawalRequest?: string | null;
   linkedBiopsyForm?: string | null;
+  suggestedBiopsyForm?: string | null;
+  biopsyLinkState?: TwoPQBiopsyLinkState;
   linkedWithdrawalRequest?: string | null;
   linkedCaseIds?: string[];
   selectedCaseId?: string;

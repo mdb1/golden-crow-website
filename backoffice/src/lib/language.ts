@@ -2836,6 +2836,27 @@ const SPANISH_TEXT: Record<string, string> = {
     "El formulario de biopsias se vinculó correctamente.",
   "Biopsy form link removed.":
     "Se quitó el vínculo con el formulario de biopsias.",
+  "Actual linked biopsy form": "Formulario de biopsias realmente vinculado",
+  "Suggested biopsy form": "Formulario de biopsias sugerido",
+  "Stored in the study request": "Guardado en la solicitud de estudio",
+  "No biopsy form is stored in linkedBiopsyForm.":
+    "No hay ningún formulario de biopsias guardado en linkedBiopsyForm.",
+  "Biopsy link mismatch": "Inconsistencia en el vínculo de biopsia",
+  "The biopsy points to this study request, but the study request does not store the biopsy link.":
+    "El formulario de biopsias apunta a esta solicitud de estudio, pero la solicitud no guarda el vínculo con la biopsia.",
+  "The study request stores this biopsy, but the biopsy does not point back to the study request.":
+    "La solicitud de estudio guarda este formulario de biopsias, pero la biopsia no apunta nuevamente a la solicitud.",
+  "The study request stores a biopsy form that no longer exists.":
+    "La solicitud de estudio guarda un formulario de biopsias que ya no existe.",
+  "Multiple or conflicting biopsy links were found. Review them before choosing the correct form.":
+    "Se encontraron vínculos de biopsia múltiples o contradictorios. Revisalos antes de elegir el formulario correcto.",
+  "Repair bilateral link": "Reparar vínculo bilateral",
+  "Review links": "Revisar vínculos",
+  "Bilateral biopsy link repaired.":
+    "El vínculo bilateral con el formulario de biopsias se reparó correctamente.",
+  "This biopsy points back to this study request, but it is not the stored linked biopsy form.":
+    "Este formulario de biopsias apunta a esta solicitud de estudio, pero no es el formulario de biopsias guardado.",
+  Suggested: "Sugerido",
   "Select linked study request form":
     "Seleccionar formulario de solicitud linkeado",
   "Link study request form": "Vincular formulario de solicitud",

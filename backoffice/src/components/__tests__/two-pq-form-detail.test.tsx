@@ -160,8 +160,59 @@ describe("TwoPQFormDetail", () => {
       ),
     );
     expect(
-      await screen.findByText("No biopsy form is linked yet."),
+      await screen.findByText("No biopsy form is stored in linkedBiopsyForm."),
     ).toBeInTheDocument();
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("separates a suggested reverse link from the stored link and repairs it", async () => {
+    const user = userEvent.setup();
+    const mismatchedStudyRequest: TwoPQFormRecord = {
+      ...studyRequestForm,
+      linkedBiopsyForm: null,
+      suggestedBiopsyForm: "FORM-00053",
+      biopsyLinkState: "missing_study_property",
+    };
+    mockSdkFetch.mockResolvedValue({
+      form: {
+        ...studyRequestForm,
+        linkedBiopsyForm: "FORM-00053",
+        suggestedBiopsyForm: null,
+        biopsyLinkState: "cohesive",
+      },
+    });
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <TwoPQFormDetail form={mismatchedStudyRequest} />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByText("Biopsy link mismatch")).toBeInTheDocument();
+    expect(screen.getByText("Suggested biopsy form")).toBeInTheDocument();
+    expect(
+      screen.getByText("No biopsy form is stored in linkedBiopsyForm."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("FORM-00053")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Repair bilateral link" }),
+    );
+
+    await waitFor(() =>
+      expect(mockSdkFetch).toHaveBeenCalledWith(
+        "/2pq/forms/FORM-00047/linked-biopsy-form",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ linkedBiopsyForm: "FORM-00053" }),
+        },
+      ),
+    );
+    expect(
+      await screen.findByText("Stored in the study request"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Suggested biopsy form")).not.toBeInTheDocument();
+    expect(screen.queryByText("Biopsy link mismatch")).not.toBeInTheDocument();
     expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
 

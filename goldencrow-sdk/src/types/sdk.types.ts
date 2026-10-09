@@ -460,6 +460,13 @@ export interface TwoPQDetailRecord {
 }
 
 export type TwoPQFormType = "study_request" | "sample" | "withdrawal_request";
+export type TwoPQBiopsyLinkState =
+  | "none"
+  | "cohesive"
+  | "missing_study_property"
+  | "missing_biopsy_backlink"
+  | "missing_biopsy"
+  | "conflict";
 
 export interface TwoPQFormRecord {
   id: string;
@@ -477,6 +484,8 @@ export interface TwoPQFormRecord {
   studyRequestForm?: string | null;
   withdrawalRequest?: string | null;
   linkedBiopsyForm?: string | null;
+  suggestedBiopsyForm?: string | null;
+  biopsyLinkState?: TwoPQBiopsyLinkState;
   linkedWithdrawalRequest?: string | null;
   linkedCaseIds?: string[];
   selectedCaseId?: string;
