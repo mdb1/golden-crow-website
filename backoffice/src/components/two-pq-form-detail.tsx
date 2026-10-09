@@ -2810,7 +2810,6 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
 
       {form.formType === "withdrawal_request" ? (
         <>
-          <WithdrawalCasesSection form={form} />
           <DetailSection
             title={t("Institution information")}
             fields={INSTITUTION_FIELDS}
@@ -2831,11 +2830,10 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
               ),
             }}
           />
+          <WithdrawalCasesSection form={form} />
         </>
       ) : form.formType === "sample" ? (
         <>
-          <BiopsyRelationshipSection form={form} kind="study_request" />
-          <BiopsyRelationshipSection form={form} kind="withdrawal_request" />
           <DetailSection
             title={t("Form timeline")}
             fields={SAMPLE_TIMELINE_FIELDS}
@@ -2867,16 +2865,14 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
           <SamplingInformationTableSection
             samplings={form.samplingInformation}
           />
+          <BiopsyRelationshipSection form={form} kind="study_request" />
+          <BiopsyRelationshipSection form={form} kind="withdrawal_request" />
           <LinkedRecordsSection form={form} />
           <PatientLinkSection form={form} />
           <RequestingDoctorLinkSection form={form} />
         </>
       ) : (
         <>
-          <LinkedBiopsyFormSection form={form} />
-          <LinkedTwoPQCaseSection form={form} />
-          <LinkedWithdrawalRequestSection form={form} />
-          <PatientLinkSection form={form} />
           <DetailSection
             title={t("Patient information")}
             fields={PATIENT_FIELDS}
@@ -2898,6 +2894,10 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
             fields={INSTITUTION_FIELDS}
             data={form.institutionInformation}
           />
+          <LinkedBiopsyFormSection form={form} />
+          <LinkedTwoPQCaseSection form={form} />
+          <LinkedWithdrawalRequestSection form={form} />
+          <PatientLinkSection form={form} />
         </>
       )}
     </div>

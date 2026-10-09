@@ -100,7 +100,7 @@ describe("TwoPQFormDetail", () => {
     mockSdkFetch.mockReset();
   });
 
-  it("renders the linked records, patient, and doctor panels after all sample form details", () => {
+  it("renders every interactive sample panel after all document details", () => {
     render(
       <AppLanguageProvider initialLanguage="en">
         <TwoPQFormDetail form={sampleForm} />
@@ -108,6 +108,12 @@ describe("TwoPQFormDetail", () => {
     );
 
     const biopsyRows = screen.getByRole("heading", { name: "Biopsy rows" });
+    const linkedStudyRequest = screen.getByRole("heading", {
+      name: "Linked study request form",
+    });
+    const linkedWithdrawalRequest = screen.getByRole("heading", {
+      name: "Linked withdrawal request",
+    });
     const linkedRecords = screen.getByRole("heading", {
       name: "2PQ Case and sampling records",
     });
@@ -118,7 +124,15 @@ describe("TwoPQFormDetail", () => {
     const doctor = screen.getByRole("heading", { name: "Sample Doctor" });
 
     expect(
-      biopsyRows.compareDocumentPosition(linkedRecords) &
+      biopsyRows.compareDocumentPosition(linkedStudyRequest) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      linkedStudyRequest.compareDocumentPosition(linkedWithdrawalRequest) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      linkedWithdrawalRequest.compareDocumentPosition(linkedRecords) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
@@ -127,6 +141,68 @@ describe("TwoPQFormDetail", () => {
     ).toBeTruthy();
     expect(
       patient.compareDocumentPosition(doctor) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("renders every interactive study-request panel after all document details", () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <TwoPQFormDetail form={studyRequestForm} />
+      </AppLanguageProvider>,
+    );
+
+    const institutionInformation = screen.getByRole("heading", {
+      name: "Institution information",
+    });
+    const linkedBiopsy = screen.getByRole("heading", {
+      name: "Linked biopsy form",
+    });
+    const linkedCase = screen.getByRole("heading", {
+      name: "Linked 2PQ case",
+    });
+    const linkedWithdrawal = screen.getByRole("heading", {
+      name: "Linked withdrawal request",
+    });
+    const patient = screen.getByRole("heading", {
+      name: "Study Patient",
+      level: 2,
+    });
+
+    expect(
+      institutionInformation.compareDocumentPosition(linkedBiopsy) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      linkedBiopsy.compareDocumentPosition(linkedCase) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      linkedCase.compareDocumentPosition(linkedWithdrawal) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      linkedWithdrawal.compareDocumentPosition(patient) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("renders withdrawal case links after the form document details", () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <TwoPQFormDetail form={withdrawalForm} />
+      </AppLanguageProvider>,
+    );
+
+    const withdrawalDetails = screen.getByRole("heading", {
+      name: "Withdrawal request",
+    });
+    const linkedCases = screen.getByRole("heading", {
+      name: "2PQ cases awaiting pick up",
+    });
+
+    expect(
+      withdrawalDetails.compareDocumentPosition(linkedCases) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
