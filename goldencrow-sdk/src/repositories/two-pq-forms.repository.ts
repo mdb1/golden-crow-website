@@ -362,6 +362,7 @@ function formSearchHaystack(form: TwoPQFormRecord) {
         form.selectedRequestingDoctorId,
         form.linkedStudyRequestFormId,
         form.linkedBiopsyForm,
+        form.linkedWithdrawalRequest,
         form.authorEmail,
         form.createdByEmail,
         ...(form.linkedCaseIds ?? []),
@@ -750,6 +751,8 @@ function toTwoPQFormRecord(
     linkedStudyRequestFormId:
       normalizeOptionalString(data.linkedStudyRequestFormId) ?? null,
     linkedBiopsyForm: normalizeOptionalString(data.linkedBiopsyForm) ?? null,
+    linkedWithdrawalRequest:
+      normalizeOptionalString(data.linkedWithdrawalRequest) ?? null,
     linkedCaseIds: normalizeStringArray(data.linkedCaseIds),
     selectedCaseId: normalizeOptionalString(data.selectedCaseId),
     selectedRequestingDoctorId: normalizeOptionalString(
@@ -1430,6 +1433,50 @@ function normalizeWithdrawalCaseIds(value: unknown) {
   }
 
   return uniqueIds;
+}
+
+async function studyRequestFormIdsForWithdrawalCases(
+  caseSnapshots: Array<{
+    id: string;
+    data: () => Record<string, unknown> | undefined;
+  }>,
+) {
+  const studyRequestFormIds = new Set<string>();
+  const caseIds = caseSnapshots.map((snapshot) => snapshot.id);
+
+  for (const snapshot of caseSnapshots) {
+    const linkedStudyRequestFormId = normalizeOptionalString(
+      snapshot.data()?.linkedStudyRequestFormId,
+    );
+    if (linkedStudyRequestFormId) {
+      studyRequestFormIds.add(linkedStudyRequestFormId);
+    }
+  }
+
+  for (const caseField of ["linkedCaseId", "selectedCaseId"] as const) {
+    for (let index = 0; index < caseIds.length; index += 30) {
+      const chunk = caseIds.slice(index, index + 30);
+      if (chunk.length === 0) {
+        continue;
+      }
+      const snapshot = await adminDb
+        .collection(FORMS_COLLECTION)
+        .where(caseField, "in", chunk)
+        .limit(100)
+        .get();
+      for (const document of snapshot.docs) {
+        const form = toTwoPQFormRecord(
+          document.id,
+          document.data() as Record<string, unknown>,
+        );
+        if (form.formType === "sample" && form.linkedStudyRequestFormId) {
+          studyRequestFormIds.add(form.linkedStudyRequestFormId);
+        }
+      }
+    }
+  }
+
+  return [...studyRequestFormIds];
 }
 
 function canWriteWithdrawalCase(
@@ -2441,6 +2488,29 @@ export async function deleteTwoPQFormForContext(
         null,
       );
     }
+  } else if (form.formType === "withdrawal_request") {
+    const linkedStudyRequests = await adminDb
+      .collection(FORMS_COLLECTION)
+      .where("linkedWithdrawalRequest", "==", normalizedFormId)
+      .limit(50)
+      .get();
+    const batch = adminDb.batch();
+    const now = new Date().toISOString();
+    linkedStudyRequests.docs.forEach((studyRequestSnapshot) => {
+      batch.set(
+        studyRequestSnapshot.ref,
+        {
+          linkedWithdrawalRequest: null,
+          updatedAt: now,
+          updatedByEmail: context.email,
+          updatedByUid: context.uid,
+        },
+        { merge: true },
+      );
+    });
+    batch.delete(reference);
+    await batch.commit();
+    return { deleted: true, formId: normalizedFormId };
   }
 
   await reference.delete();
@@ -2516,6 +2586,44 @@ export async function createTwoPQFormForContext(
     if (!primaryCase) {
       throw new AdminRepositoryError("At least one 2PQ case is required.", 400);
     }
+    const linkedStudyRequestFormIds =
+      await studyRequestFormIdsForWithdrawalCases(caseSnapshots);
+    const linkedStudyRequestSnapshots = await Promise.all(
+      linkedStudyRequestFormIds.map((studyRequestFormId) =>
+        adminDb.collection(FORMS_COLLECTION).doc(studyRequestFormId).get(),
+      ),
+    );
+    linkedStudyRequestSnapshots.forEach((snapshot, index) => {
+      const studyRequestFormId = linkedStudyRequestFormIds[index];
+      if (!snapshot.exists) {
+        throw new AdminRepositoryError(
+          `Study request form ${studyRequestFormId} linked to a withdrawal case was not found.`,
+          404,
+        );
+      }
+      const studyRequest = toTwoPQFormRecord(
+        snapshot.id,
+        snapshot.data() as Record<string, unknown>,
+      );
+      if (studyRequest.formType !== "study_request") {
+        throw new AdminRepositoryError(
+          `Form ${studyRequest.id} linked to a withdrawal case must be a study request form.`,
+          400,
+        );
+      }
+      if (!canWriteWithdrawalCase(context, studyRequest)) {
+        throw new AdminRepositoryError(
+          `You cannot update study request form ${studyRequest.id}.`,
+          403,
+        );
+      }
+      if (studyRequest.linkedWithdrawalRequest) {
+        throw new AdminRepositoryError(
+          `Study request form ${studyRequest.id} is already linked to withdrawal request ${studyRequest.linkedWithdrawalRequest}.`,
+          409,
+        );
+      }
+    });
     const institutionId = String(primaryCase.institutionId);
     const doctorId = String(primaryCase.doctorId);
     const selectedInstitution = await getInstitutionById(institutionId);
@@ -2598,6 +2706,18 @@ export async function createTwoPQFormForContext(
           last_updated_date: now,
           updatedAt: now,
           updatedByEmail: authorEmail,
+        },
+        { merge: true },
+      );
+    });
+    linkedStudyRequestSnapshots.forEach((snapshot) => {
+      batch.set(
+        snapshot.ref,
+        {
+          linkedWithdrawalRequest: formId,
+          updatedAt: now,
+          updatedByEmail: authorEmail,
+          updatedByUid: authorUid,
         },
         { merge: true },
       );
@@ -3003,6 +3123,7 @@ export async function createTwoPQFormForContext(
         ? {
             ...baseDocument,
             linkedBiopsyForm: null,
+            linkedWithdrawalRequest: null,
             medicalInformation: normalizeMedicalInformation(
               payload.medicalInformation,
               payload.formType,

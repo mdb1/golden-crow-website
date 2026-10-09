@@ -538,6 +538,13 @@ function buildFormStorageProcessingSteps(
         t("Persist the withdrawal request with its linked case snapshot."),
       ),
       pendingProcessingStep(
+        "link-withdrawal-request",
+        t("Link withdrawal request back to study forms"),
+        t(
+          "Store this withdrawal request in linkedWithdrawalRequest on every study request associated with the selected report codes.",
+        ),
+      ),
+      pendingProcessingStep(
         "clean-draft",
         t("Clean temporary draft"),
         t("Remove the one-user temporary draft after storage succeeds."),

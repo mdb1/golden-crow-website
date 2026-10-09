@@ -178,6 +178,7 @@ export interface TwoPQFormRecord {
   requestedTestName?: string;
   linkedStudyRequestFormId?: string | null;
   linkedBiopsyForm?: string | null;
+  linkedWithdrawalRequest?: string | null;
   linkedCaseIds?: string[];
   selectedCaseId?: string;
   selectedRequestingDoctorId?: string;
