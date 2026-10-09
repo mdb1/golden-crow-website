@@ -268,6 +268,51 @@ export type TwoPQStudyRequestCaseCandidate = {
   updatedAt: string | null;
 };
 
+async function withLinkedCaseLabels(forms: TwoPQFormRecord[]) {
+  const linkedCaseIds = [
+    ...new Set(
+      forms
+        .map((form) => normalizeOptionalString(form["2pq_case"]))
+        .filter((caseId): caseId is string => Boolean(caseId)),
+    ),
+  ];
+  if (linkedCaseIds.length === 0) {
+    return forms;
+  }
+
+  const snapshots = await adminDb.getAll(
+    ...linkedCaseIds.map((caseId) =>
+      adminDb.collection(CASES_COLLECTION).doc(caseId),
+    ),
+  );
+  const labelsByCaseId = new Map<string, string>();
+  for (const snapshot of snapshots) {
+    if (!snapshot.exists) {
+      continue;
+    }
+    const data = snapshot.data() as Record<string, unknown> | undefined;
+    const caseLabel = normalizeOptionalString(data?.caseLabel);
+    const threeLetterCode = normalizeOptionalString(
+      data?.three_letter_code,
+    )?.toUpperCase();
+    const displayLabel =
+      caseLabel ?? (threeLetterCode ? `${threeLetterCode}XXX` : undefined);
+    if (displayLabel) {
+      labelsByCaseId.set(snapshot.id, displayLabel);
+    }
+  }
+
+  return forms.map((form) => {
+    const linkedCaseId = normalizeOptionalString(form["2pq_case"]);
+    return linkedCaseId
+      ? {
+          ...form,
+          linkedCaseLabel: labelsByCaseId.get(linkedCaseId) ?? null,
+        }
+      : form;
+  });
+}
+
 type PGFlexDispatcherAssignment = {
   email: string;
   firebaseUid: string;
@@ -3210,7 +3255,9 @@ export async function listTwoPQFormsForContext(
       hasMore = true;
     }
 
-    const forms = accepted.map((entry) => entry.form);
+    const forms = await withLinkedCaseLabels(
+      accepted.map((entry) => entry.form),
+    );
     const nextCursor =
       forms.length > 0
         ? (accepted[accepted.length - 1]?.cursor ?? null)

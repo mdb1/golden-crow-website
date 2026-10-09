@@ -9,6 +9,7 @@ import {
   ArrowRight,
   ArrowUpDown,
   CalendarDays,
+  CheckCircle2,
   CircleDot,
   ClipboardList,
   Filter,
@@ -177,6 +178,7 @@ function CoJoinedFormSequence({
 }) {
   const linkedBiopsyFormId = form.linkedBiopsyForm ?? null;
   const linkedWithdrawalRequestId = form.linkedWithdrawalRequest ?? null;
+  const linkedCaseLabel = form.linkedCaseLabel?.trim() || null;
   const steps = [
     {
       number: 1,
@@ -284,12 +286,18 @@ function CoJoinedFormSequence({
           {form["2pq_case"] ? (
             <Link
               href={`/2pq-dashboard/cases/${encodeURIComponent(form["2pq_case"])}`}
-              aria-label={`${t("Open 2PQ case")} ${form["2pq_case"]}`}
-              className="inline-flex max-w-full items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-800 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60 dark:border-indigo-300/24 dark:bg-indigo-400/12 dark:text-indigo-100 dark:hover:bg-indigo-400/20"
+              aria-label={`${t("Open 2PQ case")} ${linkedCaseLabel ?? t("Case without a label")}`}
+              className="inline-flex max-w-full items-center gap-3 rounded-xl border border-emerald-200/90 bg-white/78 px-3 py-2 text-emerald-950 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 dark:border-emerald-300/20 dark:bg-emerald-950/24 dark:text-emerald-50 dark:hover:bg-emerald-950/36"
             >
-              <CircleDot className="size-3.5 shrink-0" />
-              <span>{t("2PQ case")}</span>
-              <span className="truncate font-mono">{form["2pq_case"]}</span>
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-200">
+                <CheckCircle2 className="size-4" />
+              </span>
+              <span className="min-w-0 text-left">
+                <span className="block text-xs font-semibold">{t("Saved")}</span>
+                <span className="block truncate font-mono text-xs text-emerald-900/72 dark:text-emerald-100/72">
+                  {linkedCaseLabel ?? t("Case without a label")}
+                </span>
+              </span>
               <ArrowRight className="size-3.5 shrink-0" />
             </Link>
           ) : null}

@@ -174,6 +174,7 @@ describe("TwoPQFormsList actions", () => {
       linkedBiopsyForm: "FORM-00002",
       linkedWithdrawalRequest: "FORM-00003",
       "2pq_case": "CASE-00025",
+      linkedCaseLabel: "KIMXXX",
     };
     (sdkFetch as jest.Mock).mockResolvedValue({
       forms: [coJoinedForm],
@@ -214,8 +215,15 @@ describe("TwoPQFormsList actions", () => {
       document.querySelector('a[href="/2pq-dashboard/forms/FORM-00003"]'),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open 2PQ case CASE-00025" }),
+      screen.getByRole("link", { name: "Open 2PQ case KIMXXX" }),
     ).toHaveAttribute("href", "/2pq-dashboard/cases/CASE-00025");
+    const linkedCaseCell = screen.getByRole("link", {
+      name: "Open 2PQ case KIMXXX",
+    });
+    expect(linkedCaseCell).toHaveTextContent("Saved");
+    expect(linkedCaseCell).toHaveTextContent("KIMXXX");
+    expect(linkedCaseCell).not.toHaveTextContent("CASE-00025");
+    expect(linkedCaseCell).toHaveClass("border-emerald-200/90");
     expect(
       screen.queryByRole("link", { name: "Complete biopsy form" }),
     ).not.toBeInTheDocument();

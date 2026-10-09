@@ -191,6 +191,9 @@ function makeQuery(
 
 const mockDb = {
   collection: mockCollection,
+  getAll: jest.fn((...refs: MockDocumentRef[]) =>
+    Promise.all(refs.map((ref) => ref.get())),
+  ),
   batch: jest.fn(() => {
     const operations: Array<
       | {
@@ -324,6 +327,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     jest.useFakeTimers().setSystemTime(new Date("2026-08-31T15:45:00.000Z"));
     mockDocs.clear();
     mockCollection.mockClear();
+    mockDb.getAll.mockClear();
     mockDb.batch.mockClear();
     mockDb.runTransaction.mockClear();
     mockGetUser.mockReset();
@@ -1584,5 +1588,34 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       "FORM-00031",
       "FORM-00034",
     ]);
+  });
+
+  it("resolves linked case labels for each paginated study-request form", async () => {
+    const { listTwoPQFormsForContext } =
+      await import("../repositories/two-pq-forms.repository");
+    mockDocs.set("2pq_forms/FORM-00031", {
+      ...mockDocs.get("2pq_forms/FORM-00031"),
+      "2pq_case": "case-a",
+    });
+    mockDocs.set("2pq_case/case-a", {
+      ...mockDocs.get("2pq_case/case-a"),
+      caseLabel: "KIMXXX",
+    });
+
+    const result = await listTwoPQFormsForContext(fullAdminContext, {
+      formType: "study_request",
+      limit: 20,
+    });
+
+    expect(
+      result.forms.find((form) => form.id === "FORM-00031"),
+    ).toMatchObject({
+      "2pq_case": "case-a",
+      linkedCaseLabel: "KIMXXX",
+    });
+    expect(mockDb.getAll).toHaveBeenCalledTimes(1);
+    expect(mockDocs.get("2pq_forms/FORM-00031")).not.toHaveProperty(
+      "linkedCaseLabel",
+    );
   });
 });
