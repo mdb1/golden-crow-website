@@ -2860,7 +2860,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Se quitó el vínculo con el formulario de biopsias.",
   "Actual linked biopsy form": "Formulario de biopsias realmente vinculado",
   "Suggested biopsy form": "Formulario de biopsias sugerido",
-  "Stored in the study request": "Guardado en la solicitud de estudio",
+  "Stored in the study request": "Guardado",
   "No biopsy form is stored in linkedBiopsyForm.":
     "No hay ningún formulario de biopsias guardado en linkedBiopsyForm.",
   "Biopsy link mismatch": "Inconsistencia en el vínculo de biopsia",
