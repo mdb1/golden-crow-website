@@ -2904,10 +2904,27 @@ function providerSnapshotForTransaction(
   });
 }
 
+function isTwoPQCaseServiceOfferIdentity(
+  offer: SupportServiceOfferRecord,
+) {
+  return (
+    offer.id === TWO_PQ_CASE_SERVICE_OFFER_ID &&
+    offer.serviceId === TWO_PQ_CASE_SERVICE_ID &&
+    offer.providerKind === "organization" &&
+    offer.providerId === TWO_PQ_CASE_SERVICE_PROVIDER_ID
+  );
+}
+
 function providerOwnerCommunityUserId(
   offer: SupportServiceOfferRecord,
   providerData: Record<string, unknown>,
 ) {
+  // The trusted 2PQ workflow has a fixed publisher identity. Discover audit
+  // fields describe who edited the organization and must not override the
+  // owner used for its form inputs and report outputs.
+  if (isTwoPQCaseServiceOfferIdentity(offer)) {
+    return TWO_PQ_REPORT_OWNER_ID;
+  }
   return (
     cleanString(providerData.ownerCommunityUserId) ||
     cleanString(providerData.communityUserId) ||
@@ -7949,12 +7966,7 @@ function hasCanonicalTwoPQStudyRequestFormContract(
 function assertTwoPQCaseServiceOfferIdentity(
   offer: SupportServiceOfferRecord,
 ) {
-  if (
-    offer.id !== TWO_PQ_CASE_SERVICE_OFFER_ID ||
-    offer.serviceId !== TWO_PQ_CASE_SERVICE_ID ||
-    offer.providerKind !== "organization" ||
-    offer.providerId !== TWO_PQ_CASE_SERVICE_PROVIDER_ID
-  ) {
+  if (!isTwoPQCaseServiceOfferIdentity(offer)) {
     throw new AdminRepositoryError(
       `The canonical 2PQ offer ${TWO_PQ_CASE_SERVICE_OFFER_ID} must bind serviceId ${TWO_PQ_CASE_SERVICE_ID} to provider ${TWO_PQ_CASE_SERVICE_PROVIDER_ID}.`,
       409,

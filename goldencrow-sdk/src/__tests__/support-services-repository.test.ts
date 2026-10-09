@@ -5150,6 +5150,60 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
+  it("uses the fixed 2PQ owner when Discover organization ownership metadata is stale", async () => {
+    const { providerId } = seedLegacyTwoPQOffer();
+    const staleOwnerId = "legacy-discover-editor";
+    seedDoc("feed_organizations", providerId, {
+      name: "2pq",
+      status: "active",
+      ownerCommunityUserId: staleOwnerId,
+      communityUserId: staleOwnerId,
+      updatedByUserId: staleOwnerId,
+      createdByUserId: staleOwnerId,
+      requestedServiceTransactions: [],
+    });
+    seedDoc("object_owners", staleOwnerId, {
+      owner_name: "Legacy Discover editor",
+      owner_contact_email: "legacy-editor@example.com",
+      status: "active",
+    });
+    seedDoc("community_users", staleOwnerId, {
+      status: "active",
+      email: "legacy-editor@example.com",
+      owned_objects: [],
+    });
+    const { createTwoPQCaseServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const created = await createTwoPQCaseServiceTransaction(context, {
+      caseId: "CASE-00045",
+      threeLetterCode: "DEF",
+      doctorEmail: "doctor@clinic.example",
+      requestedAtClient: "2026-10-08T22:00:00.000Z",
+      studyRequestForm: {
+        ...twoPQStudyRequestForm(),
+        id: "FORM-00045",
+      },
+    });
+
+    expect(created.inputs).toEqual([
+      expect.objectContaining({
+        role: "form",
+        objectOwnerId: twoPQOwnerId,
+      }),
+    ]);
+    expect(
+      collectionStore("uploaded_objects").get(
+        "pgo_2pq_case_00045_study_request_form_object",
+      ),
+    ).toMatchObject({
+      object_owner_id: twoPQOwnerId,
+      owner_community_user_id: twoPQOwnerId,
+      owner_public_profile_id: twoPQOwnerId,
+    });
+  });
+
   it("links the synchronized case report to its new 2PQ transaction exactly once", async () => {
     seedLegacyTwoPQOffer();
     const institutionalContext: AdminContext = {
