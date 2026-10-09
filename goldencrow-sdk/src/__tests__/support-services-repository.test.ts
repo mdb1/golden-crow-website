@@ -3631,6 +3631,11 @@ describe("support service delivered transactions", () => {
         outputObjects: deliveredInput.outputObjects,
       }),
     ).rejects.toThrow("dedicated output-object command");
+    await expect(
+      updateSupportServiceTransaction(context, "transaction-1", {
+        outputReports: [{ reportCode: "XYZ789" }],
+      }),
+    ).rejects.toThrow("dedicated linked-report commands");
     seedDoc("service_transactions", "transaction-1", {
       ...transaction,
       status: "validating",
@@ -3639,6 +3644,133 @@ describe("support service delivered transactions", () => {
       deliverSupportServiceTransaction(context, "transaction-1"),
     ).rejects.toThrow("Only running service transactions");
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("attaches and removes a validated supplemental report without reopening a delivered transaction", async () => {
+    seedDoc("service_transactions", "transaction-1", {
+      ...deliveredInput,
+      requestRevision: 4,
+    });
+    seedDoc("report_codes", "XYZ789", {
+      owner_id: "user-1",
+      uploaded_report_id: "uploaded-report-2",
+    });
+    seedDoc("uploaded_reports", "uploaded-report-2", {
+      report_code: "XYZ789",
+      file_name: "Genome report.pdf",
+      provider_format: "pdf",
+      provider_name: "Genome Lab",
+      tracking_progress_status: "document_ready",
+      download_url: "https://reports.example/XYZ789.pdf",
+      upload_version_count: 2,
+      report_owner_id: "user-1",
+      owner_name: "Patient Example",
+      owner_email: "patient@example.com",
+      date_modified: "2026-09-18T12:00:00.000Z",
+    });
+    const {
+      attachSupportServiceTransactionOutputReport,
+      removeSupportServiceTransactionOutputReport,
+    } = await import("../repositories/support-services.repository.js");
+
+    const attached = await attachSupportServiceTransactionOutputReport(
+      context,
+      "transaction-1",
+      "xyz789",
+    );
+
+    expect(attached.report).toEqual(
+      expect.objectContaining({
+        reportCode: "XYZ789",
+        available: true,
+        providerFormat: "pdf",
+        uploadVersionCount: 2,
+      }),
+    );
+    expect(attached.transaction).toEqual(
+      expect.objectContaining({
+        status: "delivered",
+        requestRevision: 5,
+        outputReports: [
+          { reportCode: "ABC123" },
+          { reportCode: "XYZ789" },
+        ],
+      }),
+    );
+
+    const removed = await removeSupportServiceTransactionOutputReport(
+      context,
+      "transaction-1",
+      "ABC123",
+    );
+    expect(removed.transaction).toEqual(
+      expect.objectContaining({
+        status: "delivered",
+        requestRevision: 6,
+        outputReports: [{ reportCode: "XYZ789" }],
+      }),
+    );
+  });
+
+  it("refuses to link a report whose registered format is not a native report format", async () => {
+    seedDoc("service_transactions", "transaction-1", transaction);
+    seedDoc("report_codes", "BAD123", {
+      uploaded_report_id: "uploaded-report-bad",
+    });
+    seedDoc("uploaded_reports", "uploaded-report-bad", {
+      report_code: "BAD123",
+      provider_format: "pgo_pdf_report",
+      tracking_progress_status: "document_ready",
+      download_url: "https://reports.example/BAD123.pdf",
+      upload_version_count: 1,
+    });
+    const { attachSupportServiceTransactionOutputReport } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      attachSupportServiceTransactionOutputReport(
+        context,
+        "transaction-1",
+        "BAD123",
+      ),
+    ).rejects.toThrow("unsupported provider_format");
+    expect(
+      collectionStore("service_transactions").get("transaction-1")
+        ?.outputReports,
+    ).toEqual([]);
+  });
+
+  it("refuses a linked report whose File Storage payload does not match its code", async () => {
+    seedDoc("service_transactions", "transaction-1", transaction);
+    seedDoc("report_codes", "FIL123", {
+      uploaded_report_id: "uploaded-report-file",
+    });
+    seedDoc("uploaded_reports", "uploaded-report-file", {
+      report_code: "FIL123",
+      provider_format: "2pq",
+      tracking_progress_status: "document_ready",
+      linked_file_id: "report-file-1",
+      upload_version_count: 1,
+    });
+    seedDoc("file_storage", "report-file-1", {
+      linked_report_code: "OTHER1",
+      file_type: "2pq",
+      file_content: "{\"report\":true}",
+    });
+    const { attachSupportServiceTransactionOutputReport } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      attachSupportServiceTransactionOutputReport(
+        context,
+        "transaction-1",
+        "FIL123",
+      ),
+    ).rejects.toThrow(
+      "Linked file report-file-1 does not match report code FIL123 and format 2pq.",
+    );
   });
 
   it("preserves an immutable legacy input snapshot while saving unrelated changes", async () => {

@@ -362,6 +362,29 @@ export interface SupportServiceTransactionOutputReport {
   reportCode: string;
 }
 
+export interface SupportServiceLinkedReportRecord {
+  reportCode: string;
+  available: boolean;
+  error?: string;
+  uploadedReportId?: string;
+  fileName?: string;
+  providerFormat?: string;
+  providerName?: string;
+  trackingStatus?: string;
+  downloadUrl?: string;
+  linkedFileId?: string;
+  uploadVersionCount?: number;
+  ownerId?: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  updatedAt?: string;
+}
+
+export interface SupportServiceLinkedReportsPage {
+  reports: SupportServiceLinkedReportRecord[];
+  nextCursor?: string;
+}
+
 export interface SupportServiceOfferSnapshot extends Record<string, unknown> {
   offerId?: string;
   schemaVersion?: number;

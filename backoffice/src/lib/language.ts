@@ -5242,6 +5242,51 @@ const SPANISH_TEXT: Record<string, string> = {
   "One 6-character report code per line": "Un código de informe de 6 caracteres por línea",
   "Reports may accompany a delivery, but they are not validated as service contract outputs.":
     "Los informes pueden acompañar una entrega, pero no se validan como salidas obligatorias del contrato del servicio.",
+  "Linked output reports": "Informes de salida vinculados",
+  "Supplemental reports": "Informes complementarios",
+  "Always optional": "Siempre opcional",
+  "Link ready reports for the requester without changing the frozen offer, promised output files, or transaction status.":
+    "Vinculá informes listos para el solicitante sin cambiar la oferta congelada, los archivos de salida prometidos ni el estado de la transacción.",
+  "Link report": "Vincular informe",
+  "Save the transaction before linking reports.":
+    "Guardá la transacción antes de vincular informes.",
+  "Save other transaction changes before managing linked reports.":
+    "Guardá los demás cambios de la transacción antes de administrar los informes vinculados.",
+  "Linked reports could not be resolved.":
+    "No se pudieron resolver los informes vinculados.",
+  "No reports linked": "No hay informes vinculados",
+  "This is valid: reports are supplemental and are never required to complete the service.":
+    "Esto es válido: los informes son complementarios y nunca son obligatorios para completar el servicio.",
+  "Linked report": "Informe vinculado",
+  "Uploaded report": "Informe cargado",
+  "Report type": "Tipo de informe",
+  Owner: "Propietario",
+  "Open report": "Abrir informe",
+  "Report metadata is loading.": "Se están cargando los datos del informe.",
+  "Choose an existing report": "Elegir un informe existente",
+  "Search by report code, review its registered metadata, and link exactly one report.":
+    "Buscá por código de informe, revisá sus datos registrados y vinculá un único informe.",
+  "Search by 6-character report code":
+    "Buscar por código de informe de 6 caracteres",
+  "Search reports by code": "Buscar informes por código",
+  "Reports could not be loaded.": "No se pudieron cargar los informes.",
+  "No report codes match this search.":
+    "Ningún código de informe coincide con esta búsqueda.",
+  "No ready reports are available to link.":
+    "No hay informes listos disponibles para vincular.",
+  "Reports already linked are omitted from this picker.":
+    "Los informes ya vinculados no se muestran en este selector.",
+  "Registered report": "Informe registrado",
+  "This report is not ready to link.":
+    "Este informe no está listo para vincular.",
+  "Linking report...": "Vinculando informe...",
+  "Link selected report": "Vincular informe seleccionado",
+  "Report linked to the transaction.":
+    "Informe vinculado a la transacción.",
+  "Report removed from the transaction.":
+    "Informe quitado de la transacción.",
+  "Remove this report from the transaction?":
+    "¿Quitar este informe de la transacción?",
   "Delivered is accepted only after every code resolves to a ready uploaded object of the promised type.":
     "El estado Entregada solo se acepta cuando cada código resuelve a un objeto cargado, listo y del tipo prometido.",
   Outputs: "Salidas",

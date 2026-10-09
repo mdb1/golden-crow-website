@@ -42,6 +42,7 @@ const SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION =
   "service_transaction_idempotency";
 const OBJECT_CODES_COLLECTION = "object_codes";
 const UPLOADED_OBJECTS_COLLECTION = "uploaded_objects";
+const REPORT_CODES_COLLECTION = "report_codes";
 const UPLOADED_REPORTS_COLLECTION = "uploaded_reports";
 const OBJECT_OWNERS_COLLECTION = "object_owners";
 const FILE_STORAGE_COLLECTION = "file_storage";
@@ -59,6 +60,13 @@ const OUTPUT_OBJECT_DOWNLOAD_TIMEOUT_MS = 10_000;
 const OUTPUT_OBJECT_CODE_CANDIDATE_COUNT = 12;
 const MAX_OBJECT_REVISION_HISTORY_RECORDS = 100;
 const MAX_DEFERRED_SERVICE_TRANSACTIONS_PER_EMAIL = 5;
+const SUPPORTED_LINKED_REPORT_FORMATS = new Set([
+  "mdm",
+  "ag",
+  "2pq",
+  "vcf",
+  "pdf",
+]);
 export const TWO_PQ_CASE_SERVICE_OFFER_ID = "rhTE3dfB8Ovhf86lY3Z5";
 export const TWO_PQ_CASE_SERVICE_ID = "pgs_2pq_74399";
 export const TWO_PQ_CASE_SERVICE_PROVIDER_ID = "kfFtJlLuyW6deXW2Im3S";
@@ -517,6 +525,29 @@ export interface SupportServiceTransactionOutputObjectSnapshot {
 
 export interface SupportServiceTransactionOutputReportSnapshot {
   reportCode: string;
+}
+
+export interface SupportServiceLinkedReportRecord {
+  reportCode: string;
+  available: boolean;
+  error?: string;
+  uploadedReportId?: string;
+  fileName?: string;
+  providerFormat?: string;
+  providerName?: string;
+  trackingStatus?: string;
+  downloadUrl?: string;
+  linkedFileId?: string;
+  uploadVersionCount?: number;
+  ownerId?: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  updatedAt?: string;
+}
+
+export interface SupportServiceLinkedReportsPage {
+  reports: SupportServiceLinkedReportRecord[];
+  nextCursor?: string;
 }
 
 export type SupportServiceOutputObjectUploadInput =
@@ -5939,6 +5970,206 @@ async function getTransactionSnapshotByIdOrRequestId(transactionId: string) {
   return requestSnapshot.docs[0] ?? null;
 }
 
+function normalizedLinkedReportCode(value: unknown) {
+  const reportCode = cleanString(value).toUpperCase();
+  if (!/^[A-Z0-9]{6}$/.test(reportCode)) {
+    throw new AdminRepositoryError(
+      "Report code must be exactly 6 uppercase letters or digits.",
+      400,
+    );
+  }
+  return reportCode;
+}
+
+function isUsableLinkedReportDownloadUrl(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    value !== value.trim() ||
+    /\s/.test(value)
+  ) {
+    return false;
+  }
+  try {
+    const parsed = new URL(value);
+    return (
+      (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+      Boolean(parsed.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function resolveSupportServiceLinkedReport(
+  reportCodeValue: unknown,
+  readDocument: DocumentReader,
+  expectedOwnerId?: string,
+): Promise<SupportServiceLinkedReportRecord> {
+  const reportCode = normalizedLinkedReportCode(reportCodeValue);
+  const codeRef = adminDb.collection(REPORT_CODES_COLLECTION).doc(reportCode);
+  const codeSnapshot = await readDocument(codeRef);
+  if (!codeSnapshot.exists) {
+    throw new AdminRepositoryError(
+      `Report code ${reportCode} does not exist.`,
+      404,
+    );
+  }
+
+  const codeData = codeSnapshot.data() ?? {};
+  const uploadedReportId = cleanString(codeData.uploaded_report_id);
+  if (!uploadedReportId) {
+    throw new AdminRepositoryError(
+      `Report code ${reportCode} has no uploaded report.`,
+      409,
+    );
+  }
+
+  const uploadedRef = adminDb
+    .collection(UPLOADED_REPORTS_COLLECTION)
+    .doc(uploadedReportId);
+  const uploadedSnapshot = await readDocument(uploadedRef);
+  if (!uploadedSnapshot.exists) {
+    throw new AdminRepositoryError(
+      `Uploaded report for code ${reportCode} does not exist.`,
+      409,
+    );
+  }
+
+  const uploadedData = uploadedSnapshot.data() ?? {};
+  rejectForbiddenKeys(
+    uploadedData,
+    [
+      "reportCode",
+      "providerFormat",
+      "uploadVersionCount",
+      "downloadUrl",
+      "linkedFileId",
+    ],
+    `Uploaded report ${uploadedReportId}`,
+    "camel-case",
+  );
+  if (cleanString(uploadedData.report_code) !== reportCode) {
+    throw new AdminRepositoryError(
+      `Uploaded report ${uploadedReportId} does not belong to code ${reportCode}.`,
+      409,
+    );
+  }
+  const ownerId =
+    cleanString(codeData.owner_id) ||
+    cleanString(uploadedData.report_owner_id);
+  if (expectedOwnerId && ownerId !== expectedOwnerId) {
+    throw new AdminRepositoryError(
+      `Report code ${reportCode} is not owned by the current service publisher.`,
+      404,
+    );
+  }
+
+  const providerFormat = cleanString(
+    uploadedData.provider_format,
+  ).toLowerCase();
+  if (!SUPPORTED_LINKED_REPORT_FORMATS.has(providerFormat)) {
+    throw new AdminRepositoryError(
+      `Report code ${reportCode} has unsupported provider_format ${providerFormat || "(missing)"}.`,
+      409,
+    );
+  }
+  const uploadVersionCount = Number(uploadedData.upload_version_count);
+  if (!Number.isInteger(uploadVersionCount) || uploadVersionCount < 1) {
+    throw new AdminRepositoryError(
+      `Report code ${reportCode} requires a positive upload_version_count.`,
+      409,
+    );
+  }
+  const trackingStatus = cleanString(uploadedData.tracking_progress_status);
+  if (trackingStatus !== "document_ready") {
+    throw new AdminRepositoryError(
+      `Report code ${reportCode} is not ready for download.`,
+      409,
+    );
+  }
+
+  const rawDownloadUrl = uploadedData.download_url;
+  const downloadUrl = isUsableLinkedReportDownloadUrl(rawDownloadUrl)
+    ? rawDownloadUrl
+    : "";
+  const linkedFileId = cleanString(uploadedData.linked_file_id);
+  if (!downloadUrl && !linkedFileId) {
+    throw new AdminRepositoryError(
+      `Report code ${reportCode} has no usable download URL or linked file.`,
+      409,
+    );
+  }
+
+  if (!downloadUrl && linkedFileId) {
+    const fileRef = adminDb
+      .collection(FILE_STORAGE_COLLECTION)
+      .doc(linkedFileId);
+    const fileSnapshot = await readDocument(fileRef);
+    if (!fileSnapshot.exists) {
+      throw new AdminRepositoryError(
+        `Linked file for report code ${reportCode} does not exist.`,
+        409,
+      );
+    }
+    const fileData = fileSnapshot.data() ?? {};
+    rejectForbiddenKeys(
+      fileData,
+      ["linkedReportCode", "fileType", "fileContent"],
+      `Linked report file ${linkedFileId}`,
+      "camel-case",
+    );
+    if (
+      cleanString(fileData.linked_report_code) !== reportCode ||
+      cleanString(fileData.file_type).toLowerCase() !== providerFormat ||
+      !cleanString(fileData.file_content)
+    ) {
+      throw new AdminRepositoryError(
+        `Linked file ${linkedFileId} does not match report code ${reportCode} and format ${providerFormat}.`,
+        409,
+      );
+    }
+  }
+
+  return withoutUndefined({
+    reportCode,
+    available: true,
+    uploadedReportId,
+    fileName: cleanString(uploadedData.file_name) || undefined,
+    providerFormat,
+    providerName: cleanString(uploadedData.provider_name) || undefined,
+    trackingStatus,
+    downloadUrl: downloadUrl || undefined,
+    linkedFileId: linkedFileId || undefined,
+    uploadVersionCount,
+    ownerId: ownerId || undefined,
+    ownerName: cleanString(uploadedData.owner_name) || undefined,
+    ownerEmail: cleanString(uploadedData.owner_email).toLowerCase() || undefined,
+    updatedAt:
+      timestampToIso(uploadedData.date_modified) ??
+      timestampToIso(uploadedData.date_created),
+  });
+}
+
+async function supportServiceLinkedReportPresentation(
+  reportCode: string,
+): Promise<SupportServiceLinkedReportRecord> {
+  try {
+    return await resolveSupportServiceLinkedReport(
+      reportCode,
+      (reference) => reference.get(),
+    );
+  } catch (error) {
+    return {
+      reportCode,
+      available: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : `Report code ${reportCode} could not be resolved.`,
+    };
+  }
+}
+
 async function assertOfferProviderExists(
   document: Pick<
     SupportServiceOfferRecord | ReturnType<typeof offerDocument>,
@@ -6922,6 +7153,202 @@ export async function getSupportServiceTransaction(
     "Service transaction not found.",
   );
   return transaction;
+}
+
+export async function getSupportServiceTransactionLinkedReports(
+  context: AdminContext,
+  transactionId: string,
+) {
+  const transaction = await getSupportServiceTransaction(
+    context,
+    transactionId,
+  );
+  return Promise.all(
+    transaction.outputReports.map(({ reportCode }) =>
+      supportServiceLinkedReportPresentation(reportCode),
+    ),
+  );
+}
+
+export async function listSupportServiceLinkedReportCandidates(
+  context: AdminContext,
+  transactionId: string,
+  options: { query?: string; cursor?: string; limit?: number } = {},
+): Promise<SupportServiceLinkedReportsPage> {
+  await getSupportServiceTransaction(context, transactionId);
+  const publisherOwnerId = context.isBootstrap ? "" : cleanString(context.uid);
+  const search = cleanString(options.query).toUpperCase();
+  if (search && !/^[A-Z0-9]{1,6}$/.test(search)) {
+    throw new AdminRepositoryError(
+      "Report search must contain up to 6 letters or digits.",
+      400,
+    );
+  }
+  const cursor = cleanString(options.cursor).toUpperCase();
+  if (cursor && !/^[A-Z0-9]{6}$/.test(cursor)) {
+    throw new AdminRepositoryError("Invalid report cursor.", 400);
+  }
+  const limit = normalizeLimit(options.limit);
+  let query: Query = adminDb
+    .collection(REPORT_CODES_COLLECTION);
+  if (publisherOwnerId) {
+    query = query.where("owner_id", "==", publisherOwnerId);
+  }
+  query = query.orderBy(FieldPath.documentId(), "asc");
+  if (cursor) {
+    query = query.startAfter(cursor);
+    if (search) {
+      query = query.endAt(`${search}\uf8ff`);
+    }
+  } else if (search) {
+    query = query.startAt(search).endAt(`${search}\uf8ff`);
+  }
+  const snapshot = await query.limit(limit + 1).get();
+  const visibleDocuments = snapshot.docs.slice(0, limit);
+  const reports = await Promise.all(
+    visibleDocuments.map((document) =>
+      publisherOwnerId
+        ? resolveSupportServiceLinkedReport(
+            document.id,
+            (reference) => reference.get(),
+            publisherOwnerId,
+          ).catch((error) => ({
+            reportCode: document.id,
+            available: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : `Report code ${document.id} could not be resolved.`,
+          }))
+        : supportServiceLinkedReportPresentation(document.id),
+    ),
+  );
+  return withoutUndefined({
+    reports,
+    nextCursor:
+      snapshot.docs.length > limit
+        ? visibleDocuments[visibleDocuments.length - 1]?.id
+        : undefined,
+  });
+}
+
+export async function attachSupportServiceTransactionOutputReport(
+  context: AdminContext,
+  transactionId: string,
+  reportCodeValue: string,
+) {
+  const accessScope = requireSupportServicesAccess(context);
+  const reportCode = normalizedLinkedReportCode(reportCodeValue);
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const latestSnapshot = await firestoreTransaction.get(snapshot.ref);
+    if (!latestSnapshot.exists) {
+      throw new AdminRepositoryError("Service transaction not found.", 404);
+    }
+    const latest = toTransactionAdminRecord(
+      latestSnapshot.id,
+      latestSnapshot.data() ?? {},
+    );
+    assertSupportServicesRecordAccess(
+      accessScope,
+      latest,
+      "Service transaction not found.",
+    );
+    if (
+      latest.outputReports.some(
+        (candidate) => candidate.reportCode === reportCode,
+      )
+    ) {
+      throw new AdminRepositoryError(
+        `Report code ${reportCode} is already linked to this transaction.`,
+        409,
+      );
+    }
+    if (latest.outputReports.length >= 50) {
+      throw new AdminRepositoryError(
+        "A service transaction cannot link more than 50 reports.",
+        409,
+      );
+    }
+
+    await resolveSupportServiceLinkedReport(
+      reportCode,
+      (reference) => firestoreTransaction.get(reference),
+      accessScope.kind === "publisher" ? context.uid : undefined,
+    );
+    firestoreTransaction.set(
+      latestSnapshot.ref,
+      {
+        outputReports: [...latest.outputReports, { reportCode }],
+        requestRevision: latest.requestRevision + 1,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByEmail: context.email,
+      },
+      { merge: true },
+    );
+  });
+
+  return {
+    transaction: await getSupportServiceTransactionRecord(snapshot.id),
+    report: await resolveSupportServiceLinkedReport(
+      reportCode,
+      (reference) => reference.get(),
+    ),
+  };
+}
+
+export async function removeSupportServiceTransactionOutputReport(
+  context: AdminContext,
+  transactionId: string,
+  reportCodeValue: string,
+) {
+  const accessScope = requireSupportServicesAccess(context);
+  const reportCode = normalizedLinkedReportCode(reportCodeValue);
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const latestSnapshot = await firestoreTransaction.get(snapshot.ref);
+    if (!latestSnapshot.exists) {
+      throw new AdminRepositoryError("Service transaction not found.", 404);
+    }
+    const latest = toTransactionAdminRecord(
+      latestSnapshot.id,
+      latestSnapshot.data() ?? {},
+    );
+    assertSupportServicesRecordAccess(
+      accessScope,
+      latest,
+      "Service transaction not found.",
+    );
+    const outputReports = latest.outputReports.filter(
+      (candidate) => candidate.reportCode !== reportCode,
+    );
+    if (outputReports.length === latest.outputReports.length) {
+      return;
+    }
+    firestoreTransaction.set(
+      latestSnapshot.ref,
+      {
+        outputReports,
+        requestRevision: latest.requestRevision + 1,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByEmail: context.email,
+      },
+      { merge: true },
+    );
+  });
+
+  return {
+    transaction: await getSupportServiceTransactionRecord(snapshot.id),
+    reportCode,
+  };
 }
 
 async function getSupportServiceTransactionRecord(transactionId: string) {
@@ -9181,6 +9608,16 @@ async function persistSupportServiceTransactionUpdate(
       409,
     );
   }
+  if (
+    input.outputReports !== undefined &&
+    stableString(outputReportsFromUnknown(input.outputReports)) !==
+      stableString(previous.outputReports)
+  ) {
+    throw new AdminRepositoryError(
+      "Output reports can only be changed through the dedicated linked-report commands.",
+      409,
+    );
+  }
   rejectImmutableTransactionChanges(input, previous);
   const offer = offerFromFrozenTransaction(previous);
   const document = applyFrozenTransactionOfferContract(
@@ -9202,7 +9639,7 @@ async function persistSupportServiceTransactionUpdate(
       idempotencyKey: previous.idempotencyKey,
       inputs: input.inputs ?? previous.inputs,
       outputObjects: previous.outputObjects,
-      outputReports: input.outputReports ?? previous.outputReports,
+      outputReports: previous.outputReports,
       issues: input.issues ?? previous.issues,
       offerSnapshot: previous.offerSnapshot,
       providerSnapshot: previous.providerSnapshot,

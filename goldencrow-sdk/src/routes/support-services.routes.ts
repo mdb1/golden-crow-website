@@ -9,6 +9,7 @@ import {
   SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH,
   SUPPORT_SERVICE_STAGES,
   SUPPORT_SERVICE_TRANSACTION_STATUSES,
+  attachSupportServiceTransactionOutputReport,
   attachSupportServiceTransactionOutputObject,
   createSupportServiceOffer,
   createSupportServiceTransaction,
@@ -19,8 +20,11 @@ import {
   getSupportServiceOffer,
   getSupportServiceOfferTransactionStats,
   getSupportServiceTransaction,
+  getSupportServiceTransactionLinkedReports,
+  listSupportServiceLinkedReportCandidates,
   listSupportServiceOffers,
   listSupportServiceTransactions,
+  removeSupportServiceTransactionOutputReport,
   updateSupportServiceOffer,
   updateSupportServiceTransaction,
 } from "../repositories/support-services.repository.js";
@@ -556,6 +560,18 @@ const OfferParamsSchema = z.object({
 const TransactionParamsSchema = z.object({
   transactionId: z.string().trim().min(1),
 });
+const ReportCodeSchema = z.string().trim().regex(/^[A-Z0-9]{6}$/);
+const TransactionReportParamsSchema = TransactionParamsSchema.extend({
+  reportCode: ReportCodeSchema,
+});
+const OutputReportBodySchema = z
+  .object({ reportCode: ReportCodeSchema })
+  .strict();
+const OutputReportCandidatesQuerySchema = z.object({
+  query: z.string().trim().regex(/^[A-Za-z0-9]{1,6}$/).optional(),
+  cursor: ReportCodeSchema.optional(),
+  limit: z.coerce.number().int().positive().max(50).optional(),
+});
 const HttpsDownloadUrlSchema = z
   .string()
   .trim()
@@ -719,6 +735,83 @@ export async function supportServicesRoutes(
           request.params.offerId,
         );
         return reply.send({ offer });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/support-services/transactions/:transactionId/output-reports/candidates",
+    {
+      schema: {
+        params: TransactionParamsSchema,
+        querystring: OutputReportCandidatesQuerySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await listSupportServiceLinkedReportCandidates(
+          request.adminContext!,
+          request.params.transactionId,
+          request.query,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/support-services/transactions/:transactionId/output-reports",
+    { schema: { params: TransactionParamsSchema } },
+    async (request, reply) => {
+      try {
+        const reports = await getSupportServiceTransactionLinkedReports(
+          request.adminContext!,
+          request.params.transactionId,
+        );
+        return reply.send({ reports });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/admin/support-services/transactions/:transactionId/output-reports",
+    {
+      schema: {
+        params: TransactionParamsSchema,
+        body: OutputReportBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await attachSupportServiceTransactionOutputReport(
+          request.adminContext!,
+          request.params.transactionId,
+          request.body.reportCode,
+        );
+        return reply.status(201).send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.delete(
+    "/admin/support-services/transactions/:transactionId/output-reports/:reportCode",
+    { schema: { params: TransactionReportParamsSchema } },
+    async (request, reply) => {
+      try {
+        const result = await removeSupportServiceTransactionOutputReport(
+          request.adminContext!,
+          request.params.transactionId,
+          request.params.reportCode,
+        );
+        return reply.send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

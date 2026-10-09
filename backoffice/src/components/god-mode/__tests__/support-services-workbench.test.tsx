@@ -28,6 +28,7 @@ import {
 import { appText } from "@/lib/language";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 import type {
+  SupportServiceLinkedReportRecord,
   SupportServiceOfferRecord,
   SupportServiceTransactionRecord,
 } from "@/lib/support-services";
@@ -3942,6 +3943,132 @@ describe("support services workbenches", () => {
     expect(screen.getByRole("button", { name: "Download JSON" })).toBeTruthy();
   });
 
+  it("manages optional linked reports in a rich grid without changing a terminal transaction status", async () => {
+    const existingReport: SupportServiceLinkedReportRecord = {
+      reportCode: "ABC123",
+      available: true,
+      uploadedReportId: "uploaded-report-1",
+      fileName: "Clinical report.pdf",
+      providerFormat: "pdf",
+      providerName: "Pocket Genes Lab",
+      trackingStatus: "document_ready",
+      downloadUrl: "https://example.org/reports/ABC123.pdf",
+      uploadVersionCount: 3,
+      ownerName: "Patient Example",
+    };
+    const candidateReport: SupportServiceLinkedReportRecord = {
+      reportCode: "XYZ789",
+      available: true,
+      uploadedReportId: "uploaded-report-2",
+      fileName: "Genome report.pdf",
+      providerFormat: "pdf",
+      providerName: "Genome Lab",
+      trackingStatus: "document_ready",
+      linkedFileId: "report-file-2",
+      uploadVersionCount: 2,
+      ownerEmail: "patient@example.org",
+    };
+    let storedTransaction = deliveredTransaction;
+    let linkedReports: SupportServiceLinkedReportRecord[] = [existingReport];
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(`/transactions/${deliveredTransaction.requestId}`) &&
+        !init?.method
+      ) {
+        return { transaction: storedTransaction };
+      }
+      if (value.endsWith(`/offers/${deliveredTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      if (value.endsWith("/output-reports") && !init?.method) {
+        return { reports: linkedReports };
+      }
+      if (value.includes("/output-reports/candidates?") && !init?.method) {
+        return { reports: [candidateReport] };
+      }
+      if (value.endsWith("/output-reports") && init?.method === "POST") {
+        expect(JSON.parse(String(init.body))).toEqual({ reportCode: "XYZ789" });
+        storedTransaction = {
+          ...storedTransaction,
+          requestRevision: storedTransaction.requestRevision + 1,
+          outputReports: [
+            ...storedTransaction.outputReports,
+            { reportCode: "XYZ789" },
+          ],
+        };
+        linkedReports = [...linkedReports, candidateReport];
+        return { transaction: storedTransaction, report: candidateReport };
+      }
+      if (
+        value.endsWith("/output-reports/ABC123") &&
+        init?.method === "DELETE"
+      ) {
+        storedTransaction = {
+          ...storedTransaction,
+          requestRevision: storedTransaction.requestRevision + 1,
+          outputReports: storedTransaction.outputReports.filter(
+            (report) => report.reportCode !== "ABC123",
+          ),
+        };
+        linkedReports = linkedReports.filter(
+          (report) => report.reportCode !== "ABC123",
+        );
+        return { transaction: storedTransaction, reportCode: "ABC123" };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={deliveredTransaction.requestId}
+      />,
+    );
+
+    const existingCard = await screen.findByRole("article", {
+      name: "Linked report · ABC123",
+    });
+    expect(within(existingCard).getByText("Clinical report.pdf")).toBeTruthy();
+    expect(within(existingCard).getAllByText("PDF")).toHaveLength(2);
+    expect(within(existingCard).getByText("Pocket Genes Lab")).toBeTruthy();
+    expect(within(existingCard).getByText("Patient Example")).toBeTruthy();
+    expect(screen.queryByLabelText("Optional report codes")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Link report" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Choose an existing report" }),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search reports by code" }), {
+      target: { value: "xyz789" },
+    });
+    const candidate = await screen.findByRole("button", { name: /XYZ789/ });
+    fireEvent.click(candidate);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Link selected report" }),
+    );
+
+    const addedCard = await screen.findByRole("article", {
+      name: "Linked report · XYZ789",
+    });
+    expect(addedCard.className).toContain("animate-in");
+    expect(within(addedCard).getByText("Genome report.pdf")).toBeTruthy();
+    expect(storedTransaction.status).toBe("delivered");
+
+    fireEvent.click(within(existingCard).getByRole("button", { name: "Remove" }));
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("article", { name: "Linked report · ABC123" }),
+      ).toBeNull();
+    });
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "Remove this report from the transaction?",
+    );
+    expect(storedTransaction.status).toBe("delivered");
+  });
+
   it("edits against the frozen contract, preserves rich inputs, and cannot reopen a terminal transaction", async () => {
     sdkFetchMock.mockImplementation(async (path, init) => {
       if (init?.method === "PUT") {
@@ -4173,7 +4300,7 @@ describe("support services workbenches", () => {
       );
       expect(payload).not.toHaveProperty("inputs");
       expect(payload.outputObjects).toEqual(editableTransaction.outputObjects);
-      expect(payload.outputReports).toEqual(editableTransaction.outputReports);
+      expect(payload).not.toHaveProperty("outputReports");
       expect(payload.issues).toEqual(editableTransaction.issues);
       expect(payload.offerSnapshot).toEqual(frozenOfferSnapshot);
       expect(payload.providerSnapshot).toEqual(

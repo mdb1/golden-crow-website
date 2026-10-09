@@ -13,6 +13,10 @@ const mockListSupportServiceTransactions = jest.fn();
 const mockCreateSupportServiceTransaction = jest.fn();
 const mockDeleteSupportServiceTransaction = jest.fn();
 const mockAttachSupportServiceTransactionOutputObject = jest.fn();
+const mockAttachSupportServiceTransactionOutputReport = jest.fn();
+const mockRemoveSupportServiceTransactionOutputReport = jest.fn();
+const mockGetSupportServiceTransactionLinkedReports = jest.fn();
+const mockListSupportServiceLinkedReportCandidates = jest.fn();
 const mockDeliverSupportServiceTransaction = jest.fn();
 const mockGetSupportServiceIdAvailability = jest.fn();
 const mockGetSupportServiceOfferTransactionStats = jest.fn();
@@ -58,6 +62,8 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   ],
   attachSupportServiceTransactionOutputObject:
     mockAttachSupportServiceTransactionOutputObject,
+  attachSupportServiceTransactionOutputReport:
+    mockAttachSupportServiceTransactionOutputReport,
   createSupportServiceOffer: mockCreateSupportServiceOffer,
   createSupportServiceTransaction: mockCreateSupportServiceTransaction,
   deleteSupportServiceOffer: mockDeleteSupportServiceOffer,
@@ -68,8 +74,14 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   getSupportServiceOfferTransactionStats:
     mockGetSupportServiceOfferTransactionStats,
   getSupportServiceTransaction: jest.fn(),
+  getSupportServiceTransactionLinkedReports:
+    mockGetSupportServiceTransactionLinkedReports,
+  listSupportServiceLinkedReportCandidates:
+    mockListSupportServiceLinkedReportCandidates,
   listSupportServiceOffers: mockListSupportServiceOffers,
   listSupportServiceTransactions: mockListSupportServiceTransactions,
+  removeSupportServiceTransactionOutputReport:
+    mockRemoveSupportServiceTransactionOutputReport,
   updateSupportServiceOffer: mockUpdateSupportServiceOffer,
   updateSupportServiceTransaction: jest.fn(),
 }));
@@ -304,6 +316,47 @@ describe("support service admin routes", () => {
         downloadUrl: "https://objects.example/report.pgo.json",
         status: "ready",
       },
+    });
+    mockGetSupportServiceTransactionLinkedReports.mockResolvedValue([
+      {
+        reportCode: "ABC123",
+        available: true,
+        providerFormat: "pdf",
+        uploadVersionCount: 2,
+      },
+    ]);
+    mockListSupportServiceLinkedReportCandidates.mockResolvedValue({
+      reports: [
+        {
+          reportCode: "XYZ789",
+          available: true,
+          providerFormat: "pdf",
+          uploadVersionCount: 1,
+        },
+      ],
+    });
+    mockAttachSupportServiceTransactionOutputReport.mockResolvedValue({
+      transaction: {
+        id: "txn-1",
+        requestId: "pgr_demo_final_report",
+        status: "delivered",
+        outputReports: [{ reportCode: "XYZ789" }],
+      },
+      report: {
+        reportCode: "XYZ789",
+        available: true,
+        providerFormat: "pdf",
+        uploadVersionCount: 1,
+      },
+    });
+    mockRemoveSupportServiceTransactionOutputReport.mockResolvedValue({
+      transaction: {
+        id: "txn-1",
+        requestId: "pgr_demo_final_report",
+        status: "delivered",
+        outputReports: [],
+      },
+      reportCode: "ABC123",
     });
     mockDeliverSupportServiceTransaction.mockResolvedValue({
       id: "txn-1",
@@ -1118,6 +1171,73 @@ describe("support service admin routes", () => {
 
     expect(response.statusCode).toBe(400);
     expect(mockCreateSupportServiceTransaction).not.toHaveBeenCalled();
+  });
+
+  it("lists, attaches, and removes supplemental transaction reports through dedicated routes", async () => {
+    const fastify = await buildTestServer();
+
+    const detail = await fastify.inject({
+      method: "GET",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-reports",
+    });
+    const candidates = await fastify.inject({
+      method: "GET",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-reports/candidates?query=XYZ&limit=20",
+    });
+    const attached = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-reports",
+      payload: { reportCode: "XYZ789" },
+    });
+    const removed = await fastify.inject({
+      method: "DELETE",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-reports/ABC123",
+    });
+
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json()).toEqual({
+      reports: [expect.objectContaining({ reportCode: "ABC123" })],
+    });
+    expect(candidates.statusCode).toBe(200);
+    expect(candidates.json()).toEqual({
+      reports: [expect.objectContaining({ reportCode: "XYZ789" })],
+    });
+    expect(attached.statusCode).toBe(201);
+    expect(removed.statusCode).toBe(200);
+    expect(mockListSupportServiceLinkedReportCandidates).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      { query: "XYZ", limit: 20 },
+    );
+    expect(mockAttachSupportServiceTransactionOutputReport).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      "XYZ789",
+    );
+    expect(mockRemoveSupportServiceTransactionOutputReport).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      "ABC123",
+    );
+  });
+
+  it("rejects malformed report codes before invoking linked-report commands", async () => {
+    const fastify = await buildTestServer();
+
+    const attached = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-reports",
+      payload: { reportCode: "abc-12" },
+    });
+    const removed = await fastify.inject({
+      method: "DELETE",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-reports/TOO-LONG",
+    });
+
+    expect(attached.statusCode).toBe(400);
+    expect(removed.statusCode).toBe(400);
+    expect(mockAttachSupportServiceTransactionOutputReport).not.toHaveBeenCalled();
+    expect(mockRemoveSupportServiceTransactionOutputReport).not.toHaveBeenCalled();
   });
 
   it("attaches an output object from a strict download URL command", async () => {

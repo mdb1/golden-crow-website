@@ -158,6 +158,8 @@ import {
   type SupportServiceFormFieldType,
   type SupportServiceInputSlot,
   type SupportServiceIdAvailability,
+  type SupportServiceLinkedReportRecord,
+  type SupportServiceLinkedReportsPage,
   type SupportServiceMutationMode,
   type SupportServiceMoreInformation,
   type SupportServiceOfferInput,
@@ -303,7 +305,7 @@ type TransactionFormState = {
   idempotencyKey: string;
   inputs: ObjectRefDraft[];
   outputObjects: OutputObjectDraft[];
-  outputReportCodesText: string;
+  outputReports: Array<{ reportCode: string }>;
   issuesText: string;
   missingRequiredInputRoles: string[];
   offerSnapshot: SupportServiceOfferSnapshot;
@@ -345,6 +347,10 @@ type ProcessedPromotionalBannerUpload = {
 const SERVICE_PAGE_SIZE = 20;
 const OFFERS_QUERY_KEY = "god-mode-support-service-offers";
 const TRANSACTIONS_QUERY_KEY = "god-mode-support-service-transactions";
+const TRANSACTION_REPORTS_QUERY_KEY =
+  "god-mode-support-service-transaction-linked-reports";
+const TRANSACTION_REPORT_CANDIDATES_QUERY_KEY =
+  "god-mode-support-service-transaction-report-candidates";
 const LIVE_OFFERS_QUERY_KEY = "god-mode-support-service-offers-live-picker";
 const EMPTY_SUPPORT_SERVICE_OFFERS: SupportServiceOfferRecord[] = [];
 const FORM_OBJECT_TYPE = "pgo_form";
@@ -1743,7 +1749,7 @@ function emptyTransactionForm(): TransactionFormState {
     idempotencyKey: "",
     inputs: [],
     outputObjects: [],
-    outputReportCodesText: "",
+    outputReports: [],
     issuesText: "[]",
     missingRequiredInputRoles: [],
     offerSnapshot: {},
@@ -1778,7 +1784,7 @@ function transactionFormForOffer(
     outputObjects: outputSlots.map((slot) =>
       outputObjectDraft(slot, inputSlots),
     ),
-    outputReportCodesText: "",
+    outputReports: [],
     issuesText: "[]",
     missingRequiredInputRoles: inputSlots
       .filter((slot) => slot.required)
@@ -1872,9 +1878,7 @@ function transactionFormFromRecord(
       record.idempotencyKey ?? transactionIdempotencyKey(record.requestId),
     inputs,
     outputObjects,
-    outputReportCodesText: (record.outputReports ?? [])
-      .map((report) => report.reportCode)
-      .join("\n"),
+    outputReports: [...(record.outputReports ?? [])],
     issuesText: JSON.stringify(record.issues ?? [], null, 2),
     missingRequiredInputRoles: record.missingRequiredInputRoles ?? [],
     offerSnapshot: record.offerSnapshot ?? {},
@@ -1888,7 +1892,6 @@ function transactionEditableFingerprint(form: TransactionFormState) {
   return JSON.stringify({
     status: form.status,
     inputs: form.inputs,
-    outputReportCodesText: form.outputReportCodesText,
     issuesText: form.issuesText,
     missingRequiredInputRoles: form.missingRequiredInputRoles,
     attachmentsPending: form.attachmentsPending,
@@ -2323,19 +2326,6 @@ function transactionPayloadFromForm(
         objectCode,
       };
     });
-  const outputReports = form.outputReportCodesText
-    .split(/[\s,]+/)
-    .map((code) => code.trim().toUpperCase())
-    .filter(Boolean)
-    .map((reportCode) => {
-      if (!/^[A-Z0-9]{6}$/.test(reportCode)) {
-        throw new Error(
-          "Optional report codes must contain exactly 6 letters or digits.",
-        );
-      }
-      return { reportCode };
-    });
-
   if (
     form.status === "delivered" &&
     outputObjects.length !== form.outputObjects.length
@@ -2361,7 +2351,6 @@ function transactionPayloadFromForm(
     idempotencyKey: form.idempotencyKey.trim(),
     inputs,
     outputObjects,
-    outputReports,
     issues: parseJsonArray(form.issuesText, "Issues"),
     missingRequiredInputRoles,
     offerSnapshot: form.offerSnapshot,
@@ -9345,6 +9334,10 @@ export function SupportServiceTransactionWorkbench({
     Record<string, string>
   >({});
   const [outputUploadError, setOutputUploadError] = useState("");
+  const [reportPickerOpen, setReportPickerOpen] = useState(false);
+  const [reportSearch, setReportSearch] = useState("");
+  const [selectedReportCode, setSelectedReportCode] = useState("");
+  const [recentlyAddedReportCode, setRecentlyAddedReportCode] = useState("");
   const [rawExportOpen, setRawExportOpen] = useState(false);
   const isEditing = mode === "edit";
 
@@ -9364,6 +9357,44 @@ export function SupportServiceTransactionWorkbench({
     enabled: isEditing && Boolean(transactionId),
   });
   const transactionRecord = transactionQuery.data?.transaction ?? null;
+  const linkedReportsQuery = useQuery({
+    queryKey: [TRANSACTION_REPORTS_QUERY_KEY, transactionId],
+    queryFn: () =>
+      sdkFetch<{ reports: SupportServiceLinkedReportRecord[] }>(
+        `/admin/support-services/transactions/${encodeURIComponent(
+          transactionId ?? "",
+        )}/output-reports`,
+      ),
+    enabled: isEditing && Boolean(transactionId),
+    retry: false,
+  });
+  const reportCandidatesQuery = useInfiniteQuery({
+    queryKey: [
+      TRANSACTION_REPORT_CANDIDATES_QUERY_KEY,
+      transactionId,
+      reportSearch,
+    ],
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({
+        limit: String(SERVICE_PAGE_SIZE),
+      });
+      if (reportSearch) {
+        params.set("query", reportSearch);
+      }
+      if (typeof pageParam === "string" && pageParam) {
+        params.set("cursor", pageParam);
+      }
+      return sdkFetch<SupportServiceLinkedReportsPage>(
+        `/admin/support-services/transactions/${encodeURIComponent(
+          transactionId ?? "",
+        )}/output-reports/candidates?${params.toString()}`,
+      );
+    },
+    initialPageParam: "",
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: reportPickerOpen && isEditing && Boolean(transactionId),
+    retry: false,
+  });
   const persistedTransactionForm = useMemo(
     () =>
       transactionRecord ? transactionFormFromRecord(transactionRecord) : null,
@@ -9426,6 +9457,17 @@ export function SupportServiceTransactionWorkbench({
       setForm(transactionFormForOffer(liveOffers[0]));
     }
   }, [form.offerId, isEditing, liveOffers]);
+
+  useEffect(() => {
+    if (!recentlyAddedReportCode) {
+      return;
+    }
+    const timeout = window.setTimeout(
+      () => setRecentlyAddedReportCode(""),
+      1800,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [recentlyAddedReportCode]);
 
   const serviceChoices = useMemo(() => {
     if (isEditing) {
@@ -9507,6 +9549,19 @@ export function SupportServiceTransactionWorkbench({
           /^\d{9}$/.test(boundOutput.objectCode),
       );
     });
+  const linkedReports =
+    linkedReportsQuery.data?.reports ??
+    form.outputReports.map(({ reportCode }) => ({
+      reportCode,
+      available: false,
+    }));
+  const linkedReportCodes = new Set(
+    form.outputReports.map(({ reportCode }) => reportCode),
+  );
+  const reportCandidates =
+    reportCandidatesQuery.data?.pages
+      .flatMap((page) => page.reports)
+      .filter((report) => !linkedReportCodes.has(report.reportCode)) ?? [];
   const canMarkDelivered = Boolean(
     isEditing &&
       transactionRecord?.status === "running" &&
@@ -9672,6 +9727,96 @@ export function SupportServiceTransactionWorkbench({
     },
   });
 
+  const attachReportMutation = useMutation({
+    mutationFn: async (reportCode: string) =>
+      sdkFetch<{
+        transaction: SupportServiceTransactionRecord;
+        report: SupportServiceLinkedReportRecord;
+      }>(
+        `/admin/support-services/transactions/${encodeURIComponent(
+          transactionId ?? "",
+        )}/output-reports`,
+        {
+          method: "POST",
+          body: JSON.stringify({ reportCode }),
+        },
+      ),
+    onSuccess: async (result) => {
+      setForm(transactionFormFromRecord(result.transaction));
+      queryClient.setQueryData(
+        [TRANSACTIONS_QUERY_KEY, transactionId],
+        { transaction: result.transaction },
+      );
+      queryClient.setQueryData<{ reports: SupportServiceLinkedReportRecord[] }>(
+        [TRANSACTION_REPORTS_QUERY_KEY, transactionId],
+        (current) => ({
+          reports: [
+            ...(current?.reports ?? []).filter(
+              (report) => report.reportCode !== result.report.reportCode,
+            ),
+            result.report,
+          ],
+        }),
+      );
+      setRecentlyAddedReportCode(result.report.reportCode);
+      setReportPickerOpen(false);
+      setSelectedReportCode("");
+      setReportSearch("");
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTIONS_QUERY_KEY],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTION_REPORTS_QUERY_KEY, transactionId],
+      });
+      setToast({
+        id: nextToastId(),
+        tone: "success",
+        message: t("Report linked to the transaction."),
+      });
+    },
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
+  });
+
+  const removeReportMutation = useMutation({
+    mutationFn: async (reportCode: string) =>
+      sdkFetch<{
+        transaction: SupportServiceTransactionRecord;
+        reportCode: string;
+      }>(
+        `/admin/support-services/transactions/${encodeURIComponent(
+          transactionId ?? "",
+        )}/output-reports/${encodeURIComponent(reportCode)}`,
+        { method: "DELETE" },
+      ),
+    onSuccess: async (result) => {
+      setForm(transactionFormFromRecord(result.transaction));
+      queryClient.setQueryData(
+        [TRANSACTIONS_QUERY_KEY, transactionId],
+        { transaction: result.transaction },
+      );
+      queryClient.setQueryData<{ reports: SupportServiceLinkedReportRecord[] }>(
+        [TRANSACTION_REPORTS_QUERY_KEY, transactionId],
+        (current) => ({
+          reports: (current?.reports ?? []).filter(
+            (report) => report.reportCode !== result.reportCode,
+          ),
+        }),
+      );
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTIONS_QUERY_KEY],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTION_REPORTS_QUERY_KEY, transactionId],
+      });
+      setToast({
+        id: nextToastId(),
+        tone: "success",
+        message: t("Report removed from the transaction."),
+      });
+    },
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
+  });
+
   const deliverMutation = useMutation({
     mutationFn: async () =>
       sdkFetch<{ transaction: SupportServiceTransactionRecord }>(
@@ -9727,6 +9872,8 @@ export function SupportServiceTransactionWorkbench({
   const transactionCommandPending =
     saveMutation.isPending ||
     uploadOutputMutation.isPending ||
+    attachReportMutation.isPending ||
+    removeReportMutation.isPending ||
     deliverMutation.isPending ||
     deleteMutation.isPending;
 
@@ -10201,27 +10348,38 @@ export function SupportServiceTransactionWorkbench({
               {t("Save other transaction changes before uploading output objects.")}
             </p>
           ) : null}
-          <div className="mt-4">
-            <Field label="Optional report codes">
-              <Textarea
-                value={form.outputReportCodesText}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    outputReportCodesText: event.target.value,
-                  }))
-                }
-                rows={3}
-                placeholder={t("One 6-character report code per line")}
-              />
-            </Field>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {t(
-                "Reports may accompany a delivery, but they are not validated as service contract outputs.",
-              )}
-            </p>
-          </div>
         </Section>
+        </fieldset>
+        <LinkedOutputReportsSection
+          reports={linkedReports}
+          loading={linkedReportsQuery.isLoading}
+          loadError={linkedReportsQuery.error}
+          isEditing={isEditing}
+          canManage={
+            isEditing &&
+            !hasUnsavedTransactionChanges &&
+            !attachReportMutation.isPending &&
+            !removeReportMutation.isPending
+          }
+          recentlyAddedReportCode={recentlyAddedReportCode}
+          removingReportCode={removeReportMutation.variables ?? ""}
+          onRetry={() => linkedReportsQuery.refetch()}
+          onAdd={() => {
+            setSelectedReportCode("");
+            setReportSearch("");
+            setReportPickerOpen(true);
+          }}
+          onRemove={(reportCode) => {
+            if (window.confirm(t("Remove this report from the transaction?"))) {
+              removeReportMutation.mutate(reportCode);
+            }
+          }}
+          hasUnsavedTransactionChanges={hasUnsavedTransactionChanges}
+        />
+        <fieldset
+          className="contents"
+          disabled={terminalStatusLocked || transactionCommandPending}
+        >
         <Section title="Issues">
           <Textarea
             value={form.issuesText}
@@ -10366,6 +10524,41 @@ export function SupportServiceTransactionWorkbench({
         }}
         onSubmit={handleOutputUpload}
       />
+      <LinkedOutputReportPickerDialog
+        open={reportPickerOpen}
+        reports={reportCandidates}
+        linkedReportCodes={linkedReportCodes}
+        query={reportSearch}
+        selectedReportCode={selectedReportCode}
+        loading={reportCandidatesQuery.isLoading}
+        fetching={reportCandidatesQuery.isFetching}
+        error={reportCandidatesQuery.error}
+        hasMore={Boolean(reportCandidatesQuery.hasNextPage)}
+        pending={attachReportMutation.isPending}
+        onQueryChange={(value) => {
+          const normalized = value
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, "")
+            .slice(0, 6);
+          setReportSearch(normalized);
+          setSelectedReportCode("");
+        }}
+        onSelect={setSelectedReportCode}
+        onLoadMore={() => reportCandidatesQuery.fetchNextPage()}
+        onRetry={() => reportCandidatesQuery.refetch()}
+        onClose={() => {
+          if (!attachReportMutation.isPending) {
+            setReportPickerOpen(false);
+            setSelectedReportCode("");
+            setReportSearch("");
+          }
+        }}
+        onSubmit={() => {
+          if (selectedReportCode) {
+            attachReportMutation.mutate(selectedReportCode);
+          }
+        }}
+      />
       <RawJsonExportDialog
         open={rawExportOpen}
         onOpenChange={setRawExportOpen}
@@ -10477,6 +10670,452 @@ function OutputObjectGrid({
         );
       })}
     </div>
+  );
+}
+
+function linkedReportFormatLabel(value?: string) {
+  switch (value?.toLowerCase()) {
+    case "mdm":
+      return "MyDNAMap";
+    case "ag":
+      return "Actyon Genomics";
+    case "2pq":
+      return "2PQ";
+    case "vcf":
+      return "VCF";
+    case "pdf":
+      return "PDF";
+    default:
+      return value?.toUpperCase() || "—";
+  }
+}
+
+function LinkedOutputReportsSection({
+  reports,
+  loading,
+  loadError,
+  isEditing,
+  canManage,
+  recentlyAddedReportCode,
+  removingReportCode,
+  hasUnsavedTransactionChanges,
+  onRetry,
+  onAdd,
+  onRemove,
+}: {
+  reports: SupportServiceLinkedReportRecord[];
+  loading: boolean;
+  loadError: Error | null;
+  isEditing: boolean;
+  canManage: boolean;
+  recentlyAddedReportCode: string;
+  removingReportCode: string;
+  hasUnsavedTransactionChanges: boolean;
+  onRetry: () => void;
+  onAdd: () => void;
+  onRemove: (reportCode: string) => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <Section title="Linked output reports">
+      <div className="flex flex-col gap-4 rounded-2xl border border-cyan-100 bg-[linear-gradient(135deg,rgba(236,254,255,0.92),rgba(255,255,255,0.86)_52%,rgba(245,243,255,0.88))] p-4 shadow-[0_20px_60px_-48px_rgba(8,145,178,0.5)] dark:border-cyan-400/18 dark:bg-[linear-gradient(135deg,rgba(8,47,73,0.28),rgba(15,23,42,0.62)_52%,rgba(46,16,101,0.24))] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-200 bg-white text-cyan-700 shadow-sm dark:border-cyan-400/25 dark:bg-cyan-500/10 dark:text-cyan-100">
+            <FileText className="h-5 w-5" />
+          </span>
+          <div className="max-w-3xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-foreground">
+                {t("Supplemental reports")}
+              </p>
+              <Badge variant="outline" className="border-cyan-200 bg-white/80 text-cyan-800 dark:border-cyan-400/28 dark:bg-cyan-500/10 dark:text-cyan-100">
+                {t("Always optional")}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {t(
+                "Link ready reports for the requester without changing the frozen offer, promised output files, or transaction status.",
+              )}
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          onClick={onAdd}
+          disabled={!canManage}
+          className="shrink-0 rounded-xl bg-gradient-to-r from-cyan-600 to-violet-600 text-white shadow-[0_14px_34px_-20px_rgba(8,145,178,0.9)] hover:from-cyan-500 hover:to-violet-500"
+        >
+          <Plus className="h-4 w-4" />
+          {t("Link report")}
+        </Button>
+      </div>
+
+      {!isEditing ? (
+        <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+          {t("Save the transaction before linking reports.")}
+        </div>
+      ) : hasUnsavedTransactionChanges ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-800 dark:border-amber-400/25 dark:bg-amber-500/10 dark:text-amber-100">
+          {t("Save other transaction changes before managing linked reports.")}
+        </div>
+      ) : loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: Math.max(reports.length, 3) }).map((_, index) => (
+            <Skeleton key={index} className="h-72 rounded-2xl" />
+          ))}
+        </div>
+      ) : loadError ? (
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/70 px-4 py-8 text-center text-sm text-rose-800 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100">
+          <CircleAlert className="h-5 w-5" />
+          <span>{t("Linked reports could not be resolved.")}</span>
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            <RefreshCw className="h-4 w-4" />
+            {t("Retry")}
+          </Button>
+        </div>
+      ) : reports.length === 0 ? (
+        <div className="rounded-2xl border-2 border-dashed border-cyan-100 bg-cyan-50/30 px-5 py-10 text-center dark:border-cyan-400/18 dark:bg-cyan-500/5">
+          <FileText className="mx-auto h-8 w-8 text-cyan-600/70 dark:text-cyan-200/70" />
+          <p className="mt-3 font-medium text-foreground">
+            {t("No reports linked")}
+          </p>
+          <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">
+            {t(
+              "This is valid: reports are supplemental and are never required to complete the service.",
+            )}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {reports.map((report) => {
+            const recentlyAdded =
+              report.reportCode === recentlyAddedReportCode;
+            const removing = report.reportCode === removingReportCode;
+            return (
+              <article
+                key={report.reportCode}
+                aria-label={`${t("Linked report")} · ${report.reportCode}`}
+                className={cn(
+                  "relative flex min-h-72 flex-col overflow-hidden rounded-2xl border bg-white/86 p-5 shadow-[0_20px_54px_-42px_rgba(8,145,178,0.65)] transition-all duration-500 dark:bg-slate-950/48",
+                  report.available
+                    ? "border-cyan-200/90 dark:border-cyan-400/24"
+                    : "border-rose-200 dark:border-rose-400/25",
+                  recentlyAdded &&
+                    "animate-in fade-in zoom-in-95 ring-4 ring-emerald-300/35 duration-500",
+                )}
+              >
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-500 via-violet-500 to-fuchsia-500" />
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-muted-foreground">
+                      {report.fileName || t("Uploaded report")}
+                    </p>
+                    <p className="mt-1 font-mono text-2xl font-bold tracking-[0.14em] text-foreground">
+                      {report.reportCode}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border",
+                      report.available
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-100"
+                        : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100",
+                    )}
+                  >
+                    {recentlyAdded ? (
+                      <Check className="h-5 w-5 animate-in zoom-in" />
+                    ) : report.available ? (
+                      <CheckCircle2 className="h-5 w-5" />
+                    ) : (
+                      <CircleAlert className="h-5 w-5" />
+                    )}
+                  </span>
+                </div>
+
+                {report.available ? (
+                  <>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Badge className="bg-cyan-100 text-cyan-900 hover:bg-cyan-100 dark:bg-cyan-500/16 dark:text-cyan-100">
+                        {linkedReportFormatLabel(report.providerFormat)}
+                      </Badge>
+                      <Badge variant="secondary">
+                        {t("Version")} {report.uploadVersionCount ?? "—"}
+                      </Badge>
+                      <Badge variant="outline">
+                        {t("Ready")}
+                      </Badge>
+                    </div>
+                    <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-cyan-100 py-4 text-xs dark:border-cyan-400/14">
+                      <div>
+                        <dt className="text-muted-foreground">{t("Report type")}</dt>
+                        <dd className="mt-1 font-medium text-foreground">
+                          {linkedReportFormatLabel(report.providerFormat)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">{t("Provider")}</dt>
+                        <dd className="mt-1 truncate font-medium text-foreground">
+                          {report.providerName || "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">{t("Status")}</dt>
+                        <dd className="mt-1 font-mono font-medium text-foreground">
+                          {report.trackingStatus || "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">{t("Owner")}</dt>
+                        <dd className="mt-1 truncate font-medium text-foreground">
+                          {report.ownerName || report.ownerEmail || report.ownerId || "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50/80 p-3 text-sm leading-5 text-rose-800 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100">
+                    {report.error || t("Report metadata is loading.")}
+                  </div>
+                )}
+
+                <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <Link href={`/reports/${encodeURIComponent(report.reportCode)}?from=service-transaction`}>
+                      {t("Open report")}
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRemove(report.reportCode)}
+                    disabled={!canManage || removing}
+                    className="ml-auto text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:text-rose-200 dark:hover:bg-rose-500/10"
+                  >
+                    {removing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                    {t("Remove")}
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function LinkedOutputReportPickerDialog({
+  open,
+  reports,
+  linkedReportCodes,
+  query,
+  selectedReportCode,
+  loading,
+  fetching,
+  error,
+  hasMore,
+  pending,
+  onQueryChange,
+  onSelect,
+  onLoadMore,
+  onRetry,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  reports: SupportServiceLinkedReportRecord[];
+  linkedReportCodes: Set<string>;
+  query: string;
+  selectedReportCode: string;
+  loading: boolean;
+  fetching: boolean;
+  error: Error | null;
+  hasMore: boolean;
+  pending: boolean;
+  onQueryChange: (value: string) => void;
+  onSelect: (reportCode: string) => void;
+  onLoadMore: () => void;
+  onRetry: () => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent
+        showCloseButton={!pending}
+        className="flex max-h-[88vh] flex-col overflow-hidden rounded-[2rem] border border-cyan-100 p-0 shadow-[0_36px_140px_rgba(8,145,178,0.25)] sm:max-w-6xl dark:border-cyan-400/20"
+      >
+        <DialogHeader className="border-b border-cyan-100 bg-[linear-gradient(120deg,rgba(236,254,255,0.96),rgba(245,243,255,0.94))] px-6 py-5 text-left dark:border-cyan-400/16 dark:bg-[linear-gradient(120deg,rgba(8,47,73,0.34),rgba(46,16,101,0.28))]">
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-violet-600 text-white shadow-lg">
+              <Search className="h-5 w-5" />
+            </span>
+            <div>
+              <DialogTitle className="font-heading text-2xl font-semibold">
+                {t("Choose an existing report")}
+              </DialogTitle>
+              <DialogDescription className="mt-1">
+                {t(
+                  "Search by report code, review its registered metadata, and link exactly one report.",
+                )}
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="grid min-h-0 flex-1 gap-4 overflow-hidden px-6 py-5">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder={t("Search by 6-character report code")}
+              aria-label={t("Search reports by code")}
+              autoFocus
+              className="h-12 rounded-xl border-cyan-200 bg-white pl-12 font-mono text-base uppercase tracking-[0.12em] shadow-sm dark:border-cyan-400/22 dark:bg-slate-950/54"
+            />
+            {fetching && !loading ? (
+              <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-cyan-600" />
+            ) : null}
+          </div>
+
+          <div className="min-h-0 overflow-y-auto pr-1">
+            {loading ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <Skeleton key={index} className="h-44 rounded-2xl" />
+                ))}
+              </div>
+            ) : error ? (
+              <div className="grid place-items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/60 px-5 py-12 text-center text-rose-800 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100">
+                <CircleAlert className="h-7 w-7" />
+                <p>{t("Reports could not be loaded.")}</p>
+                <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+                  <RefreshCw className="h-4 w-4" />
+                  {t("Retry")}
+                </Button>
+              </div>
+            ) : reports.length === 0 ? (
+              <div className="grid place-items-center gap-2 rounded-2xl border-2 border-dashed border-cyan-100 px-5 py-12 text-center dark:border-cyan-400/18">
+                <FileText className="h-8 w-8 text-cyan-600/70" />
+                <p className="font-medium text-foreground">
+                  {query
+                    ? t("No report codes match this search.")
+                    : t("No ready reports are available to link.")}
+                </p>
+                {linkedReportCodes.size > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("Reports already linked are omitted from this picker.")}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {reports.map((report) => {
+                  const selected = selectedReportCode === report.reportCode;
+                  return (
+                    <button
+                      key={report.reportCode}
+                      type="button"
+                      aria-pressed={selected}
+                      disabled={!report.available || pending}
+                      onClick={() => onSelect(report.reportCode)}
+                      className={cn(
+                        "group relative min-h-44 overflow-hidden rounded-2xl border p-4 text-left transition-all",
+                        selected
+                          ? "border-cyan-500 bg-cyan-50/80 shadow-[0_18px_48px_-30px_rgba(8,145,178,0.8)] ring-2 ring-cyan-400/30 dark:bg-cyan-500/10"
+                          : "border-border bg-white/76 hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg dark:bg-slate-950/42 dark:hover:border-cyan-400/35",
+                        !report.available && "cursor-not-allowed border-rose-200 bg-rose-50/50 opacity-75 dark:border-rose-400/22 dark:bg-rose-500/8",
+                      )}
+                    >
+                      <span className={cn("absolute inset-y-0 left-0 w-1", report.available ? "bg-gradient-to-b from-cyan-500 to-violet-600" : "bg-rose-400")} />
+                      <span className="flex items-start justify-between gap-3">
+                        <span className="min-w-0">
+                          <span className="block font-mono text-xl font-bold tracking-[0.12em] text-foreground">
+                            {report.reportCode}
+                          </span>
+                          <span className="mt-1 block truncate text-sm font-medium text-foreground">
+                            {report.fileName || t("Uploaded report")}
+                          </span>
+                        </span>
+                        <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition", selected ? "border-cyan-500 bg-cyan-600 text-white" : "border-border bg-background text-muted-foreground group-hover:border-cyan-300")}>
+                          {selected ? <Check className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                        </span>
+                      </span>
+                      {report.available ? (
+                        <span className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                          <span className="rounded-lg bg-muted/55 px-2.5 py-2">
+                            <span className="block text-muted-foreground">{t("Report type")}</span>
+                            <span className="mt-0.5 block font-semibold text-foreground">{linkedReportFormatLabel(report.providerFormat)}</span>
+                          </span>
+                          <span className="rounded-lg bg-muted/55 px-2.5 py-2">
+                            <span className="block text-muted-foreground">{t("Version")}</span>
+                            <span className="mt-0.5 block font-semibold text-foreground">v{report.uploadVersionCount ?? "—"}</span>
+                          </span>
+                          <span className="col-span-2 truncate text-muted-foreground">
+                            {report.providerName || report.ownerName || report.ownerEmail || t("Registered report")}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="mt-4 block text-sm leading-5 text-rose-700 dark:text-rose-200">
+                          {report.error || t("This report is not ready to link.")}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {hasMore ? (
+              <div className="mt-4 flex justify-center">
+                <Button type="button" variant="outline" onClick={onLoadMore} disabled={fetching}>
+                  {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  {fetching ? t("Loading...") : t("Load more")}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <DialogFooter className="border-t border-cyan-100 bg-muted/25 px-6 py-4 dark:border-cyan-400/14">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={pending}>
+            {t("Cancel")}
+          </Button>
+          <Button
+            type="button"
+            onClick={onSubmit}
+            disabled={!selectedReportCode || pending}
+            className="bg-gradient-to-r from-cyan-600 to-violet-600 text-white hover:from-cyan-500 hover:to-violet-500"
+          >
+            {pending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Link2 className="h-4 w-4" />
+            )}
+            {pending ? t("Linking report...") : t("Link selected report")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
