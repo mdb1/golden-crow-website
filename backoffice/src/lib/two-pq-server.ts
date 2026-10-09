@@ -3,7 +3,7 @@ import type {
   InstitutionListItem,
   PatientListItem,
 } from "@/lib/admin-areas";
-import type { TwoPQListItem } from "@/lib/two-pq-areas";
+import type { TwoPQDetailRecord, TwoPQListItem } from "@/lib/two-pq-areas";
 import type {
   TwoPQFormDraftRecord,
   TwoPQFormRecord,
@@ -150,4 +150,11 @@ export async function getTwoPQForm(formId: string) {
     `/2pq/forms/${encodeURIComponent(formId)}`,
   );
   return payload.form;
+}
+
+export async function getTwoPQCase(caseId: string) {
+  const payload = await sdkFetchServer<TwoPQDetailRecord>(
+    `/2pq/cases/${encodeURIComponent(caseId)}`,
+  );
+  return payload.record;
 }

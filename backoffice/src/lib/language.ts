@@ -197,7 +197,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add origin and destination addresses to preview the route.":
     "Agregá origen y destino para visualizar el recorrido.",
   "Open in Google Maps": "Ver en Google Maps",
+  "Complete biopsy form": "Completar formulario de biopsias",
   "Complete origin address": "Completá el origen",
+  "Complete withdrawal form": "Completar formulario de retiro",
   "Add at least locality and province to the origin before previewing the route.":
     "Indicá al menos localidad y provincia en el origen antes de visualizar el recorrido.",
   "Address and neighborhood/locality must each have at least 3 characters.":

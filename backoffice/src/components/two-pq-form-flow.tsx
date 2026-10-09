@@ -2354,6 +2354,52 @@ function institutionToFormState(
   };
 }
 
+function withLinkedStudyRequestSelection(
+  flowState: FlowState,
+  linkedForm: TwoPQFormRecord,
+  institutions: InstitutionListItem[],
+  defaultInstitutionId: string,
+  defaultDoctorId: string,
+): FlowState {
+  const linkedPatientInformation = studyRequestPatientToFormState(linkedForm);
+  const linkedInstitution = institutions.find(
+    (institution) => institution.id === linkedForm.institutionId,
+  );
+  const linkedPatientId =
+    linkedForm.selectedPatientId ||
+    stringField(linkedForm.patientInformation, "patientId");
+  const linkedRequestedTest = requestedTestToFormState(
+    linkedForm.requestedTest,
+    buildInitialState(defaultInstitutionId, defaultDoctorId).requestedTest,
+  );
+  const linkedRequestedTestKey = selectedRequestedTestKey(linkedRequestedTest);
+  const linkedCaseType = caseTypeForRequestedTestKey(linkedRequestedTestKey);
+
+  return {
+    ...flowState,
+    linkedStudyRequestFormId: linkedForm.id,
+    selectedPatientId: linkedPatientId,
+    selectedInstitutionId:
+      linkedForm.selectedInstitutionId || linkedForm.institutionId,
+    selectedCaseId: "",
+    selectedRequestingDoctorId: formDoctorId(linkedForm),
+    patientInformation: linkedPatientInformation,
+    institutionInformation: linkedInstitution
+      ? institutionToFormState(linkedInstitution)
+      : mergeDraftSection(emptyInstitution(), linkedForm.institutionInformation),
+    requestedTest: linkedRequestedTest,
+    caseInformation: {
+      ...withCaseDefaultsForBoxCode({
+        ...flowState,
+        selectedCaseId: "",
+        patientInformation: linkedPatientInformation,
+      }).caseInformation,
+      caseType: linkedCaseType,
+      priority: priorityForSampleCaseType(linkedCaseType),
+    },
+  };
+}
+
 export function applyScopedInstitutionSelection(
   flowState: FlowState,
   institution: InstitutionListItem | undefined,
@@ -2996,6 +3042,8 @@ export function TwoPQFormFlow({
   cases = [],
   studyRequestForms = [],
   initialDraft = null,
+  initialLinkedStudyRequestFormId,
+  initialWithdrawalCaseId,
 }: {
   formType: TwoPQFormType;
   institutions: InstitutionListItem[];
@@ -3004,6 +3052,8 @@ export function TwoPQFormFlow({
   cases?: TwoPQListItem[];
   studyRequestForms?: TwoPQFormRecord[];
   initialDraft?: TwoPQFormDraftRecord | null;
+  initialLinkedStudyRequestFormId?: string;
+  initialWithdrawalCaseId?: string;
 }) {
   const adminContext = useAdminContext();
   const { language } = useAppLanguage();
@@ -3136,22 +3186,48 @@ export function TwoPQFormFlow({
         )
       : hydratedState;
 
-    return formType === "withdrawal_request"
-      ? withWithdrawalInstitutionScope(
+    if (formType === "withdrawal_request") {
+      const preselectedCaseIds =
+        !matchingDraft &&
+        initialWithdrawalCaseId &&
+        cases.some((caseRecord) => caseRecord.id === initialWithdrawalCaseId)
+          ? [initialWithdrawalCaseId]
+          : scopedState.linkedWithdrawalCaseIds;
+      return withWithdrawalInstitutionScope(scopedState, preselectedCaseIds);
+    }
+
+    if (formType === "study_request") {
+      return withPGFlexInstitutionAddressDefaults(scopedState);
+    }
+
+    const preselectedStudyRequest =
+      !matchingDraft && initialLinkedStudyRequestFormId
+        ? studyRequestForms.find(
+            (form) =>
+              !form.linkedBiopsyForm &&
+              form.id === initialLinkedStudyRequestFormId,
+          )
+        : undefined;
+    return preselectedStudyRequest
+      ? withLinkedStudyRequestSelection(
           scopedState,
-          scopedState.linkedWithdrawalCaseIds,
+          preselectedStudyRequest,
+          institutions,
+          defaultInstitutionId,
+          defaultDoctorId,
         )
-      : formType === "study_request"
-        ? withPGFlexInstitutionAddressDefaults(scopedState)
-        : scopedState;
+      : scopedState;
   }, [
     cases,
     defaultDoctorId,
     defaultInstitutionId,
     formType,
+    initialLinkedStudyRequestFormId,
+    initialWithdrawalCaseId,
     institutions,
     matchingDraft,
     scopedInstitutionId,
+    studyRequestForms,
   ]);
 
   const [stepIndex, setStepIndex] = useState(initialStepIndex);
@@ -4375,47 +4451,15 @@ export function TwoPQFormFlow({
       return;
     }
 
-    const linkedPatientInformation = studyRequestPatientToFormState(linkedForm);
-    const linkedInstitution = institutions.find(
-      (institution) => institution.id === linkedForm.institutionId,
+    setState((current) =>
+      withLinkedStudyRequestSelection(
+        current,
+        linkedForm,
+        institutions,
+        defaultInstitutionId,
+        defaultDoctorId,
+      ),
     );
-    const linkedPatientId =
-      linkedForm.selectedPatientId ||
-      stringField(linkedForm.patientInformation, "patientId");
-    const linkedRequestedTest = requestedTestToFormState(
-      linkedForm.requestedTest,
-      buildInitialState(defaultInstitutionId, defaultDoctorId).requestedTest,
-    );
-    const linkedRequestedTestKey =
-      selectedRequestedTestKey(linkedRequestedTest);
-    const linkedCaseType = caseTypeForRequestedTestKey(linkedRequestedTestKey);
-
-    setState((current) => ({
-      ...current,
-      linkedStudyRequestFormId: linkedForm.id,
-      selectedPatientId: linkedPatientId,
-      selectedInstitutionId:
-        linkedForm.selectedInstitutionId || linkedForm.institutionId,
-      selectedCaseId: "",
-      selectedRequestingDoctorId: formDoctorId(linkedForm),
-      patientInformation: linkedPatientInformation,
-      institutionInformation: linkedInstitution
-        ? institutionToFormState(linkedInstitution)
-        : mergeDraftSection(
-            emptyInstitution(),
-            linkedForm.institutionInformation,
-          ),
-      requestedTest: linkedRequestedTest,
-      caseInformation: {
-        ...withCaseDefaultsForBoxCode({
-          ...current,
-          selectedCaseId: "",
-          patientInformation: linkedPatientInformation,
-        }).caseInformation,
-        caseType: linkedCaseType,
-        priority: priorityForSampleCaseType(linkedCaseType),
-      },
-    }));
     setFieldErrors((current) => {
       const next = { ...current };
       delete next.linkedStudyRequestFormId;
