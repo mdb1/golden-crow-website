@@ -5,6 +5,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { TwoPQFormDetail } from "@/components/two-pq-form-detail";
+import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import type { TwoPQFormRecord } from "@/lib/two-pq-forms";
 
 const mockRefresh = jest.fn();
@@ -67,6 +68,25 @@ const studyRequestForm: TwoPQFormRecord = {
   requestedTest: {},
   createdAt: "2026-10-08T12:00:00.000Z",
   updatedAt: "2026-10-08T12:00:00.000Z",
+};
+
+const linkedCase: TwoPQListItem = {
+  id: "CASE-00024",
+  areaKey: "cases",
+  collectionKey: "2pq_case",
+  institutionId: "institution-1",
+  doctorId: "doctor-1",
+  patientId: "patient-1",
+  three_letter_code: "KIM",
+  caseLabel: "KIMXXX",
+  caseStatus: "entered",
+  caseType: "PGT-A",
+  priority: "normal",
+  createdAt: "2026-10-08T12:00:00.000Z",
+  updatedAt: "2026-10-08T12:00:00.000Z",
+  canReplace: true,
+  canUpdate: true,
+  canDelete: true,
 };
 
 const withdrawalForm: TwoPQFormRecord = {
@@ -424,6 +444,12 @@ describe("TwoPQFormDetail", () => {
     expect(
       within(section as HTMLElement).getByRole("link", { name: "Open" }),
     ).toHaveAttribute("href", "/2pq-dashboard/cases/CASE-00025");
+    expect(
+      within(section as HTMLElement).getByText("BEHXXX"),
+    ).toBeInTheDocument();
+    expect(
+      within(section as HTMLElement).queryByText("CASE-00025"),
+    ).not.toBeInTheDocument();
 
     await user.click(
       within(section as HTMLElement).getByRole("button", {
@@ -445,6 +471,35 @@ describe("TwoPQFormDetail", () => {
         "No 2PQ case is linked yet.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("shows the saved linked case with its case label and emerald treatment", () => {
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <TwoPQFormDetail
+          form={{ ...studyRequestForm, "2pq_case": linkedCase.id }}
+          linkedCase={linkedCase}
+        />
+      </AppLanguageProvider>,
+    );
+
+    const section = screen
+      .getByRole("heading", { name: "Caso 2PQ vinculado" })
+      .closest("section");
+    expect(section).not.toBeNull();
+    const savedLabel = within(section as HTMLElement).getByText("Guardado");
+    const savedCell = savedLabel.closest("div.rounded-2xl");
+
+    expect(savedCell).toHaveClass(
+      "border-emerald-200/90",
+      "dark:bg-emerald-950/24",
+    );
+    expect(
+      within(section as HTMLElement).getByText("KIMXXX"),
+    ).toBeInTheDocument();
+    expect(
+      within(section as HTMLElement).queryByText("CASE-00024"),
+    ).not.toBeInTheDocument();
   });
 
   it("separates a suggested reverse link from the stored link and repairs it", async () => {

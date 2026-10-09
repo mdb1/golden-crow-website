@@ -38,7 +38,10 @@ import {
   getTwoPQFormDisplayTitle,
   type TwoPQFormRecord,
 } from "@/lib/two-pq-forms";
-import { getTwoPQCaseStatusLabel } from "@/lib/two-pq-areas";
+import {
+  getTwoPQCaseStatusLabel,
+  type TwoPQListItem,
+} from "@/lib/two-pq-areas";
 import { compactList } from "@/lib/moderation-utils";
 import { appText, type AppLanguage } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
@@ -1323,11 +1326,36 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
   );
 }
 
-function LinkedTwoPQCaseSection({ form }: { form: TwoPQFormRecord }) {
+function linkedCaseDisplayLabel(
+  linkedCase: {
+    caseLabel?: string | null;
+    three_letter_code?: string | null;
+  } | null,
+) {
+  const caseLabel = linkedCase?.caseLabel?.trim();
+  if (caseLabel) {
+    return caseLabel;
+  }
+  const threeLetterCode = linkedCase?.three_letter_code?.trim().toUpperCase();
+  return threeLetterCode ? `${threeLetterCode}XXX` : null;
+}
+
+function LinkedTwoPQCaseSection({
+  form,
+  linkedCase,
+}: {
+  form: TwoPQFormRecord;
+  linkedCase: TwoPQListItem | null;
+}) {
   const { language } = useAppLanguage();
   const router = useRouter();
   const t = (text: string) => appText(language, text);
   const [linkedCaseId, setLinkedCaseId] = useState(form["2pq_case"] ?? null);
+  const [linkedCaseLabel, setLinkedCaseLabel] = useState(() =>
+    linkedCase?.id === form["2pq_case"]
+      ? linkedCaseDisplayLabel(linkedCase)
+      : null,
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [candidates, setCandidates] = useState<StudyRequestCaseCandidate[]>([]);
@@ -1385,7 +1413,18 @@ function LinkedTwoPQCaseSection({ form }: { form: TwoPQFormRecord }) {
           body: JSON.stringify({ "2pq_case": nextCaseId }),
         },
       );
-      setLinkedCaseId(payload.form["2pq_case"] ?? null);
+      const persistedCaseId = payload.form["2pq_case"] ?? null;
+      const selectedCandidate = persistedCaseId
+        ? candidates.find((candidate) => candidate.id === persistedCaseId)
+        : null;
+      setLinkedCaseId(persistedCaseId);
+      setLinkedCaseLabel(
+        selectedCandidate
+          ? linkedCaseDisplayLabel(selectedCandidate)
+          : persistedCaseId === linkedCaseId
+            ? linkedCaseLabel
+            : null,
+      );
       setDialogOpen(false);
       setToast({
         id: Date.now(),
@@ -1437,17 +1476,17 @@ function LinkedTwoPQCaseSection({ form }: { form: TwoPQFormRecord }) {
 
         <div className="px-5 py-5">
           {linkedCaseId ? (
-            <div className="flex flex-col gap-4 rounded-2xl border border-indigo-200/90 bg-white/80 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-indigo-300/20 dark:bg-indigo-950/24">
+            <div className="flex flex-col gap-4 rounded-2xl border border-emerald-200/90 bg-white/78 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-emerald-300/20 dark:bg-emerald-950/24">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-500/12 text-indigo-700 dark:text-indigo-200">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-200">
                   <CheckCircle2 className="size-5" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-indigo-950 dark:text-indigo-50">
-                    {t("2PQ case linked")}
+                  <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-50">
+                    {t("Stored in the study request")}
                   </p>
-                  <p className="mt-1 truncate font-mono text-xs text-indigo-900/72 dark:text-indigo-100/72">
-                    {linkedCaseId}
+                  <p className="mt-1 truncate font-mono text-xs text-emerald-900/72 dark:text-emerald-100/72">
+                    {linkedCaseLabel ?? t("Case without a label")}
                   </p>
                 </div>
               </div>
@@ -2730,7 +2769,13 @@ function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
   );
 }
 
-export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
+export function TwoPQFormDetail({
+  form,
+  linkedCase = null,
+}: {
+  form: TwoPQFormRecord;
+  linkedCase?: TwoPQListItem | null;
+}) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const authorEmail = form.authorEmail ?? form.createdByEmail;
@@ -2895,7 +2940,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
             data={form.institutionInformation}
           />
           <LinkedBiopsyFormSection form={form} />
-          <LinkedTwoPQCaseSection form={form} />
+          <LinkedTwoPQCaseSection form={form} linkedCase={linkedCase} />
           <LinkedWithdrawalRequestSection form={form} />
           <PatientLinkSection form={form} />
         </>
