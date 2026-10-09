@@ -10,6 +10,8 @@ import {
   getTwoPQFormDraftForContext,
   getTwoPQFormForContext,
   listTwoPQFormsForContext,
+  updateTwoPQBiopsyStudyRequestLinkForContext,
+  updateTwoPQBiopsyWithdrawalLinkForContext,
   updateTwoPQStudyRequestBiopsyLinkForContext,
   updateTwoPQStudyRequestWithdrawalLinkForContext,
   upsertTwoPQFormDraftForContext,
@@ -306,6 +308,14 @@ const TwoPQStudyRequestWithdrawalLinkMutationSchema = z.object({
   linkedWithdrawalRequest: z.string().min(1).nullable(),
 });
 
+const TwoPQBiopsyStudyRequestLinkMutationSchema = z.object({
+  studyRequestForm: z.string().min(1).nullable(),
+});
+
+const TwoPQBiopsyWithdrawalLinkMutationSchema = z.object({
+  withdrawalRequest: z.string().min(1).nullable(),
+});
+
 const TwoPQFormsQuerySchema = z.object({
   includeArchived: z.string().optional(),
   formType: z
@@ -599,6 +609,66 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           request.adminContext,
           request.params.formId,
           request.body.linkedWithdrawalRequest,
+        );
+        return reply.send({ form });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    },
+  );
+
+  f.patch(
+    "/2pq/forms/:formId/linked-study-request",
+    {
+      schema: {
+        params: z.object({
+          formId: z.string().min(1),
+        }),
+        body: TwoPQBiopsyStudyRequestLinkMutationSchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const form = await updateTwoPQBiopsyStudyRequestLinkForContext(
+          request.adminContext,
+          request.params.formId,
+          request.body.studyRequestForm,
+        );
+        return reply.send({ form });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    },
+  );
+
+  f.patch(
+    "/2pq/forms/:formId/biopsy-withdrawal-request",
+    {
+      schema: {
+        params: z.object({
+          formId: z.string().min(1),
+        }),
+        body: TwoPQBiopsyWithdrawalLinkMutationSchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const form = await updateTwoPQBiopsyWithdrawalLinkForContext(
+          request.adminContext,
+          request.params.formId,
+          request.body.withdrawalRequest,
         );
         return reply.send({ form });
       } catch (error) {

@@ -2898,6 +2898,62 @@ const SPANISH_TEXT: Record<string, string> = {
   "Withdrawal request link removed.":
     "Se quitó el vínculo con la solicitud de retiro.",
   "linked cases": "casos vinculados",
+  "A biopsy form can be linked to one study request at a time.":
+    "Un formulario de biopsias puede estar vinculado a una sola solicitud de estudio a la vez.",
+  "The biopsy, its study request, and the matching withdrawal case remain synchronized.":
+    "La biopsia, su solicitud de estudio y el caso de retiro correspondiente se mantienen sincronizados.",
+  "Change study request": "Cambiar solicitud de estudio",
+  "Choose study request": "Elegir solicitud de estudio",
+  "Study request link mismatch":
+    "Inconsistencia en el vínculo de solicitud de estudio",
+  "The study request points to this biopsy, but the biopsy does not store the study request link.":
+    "La solicitud de estudio apunta a esta biopsia, pero la biopsia no guarda el vínculo con la solicitud.",
+  "The biopsy stores this study request, but the study request does not point back to the biopsy.":
+    "La biopsia guarda esta solicitud de estudio, pero la solicitud no apunta nuevamente a la biopsia.",
+  "The biopsy stores a study request that no longer exists.":
+    "La biopsia guarda una solicitud de estudio que ya no existe.",
+  "Multiple or conflicting study request links were found. Review them before choosing the correct form.":
+    "Se encontraron vínculos de solicitud de estudio múltiples o contradictorios. Revisalos antes de elegir el formulario correcto.",
+  "The withdrawal case or study request points here, but the biopsy does not store the withdrawal link.":
+    "El caso de retiro o la solicitud de estudio apuntan aquí, pero la biopsia no guarda el vínculo de retiro.",
+  "The biopsy stores this withdrawal request, but its matching case does not point back to the biopsy.":
+    "La biopsia guarda esta solicitud de retiro, pero el caso correspondiente no apunta nuevamente a la biopsia.",
+  "The biopsy and withdrawal case are linked, but the study request is missing its withdrawal link.":
+    "La biopsia y el caso de retiro están vinculados, pero a la solicitud de estudio le falta su vínculo de retiro.",
+  "The biopsy stores a withdrawal request that no longer exists.":
+    "La biopsia guarda una solicitud de retiro que ya no existe.",
+  "Repair study request link": "Reparar vínculo de solicitud de estudio",
+  "Actual linked study request": "Solicitud de estudio realmente vinculada",
+  "Stored in the biopsy form": "Guardado en el formulario de biopsias",
+  "No study request is stored on this biopsy form.":
+    "No hay ninguna solicitud de estudio guardada en este formulario de biopsias.",
+  "No withdrawal request is stored on this biopsy form.":
+    "No hay ninguna solicitud de retiro guardada en este formulario de biopsias.",
+  "Suggested study request": "Solicitud de estudio sugerida",
+  "This study request points to the biopsy, but it is not stored on the biopsy form.":
+    "Esta solicitud de estudio apunta a la biopsia, pero no está guardada en el formulario de biopsias.",
+  "This withdrawal request is referenced by related records, but it is not stored on the biopsy form.":
+    "Esta solicitud de retiro está referenciada por registros relacionados, pero no está guardada en el formulario de biopsias.",
+  "Choose a study request": "Elegir una solicitud de estudio",
+  "Choose an unassigned study request for the same patient, doctor, and institution.":
+    "Elegí una solicitud de estudio sin asignar para el mismo paciente, médico e institución.",
+  "Choose a withdrawal request containing the case associated with this biopsy form.":
+    "Elegí una solicitud de retiro que contenga el caso asociado con este formulario de biopsias.",
+  "Search study requests...": "Buscar solicitudes de estudio...",
+  "Loading study requests...": "Cargando solicitudes de estudio...",
+  "No study requests match this search.":
+    "No hay solicitudes de estudio que coincidan con la búsqueda.",
+  "Unable to load study request forms.":
+    "No se pudieron cargar los formularios de solicitud de estudio.",
+  "Unable to update the study request link.":
+    "No se pudo actualizar el vínculo con la solicitud de estudio.",
+  "Study request links repaired.":
+    "Los vínculos de la solicitud de estudio se repararon correctamente.",
+  "Study request linked successfully.":
+    "La solicitud de estudio se vinculó correctamente.",
+  "Study request link removed.":
+    "Se quitó el vínculo con la solicitud de estudio.",
+  "Form timeline": "Cronología del formulario",
   "Select linked study request form":
     "Seleccionar formulario de solicitud linkeado",
   "Link study request form": "Vincular formulario de solicitud",

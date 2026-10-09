@@ -1265,6 +1265,146 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     });
   });
 
+  it("repairs and removes a biopsy form study-request link from the biopsy side", async () => {
+    const {
+      getTwoPQFormForContext,
+      updateTwoPQBiopsyStudyRequestLinkForContext,
+    } = await import("../repositories/two-pq-forms.repository");
+    mockDocs.set("2pq_forms/FORM-00038", {
+      ...mockDocs.get("2pq_forms/FORM-00038"),
+      linkedStudyRequestFormId: null,
+      studyRequestForm: null,
+    });
+
+    const mismatched = await getTwoPQFormForContext(
+      fullAdminContext,
+      "FORM-00038",
+    );
+    expect(mismatched).toMatchObject({
+      studyRequestForm: null,
+      suggestedStudyRequestForm: "FORM-00031",
+      studyRequestLinkState: "missing_biopsy_property",
+    });
+
+    const repaired = await updateTwoPQBiopsyStudyRequestLinkForContext(
+      fullAdminContext,
+      "FORM-00038",
+      "FORM-00031",
+    );
+    expect(repaired).toMatchObject({
+      studyRequestForm: "FORM-00031",
+      linkedStudyRequestFormId: "FORM-00031",
+      suggestedStudyRequestForm: null,
+      studyRequestLinkState: "cohesive",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00031")).toMatchObject({
+      linkedBiopsyForm: "FORM-00038",
+    });
+
+    const unlinked = await updateTwoPQBiopsyStudyRequestLinkForContext(
+      fullAdminContext,
+      "FORM-00038",
+      null,
+    );
+    expect(unlinked).toMatchObject({
+      studyRequestForm: null,
+      linkedStudyRequestFormId: null,
+      suggestedStudyRequestForm: null,
+      studyRequestLinkState: "none",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00031")).toMatchObject({
+      linkedBiopsyForm: null,
+    });
+  });
+
+  it("repairs and removes withdrawal links from the biopsy side without touching sibling cells", async () => {
+    const {
+      getTwoPQFormForContext,
+      updateTwoPQBiopsyWithdrawalLinkForContext,
+    } = await import("../repositories/two-pq-forms.repository");
+    mockDocs.set("2pq_forms/FORM-00031", {
+      ...mockDocs.get("2pq_forms/FORM-00031"),
+      linkedWithdrawalRequest: "FORM-00052",
+    });
+    mockDocs.set("2pq_forms/FORM-00038", {
+      ...mockDocs.get("2pq_forms/FORM-00038"),
+      withdrawalRequest: null,
+    });
+    mockDocs.set("2pq_forms/FORM-00052", {
+      id: "FORM-00052",
+      formType: "withdrawal_request",
+      collectionKey: "2pq_forms",
+      institutionId: "inst-1",
+      doctorId: "doctor-1",
+      linkedCaseIds: ["case-a", "case-b"],
+      withdrawalCases: [
+        {
+          id: "case-a",
+          linkedStudyRequest: "FORM-00031",
+          linkedBiopsyForm: "FORM-00038",
+        },
+        {
+          id: "case-b",
+          linkedStudyRequest: "FORM-00032",
+          linkedBiopsyForm: "FORM-00039",
+        },
+      ],
+      patientInformation: {},
+      requestedTest: {},
+      createdAt: "2026-08-31T15:45:00.000Z",
+      updatedAt: "2026-08-31T15:45:00.000Z",
+    });
+
+    const mismatched = await getTwoPQFormForContext(
+      fullAdminContext,
+      "FORM-00038",
+    );
+    expect(mismatched).toMatchObject({
+      withdrawalRequest: null,
+      suggestedWithdrawalRequest: "FORM-00052",
+      withdrawalLinkState: "missing_biopsy_backlink",
+    });
+
+    const repaired = await updateTwoPQBiopsyWithdrawalLinkForContext(
+      fullAdminContext,
+      "FORM-00038",
+      "FORM-00052",
+    );
+    expect(repaired).toMatchObject({
+      withdrawalRequest: "FORM-00052",
+      suggestedWithdrawalRequest: null,
+      withdrawalLinkState: "cohesive",
+    });
+
+    const unlinked = await updateTwoPQBiopsyWithdrawalLinkForContext(
+      fullAdminContext,
+      "FORM-00038",
+      null,
+    );
+    expect(unlinked).toMatchObject({
+      withdrawalRequest: null,
+      suggestedWithdrawalRequest: null,
+      withdrawalLinkState: "none",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00031")).toMatchObject({
+      linkedWithdrawalRequest: null,
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00052")).toMatchObject({
+      withdrawalCases: [
+        expect.objectContaining({
+          id: "case-a",
+          linkedStudyRequest: null,
+          linkedBiopsyForm: null,
+        }),
+        expect.objectContaining({
+          id: "case-b",
+          linkedStudyRequest: "FORM-00032",
+          linkedBiopsyForm: "FORM-00039",
+        }),
+      ],
+    });
+  });
+
   it("lists only study requests that have no current or legacy biopsy link", async () => {
     const { listTwoPQFormsForContext } =
       await import("../repositories/two-pq-forms.repository");

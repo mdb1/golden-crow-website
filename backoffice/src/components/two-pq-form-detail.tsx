@@ -114,9 +114,7 @@ const STUDY_PREVIOUS_TEST_FIELDS: FieldSpec[] = [
   { key: "karyotypeFileSize", label: "Tamaño archivo cariotipo" },
 ];
 
-const SAMPLE_LINKED_STUDY_REQUEST_FIELDS: FieldSpec[] = [
-  { key: "studyRequestForm", label: "Linked study request form" },
-  { key: "withdrawalRequest", label: "Linked withdrawal request" },
+const SAMPLE_TIMELINE_FIELDS: FieldSpec[] = [
   { key: "createdAt", label: "Form creation date", type: "datetime" },
   { key: "updatedAt", label: "Last update", type: "datetime" },
 ];
@@ -1744,6 +1742,597 @@ function LinkedWithdrawalRequestSection({ form }: { form: TwoPQFormRecord }) {
   );
 }
 
+function BiopsyRelationshipSection({
+  form,
+  kind,
+}: {
+  form: TwoPQFormRecord;
+  kind: "study_request" | "withdrawal_request";
+}) {
+  const { language } = useAppLanguage();
+  const router = useRouter();
+  const t = (text: string) => appText(language, text);
+  const isStudyRequest = kind === "study_request";
+  const initialActual = isStudyRequest
+    ? (form.studyRequestForm ?? form.linkedStudyRequestFormId ?? null)
+    : (form.withdrawalRequest ?? null);
+  const initialSuggested = isStudyRequest
+    ? (form.suggestedStudyRequestForm ?? null)
+    : (form.suggestedWithdrawalRequest ?? null);
+  const initialState = isStudyRequest
+    ? (form.studyRequestLinkState ?? (initialActual ? "cohesive" : "none"))
+    : (form.withdrawalLinkState ?? (initialActual ? "cohesive" : "none"));
+  const [actualId, setActualId] = useState(initialActual);
+  const [suggestedId, setSuggestedId] = useState(initialSuggested);
+  const [relationshipState, setRelationshipState] = useState(initialState);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [candidates, setCandidates] = useState<TwoPQFormRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<ActionToastState | null>(null);
+
+  if (form.formType !== "sample") {
+    return null;
+  }
+
+  async function loadCandidates(searchValue = search) {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        formType: isStudyRequest ? "study_request" : "withdrawal_request",
+        limit: "20",
+      });
+      if (searchValue.trim()) {
+        params.set("search", searchValue.trim());
+      }
+      const payload = await sdkFetch<{ forms: TwoPQFormRecord[] }>(
+        `/2pq/forms?${params.toString()}`,
+      );
+      setCandidates(
+        payload.forms.filter((candidate) => {
+          if (candidate.institutionId !== form.institutionId) {
+            return false;
+          }
+          return (
+            !isStudyRequest ||
+            !candidate.linkedBiopsyForm ||
+            candidate.linkedBiopsyForm === form.id
+          );
+        }),
+      );
+    } catch (candidateError) {
+      setError(
+        candidateError instanceof Error
+          ? candidateError.message
+          : isStudyRequest
+            ? t("Unable to load study request forms.")
+            : t("Unable to load withdrawal request forms."),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openPicker() {
+    setDialogOpen(true);
+    void loadCandidates("");
+  }
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void loadCandidates();
+  }
+
+  async function updateLink(nextId: string | null) {
+    const repairingMismatch =
+      nextId !== null &&
+      relationshipState !== "none" &&
+      relationshipState !== "cohesive" &&
+      relationshipState !== "missing_study" &&
+      relationshipState !== "missing_withdrawal" &&
+      relationshipState !== "conflict";
+    setSavingId(nextId ?? "remove");
+    setError(null);
+    try {
+      const endpoint = isStudyRequest
+        ? "linked-study-request"
+        : "biopsy-withdrawal-request";
+      const payload = await sdkFetch<{ form: TwoPQFormRecord }>(
+        `/2pq/forms/${encodeURIComponent(form.id)}/${endpoint}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(
+            isStudyRequest
+              ? { studyRequestForm: nextId }
+              : { withdrawalRequest: nextId },
+          ),
+        },
+      );
+      const nextActualId = isStudyRequest
+        ? (payload.form.studyRequestForm ??
+          payload.form.linkedStudyRequestFormId ??
+          null)
+        : (payload.form.withdrawalRequest ?? null);
+      const nextSuggestedId = isStudyRequest
+        ? (payload.form.suggestedStudyRequestForm ?? null)
+        : (payload.form.suggestedWithdrawalRequest ?? null);
+      const nextState = isStudyRequest
+        ? (payload.form.studyRequestLinkState ??
+          (nextActualId ? "cohesive" : "none"))
+        : (payload.form.withdrawalLinkState ??
+          (nextActualId ? "cohesive" : "none"));
+      setActualId(nextActualId);
+      setSuggestedId(nextSuggestedId);
+      setRelationshipState(nextState);
+      setDialogOpen(false);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: repairingMismatch
+          ? isStudyRequest
+            ? t("Study request links repaired.")
+            : t("Withdrawal request links repaired.")
+          : nextId
+            ? isStudyRequest
+              ? t("Study request linked successfully.")
+              : t("Withdrawal request linked successfully.")
+            : isStudyRequest
+              ? t("Study request link removed.")
+              : t("Withdrawal request link removed."),
+      });
+      router.refresh();
+    } catch (updateError) {
+      const message =
+        updateError instanceof Error
+          ? updateError.message
+          : isStudyRequest
+            ? t("Unable to update the study request link.")
+            : t("Unable to update the withdrawal request link.");
+      setError(message);
+      setToast({ id: Date.now(), tone: "error", message });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  const hasMismatch =
+    relationshipState !== "none" && relationshipState !== "cohesive";
+  const repairableMismatch =
+    hasMismatch &&
+    relationshipState !== "missing_study" &&
+    relationshipState !== "missing_withdrawal" &&
+    relationshipState !== "conflict";
+  const repairTarget = actualId ?? suggestedId;
+  const title = isStudyRequest
+    ? t("Linked study request form")
+    : t("Linked withdrawal request");
+
+  function mismatchDescription() {
+    if (isStudyRequest) {
+      if (relationshipState === "missing_biopsy_property") {
+        return t(
+          "The study request points to this biopsy, but the biopsy does not store the study request link.",
+        );
+      }
+      if (relationshipState === "missing_study_backlink") {
+        return t(
+          "The biopsy stores this study request, but the study request does not point back to the biopsy.",
+        );
+      }
+      if (relationshipState === "missing_study") {
+        return t("The biopsy stores a study request that no longer exists.");
+      }
+      return t(
+        "Multiple or conflicting study request links were found. Review them before choosing the correct form.",
+      );
+    }
+    if (relationshipState === "missing_biopsy_backlink") {
+      return t(
+        "The withdrawal case or study request points here, but the biopsy does not store the withdrawal link.",
+      );
+    }
+    if (relationshipState === "missing_withdrawal_backlink") {
+      return t(
+        "The biopsy stores this withdrawal request, but its matching case does not point back to the biopsy.",
+      );
+    }
+    if (relationshipState === "missing_study_property") {
+      return t(
+        "The biopsy and withdrawal case are linked, but the study request is missing its withdrawal link.",
+      );
+    }
+    if (relationshipState === "missing_withdrawal") {
+      return t("The biopsy stores a withdrawal request that no longer exists.");
+    }
+    return t(
+      "Multiple or conflicting withdrawal links were found. Review them before choosing the correct request.",
+    );
+  }
+
+  return (
+    <>
+      <ActionToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        language={language}
+      />
+      <section
+        className={
+          isStudyRequest
+            ? "overflow-hidden rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50/92 via-cyan-50/80 to-blue-50/86 shadow-[0_18px_46px_rgba(14,165,233,0.12)] dark:border-sky-300/24 dark:from-sky-950/28 dark:via-cyan-950/22 dark:to-blue-950/24"
+            : "overflow-hidden rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/92 via-fuchsia-50/78 to-rose-50/86 shadow-[0_18px_46px_rgba(124,58,237,0.12)] dark:border-violet-300/24 dark:from-violet-950/28 dark:via-fuchsia-950/22 dark:to-rose-950/24"
+        }
+      >
+        <div
+          className={
+            isStudyRequest
+              ? "flex flex-col gap-4 border-b border-sky-200/70 px-5 py-5 sm:flex-row sm:items-center sm:justify-between dark:border-sky-300/18"
+              : "flex flex-col gap-4 border-b border-violet-200/70 px-5 py-5 sm:flex-row sm:items-center sm:justify-between dark:border-violet-300/18"
+          }
+        >
+          <div className="flex min-w-0 items-start gap-3">
+            <span
+              className={
+                isStudyRequest
+                  ? "flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/82 text-sky-700 shadow-sm dark:bg-sky-400/12 dark:text-sky-200"
+                  : "flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/82 text-violet-700 shadow-sm dark:bg-violet-400/12 dark:text-violet-200"
+              }
+            >
+              {isStudyRequest ? (
+                <ClipboardList className="size-5" />
+              ) : (
+                <Truck className="size-5" />
+              )}
+            </span>
+            <div>
+              <h2
+                className={
+                  isStudyRequest
+                    ? "font-heading text-xl font-semibold text-sky-950 dark:text-sky-50"
+                    : "font-heading text-xl font-semibold text-violet-950 dark:text-violet-50"
+                }
+              >
+                {title}
+              </h2>
+              <p
+                className={
+                  isStudyRequest
+                    ? "mt-1 text-sm text-sky-950/68 dark:text-sky-50/68"
+                    : "mt-1 text-sm text-violet-950/68 dark:text-violet-50/68"
+                }
+              >
+                {isStudyRequest
+                  ? t(
+                      "A biopsy form can be linked to one study request at a time.",
+                    )
+                  : t(
+                      "The biopsy, its study request, and the matching withdrawal case remain synchronized.",
+                    )}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={openPicker}
+          >
+            <Search className="size-3.5" />
+            {actualId
+              ? isStudyRequest
+                ? t("Change study request")
+                : t("Change withdrawal request")
+              : isStudyRequest
+                ? t("Choose study request")
+                : t("Choose withdrawal request")}
+          </Button>
+        </div>
+
+        <div className="px-5 py-5">
+          {hasMismatch ? (
+            <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-amber-300/80 bg-amber-50 px-4 py-4 text-amber-950 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-300/28 dark:bg-amber-950/28 dark:text-amber-50">
+              <div className="flex min-w-0 items-start gap-3">
+                <AlertTriangle className="mt-1 size-5 shrink-0 text-amber-700 dark:text-amber-200" />
+                <div>
+                  <p className="text-sm font-semibold">
+                    {isStudyRequest
+                      ? t("Study request link mismatch")
+                      : t("Withdrawal link mismatch")}
+                  </p>
+                  <p className="mt-1 text-sm text-amber-900/76 dark:text-amber-100/76">
+                    {mismatchDescription()}
+                  </p>
+                </div>
+              </div>
+              {repairableMismatch && repairTarget ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="shrink-0 bg-amber-700 text-white hover:bg-amber-800"
+                  disabled={savingId !== null}
+                  onClick={() => void updateLink(repairTarget)}
+                >
+                  {savingId === repairTarget ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Link2 className="size-3.5" />
+                  )}
+                  {isStudyRequest
+                    ? t("Repair study request link")
+                    : t("Repair withdrawal links")}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={openPicker}
+                >
+                  <Search className="size-3.5" />
+                  {t("Review links")}
+                </Button>
+              )}
+            </div>
+          ) : null}
+
+          <p
+            className={
+              isStudyRequest
+                ? "mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-sky-900/64 dark:text-sky-100/64"
+                : "mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-violet-900/64 dark:text-violet-100/64"
+            }
+          >
+            {isStudyRequest
+              ? t("Actual linked study request")
+              : t("Actual linked withdrawal request")}
+          </p>
+          {actualId ? (
+            <div className="flex flex-col gap-4 rounded-2xl border border-emerald-200/90 bg-white/78 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-emerald-300/20 dark:bg-emerald-950/24">
+              <div className="flex min-w-0 items-center gap-3">
+                <CheckCircle2 className="size-5 shrink-0 text-emerald-700 dark:text-emerald-200" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-50">
+                    {t("Stored in the biopsy form")}
+                  </p>
+                  <p className="mt-1 truncate font-mono text-xs text-emerald-900/72 dark:text-emerald-100/72">
+                    {actualId}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    href={`/2pq-dashboard/forms/${encodeURIComponent(actualId)}`}
+                  >
+                    {t("Open")}
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  disabled={savingId !== null}
+                  onClick={() => void updateLink(null)}
+                >
+                  {savingId === "remove" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-3.5" />
+                  )}
+                  {t("Remove link")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div
+              className={
+                isStudyRequest
+                  ? "rounded-2xl border border-dashed border-sky-300/80 bg-white/52 px-5 py-6 text-center dark:border-sky-300/24 dark:bg-sky-950/16"
+                  : "rounded-2xl border border-dashed border-violet-300/80 bg-white/52 px-5 py-6 text-center dark:border-violet-300/24 dark:bg-violet-950/16"
+              }
+            >
+              <p className="text-sm font-medium">
+                {isStudyRequest
+                  ? t("No study request is stored on this biopsy form.")
+                  : t("No withdrawal request is stored on this biopsy form.")}
+              </p>
+            </div>
+          )}
+
+          {suggestedId && suggestedId !== actualId ? (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-amber-800/72 dark:text-amber-100/72">
+                {isStudyRequest
+                  ? t("Suggested study request")
+                  : t("Suggested withdrawal request")}
+              </p>
+              <div className="flex flex-col gap-4 rounded-2xl border border-amber-300/80 bg-amber-50/82 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-300/24 dark:bg-amber-950/22">
+                <div className="flex min-w-0 items-start gap-3">
+                  <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-200" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-amber-950 dark:text-amber-50">
+                      {isStudyRequest
+                        ? t(
+                            "This study request points to the biopsy, but it is not stored on the biopsy form.",
+                          )
+                        : t(
+                            "This withdrawal request is referenced by related records, but it is not stored on the biopsy form.",
+                          )}
+                    </p>
+                    <p className="mt-1 truncate font-mono text-xs text-amber-900/72 dark:text-amber-100/72">
+                      {suggestedId}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    href={`/2pq-dashboard/forms/${encodeURIComponent(suggestedId)}`}
+                  >
+                    {t("Open")}
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!savingId) {
+            setDialogOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[88vh] overflow-hidden p-0 sm:max-w-4xl">
+          <DialogHeader className="border-b border-border px-6 py-5 text-left">
+            <DialogTitle className="font-heading text-2xl">
+              {isStudyRequest
+                ? t("Choose a study request")
+                : t("Choose a withdrawal request")}
+            </DialogTitle>
+            <DialogDescription>
+              {isStudyRequest
+                ? t(
+                    "Choose an unassigned study request for the same patient, doctor, and institution.",
+                  )
+                : t(
+                    "Choose a withdrawal request containing the case associated with this biopsy form.",
+                  )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 py-5">
+            <form className="flex gap-2" onSubmit={submitSearch}>
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={
+                  isStudyRequest
+                    ? t("Search study requests...")
+                    : t("Search withdrawal requests...")
+                }
+                autoFocus
+              />
+              <Button type="submit" variant="outline" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Search className="size-4" />
+                )}
+                {t("Search")}
+              </Button>
+            </form>
+            {error ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            ) : null}
+            <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
+              {loading ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  {isStudyRequest
+                    ? t("Loading study requests...")
+                    : t("Loading withdrawal requests...")}
+                </div>
+              ) : candidates.length ? (
+                candidates.map((candidate) => {
+                  const selected = actualId === candidate.id;
+                  const suggested = suggestedId === candidate.id;
+                  return (
+                    <article
+                      key={candidate.id}
+                      className="grid gap-4 rounded-2xl border border-border/80 bg-background/82 p-4 shadow-sm md:grid-cols-[1fr_auto] md:items-center"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={selected ? "brand" : "outline"}>
+                            <span className="font-mono">{candidate.id}</span>
+                          </Badge>
+                          {selected ? (
+                            <Badge variant="outline">
+                              {t("Currently linked")}
+                            </Badge>
+                          ) : null}
+                          {suggested ? (
+                            <Badge variant="outline">{t("Suggested")}</Badge>
+                          ) : null}
+                        </div>
+                        <h3 className="mt-3 font-heading text-lg font-semibold">
+                          {isStudyRequest
+                            ? (candidate.patientName ??
+                              getTextValue(
+                                candidate.patientInformation,
+                                "fullName",
+                              ) ??
+                              t("Patient not specified"))
+                            : (candidate.institutionName ??
+                              t("Withdrawal request"))}
+                        </h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {compactList([
+                            isStudyRequest
+                              ? candidate.requestedTestName
+                              : `${candidate.linkedCaseIds?.length ?? candidate.withdrawalCases?.length ?? 0} ${t("linked cases")}`,
+                            candidate.createdAt
+                              ? formatDate(candidate.createdAt, language, true)
+                              : undefined,
+                          ])}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        disabled={selected || savingId !== null}
+                        onClick={() => void updateLink(candidate.id)}
+                      >
+                        {savingId === candidate.id ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : selected ? (
+                          <CheckCircle2 className="size-4" />
+                        ) : (
+                          <Link2 className="size-4" />
+                        )}
+                        {selected
+                          ? t("Linked")
+                          : isStudyRequest
+                            ? t("Link study request")
+                            : t("Link withdrawal request")}
+                      </Button>
+                    </article>
+                  );
+                })
+              ) : (
+                <div className="rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
+                  {isStudyRequest
+                    ? t("No study requests match this search.")
+                    : t("No withdrawal requests match this search.")}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={savingId !== null}
+              onClick={() => setDialogOpen(false)}
+            >
+              {t("Close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -1802,9 +2391,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const authorEmail = form.authorEmail ?? form.createdByEmail;
-  const sampleLinkedStudyRequestData: Record<string, unknown> = {
-    studyRequestForm: form.studyRequestForm ?? form.linkedStudyRequestFormId,
-    withdrawalRequest: form.withdrawalRequest,
+  const sampleTimelineData: Record<string, unknown> = {
     createdAt: form.createdAt,
     updatedAt: form.updatedAt,
   };
@@ -1904,10 +2491,12 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
         </>
       ) : form.formType === "sample" ? (
         <>
+          <BiopsyRelationshipSection form={form} kind="study_request" />
+          <BiopsyRelationshipSection form={form} kind="withdrawal_request" />
           <DetailSection
-            title={t("Linked study request form")}
-            fields={SAMPLE_LINKED_STUDY_REQUEST_FIELDS}
-            data={sampleLinkedStudyRequestData}
+            title={t("Form timeline")}
+            fields={SAMPLE_TIMELINE_FIELDS}
+            data={sampleTimelineData}
           />
           <DetailSection
             title={t("Patient information")}

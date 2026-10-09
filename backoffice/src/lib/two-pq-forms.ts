@@ -16,6 +16,13 @@ export type TwoPQWithdrawalLinkState =
   | "missing_biopsy_backlink"
   | "missing_withdrawal"
   | "conflict";
+export type TwoPQStudyRequestLinkState =
+  | "none"
+  | "cohesive"
+  | "missing_biopsy_property"
+  | "missing_study_backlink"
+  | "missing_study"
+  | "conflict";
 export type TwoPQFormsTypeFilter =
   TwoPQFormType | "study_request_cojoined" | "all";
 
@@ -195,6 +202,8 @@ export interface TwoPQFormRecord {
   requestedTestName?: string;
   linkedStudyRequestFormId?: string | null;
   studyRequestForm?: string | null;
+  suggestedStudyRequestForm?: string | null;
+  studyRequestLinkState?: TwoPQStudyRequestLinkState;
   withdrawalRequest?: string | null;
   linkedBiopsyForm?: string | null;
   suggestedBiopsyForm?: string | null;

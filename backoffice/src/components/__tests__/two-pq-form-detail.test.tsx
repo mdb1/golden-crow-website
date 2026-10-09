@@ -131,6 +131,127 @@ describe("TwoPQFormDetail", () => {
     ).toBeTruthy();
   });
 
+  it("always shows manual study and withdrawal relationship blocks for an unlinked biopsy", () => {
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <TwoPQFormDetail
+          form={{
+            ...sampleForm,
+            linkedStudyRequestFormId: null,
+            studyRequestForm: null,
+            withdrawalRequest: null,
+            studyRequestLinkState: "none",
+            withdrawalLinkState: "none",
+          }}
+        />
+      </AppLanguageProvider>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Linked study request form" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No study request is stored on this biopsy form."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Linked withdrawal request" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No withdrawal request is stored on this biopsy form."),
+    ).toBeInTheDocument();
+  });
+
+  it("can manually select a study request from an unlinked biopsy", async () => {
+    const user = userEvent.setup();
+    const unlinkedBiopsy: TwoPQFormRecord = {
+      ...sampleForm,
+      linkedStudyRequestFormId: null,
+      studyRequestForm: null,
+      studyRequestLinkState: "none",
+    };
+    mockSdkFetch
+      .mockResolvedValueOnce({ forms: [studyRequestForm] })
+      .mockResolvedValueOnce({
+        form: {
+          ...unlinkedBiopsy,
+          linkedStudyRequestFormId: "FORM-00047",
+          studyRequestForm: "FORM-00047",
+          studyRequestLinkState: "cohesive",
+        },
+      });
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <TwoPQFormDetail form={unlinkedBiopsy} />
+      </AppLanguageProvider>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Choose study request" }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Link study request" }),
+    );
+
+    await waitFor(() =>
+      expect(mockSdkFetch).toHaveBeenLastCalledWith(
+        "/2pq/forms/FORM-00053/linked-study-request",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ studyRequestForm: "FORM-00047" }),
+        },
+      ),
+    );
+    expect(await screen.findByText("FORM-00047")).toBeInTheDocument();
+  });
+
+  it("can manually select a withdrawal request from an unlinked biopsy", async () => {
+    const user = userEvent.setup();
+    const withdrawalCandidate: TwoPQFormRecord = {
+      ...withdrawalForm,
+      id: "FORM-00060",
+    };
+    mockSdkFetch
+      .mockResolvedValueOnce({ forms: [withdrawalCandidate] })
+      .mockResolvedValueOnce({
+        form: {
+          ...sampleForm,
+          withdrawalRequest: "FORM-00060",
+          withdrawalLinkState: "cohesive",
+        },
+      });
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <TwoPQFormDetail
+          form={{
+            ...sampleForm,
+            withdrawalRequest: null,
+            withdrawalLinkState: "none",
+          }}
+        />
+      </AppLanguageProvider>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Choose withdrawal request" }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Link withdrawal request" }),
+    );
+
+    await waitFor(() =>
+      expect(mockSdkFetch).toHaveBeenLastCalledWith(
+        "/2pq/forms/FORM-00053/biopsy-withdrawal-request",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ withdrawalRequest: "FORM-00060" }),
+        },
+      ),
+    );
+    expect(await screen.findByText("FORM-00060")).toBeInTheDocument();
+  });
+
   it("shows the single linked biopsy form and can remove the bidirectional link", async () => {
     const user = userEvent.setup();
     mockSdkFetch.mockResolvedValue({
