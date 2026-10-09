@@ -59,6 +59,7 @@ import { appText } from "@/lib/language";
 import { compactList } from "@/lib/moderation-utils";
 
 const CONSENT_EMAIL_SENDER_EMAIL = "dopazoh+admin@gmail.com";
+const PATIENT_FULL_NAME_PATTERN = /^\S{3,}(?:\s+\S+)*\s+\S{3,}$/u;
 
 type PatientFormState = {
   institutionId: string;
@@ -177,6 +178,7 @@ export function PatientWorkbench({
     ),
   );
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [fullNameError, setFullNameError] = useState<string | null>(null);
 
   const sourceState = useMemo(
     () => toPatientFormState(detail?.patient, defaults),
@@ -256,13 +258,30 @@ export function PatientWorkbench({
     }
 
     if (!state.fullName.trim()) {
+      const message = t("Patient full name is required.");
+      setFullNameError(message);
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Patient full name is required."),
+        message,
       });
       return;
     }
+
+    if (!PATIENT_FULL_NAME_PATTERN.test(state.fullName.trim())) {
+      const message = t(
+        "The full name must include at least two words, with the first and last word containing at least 3 characters each.",
+      );
+      setFullNameError(message);
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message,
+      });
+      return;
+    }
+
+    setFullNameError(null);
 
     setPending(true);
 
@@ -528,7 +547,10 @@ export function PatientWorkbench({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setState(sourceState)}
+              onClick={() => {
+                setState(sourceState);
+                setFullNameError(null);
+              }}
               disabled={!changed || pending}
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -642,11 +664,23 @@ export function PatientWorkbench({
             <Input
               id="patient-full-name"
               value={state.fullName}
-              onChange={(event) =>
-                setState((current) => ({ ...current, fullName: event.target.value }))
-              }
+              onChange={(event) => {
+                setState((current) => ({ ...current, fullName: event.target.value }));
+                setFullNameError(null);
+              }}
+              aria-invalid={Boolean(fullNameError)}
+              aria-describedby={fullNameError ? "patient-full-name-error" : undefined}
               disabled={!isEditable}
             />
+            {fullNameError ? (
+              <p
+                id="patient-full-name-error"
+                role="alert"
+                className="text-sm text-destructive"
+              >
+                {fullNameError}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="patient-mrn">{t("Medical record number")}</Label>

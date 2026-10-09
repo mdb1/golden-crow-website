@@ -125,6 +125,22 @@ function renderWorkbench(
   );
 }
 
+function renderCreateWorkbench() {
+  return render(
+    <AppLanguageProvider initialLanguage="en">
+      <AdminContextProvider value={context}>
+        <PatientWorkbench
+          institutions={[institution]}
+          doctors={[doctor]}
+          mode="create"
+          initialInstitutionId={institution.id}
+          initialDoctorId={doctor.id}
+        />
+      </AdminContextProvider>
+    </AppLanguageProvider>,
+  );
+}
+
 describe("PatientWorkbench portal credentials", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -177,6 +193,24 @@ describe("PatientWorkbench portal credentials", () => {
     expect(
       screen.getByText(/Response: database unavailable/),
     ).toBeTruthy();
+  });
+
+  it("rejects a single-word patient name before creating the patient", async () => {
+    const user = userEvent.setup();
+    renderCreateWorkbench();
+
+    await user.type(screen.getByLabelText("Email"), "patient@example.com");
+    await user.type(screen.getByLabelText("Full name"), "Madonna");
+    await user.click(screen.getByRole("button", { name: "Create patient" }));
+
+    const message =
+      "The full name must include at least two words, with the first and last word containing at least 3 characters each.";
+    expect(screen.getAllByText(message)).toHaveLength(2);
+    expect(screen.getByLabelText("Full name")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(sdkFetch).not.toHaveBeenCalled();
   });
 
   it("reveals an existing temporary password only after the scoped request", async () => {

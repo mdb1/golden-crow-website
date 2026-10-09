@@ -2617,6 +2617,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Ingresá un mail de referencia del paciente válido.",
   "Patient full name is required.":
     "El nombre completo del paciente es requerido.",
+  "The full name must include at least two words, with the first and last word containing at least 3 characters each.":
+    "El nombre completo debe incluir al menos dos palabras, con un mínimo de 3 caracteres en la primera y en la última.",
   "Patient first name is required.": "El nombre del paciente es requerido.",
   "Patient last name is required.": "El apellido del paciente es requerido.",
   "Partner birth date must be a valid date.":
