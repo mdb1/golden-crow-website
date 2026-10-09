@@ -257,6 +257,19 @@ describe("TwoPQFormDetail", () => {
     ).toBeInTheDocument();
   });
 
+  it("uses the concise saved label for links stored on a biopsy form", () => {
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <TwoPQFormDetail form={sampleForm} />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByText("Guardado")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Guardado en el formulario de biopsias"),
+    ).not.toBeInTheDocument();
+  });
+
   it("can manually select a study request from an unlinked biopsy", async () => {
     const user = userEvent.setup();
     const unlinkedBiopsy: TwoPQFormRecord = {

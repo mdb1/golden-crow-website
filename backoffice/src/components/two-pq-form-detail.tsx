@@ -2477,7 +2477,7 @@ function BiopsyRelationshipSection({
                 <CheckCircle2 className="size-5 shrink-0 text-emerald-700 dark:text-emerald-200" />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-50">
-                    {t("Stored in the biopsy form")}
+                    {t("Saved")}
                   </p>
                   <p className="mt-1 truncate font-mono text-xs text-emerald-900/72 dark:text-emerald-100/72">
                     {actualId}
