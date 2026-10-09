@@ -607,6 +607,13 @@ function buildFormStorageProcessingSteps(
           ),
     ),
     pendingProcessingStep(
+      "link-study-request-case",
+      t("Link 2PQ case back to study request"),
+      flowState.linkedStudyRequestFormId
+        ? `${t("Store the created 2PQ case in 2pq_case on")} ${flowState.linkedStudyRequestFormId}.`
+        : t("Store the 2PQ case on the linked study request."),
+    ),
+    pendingProcessingStep(
       "box-code",
       t("Bind three-letter box code"),
       boxCode

@@ -261,6 +261,20 @@ function CoJoinedFormSequence({
           );
         })}
       </div>
+      {form["2pq_case"] ? (
+        <div className="flex justify-end px-2 pb-2 pt-3">
+          <Link
+            href={`/2pq-dashboard/cases/${encodeURIComponent(form["2pq_case"])}`}
+            aria-label={`${t("Open 2PQ case")} ${form["2pq_case"]}`}
+            className="inline-flex max-w-full items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-800 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60 dark:border-indigo-300/24 dark:bg-indigo-400/12 dark:text-indigo-100 dark:hover:bg-indigo-400/20"
+          >
+            <CircleDot className="size-3.5 shrink-0" />
+            <span>{t("2PQ case")}</span>
+            <span className="truncate font-mono">{form["2pq_case"]}</span>
+            <ArrowRight className="size-3.5 shrink-0" />
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }

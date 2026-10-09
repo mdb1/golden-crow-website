@@ -59,6 +59,22 @@ type FieldSpec = {
     | "personStatus";
 };
 
+type StudyRequestCaseCandidate = {
+  id: string;
+  institutionId: string;
+  doctorId: string;
+  patientId: string | null;
+  linkedStudyRequestFormId: string | null;
+  three_letter_code: string | null;
+  caseLabel: string | null;
+  caseStatus: string | null;
+  caseType: string | null;
+  priority: string | null;
+  requestedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
 const PATIENT_FIELDS: FieldSpec[] = [
   { key: "patientId", label: "Scoped patient ID" },
   { key: "fullName", label: "Full name" },
@@ -1307,6 +1323,333 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
   );
 }
 
+function LinkedTwoPQCaseSection({ form }: { form: TwoPQFormRecord }) {
+  const { language } = useAppLanguage();
+  const router = useRouter();
+  const t = (text: string) => appText(language, text);
+  const [linkedCaseId, setLinkedCaseId] = useState(form["2pq_case"] ?? null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [candidates, setCandidates] = useState<StudyRequestCaseCandidate[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<ActionToastState | null>(null);
+
+  if (form.formType !== "study_request") {
+    return null;
+  }
+
+  async function loadCandidates(searchValue = search) {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (searchValue.trim()) {
+        params.set("search", searchValue.trim());
+      }
+      const query = params.size ? `?${params.toString()}` : "";
+      const payload = await sdkFetch<{ cases: StudyRequestCaseCandidate[] }>(
+        `/2pq/forms/${encodeURIComponent(form.id)}/case-candidates${query}`,
+      );
+      setCandidates(payload.cases);
+    } catch (candidateError) {
+      setError(
+        candidateError instanceof Error
+          ? candidateError.message
+          : t("Unable to load 2PQ cases."),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openPicker() {
+    setDialogOpen(true);
+    void loadCandidates("");
+  }
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void loadCandidates();
+  }
+
+  async function updateLink(nextCaseId: string | null) {
+    setSavingId(nextCaseId ?? "remove");
+    setError(null);
+    try {
+      const payload = await sdkFetch<{ form: TwoPQFormRecord }>(
+        `/2pq/forms/${encodeURIComponent(form.id)}/linked-2pq-case`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ "2pq_case": nextCaseId }),
+        },
+      );
+      setLinkedCaseId(payload.form["2pq_case"] ?? null);
+      setDialogOpen(false);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: nextCaseId
+          ? t("2PQ case linked successfully.")
+          : t("2PQ case link removed."),
+      });
+      router.refresh();
+    } catch (updateError) {
+      const message =
+        updateError instanceof Error
+          ? updateError.message
+          : t("Unable to update the 2PQ case link.");
+      setError(message);
+      setToast({ id: Date.now(), tone: "error", message });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  return (
+    <>
+      <ActionToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        language={language}
+      />
+      <section className="overflow-hidden rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/92 via-blue-50/80 to-cyan-50/84 shadow-[0_18px_46px_rgba(79,70,229,0.12)] dark:border-indigo-300/24 dark:from-indigo-950/30 dark:via-blue-950/24 dark:to-cyan-950/22">
+        <div className="flex flex-col gap-4 border-b border-indigo-200/70 px-5 py-5 sm:flex-row sm:items-center sm:justify-between dark:border-indigo-300/18">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/82 text-indigo-700 shadow-sm dark:bg-indigo-400/12 dark:text-indigo-200">
+              <CircleDot className="size-5" />
+            </span>
+            <div>
+              <h2 className="font-heading text-xl font-semibold text-indigo-950 dark:text-indigo-50">
+                {t("Linked 2PQ case")}
+              </h2>
+              <p className="mt-1 text-sm text-indigo-950/68 dark:text-indigo-50/68">
+                {t("A study request can be linked to one 2PQ case at a time.")}
+              </p>
+            </div>
+          </div>
+          <Button type="button" variant="outline" onClick={openPicker}>
+            <Search className="size-4" />
+            {linkedCaseId ? t("Change 2PQ case") : t("Choose 2PQ case")}
+          </Button>
+        </div>
+
+        <div className="px-5 py-5">
+          {linkedCaseId ? (
+            <div className="flex flex-col gap-4 rounded-2xl border border-indigo-200/90 bg-white/80 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-indigo-300/20 dark:bg-indigo-950/24">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-500/12 text-indigo-700 dark:text-indigo-200">
+                  <CheckCircle2 className="size-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-indigo-950 dark:text-indigo-50">
+                    {t("2PQ case linked")}
+                  </p>
+                  <p className="mt-1 truncate font-mono text-xs text-indigo-900/72 dark:text-indigo-100/72">
+                    {linkedCaseId}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    href={`/2pq-dashboard/cases/${encodeURIComponent(linkedCaseId)}`}
+                  >
+                    {t("Open")}
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  disabled={savingId !== null}
+                  onClick={() => void updateLink(null)}
+                >
+                  {savingId === "remove" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-3.5" />
+                  )}
+                  {t("Remove link")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-indigo-300/80 bg-white/52 px-5 py-7 text-center dark:border-indigo-300/24 dark:bg-indigo-950/16">
+              <CircleDot className="mx-auto size-8 text-indigo-500/70" />
+              <p className="mt-3 text-sm font-semibold text-indigo-950 dark:text-indigo-50">
+                {t("No 2PQ case is linked yet.")}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={openPicker}
+              >
+                <Search className="size-3.5" />
+                {t("Choose 2PQ case")}
+              </Button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!savingId) {
+            setDialogOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[88vh] overflow-hidden p-0 sm:max-w-5xl">
+          <DialogHeader className="border-b border-indigo-100 bg-indigo-50/70 px-6 py-5 text-left dark:border-indigo-300/16 dark:bg-indigo-950/22">
+            <DialogTitle className="font-heading text-2xl">
+              {t("Choose a 2PQ case")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                "Search by case ID, box code, label, status, type, priority, or patient ID. Only compatible unassigned cases are shown.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 py-5">
+            <form className="flex gap-2" onSubmit={submitSearch}>
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t("Search 2PQ cases...")}
+                autoFocus
+              />
+              <Button type="submit" variant="outline" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Search className="size-4" />
+                )}
+                {t("Search")}
+              </Button>
+            </form>
+
+            {error ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            ) : null}
+
+            <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
+              {loading ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  {t("Loading 2PQ cases...")}
+                </div>
+              ) : candidates.length ? (
+                candidates.map((candidate) => {
+                  const selected = linkedCaseId === candidate.id;
+                  return (
+                    <article
+                      key={candidate.id}
+                      className="grid gap-4 rounded-2xl border border-border/80 bg-background/82 p-5 shadow-sm md:grid-cols-[1fr_auto] md:items-center"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={selected ? "brand" : "outline"}>
+                            <span className="font-mono">{candidate.id}</span>
+                          </Badge>
+                          {candidate.three_letter_code ? (
+                            <Badge variant="success">
+                              {candidate.three_letter_code}
+                            </Badge>
+                          ) : null}
+                          {candidate.caseStatus ? (
+                            <Badge variant="outline">
+                              {t(
+                                getTwoPQCaseStatusLabel(candidate.caseStatus),
+                              )}
+                            </Badge>
+                          ) : null}
+                          {selected ? (
+                            <Badge variant="outline">
+                              {t("Currently linked")}
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <h3 className="mt-3 font-heading text-lg font-semibold">
+                          {candidate.caseLabel || t("Case without a label")}
+                        </h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {compactList([
+                            candidate.patientId
+                              ? `${t("Patient")}: ${candidate.patientId}`
+                              : undefined,
+                            candidate.caseType ?? undefined,
+                            candidate.priority ?? undefined,
+                            candidate.requestedAt
+                              ? formatDate(
+                                  candidate.requestedAt,
+                                  language,
+                                  true,
+                                )
+                              : undefined,
+                          ])}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link
+                            href={`/2pq-dashboard/cases/${encodeURIComponent(candidate.id)}`}
+                          >
+                            {t("Open")}
+                            <ArrowRight className="size-3.5" />
+                          </Link>
+                        </Button>
+                        <Button
+                          type="button"
+                          disabled={selected || savingId !== null}
+                          onClick={() => void updateLink(candidate.id)}
+                        >
+                          {savingId === candidate.id ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : selected ? (
+                            <CheckCircle2 className="size-4" />
+                          ) : (
+                            <Link2 className="size-4" />
+                          )}
+                          {selected ? t("Linked") : t("Link 2PQ case")}
+                        </Button>
+                      </div>
+                    </article>
+                  );
+                })
+              ) : (
+                <div className="rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
+                  {t("No available 2PQ cases match this search.")}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={savingId !== null}
+              onClick={() => setDialogOpen(false)}
+            >
+              {t("Close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function LinkedWithdrawalRequestSection({ form }: { form: TwoPQFormRecord }) {
   const { language } = useAppLanguage();
   const router = useRouter();
@@ -2531,6 +2874,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
       ) : (
         <>
           <LinkedBiopsyFormSection form={form} />
+          <LinkedTwoPQCaseSection form={form} />
           <LinkedWithdrawalRequestSection form={form} />
           <PatientLinkSection form={form} />
           <DetailSection

@@ -286,6 +286,91 @@ describe("TwoPQFormDetail", () => {
     expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
 
+  it("can choose, open, and remove the single linked 2PQ case", async () => {
+    const user = userEvent.setup();
+    const candidate = {
+      id: "CASE-00025",
+      institutionId: "institution-1",
+      doctorId: "doctor-1",
+      patientId: "patient-1",
+      linkedStudyRequestFormId: null,
+      three_letter_code: "BEH",
+      caseLabel: "BEHXXX",
+      caseStatus: "entered",
+      caseType: "PGT-A",
+      priority: "normal",
+      requestedAt: "2026-10-08T12:00:00.000Z",
+      createdAt: "2026-10-08T12:00:00.000Z",
+      updatedAt: "2026-10-08T12:00:00.000Z",
+    };
+    mockSdkFetch
+      .mockResolvedValueOnce({ cases: [candidate] })
+      .mockResolvedValueOnce({
+        form: { ...studyRequestForm, "2pq_case": "CASE-00025" },
+      })
+      .mockResolvedValueOnce({
+        form: { ...studyRequestForm, "2pq_case": null },
+      });
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <TwoPQFormDetail
+          form={{ ...studyRequestForm, "2pq_case": null }}
+        />
+      </AppLanguageProvider>,
+    );
+
+    const heading = screen.getByRole("heading", { name: "Linked 2PQ case" });
+    const section = heading.closest("section");
+    expect(section).not.toBeNull();
+    expect(
+      within(section as HTMLElement).getByText("No 2PQ case is linked yet."),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(section as HTMLElement).getAllByRole("button", {
+        name: "Choose 2PQ case",
+      })[0]!,
+    );
+    expect(await screen.findByText("BEHXXX")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Link 2PQ case" }));
+
+    await waitFor(() =>
+      expect(mockSdkFetch).toHaveBeenNthCalledWith(
+        2,
+        "/2pq/forms/FORM-00047/linked-2pq-case",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ "2pq_case": "CASE-00025" }),
+        },
+      ),
+    );
+    expect(
+      within(section as HTMLElement).getByRole("link", { name: "Open" }),
+    ).toHaveAttribute("href", "/2pq-dashboard/cases/CASE-00025");
+
+    await user.click(
+      within(section as HTMLElement).getByRole("button", {
+        name: "Remove link",
+      }),
+    );
+    await waitFor(() =>
+      expect(mockSdkFetch).toHaveBeenNthCalledWith(
+        3,
+        "/2pq/forms/FORM-00047/linked-2pq-case",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ "2pq_case": null }),
+        },
+      ),
+    );
+    expect(
+      await within(section as HTMLElement).findByText(
+        "No 2PQ case is linked yet.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("separates a suggested reverse link from the stored link and repairs it", async () => {
     const user = userEvent.setup();
     const mismatchedStudyRequest: TwoPQFormRecord = {

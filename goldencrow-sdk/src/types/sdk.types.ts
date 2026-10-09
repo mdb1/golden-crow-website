@@ -504,6 +504,7 @@ export interface TwoPQFormRecord {
   suggestedBiopsyForm?: string | null;
   biopsyLinkState?: TwoPQBiopsyLinkState;
   linkedWithdrawalRequest?: string | null;
+  "2pq_case"?: string | null;
   suggestedWithdrawalRequest?: string | null;
   withdrawalLinkState?: TwoPQWithdrawalLinkState;
   linkedCaseIds?: string[];

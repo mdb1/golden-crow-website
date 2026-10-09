@@ -2810,6 +2810,28 @@ const SPANISH_TEXT: Record<string, string> = {
   "Linked study request form": "Formulario de solicitud linkeado",
   "Linked withdrawal request": "Solicitud de retiro vinculada",
   "Linked biopsy form": "Formulario de biopsias vinculado",
+  "Linked 2PQ case": "Caso 2PQ vinculado",
+  "A study request can be linked to one 2PQ case at a time.":
+    "Una solicitud de estudio puede estar vinculada a un solo caso 2PQ a la vez.",
+  "Change 2PQ case": "Cambiar caso 2PQ",
+  "Choose 2PQ case": "Elegir caso 2PQ",
+  "2PQ case linked": "Caso 2PQ vinculado",
+  "No 2PQ case is linked yet.": "Todavía no hay un caso 2PQ vinculado.",
+  "Choose a 2PQ case": "Elegir un caso 2PQ",
+  "Search by case ID, box code, label, status, type, priority, or patient ID. Only compatible unassigned cases are shown.":
+    "Buscá por ID de caso, código de caja, nombre, estado, tipo, prioridad o ID de paciente. Solo se muestran casos compatibles sin asignar.",
+  "Search 2PQ cases...": "Buscar casos 2PQ...",
+  "Loading 2PQ cases...": "Cargando casos 2PQ...",
+  "Case without a label": "Caso sin nombre",
+  "Link 2PQ case": "Vincular caso 2PQ",
+  "No available 2PQ cases match this search.":
+    "No hay casos 2PQ disponibles que coincidan con la búsqueda.",
+  "Unable to load 2PQ cases.": "No se pudieron cargar los casos 2PQ.",
+  "Unable to update the 2PQ case link.":
+    "No se pudo actualizar el vínculo con el caso 2PQ.",
+  "2PQ case linked successfully.": "El caso 2PQ se vinculó correctamente.",
+  "2PQ case link removed.": "Se quitó el vínculo con el caso 2PQ.",
+  "Open 2PQ case": "Abrir caso 2PQ",
   "A study request can be linked to one biopsy form at a time.":
     "Una solicitud de estudio puede estar vinculada a un solo formulario de biopsias a la vez.",
   "Change biopsy form": "Cambiar formulario de biopsias",
@@ -2983,6 +3005,12 @@ const SPANISH_TEXT: Record<string, string> = {
     "Persistir el formulario con solicitud linkeada, paciente, caso, muestra y registros de muestreo.",
   "Link biopsy form back to study request":
     "Vincular formulario de biopsias con la solicitud",
+  "Link 2PQ case back to study request":
+    "Vincular el caso 2PQ con la solicitud de estudio",
+  "Store the created 2PQ case in 2pq_case on":
+    "Guardar el caso 2PQ creado en 2pq_case de",
+  "Store the 2PQ case on the linked study request.":
+    "Guardar el caso 2PQ en la solicitud de estudio vinculada.",
   "Store this biopsy form in linkedBiopsyForm on":
     "Guardar este formulario de biopsias en linkedBiopsyForm de",
   "Store this biopsy form on its linked study request.":

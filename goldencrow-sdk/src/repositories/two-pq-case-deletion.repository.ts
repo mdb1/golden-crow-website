@@ -141,6 +141,7 @@ async function matchingFormDocuments(caseId: string) {
   const queries = [
     adminDb.collection(FORMS_COLLECTION).where("selectedCaseId", "==", caseId),
     adminDb.collection(FORMS_COLLECTION).where("linkedCaseId", "==", caseId),
+    adminDb.collection(FORMS_COLLECTION).where("2pq_case", "==", caseId),
     adminDb
       .collection(FORMS_COLLECTION)
       .where("linkedCaseIds", "array-contains", caseId),
@@ -198,6 +199,9 @@ async function deleteFormLinksAndOperations(
     }
     if (cleanString(form.data.linkedCaseId) === caseId) {
       update.linkedCaseId = null;
+    }
+    if (cleanString(form.data["2pq_case"]) === caseId) {
+      update["2pq_case"] = null;
     }
     if (stringArray(form.data.linkedCaseIds).includes(caseId)) {
       update.linkedCaseIds = FieldValue.arrayRemove(caseId);

@@ -208,6 +208,34 @@ describe("staged 2PQ case deletion", () => {
     expect(store("2pq_sampling").has("SAM-1")).toBe(true);
   });
 
+  it("clears the study request 2pq_case property during form-link cleanup", async () => {
+    store("2pq_forms").set("FORM-00047", {
+      formType: "study_request",
+      "2pq_case": "CASE-00022",
+      linkedBiopsyForm: "FORM-00048",
+    });
+    const { deleteTwoPQCaseStepForContext } = await import(
+      "../repositories/two-pq-case-deletion.repository.js"
+    );
+
+    const result = await deleteTwoPQCaseStepForContext(
+      fullAdmin,
+      "CASE-00022",
+      "related",
+      "form_links",
+    );
+
+    expect(result).toMatchObject({
+      step: "form_links",
+      status: "deleted",
+      deletedCount: 1,
+    });
+    expect(store("2pq_forms").get("FORM-00047")).toMatchObject({
+      "2pq_case": null,
+      linkedBiopsyForm: "FORM-00048",
+    });
+  });
+
   it("allows the staged cleanup only for full admins and 2PQ admins", async () => {
     const { deleteTwoPQCaseStepForContext } = await import(
       "../repositories/two-pq-case-deletion.repository.js"

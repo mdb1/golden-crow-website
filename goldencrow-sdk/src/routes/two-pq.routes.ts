@@ -10,9 +10,11 @@ import {
   getTwoPQFormDraftForContext,
   getTwoPQFormForContext,
   listTwoPQFormsForContext,
+  listTwoPQStudyRequestCaseCandidatesForContext,
   updateTwoPQBiopsyStudyRequestLinkForContext,
   updateTwoPQBiopsyWithdrawalLinkForContext,
   updateTwoPQStudyRequestBiopsyLinkForContext,
+  updateTwoPQStudyRequestCaseLinkForContext,
   updateTwoPQStudyRequestWithdrawalLinkForContext,
   upsertTwoPQFormDraftForContext,
 } from "../repositories/two-pq-forms.repository.js";
@@ -308,6 +310,10 @@ const TwoPQStudyRequestWithdrawalLinkMutationSchema = z.object({
   linkedWithdrawalRequest: z.string().min(1).nullable(),
 });
 
+const TwoPQStudyRequestCaseLinkMutationSchema = z.object({
+  "2pq_case": z.string().min(1).nullable(),
+});
+
 const TwoPQBiopsyStudyRequestLinkMutationSchema = z.object({
   studyRequestForm: z.string().min(1).nullable(),
 });
@@ -549,6 +555,68 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         const form = await getTwoPQFormForContext(
           request.adminContext,
           request.params.formId,
+        );
+        return reply.send({ form });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/2pq/forms/:formId/case-candidates",
+    {
+      schema: {
+        params: z.object({
+          formId: z.string().min(1),
+        }),
+        querystring: z.object({
+          search: z.string().optional(),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const cases = await listTwoPQStudyRequestCaseCandidatesForContext(
+          request.adminContext,
+          request.params.formId,
+          request.query.search,
+        );
+        return reply.send({ cases });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    },
+  );
+
+  f.patch(
+    "/2pq/forms/:formId/linked-2pq-case",
+    {
+      schema: {
+        params: z.object({
+          formId: z.string().min(1),
+        }),
+        body: TwoPQStudyRequestCaseLinkMutationSchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const form = await updateTwoPQStudyRequestCaseLinkForContext(
+          request.adminContext,
+          request.params.formId,
+          request.body["2pq_case"],
         );
         return reply.send({ form });
       } catch (error) {

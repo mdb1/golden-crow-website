@@ -249,6 +249,22 @@ type ListTwoPQFormsPage = {
   hasMore: boolean;
 };
 
+export type TwoPQStudyRequestCaseCandidate = {
+  id: string;
+  institutionId: string;
+  doctorId: string;
+  patientId: string | null;
+  linkedStudyRequestFormId: string | null;
+  three_letter_code: string | null;
+  caseLabel: string | null;
+  caseStatus: string | null;
+  caseType: string | null;
+  priority: string | null;
+  requestedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
 type PGFlexDispatcherAssignment = {
   email: string;
   firebaseUid: string;
@@ -365,6 +381,7 @@ function formSearchHaystack(form: TwoPQFormRecord) {
         form.withdrawalRequest,
         form.linkedBiopsyForm,
         form.linkedWithdrawalRequest,
+        form["2pq_case"],
         form.authorEmail,
         form.createdByEmail,
         ...(form.linkedCaseIds ?? []),
@@ -439,7 +456,9 @@ function formMatchesListFilters(
   }
   if (
     options.availableForBiopsy &&
-    (form.formType !== "study_request" || Boolean(form.linkedBiopsyForm))
+    (form.formType !== "study_request" ||
+      Boolean(form.linkedBiopsyForm) ||
+      Boolean(form["2pq_case"]))
   ) {
     return false;
   }
@@ -763,6 +782,7 @@ function toTwoPQFormRecord(
     linkedBiopsyForm: normalizeOptionalString(data.linkedBiopsyForm) ?? null,
     linkedWithdrawalRequest:
       normalizeOptionalString(data.linkedWithdrawalRequest) ?? null,
+    "2pq_case": normalizeOptionalString(data["2pq_case"]) ?? null,
     linkedCaseIds: normalizeStringArray(data.linkedCaseIds),
     selectedCaseId: normalizeOptionalString(data.selectedCaseId),
     selectedRequestingDoctorId: normalizeOptionalString(
@@ -1687,6 +1707,45 @@ function caseDocumentToWithdrawalInformation(
     requestedAt: normalizeOptionalString(data.requestedAt),
     notes: normalizeOptionalString(data.notes),
   });
+}
+
+function caseDocumentToStudyRequestCandidate(
+  id: string,
+  data: Record<string, unknown>,
+): TwoPQStudyRequestCaseCandidate {
+  return {
+    id,
+    institutionId: normalizeOptionalString(data.institutionId) ?? "",
+    doctorId: normalizeOptionalString(data.doctorId) ?? "",
+    patientId: normalizeOptionalString(data.patientId) ?? null,
+    linkedStudyRequestFormId:
+      normalizeOptionalString(data.linkedStudyRequestFormId) ?? null,
+    three_letter_code:
+      normalizeOptionalString(data.three_letter_code)?.toUpperCase() ?? null,
+    caseLabel: normalizeOptionalString(data.caseLabel) ?? null,
+    caseStatus: normalizeOptionalString(data.caseStatus) ?? null,
+    caseType: normalizeOptionalString(data.caseType) ?? null,
+    priority: normalizeOptionalString(data.priority) ?? null,
+    requestedAt: normalizeOptionalString(data.requestedAt) ?? null,
+    createdAt: normalizeOptionalString(data.createdAt) ?? null,
+    updatedAt: normalizeOptionalString(data.updatedAt) ?? null,
+  };
+}
+
+function caseMatchesStudyRequestScope(
+  candidate: TwoPQStudyRequestCaseCandidate,
+  form: TwoPQFormRecord,
+) {
+  const formPatientId =
+    form.selectedPatientId ??
+    normalizeOptionalString(form.patientInformation?.patientId);
+  return (
+    candidate.institutionId === form.institutionId &&
+    candidate.doctorId === form.doctorId &&
+    (!formPatientId ||
+      !candidate.patientId ||
+      candidate.patientId === formPatientId)
+  );
 }
 
 async function toPGFlexDispatcherAssignment(doc: {
@@ -2941,6 +3000,12 @@ async function claimStudyRequestForBiopsyForm(
 
     const existingBiopsyFormId =
       current.linkedBiopsyForm ?? legacyBiopsyFormId ?? null;
+    if (!existingBiopsyFormId && current["2pq_case"]) {
+      throw new AdminRepositoryError(
+        `Study request form ${studyRequest.id} is already linked to 2PQ case ${current["2pq_case"]}.`,
+        409,
+      );
+    }
     if (existingBiopsyFormId && existingBiopsyFormId !== biopsyFormId) {
       if (!current.linkedBiopsyForm && legacyBiopsyFormId) {
         transaction.set(
@@ -3176,6 +3241,225 @@ export async function getTwoPQFormForContext(
     formWithStudyRequestDiagnostics,
   );
   return withResolvedWithdrawalCaseLinks(formWithWithdrawalDiagnostics);
+}
+
+export async function listTwoPQStudyRequestCaseCandidatesForContext(
+  context: AdminContext,
+  formId: string,
+  search?: string,
+): Promise<TwoPQStudyRequestCaseCandidate[]> {
+  const studyRequest = await getTwoPQFormForContext(context, formId);
+  if (studyRequest.formType !== "study_request") {
+    throw new AdminRepositoryError(
+      "Only study request forms can select a linked 2PQ case.",
+      400,
+    );
+  }
+
+  const normalizedSearch = normalizeSearchText(search);
+  const collection = adminDb.collection(CASES_COLLECTION);
+  const snapshot = await collection
+    .where("institutionId", "==", studyRequest.institutionId)
+    .limit(50)
+    .get();
+  const documents = new Map<string, FirebaseFirestore.DocumentSnapshot>(
+    snapshot.docs.map((document) => [document.id, document]),
+  );
+  const exactSearch = normalizeOptionalString(search);
+  if (exactSearch && !documents.has(exactSearch)) {
+    const exactSnapshot = await collection.doc(exactSearch).get();
+    if (exactSnapshot.exists) {
+      documents.set(exactSnapshot.id, exactSnapshot);
+    }
+  }
+
+  return [...documents.values()]
+    .map((document) =>
+      caseDocumentToStudyRequestCandidate(
+        document.id,
+        (document.data() ?? {}) as Record<string, unknown>,
+      ),
+    )
+    .filter((candidate) => caseMatchesStudyRequestScope(candidate, studyRequest))
+    .filter(
+      (candidate) =>
+        !candidate.linkedStudyRequestFormId ||
+        candidate.linkedStudyRequestFormId === studyRequest.id,
+    )
+    .filter((candidate) => {
+      if (!normalizedSearch) {
+        return true;
+      }
+      const haystack = normalizeSearchText(
+        [
+          candidate.id,
+          candidate.three_letter_code,
+          candidate.caseLabel,
+          candidate.caseStatus,
+          candidate.caseType,
+          candidate.priority,
+          candidate.patientId,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+      return normalizedSearch
+        .split(/\s+/)
+        .filter(Boolean)
+        .every((token) => haystack?.includes(token));
+    })
+    .sort((left, right) =>
+      (right.updatedAt ?? right.createdAt ?? "").localeCompare(
+        left.updatedAt ?? left.createdAt ?? "",
+      ),
+    )
+    .slice(0, 20);
+}
+
+export async function updateTwoPQStudyRequestCaseLinkForContext(
+  context: AdminContext,
+  formId: string,
+  caseId: string | null,
+): Promise<TwoPQFormRecord> {
+  const normalizedFormId = normalizeRequiredString(formId, "Form id");
+  const normalizedCaseId = normalizeOptionalString(caseId) ?? null;
+  const currentForm = await getTwoPQFormForContext(context, normalizedFormId);
+  if (currentForm.formType !== "study_request") {
+    throw new AdminRepositoryError(
+      "Only study request forms can configure a linked 2PQ case.",
+      400,
+    );
+  }
+
+  if (normalizedCaseId) {
+    const conflictingLinks = await adminDb
+      .collection(FORMS_COLLECTION)
+      .where("2pq_case", "==", normalizedCaseId)
+      .limit(2)
+      .get();
+    if (
+      conflictingLinks.docs.some((document) => document.id !== normalizedFormId)
+    ) {
+      throw new AdminRepositoryError(
+        `2PQ case ${normalizedCaseId} is already linked to another study request form.`,
+        409,
+      );
+    }
+  }
+
+  const studyRequestRef = adminDb
+    .collection(FORMS_COLLECTION)
+    .doc(normalizedFormId);
+  await adminDb.runTransaction(async (transaction) => {
+    const studyRequestSnapshot = await transaction.get(studyRequestRef);
+    if (!studyRequestSnapshot.exists) {
+      throw new AdminRepositoryError("Form not found.", 404);
+    }
+    const latestStudyRequest = toTwoPQFormRecord(
+      studyRequestSnapshot.id,
+      studyRequestSnapshot.data() as Record<string, unknown>,
+    );
+    if (
+      latestStudyRequest.formType !== "study_request" ||
+      !canViewTwoPQForm(context, latestStudyRequest)
+    ) {
+      throw new AdminRepositoryError(
+        "You cannot configure this study request form.",
+        403,
+      );
+    }
+
+    const previousCaseId = latestStudyRequest["2pq_case"] ?? null;
+    const caseIds = [previousCaseId, normalizedCaseId]
+      .filter((value): value is string => Boolean(value))
+      .filter((value, index, values) => values.indexOf(value) === index);
+    const caseRefs = caseIds.map((value) =>
+      adminDb.collection(CASES_COLLECTION).doc(value),
+    );
+    const caseSnapshots = await Promise.all(
+      caseRefs.map((reference) => transaction.get(reference)),
+    );
+    const caseSnapshotById = new Map(
+      caseSnapshots.map((snapshot) => [snapshot.id, snapshot]),
+    );
+    const nextCaseSnapshot = normalizedCaseId
+      ? caseSnapshotById.get(normalizedCaseId)
+      : null;
+    if (normalizedCaseId && !nextCaseSnapshot?.exists) {
+      throw new AdminRepositoryError("Selected 2PQ case was not found.", 404);
+    }
+
+    if (normalizedCaseId && nextCaseSnapshot?.exists) {
+      const candidate = caseDocumentToStudyRequestCandidate(
+        nextCaseSnapshot.id,
+        nextCaseSnapshot.data() as Record<string, unknown>,
+      );
+      if (
+        !canWriteWithdrawalCase(context, candidate) ||
+        !caseMatchesStudyRequestScope(candidate, latestStudyRequest)
+      ) {
+        throw new AdminRepositoryError(
+          "Selected 2PQ case must belong to the same institution, doctor, and patient.",
+          400,
+        );
+      }
+      if (
+        candidate.linkedStudyRequestFormId &&
+        candidate.linkedStudyRequestFormId !== normalizedFormId
+      ) {
+        throw new AdminRepositoryError(
+          `2PQ case ${normalizedCaseId} is already linked to study request form ${candidate.linkedStudyRequestFormId}.`,
+          409,
+        );
+      }
+    }
+
+    const now = new Date().toISOString();
+    if (previousCaseId && previousCaseId !== normalizedCaseId) {
+      const previousCaseSnapshot = caseSnapshotById.get(previousCaseId);
+      if (
+        previousCaseSnapshot?.exists &&
+        normalizeOptionalString(
+          previousCaseSnapshot.data()?.linkedStudyRequestFormId,
+        ) === normalizedFormId
+      ) {
+        transaction.set(
+          previousCaseSnapshot.ref,
+          {
+            linkedStudyRequestFormId: null,
+            updatedAt: now,
+            updatedByEmail: context.email,
+            updatedByUid: context.uid,
+          },
+          { merge: true },
+        );
+      }
+    }
+    if (normalizedCaseId && nextCaseSnapshot?.exists) {
+      transaction.set(
+        nextCaseSnapshot.ref,
+        {
+          linkedStudyRequestFormId: normalizedFormId,
+          updatedAt: now,
+          updatedByEmail: context.email,
+          updatedByUid: context.uid,
+        },
+        { merge: true },
+      );
+    }
+    transaction.set(
+      studyRequestRef,
+      {
+        "2pq_case": normalizedCaseId,
+        updatedAt: now,
+        updatedByEmail: context.email,
+        updatedByUid: context.uid,
+      },
+      { merge: true },
+    );
+  });
+
+  return getTwoPQFormForContext(context, normalizedFormId);
 }
 
 export async function updateTwoPQStudyRequestBiopsyLinkForContext(
@@ -4847,6 +5131,15 @@ export async function createTwoPQFormForContext(
             400,
           );
         }
+        if (
+          caseRecord.linkedStudyRequestFormId &&
+          caseRecord.linkedStudyRequestFormId !== linkedStudyRequestForm?.id
+        ) {
+          throw new AdminRepositoryError(
+            `Selected 2PQ case is already linked to study request form ${caseRecord.linkedStudyRequestFormId}.`,
+            409,
+          );
+        }
 
         linkedCaseId = caseRecord.id;
         patientIdForLinkedRecords =
@@ -4958,6 +5251,7 @@ export async function createTwoPQFormForContext(
             ...baseDocument,
             linkedBiopsyForm: null,
             linkedWithdrawalRequest: null,
+            "2pq_case": null,
             medicalInformation: normalizeMedicalInformation(
               payload.medicalInformation,
               payload.formType,
@@ -4992,6 +5286,22 @@ export async function createTwoPQFormForContext(
 
     const batch = adminDb.batch();
     batch.set(adminDb.collection(FORMS_COLLECTION).doc(formId), document);
+    if (
+      payload.formType === "sample" &&
+      linkedStudyRequestForm &&
+      linkedCaseId
+    ) {
+      batch.set(
+        adminDb.collection(FORMS_COLLECTION).doc(linkedStudyRequestForm.id),
+        {
+          "2pq_case": linkedCaseId,
+          updatedAt: now,
+          updatedByEmail: authorEmail,
+          updatedByUid: authorUid,
+        },
+        { merge: true },
+      );
+    }
     batch.delete(adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid));
     await batch.commit();
     claimedStudyRequestFormId = null;

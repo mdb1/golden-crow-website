@@ -445,7 +445,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     jest.useRealTimers();
   });
 
-  it("initializes both study-request backlink fields as null", async () => {
+  it("initializes the study-request relationship fields as null", async () => {
     const { createTwoPQFormForContext } =
       await import("../repositories/two-pq-forms.repository");
 
@@ -480,10 +480,12 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       id: "FORM-00041",
       linkedBiopsyForm: null,
       linkedWithdrawalRequest: null,
+      "2pq_case": null,
     });
     expect(mockDocs.get("2pq_forms/FORM-00041")).toMatchObject({
       linkedBiopsyForm: null,
       linkedWithdrawalRequest: null,
+      "2pq_case": null,
     });
   });
 
@@ -934,6 +936,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     expect(form.id).toBe("FORM-00041");
     expect(mockDocs.get("2pq_forms/FORM-00040")).toMatchObject({
       linkedBiopsyForm: "FORM-00041",
+      "2pq_case": "case-created",
     });
     expect(mockDocs.get("2pq_forms/FORM-00041")).toMatchObject({
       formType: "sample",
@@ -1019,6 +1022,72 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     expect(mockDocs.get("2pq_forms/FORM-00042")).toMatchObject({
       linkedStudyRequestFormId: null,
       studyRequestForm: null,
+    });
+  });
+
+  it("atomically replaces and removes the single 2PQ case link", async () => {
+    const {
+      listTwoPQStudyRequestCaseCandidatesForContext,
+      updateTwoPQStudyRequestCaseLinkForContext,
+    } = await import("../repositories/two-pq-forms.repository");
+    mockDocs.set("2pq_forms/FORM-00031", {
+      ...mockDocs.get("2pq_forms/FORM-00031"),
+      selectedPatientId: "patient-1",
+      "2pq_case": "case-a",
+    });
+    mockDocs.set("2pq_case/case-c", {
+      institutionId: "inst-1",
+      doctorId: "doctor-1",
+      patientId: "patient-1",
+      three_letter_code: "ghi",
+      caseLabel: "Caso Gamma",
+      caseStatus: "entered",
+      caseType: "PGT-A",
+      priority: "normal",
+      linkedStudyRequestFormId: null,
+      createdAt: "2026-08-31T14:00:00.000Z",
+      updatedAt: "2026-08-31T14:00:00.000Z",
+    });
+
+    const candidates = await listTwoPQStudyRequestCaseCandidatesForContext(
+      fullAdminContext,
+      "FORM-00031",
+      "Gamma",
+    );
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        id: "case-c",
+        three_letter_code: "GHI",
+        caseLabel: "Caso Gamma",
+      }),
+    ]);
+
+    const replaced = await updateTwoPQStudyRequestCaseLinkForContext(
+      fullAdminContext,
+      "FORM-00031",
+      "case-c",
+    );
+
+    expect(replaced["2pq_case"]).toBe("case-c");
+    expect(mockDocs.get("2pq_case/case-a")).toMatchObject({
+      linkedStudyRequestFormId: null,
+    });
+    expect(mockDocs.get("2pq_case/case-c")).toMatchObject({
+      linkedStudyRequestFormId: "FORM-00031",
+    });
+
+    const removed = await updateTwoPQStudyRequestCaseLinkForContext(
+      fullAdminContext,
+      "FORM-00031",
+      null,
+    );
+
+    expect(removed["2pq_case"]).toBeNull();
+    expect(mockDocs.get("2pq_forms/FORM-00031")).toMatchObject({
+      "2pq_case": null,
+    });
+    expect(mockDocs.get("2pq_case/case-c")).toMatchObject({
+      linkedStudyRequestFormId: null,
     });
   });
 
