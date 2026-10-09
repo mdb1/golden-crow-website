@@ -13,6 +13,7 @@ import type { TwoPQCaseStatusProgressReporter } from "./two-pq-case-status-opera
 import {
   createTwoPQCaseServiceTransaction,
   getTwoPQCaseLinkedServiceTransactionSnapshot,
+  linkTwoPQCaseServiceTransactionReport,
   type TwoPQStudyRequestFormSource,
 } from "./support-services.repository.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
@@ -1908,10 +1909,12 @@ export async function createTwoPQRecordForContext(
   }
 
   if (areaKey === "cases") {
+    const threeLetterCode =
+      caseThreeLetterCodeForServiceTransaction(writeDocument);
     try {
       await createTwoPQCaseServiceTransaction(context, {
         caseId: recordId,
-        threeLetterCode: caseThreeLetterCodeForServiceTransaction(writeDocument),
+        threeLetterCode,
         doctorEmail: linkedEntities.doctor.authEmail,
         requestedAtClient: now,
         studyRequestForm: studyRequestForm!,
@@ -1951,6 +1954,11 @@ export async function createTwoPQRecordForContext(
     );
     if (synchronized?.status === "synchronized") {
       writeDocument.stored_file_id = synchronized.storedFileId;
+      await linkTwoPQCaseServiceTransactionReport(context, {
+        caseId: recordId,
+        threeLetterCode:
+          caseThreeLetterCodeForServiceTransaction(writeDocument),
+      });
     }
   }
 

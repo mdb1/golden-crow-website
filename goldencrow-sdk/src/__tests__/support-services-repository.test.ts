@@ -5150,6 +5150,82 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
+  it("links the synchronized case report to its new 2PQ transaction exactly once", async () => {
+    seedLegacyTwoPQOffer();
+    const institutionalContext: AdminContext = {
+      ...context,
+      email: "lab@clinic.example",
+      uid: "lab-1",
+      role: "institution_laboratory_staff",
+      isBootstrap: false,
+      institutionId: "INST-00001",
+    };
+    const {
+      createTwoPQCaseServiceTransaction,
+      linkTwoPQCaseServiceTransactionReport,
+    } = await import("../repositories/support-services.repository.js");
+
+    await createTwoPQCaseServiceTransaction(institutionalContext, {
+      caseId: "CASE-00022",
+      threeLetterCode: "ABC",
+      doctorEmail: "doctor@clinic.example",
+      requestedAtClient: "2026-09-28T22:00:00.000Z",
+      studyRequestForm: twoPQStudyRequestForm(),
+    });
+    seedDoc("report_codes", "ABCXXX", {
+      owner_id: twoPQOwnerId,
+      uploaded_report_id: "uploaded-report-abc",
+    });
+    seedDoc("uploaded_reports", "uploaded-report-abc", {
+      report_code: "ABCXXX",
+      report_owner_id: twoPQOwnerId,
+      file_name: "ABCXXX",
+      provider_format: "2pq",
+      provider_name: "2pq",
+      tracking_progress_status: "document_ready",
+      download_url: null,
+      linked_file_id: "stored-case-abc",
+      upload_version_count: 1,
+    });
+    seedDoc("file_storage", "stored-case-abc", {
+      linked_report_code: "ABCXXX",
+      file_type: "2pq",
+      file_content: "{\"case\":\"CASE-00022\"}",
+    });
+
+    const linked = await linkTwoPQCaseServiceTransactionReport(
+      institutionalContext,
+      { caseId: "CASE-00022", threeLetterCode: "abc" },
+    );
+    const retried = await linkTwoPQCaseServiceTransactionReport(
+      institutionalContext,
+      { caseId: "CASE-00022", threeLetterCode: "ABC" },
+    );
+
+    expect(linked.report).toMatchObject({
+      reportCode: "ABCXXX",
+      uploadedReportId: "uploaded-report-abc",
+      linkedFileId: "stored-case-abc",
+      available: true,
+    });
+    expect(linked.transaction).toMatchObject({
+      requestId: "pgr_2pq_case_00022",
+      requestRevision: 2,
+      outputReports: [{ reportCode: "ABCXXX" }],
+    });
+    expect(retried.transaction).toMatchObject({
+      requestRevision: 2,
+      outputReports: [{ reportCode: "ABCXXX" }],
+    });
+    expect(
+      collectionStore("service_transactions").get("pgr_2pq_case_00022"),
+    ).toMatchObject({
+      requestRevision: 2,
+      outputReports: [{ reportCode: "ABCXXX" }],
+      updatedByEmail: "lab@clinic.example",
+    });
+  });
+
   it("recovers a missing case form link from a form linked to the same case", async () => {
     seedLegacyTwoPQOffer();
     seedDoc("2pq_case", "CASE-00053", {

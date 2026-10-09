@@ -7232,17 +7232,32 @@ export async function listSupportServiceLinkedReportCandidates(
   });
 }
 
-export async function attachSupportServiceTransactionOutputReport(
+type SupportServiceReportAttachmentPolicy = {
+  requireSupportServicesAccess: boolean;
+  allowExisting: boolean;
+  expectedOwnerId?: string;
+  assertTransaction?: (
+    transaction: SupportServiceTransactionRecord,
+  ) => void;
+};
+
+async function attachSupportServiceTransactionOutputReportWithPolicy(
   context: AdminContext,
   transactionId: string,
   reportCodeValue: string,
+  policy: SupportServiceReportAttachmentPolicy,
 ) {
-  const accessScope = requireSupportServicesAccess(context);
+  const accessScope = policy.requireSupportServicesAccess
+    ? requireSupportServicesAccess(context)
+    : undefined;
   const reportCode = normalizedLinkedReportCode(reportCodeValue);
   const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
+  const expectedOwnerId =
+    policy.expectedOwnerId ??
+    (accessScope?.kind === "publisher" ? context.uid : undefined);
 
   await adminDb.runTransaction(async (firestoreTransaction) => {
     const latestSnapshot = await firestoreTransaction.get(snapshot.ref);
@@ -7253,22 +7268,25 @@ export async function attachSupportServiceTransactionOutputReport(
       latestSnapshot.id,
       latestSnapshot.data() ?? {},
     );
-    assertSupportServicesRecordAccess(
-      accessScope,
-      latest,
-      "Service transaction not found.",
+    if (accessScope) {
+      assertSupportServicesRecordAccess(
+        accessScope,
+        latest,
+        "Service transaction not found.",
+      );
+    }
+    policy.assertTransaction?.(latest);
+
+    const alreadyLinked = latest.outputReports.some(
+      (candidate) => candidate.reportCode === reportCode,
     );
-    if (
-      latest.outputReports.some(
-        (candidate) => candidate.reportCode === reportCode,
-      )
-    ) {
+    if (alreadyLinked && !policy.allowExisting) {
       throw new AdminRepositoryError(
         `Report code ${reportCode} is already linked to this transaction.`,
         409,
       );
     }
-    if (latest.outputReports.length >= 50) {
+    if (!alreadyLinked && latest.outputReports.length >= 50) {
       throw new AdminRepositoryError(
         "A service transaction cannot link more than 50 reports.",
         409,
@@ -7278,8 +7296,11 @@ export async function attachSupportServiceTransactionOutputReport(
     await resolveSupportServiceLinkedReport(
       reportCode,
       (reference) => firestoreTransaction.get(reference),
-      accessScope.kind === "publisher" ? context.uid : undefined,
+      expectedOwnerId,
     );
+    if (alreadyLinked) {
+      return;
+    }
     firestoreTransaction.set(
       latestSnapshot.ref,
       {
@@ -7297,8 +7318,25 @@ export async function attachSupportServiceTransactionOutputReport(
     report: await resolveSupportServiceLinkedReport(
       reportCode,
       (reference) => reference.get(),
+      expectedOwnerId,
     ),
   };
+}
+
+export async function attachSupportServiceTransactionOutputReport(
+  context: AdminContext,
+  transactionId: string,
+  reportCodeValue: string,
+) {
+  return attachSupportServiceTransactionOutputReportWithPolicy(
+    context,
+    transactionId,
+    reportCodeValue,
+    {
+      requireSupportServicesAccess: true,
+      allowExisting: false,
+    },
+  );
 }
 
 export async function removeSupportServiceTransactionOutputReport(
@@ -8906,6 +8944,34 @@ export async function createTwoPQCaseServiceTransaction(
     );
     throw error;
   }
+}
+
+export async function linkTwoPQCaseServiceTransactionReport(
+  context: AdminContext,
+  input: {
+    caseId: string;
+    threeLetterCode: string;
+  },
+) {
+  const threeLetterCode = cleanString(input.threeLetterCode).toUpperCase();
+  if (!/^[A-Z]{3}$/.test(threeLetterCode)) {
+    throw new AdminRepositoryError(
+      "The 2PQ case must have a valid three-letter code before linking its report.",
+      400,
+    );
+  }
+
+  return attachSupportServiceTransactionOutputReportWithPolicy(
+    context,
+    twoPQCaseServiceTransactionRequestId(input.caseId),
+    `${threeLetterCode}XXX`,
+    {
+      requireSupportServicesAccess: false,
+      allowExisting: true,
+      expectedOwnerId: TWO_PQ_REPORT_OWNER_ID,
+      assertTransaction: assertCanonicalTwoPQCaseServiceTransaction,
+    },
+  );
 }
 
 type SupportServiceOutputAttachmentPolicy = {

@@ -13,6 +13,7 @@ const collections = new Map<string, Map<string, MockData>>();
 const mockCascadeTwoPQCaseStatusToSamplingChildren = jest.fn();
 const mockSynchronizeTwoPQCasesFilesAndCodes = jest.fn();
 const mockCreateTwoPQCaseServiceTransaction = jest.fn();
+const mockLinkTwoPQCaseServiceTransactionReport = jest.fn();
 
 const linkedStudyRequestForm = {
   id: "FORM-00041",
@@ -156,6 +157,8 @@ jest.mock("../repositories/two-pq-sampling-status.repository.js", () => ({
 jest.mock("../repositories/support-services.repository.js", () => ({
   createTwoPQCaseServiceTransaction:
     mockCreateTwoPQCaseServiceTransaction,
+  linkTwoPQCaseServiceTransactionReport:
+    mockLinkTwoPQCaseServiceTransactionReport,
 }));
 
 describe("2PQ case status update orchestration", () => {
@@ -164,6 +167,10 @@ describe("2PQ case status update orchestration", () => {
     jest.clearAllMocks();
     mockCreateTwoPQCaseServiceTransaction.mockResolvedValue({
       id: "pgr_2pq_case_00002",
+    });
+    mockLinkTwoPQCaseServiceTransactionReport.mockResolvedValue({
+      transaction: { id: "pgr_2pq_case_00002" },
+      report: { reportCode: "ABCXXX", available: true },
     });
     mockCascadeTwoPQCaseStatusToSamplingChildren.mockResolvedValue({
       caseId: "CASE-00001",
@@ -297,8 +304,17 @@ describe("2PQ case status update orchestration", () => {
     });
   });
 
-  it("creates the deferred service transaction before auto-syncing a new case", async () => {
+  it("creates the transaction before sync and links the synchronized report afterward", async () => {
     collectionStore("admin_sequences").set("2pq_case", { current: 1 });
+    mockSynchronizeTwoPQCasesFilesAndCodes.mockResolvedValueOnce([
+      {
+        status: "synchronized",
+        caseId: "CASE-00002",
+        storedFileId: "stored-case-2",
+        reportCode: "ABCXXX",
+        createdStoredFile: true,
+      },
+    ]);
     const { createTwoPQRecordForContext } = await import(
       "../repositories/two-pq.repository.js"
     );
@@ -343,6 +359,18 @@ describe("2PQ case status update orchestration", () => {
     ).toBeLessThan(
       mockSynchronizeTwoPQCasesFilesAndCodes.mock.invocationCallOrder[0]!,
     );
+    expect(mockLinkTwoPQCaseServiceTransactionReport).toHaveBeenCalledWith(
+      context,
+      {
+        caseId: "CASE-00002",
+        threeLetterCode: "ABC",
+      },
+    );
+    expect(
+      mockSynchronizeTwoPQCasesFilesAndCodes.mock.invocationCallOrder[0]!,
+    ).toBeLessThan(
+      mockLinkTwoPQCaseServiceTransactionReport.mock.invocationCallOrder[0]!,
+    );
     expect(collectionStore("2pq_case").get("CASE-00002")).toMatchObject({
       doctorId: "DOC-00001",
       institutionId: "INST-00001",
@@ -350,6 +378,7 @@ describe("2PQ case status update orchestration", () => {
       linkedStudyRequestFormId: "FORM-00041",
       should_automatically_sync_files_and_codes: true,
     });
+    expect(created.stored_file_id).toBe("stored-case-2");
   });
 
   it("rejects direct case creation without a linked study request", async () => {
@@ -419,5 +448,6 @@ describe("2PQ case status update orchestration", () => {
     ).rejects.toThrow("Configured 2PQ offer is unavailable");
     expect(collectionStore("2pq_case").has("CASE-00002")).toBe(false);
     expect(mockSynchronizeTwoPQCasesFilesAndCodes).not.toHaveBeenCalled();
+    expect(mockLinkTwoPQCaseServiceTransactionReport).not.toHaveBeenCalled();
   });
 });
