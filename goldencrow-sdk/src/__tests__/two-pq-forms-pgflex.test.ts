@@ -339,7 +339,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       code: "CN",
       address: "Av. Corrientes 123",
       city: "CABA",
-      state: "Buenos Aires",
+      state: "Capital Federal",
       country: "Argentina",
     });
     mockDocs.set("doctors/doctor-1", {
@@ -726,7 +726,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
         name: "Clinica Norte",
         address: "Av. Corrientes 123",
         city: "CABA",
-        state: "Buenos Aires",
+        state: "Capital Federal",
         country: "Argentina",
       },
     });
@@ -772,7 +772,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
         name: "Clinica Norte",
         address: "Av. Corrientes 123",
         city: "CABA",
-        state: "Buenos Aires",
+        state: "Capital Federal",
         country: "Argentina",
       },
     });
@@ -803,7 +803,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
           name: "Clinica Norte",
           address: "Av. Corrientes 123",
           city: "CABA",
-          state: "Buenos Aires",
+          state: "Capital Federal",
           country: "Argentina",
         },
       }),
@@ -834,7 +834,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
           name: "Clinica Norte",
           address: "Av. Corrientes 123",
           city: "CABA",
-          state: "Buenos Aires",
+          state: "Capital Federal",
           country: "Argentina",
         },
       }),

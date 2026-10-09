@@ -32,9 +32,9 @@ import { OptionSelectField } from "@/components/constrained-fields";
 import {
   PGFLEX_ROUTE_ORIGIN_COUNTRY,
   PGFlexRouteOriginFields,
+  normalizePGFlexRouteOriginProvinceDistrict,
   validatePGFlexRouteOriginParts,
   type PGFlexRouteOriginParts,
-  type PGFlexRouteOriginProvinceDistrict,
 } from "@/components/pgflex-route-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -652,37 +652,29 @@ function emptyInstitution(): InstitutionInformationFormState {
     contactPhone: "",
     address: "",
     city: "",
-    state: "",
-    country: "",
+    state: "Capital Federal",
+    country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
     notes: "",
   };
 }
 
-function withdrawalProvinceDistrictFromInstitutionState(
-  value: string,
-): PGFlexRouteOriginProvinceDistrict {
-  return value.trim() === "Provincia de Buenos Aires"
-    ? "Provincia de Buenos Aires"
-    : "Capital Federal";
-}
-
-function withdrawalOriginPartsFromInstitutionInformation(
+function pgflexOriginPartsFromInstitutionInformation(
   institutionInformation: InstitutionInformationFormState,
 ): PGFlexRouteOriginParts {
   return {
     address: institutionInformation.address,
     locality: institutionInformation.city,
-    provinceDistrict: withdrawalProvinceDistrictFromInstitutionState(
+    provinceDistrict: normalizePGFlexRouteOriginProvinceDistrict(
       institutionInformation.state,
     ),
     country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
   };
 }
 
-function institutionInformationWithWithdrawalAddressDefaults(
+function institutionInformationWithPGFlexAddressDefaults(
   institutionInformation: InstitutionInformationFormState,
 ): InstitutionInformationFormState {
-  const parts = withdrawalOriginPartsFromInstitutionInformation(
+  const parts = pgflexOriginPartsFromInstitutionInformation(
     institutionInformation,
   );
 
@@ -695,11 +687,11 @@ function institutionInformationWithWithdrawalAddressDefaults(
   };
 }
 
-function withWithdrawalInstitutionAddressDefaults(
+function withPGFlexInstitutionAddressDefaults(
   flowState: FlowState,
 ): FlowState {
   const institutionInformation =
-    institutionInformationWithWithdrawalAddressDefaults(
+    institutionInformationWithPGFlexAddressDefaults(
       flowState.institutionInformation,
     );
 
@@ -1707,16 +1699,14 @@ function validateStepFields(
         "Enter a valid institution contact email.",
       );
     }
-    if (formType === "withdrawal_request") {
-      const addressValidationMessage = validatePGFlexRouteOriginParts(
-        withdrawalOriginPartsFromInstitutionInformation(
-          flowState.institutionInformation,
-        ),
-      );
+    const addressValidationMessage = validatePGFlexRouteOriginParts(
+      pgflexOriginPartsFromInstitutionInformation(
+        flowState.institutionInformation,
+      ),
+    );
 
-      if (addressValidationMessage) {
-        errors["institutionInformation.address"] = t(addressValidationMessage);
-      }
+    if (addressValidationMessage) {
+      errors["institutionInformation.address"] = t(addressValidationMessage);
     }
   }
 
@@ -2358,8 +2348,8 @@ function institutionToFormState(
     contactPhone: institution.contactPhone ?? "",
     address: getInstitutionAddress(institution),
     city: institution.city ?? "",
-    state: institution.state ?? "",
-    country: institution.country ?? "",
+    state: normalizePGFlexRouteOriginProvinceDistrict(institution.state),
+    country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
     notes: institution.notes ?? "",
   };
 }
@@ -3060,10 +3050,10 @@ export function TwoPQFormFlow({
     );
 
     return institution
-      ? institutionInformationWithWithdrawalAddressDefaults(
+      ? institutionInformationWithPGFlexAddressDefaults(
           institutionToFormState(institution),
         )
-      : institutionInformationWithWithdrawalAddressDefaults({
+      : institutionInformationWithPGFlexAddressDefaults({
           ...emptyInstitution(),
           name: caseRecord.institutionName ?? "",
         });
@@ -3083,7 +3073,7 @@ export function TwoPQFormFlow({
         linkedWithdrawalCaseIds: linkedCaseIds,
         selectedInstitutionId: "",
         institutionInformation:
-          institutionInformationWithWithdrawalAddressDefaults(
+          institutionInformationWithPGFlexAddressDefaults(
             emptyInstitution(),
           ),
         patientInformation: {
@@ -3104,7 +3094,7 @@ export function TwoPQFormFlow({
       selectedInstitutionId: linkedCase.institutionId,
       institutionInformation: shouldLoadInstitutionSnapshot
         ? withdrawalInstitutionSnapshot(linkedCase)
-        : institutionInformationWithWithdrawalAddressDefaults(
+        : institutionInformationWithPGFlexAddressDefaults(
             flowState.institutionInformation,
           ),
       patientInformation: {
@@ -3151,7 +3141,9 @@ export function TwoPQFormFlow({
           scopedState,
           scopedState.linkedWithdrawalCaseIds,
         )
-      : scopedState;
+      : formType === "study_request"
+        ? withPGFlexInstitutionAddressDefaults(scopedState)
+        : scopedState;
   }, [
     cases,
     defaultDoctorId,
@@ -4856,8 +4848,8 @@ export function TwoPQFormFlow({
       formType,
     );
     const normalizedValidationState =
-      formType === "withdrawal_request"
-        ? withWithdrawalInstitutionAddressDefaults(normalizedWithObservations)
+      formType !== "sample"
+        ? withPGFlexInstitutionAddressDefaults(normalizedWithObservations)
         : normalizedWithObservations;
     if (normalizedValidationState !== state) {
       setState(normalizedValidationState);
@@ -4958,9 +4950,9 @@ export function TwoPQFormFlow({
         ? withDefaultObservations(state, formType)
         : state;
     const stateForValidation =
-      formType === "withdrawal_request" &&
+      formType !== "sample" &&
       currentStep === "institutionInformation"
-        ? withWithdrawalInstitutionAddressDefaults(baseStateForValidation)
+        ? withPGFlexInstitutionAddressDefaults(baseStateForValidation)
         : baseStateForValidation;
     const errors = validateStepFields(
       currentStep,
@@ -5093,8 +5085,8 @@ export function TwoPQFormFlow({
       formType,
     );
     const submissionState =
-      formType === "withdrawal_request"
-        ? withWithdrawalInstitutionAddressDefaults(submissionBaseState)
+      formType !== "sample"
+        ? withPGFlexInstitutionAddressDefaults(submissionBaseState)
         : submissionBaseState;
     if (submissionState !== state) {
       setState(submissionState);
@@ -6927,63 +6919,32 @@ export function TwoPQFormFlow({
                 updateInstitutionInformation({ contactPhone })
               }
             />
-            {formType === "withdrawal_request" ? (
-              <div className="md:col-span-2">
-                <PGFlexRouteOriginFields
-                  idPrefix="form-institution"
-                  legend={t("Withdrawal pickup address")}
-                  parts={withdrawalOriginPartsFromInstitutionInformation(
-                    state.institutionInformation,
-                  )}
-                  translate={t}
-                  onChange={(parts) =>
-                    updateInstitutionInformation({
-                      address: parts.address,
-                      city: parts.locality,
-                      state: parts.provinceDistrict,
-                      country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
-                    })
-                  }
-                />
-                <FieldError
-                  id="form-institution-address-error"
-                  message={errorFor("institutionInformation.address")}
-                />
-              </div>
-            ) : (
-              <>
-                <Field
-                  id="form-institution-address"
-                  label={t("Address")}
-                  value={state.institutionInformation.address}
-                  onChange={(address) =>
-                    updateInstitutionInformation({ address })
-                  }
-                />
-                <Field
-                  id="form-institution-city"
-                  label={t("City")}
-                  value={state.institutionInformation.city}
-                  onChange={(city) => updateInstitutionInformation({ city })}
-                />
-                <Field
-                  id="form-institution-state"
-                  label={t("State / region")}
-                  value={state.institutionInformation.state}
-                  onChange={(stateValue) =>
-                    updateInstitutionInformation({ state: stateValue })
-                  }
-                />
-                <Field
-                  id="form-institution-country"
-                  label={t("Country")}
-                  value={state.institutionInformation.country}
-                  onChange={(country) =>
-                    updateInstitutionInformation({ country })
-                  }
-                />
-              </>
-            )}
+            <div className="md:col-span-2">
+              <PGFlexRouteOriginFields
+                idPrefix="form-institution"
+                legend={
+                  formType === "withdrawal_request"
+                    ? t("Withdrawal pickup address")
+                    : t("Institution address")
+                }
+                parts={pgflexOriginPartsFromInstitutionInformation(
+                  state.institutionInformation,
+                )}
+                translate={t}
+                onChange={(parts) =>
+                  updateInstitutionInformation({
+                    address: parts.address,
+                    city: parts.locality,
+                    state: parts.provinceDistrict,
+                    country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
+                  })
+                }
+              />
+              <FieldError
+                id="form-institution-address-error"
+                message={errorFor("institutionInformation.address")}
+              />
+            </div>
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-institution-notes"

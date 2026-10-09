@@ -128,9 +128,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Transport dispatcher email": "Email del transportista",
   Origin: "Origen",
   "Withdrawal pickup address": "Dirección de retiro",
+  "Institution address": "Dirección de la institución",
   "Neighborhood / Locality": "Barrio / Localidad",
   "Province / District": "Provincia / Distrito",
   "Buenos Aires Province": "Provincia de Buenos Aires",
+  "Province / district must be Capital Federal or Provincia de Buenos Aires.":
+    "La provincia / distrito debe ser Capital Federal o Provincia de Buenos Aires.",
+  "Country must be Argentina.": "El país debe ser Argentina.",
   Destination: "Destino",
   "Route preview": "Vista del recorrido",
   "Route preview map": "Mapa de vista del recorrido",

@@ -15,6 +15,7 @@ import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import { sendInformedConsentEmail } from "../lib/informed-consent-email.js";
 import { sendPGFlexLogisticsAssignmentEmail } from "../lib/pgflex-dispatcher-email.js";
 import { formatPGFlexReadableDateTime } from "../lib/pgflex-readable-date.js";
+import { normalizePGFlexInstitutionAddress } from "../lib/pgflex-address.js";
 import {
   canCreatePatient,
   canViewDoctor,
@@ -1032,16 +1033,18 @@ function buildPatientAdditionalInformation(
 }
 
 function normalizeInstitutionInformation(input: InstitutionInformationInput) {
+  const normalizedAddress = normalizePGFlexInstitutionAddress(input);
+  if (!normalizedAddress.ok) {
+    throw new AdminRepositoryError(normalizedAddress.message, 400);
+  }
+
   return compactRecord({
     code: normalizeOptionalString(input.code),
     name: normalizeRequiredString(input.name, "Institution name"),
     legalName: normalizeOptionalString(input.legalName),
     contactEmail: normalizeOptionalEmail(input.contactEmail),
     contactPhone: normalizeOptionalString(input.contactPhone),
-    address: normalizeOptionalString(input.address),
-    city: normalizeOptionalString(input.city),
-    state: normalizeOptionalString(input.state),
-    country: normalizeOptionalString(input.country),
+    ...normalizedAddress.value,
     notes: normalizeOptionalString(input.notes),
   });
 }

@@ -16,6 +16,7 @@ import {
   provisionPatientFirebaseAccount,
 } from "../lib/patient-portal-credentials.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
+import { normalizePGFlexInstitutionAddress } from "../lib/pgflex-address.js";
 import {
   canCreateDoctor,
   canCreateInstitution,
@@ -71,6 +72,19 @@ const SEQUENCE_CONFIG: Record<
 
 function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function requirePGFlexInstitutionAddress(input: {
+  address?: unknown;
+  city?: unknown;
+  state?: unknown;
+  country?: unknown;
+}) {
+  const result = normalizePGFlexInstitutionAddress(input);
+  if (!result.ok) {
+    throw new AdminRepositoryError(result.message, 400);
+  }
+  return result.value;
 }
 
 function normalizeTemporaryPassword(value: unknown) {
@@ -713,6 +727,7 @@ export async function createInstitutionForContext(
 
   const institutionId = await getNextEntityId("institution");
   const now = new Date().toISOString();
+  const address = requirePGFlexInstitutionAddress(payload);
   const document = {
     id: institutionId,
     code: normalizeOptionalString(payload.code) ?? institutionId,
@@ -721,10 +736,7 @@ export async function createInstitutionForContext(
     contactEmail:
       normalizeOptionalString(payload.contactEmail)?.toLowerCase() ?? null,
     contactPhone: normalizeOptionalString(payload.contactPhone) ?? null,
-    address: normalizeOptionalString(payload.address) ?? null,
-    city: normalizeOptionalString(payload.city) ?? null,
-    state: normalizeOptionalString(payload.state) ?? null,
-    country: normalizeOptionalString(payload.country) ?? null,
+    ...address,
     notes: normalizeOptionalString(payload.notes) ?? null,
     createdAt: now,
     updatedAt: now,
@@ -882,6 +894,22 @@ export async function updateInstitutionForContext(
     throw new AdminRepositoryError("You cannot edit this institution.", 403);
   }
 
+  const updatesAddress = (
+    ["address", "city", "state", "country"] as const
+  ).some((key) => hasOwnKey(payload, key));
+  const address = updatesAddress
+    ? requirePGFlexInstitutionAddress({
+        address: hasOwnKey(payload, "address")
+          ? payload.address
+          : institution.address,
+        city: hasOwnKey(payload, "city") ? payload.city : institution.city,
+        state: hasOwnKey(payload, "state") ? payload.state : institution.state,
+        country: hasOwnKey(payload, "country")
+          ? payload.country
+          : institution.country,
+      })
+    : null;
+
   const document = {
     ...institution,
     code: hasOwnKey(payload, "code")
@@ -899,20 +927,12 @@ export async function updateInstitutionForContext(
     contactPhone: hasOwnKey(payload, "contactPhone")
       ? (normalizeOptionalString(payload.contactPhone) ?? null)
       : (institution.contactPhone ?? null),
-    address: hasOwnKey(payload, "address")
-      ? (normalizeOptionalString(payload.address) ?? null)
-      : (institution.address ?? null),
+    address: address?.address ?? institution.address ?? null,
     addressLine1: FieldValue.delete(),
     addressLine2: FieldValue.delete(),
-    city: hasOwnKey(payload, "city")
-      ? (normalizeOptionalString(payload.city) ?? null)
-      : (institution.city ?? null),
-    state: hasOwnKey(payload, "state")
-      ? (normalizeOptionalString(payload.state) ?? null)
-      : (institution.state ?? null),
-    country: hasOwnKey(payload, "country")
-      ? (normalizeOptionalString(payload.country) ?? null)
-      : (institution.country ?? null),
+    city: address?.city ?? institution.city ?? null,
+    state: address?.state ?? institution.state ?? null,
+    country: address?.country ?? institution.country ?? null,
     notes: hasOwnKey(payload, "notes")
       ? (normalizeOptionalString(payload.notes) ?? null)
       : (institution.notes ?? null),

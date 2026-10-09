@@ -9,6 +9,13 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { DoctorDeleteDialog } from "@/components/areas/doctor-delete-dialog";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import {
+  PGFLEX_ROUTE_ORIGIN_COUNTRY,
+  PGFlexRouteOriginFields,
+  normalizePGFlexRouteOriginProvinceDistrict,
+  validatePGFlexRouteOriginParts,
+  type PGFlexRouteOriginParts,
+} from "@/components/pgflex-route-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,9 +59,20 @@ function toInstitutionFormState(institution?: InstitutionRecord | null): Institu
     contactPhone: institution?.contactPhone ?? "",
     address: getInstitutionAddress(institution),
     city: institution?.city ?? "",
-    state: institution?.state ?? "",
-    country: institution?.country ?? "",
+    state: normalizePGFlexRouteOriginProvinceDistrict(institution?.state),
+    country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
     notes: institution?.notes ?? "",
+  };
+}
+
+function institutionAddressParts(
+  state: InstitutionFormState,
+): PGFlexRouteOriginParts {
+  return {
+    address: state.address,
+    locality: state.city,
+    provinceDistrict: normalizePGFlexRouteOriginProvinceDistrict(state.state),
+    country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
   };
 }
 
@@ -78,6 +96,7 @@ export function InstitutionWorkbench({
   );
   const [pending, setPending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
 
   const sourceState = useMemo(
     () => toInstitutionFormState(detail?.institution),
@@ -126,6 +145,17 @@ export function InstitutionWorkbench({
       return;
     }
 
+    const addressParts = institutionAddressParts(state);
+    const addressValidationMessage =
+      validatePGFlexRouteOriginParts(addressParts);
+    if (addressValidationMessage) {
+      const message = t(addressValidationMessage);
+      setAddressError(message);
+      setToast({ id: Date.now(), tone: "error", message });
+      return;
+    }
+    setAddressError(null);
+
     setPending(true);
 
     try {
@@ -135,10 +165,10 @@ export function InstitutionWorkbench({
         legalName: state.legalName,
         contactEmail: state.contactEmail,
         contactPhone: state.contactPhone,
-        address: state.address,
-        city: state.city,
-        state: state.state,
-        country: state.country,
+        address: addressParts.address,
+        city: addressParts.locality,
+        state: addressParts.provinceDistrict,
+        country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
         notes: state.notes,
       };
 
@@ -223,7 +253,10 @@ export function InstitutionWorkbench({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setState(sourceState)}
+              onClick={() => {
+                setState(sourceState);
+                setAddressError(null);
+              }}
               disabled={!changed || pending}
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -308,49 +341,33 @@ export function InstitutionWorkbench({
               disabled={!isEditable}
             />
           </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="institution-address">{t("Address")}</Label>
-            <Input
-              id="institution-address"
-              value={state.address}
-              onChange={(event) =>
-                setState((current) => ({ ...current, address: event.target.value }))
-              }
+          <div className="md:col-span-2">
+            <PGFlexRouteOriginFields
+              idPrefix="institution"
+              legend={t("Institution address")}
+              parts={institutionAddressParts(state)}
+              translate={t}
               disabled={!isEditable}
+              onChange={(parts) => {
+                setAddressError(null);
+                setState((current) => ({
+                  ...current,
+                  address: parts.address,
+                  city: parts.locality,
+                  state: parts.provinceDistrict,
+                  country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
+                }));
+              }}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="institution-city">{t("City")}</Label>
-            <Input
-              id="institution-city"
-              value={state.city}
-              onChange={(event) =>
-                setState((current) => ({ ...current, city: event.target.value }))
-              }
-              disabled={!isEditable}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="institution-state">{t("State / region")}</Label>
-            <Input
-              id="institution-state"
-              value={state.state}
-              onChange={(event) =>
-                setState((current) => ({ ...current, state: event.target.value }))
-              }
-              disabled={!isEditable}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="institution-country">{t("Country")}</Label>
-            <Input
-              id="institution-country"
-              value={state.country}
-              onChange={(event) =>
-                setState((current) => ({ ...current, country: event.target.value }))
-              }
-              disabled={!isEditable}
-            />
+            {addressError ? (
+              <p
+                id="institution-address-error"
+                role="alert"
+                className="mt-2 text-sm text-destructive"
+              >
+                {addressError}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="institution-notes">{t("Notes")}</Label>

@@ -65,8 +65,8 @@ describe("2PQ form patient email and institution defaults", () => {
       contactPhone: "+54 11 1234-5678",
       address: "",
       city: "",
-      state: "",
-      country: "",
+      state: "Capital Federal",
+      country: "Argentina",
       notes: "",
     });
     expect(state.patientInformation.institutionId).toBe(institution.id);

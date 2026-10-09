@@ -250,7 +250,7 @@ export function PGFlexRouteOriginFields({
   );
 }
 
-function provinceDistrictFromOriginPart(
+export function normalizePGFlexRouteOriginProvinceDistrict(
   value?: string,
 ): PGFlexRouteOriginProvinceDistrict {
   const normalized = value?.trim();
@@ -295,7 +295,7 @@ export function splitPGFlexRouteOrigin(origin: string): PGFlexRouteOriginParts {
   return {
     address: parts[0] ?? "",
     locality: parts[1] ?? "",
-    provinceDistrict: provinceDistrictFromOriginPart(parts[2]),
+    provinceDistrict: normalizePGFlexRouteOriginProvinceDistrict(parts[2]),
     country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
   };
 }

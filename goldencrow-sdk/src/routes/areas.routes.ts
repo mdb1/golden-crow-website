@@ -5,6 +5,10 @@ import {
 } from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
+import {
+  PGFLEX_ADDRESS_COUNTRY,
+  PGFLEX_ADDRESS_PROVINCE_DISTRICTS,
+} from "../lib/pgflex-address.js";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   createDoctorForContext,
@@ -31,6 +35,11 @@ import {
 } from "../repositories/doctor-deletion.repository.js";
 
 const ActiveStatusSchema = z.enum(["active", "inactive"]);
+const PGFlexAddressTextSchema = z.string().trim().min(3);
+const PGFlexAddressProvinceSchema = z.enum(
+  PGFLEX_ADDRESS_PROVINCE_DISTRICTS,
+);
+const PGFlexAddressCountrySchema = z.literal(PGFLEX_ADDRESS_COUNTRY);
 
 function sendDoctorDeletionStepError(
   request: FastifyRequest,
@@ -94,10 +103,10 @@ export async function areasRoutes(fastify: FastifyInstance): Promise<void> {
           legalName: z.string().optional(),
           contactEmail: z.string().optional(),
           contactPhone: z.string().optional(),
-          address: z.string().optional(),
-          city: z.string().optional(),
-          state: z.string().optional(),
-          country: z.string().optional(),
+          address: PGFlexAddressTextSchema,
+          city: PGFlexAddressTextSchema,
+          state: PGFlexAddressProvinceSchema,
+          country: PGFlexAddressCountrySchema,
           notes: z.string().optional(),
         }),
       },
@@ -166,10 +175,10 @@ export async function areasRoutes(fastify: FastifyInstance): Promise<void> {
           legalName: z.string().optional(),
           contactEmail: z.string().optional(),
           contactPhone: z.string().optional(),
-          address: z.string().optional(),
-          city: z.string().optional(),
-          state: z.string().optional(),
-          country: z.string().optional(),
+          address: PGFlexAddressTextSchema.optional(),
+          city: PGFlexAddressTextSchema.optional(),
+          state: PGFlexAddressProvinceSchema.optional(),
+          country: PGFlexAddressCountrySchema.optional(),
           notes: z.string().optional(),
         }),
       },

@@ -1,6 +1,10 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
+import {
+  PGFLEX_ADDRESS_COUNTRY,
+  PGFLEX_ADDRESS_PROVINCE_DISTRICTS,
+} from "../lib/pgflex-address.js";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   archiveTwoPQFormForContext,
@@ -132,10 +136,10 @@ const TwoPQInstitutionInformationSchema = z.object({
   legalName: z.string().optional(),
   contactEmail: z.string().optional(),
   contactPhone: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  country: z.string().optional(),
+  address: z.string().trim().min(3),
+  city: z.string().trim().min(3),
+  state: z.enum(PGFLEX_ADDRESS_PROVINCE_DISTRICTS),
+  country: z.literal(PGFLEX_ADDRESS_COUNTRY),
   notes: z.string().optional(),
 });
 
