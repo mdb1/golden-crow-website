@@ -3034,6 +3034,214 @@ function RequestedStudyTestSection({
   );
 }
 
+export function TwoPQFormStorageProgress({
+  wholeDataValidationReport,
+  storageProcessingSteps,
+  storageProcessingError,
+  storedFormId,
+  language,
+}: {
+  wholeDataValidationReport: WholeDataValidationReport | null;
+  storageProcessingSteps: FormStorageProcessingStep[];
+  storageProcessingError: string | null;
+  storedFormId: string | null;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const isStoragePhase = storageProcessingSteps.length > 0;
+  const completedCount = storageProcessingSteps.filter(
+    (step) => step.status === "success",
+  ).length;
+  const storagePercent =
+    storageProcessingSteps.length > 0
+      ? storedFormId
+        ? 100
+        : 10 + Math.round((completedCount / storageProcessingSteps.length) * 90)
+      : 0;
+  const currentStorageStep =
+    storageProcessingSteps.find((step) => step.status === "error") ??
+    storageProcessingSteps.find((step) => step.status === "running") ??
+    (storedFormId
+      ? [...storageProcessingSteps]
+          .reverse()
+          .find((step) => step.status === "success")
+      : storageProcessingSteps.find((step) => step.status === "pending")) ??
+    [...storageProcessingSteps]
+      .reverse()
+      .find((step) => step.status === "success");
+  const currentStorageStepIndex = currentStorageStep
+    ? storageProcessingSteps.findIndex(
+        (step) => step.id === currentStorageStep.id,
+      )
+    : -1;
+  const currentStatus: FormStorageProcessingStatus | undefined = isStoragePhase
+    ? storedFormId
+      ? "success"
+      : currentStorageStep?.status
+    : wholeDataValidationReport?.status;
+  const validationProgress =
+    wholeDataValidationReport?.status === "running" ? undefined : 10;
+  const visibleProgress = isStoragePhase ? storagePercent : validationProgress;
+  const isError = currentStatus === "error";
+  const isSuccess = currentStatus === "success";
+  const isRunning = currentStatus === "running";
+  const phaseLabel = isStoragePhase ? t("Phase 2") : t("Phase 1");
+  const currentTitle = isStoragePhase
+    ? storedFormId
+      ? `${t("Form")} ${storedFormId} ${t("stored.")}`
+      : (currentStorageStep?.label ?? t("2PQ form storage processing"))
+    : t("Whole data validation");
+  const currentDetail = isStoragePhase
+    ? storedFormId
+      ? t("stored. Redirecting to forms.")
+      : (currentStorageStep?.detail ?? t("Preparing the storage checklist."))
+    : wholeDataValidationReport?.status === "success"
+      ? t("Whole data validation passed.")
+      : wholeDataValidationReport?.status === "error"
+        ? t("Fix these issues before storage processing starts.")
+        : t("Running whole document validation.");
+
+  return (
+    <div className="mx-auto w-full max-w-2xl px-6 py-7 sm:px-8 sm:py-9">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/48 dark:text-indigo-50/55">
+          {phaseLabel}
+        </p>
+        <Badge
+          variant={
+            isSuccess
+              ? "success"
+              : isError
+                ? "destructive"
+                : isRunning
+                  ? "brand"
+                  : "outline"
+          }
+          className={
+            isRunning
+              ? "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-100"
+              : undefined
+          }
+        >
+          {t(currentStatus ?? "pending")}
+        </Badge>
+      </div>
+
+      <div className="mt-8">
+        <div className="flex items-end justify-between gap-5">
+          <div>
+            <p className="text-sm font-medium text-indigo-950/62 dark:text-indigo-50/66">
+              {t("Process progress")}
+            </p>
+            {isStoragePhase && currentStorageStepIndex >= 0 ? (
+              <p className="mt-1 text-xs text-indigo-950/45 dark:text-indigo-50/48">
+                {`${t("Step")} ${currentStorageStepIndex + 1} ${t("of")} ${storageProcessingSteps.length}`}
+              </p>
+            ) : null}
+          </div>
+          <p className="font-heading text-4xl font-semibold tabular-nums text-indigo-950 dark:text-indigo-50">
+            {visibleProgress === undefined
+              ? t("Validating")
+              : `${visibleProgress}%`}
+          </p>
+        </div>
+        <div
+          role="progressbar"
+          aria-label={t("Process progress")}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={visibleProgress}
+          aria-valuetext={
+            visibleProgress === undefined
+              ? t("Running whole document validation.")
+              : undefined
+          }
+          className="mt-5 h-4 overflow-hidden rounded-full bg-indigo-100/85 ring-1 ring-inset ring-indigo-950/5 dark:bg-indigo-950/52 dark:ring-indigo-50/8"
+        >
+          <div
+            className={[
+              "h-full rounded-full transition-[width] duration-300",
+              isError
+                ? "bg-red-500"
+                : "bg-[linear-gradient(90deg,rgba(79,70,229,0.96),rgba(14,165,233,0.94))]",
+              visibleProgress === undefined ? "w-2/5 animate-pulse" : "",
+            ].join(" ")}
+            style={
+              visibleProgress === undefined
+                ? undefined
+                : { width: `${visibleProgress}%` }
+            }
+          />
+        </div>
+      </div>
+
+      <div
+        key={isStoragePhase ? currentStorageStep?.id : "whole-validation"}
+        aria-live="polite"
+        className="mt-8 animate-in rounded-[1.35rem] border border-indigo-100 bg-white/82 px-5 py-5 shadow-[0_14px_38px_rgba(99,102,241,0.1)] fade-in-0 slide-in-from-bottom-2 duration-300 dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none"
+      >
+        <div className="flex gap-4">
+          <div
+            className={[
+              "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border",
+              isSuccess
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-200"
+                : isError
+                  ? "border-red-200 bg-red-50 text-red-700 dark:border-red-300/20 dark:bg-red-400/10 dark:text-red-200"
+                  : isRunning
+                    ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-300/20 dark:bg-indigo-400/10 dark:text-indigo-200"
+                    : "border-indigo-100 bg-white text-indigo-400 dark:border-indigo-300/16 dark:bg-indigo-950/20 dark:text-indigo-200/58",
+            ].join(" ")}
+          >
+            {isSuccess ? (
+              <CheckCircle2 className="h-5 w-5" />
+            ) : isError ? (
+              <CircleX className="h-5 w-5" />
+            ) : isRunning ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <CircleDashed className="h-5 w-5" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
+              {currentTitle}
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-indigo-950/66 dark:text-indigo-50/68">
+              {currentDetail}
+            </p>
+
+            {storageProcessingError ? (
+              <p className="mt-4 border-t border-red-200 pt-4 text-sm leading-6 text-red-700 dark:border-red-300/18 dark:text-red-200">
+                {storageProcessingError}
+              </p>
+            ) : null}
+
+            {!isStoragePhase &&
+            wholeDataValidationReport?.status === "error" ? (
+              <ul className="mt-4 space-y-3 border-t border-red-200 pt-4 dark:border-red-300/18">
+                {wholeDataValidationReport.issues.map((issue) => (
+                  <li
+                    key={issue.id}
+                    className="text-sm text-red-800 dark:text-red-100"
+                  >
+                    <p className="font-semibold">
+                      {issue.stepLabel} / {issue.fieldLabel}
+                    </p>
+                    <p className="mt-1 text-red-800/72 dark:text-red-100/72">
+                      {issue.message}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TwoPQFormFlow({
   formType,
   institutions,
@@ -4051,31 +4259,6 @@ export function TwoPQFormFlow({
     [language, stepIndex, steps.length],
   );
   const restoredFromDraft = Boolean(matchingDraft);
-  const storageProcessingCompletedCount = storageProcessingSteps.filter(
-    (step) => step.status === "success",
-  ).length;
-  const storageProcessingBlockedCount = storageProcessingSteps.filter(
-    (step) => step.status === "error",
-  ).length;
-  const storageProcessingPendingCount = storageProcessingSteps.filter(
-    (step) => step.status === "pending",
-  ).length;
-  const storageProcessingPercent =
-    storageProcessingSteps.length > 0
-      ? storedFormId
-        ? 100
-        : Math.max(
-            pending ? 4 : 0,
-            Math.round(
-              (storageProcessingCompletedCount /
-                Math.max(storageProcessingSteps.length, 1)) *
-                100,
-            ),
-          )
-      : 0;
-  const runningStorageStep = storageProcessingSteps.find(
-    (step) => step.status === "running",
-  );
   const previewValidationSteps =
     formType === "sample"
       ? ([
@@ -5610,256 +5793,28 @@ export function TwoPQFormFlow({
       >
         <DialogContent
           showCloseButton={false}
-          className="h-[min(48rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] min-w-[80vw] w-[80vw] max-w-[96vw] sm:max-w-none grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(250,251,255,0.98),rgba(238,242,255,0.98)_54%,rgba(199,210,254,0.94))] p-0 text-indigo-950 shadow-[0_34px_120px_rgba(99,102,241,0.24)] dark:border-indigo-400/28 dark:[background:linear-gradient(150deg,rgba(17,24,39,0.98),rgba(30,27,75,0.96)_48%,rgba(79,70,229,0.22))] dark:text-indigo-50 dark:shadow-[0_30px_110px_rgba(49,46,129,0.38)]"
+          className="max-h-[calc(100vh-1.5rem)] w-[min(94vw,44rem)] max-w-[calc(100%-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[1.75rem] border border-indigo-100 bg-[linear-gradient(155deg,rgba(250,251,255,0.99),rgba(238,242,255,0.98))] p-0 text-indigo-950 shadow-[0_28px_90px_rgba(99,102,241,0.18)] sm:max-w-[44rem] dark:border-indigo-400/24 dark:bg-[linear-gradient(150deg,rgba(17,24,39,0.99),rgba(30,27,75,0.96))] dark:text-indigo-50 dark:shadow-[0_26px_80px_rgba(49,46,129,0.3)]"
         >
-          <DialogHeader className="relative border-b border-indigo-100 px-6 py-5 pr-16 dark:border-indigo-300/16">
-            <DialogTitle className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
+          <DialogHeader className="border-b border-indigo-100 px-6 py-5 dark:border-indigo-300/16">
+            <DialogTitle className="font-heading text-xl font-semibold text-indigo-950 dark:text-indigo-50">
               {t("2PQ form storage")}
             </DialogTitle>
-            <DialogDescription className="text-indigo-950/68 dark:text-indigo-50/72">
+            <DialogDescription className="sr-only">
               {t(
                 "Phase 1 validates the whole document. Phase 2 stores the scoped records and linked 2PQ entities.",
               )}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 overflow-y-auto px-6 py-5">
-            <div
-              className={[
-                "grid gap-5",
-                wholeDataValidationReport && storageProcessingSteps.length > 0
-                  ? "xl:grid-cols-[minmax(24rem,0.85fr)_minmax(42rem,1.35fr)] xl:items-start"
-                  : "",
-              ].join(" ")}
-            >
-              {wholeDataValidationReport ? (
-                <div className="rounded-[1.5rem] border border-indigo-100 bg-white/78 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-950/52 dark:text-indigo-50/58">
-                        {t("Phase 1")}
-                      </p>
-                      <h3 className="mt-2 font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
-                        {t("Whole data validation")}
-                      </h3>
-                      <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/72">
-                        {wholeDataValidationReport.status === "running"
-                          ? t(
-                              "Checking required fields, formats, linked records, and cross-step consistency.",
-                            )
-                          : wholeDataValidationReport.status === "success"
-                            ? t(
-                                "No missing or malformed data was found. Storage processing can continue.",
-                              )
-                            : t(
-                                "Fix these issues before storage processing starts.",
-                              )}
-                      </p>
-                    </div>
-                    <Badge
-                      variant={
-                        wholeDataValidationReport.status === "success"
-                          ? "success"
-                          : wholeDataValidationReport.status === "error"
-                            ? "destructive"
-                            : "brand"
-                      }
-                      className={
-                        wholeDataValidationReport.status === "running"
-                          ? "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-100"
-                          : undefined
-                      }
-                    >
-                      {t(wholeDataValidationReport.status)}
-                    </Badge>
-                  </div>
-
-                  {wholeDataValidationReport.status === "running" ? (
-                    <div className="mt-5 flex items-center gap-3 rounded-[1.15rem] border border-indigo-100 bg-indigo-50/70 px-4 py-4 text-sm text-indigo-950/72 dark:border-indigo-300/16 dark:bg-indigo-400/10 dark:text-indigo-50/72">
-                      <Loader2 className="h-4 w-4 animate-spin text-indigo-700 dark:text-indigo-200" />
-                      {t("Running whole document validation.")}
-                    </div>
-                  ) : null}
-
-                  {wholeDataValidationReport.status === "success" ? (
-                    <div className="mt-5 flex items-center gap-3 rounded-[1.15rem] border border-emerald-200 bg-emerald-50/75 px-4 py-4 text-sm text-emerald-900 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
-                      <CheckCircle2 className="h-4 w-4" />
-                      {t("Whole data validation passed.")}
-                    </div>
-                  ) : null}
-
-                  {wholeDataValidationReport.status === "error" ? (
-                    <div className="mt-5 grid gap-3">
-                      {wholeDataValidationReport.issues.map((issue, index) => (
-                        <div
-                          key={issue.id}
-                          className="rounded-[1.15rem] border border-red-200 bg-red-50/82 px-4 py-4 text-red-950 dark:border-red-300/22 dark:bg-red-950/22 dark:text-red-100"
-                        >
-                          <div className="flex gap-3">
-                            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-200 bg-white text-xs font-semibold text-red-700 dark:border-red-300/24 dark:bg-red-400/10 dark:text-red-100">
-                              {index + 1}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-semibold">
-                                  {issue.stepLabel}
-                                </p>
-                                <span className="text-xs text-red-950/48 dark:text-red-100/54">
-                                  /
-                                </span>
-                                <p className="text-sm font-semibold">
-                                  {issue.fieldLabel}
-                                </p>
-                              </div>
-                              <p className="mt-1 text-sm text-red-950/72 dark:text-red-100/72">
-                                {issue.message}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {storageProcessingSteps.length > 0 ? (
-                <div className="space-y-5">
-                  <div className="rounded-[1.5rem] border border-indigo-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-950/52 dark:text-indigo-50/58">
-                          {t("Phase 2")}
-                        </p>
-                        <h3 className="mt-2 font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
-                          {t("2PQ form storage processing")}
-                        </h3>
-                        <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/72">
-                          {storageProcessingError
-                            ? t("Storage paused on the blocked checklist item.")
-                            : storedFormId
-                              ? `${t("Form")} ${storedFormId} ${t("stored. Redirecting to forms.")}`
-                              : runningStorageStep
-                                ? runningStorageStep.detail
-                                : t("Preparing the storage checklist.")}
-                        </p>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className="border-indigo-200 bg-white/72 text-indigo-950 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50"
-                      >
-                        {storageProcessingPercent}%
-                      </Badge>
-                    </div>
-                    <div className="mt-4 h-3 overflow-hidden rounded-full bg-indigo-100/90 dark:bg-indigo-950/50">
-                      <div
-                        className="h-full rounded-full bg-[linear-gradient(90deg,rgba(79,70,229,0.94),rgba(14,165,233,0.92))] transition-[width] duration-300"
-                        style={{ width: `${storageProcessingPercent}%` }}
-                      />
-                    </div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-3">
-                      <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
-                          {t("Completed")}
-                        </p>
-                        <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
-                          {storageProcessingCompletedCount}
-                        </p>
-                      </div>
-                      <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
-                          {t("Pending")}
-                        </p>
-                        <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
-                          {storageProcessingPendingCount}
-                        </p>
-                      </div>
-                      <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
-                          {t("Blocked")}
-                        </p>
-                        <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
-                          {storageProcessingBlockedCount}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {storageProcessingError ? (
-                    <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
-                      {storageProcessingError}
-                    </div>
-                  ) : null}
-
-                  <div className="grid gap-3 2xl:grid-cols-2">
-                    {storageProcessingSteps.map((step, index) => (
-                      <div
-                        key={step.id}
-                        className="rounded-[1.25rem] border border-indigo-100 bg-white/76 px-4 py-4 shadow-[0_12px_30px_rgba(224,231,255,0.58)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none"
-                      >
-                        <div className="flex gap-3">
-                          <div
-                            className={[
-                              "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border",
-                              step.status === "success"
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-200"
-                                : step.status === "error"
-                                  ? "border-red-200 bg-red-50 text-red-700 dark:border-red-300/20 dark:bg-red-400/10 dark:text-red-200"
-                                  : step.status === "running"
-                                    ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-300/20 dark:bg-indigo-400/10 dark:text-indigo-200"
-                                    : "border-indigo-100 bg-white text-indigo-400 dark:border-indigo-300/16 dark:bg-indigo-950/20 dark:text-indigo-200/58",
-                            ].join(" ")}
-                          >
-                            {step.status === "success" ? (
-                              <CheckCircle2 className="h-4 w-4" />
-                            ) : step.status === "error" ? (
-                              <CircleX className="h-4 w-4" />
-                            ) : step.status === "running" ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <CircleDashed className="h-4 w-4" />
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-heading text-sm font-semibold text-indigo-950 dark:text-indigo-50">
-                                {step.label}
-                              </p>
-                              <Badge
-                                variant={
-                                  step.status === "success"
-                                    ? "success"
-                                    : step.status === "error"
-                                      ? "destructive"
-                                      : step.status === "running"
-                                        ? "brand"
-                                        : "outline"
-                                }
-                                className={
-                                  step.status === "running"
-                                    ? "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-100"
-                                    : undefined
-                                }
-                              >
-                                {t(step.status)}
-                              </Badge>
-                              <span className="font-mono text-xs text-indigo-950/46 dark:text-indigo-50/48">
-                                {String(index + 1).padStart(2, "0")}
-                              </span>
-                            </div>
-                            <p className="mt-1 text-sm text-indigo-950/64 dark:text-indigo-50/66">
-                              {step.detail}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
+          <div className="min-h-0 overflow-y-auto">
+            <TwoPQFormStorageProgress
+              wholeDataValidationReport={wholeDataValidationReport}
+              storageProcessingSteps={storageProcessingSteps}
+              storageProcessingError={storageProcessingError}
+              storedFormId={storedFormId}
+              language={language}
+            />
           </div>
-
           {wholeDataValidationReport?.status === "error" ||
           storageProcessingError ? (
             <DialogFooter className="gap-3 border-indigo-100/90 bg-white/55 px-6 py-5 dark:border-indigo-300/14 dark:bg-indigo-950/16">
