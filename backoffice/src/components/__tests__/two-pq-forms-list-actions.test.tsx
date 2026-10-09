@@ -224,12 +224,7 @@ describe("TwoPQFormsList actions", () => {
     expect(linkedCaseCell).toHaveTextContent("KIMXXX");
     expect(linkedCaseCell).not.toHaveTextContent("CASE-00025");
     expect(linkedCaseCell).toHaveClass("border-emerald-200/90");
-    expect(
-      screen.queryByRole("link", { name: "Complete biopsy form" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Complete withdrawal form" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Complete")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Apply filters" }));
 
@@ -260,12 +255,20 @@ describe("TwoPQFormsList actions", () => {
       "data-state",
       "empty",
     );
-    expect(
-      screen.getByRole("link", { name: "Complete biopsy form" }),
-    ).toHaveAttribute(
+    const biopsySegment = screen.getByLabelText("Biopsy: Not linked");
+    const biopsyAction = within(biopsySegment).getByRole("link", {
+      name: "Complete Biopsy",
+    });
+    expect(biopsyAction).toHaveTextContent(/^Complete$/);
+    expect(biopsyAction).toHaveAttribute(
       "href",
       "/2pq-dashboard/forms/sample/new?studyRequestFormId=FORM-00001",
     );
+    expect(
+      within(screen.getByLabelText("Withdrawal: Not linked")).queryByRole(
+        "link",
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it("links a study and biopsy row to a prefilled withdrawal form", () => {
@@ -294,9 +297,12 @@ describe("TwoPQFormsList actions", () => {
       "data-state",
       "empty",
     );
-    expect(
-      screen.getByRole("link", { name: "Complete withdrawal form" }),
-    ).toHaveAttribute(
+    const withdrawalSegment = screen.getByLabelText("Withdrawal: Not linked");
+    const withdrawalAction = within(withdrawalSegment).getByRole("link", {
+      name: "Complete Withdrawal",
+    });
+    expect(withdrawalAction).toHaveTextContent(/^Complete$/);
+    expect(withdrawalAction).toHaveAttribute(
       "href",
       "/2pq-dashboard/forms/withdrawal-request/new?studyRequestFormId=FORM-00001&caseId=CASE-00025",
     );

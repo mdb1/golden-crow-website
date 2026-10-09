@@ -198,14 +198,14 @@ function CoJoinedFormSequence({
   ];
   const nextAction = !linkedBiopsyFormId && !linkedWithdrawalRequestId
     ? {
-        label: t("Complete biopsy form"),
+        stepNumber: 2,
         href: `/2pq-dashboard/forms/sample/new?${new URLSearchParams({
           studyRequestFormId: form.id,
         }).toString()}`,
       }
     : linkedBiopsyFormId && !linkedWithdrawalRequestId
       ? {
-          label: t("Complete withdrawal form"),
+          stepNumber: 3,
           href: `/2pq-dashboard/forms/withdrawal-request/new?${new URLSearchParams({
             studyRequestFormId: form.id,
             ...(form["2pq_case"] ? { caseId: form["2pq_case"] } : {}),
@@ -221,8 +221,9 @@ function CoJoinedFormSequence({
       <div className="grid grid-cols-3 gap-1">
         {steps.map((step, index) => {
           const isLinked = Boolean(step.formId);
+          const isNextAction = nextAction?.stepNumber === step.number;
           const segmentClass = cn(
-            "flex min-h-20 min-w-0 flex-col items-center justify-center px-5 py-3 text-center outline-none transition-[filter,transform] focus-visible:brightness-110 sm:min-h-24 sm:px-8",
+            "flex min-h-20 min-w-0 flex-col items-center justify-center px-2 py-3 text-center outline-none transition-[filter,transform] focus-visible:brightness-110 sm:min-h-24 sm:px-4 lg:px-8",
             isLinked
               ? "bg-emerald-600 text-white shadow-[0_8px_22px_rgba(5,150,105,0.2)] hover:bg-emerald-500 active:scale-[0.99] dark:bg-emerald-500 dark:hover:bg-emerald-400"
               : "cursor-default bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300",
@@ -253,6 +254,15 @@ function CoJoinedFormSequence({
               >
                 {step.formId ?? t("Not linked")}
               </span>
+              {isNextAction ? (
+                <Link
+                  href={nextAction.href}
+                  aria-label={`${t("Complete")} ${step.label}`}
+                  className="mt-2 inline-flex h-7 cursor-pointer items-center justify-center rounded-md bg-sky-600 px-2.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-2 dark:bg-sky-500 dark:hover:bg-sky-400 sm:h-8 sm:px-3 sm:text-xs"
+                >
+                  {t("Complete")}
+                </Link>
+              ) : null}
             </>
           );
 
@@ -281,34 +291,24 @@ function CoJoinedFormSequence({
           );
         })}
       </div>
-      {form["2pq_case"] || nextAction ? (
+      {form["2pq_case"] ? (
         <div className="flex flex-wrap items-center justify-end gap-2 px-2 pb-2 pt-3">
-          {form["2pq_case"] ? (
-            <Link
-              href={`/2pq-dashboard/cases/${encodeURIComponent(form["2pq_case"])}`}
-              aria-label={`${t("Open 2PQ case")} ${linkedCaseLabel ?? t("Case without a label")}`}
-              className="inline-flex max-w-full items-center gap-3 rounded-xl border border-emerald-200/90 bg-white/78 px-3 py-2 text-emerald-950 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 dark:border-emerald-300/20 dark:bg-emerald-950/24 dark:text-emerald-50 dark:hover:bg-emerald-950/36"
-            >
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-200">
-                <CheckCircle2 className="size-4" />
+          <Link
+            href={`/2pq-dashboard/cases/${encodeURIComponent(form["2pq_case"])}`}
+            aria-label={`${t("Open 2PQ case")} ${linkedCaseLabel ?? t("Case without a label")}`}
+            className="inline-flex max-w-full items-center gap-3 rounded-xl border border-emerald-200/90 bg-white/78 px-3 py-2 text-emerald-950 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 dark:border-emerald-300/20 dark:bg-emerald-950/24 dark:text-emerald-50 dark:hover:bg-emerald-950/36"
+          >
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-200">
+              <CheckCircle2 className="size-4" />
+            </span>
+            <span className="min-w-0 text-left">
+              <span className="block text-xs font-semibold">{t("Saved")}</span>
+              <span className="block truncate font-mono text-xs text-emerald-900/72 dark:text-emerald-100/72">
+                {linkedCaseLabel ?? t("Case without a label")}
               </span>
-              <span className="min-w-0 text-left">
-                <span className="block text-xs font-semibold">{t("Saved")}</span>
-                <span className="block truncate font-mono text-xs text-emerald-900/72 dark:text-emerald-100/72">
-                  {linkedCaseLabel ?? t("Case without a label")}
-                </span>
-              </span>
-              <ArrowRight className="size-3.5 shrink-0" />
-            </Link>
-          ) : null}
-          {nextAction ? (
-            <Button size="sm" asChild>
-              <Link href={nextAction.href}>
-                {nextAction.label}
-                <ArrowRight className="size-3.5" />
-              </Link>
-            </Button>
-          ) : null}
+            </span>
+            <ArrowRight className="size-3.5 shrink-0" />
+          </Link>
         </div>
       ) : null}
     </div>

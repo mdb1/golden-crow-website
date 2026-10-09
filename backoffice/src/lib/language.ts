@@ -859,7 +859,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to save the feed entry.": "No se pudo guardar la entrada del feed.",
   "Generic information": "Información general",
   "Feed setup": "Configuración del feed",
-  Complete: "Completo",
+  Complete: "Completar",
   Name: "Nombre",
   Type: "Tipo",
   Language: "Idioma",
