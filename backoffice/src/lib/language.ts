@@ -2956,6 +2956,24 @@ const SPANISH_TEXT: Record<string, string> = {
   "Form timeline": "Cronología del formulario",
   "Select linked study request form":
     "Seleccionar formulario de solicitud linkeado",
+  "0 available study requests": "0 solicitudes de estudio disponibles",
+  "No unlinked study requests":
+    "No hay solicitudes de estudio sin vincular",
+  "There are no study request forms available for a new biopsy. Create one or unlink an existing study request before continuing.":
+    "No hay formularios de solicitud de estudio disponibles para una nueva biopsia. Creá uno o desvinculá una solicitud existente antes de continuar.",
+  "Review study requests": "Revisar solicitudes de estudio",
+  "Available study requests": "Solicitudes de estudio disponibles",
+  "Select one row to reuse its patient, institution, doctor, and requested test information.":
+    "Seleccioná una fila para reutilizar la información del paciente, la institución, el médico y el test solicitado.",
+  "1 study request selected": "1 solicitud de estudio seleccionada",
+  "available study requests": "solicitudes de estudio disponibles",
+  "Requested study": "Estudio solicitado",
+  "Institution and doctor": "Institución y médico",
+  "Select study request": "Seleccionar solicitud de estudio",
+  "Email not provided": "Email no informado",
+  "Doctor not provided": "Médico no informado",
+  Available: "Disponible",
+  Selected: "Seleccionada",
   "Link study request form": "Vincular formulario de solicitud",
   "Use form": "Usar formulario",
   "as the linked study request.": "como solicitud de estudio linkeada.",
