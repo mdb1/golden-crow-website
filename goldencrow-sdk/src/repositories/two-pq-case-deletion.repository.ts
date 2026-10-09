@@ -1,4 +1,5 @@
 import {
+  FieldPath,
   FieldValue,
   type DocumentReference,
   type DocumentSnapshot,
@@ -15,6 +16,7 @@ const adminDb = adminDbFor("mydnamap");
 const CASES_COLLECTION = "2pq_case";
 const SAMPLINGS_COLLECTION = "2pq_sampling";
 const FORMS_COLLECTION = "2pq_forms";
+const TWO_PQ_CASE_FIELD_PATH = new FieldPath("2pq_case");
 const STATUS_OPERATIONS_COLLECTION = "2pq_case_status_operations";
 const SERVICE_TRANSACTIONS_COLLECTION = "service_transactions";
 const OBJECT_CODES_COLLECTION = "object_codes";
@@ -141,7 +143,9 @@ async function matchingFormDocuments(caseId: string) {
   const queries = [
     adminDb.collection(FORMS_COLLECTION).where("selectedCaseId", "==", caseId),
     adminDb.collection(FORMS_COLLECTION).where("linkedCaseId", "==", caseId),
-    adminDb.collection(FORMS_COLLECTION).where("2pq_case", "==", caseId),
+    adminDb
+      .collection(FORMS_COLLECTION)
+      .where(TWO_PQ_CASE_FIELD_PATH, "==", caseId),
     adminDb
       .collection(FORMS_COLLECTION)
       .where("linkedCaseIds", "array-contains", caseId),

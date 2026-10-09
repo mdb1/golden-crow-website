@@ -20,6 +20,20 @@ type MockQuery = {
   get: jest.Mock;
 };
 
+function mockFieldPathKey(fieldPath: unknown) {
+  if (typeof fieldPath === "string") {
+    return fieldPath;
+  }
+  if (
+    fieldPath &&
+    typeof fieldPath === "object" &&
+    Array.isArray((fieldPath as { segments?: unknown }).segments)
+  ) {
+    return (fieldPath as { segments: string[] }).segments.join(".");
+  }
+  return String(fieldPath).replace(/^`|`$/g, "");
+}
+
 const mockDocs = new Map<string, MockDocData>();
 const mockCollection = jest.fn((collectionName: string) =>
   makeQuery(collectionName),
@@ -144,10 +158,10 @@ function makeQuery(
   return {
     doc: (id: string) => makeDocRef(collectionName, id),
     where: jest.fn(
-      (fieldPath: string, operator: string, value: unknown): MockQuery => {
+      (fieldPath: unknown, operator: string, value: unknown): MockQuery => {
         const operation: MockQueryOperation = {
           type: "where",
-          fieldPath,
+          fieldPath: mockFieldPathKey(fieldPath),
           operator,
           value,
         };
@@ -614,6 +628,51 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
         timeRequested: "2026-08-31T15:45:00.000Z",
       },
     );
+  });
+
+  it("links every affected study and biopsy when 2pq_case is the available case relationship", async () => {
+    const { createTwoPQFormForContext } =
+      await import("../repositories/two-pq-forms.repository");
+    mockDocs.set("2pq_case/case-a", {
+      ...mockDocs.get("2pq_case/case-a"),
+      linkedStudyRequestFormId: null,
+    });
+    mockDocs.set("2pq_forms/FORM-00031", {
+      ...mockDocs.get("2pq_forms/FORM-00031"),
+      "2pq_case": "case-a",
+    });
+    mockDocs.set("2pq_forms/FORM-00038", {
+      ...mockDocs.get("2pq_forms/FORM-00038"),
+      linkedCaseId: null,
+      selectedCaseId: null,
+    });
+
+    await createTwoPQFormForContext(fullAdminContext, {
+      formType: "withdrawal_request",
+      linkedCaseIds: ["case-a"],
+      institutionInformation: {
+        name: "Clinica Norte",
+        address: "Av. Corrientes 123",
+        city: "Almagro",
+        state: "Capital Federal",
+        country: "Argentina",
+      },
+    });
+
+    expect(mockDocs.get("2pq_forms/FORM-00031")).toMatchObject({
+      linkedWithdrawalRequest: "FORM-00041",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00038")).toMatchObject({
+      studyRequestForm: "FORM-00031",
+      linkedStudyRequestFormId: "FORM-00031",
+      withdrawalRequest: "FORM-00041",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00032")).toMatchObject({
+      linkedWithdrawalRequest: null,
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00039")).toMatchObject({
+      withdrawalRequest: null,
+    });
   });
 
   it("resolves per-code form links for an existing withdrawal detail", async () => {

@@ -41,11 +41,17 @@ function documentSnapshot(collectionName: string, id: string) {
 
 function queryReference(
   collectionName: string,
-  field: string,
+  field: unknown,
   operator: string,
   value: unknown,
   limit = Number.POSITIVE_INFINITY,
 ) {
+  const fieldKey =
+    field &&
+    typeof field === "object" &&
+    Array.isArray((field as { segments?: unknown }).segments)
+      ? (field as { segments: string[] }).segments.join(".")
+      : String(field).replace(/^`|`$/g, "");
   return {
     limit: (nextLimit: number) =>
       queryReference(collectionName, field, operator, value, nextLimit),
@@ -53,8 +59,8 @@ function queryReference(
       const matching = [...store(collectionName).entries()]
         .filter(([, data]) =>
           operator === "array-contains"
-            ? Array.isArray(data[field]) && data[field].includes(value)
-            : data[field] === value,
+            ? Array.isArray(data[fieldKey]) && data[fieldKey].includes(value)
+            : data[fieldKey] === value,
         )
         .slice(0, limit)
         .map(([id]) => documentSnapshot(collectionName, id));
@@ -66,7 +72,7 @@ function queryReference(
 function collectionReference(name: string) {
   return {
     doc: (id: string) => documentReference(name, id),
-    where: (field: string, operator: string, value: unknown) =>
+    where: (field: unknown, operator: string, value: unknown) =>
       queryReference(name, field, operator, value),
   };
 }

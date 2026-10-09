@@ -1,3 +1,4 @@
+import { FieldPath } from "firebase-admin/firestore";
 import { adminAuthFor, adminDbFor } from "../config/firebase.js";
 
 // Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
@@ -43,6 +44,7 @@ import type {
 } from "../types/sdk.types.js";
 
 const FORMS_COLLECTION = "2pq_forms";
+const TWO_PQ_CASE_FIELD_PATH = new FieldPath("2pq_case");
 const FORM_DRAFTS_COLLECTION = "2pq-form-drafts";
 const CASES_COLLECTION = "2pq_case";
 const INSTITUTIONS_COLLECTION = "institutions";
@@ -1516,6 +1518,32 @@ async function formLinksForWithdrawalCases(
     );
     if (linkedStudyRequestFormId) {
       studyIdsByCase.get(snapshot.id)?.add(linkedStudyRequestFormId);
+    }
+  }
+
+  for (let index = 0; index < caseIds.length; index += 30) {
+    const chunk = caseIds.slice(index, index + 30);
+    if (chunk.length === 0) {
+      continue;
+    }
+    const snapshot = await adminDb
+      .collection(FORMS_COLLECTION)
+      .where(TWO_PQ_CASE_FIELD_PATH, "in", chunk)
+      .limit(100)
+      .get();
+    for (const document of snapshot.docs) {
+      const form = toTwoPQFormRecord(
+        document.id,
+        document.data() as Record<string, unknown>,
+      );
+      if (form.formType !== "study_request") {
+        continue;
+      }
+      const caseId = normalizeOptionalString(document.data()?.["2pq_case"]);
+      if (!caseId || !studyIdsByCase.has(caseId)) {
+        continue;
+      }
+      studyIdsByCase.get(caseId)?.add(form.id);
     }
   }
 
@@ -3334,7 +3362,7 @@ export async function updateTwoPQStudyRequestCaseLinkForContext(
   if (normalizedCaseId) {
     const conflictingLinks = await adminDb
       .collection(FORMS_COLLECTION)
-      .where("2pq_case", "==", normalizedCaseId)
+      .where(TWO_PQ_CASE_FIELD_PATH, "==", normalizedCaseId)
       .limit(2)
       .get();
     if (
