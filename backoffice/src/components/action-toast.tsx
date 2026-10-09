@@ -26,11 +26,13 @@ export function ActionToast({
   toast,
   onDismiss,
   onViewLog,
+  viewLogLabel,
   language = "en",
 }: {
   toast: ActionToastState | null;
   onDismiss: () => void;
   onViewLog?: (() => void) | null;
+  viewLogLabel?: string;
   language?: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
@@ -110,7 +112,7 @@ export function ActionToast({
                   onClick={handleViewLog}
                   className="h-8 border-destructive/25 bg-white/85 text-destructive hover:bg-destructive/5"
                 >
-                  {t("See full log")}
+                  {viewLogLabel ?? t("See full log")}
                 </Button>
               </div>
             ) : null}

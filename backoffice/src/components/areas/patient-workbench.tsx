@@ -96,6 +96,24 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function patientSaveErrorDetails(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "details" in error &&
+    typeof error.details === "string" &&
+    error.details.trim()
+  ) {
+    return error.details;
+  }
+
+  if (error instanceof Error) {
+    return error.stack ?? `${error.name}: ${error.message}`;
+  }
+
+  return String(error);
+}
+
 export function PatientWorkbench({
   detail,
   institutions,
@@ -290,11 +308,12 @@ export function PatientWorkbench({
         message: t("Patient changes saved."),
       });
       router.refresh();
-    } catch {
+    } catch (error) {
       setToast({
         id: Date.now(),
         tone: "error",
         message: mode === "create" ? t("Unable to create the patient.") : t("Unable to save the patient."),
+        details: patientSaveErrorDetails(error),
       });
     } finally {
       setPending(false);
@@ -458,7 +477,11 @@ export function PatientWorkbench({
 
   return (
     <div className="flex flex-col gap-5">
-      <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+      <ActionToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        viewLogLabel={t("Show log")}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>

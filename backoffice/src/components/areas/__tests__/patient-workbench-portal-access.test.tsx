@@ -154,6 +154,31 @@ describe("PatientWorkbench portal credentials", () => {
     ).toBeNull();
   });
 
+  it("shows the save error log when updating a patient fails", async () => {
+    const user = userEvent.setup();
+    const error = Object.assign(new Error("Patient update failed"), {
+      details:
+        "Request: PUT /areas/patients/PAT-00001\n\nStatus: 500\n\nResponse: database unavailable",
+    });
+    (sdkFetch as jest.Mock).mockRejectedValue(error);
+    renderWorkbench(detail({ accessGranted: false, credentialAvailable: false }));
+
+    const fullName = screen.getByLabelText("Full name");
+    await user.clear(fullName);
+    await user.type(fullName, "Updated Patient Name");
+    await user.click(screen.getByRole("button", { name: "Save patient" }));
+
+    expect(await screen.findByText("Unable to save the patient.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Show log" }));
+
+    expect(
+      await screen.findByRole("dialog", { name: "Action error log" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Response: database unavailable/),
+    ).toBeTruthy();
+  });
+
   it("reveals an existing temporary password only after the scoped request", async () => {
     const user = userEvent.setup();
     (sdkFetch as jest.Mock).mockResolvedValue({
