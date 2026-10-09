@@ -8141,6 +8141,189 @@ function positiveIntegerFromUnknown(value: unknown) {
   return Number.isInteger(number) && number > 0 ? number : undefined;
 }
 
+function normalizedPgoFormDate(value: unknown) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime())
+      ? undefined
+      : value.toISOString().slice(0, 10);
+  }
+
+  const timestampValue = optionalRecord(value);
+  if (typeof timestampValue.toDate === "function") {
+    try {
+      const converted = timestampValue.toDate();
+      if (converted instanceof Date && !Number.isNaN(converted.getTime())) {
+        return converted.toISOString().slice(0, 10);
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
+  const text = cleanString(value);
+  if (!text) {
+    return undefined;
+  }
+  if (isValidDateOnly(text)) {
+    return text;
+  }
+
+  const isoDate = text.match(/^(\d{4}-\d{2}-\d{2})T/);
+  if (isoDate?.[1] && isValidDateOnly(isoDate[1])) {
+    return isoDate[1];
+  }
+
+  const localizedDate = text.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/);
+  if (localizedDate) {
+    const day = localizedDate[1] ?? "";
+    const month = localizedDate[2] ?? "";
+    const year = localizedDate[3] ?? "";
+    const candidate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    return isValidDateOnly(candidate) ? candidate : undefined;
+  }
+
+  return undefined;
+}
+
+function normalizedPgoFormBoolean(value: unknown) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (value === 1 || value === 0) {
+    return value === 1;
+  }
+
+  const normalized = cleanString(value).toLocaleLowerCase("es");
+  if (["si", "sí", "yes", "true", "1"].includes(normalized)) {
+    return true;
+  }
+  if (["no", "false", "0"].includes(normalized)) {
+    return false;
+  }
+  return undefined;
+}
+
+function pgoFormOptionLookupValue(value: unknown) {
+  return cleanString(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es");
+}
+
+function normalizedPgoFormOption(
+  value: unknown,
+  field: NormalizedFormField,
+) {
+  const lookupValue = pgoFormOptionLookupValue(value);
+  if (!lookupValue) {
+    return undefined;
+  }
+  return field.options?.find(
+    (option) =>
+      pgoFormOptionLookupValue(option.value) === lookupValue ||
+      pgoFormOptionLookupValue(option.label) === lookupValue,
+  )?.value;
+}
+
+function normalizedPgoFormNumber(value: unknown) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  const text = cleanString(value);
+  if (!text) {
+    return undefined;
+  }
+  const normalized = Number(text.replace(",", "."));
+  return Number.isFinite(normalized) ? normalized : undefined;
+}
+
+function normalizedPgoFormAnswer(
+  value: unknown,
+  field: NormalizedFormField,
+): unknown {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  switch (field.type) {
+    case "text":
+    case "long_text":
+    case "address":
+    case "phone":
+    case "url":
+    case "postal_code":
+    case "identifier": {
+      return cleanString(value) || undefined;
+    }
+    case "email": {
+      return cleanString(value).toLowerCase() || undefined;
+    }
+    case "country_code": {
+      return cleanString(value).toUpperCase() || undefined;
+    }
+    case "number":
+    case "integer":
+    case "positive_integer":
+    case "percentage":
+      return normalizedPgoFormNumber(value);
+    case "boolean":
+      return normalizedPgoFormBoolean(value);
+    case "date":
+      return normalizedPgoFormDate(value);
+    case "datetime": {
+      const text = cleanString(value);
+      if (!text) {
+        return undefined;
+      }
+      const candidate = new Date(text);
+      return Number.isNaN(candidate.getTime())
+        ? undefined
+        : candidate.toISOString();
+    }
+    case "time": {
+      const text = cleanString(value);
+      const time = text.match(
+        /^((?:[01]\d|2[0-3]):[0-5]\d)(?::[0-5]\d)?$/,
+      )?.[1];
+      return time || undefined;
+    }
+    case "enum":
+      return normalizedPgoFormOption(value, field);
+    case "multi_enum": {
+      if (!Array.isArray(value)) {
+        return undefined;
+      }
+      const selected = new Set(
+        value
+          .map((item) => normalizedPgoFormOption(item, field))
+          .filter((item): item is string => Boolean(item)),
+      );
+      return (field.options ?? [])
+        .map((option) => option.value)
+        .filter((option) => selected.has(option));
+    }
+    case "string_list": {
+      if (!Array.isArray(value)) {
+        return undefined;
+      }
+      return value
+        .map((item) => cleanString(item))
+        .filter((item) => Boolean(item));
+    }
+    case "integer_list":
+    case "number_list": {
+      if (!Array.isArray(value)) {
+        return undefined;
+      }
+      return value
+        .map((item) => normalizedPgoFormNumber(item))
+        .filter((item): item is number => item !== undefined);
+    }
+    default:
+      return undefined;
+  }
+}
+
 function twoPQStudyRequestFormAnswerValues(
   source: TwoPQStudyRequestFormSource,
 ) {
@@ -8264,8 +8447,10 @@ function twoPQStudyRequestFormContent(
   }
   const values = twoPQStudyRequestFormAnswerValues(source);
   const fields = formShape.fields.flatMap((field) => {
-    const value = values.get(field.key);
-    return value === undefined ? [] : [{ key: field.key, value }];
+    const value = normalizedPgoFormAnswer(values.get(field.key), field);
+    return value === undefined || !formAnswerMatchesField(value, field)
+      ? []
+      : [{ key: field.key, value }];
   });
   const snapshotFields = formShape.fields.map((field) =>
     withoutUndefined({

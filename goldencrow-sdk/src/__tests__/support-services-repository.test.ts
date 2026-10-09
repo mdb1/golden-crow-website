@@ -5150,6 +5150,74 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
+  it("normalizes legacy study-request answers and omits invalid optional answers from pgo_form", async () => {
+    seedLegacyTwoPQOffer();
+    const source = twoPQStudyRequestForm();
+    const { createTwoPQCaseServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const created = await createTwoPQCaseServiceTransaction(context, {
+      caseId: "CASE-00044",
+      threeLetterCode: "LEG",
+      doctorEmail: "doctor@clinic.example",
+      requestedAtClient: "2026-09-28T22:00:00.000Z",
+      studyRequestForm: {
+        ...source,
+        patientInformation: {
+          ...source.patientInformation,
+          email: " Patient@Example.Com ",
+          birthDate: "11/11/1999",
+          partnerBirthDate: "2001-02-03T00:00:00.000Z",
+          partnerNotes: { legacy: true },
+          status: "Activo",
+        },
+        medicalInformation: {
+          ...source.medicalInformation,
+          maleFactor: "Sí",
+          previousMiscarriagesCount: "3 o más",
+        },
+        previousGeneticTests: {
+          ...source.previousGeneticTests,
+          karyotype: "no",
+        },
+        requestedTest: {
+          ...source.requestedTest,
+          pgtAFast: "yes",
+          pgtAStandard: "0",
+          pgtSr: "false",
+        },
+        institutionInformation: {
+          ...source.institutionInformation,
+          contactEmail: "not-an-email",
+        },
+      },
+    });
+
+    const snapshotData = created.inputs[0]?.objectSnapshot.data as {
+      fields: Array<{ key: string; value: unknown }>;
+    };
+    const answerByKey = new Map(
+      snapshotData.fields.map((answer) => [answer.key, answer.value]),
+    );
+
+    expect(answerByKey.get("patient_email")).toBe("patient@example.com");
+    expect(answerByKey.get("patient_birth_date")).toBe("1999-11-11");
+    expect(answerByKey.get("partner_birth_date")).toBe("2001-02-03");
+    expect(answerByKey.get("patient_status")).toBe("active");
+    expect(answerByKey.get("male_factor")).toBe(true);
+    expect(answerByKey.get("previous_miscarriages_count")).toBe("3_or_more");
+    expect(answerByKey.get("karyotype")).toBe(false);
+    expect(answerByKey.get("pgt_a_fast")).toBe(true);
+    expect(answerByKey.get("pgt_a_standard")).toBe(false);
+    expect(answerByKey.get("pgt_sr")).toBe(false);
+    expect(answerByKey.has("partner_notes")).toBe(false);
+    expect(answerByKey.has("institution_contact_email")).toBe(false);
+    expect(
+      collectionStore("service_transactions").has("pgr_2pq_case_00044"),
+    ).toBe(true);
+  });
+
   it("uses the fixed 2PQ owner when Discover organization ownership metadata is stale", async () => {
     const { providerId } = seedLegacyTwoPQOffer();
     const staleOwnerId = "legacy-discover-editor";
