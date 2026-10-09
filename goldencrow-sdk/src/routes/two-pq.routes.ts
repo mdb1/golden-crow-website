@@ -11,6 +11,7 @@ import {
   getTwoPQFormForContext,
   listTwoPQFormsForContext,
   updateTwoPQStudyRequestBiopsyLinkForContext,
+  updateTwoPQStudyRequestWithdrawalLinkForContext,
   upsertTwoPQFormDraftForContext,
 } from "../repositories/two-pq-forms.repository.js";
 import {
@@ -301,6 +302,10 @@ const TwoPQStudyRequestBiopsyLinkMutationSchema = z.object({
   linkedBiopsyForm: z.string().min(1).nullable(),
 });
 
+const TwoPQStudyRequestWithdrawalLinkMutationSchema = z.object({
+  linkedWithdrawalRequest: z.string().min(1).nullable(),
+});
+
 const TwoPQFormsQuerySchema = z.object({
   includeArchived: z.string().optional(),
   formType: z
@@ -564,6 +569,36 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           request.adminContext,
           request.params.formId,
           request.body.linkedBiopsyForm,
+        );
+        return reply.send({ form });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    },
+  );
+
+  f.patch(
+    "/2pq/forms/:formId/linked-withdrawal-request",
+    {
+      schema: {
+        params: z.object({
+          formId: z.string().min(1),
+        }),
+        body: TwoPQStudyRequestWithdrawalLinkMutationSchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const form = await updateTwoPQStudyRequestWithdrawalLinkForContext(
+          request.adminContext,
+          request.params.formId,
+          request.body.linkedWithdrawalRequest,
         );
         return reply.send({ form });
       } catch (error) {

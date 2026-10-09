@@ -2183,6 +2183,271 @@ async function withBiopsyLinkDiagnostics(
   };
 }
 
+function withdrawalCaseId(caseRecord: Record<string, unknown>) {
+  return normalizeOptionalString(caseRecord.id);
+}
+
+function withdrawalCaseStudyRequestId(caseRecord: Record<string, unknown>) {
+  return normalizeOptionalString(caseRecord.linkedStudyRequest);
+}
+
+function withdrawalCaseBiopsyFormId(caseRecord: Record<string, unknown>) {
+  return normalizeOptionalString(caseRecord.linkedBiopsyForm);
+}
+
+async function studyRequestWithdrawalLinkContext(
+  context: AdminContext,
+  form: TwoPQFormRecord,
+) {
+  const relatedCaseIds = new Set<string>();
+  const linkedCases = await adminDb
+    .collection(CASES_COLLECTION)
+    .where("linkedStudyRequestFormId", "==", form.id)
+    .limit(20)
+    .get();
+  linkedCases.docs.forEach((document) => relatedCaseIds.add(document.id));
+
+  let biopsyForm: TwoPQFormRecord | null = null;
+  if (form.linkedBiopsyForm) {
+    const biopsySnapshot = await adminDb
+      .collection(FORMS_COLLECTION)
+      .doc(form.linkedBiopsyForm)
+      .get();
+    if (biopsySnapshot.exists) {
+      const candidate = toTwoPQFormRecord(
+        biopsySnapshot.id,
+        biopsySnapshot.data() as Record<string, unknown>,
+      );
+      if (
+        candidate.formType === "sample" &&
+        canViewTwoPQForm(context, candidate)
+      ) {
+        biopsyForm = candidate;
+        [
+          candidate.linkedCaseId,
+          candidate.selectedCaseId,
+          normalizeOptionalString(candidate.caseInformation?.id),
+        ].forEach((caseId) => {
+          if (caseId) {
+            relatedCaseIds.add(caseId);
+          }
+        });
+      }
+    }
+  }
+
+  const withdrawalFormsById = new Map<string, TwoPQFormRecord>();
+  const caseIds = [...relatedCaseIds];
+  for (let index = 0; index < caseIds.length; index += 30) {
+    const chunk = caseIds.slice(index, index + 30);
+    const snapshot = await adminDb
+      .collection(FORMS_COLLECTION)
+      .where("linkedCaseIds", "array-contains-any", chunk)
+      .limit(50)
+      .get();
+    for (const document of snapshot.docs) {
+      const withdrawalForm = toTwoPQFormRecord(
+        document.id,
+        document.data() as Record<string, unknown>,
+      );
+      if (
+        withdrawalForm.formType === "withdrawal_request" &&
+        canViewTwoPQForm(context, withdrawalForm)
+      ) {
+        withdrawalFormsById.set(withdrawalForm.id, withdrawalForm);
+      }
+    }
+  }
+
+  for (const withdrawalFormId of [
+    form.linkedWithdrawalRequest,
+    biopsyForm?.withdrawalRequest,
+  ]) {
+    if (!withdrawalFormId || withdrawalFormsById.has(withdrawalFormId)) {
+      continue;
+    }
+    const snapshot = await adminDb
+      .collection(FORMS_COLLECTION)
+      .doc(withdrawalFormId)
+      .get();
+    if (!snapshot.exists) {
+      continue;
+    }
+    withdrawalFormsById.set(
+      snapshot.id,
+      toTwoPQFormRecord(
+        snapshot.id,
+        snapshot.data() as Record<string, unknown>,
+      ),
+    );
+  }
+
+  return {
+    biopsyForm,
+    relatedCaseIds,
+    withdrawalFormsById,
+  };
+}
+
+function withdrawalCaseRowsLinkedToStudyRequest(
+  withdrawalForm: TwoPQFormRecord,
+  studyRequestFormId: string,
+) {
+  return (withdrawalForm.withdrawalCases ?? []).filter(
+    (caseRecord) =>
+      withdrawalCaseStudyRequestId(caseRecord) === studyRequestFormId,
+  );
+}
+
+function withdrawalCaseRowsCompatibleWithStudyRequest(
+  withdrawalForm: TwoPQFormRecord,
+  studyRequestFormId: string,
+  relatedCaseIds: Set<string>,
+) {
+  return (withdrawalForm.withdrawalCases ?? []).filter((caseRecord) => {
+    const caseId = withdrawalCaseId(caseRecord);
+    return (
+      withdrawalCaseStudyRequestId(caseRecord) === studyRequestFormId ||
+      Boolean(caseId && relatedCaseIds.has(caseId))
+    );
+  });
+}
+
+async function withWithdrawalLinkDiagnostics(
+  context: AdminContext,
+  form: TwoPQFormRecord,
+): Promise<TwoPQFormRecord> {
+  if (form.formType !== "study_request") {
+    return form;
+  }
+
+  const { biopsyForm, relatedCaseIds, withdrawalFormsById } =
+    await studyRequestWithdrawalLinkContext(context, form);
+  const actualWithdrawalRequestId = form.linkedWithdrawalRequest ?? null;
+  const backlinkWithdrawalIds = [...withdrawalFormsById.values()]
+    .filter(
+      (withdrawalForm) =>
+        withdrawalCaseRowsLinkedToStudyRequest(withdrawalForm, form.id).length >
+        0,
+    )
+    .map((withdrawalForm) => withdrawalForm.id);
+  const suggestedIds = new Set([
+    ...backlinkWithdrawalIds,
+    ...(biopsyForm?.withdrawalRequest ? [biopsyForm.withdrawalRequest] : []),
+  ]);
+
+  if (!actualWithdrawalRequestId) {
+    if (suggestedIds.size === 0) {
+      return {
+        ...form,
+        linkedWithdrawalRequest: null,
+        suggestedWithdrawalRequest: null,
+        withdrawalLinkState: "none",
+      };
+    }
+    const suggestedWithdrawalRequest = [...suggestedIds][0] ?? null;
+    const suggestedWithdrawal = suggestedWithdrawalRequest
+      ? withdrawalFormsById.get(suggestedWithdrawalRequest)
+      : undefined;
+    const safeSuggestion =
+      suggestedIds.size === 1 &&
+      suggestedWithdrawal?.formType === "withdrawal_request" &&
+      canViewTwoPQForm(context, suggestedWithdrawal) &&
+      withdrawalCaseRowsCompatibleWithStudyRequest(
+        suggestedWithdrawal,
+        form.id,
+        relatedCaseIds,
+      ).length > 0;
+    return {
+      ...form,
+      linkedWithdrawalRequest: null,
+      suggestedWithdrawalRequest: safeSuggestion
+        ? suggestedWithdrawalRequest
+        : null,
+      withdrawalLinkState: safeSuggestion
+        ? "missing_study_property"
+        : "conflict",
+    };
+  }
+
+  const actualWithdrawal = withdrawalFormsById.get(actualWithdrawalRequestId);
+  if (!actualWithdrawal) {
+    return {
+      ...form,
+      suggestedWithdrawalRequest: null,
+      withdrawalLinkState: "missing_withdrawal",
+    };
+  }
+  if (
+    actualWithdrawal.formType !== "withdrawal_request" ||
+    !canViewTwoPQForm(context, actualWithdrawal)
+  ) {
+    return {
+      ...form,
+      suggestedWithdrawalRequest: null,
+      withdrawalLinkState: "conflict",
+    };
+  }
+
+  const otherSuggestedId = [...suggestedIds].find(
+    (withdrawalRequestId) => withdrawalRequestId !== actualWithdrawalRequestId,
+  );
+  if (otherSuggestedId) {
+    return {
+      ...form,
+      suggestedWithdrawalRequest: otherSuggestedId,
+      withdrawalLinkState: "conflict",
+    };
+  }
+
+  const compatibleRows = withdrawalCaseRowsCompatibleWithStudyRequest(
+    actualWithdrawal,
+    form.id,
+    relatedCaseIds,
+  );
+  const backlinkRows = withdrawalCaseRowsLinkedToStudyRequest(
+    actualWithdrawal,
+    form.id,
+  );
+  if (compatibleRows.length === 0) {
+    return {
+      ...form,
+      suggestedWithdrawalRequest: null,
+      withdrawalLinkState: "conflict",
+    };
+  }
+  if (backlinkRows.length === 0) {
+    return {
+      ...form,
+      suggestedWithdrawalRequest: null,
+      withdrawalLinkState: "missing_withdrawal_backlink",
+    };
+  }
+  if (
+    biopsyForm?.withdrawalRequest &&
+    biopsyForm.withdrawalRequest !== actualWithdrawalRequestId
+  ) {
+    return {
+      ...form,
+      suggestedWithdrawalRequest: biopsyForm.withdrawalRequest,
+      withdrawalLinkState: "conflict",
+    };
+  }
+  if (biopsyForm && !biopsyForm.withdrawalRequest) {
+    return {
+      ...form,
+      suggestedWithdrawalRequest: null,
+      withdrawalLinkState: "missing_biopsy_backlink",
+    };
+  }
+
+  return {
+    ...form,
+    suggestedWithdrawalRequest: null,
+    withdrawalLinkState: "cohesive",
+  };
+}
+
 async function withResolvedWithdrawalCaseLinks(form: TwoPQFormRecord) {
   const linkedCaseIds = form.linkedCaseIds ?? [];
   if (form.formType !== "withdrawal_request" || linkedCaseIds.length === 0) {
@@ -2214,8 +2479,19 @@ async function withResolvedWithdrawalCaseLinks(form: TwoPQFormRecord) {
         ...(storedCasesById.get(snapshot.id) ??
           caseDocumentToWithdrawalInformation(snapshot.id, data)),
         reportCode: reportCodeForWithdrawalCase(data),
-        linkedStudyRequest: caseLink?.studyRequestFormId ?? null,
-        linkedBiopsyForm: caseLink?.biopsyFormId ?? null,
+        linkedStudyRequest:
+          storedCasesById.get(snapshot.id) &&
+          Object.hasOwn(storedCasesById.get(snapshot.id)!, "linkedStudyRequest")
+            ? (withdrawalCaseStudyRequestId(
+                storedCasesById.get(snapshot.id)!,
+              ) ?? null)
+            : (caseLink?.studyRequestFormId ?? null),
+        linkedBiopsyForm:
+          storedCasesById.get(snapshot.id) &&
+          Object.hasOwn(storedCasesById.get(snapshot.id)!, "linkedBiopsyForm")
+            ? (withdrawalCaseBiopsyFormId(storedCasesById.get(snapshot.id)!) ??
+              null)
+            : (caseLink?.biopsyFormId ?? null),
       };
     }),
   };
@@ -2483,7 +2759,11 @@ export async function getTwoPQFormForContext(
     context,
     form,
   );
-  return withResolvedWithdrawalCaseLinks(formWithBiopsyDiagnostics);
+  const formWithWithdrawalDiagnostics = await withWithdrawalLinkDiagnostics(
+    context,
+    formWithBiopsyDiagnostics,
+  );
+  return withResolvedWithdrawalCaseLinks(formWithWithdrawalDiagnostics);
 }
 
 export async function updateTwoPQStudyRequestBiopsyLinkForContext(
@@ -2664,6 +2944,265 @@ export async function updateTwoPQStudyRequestBiopsyLinkForContext(
   return getTwoPQFormForContext(context, normalizedFormId);
 }
 
+export async function updateTwoPQStudyRequestWithdrawalLinkForContext(
+  context: AdminContext,
+  formId: string,
+  linkedWithdrawalRequest: string | null,
+): Promise<TwoPQFormRecord> {
+  const normalizedFormId = normalizeRequiredString(formId, "Form id");
+  const normalizedWithdrawalRequestId =
+    normalizeOptionalString(linkedWithdrawalRequest) ?? null;
+  const currentForm = await getTwoPQFormForContext(context, normalizedFormId);
+  if (currentForm.formType !== "study_request") {
+    throw new AdminRepositoryError(
+      "Only study request forms can configure a linked withdrawal request.",
+      400,
+    );
+  }
+
+  const linkContext = await studyRequestWithdrawalLinkContext(
+    context,
+    currentForm,
+  );
+  const previousWithdrawalRequestId =
+    currentForm.linkedWithdrawalRequest ??
+    currentForm.suggestedWithdrawalRequest ??
+    null;
+  const studyRequestRef = adminDb
+    .collection(FORMS_COLLECTION)
+    .doc(normalizedFormId);
+  const biopsyRef = currentForm.linkedBiopsyForm
+    ? adminDb.collection(FORMS_COLLECTION).doc(currentForm.linkedBiopsyForm)
+    : null;
+  const withdrawalRefs = [
+    previousWithdrawalRequestId,
+    normalizedWithdrawalRequestId,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .map((withdrawalRequestId) =>
+      adminDb.collection(FORMS_COLLECTION).doc(withdrawalRequestId),
+    );
+
+  await adminDb.runTransaction(async (transaction) => {
+    const [studyRequestSnapshot, biopsySnapshot, ...withdrawalSnapshots] =
+      await Promise.all([
+        transaction.get(studyRequestRef),
+        biopsyRef ? transaction.get(biopsyRef) : Promise.resolve(null),
+        ...withdrawalRefs.map((reference) => transaction.get(reference)),
+      ]);
+    if (!studyRequestSnapshot.exists) {
+      throw new AdminRepositoryError("Form not found.", 404);
+    }
+    const latestStudyRequest = toTwoPQFormRecord(
+      studyRequestSnapshot.id,
+      studyRequestSnapshot.data() as Record<string, unknown>,
+    );
+    if (
+      latestStudyRequest.formType !== "study_request" ||
+      !canViewTwoPQForm(context, latestStudyRequest)
+    ) {
+      throw new AdminRepositoryError(
+        "You cannot configure this study request form.",
+        403,
+      );
+    }
+
+    const biopsyForm = biopsySnapshot?.exists
+      ? toTwoPQFormRecord(
+          biopsySnapshot.id,
+          biopsySnapshot.data() as Record<string, unknown>,
+        )
+      : null;
+    if (
+      biopsyForm &&
+      (biopsyForm.formType !== "sample" ||
+        !canViewTwoPQForm(context, biopsyForm))
+    ) {
+      throw new AdminRepositoryError(
+        "The linked biopsy form cannot be updated.",
+        409,
+      );
+    }
+
+    const withdrawalSnapshotById = new Map(
+      withdrawalSnapshots
+        .filter((snapshot): snapshot is FirebaseFirestore.DocumentSnapshot =>
+          Boolean(snapshot),
+        )
+        .map((snapshot) => [snapshot.id, snapshot]),
+    );
+    const nextWithdrawalSnapshot = normalizedWithdrawalRequestId
+      ? withdrawalSnapshotById.get(normalizedWithdrawalRequestId)
+      : null;
+    if (normalizedWithdrawalRequestId && !nextWithdrawalSnapshot?.exists) {
+      throw new AdminRepositoryError(
+        "Selected withdrawal request form was not found.",
+        404,
+      );
+    }
+
+    const withdrawalRowsById = new Map<string, Record<string, unknown>[]>();
+    withdrawalSnapshotById.forEach((snapshot, withdrawalRequestId) => {
+      const data = snapshot.data() as Record<string, unknown>;
+      withdrawalRowsById.set(
+        withdrawalRequestId,
+        Array.isArray(data.withdrawalCases)
+          ? data.withdrawalCases.filter(
+              (entry): entry is Record<string, unknown> =>
+                Boolean(entry) && typeof entry === "object",
+            )
+          : [],
+      );
+    });
+
+    if (previousWithdrawalRequestId) {
+      const previousRows =
+        withdrawalRowsById.get(previousWithdrawalRequestId) ?? [];
+      withdrawalRowsById.set(
+        previousWithdrawalRequestId,
+        previousRows.map((caseRecord) =>
+          withdrawalCaseStudyRequestId(caseRecord) === normalizedFormId
+            ? {
+                ...caseRecord,
+                linkedStudyRequest: null,
+                linkedBiopsyForm: null,
+              }
+            : caseRecord,
+        ),
+      );
+    }
+
+    if (normalizedWithdrawalRequestId && nextWithdrawalSnapshot?.exists) {
+      const nextWithdrawal = toTwoPQFormRecord(
+        nextWithdrawalSnapshot.id,
+        nextWithdrawalSnapshot.data() as Record<string, unknown>,
+      );
+      if (
+        nextWithdrawal.formType !== "withdrawal_request" ||
+        !canViewTwoPQForm(context, nextWithdrawal) ||
+        nextWithdrawal.institutionId !== latestStudyRequest.institutionId
+      ) {
+        throw new AdminRepositoryError(
+          "Selected withdrawal request must belong to the same institution.",
+          400,
+        );
+      }
+
+      const existingRows =
+        withdrawalRowsById.get(normalizedWithdrawalRequestId) ?? [];
+      const existingCaseIds = new Set(
+        existingRows
+          .map((caseRecord) => withdrawalCaseId(caseRecord))
+          .filter((caseId): caseId is string => Boolean(caseId)),
+      );
+      const linkedCaseIds = normalizeStringArray(
+        nextWithdrawalSnapshot.data()?.linkedCaseIds,
+      );
+      const missingCompatibleRows = (linkedCaseIds ?? [])
+        .filter((caseId) => linkContext.relatedCaseIds.has(caseId))
+        .filter((caseId) => !existingCaseIds.has(caseId))
+        .map((caseId) => ({ id: caseId }));
+      const rowsWithCompatibleCases = [
+        ...existingRows,
+        ...missingCompatibleRows,
+      ];
+      const compatibleRows = rowsWithCompatibleCases.filter((caseRecord) => {
+        const caseId = withdrawalCaseId(caseRecord);
+        return (
+          withdrawalCaseStudyRequestId(caseRecord) === normalizedFormId ||
+          Boolean(caseId && linkContext.relatedCaseIds.has(caseId))
+        );
+      });
+      if (compatibleRows.length === 0) {
+        throw new AdminRepositoryError(
+          "Selected withdrawal request has no case associated with this study request.",
+          409,
+        );
+      }
+      if (
+        compatibleRows.some((caseRecord) => {
+          const linkedStudyRequest = withdrawalCaseStudyRequestId(caseRecord);
+          return linkedStudyRequest && linkedStudyRequest !== normalizedFormId;
+        })
+      ) {
+        throw new AdminRepositoryError(
+          "A matching withdrawal case is linked to another study request.",
+          409,
+        );
+      }
+      const compatibleCaseIds = new Set(
+        compatibleRows
+          .map((caseRecord) => withdrawalCaseId(caseRecord))
+          .filter((caseId): caseId is string => Boolean(caseId)),
+      );
+      withdrawalRowsById.set(
+        normalizedWithdrawalRequestId,
+        rowsWithCompatibleCases.map((caseRecord) => {
+          const caseId = withdrawalCaseId(caseRecord);
+          const isCompatible =
+            withdrawalCaseStudyRequestId(caseRecord) === normalizedFormId ||
+            Boolean(caseId && compatibleCaseIds.has(caseId));
+          return isCompatible
+            ? {
+                ...caseRecord,
+                linkedStudyRequest: normalizedFormId,
+                linkedBiopsyForm: biopsyForm?.id ?? null,
+              }
+            : caseRecord;
+        }),
+      );
+    }
+
+    const now = new Date().toISOString();
+    withdrawalRowsById.forEach((withdrawalCases, withdrawalRequestId) => {
+      const snapshot = withdrawalSnapshotById.get(withdrawalRequestId);
+      if (!snapshot?.exists) {
+        return;
+      }
+      transaction.set(
+        snapshot.ref,
+        {
+          withdrawalCases,
+          updatedAt: now,
+          updatedByEmail: context.email,
+          updatedByUid: context.uid,
+        },
+        { merge: true },
+      );
+    });
+    if (biopsySnapshot?.exists && biopsyForm) {
+      const nextBiopsyWithdrawalRequest = normalizedWithdrawalRequestId
+        ? normalizedWithdrawalRequestId
+        : biopsyForm.withdrawalRequest === previousWithdrawalRequestId
+          ? null
+          : biopsyForm.withdrawalRequest;
+      transaction.set(
+        biopsySnapshot.ref,
+        {
+          withdrawalRequest: nextBiopsyWithdrawalRequest,
+          updatedAt: now,
+          updatedByEmail: context.email,
+          updatedByUid: context.uid,
+        },
+        { merge: true },
+      );
+    }
+    transaction.set(
+      studyRequestRef,
+      {
+        linkedWithdrawalRequest: normalizedWithdrawalRequestId,
+        updatedAt: now,
+        updatedByEmail: context.email,
+        updatedByUid: context.uid,
+      },
+      { merge: true },
+    );
+  });
+
+  return getTwoPQFormForContext(context, normalizedFormId);
+}
+
 export async function getTwoPQFormDraftForContext(
   context: AdminContext,
 ): Promise<TwoPQFormDraftRecord | null> {
@@ -2809,6 +3348,16 @@ export async function deleteTwoPQFormForContext(
       context,
       normalizedFormId,
     );
+    if (
+      resolvedForm.linkedWithdrawalRequest ||
+      resolvedForm.suggestedWithdrawalRequest
+    ) {
+      await updateTwoPQStudyRequestWithdrawalLinkForContext(
+        context,
+        normalizedFormId,
+        null,
+      );
+    }
     if (resolvedForm.linkedBiopsyForm || resolvedForm.suggestedBiopsyForm) {
       await updateTwoPQStudyRequestBiopsyLinkForContext(
         context,

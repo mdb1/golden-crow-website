@@ -2857,6 +2857,47 @@ const SPANISH_TEXT: Record<string, string> = {
   "This biopsy points back to this study request, but it is not the stored linked biopsy form.":
     "Este formulario de biopsias apunta a esta solicitud de estudio, pero no es el formulario de biopsias guardado.",
   Suggested: "Sugerido",
+  "The study request, its biopsy, and the matching withdrawal case remain synchronized.":
+    "La solicitud de estudio, su biopsia y el caso correspondiente de retiro se mantienen sincronizados.",
+  "Change withdrawal request": "Cambiar solicitud de retiro",
+  "Choose withdrawal request": "Elegir solicitud de retiro",
+  "Withdrawal link mismatch": "Inconsistencia en el vínculo de retiro",
+  "The withdrawal request or biopsy points here, but the study request does not store the withdrawal link.":
+    "La solicitud de retiro o la biopsia apuntan aquí, pero la solicitud de estudio no guarda el vínculo de retiro.",
+  "The study request stores this withdrawal request, but its matching case does not point back here.":
+    "La solicitud de estudio guarda esta solicitud de retiro, pero el caso correspondiente no apunta nuevamente aquí.",
+  "The study request and withdrawal case are linked, but the biopsy is missing its withdrawal link.":
+    "La solicitud de estudio y el caso de retiro están vinculados, pero a la biopsia le falta su vínculo de retiro.",
+  "The study request stores a withdrawal request that no longer exists.":
+    "La solicitud de estudio guarda una solicitud de retiro que ya no existe.",
+  "Multiple or conflicting withdrawal links were found. Review them before choosing the correct request.":
+    "Se encontraron vínculos de retiro múltiples o contradictorios. Revisalos antes de elegir la solicitud correcta.",
+  "Repair withdrawal links": "Reparar vínculos de retiro",
+  "Actual linked withdrawal request": "Solicitud de retiro realmente vinculada",
+  "No withdrawal request is stored in linkedWithdrawalRequest.":
+    "No hay ninguna solicitud de retiro guardada en linkedWithdrawalRequest.",
+  "Suggested withdrawal request": "Solicitud de retiro sugerida",
+  "This withdrawal request is referenced by the related records, but it is not the stored link on the study request.":
+    "Esta solicitud de retiro está referenciada por los registros relacionados, pero no es el vínculo guardado en la solicitud de estudio.",
+  "Choose a withdrawal request": "Elegir una solicitud de retiro",
+  "Choose a withdrawal request containing a case associated with this study request. Saving synchronizes the study, biopsy, and withdrawal case cell.":
+    "Elegí una solicitud de retiro que contenga un caso asociado con esta solicitud de estudio. Al guardar se sincronizan la solicitud, la biopsia y la celda del caso de retiro.",
+  "Search withdrawal requests...": "Buscar solicitudes de retiro...",
+  "Loading withdrawal requests...": "Cargando solicitudes de retiro...",
+  "Link withdrawal request": "Vincular solicitud de retiro",
+  "No withdrawal requests match this search.":
+    "No hay solicitudes de retiro que coincidan con la búsqueda.",
+  "Unable to load withdrawal request forms.":
+    "No se pudieron cargar los formularios de solicitud de retiro.",
+  "Unable to update the withdrawal request link.":
+    "No se pudo actualizar el vínculo con la solicitud de retiro.",
+  "Withdrawal request links repaired.":
+    "Los vínculos de la solicitud de retiro se repararon correctamente.",
+  "Withdrawal request linked successfully.":
+    "La solicitud de retiro se vinculó correctamente.",
+  "Withdrawal request link removed.":
+    "Se quitó el vínculo con la solicitud de retiro.",
+  "linked cases": "casos vinculados",
   "Select linked study request form":
     "Seleccionar formulario de solicitud linkeado",
   "Link study request form": "Vincular formulario de solicitud",

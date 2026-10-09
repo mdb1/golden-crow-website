@@ -93,6 +93,14 @@ function applyQueryOperations(
         return operation.value.includes(value);
       }
 
+      if (operation.operator === "array-contains-any") {
+        return (
+          Array.isArray(operation.value) &&
+          Array.isArray(value) &&
+          operation.value.some((entry) => value.includes(entry))
+        );
+      }
+
       throw new Error(`Unsupported mock where operator: ${operation.operator}`);
     });
   }
@@ -1085,6 +1093,175 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     expect(mockDocs.get("2pq_forms/FORM-00038")).toMatchObject({
       linkedStudyRequestFormId: "FORM-00031",
       studyRequestForm: "FORM-00031",
+    });
+  });
+
+  it("repairs and removes the study, biopsy, and withdrawal-case links together", async () => {
+    const {
+      getTwoPQFormForContext,
+      updateTwoPQStudyRequestWithdrawalLinkForContext,
+    } = await import("../repositories/two-pq-forms.repository");
+    mockDocs.set("2pq_forms/FORM-00038", {
+      ...mockDocs.get("2pq_forms/FORM-00038"),
+      withdrawalRequest: "FORM-00052",
+    });
+    mockDocs.set("2pq_forms/FORM-00052", {
+      id: "FORM-00052",
+      formType: "withdrawal_request",
+      collectionKey: "2pq_forms",
+      institutionId: "inst-1",
+      doctorId: "doctor-1",
+      linkedCaseIds: ["case-a", "case-b"],
+      withdrawalCases: [
+        {
+          id: "case-a",
+          linkedStudyRequest: "FORM-00031",
+          linkedBiopsyForm: "FORM-00038",
+        },
+        {
+          id: "case-b",
+          linkedStudyRequest: "FORM-00032",
+          linkedBiopsyForm: "FORM-00039",
+        },
+      ],
+      patientInformation: {},
+      requestedTest: {},
+      createdAt: "2026-08-31T15:45:00.000Z",
+      updatedAt: "2026-08-31T15:45:00.000Z",
+    });
+
+    const mismatched = await getTwoPQFormForContext(
+      fullAdminContext,
+      "FORM-00031",
+    );
+    expect(mismatched).toMatchObject({
+      linkedWithdrawalRequest: null,
+      suggestedWithdrawalRequest: "FORM-00052",
+      withdrawalLinkState: "missing_study_property",
+    });
+
+    const repaired = await updateTwoPQStudyRequestWithdrawalLinkForContext(
+      fullAdminContext,
+      "FORM-00031",
+      "FORM-00052",
+    );
+    expect(repaired).toMatchObject({
+      linkedWithdrawalRequest: "FORM-00052",
+      suggestedWithdrawalRequest: null,
+      withdrawalLinkState: "cohesive",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00038")).toMatchObject({
+      withdrawalRequest: "FORM-00052",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00052")).toMatchObject({
+      withdrawalCases: [
+        expect.objectContaining({
+          id: "case-a",
+          linkedStudyRequest: "FORM-00031",
+          linkedBiopsyForm: "FORM-00038",
+        }),
+        expect.objectContaining({
+          id: "case-b",
+          linkedStudyRequest: "FORM-00032",
+          linkedBiopsyForm: "FORM-00039",
+        }),
+      ],
+    });
+
+    const unlinked = await updateTwoPQStudyRequestWithdrawalLinkForContext(
+      fullAdminContext,
+      "FORM-00031",
+      null,
+    );
+    expect(unlinked).toMatchObject({
+      linkedWithdrawalRequest: null,
+      suggestedWithdrawalRequest: null,
+      withdrawalLinkState: "none",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00038")).toMatchObject({
+      withdrawalRequest: null,
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00052")).toMatchObject({
+      withdrawalCases: [
+        expect.objectContaining({
+          id: "case-a",
+          linkedStudyRequest: null,
+          linkedBiopsyForm: null,
+        }),
+        expect.objectContaining({
+          id: "case-b",
+          linkedStudyRequest: "FORM-00032",
+          linkedBiopsyForm: "FORM-00039",
+        }),
+      ],
+    });
+    const withdrawalDetail = await getTwoPQFormForContext(
+      fullAdminContext,
+      "FORM-00052",
+    );
+    expect(withdrawalDetail.withdrawalCases).toEqual([
+      expect.objectContaining({
+        id: "case-a",
+        linkedStudyRequest: null,
+        linkedBiopsyForm: null,
+      }),
+      expect.objectContaining({
+        id: "case-b",
+        linkedStudyRequest: "FORM-00032",
+        linkedBiopsyForm: "FORM-00039",
+      }),
+    ]);
+  });
+
+  it("repairs a withdrawal request cell that is missing its backlink", async () => {
+    const {
+      getTwoPQFormForContext,
+      updateTwoPQStudyRequestWithdrawalLinkForContext,
+    } = await import("../repositories/two-pq-forms.repository");
+    mockDocs.set("2pq_forms/FORM-00031", {
+      ...mockDocs.get("2pq_forms/FORM-00031"),
+      linkedWithdrawalRequest: "FORM-00052",
+    });
+    mockDocs.set("2pq_forms/FORM-00038", {
+      ...mockDocs.get("2pq_forms/FORM-00038"),
+      withdrawalRequest: null,
+    });
+    mockDocs.set("2pq_forms/FORM-00052", {
+      id: "FORM-00052",
+      formType: "withdrawal_request",
+      collectionKey: "2pq_forms",
+      institutionId: "inst-1",
+      doctorId: "doctor-1",
+      linkedCaseIds: ["case-a"],
+      withdrawalCases: [{ id: "case-a" }],
+      patientInformation: {},
+      requestedTest: {},
+      createdAt: "2026-08-31T15:45:00.000Z",
+      updatedAt: "2026-08-31T15:45:00.000Z",
+    });
+
+    const mismatched = await getTwoPQFormForContext(
+      fullAdminContext,
+      "FORM-00031",
+    );
+    expect(mismatched.withdrawalLinkState).toBe("missing_withdrawal_backlink");
+
+    const repaired = await updateTwoPQStudyRequestWithdrawalLinkForContext(
+      fullAdminContext,
+      "FORM-00031",
+      "FORM-00052",
+    );
+    expect(repaired.withdrawalLinkState).toBe("cohesive");
+    expect(mockDocs.get("2pq_forms/FORM-00038")).toMatchObject({
+      withdrawalRequest: "FORM-00052",
+    });
+    expect(mockDocs.get("2pq_forms/FORM-00052")).toMatchObject({
+      withdrawalCases: [
+        expect.objectContaining({
+          linkedStudyRequest: "FORM-00031",
+          linkedBiopsyForm: "FORM-00038",
+        }),
+      ],
     });
   });
 

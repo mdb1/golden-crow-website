@@ -16,6 +16,7 @@ import {
   Loader2,
   Search,
   Trash2,
+  Truck,
   UserRound,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -1308,6 +1309,441 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
   );
 }
 
+function LinkedWithdrawalRequestSection({ form }: { form: TwoPQFormRecord }) {
+  const { language } = useAppLanguage();
+  const router = useRouter();
+  const t = (text: string) => appText(language, text);
+  const [linkedWithdrawalRequest, setLinkedWithdrawalRequest] = useState(
+    form.linkedWithdrawalRequest ?? null,
+  );
+  const [suggestedWithdrawalRequest, setSuggestedWithdrawalRequest] = useState(
+    form.suggestedWithdrawalRequest ?? null,
+  );
+  const [withdrawalLinkState, setWithdrawalLinkState] = useState(
+    form.withdrawalLinkState ??
+      (form.linkedWithdrawalRequest ? "cohesive" : "none"),
+  );
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [candidates, setCandidates] = useState<TwoPQFormRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<ActionToastState | null>(null);
+
+  if (form.formType !== "study_request") {
+    return null;
+  }
+
+  async function loadCandidates(searchValue = search) {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        formType: "withdrawal_request",
+        limit: "20",
+      });
+      if (searchValue.trim()) {
+        params.set("search", searchValue.trim());
+      }
+      const payload = await sdkFetch<{ forms: TwoPQFormRecord[] }>(
+        `/2pq/forms?${params.toString()}`,
+      );
+      setCandidates(
+        payload.forms.filter(
+          (candidate) => candidate.institutionId === form.institutionId,
+        ),
+      );
+    } catch (candidateError) {
+      setError(
+        candidateError instanceof Error
+          ? candidateError.message
+          : t("Unable to load withdrawal request forms."),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openPicker() {
+    setDialogOpen(true);
+    void loadCandidates("");
+  }
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void loadCandidates();
+  }
+
+  async function updateLink(nextWithdrawalRequestId: string | null) {
+    const repairingMismatch =
+      nextWithdrawalRequestId !== null &&
+      withdrawalLinkState !== "none" &&
+      withdrawalLinkState !== "cohesive" &&
+      withdrawalLinkState !== "missing_withdrawal" &&
+      withdrawalLinkState !== "conflict";
+    setSavingId(nextWithdrawalRequestId ?? "remove");
+    setError(null);
+    try {
+      const payload = await sdkFetch<{ form: TwoPQFormRecord }>(
+        `/2pq/forms/${encodeURIComponent(form.id)}/linked-withdrawal-request`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            linkedWithdrawalRequest: nextWithdrawalRequestId,
+          }),
+        },
+      );
+      setLinkedWithdrawalRequest(payload.form.linkedWithdrawalRequest ?? null);
+      setSuggestedWithdrawalRequest(
+        payload.form.suggestedWithdrawalRequest ?? null,
+      );
+      setWithdrawalLinkState(
+        payload.form.withdrawalLinkState ??
+          (payload.form.linkedWithdrawalRequest ? "cohesive" : "none"),
+      );
+      setDialogOpen(false);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: repairingMismatch
+          ? t("Withdrawal request links repaired.")
+          : nextWithdrawalRequestId
+            ? t("Withdrawal request linked successfully.")
+            : t("Withdrawal request link removed."),
+      });
+      router.refresh();
+    } catch (updateError) {
+      const message =
+        updateError instanceof Error
+          ? updateError.message
+          : t("Unable to update the withdrawal request link.");
+      setError(message);
+      setToast({ id: Date.now(), tone: "error", message });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  const hasLinkMismatch =
+    withdrawalLinkState !== "none" && withdrawalLinkState !== "cohesive";
+  const repairableLinkMismatch =
+    withdrawalLinkState === "missing_study_property" ||
+    withdrawalLinkState === "missing_withdrawal_backlink" ||
+    withdrawalLinkState === "missing_biopsy_backlink";
+  const repairTarget = linkedWithdrawalRequest ?? suggestedWithdrawalRequest;
+
+  return (
+    <>
+      <ActionToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        language={language}
+      />
+      <section className="overflow-hidden rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/92 via-fuchsia-50/78 to-rose-50/86 shadow-[0_18px_46px_rgba(124,58,237,0.12)] dark:border-violet-300/24 dark:from-violet-950/28 dark:via-fuchsia-950/22 dark:to-rose-950/24">
+        <div className="flex flex-col gap-4 border-b border-violet-200/70 px-5 py-5 sm:flex-row sm:items-center sm:justify-between dark:border-violet-300/18">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/82 text-violet-700 shadow-sm dark:bg-violet-400/12 dark:text-violet-200">
+              <Truck className="size-5" />
+            </span>
+            <div>
+              <h2 className="font-heading text-xl font-semibold text-violet-950 dark:text-violet-50">
+                {t("Linked withdrawal request")}
+              </h2>
+              <p className="mt-1 text-sm text-violet-950/68 dark:text-violet-50/68">
+                {t(
+                  "The study request, its biopsy, and the matching withdrawal case remain synchronized.",
+                )}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={openPicker}
+          >
+            <Search className="size-3.5" />
+            {linkedWithdrawalRequest
+              ? t("Change withdrawal request")
+              : t("Choose withdrawal request")}
+          </Button>
+        </div>
+
+        <div className="px-5 py-5">
+          {hasLinkMismatch ? (
+            <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-amber-300/80 bg-amber-50 px-4 py-4 text-amber-950 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-300/28 dark:bg-amber-950/28 dark:text-amber-50">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-500/14 text-amber-700 dark:text-amber-200">
+                  <AlertTriangle className="size-5" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">
+                    {t("Withdrawal link mismatch")}
+                  </p>
+                  <p className="mt-1 text-sm text-amber-900/76 dark:text-amber-100/76">
+                    {withdrawalLinkState === "missing_study_property"
+                      ? t(
+                          "The withdrawal request or biopsy points here, but the study request does not store the withdrawal link.",
+                        )
+                      : withdrawalLinkState === "missing_withdrawal_backlink"
+                        ? t(
+                            "The study request stores this withdrawal request, but its matching case does not point back here.",
+                          )
+                        : withdrawalLinkState === "missing_biopsy_backlink"
+                          ? t(
+                              "The study request and withdrawal case are linked, but the biopsy is missing its withdrawal link.",
+                            )
+                          : withdrawalLinkState === "missing_withdrawal"
+                            ? t(
+                                "The study request stores a withdrawal request that no longer exists.",
+                              )
+                            : t(
+                                "Multiple or conflicting withdrawal links were found. Review them before choosing the correct request.",
+                              )}
+                  </p>
+                </div>
+              </div>
+              {repairableLinkMismatch && repairTarget ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="shrink-0 bg-amber-700 text-white hover:bg-amber-800"
+                  disabled={savingId !== null}
+                  onClick={() => void updateLink(repairTarget)}
+                >
+                  {savingId === repairTarget ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Link2 className="size-3.5" />
+                  )}
+                  {t("Repair withdrawal links")}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={openPicker}
+                >
+                  <Search className="size-3.5" />
+                  {t("Review links")}
+                </Button>
+              )}
+            </div>
+          ) : null}
+
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-violet-900/64 dark:text-violet-100/64">
+            {t("Actual linked withdrawal request")}
+          </p>
+          {linkedWithdrawalRequest ? (
+            <div className="flex flex-col gap-4 rounded-2xl border border-emerald-200/90 bg-white/78 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-emerald-300/20 dark:bg-emerald-950/24">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-200">
+                  <CheckCircle2 className="size-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-50">
+                    {t("Stored in the study request")}
+                  </p>
+                  <p className="mt-1 truncate font-mono text-xs text-emerald-900/72 dark:text-emerald-100/72">
+                    {linkedWithdrawalRequest}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    href={`/2pq-dashboard/forms/${encodeURIComponent(linkedWithdrawalRequest)}`}
+                  >
+                    {t("Open")}
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  disabled={savingId !== null}
+                  onClick={() => void updateLink(null)}
+                >
+                  {savingId === "remove" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-3.5" />
+                  )}
+                  {t("Remove link")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-violet-300/80 bg-white/52 px-5 py-6 text-center dark:border-violet-300/24 dark:bg-violet-950/16">
+              <p className="text-sm font-medium text-violet-950 dark:text-violet-50">
+                {t(
+                  "No withdrawal request is stored in linkedWithdrawalRequest.",
+                )}
+              </p>
+            </div>
+          )}
+
+          {suggestedWithdrawalRequest &&
+          suggestedWithdrawalRequest !== linkedWithdrawalRequest ? (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-amber-800/72 dark:text-amber-100/72">
+                {t("Suggested withdrawal request")}
+              </p>
+              <div className="flex flex-col gap-4 rounded-2xl border border-amber-300/80 bg-amber-50/82 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-300/24 dark:bg-amber-950/22">
+                <div className="flex min-w-0 items-start gap-3">
+                  <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-200" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-amber-950 dark:text-amber-50">
+                      {t(
+                        "This withdrawal request is referenced by the related records, but it is not the stored link on the study request.",
+                      )}
+                    </p>
+                    <p className="mt-1 truncate font-mono text-xs text-amber-900/72 dark:text-amber-100/72">
+                      {suggestedWithdrawalRequest}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    href={`/2pq-dashboard/forms/${encodeURIComponent(suggestedWithdrawalRequest)}`}
+                  >
+                    {t("Open")}
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!savingId) {
+            setDialogOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[88vh] overflow-hidden p-0 sm:max-w-4xl">
+          <DialogHeader className="border-b border-violet-100 bg-violet-50/70 px-6 py-5 text-left dark:border-violet-300/16 dark:bg-violet-950/22">
+            <DialogTitle className="font-heading text-2xl">
+              {t("Choose a withdrawal request")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                "Choose a withdrawal request containing a case associated with this study request. Saving synchronizes the study, biopsy, and withdrawal case cell.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 py-5">
+            <form className="flex gap-2" onSubmit={submitSearch}>
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t("Search withdrawal requests...")}
+                autoFocus
+              />
+              <Button type="submit" variant="outline" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Search className="size-4" />
+                )}
+                {t("Search")}
+              </Button>
+            </form>
+            {error ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            ) : null}
+            <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
+              {loading ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  {t("Loading withdrawal requests...")}
+                </div>
+              ) : candidates.length ? (
+                candidates.map((candidate) => {
+                  const selected = linkedWithdrawalRequest === candidate.id;
+                  const suggested = suggestedWithdrawalRequest === candidate.id;
+                  return (
+                    <article
+                      key={candidate.id}
+                      className="grid gap-4 rounded-2xl border border-border/80 bg-background/82 p-4 shadow-sm md:grid-cols-[1fr_auto] md:items-center"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={selected ? "brand" : "outline"}>
+                            <span className="font-mono">{candidate.id}</span>
+                          </Badge>
+                          {selected ? (
+                            <Badge variant="outline">
+                              {t("Currently linked")}
+                            </Badge>
+                          ) : null}
+                          {suggested ? (
+                            <Badge variant="outline">{t("Suggested")}</Badge>
+                          ) : null}
+                        </div>
+                        <h3 className="mt-3 font-heading text-lg font-semibold">
+                          {candidate.institutionName ?? t("Withdrawal request")}
+                        </h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {compactList([
+                            `${candidate.linkedCaseIds?.length ?? candidate.withdrawalCases?.length ?? 0} ${t("linked cases")}`,
+                            candidate.createdAt
+                              ? formatDate(candidate.createdAt, language, true)
+                              : undefined,
+                          ])}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        disabled={selected || savingId !== null}
+                        onClick={() => void updateLink(candidate.id)}
+                      >
+                        {savingId === candidate.id ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : selected ? (
+                          <CheckCircle2 className="size-4" />
+                        ) : (
+                          <Link2 className="size-4" />
+                        )}
+                        {selected ? t("Linked") : t("Link withdrawal request")}
+                      </Button>
+                    </article>
+                  );
+                })
+              ) : (
+                <div className="rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
+                  {t("No withdrawal requests match this search.")}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={savingId !== null}
+              onClick={() => setDialogOpen(false)}
+            >
+              {t("Close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -1506,6 +1942,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
       ) : (
         <>
           <LinkedBiopsyFormSection form={form} />
+          <LinkedWithdrawalRequestSection form={form} />
           <PatientLinkSection form={form} />
           <DetailSection
             title={t("Patient information")}

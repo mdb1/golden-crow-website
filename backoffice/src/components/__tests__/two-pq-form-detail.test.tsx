@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import "@testing-library/jest-dom";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { TwoPQFormDetail } from "@/components/two-pq-form-detail";
@@ -214,6 +214,104 @@ describe("TwoPQFormDetail", () => {
     expect(screen.queryByText("Suggested biopsy form")).not.toBeInTheDocument();
     expect(screen.queryByText("Biopsy link mismatch")).not.toBeInTheDocument();
     expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("repairs a suggested withdrawal request and clearly stores the actual link", async () => {
+    const user = userEvent.setup();
+    const mismatchedStudyRequest: TwoPQFormRecord = {
+      ...studyRequestForm,
+      linkedWithdrawalRequest: null,
+      suggestedWithdrawalRequest: "FORM-00052",
+      withdrawalLinkState: "missing_study_property",
+    };
+    mockSdkFetch.mockResolvedValue({
+      form: {
+        ...mismatchedStudyRequest,
+        linkedWithdrawalRequest: "FORM-00052",
+        suggestedWithdrawalRequest: null,
+        withdrawalLinkState: "cohesive",
+      },
+    });
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <TwoPQFormDetail form={mismatchedStudyRequest} />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByText("Withdrawal link mismatch")).toBeInTheDocument();
+    expect(
+      screen.getByText("Suggested withdrawal request"),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Repair withdrawal links" }),
+    );
+
+    await waitFor(() =>
+      expect(mockSdkFetch).toHaveBeenCalledWith(
+        "/2pq/forms/FORM-00047/linked-withdrawal-request",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ linkedWithdrawalRequest: "FORM-00052" }),
+        },
+      ),
+    );
+    expect(
+      screen.queryByText("Suggested withdrawal request"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Withdrawal link mismatch"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("can unlink the withdrawal request from its dedicated block", async () => {
+    const user = userEvent.setup();
+    const linkedStudyRequest: TwoPQFormRecord = {
+      ...studyRequestForm,
+      linkedWithdrawalRequest: "FORM-00052",
+      suggestedWithdrawalRequest: null,
+      withdrawalLinkState: "cohesive",
+    };
+    mockSdkFetch.mockResolvedValue({
+      form: {
+        ...linkedStudyRequest,
+        linkedWithdrawalRequest: null,
+        withdrawalLinkState: "none",
+      },
+    });
+
+    render(
+      <AppLanguageProvider initialLanguage="en">
+        <TwoPQFormDetail form={linkedStudyRequest} />
+      </AppLanguageProvider>,
+    );
+
+    const heading = screen.getByRole("heading", {
+      name: "Linked withdrawal request",
+    });
+    const section = heading.closest("section");
+    expect(section).not.toBeNull();
+    await user.click(
+      within(section as HTMLElement).getByRole("button", {
+        name: "Remove link",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockSdkFetch).toHaveBeenCalledWith(
+        "/2pq/forms/FORM-00047/linked-withdrawal-request",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ linkedWithdrawalRequest: null }),
+        },
+      ),
+    );
+    expect(
+      await within(section as HTMLElement).findByText(
+        "No withdrawal request is stored in linkedWithdrawalRequest.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows each withdrawal report code with its study request and biopsy links", () => {
