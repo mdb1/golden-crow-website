@@ -47,6 +47,7 @@ import { isGlobalAdminRole } from "@/lib/admin-areas";
 import type {
   TwoPQFormRecord,
   TwoPQFormsOrder,
+  TwoPQFormsTypeFilter,
   TwoPQFormType,
 } from "@/lib/two-pq-forms";
 import {
@@ -59,11 +60,9 @@ import { cn } from "@/lib/utils";
 
 const DEFAULT_PAGE_SIZE = 20;
 
-type FormTypeFilter = TwoPQFormType | "all";
-
 type FormsFilterState = {
   includeArchived: boolean;
-  formType: FormTypeFilter;
+  formType: TwoPQFormsTypeFilter;
   search: string;
   createdFrom: string;
   createdTo: string;
@@ -78,7 +77,7 @@ type FormsPageResponse = {
 
 const DEFAULT_FILTERS: FormsFilterState = {
   includeArchived: false,
-  formType: "all",
+  formType: "study_request_cojoined",
   search: "",
   createdFrom: "",
   createdTo: "",
@@ -101,14 +100,16 @@ function formatDate(value: string, language: "en" | "es") {
 function buildFormsQuery(
   filters: FormsFilterState,
   pageSize: number,
-  cursor?: string | null
+  cursor?: string | null,
 ) {
   const params = new URLSearchParams();
   params.set("limit", String(pageSize));
   if (filters.includeArchived) {
     params.set("includeArchived", "1");
   }
-  if (filters.formType !== "all") {
+  if (filters.formType === "study_request_cojoined") {
+    params.set("formType", "study_request");
+  } else if (filters.formType !== "all") {
     params.set("formType", filters.formType);
   }
   if (filters.search.trim()) {
@@ -132,6 +133,7 @@ function buildFormsQuery(
 function buildFormsUrl(filters: FormsFilterState) {
   const params = buildFormsQuery(filters, DEFAULT_PAGE_SIZE);
   params.delete("limit");
+  params.set("formType", filters.formType);
   const query = params.toString();
   return query ? `/2pq-dashboard/forms?${query}` : "/2pq-dashboard/forms";
 }
@@ -139,7 +141,7 @@ function buildFormsUrl(filters: FormsFilterState) {
 function hasActiveFilters(filters: FormsFilterState) {
   return (
     filters.includeArchived ||
-    filters.formType !== "all" ||
+    filters.formType !== DEFAULT_FILTERS.formType ||
     Boolean(filters.search.trim()) ||
     Boolean(filters.createdFrom) ||
     Boolean(filters.createdTo) ||
@@ -147,7 +149,13 @@ function hasActiveFilters(filters: FormsFilterState) {
   );
 }
 
-function formTypeLabel(type: FormTypeFilter, t: (text: string) => string) {
+function formTypeLabel(
+  type: TwoPQFormsTypeFilter,
+  t: (text: string) => string,
+) {
+  if (type === "study_request_cojoined") {
+    return t("Study request (Co-joined)");
+  }
   if (type === "study_request") {
     return t("Study request");
   }
@@ -158,6 +166,101 @@ function formTypeLabel(type: FormTypeFilter, t: (text: string) => string) {
     return t("Withdrawal request");
   }
   return t("All types");
+}
+
+function CoJoinedFormSequence({
+  form,
+  t,
+}: {
+  form: TwoPQFormRecord;
+  t: (text: string) => string;
+}) {
+  const steps = [
+    {
+      number: 1,
+      label: t("Study"),
+      formId: form.id,
+      linkedClass:
+        "border-sky-600 bg-sky-600 text-white shadow-[0_8px_20px_rgba(2,132,199,0.24)] dark:border-sky-300 dark:bg-sky-300 dark:text-sky-950",
+    },
+    {
+      number: 2,
+      label: t("Biopsy"),
+      formId: form.linkedBiopsyForm ?? null,
+      linkedClass:
+        "border-emerald-600 bg-emerald-600 text-white shadow-[0_8px_20px_rgba(5,150,105,0.24)] dark:border-emerald-300 dark:bg-emerald-300 dark:text-emerald-950",
+    },
+    {
+      number: 3,
+      label: t("Withdrawal"),
+      formId: form.linkedWithdrawalRequest ?? null,
+      linkedClass:
+        "border-amber-600 bg-amber-600 text-white shadow-[0_8px_20px_rgba(217,119,6,0.24)] dark:border-amber-300 dark:bg-amber-300 dark:text-amber-950",
+    },
+  ];
+
+  return (
+    <div
+      aria-label={t("Co-joined form sequence")}
+      className="mt-4 rounded-2xl border border-sky-200/80 bg-white/72 px-3 py-4 dark:border-sky-300/18 dark:bg-sky-950/24"
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)_1.5rem_minmax(0,1fr)_1.5rem_minmax(0,1fr)] items-start sm:grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)_3rem_minmax(0,1fr)]">
+        {steps.map((step, index) => {
+          const isLinked = Boolean(step.formId);
+          const content = (
+            <>
+              <span
+                aria-label={`${step.label}: ${isLinked ? t("Linked") : t("Not linked")}`}
+                className={cn(
+                  "flex size-10 items-center justify-center rounded-full border-2 text-sm font-bold transition-transform",
+                  isLinked
+                    ? step.linkedClass
+                    : "border-dashed border-muted-foreground/35 bg-background text-muted-foreground/55",
+                  isLinked && "group-hover/step:-translate-y-0.5",
+                )}
+              >
+                {step.number}
+              </span>
+              <span className="mt-2 text-center text-xs font-semibold text-foreground">
+                {step.label}
+              </span>
+              <span className="mt-0.5 max-w-full truncate font-mono text-[10px] text-muted-foreground sm:text-xs">
+                {step.formId ?? t("Not linked")}
+              </span>
+            </>
+          );
+
+          return (
+            <div key={step.number} className="contents">
+              {step.formId ? (
+                <Link
+                  href={`/2pq-dashboard/forms/${encodeURIComponent(step.formId)}`}
+                  className="group/step flex min-w-0 flex-col items-center rounded-xl px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {content}
+                </Link>
+              ) : (
+                <div className="flex min-w-0 flex-col items-center px-1 py-1">
+                  {content}
+                </div>
+              )}
+              {index < steps.length - 1 ? (
+                <div
+                  aria-hidden="true"
+                  className={cn(
+                    "mt-5 h-0.5 w-full",
+                    steps[index + 1]?.formId
+                      ? "bg-sky-400/80 dark:bg-sky-300/60"
+                      : "border-t-2 border-dashed border-muted-foreground/25",
+                  )}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 const FORM_TYPE_VISUALS: Record<
@@ -224,7 +327,8 @@ export function TwoPQFormsList({
   } | null>(null);
   const [storedForms, setStoredForms] = useState(forms);
   const [filters, setFilters] = useState<FormsFilterState>(initialFilters);
-  const [draftFilters, setDraftFilters] = useState<FormsFilterState>(initialFilters);
+  const [draftFilters, setDraftFilters] =
+    useState<FormsFilterState>(initialFilters);
   const [nextCursor, setNextCursor] = useState<string | null>(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [isLoading, setIsLoading] = useState(false);
@@ -247,7 +351,7 @@ export function TwoPQFormsList({
 
   async function loadForms(
     nextFilters: FormsFilterState,
-    options: { append?: boolean; cursor?: string | null } = {}
+    options: { append?: boolean; cursor?: string | null } = {},
   ) {
     const append = Boolean(options.append);
     if (append && !options.cursor) {
@@ -262,9 +366,11 @@ export function TwoPQFormsList({
 
     try {
       const params = buildFormsQuery(nextFilters, pageSize, options.cursor);
-      const payload = await sdkFetch<FormsPageResponse>(`/2pq/forms?${params.toString()}`);
+      const payload = await sdkFetch<FormsPageResponse>(
+        `/2pq/forms?${params.toString()}`,
+      );
       setStoredForms((current) =>
-        append ? [...current, ...payload.forms] : payload.forms
+        append ? [...current, ...payload.forms] : payload.forms,
       );
       setNextCursor(payload.nextCursor ?? null);
       setHasMore(Boolean(payload.hasMore));
@@ -309,11 +415,14 @@ export function TwoPQFormsList({
     setIsSubmitting(true);
     try {
       if (pendingAction.type === "delete") {
-        await sdkFetch(`/2pq/forms/${encodeURIComponent(pendingAction.form.id)}`, {
-          method: "DELETE",
-        });
+        await sdkFetch(
+          `/2pq/forms/${encodeURIComponent(pendingAction.form.id)}`,
+          {
+            method: "DELETE",
+          },
+        );
         setStoredForms((current) =>
-          current.filter((form) => form.id !== pendingAction.form.id)
+          current.filter((form) => form.id !== pendingAction.form.id),
         );
         setToast({
           id: Date.now(),
@@ -323,14 +432,14 @@ export function TwoPQFormsList({
       } else {
         const payload = await sdkFetch<{ form: TwoPQFormRecord }>(
           `/2pq/forms/${encodeURIComponent(pendingAction.form.id)}/archive`,
-          { method: "PATCH" }
+          { method: "PATCH" },
         );
         setStoredForms((current) =>
           filters.includeArchived
             ? current.map((form) =>
-                form.id === pendingAction.form.id ? payload.form : form
+                form.id === pendingAction.form.id ? payload.form : form,
               )
-            : current.filter((form) => form.id !== pendingAction.form.id)
+            : current.filter((form) => form.id !== pendingAction.form.id),
         );
         setToast({
           id: Date.now(),
@@ -364,7 +473,10 @@ export function TwoPQFormsList({
       >
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.4fr)_minmax(150px,0.8fr)_minmax(150px,0.8fr)_minmax(190px,0.9fr)]">
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="two-pq-form-search" className="text-xs text-muted-foreground">
+            <Label
+              htmlFor="two-pq-form-search"
+              className="text-xs text-muted-foreground"
+            >
               <Search className="size-3.5" />
               {t("Search by patient")}
             </Label>
@@ -381,7 +493,10 @@ export function TwoPQFormsList({
             />
           </div>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="two-pq-form-from" className="text-xs text-muted-foreground">
+            <Label
+              htmlFor="two-pq-form-from"
+              className="text-xs text-muted-foreground"
+            >
               <CalendarDays className="size-3.5" />
               {t("From")}
             </Label>
@@ -398,7 +513,10 @@ export function TwoPQFormsList({
             />
           </div>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="two-pq-form-to" className="text-xs text-muted-foreground">
+            <Label
+              htmlFor="two-pq-form-to"
+              className="text-xs text-muted-foreground"
+            >
               <CalendarDays className="size-3.5" />
               {t("To")}
             </Label>
@@ -415,7 +533,10 @@ export function TwoPQFormsList({
             />
           </div>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">
+            <Label
+              htmlFor="two-pq-form-type"
+              className="text-xs text-muted-foreground"
+            >
               <Filter className="size-3.5" />
               {t("Form type")}
             </Label>
@@ -424,16 +545,23 @@ export function TwoPQFormsList({
               onValueChange={(value) =>
                 setDraftFilters((current) => ({
                   ...current,
-                  formType: value as FormTypeFilter,
+                  formType: value as TwoPQFormsTypeFilter,
                 }))
               }
             >
-              <SelectTrigger className="w-full">
-                <SelectValue>{formTypeLabel(draftFilters.formType, t)}</SelectValue>
+              <SelectTrigger id="two-pq-form-type" className="w-full">
+                <SelectValue>
+                  {formTypeLabel(draftFilters.formType, t)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("All types")}</SelectItem>
-                <SelectItem value="study_request">{t("Study request")}</SelectItem>
+                <SelectItem value="study_request_cojoined">
+                  {t("Study request (Co-joined)")}
+                </SelectItem>
+                <SelectItem value="study_request">
+                  {t("Study request")}
+                </SelectItem>
                 <SelectItem value="sample">{t("Biopsy form")}</SelectItem>
                 <SelectItem value="withdrawal_request">
                   {t("Withdrawal request")}
@@ -465,7 +593,9 @@ export function TwoPQFormsList({
             disabled={isLoading}
           >
             <ArrowUpDown className="size-3.5" />
-            {draftFilters.order === "newest" ? t("Newest first") : t("Oldest first")}
+            {draftFilters.order === "newest"
+              ? t("Newest first")
+              : t("Oldest first")}
           </Button>
           <Button
             type="button"
@@ -480,7 +610,9 @@ export function TwoPQFormsList({
             disabled={isLoading}
           >
             <Archive className="size-3.5" />
-            {draftFilters.includeArchived ? t("Hide archived") : t("Show archived")}
+            {draftFilters.includeArchived
+              ? t("Hide archived")
+              : t("Show archived")}
           </Button>
           {activeFilters ? (
             <Button
@@ -503,7 +635,9 @@ export function TwoPQFormsList({
       <div className="grid gap-3">
         {visibleForms.length === 0 ? (
           <div className={emptyClass}>
-            {activeFilters ? t("No forms match these filters.") : t("No stored forms yet.")}
+            {activeFilters
+              ? t("No forms match these filters.")
+              : t("No stored forms yet.")}
           </div>
         ) : (
           visibleForms.map((form) => {
@@ -512,13 +646,22 @@ export function TwoPQFormsList({
             const displayTitle = getTwoPQFormDisplayTitle(form, language);
             const formVisuals = FORM_TYPE_VISUALS[form.formType];
             const FormIcon = formVisuals.Icon;
+            const showCoJoinedSequence =
+              filters.formType === "study_request_cojoined" &&
+              form.formType === "study_request";
 
             return (
               <article
                 key={form.id}
-                className={cn(articleClass, formVisuals.articleClass)}
+                className={cn(
+                  articleClass,
+                  formVisuals.articleClass,
+                  showCoJoinedSequence && "md:flex-col md:items-stretch",
+                )}
               >
-                <div className="min-w-0">
+                <div
+                  className={cn("min-w-0", showCoJoinedSequence && "w-full")}
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={formVisuals.iconClass}>
                       <FormIcon className="size-4" />
@@ -527,7 +670,9 @@ export function TwoPQFormsList({
                       <p className="truncate font-medium text-foreground">
                         {displayTitle}
                       </p>
-                      <p className="font-mono text-xs text-muted-foreground">{form.id}</p>
+                      <p className="font-mono text-xs text-muted-foreground">
+                        {form.id}
+                      </p>
                     </div>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">
@@ -536,9 +681,14 @@ export function TwoPQFormsList({
                       form.requestedTestName,
                       form.institutionName,
                       form.patientEmail,
-                      authorEmail ? `${t("Author")}: ${authorEmail}` : undefined,
+                      authorEmail
+                        ? `${t("Author")}: ${authorEmail}`
+                        : undefined,
                     ])}
                   </p>
+                  {showCoJoinedSequence ? (
+                    <CoJoinedFormSequence form={form} t={t} />
+                  ) : null}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 md:justify-end">
@@ -548,9 +698,13 @@ export function TwoPQFormsList({
                   {isArchived ? (
                     <Badge variant="warning">{t("Archived")}</Badge>
                   ) : null}
-                  <Badge variant="outline">{formatDate(form.createdAt, language)}</Badge>
+                  <Badge variant="outline">
+                    {formatDate(form.createdAt, language)}
+                  </Badge>
                   <Button variant="outline" size="sm" asChild>
-                    <Link href={`/2pq-dashboard/forms/${encodeURIComponent(form.id)}`}>
+                    <Link
+                      href={`/2pq-dashboard/forms/${encodeURIComponent(form.id)}`}
+                    >
                       {t("Open")}
                       <ArrowRight className="size-3.5" />
                     </Link>
@@ -571,7 +725,9 @@ export function TwoPQFormsList({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setPendingAction({ type: "archive", form })}
+                      onClick={() =>
+                        setPendingAction({ type: "archive", form })
+                      }
                       className="border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-300/20 dark:bg-indigo-400/12 dark:text-indigo-100"
                     >
                       <Archive className="size-3.5" />
@@ -591,7 +747,9 @@ export function TwoPQFormsList({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => void loadForms(filters, { append: true, cursor: nextCursor })}
+            onClick={() =>
+              void loadForms(filters, { append: true, cursor: nextCursor })
+            }
             disabled={isLoadingMore || !nextCursor}
           >
             {isLoadingMore ? (
@@ -639,10 +797,14 @@ export function TwoPQFormsList({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSubmitting}>
+              {t("Cancel")}
+            </AlertDialogCancel>
             <Button
               type="button"
-              variant={pendingAction?.type === "delete" ? "destructive" : "default"}
+              variant={
+                pendingAction?.type === "delete" ? "destructive" : "default"
+              }
               onClick={() => void handleConfirmAction()}
               disabled={isSubmitting}
             >

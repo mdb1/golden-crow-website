@@ -8,6 +8,7 @@ import { AppLanguageProvider } from "@/components/app-language-provider";
 import { TwoPQFormsList } from "@/components/two-pq-forms-list";
 import type { AdminContextRecord, AdminRole } from "@/lib/admin-areas";
 import type { TwoPQFormRecord } from "@/lib/two-pq-forms";
+import type { TwoPQFormsTypeFilter } from "@/lib/two-pq-forms";
 import { sdkFetch } from "@/lib/sdk-client";
 
 const mockRefresh = jest.fn();
@@ -54,6 +55,7 @@ const form: TwoPQFormRecord = {
 function renderList(
   forms: TwoPQFormRecord[] = [form],
   role: AdminRole = "full_admin",
+  initialFormType: TwoPQFormsTypeFilter | null = "study_request",
 ) {
   render(
     <AppLanguageProvider initialLanguage="en">
@@ -65,7 +67,22 @@ function renderList(
           doctorId: role === "institution_doctor" ? "DOC-00001" : undefined,
         }}
       >
-        <TwoPQFormsList forms={forms} allowMutations />
+        <TwoPQFormsList
+          forms={forms}
+          allowMutations
+          {...(initialFormType
+            ? {
+                initialFilters: {
+                  includeArchived: false,
+                  formType: initialFormType,
+                  search: "",
+                  createdFrom: "",
+                  createdTo: "",
+                  order: "newest" as const,
+                },
+              }
+            : {})}
+        />
       </AdminContextProvider>
     </AppLanguageProvider>,
   );
@@ -94,15 +111,12 @@ describe("TwoPQFormsList actions", () => {
     expect(deleteButton.parentElement).toBe(archiveButton.parentElement);
 
     await user.click(archiveButton);
-    await user.click(
-      screen.getByRole("button", { name: "Archive form" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Archive form" }));
 
     await waitFor(() =>
-      expect(sdkFetch).toHaveBeenCalledWith(
-        "/2pq/forms/FORM-00001/archive",
-        { method: "PATCH" },
-      ),
+      expect(sdkFetch).toHaveBeenCalledWith("/2pq/forms/FORM-00001/archive", {
+        method: "PATCH",
+      }),
     );
     expect(screen.queryByText(form.id)).not.toBeInTheDocument();
     expect(mockRefresh).toHaveBeenCalledTimes(1);
@@ -152,4 +166,69 @@ describe("TwoPQFormsList actions", () => {
       within(row!).getByRole("button", { name: "Archive" }),
     ).toBeInTheDocument();
   });
+
+  it("uses the co-joined study view by default and links every populated step", async () => {
+    const user = userEvent.setup();
+    const coJoinedForm = {
+      ...form,
+      linkedBiopsyForm: "FORM-00002",
+      linkedWithdrawalRequest: "FORM-00003",
+    };
+    (sdkFetch as jest.Mock).mockResolvedValue({
+      forms: [coJoinedForm],
+      nextCursor: null,
+      hasMore: false,
+    });
+
+    renderList([coJoinedForm], "full_admin", null);
+
+    expect(
+      screen.getByRole("combobox", { name: "Form type" }),
+    ).toHaveTextContent("Study request (Co-joined)");
+    expect(
+      screen.getByLabelText("Co-joined form sequence"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Study: Linked")).toHaveTextContent("1");
+    expect(screen.getByLabelText("Biopsy: Linked")).toHaveTextContent("2");
+    expect(screen.getByLabelText("Withdrawal: Linked")).toHaveTextContent("3");
+    expect(
+      document.querySelector('a[href="/2pq-dashboard/forms/FORM-00002"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('a[href="/2pq-dashboard/forms/FORM-00003"]'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Apply filters" }));
+
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/2pq/forms?limit=20&formType=study_request",
+      ),
+    );
+    expect(mockReplace).toHaveBeenCalledWith(
+      "/2pq-dashboard/forms?formType=study_request_cojoined",
+      { scroll: false },
+    );
+  });
+
+  it("shows empty biopsy and withdrawal circles when those forms are absent", () => {
+    renderList([form], "full_admin", "study_request_cojoined");
+
+    expect(screen.getByLabelText("Study: Linked")).toBeInTheDocument();
+    expect(screen.getByLabelText("Biopsy: Not linked")).toHaveTextContent("2");
+    expect(screen.getByLabelText("Withdrawal: Not linked")).toHaveTextContent(
+      "3",
+    );
+  });
+
+  it.each(["study_request", "all"] as const)(
+    "never shows the co-joined sequence for the %s filter",
+    (formType) => {
+      renderList([form], "full_admin", formType);
+
+      expect(
+        screen.queryByLabelText("Co-joined form sequence"),
+      ).not.toBeInTheDocument();
+    },
+  );
 });

@@ -2466,6 +2466,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Guided form flow stored in 2pq_forms.":
     "Flujo guiado de formulario almacenado en 2pq_forms.",
   "Study request": "Solicitud de estudio",
+  "Study request (Co-joined)": "Solicitud de estudio (Co-vinculada)",
+  Study: "Estudio",
+  Biopsy: "Biopsia",
+  Withdrawal: "Retiro",
+  "Co-joined form sequence": "Secuencia de formularios co-vinculados",
   "Withdrawal request": "Solicitud de retiro",
   Sample: "Formulario de biopsias",
   "Biopsy form": "Formulario de biopsias",

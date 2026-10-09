@@ -14,6 +14,7 @@ import {
   TWO_PQ_FORM_LABELS,
   TWO_PQ_FORM_ROUTES,
   type TwoPQFormsOrder,
+  type TwoPQFormsTypeFilter,
   type TwoPQFormType,
 } from "@/lib/two-pq-forms";
 import { appText } from "@/lib/language";
@@ -27,13 +28,25 @@ function one(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function formTypeFromParam(value: string | string[] | undefined): TwoPQFormType | undefined {
+function formTypeFromParam(
+  value: string | string[] | undefined,
+): TwoPQFormType | undefined {
   const normalized = one(value);
   return normalized === "study_request" ||
     normalized === "sample" ||
     normalized === "withdrawal_request"
     ? normalized
     : undefined;
+}
+
+function formTypeFilterFromParam(
+  value: string | string[] | undefined,
+): TwoPQFormsTypeFilter {
+  const normalized = one(value);
+  if (normalized === "study_request_cojoined" || normalized === "all") {
+    return normalized;
+  }
+  return formTypeFromParam(normalized) ?? "study_request_cojoined";
 }
 
 function orderFromParam(value: string | string[] | undefined): TwoPQFormsOrder {
@@ -70,11 +83,17 @@ export default async function TwoPQFormsPage({
     includeArchivedParam === "1" ||
     includeArchivedParam === "true" ||
     includeArchivedParam === "yes";
-  const formType = formTypeFromParam(formTypeParam);
+  const formTypeFilter = formTypeFilterFromParam(formTypeParam);
+  const formType =
+    formTypeFilter === "study_request_cojoined"
+      ? "study_request"
+      : formTypeFilter === "all"
+        ? undefined
+        : formTypeFilter;
   const formsOrder = orderFromParam(order);
   const initialFilters = {
     includeArchived,
-    formType: formType ?? "all",
+    formType: formTypeFilter,
     search: search ?? "",
     createdFrom: createdFrom ?? "",
     createdTo: createdTo ?? "",
@@ -95,8 +114,8 @@ export default async function TwoPQFormsPage({
   ]);
   const draftHref =
     formDraft && canCreateTwoPQFormType(adminContext.role, formDraft.formType)
-    ? `${TWO_PQ_FORM_ROUTES[formDraft.formType]}?draft=1`
-    : null;
+      ? `${TWO_PQ_FORM_ROUTES[formDraft.formType]}?draft=1`
+      : null;
   const renderPageActions = () => (
     <>
       {formDraft && draftHref ? (
@@ -131,7 +150,9 @@ export default async function TwoPQFormsPage({
           <PageHero
             eyebrow="2PQ"
             title={t("Forms")}
-            description={t("Stored 2PQ study request, biopsy, and withdrawal forms.")}
+            description={t(
+              "Stored 2PQ study request, biopsy, and withdrawal forms.",
+            )}
             actions={renderPageActions()}
           />
         }

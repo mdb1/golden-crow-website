@@ -1,6 +1,8 @@
 import type { AdminRole } from "@/lib/admin-areas";
 
 export type TwoPQFormType = "study_request" | "sample" | "withdrawal_request";
+export type TwoPQFormsTypeFilter =
+  TwoPQFormType | "study_request_cojoined" | "all";
 
 export const DEFAULT_OBSERVATIONS_VALUE = "Sin observaciones";
 
