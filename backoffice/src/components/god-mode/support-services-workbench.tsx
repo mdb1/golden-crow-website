@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -7091,110 +7090,81 @@ function ServiceCategoryPicker({
                   {t("No service categories match this search.")}
                 </div>
               ) : (
-                <Table className="table-fixed">
-                  <TableHeader className="sticky top-0 z-10 bg-white/95 shadow-[0_1px_0_rgba(124,58,237,0.1)] backdrop-blur dark:bg-slate-950/95">
-                    <TableRow className="border-violet-100 hover:bg-transparent dark:border-violet-400/16">
-                      <TableHead className="w-14 px-4">
-                        <span className="sr-only">
-                          {t("Service category options")}
-                        </span>
-                      </TableHead>
-                      <TableHead className="w-[34%] px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700 dark:text-violet-200">
-                        {t("Category")}
-                      </TableHead>
-                      <TableHead className="px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700 dark:text-violet-200">
-                        {t("Description")}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visibleCategoryGroups.map((group) => {
-                      const GroupIcon = serviceCategoryGroupIcon(group.id);
+                <div className="divide-y divide-violet-200/80 dark:divide-violet-400/20">
+                  {visibleCategoryGroups.map((group) => {
+                    const GroupIcon = serviceCategoryGroupIcon(group.id);
 
-                      return (
-                        <Fragment key={group.id}>
-                          <TableRow className="border-violet-100 bg-violet-50/70 hover:bg-violet-50/70 dark:border-violet-400/16 dark:bg-violet-500/9 dark:hover:bg-violet-500/9">
-                            <TableCell colSpan={3} className="px-4 py-3">
-                              <div className="flex items-center gap-3">
-                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-500/16 dark:text-violet-100">
-                                  <GroupIcon className="h-4 w-4" />
-                                </span>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-foreground">
-                                    {language === "es"
-                                      ? group.nameSpanish
-                                      : group.nameEnglish}
-                                  </p>
-                                  <p className="truncate text-xs text-muted-foreground">
-                                    {language === "es"
-                                      ? group.descriptionSpanish
-                                      : group.descriptionEnglish}
-                                  </p>
-                                </div>
-                              </div>
-                            </TableCell>
-                          </TableRow>
+                    return (
+                      <section key={group.id}>
+                        <div className="border-b border-violet-100 bg-violet-50/75 px-4 py-3 dark:border-violet-400/16 dark:bg-violet-500/9">
+                          <div className="flex items-start gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-500/16 dark:text-violet-100">
+                              <GroupIcon className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="truncate text-sm font-semibold text-foreground">
+                                {language === "es"
+                                  ? group.nameSpanish
+                                  : group.nameEnglish}
+                              </h3>
+                              <p className="mt-0.5 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                                {language === "es"
+                                  ? group.descriptionSpanish
+                                  : group.descriptionEnglish}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="divide-y divide-violet-100 dark:divide-violet-400/12">
                           {group.categories.map((category) => {
                             const selected = draft === category.key;
 
                             return (
-                              <TableRow
+                              <button
                                 key={category.key}
+                                type="button"
                                 role="radio"
-                                tabIndex={0}
                                 aria-checked={selected}
-                                aria-label={supportServiceCategoryName(
-                                  category,
-                                  language,
-                                )}
                                 onClick={() => setDraft(category.key)}
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter" || event.key === " ") {
-                                    event.preventDefault();
-                                    setDraft(category.key);
-                                  }
-                                }}
                                 className={cn(
-                                  "cursor-pointer border-violet-100 outline-none transition-colors focus-visible:bg-violet-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400 dark:border-violet-400/12 dark:focus-visible:bg-violet-500/12",
+                                  "flex w-full min-w-0 items-start gap-3 px-4 py-3.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400",
                                   selected
-                                    ? "bg-violet-50/95 hover:bg-violet-50 dark:bg-violet-500/14 dark:hover:bg-violet-500/16"
+                                    ? "bg-violet-50/95 dark:bg-violet-500/14"
                                     : "bg-white hover:bg-violet-50/55 dark:bg-slate-950/48 dark:hover:bg-violet-500/8",
                                 )}
                               >
-                                <TableCell className="px-4 py-3 align-middle">
-                                  <span
-                                    className={cn(
-                                      "flex h-6 w-6 items-center justify-center rounded-full border transition-colors",
-                                      selected
-                                        ? "border-violet-600 bg-violet-600 text-white shadow-sm"
-                                        : "border-violet-200 bg-white text-transparent dark:border-violet-400/28 dark:bg-slate-950",
-                                    )}
-                                  >
-                                    <Check className="h-3.5 w-3.5" />
-                                  </span>
-                                </TableCell>
-                                <TableCell className="px-3 py-3 align-top">
-                                  <span className="text-sm font-semibold leading-5 text-foreground">
+                                <span
+                                  className={cn(
+                                    "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors",
+                                    selected
+                                      ? "border-violet-600 bg-violet-600 text-white shadow-sm"
+                                      : "border-violet-200 bg-white text-transparent dark:border-violet-400/28 dark:bg-slate-950",
+                                  )}
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm font-semibold leading-5 text-foreground">
                                     {supportServiceCategoryName(
                                       category,
                                       language,
                                     )}
                                   </span>
-                                </TableCell>
-                                <TableCell className="px-3 py-3 align-top text-xs leading-5 text-muted-foreground">
-                                  {supportServiceCategoryDescription(
-                                    category,
-                                    language,
-                                  )}
-                                </TableCell>
-                              </TableRow>
+                                  <span className="mt-1 block whitespace-normal text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                                    {supportServiceCategoryDescription(
+                                      category,
+                                      language,
+                                    )}
+                                  </span>
+                                </span>
+                              </button>
                             );
                           })}
-                        </Fragment>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
