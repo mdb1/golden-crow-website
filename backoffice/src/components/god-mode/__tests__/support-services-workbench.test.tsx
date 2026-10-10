@@ -1947,6 +1947,7 @@ describe("support services workbenches", () => {
 
     const modal = await screen.findByRole("dialog");
     expect(modal.className).toContain("80rem");
+    expect(within(modal).getByRole("table")).toBeTruthy();
     expect(within(modal).getByText(selectedDescription)).toBeTruthy();
     expect(within(modal).getAllByRole("radio")).toHaveLength(
       SUPPORT_SERVICE_CATEGORIES.length,

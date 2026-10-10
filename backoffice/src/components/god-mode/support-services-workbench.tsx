@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -7079,84 +7080,122 @@ function ServiceCategoryPicker({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/55 px-5 py-5 sm:px-6 dark:bg-slate-950/55">
             <div
               role="radiogroup"
               aria-label={t("Service category options")}
-              className="grid gap-7"
+              className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-[0_18px_50px_-38px_rgba(76,29,149,0.65)] dark:border-violet-400/16 dark:bg-slate-950/70"
             >
-              {visibleCategoryGroups.map((group) => {
-                const GroupIcon = serviceCategoryGroupIcon(group.id);
+              {visibleCategoryGroups.length === 0 ? (
+                <div className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  {t("No service categories match this search.")}
+                </div>
+              ) : (
+                <Table className="table-fixed">
+                  <TableHeader className="sticky top-0 z-10 bg-white/95 shadow-[0_1px_0_rgba(124,58,237,0.1)] backdrop-blur dark:bg-slate-950/95">
+                    <TableRow className="border-violet-100 hover:bg-transparent dark:border-violet-400/16">
+                      <TableHead className="w-14 px-4">
+                        <span className="sr-only">
+                          {t("Service category options")}
+                        </span>
+                      </TableHead>
+                      <TableHead className="w-[34%] px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700 dark:text-violet-200">
+                        {t("Category")}
+                      </TableHead>
+                      <TableHead className="px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700 dark:text-violet-200">
+                        {t("Description")}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleCategoryGroups.map((group) => {
+                      const GroupIcon = serviceCategoryGroupIcon(group.id);
 
-                return (
-                  <section key={group.id} className="grid gap-3">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/16 dark:text-violet-100">
-                        <GroupIcon className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <h3 className="text-base font-semibold text-foreground">
-                          {language === "es"
-                            ? group.nameSpanish
-                            : group.nameEnglish}
-                        </h3>
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                          {language === "es"
-                            ? group.descriptionSpanish
-                            : group.descriptionEnglish}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 lg:grid-cols-2">
-                      {group.categories.map((category) => {
-                        const selected = draft === category.key;
-                        return (
-                          <button
-                            key={category.key}
-                            type="button"
-                            role="radio"
-                            aria-checked={selected}
-                            onClick={() => setDraft(category.key)}
-                            className={cn(
-                              "flex min-h-40 w-full items-start gap-4 rounded-xl border px-4 py-4 text-left transition",
-                              selected
-                                ? "border-violet-400 bg-violet-50 text-violet-950 shadow-[0_16px_40px_-28px_rgba(109,40,217,0.7)] ring-2 ring-violet-200 dark:border-violet-300/50 dark:bg-violet-500/14 dark:text-violet-50 dark:ring-violet-400/18"
-                                : "border-violet-100 bg-white/82 text-foreground hover:border-violet-200 hover:bg-violet-50/55 dark:border-violet-400/16 dark:bg-slate-950/42 dark:hover:bg-violet-500/10",
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border",
-                                selected
-                                  ? "border-violet-600 bg-violet-600 text-white"
-                                  : "border-violet-200 bg-white text-transparent dark:border-violet-400/28 dark:bg-slate-950",
-                              )}
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-semibold">
-                                {supportServiceCategoryName(category, language)}
-                              </span>
-                              <span className="mt-2 block text-xs leading-5 text-muted-foreground">
-                                {supportServiceCategoryDescription(
+                      return (
+                        <Fragment key={group.id}>
+                          <TableRow className="border-violet-100 bg-violet-50/70 hover:bg-violet-50/70 dark:border-violet-400/16 dark:bg-violet-500/9 dark:hover:bg-violet-500/9">
+                            <TableCell colSpan={3} className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-500/16 dark:text-violet-100">
+                                  <GroupIcon className="h-4 w-4" />
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-foreground">
+                                    {language === "es"
+                                      ? group.nameSpanish
+                                      : group.nameEnglish}
+                                  </p>
+                                  <p className="truncate text-xs text-muted-foreground">
+                                    {language === "es"
+                                      ? group.descriptionSpanish
+                                      : group.descriptionEnglish}
+                                  </p>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          {group.categories.map((category) => {
+                            const selected = draft === category.key;
+
+                            return (
+                              <TableRow
+                                key={category.key}
+                                role="radio"
+                                tabIndex={0}
+                                aria-checked={selected}
+                                aria-label={supportServiceCategoryName(
                                   category,
                                   language,
                                 )}
-                              </span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </section>
-                );
-              })}
-              {visibleCategoryGroups.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-violet-200 bg-violet-50/45 px-5 py-10 text-center text-sm text-muted-foreground dark:border-violet-400/24 dark:bg-violet-500/8">
-                  {t("No service categories match this search.")}
-                </div>
-              ) : null}
+                                onClick={() => setDraft(category.key)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    setDraft(category.key);
+                                  }
+                                }}
+                                className={cn(
+                                  "cursor-pointer border-violet-100 outline-none transition-colors focus-visible:bg-violet-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400 dark:border-violet-400/12 dark:focus-visible:bg-violet-500/12",
+                                  selected
+                                    ? "bg-violet-50/95 hover:bg-violet-50 dark:bg-violet-500/14 dark:hover:bg-violet-500/16"
+                                    : "bg-white hover:bg-violet-50/55 dark:bg-slate-950/48 dark:hover:bg-violet-500/8",
+                                )}
+                              >
+                                <TableCell className="px-4 py-3 align-middle">
+                                  <span
+                                    className={cn(
+                                      "flex h-6 w-6 items-center justify-center rounded-full border transition-colors",
+                                      selected
+                                        ? "border-violet-600 bg-violet-600 text-white shadow-sm"
+                                        : "border-violet-200 bg-white text-transparent dark:border-violet-400/28 dark:bg-slate-950",
+                                    )}
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </span>
+                                </TableCell>
+                                <TableCell className="px-3 py-3 align-top">
+                                  <span className="text-sm font-semibold leading-5 text-foreground">
+                                    {supportServiceCategoryName(
+                                      category,
+                                      language,
+                                    )}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="px-3 py-3 align-top text-xs leading-5 text-muted-foreground">
+                                  {supportServiceCategoryDescription(
+                                    category,
+                                    language,
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </Fragment>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
             </div>
           </div>
 
