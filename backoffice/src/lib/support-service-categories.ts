@@ -101,6 +101,16 @@ export const SUPPORT_SERVICE_CATEGORY_KEYS = [
   "sot_human_advice_evidence_based_health_practice",
   "sot_human_advice_healthcare_quality_patient_safety",
   "sot_human_advice_health_practice_operations",
+  "sot_human_advice_digital_health_strategy_transformation",
+  "sot_human_advice_health_information_systems_implementation",
+  "sot_human_advice_electronic_health_record_workflow_optimization",
+  "sot_human_advice_health_data_interoperability_integration",
+  "sot_human_advice_telehealth_remote_care_implementation",
+  "sot_human_advice_health_data_governance_analytics",
+  "sot_human_advice_healthcare_ai_evaluation_adoption",
+  "sot_human_advice_digital_health_product_medical_technology",
+  "sot_human_advice_health_it_infrastructure_cloud_architecture",
+  "sot_human_advice_health_technology_usability_human_factors_accessibility",
 ] as const;
 
 export type SupportServiceCategoryKey =
@@ -130,7 +140,7 @@ if (
   rawCategories.some((category) => !CATEGORY_KEY_SET.has(category.key))
 ) {
   throw new Error(
-    "The service-offer category catalog must contain exactly 100 canonical keys.",
+    "The service-offer category catalog must contain exactly 110 canonical keys.",
   );
 }
 
@@ -283,6 +293,16 @@ export const SUPPORT_SERVICE_CATEGORY_GROUPS = [
     descriptionSpanish:
       "Orientación sobre carrera, mentoría, liderazgo, educación, investigación, evidencia, calidad y gestión para profesionales de la salud.",
     keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(90, 100),
+  },
+  {
+    id: "health_technology",
+    nameEnglish: "Health technology",
+    nameSpanish: "Tecnología de salud",
+    descriptionEnglish:
+      "Digital-health strategy, systems, interoperability, telehealth, data, AI, infrastructure, products, and usability.",
+    descriptionSpanish:
+      "Estrategia digital, sistemas, interoperabilidad, telesalud, datos, IA, infraestructura, productos y usabilidad en salud.",
+    keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(100, 110),
   },
 ] as const;
 

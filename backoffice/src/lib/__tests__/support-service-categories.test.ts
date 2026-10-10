@@ -7,11 +7,11 @@ import {
 } from "@/lib/support-service-categories";
 
 describe("support service categories", () => {
-  it("exposes the exact closed 100-value bilingual registry", () => {
-    expect(SUPPORT_SERVICE_CATEGORY_KEYS).toHaveLength(100);
-    expect(new Set(SUPPORT_SERVICE_CATEGORY_KEYS).size).toBe(100);
-    expect(SUPPORT_SERVICE_CATEGORIES).toHaveLength(100);
-    expect(SUPPORT_SERVICE_CATEGORY_GROUPS).toHaveLength(14);
+  it("exposes the exact closed 110-value bilingual registry", () => {
+    expect(SUPPORT_SERVICE_CATEGORY_KEYS).toHaveLength(110);
+    expect(new Set(SUPPORT_SERVICE_CATEGORY_KEYS).size).toBe(110);
+    expect(SUPPORT_SERVICE_CATEGORIES).toHaveLength(110);
+    expect(SUPPORT_SERVICE_CATEGORY_GROUPS).toHaveLength(15);
     expect(
       SUPPORT_SERVICE_CATEGORY_GROUPS.flatMap((group) => group.keys),
     ).toEqual(SUPPORT_SERVICE_CATEGORY_KEYS);
@@ -31,7 +31,7 @@ describe("support service categories", () => {
     );
     expect(
       isSupportServiceCategoryKey(
-        "sot_human_advice_health_professional_development",
+        "sot_human_advice_healthcare_ai_evaluation_adoption",
       ),
     ).toBe(true);
     expect(isSupportServiceCategoryKey("Genomic report generation")).toBe(

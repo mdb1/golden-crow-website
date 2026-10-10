@@ -724,81 +724,161 @@
       "key": "sot_human_advice_health_professional_career_guidance",
       "nameEnglish": "Health professional career guidance",
       "nameSpanish": "Orientación profesional en salud",
-      "descriptionEnglish": "Guidance for healthcare professionals on career direction, specialty or role transitions, competency planning, CVs, interviews, and professional opportunities; it does not guarantee employment, credentialing, or admission.",
-      "descriptionSpanish": "Orientación para profesionales de la salud sobre rumbo profesional, cambios de especialidad o rol, planificación de competencias, currículum, entrevistas y oportunidades; no garantiza empleo, habilitación ni admisión.",
+      "descriptionEnglish": "Guidance for health professionals on specialty or role choices, clinical and non-clinical career paths, transitions, credentialing plans, CVs, interviews, and job-search strategy; it does not award credentials or guarantee admission, licensing, or employment.",
+      "descriptionSpanish": "Orientación para profesionales de la salud sobre elección de especialidad o función, trayectorias clínicas y no clínicas, transiciones, planificación de acreditaciones, currículum, entrevistas y estrategias de búsqueda laboral; no otorga credenciales ni garantiza admisión, habilitación o empleo.",
       "systemImage": "stethoscope.circle.fill"
     },
     {
       "key": "sot_human_advice_health_professional_development",
-      "nameEnglish": "Health professional development",
+      "nameEnglish": "Professional development for health professionals",
       "nameSpanish": "Desarrollo profesional en salud",
-      "descriptionEnglish": "Structured guidance for healthcare professionals to identify development goals, strengthen declared competencies, plan continuing education, and document progress; it does not grant certification or licensure.",
-      "descriptionSpanish": "Orientación estructurada para que profesionales de la salud definan objetivos de desarrollo, fortalezcan competencias declaradas, planifiquen formación continua y documenten avances; no otorga certificaciones ni habilitaciones.",
-      "systemImage": "chart.line.uptrend.xyaxis.circle.fill"
+      "descriptionEnglish": "Structured planning of competencies, continuing education, reflective practice, professional portfolios, and development goals for people working in health; it excludes clinical supervision and does not issue credentials or formal performance ratings.",
+      "descriptionSpanish": "Planificación estructurada de competencias, educación continua, práctica reflexiva, portafolios profesionales y objetivos de desarrollo para personas que trabajan en salud; no incluye supervisión clínica ni emite credenciales o evaluaciones formales de desempeño.",
+      "systemImage": "person.badge.plus.fill"
     },
     {
       "key": "sot_human_advice_clinical_mentoring_supervision",
       "nameEnglish": "Clinical mentoring and professional supervision",
       "nameSpanish": "Mentoría y supervisión profesional clínica",
-      "descriptionEnglish": "Reflective mentoring and supervision for qualified health professionals on professional practice, communication, decision processes, and development within the mentor's declared scope; it does not replace institutional oversight or authorize unsupervised clinical acts.",
-      "descriptionSpanish": "Mentoría y supervisión reflexiva para profesionales de la salud habilitados sobre práctica profesional, comunicación, procesos de decisión y desarrollo dentro del alcance declarado por quien supervisa; no reemplaza la supervisión institucional ni autoriza actos clínicos sin habilitación.",
-      "systemImage": "person.2.badge.gearshape.fill"
+      "descriptionEnglish": "Qualified mentoring or supervision focused on clinical reasoning, ethical practice, professional boundaries, case reflection, and role development; it does not provide direct patient care or transfer responsibility for care, and counts toward mandated supervision only when explicitly stated.",
+      "descriptionSpanish": "Mentoría o supervisión calificada centrada en razonamiento clínico, práctica ética, límites profesionales, reflexión sobre casos y desarrollo del rol; no brinda atención directa ni transfiere la responsabilidad asistencial, y solo computa como supervisión obligatoria cuando se indica expresamente.",
+      "systemImage": "person.badge.shield.checkmark.fill"
     },
     {
       "key": "sot_human_advice_healthcare_leadership_management",
       "nameEnglish": "Healthcare leadership and management development",
       "nameSpanish": "Desarrollo de liderazgo y gestión en salud",
-      "descriptionEnglish": "Guidance for current or aspiring healthcare leaders on team leadership, communication, change management, priorities, and operational decision-making; it does not provide legal, accounting, or accreditation approval.",
-      "descriptionSpanish": "Orientación para líderes actuales o futuros del ámbito de la salud sobre conducción de equipos, comunicación, gestión del cambio, prioridades y decisiones operativas; no brinda aprobación jurídica, contable ni de acreditación.",
-      "systemImage": "person.3.sequence.fill"
+      "descriptionEnglish": "Development for current or emerging healthcare leaders covering communication, team leadership, delegation, conflict, change, governance, and management decisions; day-to-day workflow redesign belongs to health practice operations, and organizational results are not guaranteed.",
+      "descriptionSpanish": "Desarrollo para líderes actuales o emergentes del ámbito de la salud sobre comunicación, conducción de equipos, delegación, conflictos, cambio, gobierno y decisiones de gestión; el rediseño de procesos cotidianos corresponde a la gestión operativa de prácticas de salud y no se garantizan resultados organizacionales.",
+      "systemImage": "building.2.crop.circle.fill"
     },
     {
       "key": "sot_human_advice_health_education_training_design",
       "nameEnglish": "Health education and training design",
       "nameSpanish": "Diseño de educación y capacitación en salud",
-      "descriptionEnglish": "Guidance on learning objectives, curricula, teaching methods, assessment, and training materials for healthcare education; it does not award academic credit or professional certification.",
-      "descriptionSpanish": "Orientación sobre objetivos de aprendizaje, programas, métodos de enseñanza, evaluación y materiales para educación en salud; no otorga créditos académicos ni certificaciones profesionales.",
-      "systemImage": "graduationcap.circle.fill"
+      "descriptionEnglish": "Design of learning objectives, curricula, instructional formats, assessments, and materials for patients, communities, students, or health workforces; delivery, accreditation, and credential issuance are included only when explicitly stated.",
+      "descriptionSpanish": "Diseño de objetivos de aprendizaje, programas, modalidades didácticas, evaluaciones y materiales para pacientes, comunidades, estudiantes o equipos de salud; el dictado, la acreditación y la emisión de credenciales solo se incluyen cuando se indican expresamente.",
+      "systemImage": "books.vertical.circle.fill"
     },
     {
       "key": "sot_human_advice_health_research_methodology",
-      "nameEnglish": "Health research methodology guidance",
+      "nameEnglish": "Health research methodology consulting",
       "nameSpanish": "Asesoramiento metodológico en investigación en salud",
-      "descriptionEnglish": "Guidance on research questions, study design, methods, analysis planning, reproducibility, and ethical preparation for health research; it does not replace ethics approval, statistical sign-off, or regulatory authorization.",
-      "descriptionSpanish": "Orientación sobre preguntas de investigación, diseño de estudios, métodos, planificación del análisis, reproducibilidad y preparación ética en investigación en salud; no reemplaza la aprobación ética, la validación estadística ni la autorización regulatoria.",
-      "systemImage": "scope"
+      "descriptionEnglish": "Methodological guidance on health research questions, protocols, study designs, sampling, measurement, data-analysis plans, and reporting standards; it does not conduct the study, grant ethics approval, or guarantee valid or publishable findings.",
+      "descriptionSpanish": "Orientación metodológica sobre preguntas de investigación en salud, protocolos, diseños de estudio, muestreo, medición, planes de análisis de datos y estándares de reporte; no ejecuta el estudio, no concede aprobación ética ni garantiza hallazgos válidos o publicables.",
+      "systemImage": "chart.bar.doc.horizontal.fill"
     },
     {
       "key": "sot_human_advice_health_scientific_writing_publication",
       "nameEnglish": "Health scientific writing and publication support",
       "nameSpanish": "Escritura científica y publicación en salud",
-      "descriptionEnglish": "Guidance on structure, clarity, reporting standards, journal selection, submission, and responses to reviewers for health-science work; authors retain responsibility for accuracy, authorship, disclosures, and research integrity.",
-      "descriptionSpanish": "Orientación sobre estructura, claridad, estándares de reporte, selección de revistas, envío y respuesta a revisores para trabajos de ciencias de la salud; las personas autoras conservan la responsabilidad por exactitud, autoría, declaraciones e integridad científica.",
-      "systemImage": "doc.text.magnifyingglass"
+      "descriptionEnglish": "Ethical support for outlining, drafting, editing, reporting-guideline compliance, journal selection, submission, and responses to reviewers for health research; it excludes undisclosed ghostwriting or fabricated authorship and does not guarantee publication.",
+      "descriptionSpanish": "Apoyo ético para estructurar, redactar y editar investigaciones en salud, cumplir guías de reporte, seleccionar revistas, preparar envíos y responder a revisores; no incluye redacción no declarada en nombre de terceros ni atribuciones ficticias de autoría, y no garantiza la publicación.",
+      "systemImage": "pencil.and.outline"
     },
     {
       "key": "sot_human_advice_evidence_based_health_practice",
       "nameEnglish": "Evidence-based health practice guidance",
       "nameSpanish": "Orientación en práctica de salud basada en evidencia",
-      "descriptionEnglish": "Guidance on framing professional questions, searching and appraising evidence, interpreting guidelines, and applying findings within context; it does not prescribe care for a specific patient.",
-      "descriptionSpanish": "Orientación para formular preguntas profesionales, buscar y evaluar evidencia, interpretar guías y aplicar hallazgos según el contexto; no prescribe atención para un paciente específico.",
-      "systemImage": "checkmark.seal.fill"
+      "descriptionEnglish": "Guidance on framing answerable questions, searching for and critically appraising evidence, synthesizing findings, and applying them within a declared health context; it does not replace professional judgment or provide patient-specific diagnosis or treatment.",
+      "descriptionSpanish": "Orientación para formular preguntas respondibles, buscar y evaluar críticamente la evidencia, sintetizar hallazgos y aplicarlos dentro de un contexto de salud declarado; no reemplaza el criterio profesional ni brinda diagnóstico o tratamiento específico para un paciente.",
+      "systemImage": "checkmark.shield.fill"
     },
     {
       "key": "sot_human_advice_healthcare_quality_patient_safety",
       "nameEnglish": "Healthcare quality and patient safety consulting",
       "nameSpanish": "Consultoría en calidad asistencial y seguridad del paciente",
-      "descriptionEnglish": "Guidance on quality indicators, process improvement, incident learning, risk controls, and safety culture in healthcare organizations; it does not certify compliance or replace mandatory reporting and governance.",
-      "descriptionSpanish": "Orientación sobre indicadores de calidad, mejora de procesos, aprendizaje de incidentes, controles de riesgo y cultura de seguridad en organizaciones de salud; no certifica cumplimiento ni reemplaza reportes y gobierno obligatorios.",
-      "systemImage": "shield.checkered"
+      "descriptionEnglish": "Review of clinical-quality indicators, care processes, incidents, risks, safety culture, and improvement plans for healthcare organizations or teams; it does not certify regulatory compliance or guarantee that adverse events will be prevented.",
+      "descriptionSpanish": "Revisión de indicadores de calidad clínica, procesos asistenciales, incidentes, riesgos, cultura de seguridad y planes de mejora para organizaciones o equipos de salud; no certifica el cumplimiento normativo ni garantiza la prevención de eventos adversos.",
+      "systemImage": "exclamationmark.shield.fill"
     },
     {
       "key": "sot_human_advice_health_practice_operations",
       "nameEnglish": "Health practice operations consulting",
       "nameSpanish": "Consultoría en gestión operativa de prácticas de salud",
-      "descriptionEnglish": "Guidance on workflows, scheduling, patient communication, documentation, service design, and operational organization for health practices; it excludes clinical decisions, legal advice, billing guarantees, and accreditation.",
-      "descriptionSpanish": "Orientación sobre circuitos de trabajo, agenda, comunicación con pacientes, documentación, diseño de servicios y organización operativa de prácticas de salud; excluye decisiones clínicas, asesoramiento jurídico, garantías de facturación y acreditación.",
-      "systemImage": "building.2.crop.circle.fill"
+      "descriptionEnglish": "Guidance on day-to-day operations of health practices, including intake, scheduling, capacity, patient flow, roles, documentation, referrals, and service coordination; it excludes clinical decision-making, legal attestations, and guaranteed efficiency or revenue outcomes.",
+      "descriptionSpanish": "Orientación sobre la operación cotidiana de prácticas de salud, incluidos admisión, turnos, capacidad, flujo de pacientes, funciones, documentación, derivaciones y coordinación de servicios; no incluye decisiones clínicas ni certificaciones legales, y no garantiza resultados de eficiencia o ingresos.",
+      "systemImage": "gearshape.2.fill"
+    },
+    {
+      "key": "sot_human_advice_digital_health_strategy_transformation",
+      "nameEnglish": "Digital health strategy and transformation consulting",
+      "nameSpanish": "Consultoría en estrategia y transformación digital en salud",
+      "descriptionEnglish": "Advisory for healthcare organizations and teams to define a digital-health vision, assess maturity, prioritize initiatives, establish governance, and build a phased transformation roadmap; it does not implement individual systems, provide clinical care, or guarantee adoption, savings, or health outcomes.",
+      "descriptionSpanish": "Asesoramiento para organizaciones y equipos de salud orientado a definir una visión de salud digital, evaluar su madurez, priorizar iniciativas, establecer un modelo de gobierno y construir una hoja de ruta de transformación por etapas; no implementa sistemas específicos, no brinda atención clínica ni garantiza adopción, ahorros o resultados de salud.",
+      "systemImage": "bolt.heart.fill"
+    },
+    {
+      "key": "sot_human_advice_health_information_systems_implementation",
+      "nameEnglish": "Health information systems implementation guidance",
+      "nameSpanish": "Asesoramiento para la implementación de sistemas de información en salud",
+      "descriptionEnglish": "Guidance on requirements, configuration governance, migration readiness, testing, training, cutover, and go-live planning for electronic health records, laboratory, imaging, practice-management, and related health systems; it does not license or operate software, perform clinical work, or guarantee implementation schedules or outcomes.",
+      "descriptionSpanish": "Orientación sobre requisitos, gobierno de la configuración, preparación de migraciones, pruebas, capacitación, transición y salida a producción de historias clínicas electrónicas, sistemas de laboratorio, imágenes, gestión de prácticas y otros sistemas de salud; no licencia ni opera software, no realiza tareas clínicas ni garantiza plazos o resultados de implementación.",
+      "systemImage": "server.rack"
+    },
+    {
+      "key": "sot_human_advice_electronic_health_record_workflow_optimization",
+      "nameEnglish": "Electronic health record and clinical workflow optimization",
+      "nameSpanish": "Optimización de historias clínicas electrónicas y flujos asistenciales",
+      "descriptionEnglish": "Assessment and improvement of an existing electronic health record's templates, orders, alerts, documentation, roles, handoffs, and clinician-facing workflows to reduce avoidable burden and friction; it does not make clinical decisions, directly administer production systems, or guarantee productivity, safety, or financial results.",
+      "descriptionSpanish": "Evaluación y mejora de plantillas, órdenes, alertas, documentación, funciones, traspasos y flujos asistenciales de una historia clínica electrónica ya implementada para reducir cargas y fricciones evitables; no toma decisiones clínicas, no administra directamente sistemas productivos ni garantiza resultados de productividad, seguridad o rentabilidad.",
+      "systemImage": "doc.text.fill"
+    },
+    {
+      "key": "sot_human_advice_health_data_interoperability_integration",
+      "nameEnglish": "Health data interoperability and systems integration consulting",
+      "nameSpanish": "Consultoría en interoperabilidad de datos e integración de sistemas de salud",
+      "descriptionEnglish": "Advisory design of architectures, data mappings, interface specifications, APIs, exchange workflows, and validation plans for clinical and administrative health systems using applicable standards; it does not build or operate custom integrations, convert dedicated genomic file formats, certify compliance, or guarantee successful exchange with every external system.",
+      "descriptionSpanish": "Diseño consultivo de arquitecturas, mapeos de datos, especificaciones de interfaces, API, flujos de intercambio y planes de validación para sistemas clínicos y administrativos de salud mediante los estándares aplicables; no desarrolla ni opera integraciones a medida, no convierte formatos genómicos especializados, no certifica cumplimiento ni garantiza el intercambio exitoso con todos los sistemas externos.",
+      "systemImage": "network"
+    },
+    {
+      "key": "sot_human_advice_telehealth_remote_care_implementation",
+      "nameEnglish": "Telehealth and remote care implementation",
+      "nameSpanish": "Implementación de telesalud y atención remota",
+      "descriptionEnglish": "Planning of telehealth and remote-care services, including platform requirements, identity and consent workflows, scheduling, remote monitoring, escalation paths, accessibility, and staff and patient onboarding; it does not deliver medical care, supply regulated devices, certify jurisdictional compliance, or guarantee access, adoption, or clinical outcomes.",
+      "descriptionSpanish": "Planificación de servicios de telesalud y atención remota, incluidos requisitos de plataforma, flujos de identidad y consentimiento, turnos, monitoreo remoto, vías de escalamiento, accesibilidad e incorporación de profesionales y pacientes; no brinda atención médica, no provee dispositivos regulados, no certifica el cumplimiento jurisdiccional ni garantiza acceso, adopción o resultados clínicos.",
+      "systemImage": "video.fill"
+    },
+    {
+      "key": "sot_human_advice_health_data_governance_analytics",
+      "nameEnglish": "Health data governance and analytics consulting",
+      "nameSpanish": "Consultoría en gobierno y analítica de datos de salud",
+      "descriptionEnglish": "Definition of stewardship, data dictionaries, quality rules, lineage, access, retention, indicators, and analytics or dashboard roadmaps for operational, administrative, and population-level health data; it does not design research studies, interpret genomic variants, replace privacy or cybersecurity review, operate data platforms, or guarantee actionable findings.",
+      "descriptionSpanish": "Definición de responsables, diccionarios de datos, reglas de calidad, linaje, acceso, retención, indicadores y hojas de ruta de analítica o tableros para datos de salud operativos, administrativos y poblacionales; no diseña estudios de investigación, no interpreta variantes genómicas, no reemplaza revisiones de privacidad o ciberseguridad, no opera plataformas de datos ni garantiza hallazgos accionables.",
+      "systemImage": "chart.bar.xaxis"
+    },
+    {
+      "key": "sot_human_advice_healthcare_ai_evaluation_adoption",
+      "nameEnglish": "Healthcare AI evaluation and responsible adoption",
+      "nameSpanish": "Evaluación y adopción responsable de inteligencia artificial en salud",
+      "descriptionEnglish": "Guidance on selecting healthcare AI use cases and assessing data fit, workflow fit, performance evidence, bias, safety, explainability, human oversight, monitoring, and rollout governance; it does not train or deploy models, diagnose or treat patients, grant regulatory approval, or guarantee accuracy, fairness, safety, or business value.",
+      "descriptionSpanish": "Orientación para seleccionar casos de uso de inteligencia artificial en salud y evaluar la adecuación de los datos y flujos, la evidencia de desempeño, los sesgos, la seguridad, la explicabilidad, la supervisión humana, el monitoreo y el gobierno de su adopción; no entrena ni despliega modelos, no diagnostica ni trata pacientes, no concede aprobación regulatoria ni garantiza precisión, equidad, seguridad o valor comercial.",
+      "systemImage": "brain.filled.head.profile"
+    },
+    {
+      "key": "sot_human_advice_digital_health_product_medical_technology",
+      "nameEnglish": "Digital health product and medical technology advisory",
+      "nameSpanish": "Asesoramiento en productos digitales y tecnología médica",
+      "descriptionEnglish": "Product discovery and planning for health applications, software as a medical device, connected devices, and other medical technologies, covering user needs, requirements, clinical context, risk inputs, evidence plans, and lifecycle considerations; it does not engineer or manufacture the product, determine final regulatory classification, secure approval, or guarantee market success.",
+      "descriptionSpanish": "Descubrimiento y planificación de productos para aplicaciones de salud, software como dispositivo médico, dispositivos conectados y otras tecnologías médicas, abarcando necesidades de usuarios, requisitos, contexto clínico, insumos de riesgo, planes de evidencia y consideraciones del ciclo de vida; no desarrolla ni fabrica el producto, no determina su clasificación regulatoria definitiva, no obtiene aprobaciones ni garantiza éxito comercial.",
+      "systemImage": "cpu.fill"
+    },
+    {
+      "key": "sot_human_advice_health_it_infrastructure_cloud_architecture",
+      "nameEnglish": "Health IT infrastructure and cloud architecture consulting",
+      "nameSpanish": "Consultoría en infraestructura de TI y arquitectura en la nube para salud",
+      "descriptionEnglish": "Architecture guidance for hosting, networks, identity, availability, backups, disaster recovery, observability, capacity, and cloud services that support healthcare workloads; it does not administer production environments, perform cybersecurity audits, certify regulatory compliance, or guarantee uptime, recovery, performance, or cost savings.",
+      "descriptionSpanish": "Orientación arquitectónica sobre alojamiento, redes, identidad, disponibilidad, copias de seguridad, recuperación ante desastres, observabilidad, capacidad y servicios en la nube que soportan cargas de trabajo de salud; no administra entornos productivos, no realiza auditorías de ciberseguridad, no certifica cumplimiento normativo ni garantiza disponibilidad, recuperación, rendimiento o ahorro de costos.",
+      "systemImage": "cloud.fill"
+    },
+    {
+      "key": "sot_human_advice_health_technology_usability_human_factors_accessibility",
+      "nameEnglish": "Health technology usability, human factors, and accessibility",
+      "nameSpanish": "Usabilidad, factores humanos y accesibilidad en tecnología de salud",
+      "descriptionEnglish": "User research, task analysis, usability and accessibility evaluation, and interaction-design recommendations for clinician- and patient-facing health technologies; it does not replace formal regulatory validation, provide individual disability accommodations, make clinical decisions, or guarantee certification, adoption, safety, or error-free use.",
+      "descriptionSpanish": "Investigación con usuarios, análisis de tareas, evaluación de usabilidad y accesibilidad, y recomendaciones de diseño de interacción para tecnologías de salud destinadas a profesionales y pacientes; no reemplaza la validación regulatoria formal, no brinda adaptaciones individuales por discapacidad, no toma decisiones clínicas ni garantiza certificación, adopción, seguridad o uso sin errores.",
+      "systemImage": "accessibility.fill"
     }
   ]
 }

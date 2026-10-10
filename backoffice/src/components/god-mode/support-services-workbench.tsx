@@ -6928,6 +6928,8 @@ function serviceCategoryGroupIcon(groupId: string) {
       return BriefcaseBusiness;
     case "health_professional_development":
       return Stethoscope;
+    case "health_technology":
+      return Settings2;
     default:
       return FileText;
   }

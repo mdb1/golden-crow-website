@@ -417,6 +417,16 @@ export const SUPPORT_SERVICE_CATEGORY_KEYS = [
   "sot_human_advice_evidence_based_health_practice",
   "sot_human_advice_healthcare_quality_patient_safety",
   "sot_human_advice_health_practice_operations",
+  "sot_human_advice_digital_health_strategy_transformation",
+  "sot_human_advice_health_information_systems_implementation",
+  "sot_human_advice_electronic_health_record_workflow_optimization",
+  "sot_human_advice_health_data_interoperability_integration",
+  "sot_human_advice_telehealth_remote_care_implementation",
+  "sot_human_advice_health_data_governance_analytics",
+  "sot_human_advice_healthcare_ai_evaluation_adoption",
+  "sot_human_advice_digital_health_product_medical_technology",
+  "sot_human_advice_health_it_infrastructure_cloud_architecture",
+  "sot_human_advice_health_technology_usability_human_factors_accessibility",
 ] as const;
 
 export type SupportServiceStage = (typeof SUPPORT_SERVICE_STAGES)[number];

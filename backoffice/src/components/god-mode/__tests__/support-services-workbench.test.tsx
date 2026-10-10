@@ -1955,12 +1955,17 @@ describe("support services workbenches", () => {
       name: "Buscar categorías de servicio",
     });
     fireEvent.change(categorySearch, {
-      target: { value: "sot_human_advice_health_professional_development" },
+      target: {
+        value:
+          "sot_human_advice_health_technology_usability_human_factors_accessibility",
+      },
     });
     expect(within(modal).getAllByRole("radio")).toHaveLength(1);
     expect(
-      within(modal).getAllByText("Desarrollo profesional en salud"),
-    ).toHaveLength(2);
+      within(modal).getByText(
+        "Usabilidad, factores humanos y accesibilidad en tecnología de salud",
+      ),
+    ).toBeTruthy();
     fireEvent.change(categorySearch, { target: { value: "" } });
     expect(within(modal).getByText("Preparación clínica")).toBeTruthy();
     expect(
