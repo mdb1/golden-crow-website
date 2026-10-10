@@ -264,6 +264,120 @@ OBJECTS = OBJECT_CATALOG["objects"]
 SERVICES = SERVICE_CATALOG["services"]
 SERVICE_OFFER_TYPES = SERVICE_OFFER_TYPE_CATALOG["serviceOfferTypes"]
 PROVIDERS = PROVIDER_CATALOG["providers"]
+EXPECTED_EXISTING_SERVICE_OFFER_TYPE_KEYS = (
+    "sot_genetic_counseling",
+    "sot_clinical_intake_phenotyping",
+    "sot_informed_consent",
+    "sot_genetic_test_selection",
+    "sot_genetic_test_ordering",
+    "sot_sample_collection",
+    "sot_sample_logistics",
+    "sot_sample_accession_quality",
+    "sot_dna_extraction",
+    "sot_dna_sequencing",
+    "sot_genotyping",
+    "sot_cytogenetic_analysis",
+    "sot_prenatal_genetic_screening",
+    "sot_reproductive_carrier_screening",
+    "sot_sequence_quality_control",
+    "sot_read_alignment",
+    "sot_variant_calling",
+    "sot_structural_variant_cnv_analysis",
+    "sot_variant_annotation",
+    "sot_gene_variant_prioritization",
+    "sot_genomic_interpretation",
+    "sot_rare_disease_analysis",
+    "sot_hereditary_cancer_analysis",
+    "sot_pharmacogenomic_analysis",
+    "sot_nutrigenomic_metabolic_analysis",
+    "sot_ancestry_analysis",
+    "sot_polygenic_risk_analysis",
+    "sot_genomic_report_generation",
+    "sot_genomic_report_review",
+    "sot_genomic_data_interoperability",
+    "sot_complete_health_genomics_report",
+    "sot_complete_rare_disease_diagnostic_report",
+    "sot_complete_hereditary_cancer_report",
+    "sot_complete_inherited_cardiovascular_report",
+    "sot_complete_neurogenetic_disease_report",
+    "sot_complete_cystic_fibrosis_report",
+    "sot_complete_pharmacogenomic_report",
+    "sot_complete_nutrigenomic_report",
+    "sot_complete_food_response_genetics_report",
+    "sot_complete_sports_performance_genetics_report",
+    "sot_complete_skin_hair_genetics_report",
+    "sot_complete_genetic_ancestry_report",
+    "sot_complete_personal_traits_genetics_report",
+    "sot_complete_reproductive_carrier_report",
+    "sot_complete_female_fertility_genetics_report",
+    "sot_complete_male_infertility_genetics_report",
+    "sot_complete_sperm_dna_integrity_report",
+    "sot_complete_reproductive_couple_karyotype_report",
+    "sot_complete_preimplantation_aneuploidy_report",
+    "sot_complete_preimplantation_monogenic_report",
+    "sot_complete_preimplantation_structural_report",
+    "sot_complete_noninvasive_prenatal_report",
+    "sot_complete_prenatal_carrier_fetal_risk_report",
+    "sot_complete_newborn_genomic_screening_report",
+    "sot_complete_animal_parentage_identity_report",
+    "sot_complete_canine_health_diversity_report",
+    "sot_complete_feline_health_traits_report",
+    "sot_complete_equine_health_performance_report",
+    "sot_complete_livestock_breeding_traits_report",
+    "sot_complete_meat_species_authentication_report",
+)
+EXPECTED_HUMAN_ADVICE_SERVICE_OFFER_TYPE_KEYS = (
+    "sot_human_advice_medical_consultation",
+    "sot_human_advice_medical_second_opinion",
+    "sot_human_advice_medication_pharmacy_counseling",
+    "sot_human_advice_nutrition_dietary_counseling",
+    "sot_human_advice_rehabilitation_physical_therapy_guidance",
+    "sot_human_advice_reproductive_fertility_counseling",
+    "sot_human_advice_sexual_health_counseling",
+    "sot_human_advice_pregnancy_postpartum_support",
+    "sot_human_advice_psychological_counseling",
+    "sot_human_advice_couples_family_counseling",
+    "sot_human_advice_grief_bereavement_support",
+    "sot_human_advice_addiction_recovery_counseling",
+    "sot_human_advice_parenting_guidance",
+    "sot_human_advice_caregiver_eldercare_support",
+    "sot_human_advice_disability_accessibility_guidance",
+    "sot_human_advice_social_care_navigation",
+    "sot_human_advice_personal_civil_legal",
+    "sot_human_advice_family_estate_legal",
+    "sot_human_advice_employment_labor_legal",
+    "sot_human_advice_business_contract_legal",
+    "sot_human_advice_immigration_residency_legal",
+    "sot_human_advice_academic_tutoring",
+    "sot_human_advice_special_education_learning_support",
+    "sot_human_advice_language_learning",
+    "sot_human_advice_academic_admissions_guidance",
+    "sot_human_advice_career_vocational_guidance",
+    "sot_human_advice_digital_technology_support",
+    "sot_human_advice_cybersecurity_privacy_consulting",
+    "sot_human_advice_business_entrepreneurship_consulting",
+    "sot_human_advice_financial_accounting_tax_consulting",
+    "sot_human_advice_health_professional_career_guidance",
+    "sot_human_advice_health_professional_development",
+    "sot_human_advice_clinical_mentoring_supervision",
+    "sot_human_advice_healthcare_leadership_management",
+    "sot_human_advice_health_education_training_design",
+    "sot_human_advice_health_research_methodology",
+    "sot_human_advice_health_scientific_writing_publication",
+    "sot_human_advice_evidence_based_health_practice",
+    "sot_human_advice_healthcare_quality_patient_safety",
+    "sot_human_advice_health_practice_operations",
+    "sot_human_advice_digital_health_strategy_transformation",
+    "sot_human_advice_health_information_systems_implementation",
+    "sot_human_advice_electronic_health_record_workflow_optimization",
+    "sot_human_advice_health_data_interoperability_integration",
+    "sot_human_advice_telehealth_remote_care_implementation",
+    "sot_human_advice_health_data_governance_analytics",
+    "sot_human_advice_healthcare_ai_evaluation_adoption",
+    "sot_human_advice_digital_health_product_medical_technology",
+    "sot_human_advice_health_it_infrastructure_cloud_architecture",
+    "sot_human_advice_health_technology_usability_human_factors_accessibility",
+)
 OBJECT_BY_ID = {item["id"]: item for item in OBJECTS}
 SCHEMAS = {type_id: read(f"schemas/objects/{type_id}.schema.json") for type_id in TYPE_IDS}
 VALIDATORS = {type_id: schema_validator(schema) for type_id, schema in SCHEMAS.items()}
@@ -689,9 +803,13 @@ def embedded_form_shape(shape: dict):
 
 def validate_service_forms_and_slots():
     require(len(SERVICES) == SERVICE_CATALOG["serviceCount"] == 15, "Service catalog count differs")
+    offer_validator = schema_validator(read("schemas/protocol/service-definition.schema.json"))
     forbidden_paths = re.compile(r"data\.(scope|fulfillment|analysis_support|reference_id|profile_id|native_format|payload_ref|source_pgi_ref|source_images_ref|lineage_refs)", re.I)
     for service in SERVICES:
         service_id = service["serviceId"]
+        offer_validator.validate(service)
+        for fixture_field in ("sampleFormObject", "sampleRequest", "sampleResult"):
+            require(fixture_field not in service, f"Protocol fixture embedded in service offer {service_id}: {fixture_field}")
         require(type(service.get("isHighlightedOffer")) is bool, f"Invalid isHighlightedOffer for {service_id}")
         require(type(service.get("isProfessionalOffer")) is bool, f"Invalid isProfessionalOffer for {service_id}")
         require("is_highlighted_offer" not in service, f"Snake-case highlighted alias in {service_id}")
@@ -719,32 +837,335 @@ def validate_service_forms_and_slots():
             keys = [field["key"] for field in shape["fields"]]
             require("requested_at" not in keys and "requested_by" not in keys and "subject_id" not in keys, f"Universal technical field remains in {service_id}")
             require(shape["allowUnknownFields"] is False, f"Unknown form fields enabled for {service_id}")
-            content = service["sampleFormObject"]["data"]
+            fixture = read(f"examples/forms/{service_id}.pgform.json")
+            content = fixture["data"]
             require(set(content) <= {"form_shape", "fields", "notes"}, f"Extra form content in {service_id}")
             require(content["form_shape"] == {"fields": embedded_form_shape(shape)}, f"Frozen shape differs in {service_id}")
             require(content["fields"] == service["sampleFormData"]["fields"], f"Sample answers differ in {service_id}")
             validate_content("pgo_form", content)
-            fixture = read(f"examples/forms/{service_id}.pgform.json")
-            require(fixture == service["sampleFormObject"], f"Form fixture differs in {service_id}")
+        request_fixture = read(f"examples/requests/{service_id}.json")
+        result_fixture = read(f"examples/results/{service_id}.json")
+        require(request_fixture["service_id"] == service_id, f"Request fixture service differs in {service_id}")
+        require(request_fixture["service_version"] == service["serviceVersion"], f"Request fixture version differs in {service_id}")
+        require(result_fixture["request_id"] == request_fixture["request_id"], f"Result fixture request differs in {service_id}")
         require(read(f"services/{service_id}.json") == service, f"Individual service file differs for {service_id}")
 
 
 check("service_forms_slots_and_deleted_paths", validate_service_forms_and_slots)
 
 
+def validate_service_more_information_contract():
+    offer_schema = read("schemas/protocol/service-definition.schema.json")
+    transaction_schema = read("schemas/protocol/service-transaction.schema.json")
+    offer_validator = schema_validator(offer_schema)
+    example_offer = copy.deepcopy(next(
+        service for service in SERVICES if service["serviceId"] == "pgs_dna_extraction"
+    ))
+    expected_keys = {
+        "frequentQuestions",
+        "keyInsights",
+        "scientificFacts",
+        "usefulLinks",
+        "sampleLink",
+        "bulletSegments",
+        "technicalInformationFacts",
+        "biologicalSampleRequirements",
+        "websiteUrl",
+    }
+    array_keys = expected_keys - {"sampleLink", "websiteUrl"}
+
+    require(
+        [service["serviceId"] for service in SERVICES if "moreInformation" in service]
+        == ["pgs_dna_extraction"],
+        "Generated moreInformation fixture set differs",
+    )
+    require(
+        set(example_offer["moreInformation"]) == expected_keys,
+        "Complete moreInformation fixture does not exercise every optional child",
+    )
+    offer_validator.validate(example_offer)
+
+    definition_names = {
+        "service_more_information",
+        "service_more_information_frequent_question",
+        "service_more_information_key_insight",
+        "service_more_information_scientific_fact",
+        "service_more_information_useful_link",
+        "service_more_information_sample_link",
+        "service_more_information_bullet_segment",
+        "service_more_information_technical_fact",
+        "service_more_information_biological_sample_requirement",
+    }
+    for definition_name in definition_names:
+        require(
+            offer_schema["$defs"][definition_name]
+            == transaction_schema["$defs"][definition_name],
+            f"Offer and transaction snapshot definitions differ for {definition_name}",
+        )
+    require(
+        offer_schema["$defs"]["service_definition"]["properties"]["moreInformation"]
+        == transaction_schema["$defs"]["offer_snapshot"]["properties"]["moreInformation"],
+        "Direct offer and frozen offer snapshot use different moreInformation properties",
+    )
+
+    root_null = copy.deepcopy(example_offer)
+    root_null["moreInformation"] = None
+    offer_validator.validate(root_null)
+
+    empty_map = copy.deepcopy(example_offer)
+    empty_map["moreInformation"] = {}
+    offer_validator.validate(empty_map)
+
+    all_null = copy.deepcopy(example_offer)
+    all_null["moreInformation"] = {key: None for key in expected_keys}
+    offer_validator.validate(all_null)
+
+    empty_arrays = copy.deepcopy(example_offer)
+    empty_arrays["moreInformation"] = {
+        **{key: [] for key in array_keys},
+        "sampleLink": None,
+        "websiteUrl": None,
+    }
+    offer_validator.validate(empty_arrays)
+
+    empty_subitems = copy.deepcopy(example_offer)
+    empty_subitems["moreInformation"]["technicalInformationFacts"][0]["subitems"] = []
+    offer_validator.validate(empty_subitems)
+
+    wrong_root_alias = copy.deepcopy(example_offer)
+    wrong_root_alias["more_information"] = wrong_root_alias.pop("moreInformation")
+    reject(
+        lambda: offer_validator.validate(wrong_root_alias),
+        "service_offers accepted more_information",
+    )
+
+    wrong_child_alias = copy.deepcopy(example_offer)
+    info = wrong_child_alias["moreInformation"]
+    info["frequent_questions"] = info.pop("frequentQuestions")
+    reject(
+        lambda: offer_validator.validate(wrong_child_alias),
+        "service_offers accepted moreInformation.frequent_questions",
+    )
+
+    wrong_sample_alias = copy.deepcopy(example_offer)
+    sample_link = wrong_sample_alias["moreInformation"]["sampleLink"]
+    sample_link["button_title"] = sample_link.pop("buttonTitle")
+    reject(
+        lambda: offer_validator.validate(wrong_sample_alias),
+        "service_offers accepted moreInformation.sampleLink.button_title",
+    )
+
+    wrong_image_alias = copy.deepcopy(example_offer)
+    bullet = wrong_image_alias["moreInformation"]["bulletSegments"][0]
+    bullet["image_url"] = bullet.pop("imageUrl")
+    reject(
+        lambda: offer_validator.validate(wrong_image_alias),
+        "service_offers accepted moreInformation.bulletSegments[].image_url",
+    )
+
+    wrong_image_data_alias = copy.deepcopy(example_offer)
+    bullet = wrong_image_data_alias["moreInformation"]["bulletSegments"][0]
+    bullet["image_upload_data_url"] = "data:image/png;base64,aGVsbG8="
+    reject(
+        lambda: offer_validator.validate(wrong_image_data_alias),
+        "service_offers accepted moreInformation.bulletSegments[].image_upload_data_url",
+    )
+
+    inline_bullet_image = copy.deepcopy(example_offer)
+    bullet = inline_bullet_image["moreInformation"]["bulletSegments"][0]
+    bullet.pop("imageUrl")
+    bullet["imageUploadDataUrl"] = "data:image/png;base64,aGVsbG8="
+    offer_validator.validate(inline_bullet_image)
+
+    missing_bullet_image = copy.deepcopy(example_offer)
+    missing_bullet_image["moreInformation"]["bulletSegments"][0].pop("imageUrl")
+    reject(
+        lambda: offer_validator.validate(missing_bullet_image),
+        "service_offers accepted bulletSegments[] without an image source",
+    )
+
+    malformed_bullet_image_data = copy.deepcopy(example_offer)
+    bullet = malformed_bullet_image_data["moreInformation"]["bulletSegments"][0]
+    bullet.pop("imageUrl")
+    bullet["imageUploadDataUrl"] = "data:text/plain;base64,aGVsbG8="
+    reject(
+        lambda: offer_validator.validate(malformed_bullet_image_data),
+        "service_offers accepted malformed bulletSegments[].imageUploadDataUrl",
+    )
+
+    invalid_base64_bullet_image_data = copy.deepcopy(example_offer)
+    bullet = invalid_base64_bullet_image_data["moreInformation"]["bulletSegments"][0]
+    bullet.pop("imageUrl")
+    bullet["imageUploadDataUrl"] = "data:image/png;base64,not_base64"
+    reject(
+        lambda: offer_validator.validate(invalid_base64_bullet_image_data),
+        "service_offers accepted invalid base64 in bulletSegments[].imageUploadDataUrl",
+    )
+
+    unknown_child = copy.deepcopy(example_offer)
+    unknown_child["moreInformation"]["extraSection"] = []
+    reject(
+        lambda: offer_validator.validate(unknown_child),
+        "service_offers accepted an unknown moreInformation child",
+    )
+
+    unknown_item_field = copy.deepcopy(example_offer)
+    unknown_item_field["moreInformation"]["keyInsights"][0]["subtitle"] = "Not canonical"
+    reject(
+        lambda: offer_validator.validate(unknown_item_field),
+        "service_offers accepted an unknown moreInformation item field",
+    )
+
+    missing_required_item_field = copy.deepcopy(example_offer)
+    del missing_required_item_field["moreInformation"]["frequentQuestions"][0]["answer"]
+    reject(
+        lambda: offer_validator.validate(missing_required_item_field),
+        "service_offers accepted an incomplete frequent-question item",
+    )
+
+    blank_item_field = copy.deepcopy(example_offer)
+    blank_item_field["moreInformation"]["scientificFacts"][0]["title"] = "   "
+    reject(
+        lambda: offer_validator.validate(blank_item_field),
+        "service_offers accepted a blank moreInformation item string",
+    )
+
+    null_array_item = copy.deepcopy(example_offer)
+    null_array_item["moreInformation"]["keyInsights"] = [None]
+    reject(
+        lambda: offer_validator.validate(null_array_item),
+        "service_offers accepted a null moreInformation array item",
+    )
+
+    null_subitem = copy.deepcopy(example_offer)
+    null_subitem["moreInformation"]["technicalInformationFacts"][0]["subitems"] = [None]
+    reject(
+        lambda: offer_validator.validate(null_subitem),
+        "service_offers accepted a null technical-information subitem",
+    )
+
+    wrong_child_type = copy.deepcopy(example_offer)
+    wrong_child_type["moreInformation"]["usefulLinks"] = "https://example.com"
+    reject(
+        lambda: offer_validator.validate(wrong_child_type),
+        "service_offers accepted a scalar usefulLinks section",
+    )
+
+    invalid_url_cases = []
+    invalid_useful_link = copy.deepcopy(example_offer)
+    invalid_useful_link["moreInformation"]["usefulLinks"][0]["url"] = "http://example.com/resource"
+    invalid_url_cases.append(("usefulLinks[].url", invalid_useful_link))
+    invalid_sample_link = copy.deepcopy(example_offer)
+    invalid_sample_link["moreInformation"]["sampleLink"]["url"] = "sample"
+    invalid_url_cases.append(("sampleLink.url", invalid_sample_link))
+    invalid_bullet_image = copy.deepcopy(example_offer)
+    invalid_bullet_image["moreInformation"]["bulletSegments"][0]["imageUrl"] = "https://example .com/image.png"
+    invalid_url_cases.append(("bulletSegments[].imageUrl", invalid_bullet_image))
+    invalid_website = copy.deepcopy(example_offer)
+    invalid_website["moreInformation"]["websiteUrl"] = "https://"
+    invalid_url_cases.append(("websiteUrl", invalid_website))
+    for path, invalid_offer in invalid_url_cases:
+        reject(
+            lambda invalid_offer=invalid_offer: offer_validator.validate(invalid_offer),
+            f"service_offers accepted non-HTTPS {path}",
+        )
+
+    malformed_authorities = (
+        "https://user@/path",
+        "https://:443/path",
+        "https://example.com:bad/path",
+        "https://user@example.com/path",
+        "HTTPS://example.com/path",
+        "https://example.com:123456/path",
+        "https://2001:db8::1/path",
+        "https://[1:2]/path",
+        "https://[::::]/path",
+        "https://[2001:::1]/path",
+    )
+    for malformed_url in malformed_authorities:
+        invalid_authority = copy.deepcopy(example_offer)
+        invalid_authority["moreInformation"]["websiteUrl"] = malformed_url
+        reject(
+            lambda invalid_authority=invalid_authority: offer_validator.validate(invalid_authority),
+            f"service_offers accepted malformed moreInformation URL {malformed_url}",
+        )
+
+    valid_url_forms = (
+        "https://example.com/path/to/resource?sample=true#details",
+        "https://127.0.0.1:443/path?q=1#fragment",
+        "https://1.2.3/",
+        "https://example.com/%",
+        f"https://{'a' * 63}.{'b' * 63}.{'c' * 63}.{'d' * 63}/",
+        "https://[2001:db8::1]:8443/path?q=1#fragment",
+        "https://[::]/",
+        "https://[::ffff:192.0.2.1]/path?q=1#fragment",
+    )
+    for valid_url in valid_url_forms:
+        valid_url_offer = copy.deepcopy(example_offer)
+        valid_url_offer["moreInformation"]["websiteUrl"] = valid_url
+        offer_validator.validate(valid_url_offer)
+
+
+check("service_more_information_closed_nullable_contract", validate_service_more_information_contract)
+
+
 def validate_service_offer_type_registry():
-    require(len(SERVICE_OFFER_TYPES) == 30, "Service-offer type registry must contain exactly 30 values")
+    require(len(SERVICE_OFFER_TYPES) == 110, "Service-offer type registry must contain exactly 110 values")
     keys = [item["key"] for item in SERVICE_OFFER_TYPES]
     icons = [item["systemImage"] for item in SERVICE_OFFER_TYPES]
+    complete_keys = [key for key in keys if key.startswith("sot_complete_")]
+    advice_keys = [key for key in keys if key.startswith("sot_human_advice_")]
     require(len(set(keys)) == len(keys), "Service-offer type keys are not unique")
     require(len(set(icons)) == len(icons), "Service-offer type SF Symbols are not unique")
+    require(
+        len({item["nameEnglish"] for item in SERVICE_OFFER_TYPES}) == len(SERVICE_OFFER_TYPES),
+        "English service-offer type names are not unique",
+    )
+    require(
+        len({item["nameSpanish"] for item in SERVICE_OFFER_TYPES}) == len(SERVICE_OFFER_TYPES),
+        "Spanish service-offer type names are not unique",
+    )
     require(all(re.fullmatch(r"sot_[a-z0-9]+(?:_[a-z0-9]+)*", key) for key in keys), "Invalid sot_* key")
+    require(len(complete_keys) == 30, "Complete sample-to-report registry must contain exactly 30 values")
+    require(len(advice_keys) == 50, "Human-advice registry must contain exactly 50 values")
+    require(
+        all(
+            not key.startswith("sot_complete_")
+            and not key.startswith("sot_human_advice_")
+            for key in keys[:30]
+        )
+        and all(key.startswith("sot_complete_") for key in keys[30:60])
+        and all(key.startswith("sot_human_advice_") for key in keys[60:110]),
+        "The registry must contain atomic, complete, and human-advice blocks in canonical order",
+    )
+    require(
+        tuple(keys[:60]) == EXPECTED_EXISTING_SERVICE_OFFER_TYPE_KEYS,
+        "The original 60 service-offer type keys or their order changed",
+    )
+    require(
+        tuple(keys[60:]) == EXPECTED_HUMAN_ADVICE_SERVICE_OFFER_TYPE_KEYS,
+        "The canonical human-advice service-offer type keys or their order changed",
+    )
+    canonical_fields = {
+        "key",
+        "nameEnglish",
+        "nameSpanish",
+        "descriptionEnglish",
+        "descriptionSpanish",
+        "systemImage",
+    }
     for item in SERVICE_OFFER_TYPES:
+        require(set(item) == canonical_fields, f"Unexpected service-offer type fields for {item['key']}")
         for field in ("nameEnglish", "nameSpanish", "descriptionEnglish", "descriptionSpanish", "systemImage"):
             require(isinstance(item.get(field), str) and item[field].strip(), f"Missing {field} for {item['key']}")
     require(all(service.get("serviceCategory") in keys for service in SERVICES), "A catalog service uses an unknown serviceCategory")
     service_schema = read("schemas/protocol/service-definition.schema.json")["$defs"]["service_definition"]
     require(service_schema["properties"]["serviceCategory"]["enum"] == keys, "Schema serviceCategory enum differs from registry")
+    transaction_schema = read("schemas/protocol/service-transaction.schema.json")
+    require(
+        transaction_schema["$defs"]["offer_snapshot"]["properties"]["serviceCategory"]["enum"] == keys,
+        "Transaction offerSnapshot serviceCategory enum differs from registry",
+    )
     swift_source = (ROOT.parent / "mydnamap-ios/mydnamap/Tabs/ServicesHub/ServiceOfferTypeProvider.swift").read_text()
     swift_entries = re.findall(
         r'''\.init\(\s*key: "([^"]+)",\s*nameEnglish: "([^"]+)",\s*nameSpanish: "([^"]+)",\s*descriptionEnglish: "([^"]+)",\s*descriptionSpanish: "([^"]+)",\s*systemImage: "([^"]+)"\s*\)''',
@@ -756,9 +1177,189 @@ def validate_service_offer_type_registry():
         for entry in swift_entries
     ]
     require(native_registry == SERVICE_OFFER_TYPES, "Native iOS service-offer type provider differs from the canonical registry")
+    kotlin_source = (ROOT.parent / "mydnamap-android/app/src/main/java/com/genetics/app/services/domain/model/ServiceOfferTypeProvider.kt").read_text()
+    kotlin_entries = re.findall(
+        r'''ServiceOfferType\(\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",?\s*\)''',
+        kotlin_source,
+        re.DOTALL,
+    )
+    android_registry = [
+        dict(zip(("key", "nameEnglish", "nameSpanish", "descriptionEnglish", "descriptionSpanish", "systemImage"), entry))
+        for entry in kotlin_entries
+    ]
+    require(android_registry == SERVICE_OFFER_TYPES, "Native Android service-offer type provider differs from the canonical registry")
 
 
-check("closed_30_value_service_offer_type_registry", validate_service_offer_type_registry)
+check("closed_110_value_service_offer_type_registry", validate_service_offer_type_registry)
+
+
+def validate_service_offer_stage_contract():
+    service_schema_document = read("schemas/protocol/service-definition.schema.json")
+    service_schema = service_schema_document["$defs"]["service_definition"]
+    transaction_schema_document = read("schemas/protocol/service-transaction.schema.json")
+    snapshot_schema = transaction_schema_document["$defs"]["offer_snapshot"]
+    complete_keys = [
+        item["key"] for item in SERVICE_OFFER_TYPES if item["key"].startswith("sot_complete_")
+    ]
+    advice_keys = [
+        item["key"] for item in SERVICE_OFFER_TYPES if item["key"].startswith("sot_human_advice_")
+    ]
+    complete_stages = ["test_planning", "wet_lab", "bioinformatics"]
+    service_stages = [*complete_stages, "human_advice"]
+
+    for schema, boundary in (
+        (service_schema, "service_offers"),
+        (snapshot_schema, "service_transactions.offerSnapshot"),
+    ):
+        require(
+            schema["properties"]["stages"]["items"]["enum"] == service_stages,
+            f"{boundary} stage enum differs from the four-value service lifecycle contract",
+        )
+        complete_rules = [
+            rule
+            for rule in schema.get("allOf", [])
+            if rule.get("x-pocket-genes-rule") == "complete-service-offer-stages"
+        ]
+        require(len(complete_rules) == 1, f"{boundary} must contain one generated complete-stage rule")
+        rule = complete_rules[0]
+        require(
+            rule["if"]["properties"]["serviceCategory"]["enum"] == complete_keys,
+            f"{boundary} complete-stage rule differs from the canonical complete keys",
+        )
+        stages_rule = rule["then"]["properties"]["stages"]
+        require(
+            stages_rule.get("minItems") == 3 and stages_rule.get("maxItems") == 3,
+            f"{boundary} complete-stage rule must require exactly three stages",
+        )
+        require(
+            [condition["contains"]["const"] for condition in stages_rule.get("allOf", [])]
+            == complete_stages,
+            f"{boundary} complete-stage rule must explicitly contain every genomic stage",
+        )
+
+        advice_rules = [
+            rule
+            for rule in schema.get("allOf", [])
+            if rule.get("x-pocket-genes-rule") == "human-advice-service-offer-stage"
+        ]
+        require(len(advice_rules) == 1, f"{boundary} must contain one generated human-advice rule")
+        advice_rule = advice_rules[0]
+        require(
+            advice_rule["if"]["properties"]["serviceCategory"]["enum"] == advice_keys,
+            f"{boundary} human-advice rule differs from the canonical advice keys",
+        )
+        advice_stages = advice_rule["then"]["properties"]["stages"]
+        require(
+            advice_stages.get("minItems") == 1
+            and advice_stages.get("maxItems") == 1
+            and advice_stages.get("contains", {}).get("const") == "human_advice",
+            f"{boundary} human-advice rule must require exactly human_advice",
+        )
+        require(
+            advice_rule["else"]["properties"]["stages"]["not"]["contains"]["const"]
+            == "human_advice",
+            f"{boundary} must reserve human_advice for human-advice categories",
+        )
+
+    offer_validator = schema_validator(service_schema_document)
+    base_offer = copy.deepcopy(SERVICES[0])
+    complete_offer = copy.deepcopy(base_offer)
+    complete_offer["serviceCategory"] = complete_keys[0]
+    complete_offer["stages"] = list(reversed(complete_stages))
+    offer_validator.validate(complete_offer)
+
+    for missing_stage in complete_stages:
+        incomplete_offer = copy.deepcopy(complete_offer)
+        incomplete_offer["stages"] = [
+            stage for stage in complete_stages if stage != missing_stage
+        ] + ["human_advice"]
+        reject(
+            lambda incomplete_offer=incomplete_offer: offer_validator.validate(incomplete_offer),
+            f"service_offers accepted {complete_keys[0]} with human_advice replacing {missing_stage}",
+        )
+
+    atomic_offer = copy.deepcopy(base_offer)
+    atomic_offer["serviceCategory"] = SERVICE_OFFER_TYPES[0]["key"]
+    atomic_offer["stages"] = ["test_planning"]
+    offer_validator.validate(atomic_offer)
+
+    invalid_atomic_offer = copy.deepcopy(atomic_offer)
+    invalid_atomic_offer["stages"] = ["human_advice"]
+    reject(
+        lambda: offer_validator.validate(invalid_atomic_offer),
+        "service_offers accepted human_advice for a non-advice category",
+    )
+
+    advice_offer = copy.deepcopy(base_offer)
+    advice_offer["serviceCategory"] = advice_keys[0]
+    advice_offer["stages"] = ["human_advice"]
+    offer_validator.validate(advice_offer)
+    for invalid_stages in (["test_planning"], ["human_advice", "test_planning"]):
+        invalid_advice_offer = copy.deepcopy(advice_offer)
+        invalid_advice_offer["stages"] = invalid_stages
+        reject(
+            lambda invalid_advice_offer=invalid_advice_offer: offer_validator.validate(invalid_advice_offer),
+            f"service_offers accepted {advice_keys[0]} with stages {invalid_stages}",
+        )
+
+    unknown_offer = copy.deepcopy(complete_offer)
+    unknown_offer["serviceCategory"] = "sot_complete_not_registered"
+    reject(
+        lambda: offer_validator.validate(unknown_offer),
+        "service_offers accepted an unregistered complete service category",
+    )
+
+    standalone_snapshot_schema = copy.deepcopy(snapshot_schema)
+    standalone_snapshot_schema["$schema"] = transaction_schema_document["$schema"]
+    standalone_snapshot_schema["$defs"] = copy.deepcopy(transaction_schema_document["$defs"])
+    snapshot_validator = schema_validator(standalone_snapshot_schema)
+    snapshot = {
+        "offerId": "offer_complete_stage_fixture",
+        "schemaVersion": base_offer["schemaVersion"],
+        "name": base_offer["name"],
+        "status": base_offer["status"],
+        "isHiddenFromSearch": base_offer["isHiddenFromSearch"],
+        "isHighlightedOffer": base_offer["isHighlightedOffer"],
+        "isProfessionalOffer": base_offer["isProfessionalOffer"],
+        "providerId": base_offer["providerId"],
+        "providerName": base_offer["providerName"],
+        "providerKind": base_offer["providerKind"],
+        "serviceId": base_offer["serviceId"],
+        "serviceVersion": base_offer["serviceVersion"],
+        "description": base_offer["description"],
+        "serviceCategory": complete_keys[-1],
+        "stages": complete_stages,
+        "availability": base_offer["availability"],
+        "shortContract": "none -> none",
+        "providerWork": base_offer["providerWork"],
+        "inputSlots": [],
+        "outputSlots": [],
+    }
+    snapshot_validator.validate(snapshot)
+    for missing_stage in complete_stages:
+        incomplete_snapshot = copy.deepcopy(snapshot)
+        incomplete_snapshot["stages"] = [
+            stage for stage in complete_stages if stage != missing_stage
+        ] + ["human_advice"]
+        reject(
+            lambda incomplete_snapshot=incomplete_snapshot: snapshot_validator.validate(incomplete_snapshot),
+            f"service_transactions.offerSnapshot accepted {complete_keys[-1]} with human_advice replacing {missing_stage}",
+        )
+
+    advice_snapshot = copy.deepcopy(snapshot)
+    advice_snapshot["serviceCategory"] = advice_keys[-1]
+    advice_snapshot["stages"] = ["human_advice"]
+    snapshot_validator.validate(advice_snapshot)
+    for invalid_stages in (["bioinformatics"], ["human_advice", "bioinformatics"]):
+        invalid_advice_snapshot = copy.deepcopy(advice_snapshot)
+        invalid_advice_snapshot["stages"] = invalid_stages
+        reject(
+            lambda invalid_advice_snapshot=invalid_advice_snapshot: snapshot_validator.validate(invalid_advice_snapshot),
+            f"service_transactions.offerSnapshot accepted {advice_keys[-1]} with stages {invalid_stages}",
+        )
+
+
+check("service_offer_category_stage_contract", validate_service_offer_stage_contract)
 
 
 def validate_empty_service_slot_policy():
@@ -778,26 +1379,406 @@ def validate_empty_service_slot_policy():
     no_outputs = copy.deepcopy(original)
     no_outputs["outputSlots"] = []
     no_outputs["shortContract"] = "form:form -> none"
-    no_outputs["sampleResult"]["outputs"] = []
     validator.validate(no_outputs)
 
     no_inputs = copy.deepcopy(original)
     no_inputs["inputSlots"] = []
     no_inputs["shortContract"] = "none -> symptoms:bundle_of_symptoms"
-    no_inputs["sampleRequest"]["inputs"] = []
     no_inputs.pop("formShape", None)
     no_inputs.pop("sampleFormData", None)
-    no_inputs.pop("sampleFormObject", None)
     validator.validate(no_inputs)
 
     slotless = copy.deepcopy(no_inputs)
     slotless["outputSlots"] = []
     slotless["shortContract"] = "none -> none"
-    slotless["sampleResult"]["outputs"] = []
     validator.validate(slotless)
 
 
 check("service_slots_may_be_empty_independently_or_together", validate_empty_service_slot_policy)
+
+
+def validate_strict_service_boundary_casing():
+    offer_validator = schema_validator(read("schemas/protocol/service-definition.schema.json"))
+    offer = copy.deepcopy(SERVICES[0])
+    canonical_service_id = re.compile(r"^pgs_[a-z0-9]+(?:_[a-z0-9]+)*$")
+    require(
+        all(canonical_service_id.fullmatch(service["serviceId"]) for service in SERVICES),
+        "A direct service_offers fixture has a noncanonical serviceId",
+    )
+
+    canonical_tax = copy.deepcopy(offer)
+    canonical_tax["commercialTerms"]["taxAndPaymentPolicy"] = "Collected by the provider after review."
+    offer_validator.validate(canonical_tax)
+
+    for forbidden_report_field in ("inputReports", "outputReports", "input_reports", "output_reports"):
+        report_link_on_offer = copy.deepcopy(canonical_tax)
+        report_link_on_offer[forbidden_report_field] = []
+        reject(
+            lambda report_link_on_offer=report_link_on_offer: offer_validator.validate(report_link_on_offer),
+            f"service_offers accepted forbidden report-link field {forbidden_report_field}",
+        )
+
+    wrong_tax = copy.deepcopy(canonical_tax)
+    wrong_tax["commercialTerms"]["tax_and_payment_policy"] = wrong_tax["commercialTerms"].pop("taxAndPaymentPolicy")
+    reject(lambda: offer_validator.validate(wrong_tax), "service_offers accepted tax_and_payment_policy")
+
+    wrong_slot = copy.deepcopy(offer)
+    wrong_slot["inputSlots"][0]["accepted_types"] = wrong_slot["inputSlots"][0].pop("acceptedTypes")
+    reject(lambda: offer_validator.validate(wrong_slot), "service_offers accepted inputSlots[].accepted_types")
+
+    embedded_fixture = copy.deepcopy(offer)
+    embedded_fixture["sampleRequest"] = read(f"examples/requests/{offer['serviceId']}.json")
+    reject(lambda: offer_validator.validate(embedded_fixture), "service_offers accepted an embedded snake-case protocol fixture")
+
+    transaction_validator = schema_validator(read("schemas/protocol/service-transaction.schema.json"))
+    offer_snapshot = {
+        "offerId": "offer_contract_fixture",
+        "schemaVersion": 1,
+        "name": offer["name"],
+        "status": offer["status"],
+        "isHiddenFromSearch": offer["isHiddenFromSearch"],
+        "isHighlightedOffer": offer["isHighlightedOffer"],
+        "isProfessionalOffer": offer["isProfessionalOffer"],
+        "providerId": offer["providerId"],
+        "providerName": offer["providerName"],
+        "providerKind": offer["providerKind"],
+        "serviceId": offer["serviceId"],
+        "serviceVersion": offer["serviceVersion"],
+        "description": offer["description"],
+        "serviceCategory": offer["serviceCategory"],
+        "stages": offer["stages"],
+        "availability": offer["availability"],
+        "shortContract": "none -> none",
+        "providerWork": offer["providerWork"],
+        "inputSlots": [],
+        "outputSlots": [],
+    }
+    transaction = {
+        "requestId": "pgr_contract_fixture",
+        "offerId": "offer_contract_fixture",
+        "serviceId": offer["serviceId"],
+        "serviceVersion": offer["serviceVersion"],
+        "providerId": offer["providerId"],
+        "providerKind": offer["providerKind"],
+        "requestedByUserId": "user_contract_fixture",
+        "requestedAt": "2026-09-30T00:00:00Z",
+        "requestedAtClient": "2026-09-30T00:00:00Z",
+        "status": "received",
+        "requestRevision": 1,
+        "idempotencyKey": "contract-fixture",
+        "inputs": [],
+        "outputObjects": [],
+        "issues": [],
+        "missingRequiredInputRoles": [],
+        "offerSnapshot": offer_snapshot,
+        "providerSnapshot": {
+            "id": offer["providerId"],
+            "kind": offer["providerKind"],
+            "name": offer["providerName"],
+        },
+        "contractSource": "pocket_genes_services_wiki_v1",
+        "createdAt": "2026-09-30T00:00:00Z",
+        "updatedAt": "2026-09-30T00:00:00Z",
+    }
+    transaction_validator.validate(transaction)
+
+    output_reports_null = copy.deepcopy(transaction)
+    output_reports_null["outputReports"] = None
+    transaction_validator.validate(output_reports_null)
+
+    output_reports_empty = copy.deepcopy(transaction)
+    output_reports_empty["outputReports"] = []
+    transaction_validator.validate(output_reports_empty)
+
+    output_reports_linked = copy.deepcopy(transaction)
+    output_reports_linked["outputReports"] = [
+        {"reportCode": "ABC123"},
+        {"reportCode": "RPT9Z8"},
+    ]
+    transaction_validator.validate(output_reports_linked)
+
+    for invalid_report_code in ("abc123", "ABC12", "ABC1234", "ABC-12", "ÁBC123", "ABC123\n"):
+        invalid_output_report = copy.deepcopy(transaction)
+        invalid_output_report["outputReports"] = [{"reportCode": invalid_report_code}]
+        reject(
+            lambda invalid_output_report=invalid_output_report: transaction_validator.validate(invalid_output_report),
+            f"service_transactions accepted invalid outputReports reportCode {invalid_report_code!r}",
+        )
+
+    duplicate_output_reports = copy.deepcopy(transaction)
+    duplicate_output_reports["outputReports"] = [
+        {"reportCode": "ABC123"},
+        {"reportCode": "ABC123"},
+    ]
+    reject(
+        lambda: transaction_validator.validate(duplicate_output_reports),
+        "service_transactions accepted duplicate outputReports entries",
+    )
+
+    bare_output_report_code = copy.deepcopy(transaction)
+    bare_output_report_code["outputReports"] = ["ABC123"]
+    reject(
+        lambda: transaction_validator.validate(bare_output_report_code),
+        "service_transactions accepted a bare outputReports code instead of a snapshot map",
+    )
+
+    nonarray_output_reports = copy.deepcopy(transaction)
+    nonarray_output_reports["outputReports"] = {"reportCode": "ABC123"}
+    reject(
+        lambda: transaction_validator.validate(nonarray_output_reports),
+        "service_transactions accepted a nonarray outputReports map",
+    )
+
+    wrong_output_report_key = copy.deepcopy(transaction)
+    wrong_output_report_key["outputReports"] = [{"report_code": "ABC123"}]
+    reject(
+        lambda: transaction_validator.validate(wrong_output_report_key),
+        "service_transactions accepted outputReports[].report_code",
+    )
+
+    open_output_report = copy.deepcopy(transaction)
+    open_output_report["outputReports"] = [{"reportCode": "ABC123", "title": "Duplicated metadata"}]
+    reject(
+        lambda: transaction_validator.validate(open_output_report),
+        "service_transactions accepted duplicated metadata in outputReports[]",
+    )
+
+    for forbidden_transaction_field in ("inputReports", "input_reports", "output_reports"):
+        wrong_report_boundary = copy.deepcopy(transaction)
+        wrong_report_boundary[forbidden_transaction_field] = []
+        reject(
+            lambda wrong_report_boundary=wrong_report_boundary: transaction_validator.validate(wrong_report_boundary),
+            f"service_transactions accepted forbidden report-link field {forbidden_transaction_field}",
+        )
+
+    for forbidden_snapshot_field in ("inputReports", "outputReports", "input_reports", "output_reports"):
+        report_link_on_snapshot = copy.deepcopy(transaction)
+        report_link_on_snapshot["offerSnapshot"][forbidden_snapshot_field] = []
+        reject(
+            lambda report_link_on_snapshot=report_link_on_snapshot: transaction_validator.validate(report_link_on_snapshot),
+            f"service_transactions accepted offerSnapshot.{forbidden_snapshot_field}",
+        )
+
+    more_information_example = copy.deepcopy(next(
+        service["moreInformation"] for service in SERVICES if "moreInformation" in service
+    ))
+    snapshot_more_information = copy.deepcopy(transaction)
+    snapshot_more_information["offerSnapshot"]["moreInformation"] = more_information_example
+    transaction_validator.validate(snapshot_more_information)
+
+    snapshot_null = copy.deepcopy(transaction)
+    snapshot_null["offerSnapshot"]["moreInformation"] = None
+    transaction_validator.validate(snapshot_null)
+
+    snapshot_empty = copy.deepcopy(transaction)
+    snapshot_empty["offerSnapshot"]["moreInformation"] = {}
+    transaction_validator.validate(snapshot_empty)
+
+    snapshot_empty_arrays = copy.deepcopy(transaction)
+    snapshot_empty_arrays["offerSnapshot"]["moreInformation"] = {
+        "frequentQuestions": [],
+        "keyInsights": [],
+        "scientificFacts": [],
+        "usefulLinks": [],
+        "sampleLink": None,
+        "bulletSegments": [],
+        "technicalInformationFacts": [],
+        "biologicalSampleRequirements": [],
+        "websiteUrl": None,
+    }
+    transaction_validator.validate(snapshot_empty_arrays)
+
+    wrong_snapshot_root_alias = copy.deepcopy(snapshot_more_information)
+    snapshot = wrong_snapshot_root_alias["offerSnapshot"]
+    snapshot["more_information"] = snapshot.pop("moreInformation")
+    reject(
+        lambda: transaction_validator.validate(wrong_snapshot_root_alias),
+        "service_transactions accepted offerSnapshot.more_information",
+    )
+
+    wrong_snapshot_child_alias = copy.deepcopy(snapshot_more_information)
+    snapshot_info = wrong_snapshot_child_alias["offerSnapshot"]["moreInformation"]
+    snapshot_info["technical_information_facts"] = snapshot_info.pop("technicalInformationFacts")
+    reject(
+        lambda: transaction_validator.validate(wrong_snapshot_child_alias),
+        "service_transactions accepted offerSnapshot.moreInformation.technical_information_facts",
+    )
+
+    wrong_snapshot_item_alias = copy.deepcopy(snapshot_more_information)
+    snapshot_sample = wrong_snapshot_item_alias["offerSnapshot"]["moreInformation"]["sampleLink"]
+    snapshot_sample["button_title"] = snapshot_sample.pop("buttonTitle")
+    reject(
+        lambda: transaction_validator.validate(wrong_snapshot_item_alias),
+        "service_transactions accepted offerSnapshot.moreInformation.sampleLink.button_title",
+    )
+
+    unknown_snapshot_child = copy.deepcopy(snapshot_more_information)
+    unknown_snapshot_child["offerSnapshot"]["moreInformation"]["extraSection"] = []
+    reject(
+        lambda: transaction_validator.validate(unknown_snapshot_child),
+        "service_transactions accepted an unknown offerSnapshot.moreInformation child",
+    )
+
+    for malformed_url in (
+        "https://user@/path",
+        "https://:443/path",
+        "https://example.com:bad/path",
+    ):
+        invalid_snapshot_url = copy.deepcopy(snapshot_more_information)
+        invalid_snapshot_url["offerSnapshot"]["moreInformation"]["websiteUrl"] = malformed_url
+        reject(
+            lambda invalid_snapshot_url=invalid_snapshot_url: transaction_validator.validate(invalid_snapshot_url),
+            f"service_transactions accepted malformed offerSnapshot moreInformation URL {malformed_url}",
+        )
+
+    valid_snapshot_url = copy.deepcopy(snapshot_more_information)
+    valid_snapshot_url["offerSnapshot"]["moreInformation"]["websiteUrl"] = (
+        "https://[2001:db8::1]:443/path?q=1#fragment"
+    )
+    transaction_validator.validate(valid_snapshot_url)
+
+    canonical_tax_snapshot = copy.deepcopy(transaction)
+    canonical_tax_snapshot["offerSnapshot"]["commercialTerms"] = {
+        "taxAndPaymentPolicy": "Collected by the provider after review."
+    }
+    transaction_validator.validate(canonical_tax_snapshot)
+
+    wrong_tax_snapshot = copy.deepcopy(canonical_tax_snapshot)
+    snapshot_terms = wrong_tax_snapshot["offerSnapshot"]["commercialTerms"]
+    snapshot_terms["tax_and_payment_policy"] = snapshot_terms.pop("taxAndPaymentPolicy")
+    reject(
+        lambda: transaction_validator.validate(wrong_tax_snapshot),
+        "service_transactions accepted offerSnapshot.commercialTerms.tax_and_payment_policy",
+    )
+
+    slotless_delivered = copy.deepcopy(transaction)
+    slotless_delivered["status"] = "delivered"
+    transaction_validator.validate(slotless_delivered)
+
+    slotless_delivered_with_report = copy.deepcopy(slotless_delivered)
+    slotless_delivered_with_report["outputReports"] = [{"reportCode": "ABC123"}]
+    transaction_validator.validate(slotless_delivered_with_report)
+
+    declared_output_missing = copy.deepcopy(slotless_delivered_with_report)
+    declared_output_missing["offerSnapshot"]["outputSlots"] = [copy.deepcopy(offer["outputSlots"][0])]
+    reject(
+        lambda: transaction_validator.validate(declared_output_missing),
+        "service_transactions allowed a supplemental report to satisfy a declared output object",
+    )
+
+    writer_shaped_input = copy.deepcopy(transaction)
+    writer_shaped_input["inputs"] = [{
+        "role": "source_report",
+        "objectRef": {"objectId": "obj_file_abc123", "revision": 1},
+        "objectType": "pgo_pdf_report",
+        "fileName": "result.pdf",
+        "fileType": "pgo_pdf_report",
+        "selectedAt": "2026-09-30T00:00:00Z",
+        "reportCode": "ABC123",
+        "objectSnapshot": {
+            "objectId": "obj_file_abc123",
+            "objectType": "pgo_pdf_report",
+            "schemaVersion": "1.0.0",
+            "revision": 1,
+            "createdAt": "2026-09-30T00:00:00Z",
+            "createdBy": "user_contract_fixture",
+        },
+    }]
+    transaction_validator.validate(writer_shaped_input)
+
+    open_snapshot = copy.deepcopy(writer_shaped_input)
+    open_snapshot["inputs"][0]["objectSnapshot"]["unexpectedField"] = True
+    reject(
+        lambda: transaction_validator.validate(open_snapshot),
+        "service_transactions accepted an open-ended objectSnapshot",
+    )
+
+    canonical_form_input = copy.deepcopy(transaction)
+    canonical_form_input["inputs"] = [{
+        "role": "form",
+        "objectRef": {"objectId": "obj_form_abc123", "revision": 1},
+        "objectType": "pgo_form",
+        "objectCode": "123456789",
+        "uploadedObjectId": "uploaded_form_abc123",
+        "fileStorageId": "file_form_abc123",
+        "objectOwnerId": "owner_form_abc123",
+        "objectSnapshot": {
+            "objectId": "obj_form_abc123",
+            "objectType": "pgo_form",
+            "schemaVersion": "1.0.0",
+            "revision": 1,
+            "createdAt": "2026-09-30T00:00:00Z",
+            "createdBy": "user_contract_fixture",
+            "data": {
+                "formShape": {
+                    "fields": [{
+                        "key": "answer",
+                        "label": "Answer",
+                        "type": "text",
+                        "required": False,
+                    }]
+                },
+                "fields": [{"key": "answer", "value": "yes"}],
+            },
+        },
+    }]
+    for canonical_value in ["yes", 42, True, ["yes", 42]]:
+        candidate = copy.deepcopy(canonical_form_input)
+        candidate["inputs"][0]["objectSnapshot"]["data"]["fields"][0]["value"] = canonical_value
+        transaction_validator.validate(candidate)
+
+    for invalid_value, description in [
+        (None, "null"),
+        ({"nested": "value"}, "object"),
+        ([["nested"]], "nested array"),
+        ([True], "boolean array item"),
+    ]:
+        candidate = copy.deepcopy(canonical_form_input)
+        candidate["inputs"][0]["objectSnapshot"]["data"]["fields"][0]["value"] = invalid_value
+        reject(
+            lambda candidate=candidate: transaction_validator.validate(candidate),
+            f"service_transactions accepted a {description} PGO form answer value",
+        )
+
+    opaque_timestamp = copy.deepcopy(transaction)
+    opaque_timestamp["createdAt"] = {"anything": "used to pass"}
+    reject(
+        lambda: transaction_validator.validate(opaque_timestamp),
+        "service_transactions accepted an unconstrained timestamp object",
+    )
+
+    wrong_offer_snapshot = copy.deepcopy(transaction)
+    wrong_offer_snapshot["offerSnapshot"]["service_id"] = wrong_offer_snapshot["offerSnapshot"].pop("serviceId")
+    reject(lambda: transaction_validator.validate(wrong_offer_snapshot), "service_transactions accepted offerSnapshot.service_id")
+
+    wrong_provider_snapshot = copy.deepcopy(transaction)
+    wrong_provider_snapshot["providerSnapshot"]["provider_id"] = wrong_provider_snapshot["providerSnapshot"].pop("id")
+    reject(lambda: transaction_validator.validate(wrong_provider_snapshot), "service_transactions accepted providerSnapshot.provider_id")
+
+    structured_issue = copy.deepcopy(transaction)
+    structured_issue["issues"] = [{"wrong_key": "not a native string issue"}]
+    reject(lambda: transaction_validator.validate(structured_issue), "service_transactions accepted an untyped issue map")
+
+    wrong_form_shape = copy.deepcopy(transaction)
+    wrong_form_shape["offerSnapshot"]["formShape"] = copy.deepcopy(offer["formShape"])
+    wrong_form_shape["offerSnapshot"]["formShape"]["allow_unknown_fields"] = wrong_form_shape["offerSnapshot"]["formShape"].pop("allowUnknownFields")
+    reject(lambda: transaction_validator.validate(wrong_form_shape), "service_transactions accepted formShape.allow_unknown_fields")
+
+    source_slot = offer["inputSlots"][0]
+    wrong_input_slot = copy.deepcopy(transaction)
+    wrong_input_slot["offerSnapshot"]["inputSlots"] = [{
+        "role": source_slot["role"],
+        "title": source_slot["role"].replace("_", " ").title(),
+        "objectType": source_slot["objectType"],
+        "acceptedTypes": source_slot["acceptedTypes"],
+        "required": source_slot["required"],
+        "cardinality": source_slot["cardinality"],
+    }]
+    wrong_input_slot["offerSnapshot"]["inputSlots"][0]["object_type"] = wrong_input_slot["offerSnapshot"]["inputSlots"][0].pop("objectType")
+    reject(lambda: transaction_validator.validate(wrong_input_slot), "service_transactions accepted inputSlots[].object_type")
+
+
+check("strict_service_offer_and_transaction_nested_casing", validate_strict_service_boundary_casing)
 
 
 def validate_protocol_examples():
@@ -837,6 +1818,16 @@ def validate_provider_catalog():
     require("may each be empty" in shared["empty_slot_policy"], "Empty input/output slot policy is missing")
     require("none -> none" in shared["empty_slot_policy"], "Slotless short contract syntax is missing")
     require("no declared outputSlots" in shared["delivery_without_outputs"], "Output-free delivery rule is missing")
+    linked_reports = shared["linked_output_reports"]
+    for phrase in (
+        "service_transactions.outputReports",
+        "Omitted, null, or empty",
+        "reportCode",
+        "report_codes/{reportCode}.uploaded_report_id",
+        "There is no inputReports field",
+        "never affect transaction status or completeness",
+    ):
+        require(phrase in linked_reports, f"Shared API linked-output-report contract omits {phrase}")
 
 
 check("providers_and_shared_api_boundary", validate_provider_catalog)
@@ -857,6 +1848,38 @@ def validate_field_key_matrix():
     }
     actual = {item["collection"]: item["field_key_convention"] for item in FIELD_KEY_CONVENTIONS["collections"]}
     require(actual == expected, "Firestore field-key convention matrix differs")
+    convention_by_collection = {
+        item["collection"]: item for item in FIELD_KEY_CONVENTIONS["collections"]
+    }
+    offer_examples = convention_by_collection["service_offers"]["examples"]
+    more_information_examples = (
+        "moreInformation",
+        "frequentQuestions",
+        "question",
+        "answer",
+        "keyInsights",
+        "title",
+        "description",
+        "scientificFacts",
+        "usefulLinks",
+        "url",
+        "sampleLink",
+        "buttonTitle",
+        "bulletSegments",
+        "imageUrl",
+        "imageUploadDataUrl",
+        "technicalInformationFacts",
+        "subitems",
+        "biologicalSampleRequirements",
+        "instructions",
+        "websiteUrl",
+    )
+    for key in more_information_examples:
+        require(key in offer_examples, f"service_offers naming examples omit {key}")
+    transaction_examples = convention_by_collection["service_transactions"]["examples"]
+    for key in ("offerSnapshot", *more_information_examples):
+        require(key in transaction_examples, f"service_transactions naming examples omit {key}")
+    require(FIELD_KEY_CONVENTIONS["applies_to_nested_maps"] is True, "Collection casing must cover nested maps and maps inside arrays")
     require(FIELD_KEY_CONVENTIONS["compatibility_aliases_allowed"] is False, "Compatibility aliases must remain forbidden")
     serialized = FIELD_KEY_CONVENTIONS["serialized_pgo_content"]
     require(serialized["field_key_convention"] == "snake_case", "Serialized PGO content must use snake_case")
@@ -922,6 +1945,10 @@ def validate_deleted_identity_continuity_contract():
         "Service transactions",
         "Reports, report owners, uploaded objects",
         "Pocket Genes Object content",
+        "submitted_by_user_id",
+        "provider_id",
+        "provider_kind",
+        "legacy record with no usable canonical ID",
         "serialized PGO files remain unchanged",
         "iOS, Android, and web",
     ]
@@ -966,6 +1993,21 @@ def validate_deleted_identity_continuity_contract():
             f"{type_id} illegally persists deleted-identity presentation metadata",
         )
 
+    field_conventions = {
+        entry["collection"]: set(entry["examples"])
+        for entry in read("catalog/field-key-conventions.json")["collections"]
+    }
+    require(
+        {"provider_id", "provider_kind", "submitted_by_user_id"}
+        <= field_conventions["uploaded_objects"],
+        "uploaded_objects omits stable deleted-identity references",
+    )
+    require(
+        {"provider_id", "provider_kind", "submitted_by_user_id"}
+        <= field_conventions["file_storage"],
+        "file_storage omits stable deleted-identity references",
+    )
+
 
 check("deleted_identity_continuity_contract", validate_deleted_identity_continuity_contract)
 
@@ -987,6 +2029,9 @@ def validate_docs_and_breaking_policy():
     aggregate = read_text("Pocket-Genes-Wiki.md")
     root_wiki = (ROOT.parent / "Pocket-Genes-Services-Wiki.md").read_text()
     service_model = read_text("docs/service-model.md")
+    native_services = read_text("docs/native-services-current-state.md")
+    downloaded_file_updates = read_text("docs/downloaded-file-updates.md")
+    package_readme = read_text("README.md")
     backoffice_contract = (ROOT.parent / "DISCOVER_BACKOFFICE_REQUIREMENTS.txt").read_text()
     services_backoffice_contract = backoffice_contract.split("Services Hub Native And Backend Contract", 1)[1]
     for text_name, text in [("package wiki", aggregate), ("root wiki", root_wiki), ("service model", service_model)]:
@@ -998,14 +2043,171 @@ def validate_docs_and_breaking_policy():
         for type_id in TYPE_IDS:
             require(type_id in text, f"{text_name} omits {type_id}")
     require(aggregate == root_wiki, "The two generated aggregate wikis differ")
+    require(
+        "[downloaded-file update lifecycle](docs/downloaded-file-updates.md)" in package_readme,
+        "The package README does not link the downloaded-file update lifecycle",
+    )
+    for documentation_name, documentation in [
+        ("package wiki", aggregate),
+        ("service model", service_model),
+        ("native-services state", native_services),
+    ]:
+        for phrase in (
+            "`collectionAutomatic`",
+            "`currentAutomatic`",
+            "`currentManual`",
+            "quiet probe proves a newer version",
+            "preserves the opt-out",
+            "active-content rehydration",
+            "no new backend collection or document field",
+        ):
+            require(
+                phrase in documentation,
+                f"{documentation_name} omits downloaded-file update summary: {phrase}",
+            )
+    for phrase in (
+        "closed pair `{ kind, code }`",
+        "Exactly six uppercase ASCII letters or digits",
+        "Exactly nine ASCII digits",
+        "`uploaded_reports.upload_version_count`",
+        "`uploaded_objects.upload_version_count`",
+        "`latestVersion > currentVersion`",
+        "`collectionAutomatic`",
+        "`currentAutomatic`",
+        "`currentManual`",
+        "`listOfItemsThatNeedToBeUpdated`",
+        "strictly one at a time",
+        "one repository-level commit",
+        "active parser/model is rehydrated",
+        "**Update now** button directly below **Reactivate automatic updates**",
+        "bypasses blacklist filtering only for that single run",
+        "does not remove the identity",
+        "Only one write-capable update run",
+        "Late callbacks",
+        "bounded watchdog",
+        "prior file readable",
+        "must not contain payloads",
+        "UserDefaults on iOS and SharedPreferences on Android",
+        "no new backend collection or document field",
+        "never changes a service transaction's status",
+        "iOS and Android implement the same",
+    ):
+        require(
+            phrase in downloaded_file_updates,
+            f"Downloaded-file update lifecycle omits required contract: {phrase}",
+        )
     require("none -> none" in aggregate, "The wiki omits the slotless short contract")
     require("without producing an object" in aggregate, "The wiki omits output-free services")
     require("empty states" in service_model.lower(), "The service model omits native empty states")
+    for documentation_name, documentation in [
+        ("package wiki", aggregate),
+        ("service model", service_model),
+    ]:
+        for key in (
+            "moreInformation",
+            "frequentQuestions",
+            "keyInsights",
+            "scientificFacts",
+            "usefulLinks",
+            "sampleLink",
+            "bulletSegments",
+            "technicalInformationFacts",
+            "biologicalSampleRequirements",
+            "websiteUrl",
+        ):
+            require(key in documentation, f"{documentation_name} omits {key}")
+        require(
+            "offerSnapshot.moreInformation" in documentation,
+            f"{documentation_name} omits frozen moreInformation snapshot behavior",
+        )
+        require(
+            "all null" in documentation,
+            f"{documentation_name} omits all-null moreInformation visibility behavior",
+        )
+        for phrase in (
+            "exact lowercase `https://`",
+            "Userinfo is forbidden",
+            "bracketed IPv6",
+            "one to five digits",
+            "Paths, queries, and fragments remain valid",
+        ):
+            require(
+                phrase in documentation,
+                f"{documentation_name} omits moreInformation URL rule: {phrase}",
+            )
+        for phrase in (
+            "`service_transactions.outputReports` is the one report-link boundary",
+            "may be omitted or explicitly `null`",
+            '`{ "reportCode": "ABC123" }`',
+            "There is no `inputReports` field",
+            "Service-offer `inputSlots`, `outputSlots`",
+            "never changes transaction status",
+            "`report_codes/{reportCode}`",
+            "`uploaded_reports/{uploadedReportId}`",
+            "exactly `mdm`, `ag`, `2pq`, `vcf`, and `pdf`",
+            '{ "uploaded_report_id": "uploaded-report-123" }',
+            '"linked_report_code": "ABC123"',
+            "unpadded absolute HTTP(S) `download_url` with a host",
+            "**Linked output reports**",
+            "download when it is not stored locally",
+        ):
+            require(
+                phrase in documentation,
+                f"{documentation_name} omits linked-output-report contract: {phrase}",
+            )
+    more_information_service_page = read_text("services/pgs_dna_extraction.md")
+    require(
+        "## More information" in more_information_service_page
+        and '"frequentQuestions"' in more_information_service_page
+        and '"websiteUrl"' in more_information_service_page,
+        "DNA-extraction service page does not show the child-map authoring fixture",
+    )
     require("Either may be empty" in services_backoffice_contract, "The backoffice contract omits empty slot arrays")
     require("pgo_empty_outline.png" in services_backoffice_contract, "The backoffice contract omits the empty conversion asset")
     require("outputSlots: non-empty object[]" not in services_backoffice_contract, "The backoffice contract still requires outputs")
     require("is_hidden_from_search" not in services_backoffice_contract, "The service contract still uses a snake-case offer key")
     require("output_objects" not in services_backoffice_contract, "The service contract still uses a snake-case transaction key")
+    require(
+        "moreInformation: object | null" in services_backoffice_contract,
+        "The backoffice contract omits nullable service-offer moreInformation",
+    )
+    require(
+        "offerSnapshot.moreInformation" in services_backoffice_contract,
+        "The backoffice contract omits the frozen moreInformation snapshot",
+    )
+    require(
+        "only empty arrays show no action" in services_backoffice_contract,
+        "The backoffice contract omits no-content moreInformation visibility",
+    )
+    for phrase in (
+        "outputReports: object[] | null; optional",
+        '{ "reportCode": "ABC123" }',
+        "There is no inputReports field",
+        "inputSlots and outputSlots describe objects only",
+        "never changes status or completeness",
+        "report_codes/{reportCode}",
+        "uploaded_reports/{uploadedReportId}",
+        "mdm, ag, 2pq, vcf, and pdf",
+        '{ "uploaded_report_id": "uploaded-report-123" }',
+        '"linked_report_code": "ABC123"',
+        "unpadded absolute HTTP(S) download_url",
+        "Linked output reports",
+    ):
+        require(
+            phrase in services_backoffice_contract,
+            f"The backoffice contract omits linked-output-report rule: {phrase}",
+        )
+    for phrase in (
+        "lowercase https:// scheme",
+        "Userinfo is forbidden",
+        "bracketed IPv6",
+        "one to five digits",
+        "Paths, queries, and fragments are valid",
+    ):
+        require(
+            phrase in services_backoffice_contract,
+            f"The backoffice contract omits moreInformation URL rule: {phrase}",
+        )
     for type_id in TYPE_IDS:
         page = read_text(f"objects/{type_id}.md")
         for key in CONTRACTS[type_id][0] | CONTRACTS[type_id][1]:

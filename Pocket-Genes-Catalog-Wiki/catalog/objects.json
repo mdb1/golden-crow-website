@@ -109,13 +109,15 @@
                           "value": {
                             "type": "string",
                             "minLength": 1,
-                            "pattern": "\\S",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                            "maxLength": 128,
                             "description": "Stable stored option value."
                           },
                           "label": {
                             "type": "string",
                             "minLength": 1,
                             "pattern": "\\S",
+                            "maxLength": 120,
                             "description": "Human-readable option label frozen with the form."
                           }
                         },
@@ -1683,7 +1685,7 @@
                   "type": "string",
                   "minLength": 1,
                   "format": "uri",
-                  "pattern": "^https://",
+                  "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
                   "description": "HTTPS URL used to download this read."
                 }
               },
@@ -1801,7 +1803,7 @@
             "type": "string",
             "minLength": 1,
             "format": "uri",
-            "pattern": "^https://",
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
             "description": "HTTPS URL used to download the native file."
           },
           "notes": {
@@ -1894,14 +1896,14 @@
             "type": "string",
             "minLength": 1,
             "format": "uri",
-            "pattern": "^https://",
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
             "description": "HTTPS URL used to download the aligned reads."
           },
           "index_download_url": {
             "type": "string",
             "minLength": 1,
             "format": "uri",
-            "pattern": "^https://",
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
             "description": "HTTPS URL used to download the optional alignment index."
           },
           "notes": {
@@ -1990,7 +1992,7 @@
             "type": "string",
             "minLength": 1,
             "format": "uri",
-            "pattern": "^https://",
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
             "description": "HTTPS URL used to download the native file."
           },
           "notes": {
@@ -2076,7 +2078,7 @@
             "type": "string",
             "minLength": 1,
             "format": "uri",
-            "pattern": "^https://",
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
             "description": "HTTPS URL used to download the native file."
           },
           "notes": {
@@ -2162,7 +2164,7 @@
             "type": "string",
             "minLength": 1,
             "format": "uri",
-            "pattern": "^https://",
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
             "description": "HTTPS URL used to download the native file."
           },
           "notes": {
@@ -2251,7 +2253,7 @@
             "type": "string",
             "minLength": 1,
             "format": "uri",
-            "pattern": "^https://",
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
             "description": "HTTPS URL used to download the native file."
           },
           "notes": {
@@ -2358,7 +2360,7 @@
                   "type": "string",
                   "minLength": 1,
                   "format": "uri",
-                  "pattern": "^https://",
+                  "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
                   "description": "HTTPS URL used to download this image."
                 }
               },
@@ -2560,7 +2562,7 @@
             "type": "string",
             "minLength": 1,
             "format": "uri",
-            "pattern": "^https://",
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
             "description": "HTTPS URL used to download the native file."
           },
           "notes": {

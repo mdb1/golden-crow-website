@@ -81,6 +81,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - This three-stage catalog places digital image analysis in bioinformatics, used here as the broader digital-analysis stage.
 - Report the examined material, findings, support and limitations for the selected scope.
 
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
+
 ## Transaction rule
 
 A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.

@@ -86,86 +86,6 @@
       }
     ]
   },
-  "sampleFormObject": {
-    "object_id": "obj_demo_form_informed_consent",
-    "object_type": "pgo_form",
-    "schema_version": "1.0.0",
-    "revision": 1,
-    "created_at": "2026-09-16T12:00:00Z",
-    "created_by": "user_demo_001",
-    "data": {
-      "form_shape": {
-        "fields": [
-          {
-            "key": "patient",
-            "label": "Patient or source",
-            "type": "text",
-            "required": true
-          },
-          {
-            "key": "consent_title",
-            "label": "Consent title",
-            "type": "text",
-            "required": true
-          },
-          {
-            "key": "consent_text",
-            "label": "Consent text",
-            "type": "long_text",
-            "required": true
-          },
-          {
-            "key": "signer_name",
-            "label": "Expected signer name",
-            "type": "text",
-            "required": false
-          },
-          {
-            "key": "signer_capacity",
-            "label": "Expected signer capacity",
-            "type": "enum",
-            "required": false,
-            "options": [
-              {
-                "value": "self",
-                "label": "Self"
-              },
-              {
-                "value": "representative",
-                "label": "Representative"
-              },
-              {
-                "value": "other",
-                "label": "Other"
-              }
-            ]
-          }
-        ]
-      },
-      "fields": [
-        {
-          "key": "patient",
-          "value": "Patient AB-123"
-        },
-        {
-          "key": "consent_title",
-          "value": "Consent for genetic testing"
-        },
-        {
-          "key": "consent_text",
-          "value": "Please review the purpose, implications and limitations of the proposed genetic test."
-        },
-        {
-          "key": "signer_name",
-          "value": "Alex Example"
-        },
-        {
-          "key": "signer_capacity",
-          "value": "self"
-        }
-      ]
-    }
-  },
   "inputSlots": [
     {
       "role": "form",
@@ -200,33 +120,6 @@
     },
     "turnaround": "1d",
     "pricingModel": "calculated_after_submission"
-  },
-  "sampleRequest": {
-    "request_id": "pgr_demo_informed_consent",
-    "service_id": "pgs_informed_consent",
-    "service_version": 1,
-    "inputs": [
-      {
-        "role": "form",
-        "object_ref": {
-          "object_id": "obj_demo_form_informed_consent",
-          "revision": 1
-        }
-      }
-    ]
-  },
-  "sampleResult": {
-    "request_id": "pgr_demo_informed_consent",
-    "status": "delivered",
-    "outputs": [
-      {
-        "role": "consent",
-        "object_ref": {
-          "object_id": "obj_demo_consent",
-          "revision": 1
-        }
-      }
-    ]
   },
   "status": "active",
   "serviceCategory": "sot_informed_consent",

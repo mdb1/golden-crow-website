@@ -12,9 +12,147 @@ The full highlighted card requires both conditions: `isHighlightedOffer` is true
 
 If and only if an offer enables form input, it declares exactly one required `pgo_form` slot with role `form` and a matching external `formShape`. Manual slots cannot use `pgo_form`. The external shape retains generated ID and integer version; the submitted PGO freezes only its field definitions and answers.
 
+### Optional more-information presentation
+
+`moreInformation` is an optional, presentation-only lower-camel-case map on a `service_offers` document. It explains a published offer without changing its input slots, output slots, acceptance rules, price, availability, or provider obligations. The same closed shape is available at `service_transactions.offerSnapshot.moreInformation` so a transaction can freeze the explanatory content that accompanied the selected offer.
+
+| Optional child key | Non-null shape | What to publish |
+| --- | --- | --- |
+| `frequentQuestions` | array of `{ question, answer }` | Questions a requester commonly asks and direct answers. |
+| `keyInsights` | array of `{ title, description }` | The most important takeaways about the service. |
+| `scientificFacts` | array of `{ title, description }` | Relevant scientific context stated for the requester. |
+| `usefulLinks` | array of `{ title, url }` | Titled external resources whose `url` is absolute HTTPS. |
+| `sampleLink` | one `{ title, description, buttonTitle, url }` map | A featured example or sample resource and the exact action label that opens it. |
+| `bulletSegments` | array of `{ title, description, imageUrl?, imageUploadDataUrl? }` | Illustrated explanatory segments. Supply at least one image source: an absolute-HTTPS `imageUrl`, an inline base64 image data URL in `imageUploadDataUrl`, or both. When both are present, apps prefer `imageUrl`. |
+| `technicalInformationFacts` | array of `{ title, description, subitems }` | Technical facts with an ordered `subitems: string[]` list. |
+| `biologicalSampleRequirements` | array of `{ title, description, instructions }` | Biological-material requirements and the instructions needed to satisfy each one. |
+| `websiteUrl` | string | The offer's absolute HTTPS website destination. |
+
+Every child key is independently optional and may explicitly be `null`. The root `moreInformation` value may also be omitted or `null`. An empty map, a map whose children are all null, and empty top-level arrays are valid representations of no displayable content. In those states the service-offer detail screen does not show the **More information** button. When at least one section has displayable content, the button presents a modal list; each key has its own visual component, and every omitted, null, or empty section is skipped. The table documents the persistence contract rather than visual order. Both mobile clients use the editorial order `keyInsights`, `scientificFacts`, `frequentQuestions`, `sampleLink`, `bulletSegments`, `technicalInformationFacts`, `biologicalSampleRequirements`, `usefulLinks`, then `websiteUrl`; absence collapses that section without leaving a gap. The illustrated hero uses the real service display name, and shortcuts or anchor chips are created only for destinations that actually exist.
+
+Every visible segment has a styled title header with a small information control at its upper right. Activating that control expands a localized gray explanation directly below the title on the same screen; it never opens a second modal. The `sampleLink` control is the intentional exception in placement: it overlays the featured card's upper-right corner while preserving a full touch target and reserved title space. This guidance is owned by the mobile apps and is not another Firestore field: catalog authors supply only the optional keys and values in the table above.
+
+The two native apps share the same interaction contract. Frequently asked questions and technical groups disclose their content inline; technical headers reserve equal leading and trailing control slots for vertical alignment. `bulletSegments` accepts either `imageUrl` or `imageUploadDataUrl` and renders a fixed circular leading thumbnail without an expand action. The service website has its own titled section. Supplied decorative artwork is bundled for the hero, featured sample link, illustrated-image fallback, and first biological-requirement summary; artwork does not create a section when the corresponding model value is absent.
+
+Every non-null array item is a closed map and must contain all fields shown for that item type, except that each `bulletSegments[]` item requires `title`, `description`, and at least one of its two optional image-source keys. A non-null `sampleLink` is also closed and requires all four fields. Object members and array string items are nonempty after whitespace; array items themselves cannot be null. Empty `technicalInformationFacts[].subitems` arrays are valid. `usefulLinks[].url`, `sampleLink.url`, `bulletSegments[].imageUrl`, and `websiteUrl` must be nonempty absolute URIs with the exact lowercase `https://` scheme. Userinfo is forbidden; the host must use DNS/IPv4 label form or bracketed IPv6; an optional port contains one to five digits; whitespace is invalid. Paths, queries, and fragments remain valid. `bulletSegments[].imageUploadDataUrl` must be a nonempty `data:image/...;base64,...` value with a valid base64 payload. This is the same uploaded-image representation used elsewhere in the apps and is copied unchanged into transaction offer snapshots.
+
+The map accepts only the nine keys in the table, and every nested item accepts only its documented keys. Unknown properties, malformed non-null values, snake-case aliases such as `more_information`, `frequent_questions`, `button_title`, `image_url`, `image_upload_data_url`, or `website_url`, and wrong-case alternatives are rejected rather than read as compatibility aliases.
+
+#### Complete authoring example
+
+```json
+{
+  "frequentQuestions": [
+    {
+      "question": "What kinds of specimens can be used?",
+      "answer": "The provider reviews compatible blood, tissue, or embryo-biopsy specimens against the selected extraction profile."
+    }
+  ],
+  "keyInsights": [
+    {
+      "title": "A quality DNA input starts with the specimen",
+      "description": "Specimen identity, condition, and the requested downstream study determine whether extraction can proceed."
+    }
+  ],
+  "scientificFacts": [
+    {
+      "title": "Extraction separates DNA from other cellular material",
+      "description": "The laboratory uses a validated workflow to isolate DNA while controlling contamination and degradation."
+    }
+  ],
+  "usefulLinks": [
+    {
+      "title": "DNA extraction overview",
+      "url": "https://example.com/services/dna-extraction/overview"
+    }
+  ],
+  "sampleLink": {
+    "title": "Review a sample result",
+    "description": "See a fictional example of the information returned after an accepted extraction workflow.",
+    "buttonTitle": "Open sample",
+    "url": "https://example.com/services/dna-extraction/sample"
+  },
+  "bulletSegments": [
+    {
+      "title": "Provider review",
+      "description": "The laboratory confirms that the submitted specimen and order are suitable for the published workflow.",
+      "imageUrl": "https://example.com/images/services/dna-extraction-review.png"
+    }
+  ],
+  "technicalInformationFacts": [
+    {
+      "title": "Technical deliverables",
+      "description": "The completed service registers the extracted DNA and the updated source-specimen state.",
+      "subitems": [
+        "Extracted DNA identity and measured properties",
+        "Source-specimen revision reflecting material use"
+      ]
+    }
+  ],
+  "biologicalSampleRequirements": [
+    {
+      "title": "Accepted material",
+      "description": "Submit one specimen compatible with the extraction profile selected in the request form.",
+      "instructions": "Keep the specimen identified and follow the provider's collection, packaging, and delivery directions."
+    }
+  ],
+  "websiteUrl": "https://example.com/services/dna-extraction"
+}
+```
+
 ### Transactions
 
 A transaction is a timed execution created from an existing active offer. It inherits the pinned service ID/version, provider, input slots, and output slots, including explicit empty arrays. Transaction identity and time use root transaction fields; they are not generated form answers. `requestedByUserId` is always optional because a requester may not have an account yet. Every new transaction must have at least one requester identity: an authenticated request has `requestedByUserId` and may retain `requestedByUserEmail`; an accountless request has a normalized `requestedByUserEmail` and no `requestedByUserId`. An offer with no form and no input slots proceeds directly to confirmation and admission without creating a form object or asking for files.
+
+### Supplemental linked output reports
+
+`service_transactions.outputReports` is the one report-link boundary for a service transaction. It is optional, output-only, and independent of the service offer contract. The field may be omitted or explicitly `null`; an empty array is also valid. All three states mean that the transaction has no linked report to present, so native transaction detail screens omit the entire **Linked output reports** section. The section appears only when at least one valid linked report is actually present.
+
+When present and non-null, the value is an array of unique closed maps with exactly one key:
+
+`{ "reportCode": "ABC123" }`
+
+`reportCode` uses the lower-camel-case key required inside `service_transactions`; its value is exactly six uppercase ASCII letters or digits. The snapshot must not duplicate a report title, file name, URL, owner, provider format, upload version, or report payload, and it must not use snake-case `report_code`. There is no `inputReports` field. `outputReports` also never appears on `service_offers` or inside `offerSnapshot`.
+
+Service-offer `inputSlots`, `outputSlots`, the corresponding frozen snapshot arrays, `shortContract`, and `outputObjects` describe Pocket Genes Objects only. They never promise, require, or count uploaded reports. A PGO type such as `pgo_pdf_report` remains an object governed by an object slot; that is distinct from a supplemental uploaded-report link. Consequently, adding or removing `outputReports` never changes transaction status, never makes a transaction complete or incomplete, never satisfies a missing `outputSlots` role, and never prevents delivery. A provider may attach no report, one report, or several reports without changing the contracted object outcome.
+
+#### Backend registration and linkage
+
+Before appending a snapshot, trusted backend/provider tooling registers a real, authorized report through the existing report storage circuit:
+
+1. Normalize and validate the six-character code, then resolve `report_codes/{reportCode}` through its snake-case `uploaded_report_id` field.
+2. Load `uploaded_reports/{uploadedReportId}` and require its snake-case `report_code` to equal the transaction snapshot code exactly. The record must be ready for the requesting user, expose a supported `provider_format`, and have a positive `upload_version_count`.
+3. Supply report bytes through the report record's usable `download_url` or its `linked_file_id`. A linked `file_storage` record must carry the same snake-case `linked_report_code` and a compatible `file_type`/payload.
+4. Only after the report can be resolved safely, append the unique lower-camel-case transaction snapshot `{ "reportCode": "ABC123" }`. Do not copy snake-case storage metadata into the transaction and do not write both naming styles.
+
+For uploaded reports, the canonical `provider_format` values supported by both native clients are exactly `mdm`, `ag`, `2pq`, `vcf`, and `pdf`. When `linked_file_id` is used, `file_storage.file_type` must use the same canonical value. A `pgo_*` value belongs to the separate uploaded-object/`outputObjects` circuit and is never a linked report format.
+
+The following is a partial linkage example; unrelated collection-required ownership, authorization, attribution, and audit fields are intentionally omitted:
+
+    service_transactions/{transactionId}
+    { "outputReports": [{ "reportCode": "ABC123" }] }
+
+    report_codes/ABC123
+    { "uploaded_report_id": "uploaded-report-123" }
+
+    uploaded_reports/uploaded-report-123
+    {
+      "report_code": "ABC123",
+      "provider_format": "pdf",
+      "upload_version_count": 3,
+      "linked_file_id": "file-123"
+    }
+
+    file_storage/file-123
+    {
+      "linked_report_code": "ABC123",
+      "file_type": "pdf",
+      "file_content": "<payload encoded for the normal PDF report pipeline>"
+    }
+
+The direct-download variant writes an unpadded absolute HTTP(S) `download_url` with a host on `uploaded_reports` instead of depending on `linked_file_id` and `file_storage`. In both variants all report-code occurrences must match byte-for-byte; clients do not trim, uppercase, or accept legacy aliases at read time.
+
+The transaction detail screen resolves each code through that same established report path and presents the report experience below **Output files**: download when it is not stored locally, open when it is available, and update when the registered positive upload version is newer. Resolution or authorization failures are report-level errors; they do not retroactively alter the transaction lifecycle. Writers should omit the field when there are no links, although explicit `null` and `[]` remain valid no-content representations for readers and migrations.
 
 ### Email-only requests and deferred linking
 
@@ -37,7 +175,7 @@ Native code checks the one deferred index document for the exact verified accoun
 3. Add the authenticated UID to `service_transactions.requestedByUserId`, producing the same user-to-transaction link as a request originally made while signed in.
 4. Remove the ID from `deferred_service_transactions.deferred_transaction_ids` only after the user and transaction links are written in that same atomic operation.
 
-Missing, malformed, email-mismatched, or conflicting transactions are never attached to the user; unresolved valid references remain available for a later safe retry. Feature-specific post-login work runs only after this normalization attempt finishes. After linking, native reloads `requestedServiceTransactions`, so the normalized transactions appear in the standard list. In the **View my reports** flow, entering the authenticated downloaded-files screen then runs the existing pending-output discovery against the normalized transaction index, allowing newly linked delivered files to appear immediately as download options. The email may remain on the full transaction as immutable requester provenance, but future authorization and user-list lookup use `requestedByUserId`.
+Missing, malformed, email-mismatched, or conflicting transactions are never attached to the user; unresolved valid references remain available for a later safe retry. Feature-specific post-login work runs only after this normalization attempt finishes. After linking, native reloads `requestedServiceTransactions`, so the normalized transactions appear in the standard list. Native pending-output discovery uses that normalized index on app/root startup, when the user enters the **Reports** tab, and from the existing downloaded-file and source-selection entry points. A successful account transition schedules the same authenticated discovery again, so newly linked files do not depend on visiting one particular screen. The email may remain on the full transaction as immutable requester provenance, but future authorization and user-list lookup use `requestedByUserId`.
 
 The native requester sequence is:
 
@@ -48,15 +186,31 @@ The native requester sequence is:
 5. Create the service transaction and either the reduced authenticated-user snapshot or the one-per-email deferred index entry.
 6. Present confirmation over the service hub, then allow process tracking.
 
-Status progression is controlled by provider/backoffice work. Native users cannot force progress. `delivered` is the successful final state and requires every contractually promised output PGO snapshot in `outputObjects`. When `outputSlots` is empty, `delivered` is consistent only with an empty `outputObjects` array and no object is required to prove completion. Optional `outputReports` do not satisfy a declared PGO output slot.
+Status progression is controlled by provider/backoffice work. Native users cannot force progress. `delivered` is the successful final state and requires every contractually promised output PGO snapshot in `outputObjects`. When `outputSlots` is empty, `delivered` is consistent only with an empty `outputObjects` array and no object is required to prove completion. Supplemental `outputReports` are always optional: their absence, null value, empty array, later addition, removal, or resolution failure does not change status or completeness, and they never satisfy a declared PGO output slot.
+
+### Proactive service-output discovery
+
+Output availability and transaction status are intentionally independent in the native clients. For an authenticated requester, discovery starts only from that user's reduced `requestedServiceTransactions` references, fetches the referenced root transactions one by one, verifies `requestedByUserId` against the active user, and inspects every valid referenced transaction regardless of whether its status is `requested`, `received`, `validating`, `awaiting_input`, `accepted`, `queued`, `running`, `delivered`, `rejected`, `failed`, or `cancelled`. A failure or stale reference is isolated to that transaction and does not suppress later checks.
+
+Every scan considers both canonical output boundaries: `outputObjects` and `outputReports`. Objects are eligible as soon as their canonical object snapshot is attached. Reports remain optional and are eligible only when their report code resolves to supported, ready downloadable metadata and payload. Items already present in the local downloaded-file inventory are removed from the result, and repeated pending references are presented only once. A transaction-detail screen likewise shows attached output objects immediately even before `delivered`; early availability never changes status, satisfies missing contract roles, or proves completion.
+
+The app-level discovery coordinator runs asynchronously on root startup, after the authenticated user boundary changes, and whenever the user switches to the **Reports** tab. Its presentation owner lives above the tab content, so the existing **New files available** experience can appear over any root tab, including **Discover**. Existing downloaded-file and report/object source-selection entry points request that same whole-account scan through the global coordinator instead of owning competing modal presentations. Only one global scan or presentation is active at a time: overlapping scan triggers coalesce, routine triggers received while the modal is visible are ignored, and the post-authentication normalization refresh waits until the current presentation ends so newly linked transactions are not missed. Discovery never downloads silently: the user still chooses one item or **Download all**, whose queue is processed sequentially.
 
 ### Ownership and delivery
 
 The creator/administrator of an object is its seeder and may manage its stored source. `is_clinician` grants access to both report and object administration; it does not itself confer ownership. Pocket Genes transports and presents authorized files but does not warrant their clinical content.
 
-Service offers are the primary way a regular user requests new objects. Backoffice/provider tooling performs fulfillment, registers output objects, and marks delivery. The requester keeps the transaction while work is pending, then downloads, opens, and updates delivered objects through the normal nine-digit object-code circuit.
+Service offers are the primary way a regular user requests new objects. Backoffice/provider tooling performs fulfillment, registers output objects, and marks delivery. The requester keeps the transaction throughout its lifecycle and may download, open, and update an attached object through the normal nine-digit object-code circuit as soon as it becomes available; the later `delivered` status still communicates contractual completion rather than file visibility.
 
 Physical specimen identity, custody and consumption safeguards remain operational controls outside PGO content. A transport transaction moves an existing specimen; it does not create duplicate biological material.
+
+## Downloaded-file updates
+
+`DownloadedFileUpdater` keeps authorized local reports and Pocket Genes Objects current without changing backend records or service fulfillment. This lifecycle introduces no new backend collection or document field. Canonical identity is `{ kind, code }`; report codes are six uppercase ASCII letters/digits, object codes are nine ASCII digits, and only a positive canonical `upload_version_count` greater than the installed version creates an update. Replacements must match kind, code, source, and a version at least as new as the probe, then commit over the existing local copy without a delete-first interval.
+
+The three explicit intents are `collectionAutomatic` for the fully blocking **Your downloaded files** sweep, `currentAutomatic` for one silently probed current file, and `currentManual` for the user's one-file **Update now** request. Current-file checks show no UI in the usual up-to-date case. A compact blocker appears only after a newer version is proven and remains through sequential download, validated local replacement, and active-content rehydration.
+
+Automatic intents honor `BlacklistedFileUpdateProvider`. A blacklisted current file shows the green **Update now** action only when its quiet probe proves a newer version; that manual run bypasses filtering once but preserves the opt-out. Runs are serialized, cancellable, watchdog-bounded, failure-safe, retryable as fresh runs, and privacy-safe: public state never contains file payloads, URLs, access credentials, ownership/requester data, or clinical content. iOS and Android share this contract for reports and objects. The full generated specification is `docs/downloaded-file-updates.md`.
 
 ## Deleted identity continuity
 
@@ -141,6 +295,19 @@ Identity absence is not a content empty state. A list of retained posts from del
 Deletion tooling must make non-cascading behavior explicit. Removing authentication, community user, public/private profile, or an organization/professional identity must not issue broad deletes against content, relationship history, offers, transactions, reports, objects, files, events, or audit records unless a separate explicit policy requires that exact deletion. It may clean active-only indexes and future-action queues, but retained records keep stable foreign IDs so the provider can resolve their presentation deterministically.
 
 Clients must not rewrite every historical record to copy a tombstone, and no collection gains ad hoc `isDeletedUser`, deleted-name, or deleted-avatar aliases. The canonical identity lookup (or trusted deletion marker) determines runtime state. Existing snapshots remain provenance only and are overridden at presentation time. Logging and analytics may retain opaque IDs where policy permits, but user-facing UI never shows a raw deleted identity ID or personal snapshot as fallback.
+
+Every producer that persists actor-linked data must write the stable canonical reference available at that boundary. These references are platform metadata, never serialized PGO content:
+
+| Retained boundary | Stable reference used for runtime resolution |
+| --- | --- |
+| Community posts, replies, messages, reactions, Rare Friends relationships/circles, notifications, events, and audit entries | The canonical community-user ID, plus an explicit actor kind only when the record can reference more than one identity collection. |
+| Discover feed items, saved items, opportunities, events, organizations, and professionals | Publisher ID plus publisher kind, resolved against `feed_organizations` or `feed_individuals`. A publisher snapshot is display provenance only. |
+| `service_offers` and `service_transactions` | `providerId` plus `providerKind`; authenticated transactions also retain `requestedByUserId`. Snapshot names and requester emails never replace those references. |
+| `uploaded_reports` and `report_owners` | `report_owner_id` and, when the owner is tied to an account, `owner_community_user_id`. |
+| `uploaded_objects` and `object_owners` | `object_owner_id` and `owner_community_user_id`; service-created objects additionally retain `provider_id` plus `provider_kind`. |
+| `file_storage` | Authenticated submissions retain `submitted_by_user_id`; provider-produced files also retain `provider_id` plus `provider_kind` when that canonical provider is known. |
+
+New writes must not rely on email, username, display name, avatar URL, logo URL, or other mutable personal text as the only actor reference. A legacy record with no usable canonical ID is **Unavailable**, not **Deleted**: keep the domain record, suppress stale personal snapshots, show the provider-owned unavailable state, and do not guess identity by email. A record with a usable canonical reference must resolve that reference before rendering its identity region, even when a cached snapshot is present.
 
 ### Platform parity and acceptance tests
 

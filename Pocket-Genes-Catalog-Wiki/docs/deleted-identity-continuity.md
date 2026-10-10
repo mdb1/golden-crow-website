@@ -82,6 +82,19 @@ Deletion tooling must make non-cascading behavior explicit. Removing authenticat
 
 Clients must not rewrite every historical record to copy a tombstone, and no collection gains ad hoc `isDeletedUser`, deleted-name, or deleted-avatar aliases. The canonical identity lookup (or trusted deletion marker) determines runtime state. Existing snapshots remain provenance only and are overridden at presentation time. Logging and analytics may retain opaque IDs where policy permits, but user-facing UI never shows a raw deleted identity ID or personal snapshot as fallback.
 
+Every producer that persists actor-linked data must write the stable canonical reference available at that boundary. These references are platform metadata, never serialized PGO content:
+
+| Retained boundary | Stable reference used for runtime resolution |
+| --- | --- |
+| Community posts, replies, messages, reactions, Rare Friends relationships/circles, notifications, events, and audit entries | The canonical community-user ID, plus an explicit actor kind only when the record can reference more than one identity collection. |
+| Discover feed items, saved items, opportunities, events, organizations, and professionals | Publisher ID plus publisher kind, resolved against `feed_organizations` or `feed_individuals`. A publisher snapshot is display provenance only. |
+| `service_offers` and `service_transactions` | `providerId` plus `providerKind`; authenticated transactions also retain `requestedByUserId`. Snapshot names and requester emails never replace those references. |
+| `uploaded_reports` and `report_owners` | `report_owner_id` and, when the owner is tied to an account, `owner_community_user_id`. |
+| `uploaded_objects` and `object_owners` | `object_owner_id` and `owner_community_user_id`; service-created objects additionally retain `provider_id` plus `provider_kind`. |
+| `file_storage` | Authenticated submissions retain `submitted_by_user_id`; provider-produced files also retain `provider_id` plus `provider_kind` when that canonical provider is known. |
+
+New writes must not rely on email, username, display name, avatar URL, logo URL, or other mutable personal text as the only actor reference. A legacy record with no usable canonical ID is **Unavailable**, not **Deleted**: keep the domain record, suppress stale personal snapshots, show the provider-owned unavailable state, and do not guess identity by email. A record with a usable canonical reference must resolve that reference before rendering its identity region, even when a cached snapshot is present.
+
 ## Platform parity and acceptance tests
 
 iOS, Android, and web must implement the same state machine, evidence rules, labels by context, gray crossed-out visual semantics, navigation results, mutation guards, retry behavior, accessibility meaning, and English/Spanish localization wherever the corresponding surface exists. Layout may be native to each platform; behavior may not diverge.

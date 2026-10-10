@@ -75,6 +75,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - Return a new revision of the source physical object recording consumed material and remaining quantity. This fixture consumes the entire provided aliquot. Physical execution must lock the current revision to prevent concurrent reuse.
 - Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.
 
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
+
 ## Transaction rule
 
 A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.

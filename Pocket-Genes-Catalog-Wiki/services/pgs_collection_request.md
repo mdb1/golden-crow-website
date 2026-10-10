@@ -330,6 +330,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - Transportation after collection belongs to pgs_sample_transport or another explicit transport service, never to pgs_collection_request.
 - Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.
 
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
+
 ## Transaction rule
 
 A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.

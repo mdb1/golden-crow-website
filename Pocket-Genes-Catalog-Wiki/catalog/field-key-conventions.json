@@ -16,7 +16,27 @@
         "promotionalBannerImageUploadDataUrl",
         "inputSlots",
         "outputSlots",
-        "objectType"
+        "objectType",
+        "moreInformation",
+        "frequentQuestions",
+        "question",
+        "answer",
+        "keyInsights",
+        "title",
+        "description",
+        "scientificFacts",
+        "usefulLinks",
+        "url",
+        "sampleLink",
+        "buttonTitle",
+        "bulletSegments",
+        "imageUrl",
+        "imageUploadDataUrl",
+        "technicalInformationFacts",
+        "subitems",
+        "biologicalSampleRequirements",
+        "instructions",
+        "websiteUrl"
       ]
     },
     {
@@ -29,7 +49,28 @@
         "outputReports",
         "objectType",
         "objectCode",
-        "reportCode"
+        "reportCode",
+        "offerSnapshot",
+        "moreInformation",
+        "frequentQuestions",
+        "question",
+        "answer",
+        "keyInsights",
+        "title",
+        "description",
+        "scientificFacts",
+        "usefulLinks",
+        "url",
+        "sampleLink",
+        "buttonTitle",
+        "bulletSegments",
+        "imageUrl",
+        "imageUploadDataUrl",
+        "technicalInformationFacts",
+        "subitems",
+        "biologicalSampleRequirements",
+        "instructions",
+        "websiteUrl"
       ]
     },
     {
@@ -48,6 +89,9 @@
         "object_code",
         "object_owner_id",
         "upload_version_count",
+        "provider_id",
+        "provider_kind",
+        "submitted_by_user_id",
         "submitted_by_email"
       ]
     },
@@ -67,6 +111,9 @@
         "file_name",
         "linked_object_code",
         "linked_report_code",
+        "submitted_by_user_id",
+        "provider_id",
+        "provider_kind",
         "submitted_by_email"
       ]
     },

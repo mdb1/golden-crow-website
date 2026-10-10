@@ -38,38 +38,6 @@
       }
     ]
   },
-  "sampleFormObject": {
-    "object_id": "obj_demo_form_read_alignment",
-    "object_type": "pgo_form",
-    "schema_version": "1.0.0",
-    "revision": 1,
-    "created_at": "2026-09-17T12:05:00Z",
-    "created_by": "user_demo_001",
-    "data": {
-      "form_shape": {
-        "fields": [
-          {
-            "key": "alignment_profile",
-            "label": "Alignment profile",
-            "type": "enum",
-            "required": true,
-            "options": [
-              {
-                "value": "pg_demo_alignment_v1",
-                "label": "Demo alignment profile"
-              }
-            ]
-          }
-        ]
-      },
-      "fields": [
-        {
-          "key": "alignment_profile",
-          "value": "pg_demo_alignment_v1"
-        }
-      ]
-    }
-  },
   "inputSlots": [
     {
       "role": "form",
@@ -130,47 +98,6 @@
     },
     "turnaround": "6h",
     "pricingModel": "calculated_after_submission"
-  },
-  "sampleRequest": {
-    "request_id": "pgr_demo_read_alignment",
-    "service_id": "pgs_read_alignment",
-    "service_version": 1,
-    "inputs": [
-      {
-        "role": "form",
-        "object_ref": {
-          "object_id": "obj_demo_form_read_alignment",
-          "revision": 1
-        }
-      },
-      {
-        "role": "sequence_reads",
-        "object_ref": {
-          "object_id": "obj_demo_fastq",
-          "revision": 1
-        }
-      },
-      {
-        "role": "test_order",
-        "object_ref": {
-          "object_id": "obj_demo_order",
-          "revision": 1
-        }
-      }
-    ]
-  },
-  "sampleResult": {
-    "request_id": "pgr_demo_read_alignment",
-    "status": "delivered",
-    "outputs": [
-      {
-        "role": "aligned_reads",
-        "object_ref": {
-          "object_id": "obj_demo_bam",
-          "revision": 1
-        }
-      }
-    ]
   },
   "status": "active",
   "serviceCategory": "sot_read_alignment",

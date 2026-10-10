@@ -8,7 +8,7 @@
     "name": "Human-readable display name.",
     "kind": "Business or professional provider category.",
     "description": "What the provider contributes to the network.",
-    "supported_stages": "One or more of test_planning, wet_lab and bioinformatics.",
+    "supported_stages": "One or more of test_planning, wet_lab, bioinformatics and human_advice. human_advice is reserved for sot_human_advice_* offers.",
     "country_codes": "ISO 3166-1 alpha-2 codes used here as illustrative service coverage.",
     "service_ids": "Actual assigned services in this mock catalog; no unregistered transformations are implied.",
     "contacts": "Illustrative website and operational or integration contacts.",
@@ -336,7 +336,8 @@
     "role_binding": "Each inputs item must name a published inputSlots role, satisfy that slot's single accepted object type and 1:1 cardinality, and pin a positive integer object revision. Each outputs item must name a published outputSlots role and contain a compatible object_ref. A pgo_form is included as a normal inputs item only when the offer declares exactly one pgo_form slot with role form.",
     "object_provenance": "Service input and output relationships are recorded by role-labelled references on the transaction. Standalone PGO content contains no input_refs, source-reference placeholder or generic provenance envelope.",
     "empty_slot_policy": "inputSlots and outputSlots are required contract arrays but may each be empty, independently or simultaneously. Empty arrays create no synthetic form, input object, output object or placeholder reference. shortContract writes none for an empty side, including none -> none.",
-    "delivery_without_outputs": "A delivered transaction with no declared outputSlots is complete when outputObjects is empty. If output slots were declared, every promised role and type remains mandatory before delivered. outputReports never substitute for promised object outputs."
+    "delivery_without_outputs": "A delivered transaction with no declared outputSlots is complete when outputObjects is empty. If output slots were declared, every promised role and type remains mandatory before delivered. outputReports never substitute for promised object outputs.",
+    "linked_output_reports": "service_transactions.outputReports is an optional supplemental output-only array. Omitted, null, or empty means no linked report. Every item is exactly { reportCode: six uppercase ASCII letters or digits }; the code resolves through report_codes/{reportCode}.uploaded_report_id to uploaded_reports. There is no inputReports field, offers never declare report links, and linked reports never affect transaction status or completeness."
   },
   "variant_analysis_api_example": {
     "provider_id": "pgp_variant_analysis",

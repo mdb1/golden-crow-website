@@ -1111,7 +1111,8 @@
             "enum": [
               "test_planning",
               "wet_lab",
-              "bioinformatics"
+              "bioinformatics",
+              "human_advice"
             ]
           },
           "minItems": 1,
@@ -1302,7 +1303,8 @@
             "enum": [
               "test_planning",
               "wet_lab",
-              "bioinformatics"
+              "bioinformatics",
+              "human_advice"
             ]
           },
           "minItems": 1,

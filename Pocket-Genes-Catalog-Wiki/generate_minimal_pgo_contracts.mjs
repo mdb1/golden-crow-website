@@ -16,6 +16,222 @@ const readJSON = (filePath) => JSON.parse(fs.readFileSync(filePath, "utf8"));
 const writeJSON = (filePath, value) => {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 };
+const writeText = (filePath, value) => {
+  fs.writeFileSync(filePath, value.endsWith("\n") ? value : `${value}\n`);
+};
+
+const serviceOfferTypes = readJSON(
+  path.join(root, "catalog/service-offer-types.json")
+).serviceOfferTypes;
+const serviceOfferTypeKeys = serviceOfferTypes.map((item) => item.key);
+const completeServiceOfferTypeKeys = serviceOfferTypeKeys.filter((key) =>
+  key.startsWith("sot_complete_")
+);
+const humanAdviceServiceOfferTypeKeys = serviceOfferTypeKeys.filter((key) =>
+  key.startsWith("sot_human_advice_")
+);
+const serviceStageValues = ["test_planning", "wet_lab", "bioinformatics", "human_advice"];
+const serviceOfferTypeFields = [
+  "key",
+  "nameEnglish",
+  "nameSpanish",
+  "descriptionEnglish",
+  "descriptionSpanish",
+  "systemImage"
+];
+
+if (
+  serviceOfferTypeKeys.length !== 110 ||
+  completeServiceOfferTypeKeys.length !== 30 ||
+  humanAdviceServiceOfferTypeKeys.length !== 50 ||
+  !serviceOfferTypeKeys.slice(0, 30).every(
+    (key) => !key.startsWith("sot_complete_") && !key.startsWith("sot_human_advice_")
+  ) ||
+  !serviceOfferTypeKeys.slice(30, 60).every((key) => key.startsWith("sot_complete_")) ||
+  !serviceOfferTypeKeys.slice(60, 110).every((key) => key.startsWith("sot_human_advice_"))
+) {
+  throw new Error(
+    "The service-offer registry must contain 30 atomic, 30 complete, and 50 human-advice keys in canonical block order"
+  );
+}
+for (const field of ["key", "nameEnglish", "nameSpanish", "systemImage"]) {
+  const values = serviceOfferTypes.map((item) => item[field]);
+  if (new Set(values).size !== values.length) {
+    throw new Error(`Service-offer registry field ${field} must be unique`);
+  }
+}
+for (const item of serviceOfferTypes) {
+  if (
+    JSON.stringify(Object.keys(item).sort()) !== JSON.stringify([...serviceOfferTypeFields].sort()) ||
+    serviceOfferTypeFields.some((field) => typeof item[field] !== "string" || item[field].trim() === "")
+  ) {
+    throw new Error(`Invalid closed service-offer registry entry: ${item.key ?? "<missing key>"}`);
+  }
+}
+
+const quoted = (value) => JSON.stringify(value);
+const swiftServiceOfferTypeEntries = serviceOfferTypes.map((item) => `        .init(
+            key: ${quoted(item.key)},
+            nameEnglish: ${quoted(item.nameEnglish)},
+            nameSpanish: ${quoted(item.nameSpanish)},
+            descriptionEnglish: ${quoted(item.descriptionEnglish)},
+            descriptionSpanish: ${quoted(item.descriptionSpanish)},
+            systemImage: ${quoted(item.systemImage)}
+        )`).join(",\n");
+const swiftServiceOfferTypeProvider = `// Generated from Pocket-Genes-Catalog-Wiki/catalog/service-offer-types.json.
+// Run generate_minimal_pgo_contracts.mjs after changing the canonical registry.
+import Foundation
+
+struct ServiceOfferType: Hashable, Identifiable {
+    let key: String
+    let nameEnglish: String
+    let nameSpanish: String
+    let descriptionEnglish: String
+    let descriptionSpanish: String
+    let systemImage: String
+
+    var id: String { key }
+
+    func name(for language: AppLanguage) -> String {
+        language == .spanish ? nameSpanish : nameEnglish
+    }
+
+    func description(for language: AppLanguage) -> String {
+        language == .spanish ? descriptionSpanish : descriptionEnglish
+    }
+}
+
+enum ServiceOfferTypeProvider {
+    static let all: [ServiceOfferType] = [
+${swiftServiceOfferTypeEntries}
+    ]
+
+    static let uncategorizedSystemImage = "questionmark.folder.fill"
+
+    static func type(for rawValue: String?) -> ServiceOfferType? {
+        guard let key = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty else {
+            return nil
+        }
+        return all.first { $0.key == key }
+    }
+
+    static func contains(_ rawValue: String?) -> Bool {
+        type(for: rawValue) != nil
+    }
+
+    static func displayName(
+        for rawValue: String?,
+        language: AppLanguage = AppLanguageManager.shared.selectedLanguage
+    ) -> String {
+        type(for: rawValue)?.name(for: language)
+            ?? (language == .spanish ? "Sin categoría" : "Uncategorized")
+    }
+
+    static func displayDescription(
+        for rawValue: String?,
+        language: AppLanguage = AppLanguageManager.shared.selectedLanguage
+    ) -> String? {
+        type(for: rawValue)?.description(for: language)
+    }
+
+    static func systemImage(for rawValue: String?) -> String {
+        type(for: rawValue)?.systemImage ?? uncategorizedSystemImage
+    }
+
+    static func keysAreUniqueAndCanonical() -> Bool {
+        let keys = all.map(\\.key)
+        let expression = try? NSRegularExpression(pattern: #"^sot_[a-z0-9]+(?:_[a-z0-9]+)*$"#)
+        let syntacticallyCanonical = keys.allSatisfy { key in
+            guard let expression else { return false }
+            return expression.firstMatch(
+                in: key,
+                range: NSRange(key.startIndex ..< key.endIndex, in: key)
+            ) != nil
+        }
+        let atomicBlockIsCanonical = keys.prefix(30).allSatisfy {
+            !$0.hasPrefix("sot_complete_") && !$0.hasPrefix("sot_human_advice_")
+        }
+        let completeBlockIsCanonical = keys.dropFirst(30).prefix(30).allSatisfy {
+            $0.hasPrefix("sot_complete_")
+        }
+        let adviceBlockIsCanonical = keys.dropFirst(60).allSatisfy {
+            $0.hasPrefix("sot_human_advice_")
+        }
+        return all.count == 110
+            && Set(keys).count == all.count
+            && syntacticallyCanonical
+            && atomicBlockIsCanonical
+            && completeBlockIsCanonical
+            && adviceBlockIsCanonical
+    }
+}
+`;
+
+const kotlinServiceOfferTypeEntries = serviceOfferTypes.map((item) => `        ServiceOfferType(
+            ${quoted(item.key)},
+            ${quoted(item.nameEnglish)},
+            ${quoted(item.nameSpanish)},
+            ${quoted(item.descriptionEnglish)},
+            ${quoted(item.descriptionSpanish)},
+            ${quoted(item.systemImage)},
+        )`).join(",\n");
+const kotlinServiceOfferTypeProvider = `// Generated from Pocket-Genes-Catalog-Wiki/catalog/service-offer-types.json.
+// Run generate_minimal_pgo_contracts.mjs after changing the canonical registry.
+package com.genetics.app.services.domain.model
+
+data class ServiceOfferType(
+    val key: String,
+    val nameEnglish: String,
+    val nameSpanish: String,
+    val descriptionEnglish: String,
+    val descriptionSpanish: String,
+    val systemImage: String,
+) {
+    fun name(language: String): String = if (language.lowercase().startsWith("es")) nameSpanish else nameEnglish
+    fun description(language: String): String = if (language.lowercase().startsWith("es")) descriptionSpanish else descriptionEnglish
+}
+
+object ServiceOfferTypeProvider {
+    val all = listOf(
+${kotlinServiceOfferTypeEntries}
+    )
+
+    const val uncategorizedSystemImage = "questionmark.folder.fill"
+
+    fun type(rawValue: String?): ServiceOfferType? =
+        rawValue?.trim()?.let { key -> all.firstOrNull { it.key == key } }
+
+    fun contains(rawValue: String?): Boolean = type(rawValue) != null
+
+    fun displayName(rawValue: String?, language: String = java.util.Locale.getDefault().language): String =
+        type(rawValue)?.name(language)
+            ?: if (language.lowercase().startsWith("es")) "Sin categoría" else "Uncategorized"
+
+    fun displayDescription(rawValue: String?, language: String = java.util.Locale.getDefault().language): String? =
+        type(rawValue)?.description(language)
+
+    fun systemImage(rawValue: String?): String = type(rawValue)?.systemImage ?: uncategorizedSystemImage
+
+    fun keysAreUniqueAndCanonical(): Boolean {
+        val keys = all.map(ServiceOfferType::key)
+        return all.size == 110 &&
+            keys.distinct().size == all.size &&
+            keys.all { Regex("^sot_[a-z0-9]+(?:_[a-z0-9]+)*$").matches(it) } &&
+            keys.take(30).all { !it.startsWith("sot_complete_") && !it.startsWith("sot_human_advice_") } &&
+            keys.drop(30).take(30).all { it.startsWith("sot_complete_") } &&
+            keys.drop(60).all { it.startsWith("sot_human_advice_") }
+    }
+}
+`;
+
+writeText(
+  path.join(repositoryRoot, "mydnamap-ios/mydnamap/Tabs/ServicesHub/ServiceOfferTypeProvider.swift"),
+  swiftServiceOfferTypeProvider
+);
+writeText(
+  path.join(repositoryRoot, "mydnamap-android/app/src/main/java/com/genetics/app/services/domain/model/ServiceOfferTypeProvider.kt"),
+  kotlinServiceOfferTypeProvider
+);
 
 const nonemptyString = (description) => ({
   type: "string",
@@ -33,7 +249,7 @@ const httpsURL = (description) => ({
   type: "string",
   minLength: 1,
   format: "uri",
-  pattern: "^https://",
+  pattern: "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
   description
 });
 
@@ -156,8 +372,15 @@ const formFieldTypes = [
 ];
 
 const formOption = closedObject({
-  value: nonemptyString("Stable stored option value."),
-  label: nonemptyString("Human-readable option label frozen with the form.")
+  value: {
+    ...nonemptyString("Stable stored option value."),
+    maxLength: 128,
+    pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  label: {
+    ...nonemptyString("Human-readable option label frozen with the form."),
+    maxLength: 120
+  }
 }, ["value", "label"], "One enum choice.");
 
 const formFieldDefinition = {
@@ -743,6 +966,80 @@ const serviceOfferTypeByServiceId = {
   pgs_variant_calling: "sot_variant_calling"
 };
 
+// One generated fixture exercises the complete optional service-offer information
+// contract. Production offers may omit moreInformation, store it as null, or supply
+// any subset of its nullable child sections.
+const serviceMoreInformationByServiceId = {
+  pgs_dna_extraction: {
+    frequentQuestions: [
+      {
+        question: "What kinds of specimens can be used?",
+        answer: "The provider reviews compatible blood, tissue, or embryo-biopsy specimens against the selected extraction profile."
+      }
+    ],
+    keyInsights: [
+      {
+        title: "A quality DNA input starts with the specimen",
+        description: "Specimen identity, condition, and the requested downstream study determine whether extraction can proceed."
+      }
+    ],
+    scientificFacts: [
+      {
+        title: "Extraction separates DNA from other cellular material",
+        description: "The laboratory uses a validated workflow to isolate DNA while controlling contamination and degradation."
+      }
+    ],
+    usefulLinks: [
+      {
+        title: "DNA extraction overview",
+        url: "https://example.com/services/dna-extraction/overview"
+      }
+    ],
+    sampleLink: {
+      title: "Review a sample result",
+      description: "See a fictional example of the information returned after an accepted extraction workflow.",
+      buttonTitle: "Open sample",
+      url: "https://example.com/services/dna-extraction/sample"
+    },
+    bulletSegments: [
+      {
+        title: "Provider review",
+        description: "The laboratory confirms that the submitted specimen and order are suitable for the published workflow.",
+        imageUrl: "https://example.com/images/services/dna-extraction-review.png"
+      }
+    ],
+    technicalInformationFacts: [
+      {
+        title: "Technical deliverables",
+        description: "The completed service registers the extracted DNA and the updated source-specimen state.",
+        subitems: [
+          "Extracted DNA identity and measured properties",
+          "Source-specimen revision reflecting material use"
+        ]
+      }
+    ],
+    biologicalSampleRequirements: [
+      {
+        title: "Accepted material",
+        description: "Submit one specimen compatible with the extraction profile selected in the request form.",
+        instructions: "Keep the specimen identified and follow the provider's collection, packaging, and delivery directions."
+      }
+    ],
+    websiteUrl: "https://example.com/services/dna-extraction"
+  }
+};
+
+// Protocol examples are their own snake_case boundary. They are canonical fixtures under
+// examples/, never fields embedded in a lower-camel-case service_offers document.
+const serviceProtocolFixtures = (serviceId) => {
+  const formPath = path.join(root, `examples/forms/${serviceId}.pgform.json`);
+  return {
+    formObject: fs.existsSync(formPath) ? readJSON(formPath) : null,
+    request: readJSON(path.join(root, `examples/requests/${serviceId}.json`)),
+    result: readJSON(path.join(root, `examples/results/${serviceId}.json`))
+  };
+};
+
 const migrateService = (service) => {
   const config = serviceFormContracts[service.serviceId];
   const hasFormInput = service.inputSlots?.some((slot) => slot.objectType === "pgo_form");
@@ -757,6 +1054,11 @@ const migrateService = (service) => {
   }
   migrated.isHighlightedOffer ??= false;
   migrated.isProfessionalOffer ??= true;
+  if (serviceMoreInformationByServiceId[migrated.serviceId]) {
+    migrated.moreInformation = structuredClone(serviceMoreInformationByServiceId[migrated.serviceId]);
+  } else {
+    delete migrated.moreInformation;
+  }
   if (config) {
     migrated.formShape = {
       id: service.formShape.id,
@@ -765,8 +1067,11 @@ const migrateService = (service) => {
       allowUnknownFields: false
     };
     migrated.sampleFormData = { fields: answerFields(config) };
-    const oldFixture = service.sampleFormObject;
-    migrated.sampleFormObject = {
+    const oldFixture = serviceProtocolFixtures(service.serviceId).formObject;
+    if (!oldFixture) {
+      throw new Error(`Missing canonical form fixture for ${service.serviceId}`);
+    }
+    const migratedFixture = {
       object_id: oldFixture.object_id,
       object_type: "pgo_form",
       schema_version: oldFixture.schema_version,
@@ -778,11 +1083,14 @@ const migrateService = (service) => {
         fields: answerFields(config)
       }
     };
+    writeJSON(path.join(root, `examples/forms/${service.serviceId}.pgform.json`), migratedFixture);
   } else {
     delete migrated.formShape;
     delete migrated.sampleFormData;
-    delete migrated.sampleFormObject;
   }
+  delete migrated.sampleFormObject;
+  delete migrated.sampleRequest;
+  delete migrated.sampleResult;
 
   const staleContractPath = /(data\.(scope|fulfillment|analysis_support|reference_id|profile_id|native_format|payload_ref|source_pgi_ref|source_images_ref|lineage_refs)|\bnative_format\b|\bpayload_ref\b|\bsupport evidence\b|\braw payload\b|reference_id and variant_classes|scope_policy=requested_only)/i;
   const currentSuitabilityRule = "Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.";
@@ -817,11 +1125,6 @@ writeJSON(servicesPath, servicesCatalog);
 
 for (const service of servicesCatalog.services) {
   writeJSON(path.join(root, `services/${service.serviceId}.json`), service);
-  if (service.sampleFormObject) {
-    writeJSON(path.join(root, `examples/forms/${service.serviceId}.pgform.json`), service.sampleFormObject);
-  }
-  writeJSON(path.join(root, `examples/requests/${service.serviceId}.json`), service.sampleRequest);
-  writeJSON(path.join(root, `examples/results/${service.serviceId}.json`), service.sampleResult);
 }
 
 const fixtureContent = (type, oldData, fileName) => {
@@ -906,12 +1209,228 @@ const serviceFormData = closedObject({
   fields: { type: "array", items: formAnswer }
 }, ["fields"], "Sample answers for the service form; request identity and time live on the transaction.");
 
+const nullableContractValue = (schema, description) => ({
+  description,
+  anyOf: [
+    { type: "null" },
+    schema
+  ]
+});
+
+const nullableContractArray = (definitionName, description) => nullableContractValue({
+  type: "array",
+  minItems: 0,
+  items: { $ref: `#/$defs/${definitionName}` }
+}, description);
+
+const serviceMoreInformationDNSLabel = "[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?";
+const serviceMoreInformationDNSOrIPv4Host =
+  `${serviceMoreInformationDNSLabel}(?:\\.${serviceMoreInformationDNSLabel})*`;
+const serviceMoreInformationIPv4Octet =
+  "(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])";
+const serviceMoreInformationIPv4Address =
+  `${serviceMoreInformationIPv4Octet}(?:\\.${serviceMoreInformationIPv4Octet}){3}`;
+const serviceMoreInformationIPv6H16 = "[0-9A-Fa-f]{1,4}";
+const serviceMoreInformationIPv6LS32 =
+  `(?:${serviceMoreInformationIPv6H16}:${serviceMoreInformationIPv6H16}|${serviceMoreInformationIPv4Address})`;
+const serviceMoreInformationIPv6Address = [
+  `(?:${serviceMoreInformationIPv6H16}:){6}${serviceMoreInformationIPv6LS32}`,
+  `::(?:${serviceMoreInformationIPv6H16}:){5}${serviceMoreInformationIPv6LS32}`,
+  `(?:${serviceMoreInformationIPv6H16})?::(?:${serviceMoreInformationIPv6H16}:){4}${serviceMoreInformationIPv6LS32}`,
+  `(?:(?:${serviceMoreInformationIPv6H16}:){0,1}${serviceMoreInformationIPv6H16})?::(?:${serviceMoreInformationIPv6H16}:){3}${serviceMoreInformationIPv6LS32}`,
+  `(?:(?:${serviceMoreInformationIPv6H16}:){0,2}${serviceMoreInformationIPv6H16})?::(?:${serviceMoreInformationIPv6H16}:){2}${serviceMoreInformationIPv6LS32}`,
+  `(?:(?:${serviceMoreInformationIPv6H16}:){0,3}${serviceMoreInformationIPv6H16})?::${serviceMoreInformationIPv6H16}:${serviceMoreInformationIPv6LS32}`,
+  `(?:(?:${serviceMoreInformationIPv6H16}:){0,4}${serviceMoreInformationIPv6H16})?::${serviceMoreInformationIPv6LS32}`,
+  `(?:(?:${serviceMoreInformationIPv6H16}:){0,5}${serviceMoreInformationIPv6H16})?::${serviceMoreInformationIPv6H16}`,
+  `(?:(?:${serviceMoreInformationIPv6H16}:){0,6}${serviceMoreInformationIPv6H16})?::`
+].join("|");
+const serviceMoreInformationBracketedIPv6Host =
+  `\\[(?:${serviceMoreInformationIPv6Address})\\]`;
+const serviceMoreInformationHttpsPattern =
+  `^https://(?:${serviceMoreInformationDNSOrIPv4Host}|${serviceMoreInformationBracketedIPv6Host})(?::[0-9]{1,5})?(?:[/?#][^\\s]*)?$`;
+
+const serviceMoreInformationHttpsURL = (description) => ({
+  ...httpsURL(`${description} Lowercase https only; no userinfo; DNS/IPv4-label or bracketed-IPv6 host; optional numeric one-to-five-digit port; no whitespace.`),
+  pattern: serviceMoreInformationHttpsPattern
+});
+
+const serviceMoreInformationDefinitions = {
+  service_more_information_frequent_question: closedObject({
+    question: nonemptyString("Requester-facing question."),
+    answer: nonemptyString("Requester-facing answer to the question.")
+  }, ["question", "answer"], "One frequently asked question and its answer."),
+  service_more_information_key_insight: closedObject({
+    title: nonemptyString("Short insight heading."),
+    description: nonemptyString("Requester-facing explanation of the insight.")
+  }, ["title", "description"], "One key service insight."),
+  service_more_information_scientific_fact: closedObject({
+    title: nonemptyString("Short scientific-fact heading."),
+    description: nonemptyString("Requester-facing explanation of the scientific fact.")
+  }, ["title", "description"], "One scientific fact relevant to the service."),
+  service_more_information_useful_link: closedObject({
+    title: nonemptyString("Human-readable link title."),
+    url: serviceMoreInformationHttpsURL("Absolute HTTPS destination for the useful link.")
+  }, ["title", "url"], "One titled external resource."),
+  service_more_information_sample_link: closedObject({
+    title: nonemptyString("Sample-resource heading."),
+    description: nonemptyString("Requester-facing explanation of the sample resource."),
+    buttonTitle: nonemptyString("Action label used to open the sample resource."),
+    url: serviceMoreInformationHttpsURL("Absolute HTTPS destination for the sample resource.")
+  }, ["title", "description", "buttonTitle", "url"], "One featured sample resource and its action."),
+  service_more_information_bullet_segment: {
+    ...closedObject({
+      title: nonemptyString("Bullet-segment heading."),
+      description: nonemptyString("Requester-facing explanation for the segment."),
+      imageUrl: serviceMoreInformationHttpsURL("Absolute HTTPS URL for the segment image."),
+      imageUploadDataUrl: {
+        type: "string",
+        minLength: 1,
+        pattern: "^data:image/[A-Za-z0-9.+-]+;base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)$",
+        description: "Inline image data URL with an image media type and a nonempty base64 payload."
+      }
+    }, ["title", "description"], "One illustrated bullet segment."),
+    anyOf: [
+      { required: ["imageUrl"] },
+      { required: ["imageUploadDataUrl"] }
+    ]
+  },
+  service_more_information_technical_fact: closedObject({
+    title: nonemptyString("Technical-information heading."),
+    description: nonemptyString("Requester-facing technical explanation."),
+    subitems: {
+      type: "array",
+      minItems: 0,
+      items: nonemptyString("One technical-information subitem."),
+      description: "Ordered supporting technical points; an empty array is valid."
+    }
+  }, ["title", "description", "subitems"], "One technical-information fact with supporting points."),
+  service_more_information_biological_sample_requirement: closedObject({
+    title: nonemptyString("Biological-sample requirement heading."),
+    description: nonemptyString("Requester-facing explanation of the requirement."),
+    instructions: nonemptyString("Instructions for satisfying the biological-sample requirement.")
+  }, ["title", "description", "instructions"], "One biological-sample requirement."),
+  service_more_information: closedObject({
+    frequentQuestions: nullableContractArray(
+      "service_more_information_frequent_question",
+      "Optional frequently asked questions; null or an empty array renders no section."
+    ),
+    keyInsights: nullableContractArray(
+      "service_more_information_key_insight",
+      "Optional key insights; null or an empty array renders no section."
+    ),
+    scientificFacts: nullableContractArray(
+      "service_more_information_scientific_fact",
+      "Optional scientific facts; null or an empty array renders no section."
+    ),
+    usefulLinks: nullableContractArray(
+      "service_more_information_useful_link",
+      "Optional useful links; null or an empty array renders no section."
+    ),
+    sampleLink: nullableContractValue(
+      { $ref: "#/$defs/service_more_information_sample_link" },
+      "Optional featured sample resource; null renders no section."
+    ),
+    bulletSegments: nullableContractArray(
+      "service_more_information_bullet_segment",
+      "Optional illustrated bullet segments; null or an empty array renders no section."
+    ),
+    technicalInformationFacts: nullableContractArray(
+      "service_more_information_technical_fact",
+      "Optional technical facts; null or an empty array renders no section."
+    ),
+    biologicalSampleRequirements: nullableContractArray(
+      "service_more_information_biological_sample_requirement",
+      "Optional biological-sample requirements; null or an empty array renders no section."
+    ),
+    websiteUrl: nullableContractValue(
+      serviceMoreInformationHttpsURL("Absolute HTTPS service website URL."),
+      "Optional service website; null renders no section."
+    )
+  }, [], "Optional presentation-only details for a published service offer. Every child key is optional and nullable; unknown keys are invalid.")
+};
+
+const installServiceMoreInformationContract = (schema, propertyOwner) => {
+  Object.assign(schema.$defs, structuredClone(serviceMoreInformationDefinitions));
+  propertyOwner.properties.moreInformation = nullableContractValue(
+    { $ref: "#/$defs/service_more_information" },
+    "Optional closed more-information map. Omission, null, an empty map, or only null/empty child sections produces no More information action."
+  );
+};
+
+const installServiceOfferStageContracts = (propertyOwner) => {
+  const completeRuleName = "complete-service-offer-stages";
+  const adviceRuleName = "human-advice-service-offer-stage";
+  const preservedRules = (propertyOwner.allOf ?? []).filter(
+    (rule) => ![completeRuleName, adviceRuleName].includes(rule["x-pocket-genes-rule"])
+  );
+  propertyOwner.allOf = [
+    ...preservedRules,
+    {
+      "x-pocket-genes-rule": completeRuleName,
+      if: {
+        properties: {
+          serviceCategory: { enum: completeServiceOfferTypeKeys }
+        },
+        required: ["serviceCategory"]
+      },
+      then: {
+        properties: {
+          stages: {
+            minItems: 3,
+            maxItems: 3,
+            allOf: ["test_planning", "wet_lab", "bioinformatics"].map((stage) => ({
+              contains: { const: stage }
+            })),
+            description: "Complete sample-to-report offers must declare exactly test_planning, wet_lab, and bioinformatics."
+          }
+        }
+      }
+    },
+    {
+      "x-pocket-genes-rule": adviceRuleName,
+      if: {
+        properties: {
+          serviceCategory: { enum: humanAdviceServiceOfferTypeKeys }
+        },
+        required: ["serviceCategory"]
+      },
+      then: {
+        properties: {
+          stages: {
+            minItems: 1,
+            maxItems: 1,
+            contains: { const: "human_advice" },
+            description: "Human advice and support offers must declare exactly the human_advice stage."
+          }
+        }
+      },
+      else: {
+        properties: {
+          stages: {
+            not: { contains: { const: "human_advice" } },
+            description: "The human_advice stage is reserved for sot_human_advice_* categories."
+          }
+        }
+      }
+    }
+  ];
+};
+
 const rewriteProtocolDefinitions = (value) => {
   if (Array.isArray(value)) return value.map(rewriteProtocolDefinitions);
   if (!value || typeof value !== "object") return value;
   const rewritten = Object.fromEntries(
     Object.entries(value).map(([key, child]) => [key, rewriteProtocolDefinitions(child)])
   );
+  const legacyServiceStages = ["test_planning", "wet_lab", "bioinformatics"];
+  if (
+    Array.isArray(rewritten.enum) &&
+    [legacyServiceStages, serviceStageValues].some(
+      (values) => JSON.stringify(rewritten.enum) === JSON.stringify(values)
+    )
+  ) {
+    rewritten.enum = [...serviceStageValues];
+  }
   for (const slotKey of ["inputSlots", "outputSlots"]) {
     if (rewritten.properties?.[slotKey]?.type === "array") {
       rewritten.properties[slotKey].minItems = 0;
@@ -941,7 +1460,117 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
   const filePath = path.join(root, "schemas/protocol", fileName);
   const rewritten = rewriteProtocolDefinitions(readJSON(filePath));
   if (fileName === "service-transaction.schema.json") {
-    rewritten.required = rewritten.required.filter((key) => key !== "requestedByUserId");
+    rewritten.description = "Strict root service_transactions record. outputReports is an optional supplemental output-only report link and never participates in the frozen service-offer object contract or transaction completion. Exact promised-object coverage and uploaded object/report readiness require semantic backend validation.";
+    rewritten.properties.issues = {
+      type: "array",
+      items: { type: "string", minLength: 1 }
+    };
+    rewritten.properties.outputReports = {
+      oneOf: [
+        {
+          type: "array",
+          items: { $ref: "#/$defs/output_report_snapshot" },
+          uniqueItems: true
+        },
+        { type: "null" }
+      ],
+      description: "Optional supplemental linked reports. Omitted, null, or empty means no report section. These links never satisfy outputSlots and never affect status or completeness."
+    };
+    rewritten.properties.offerSnapshot = { $ref: "#/$defs/offer_snapshot" };
+    rewritten.properties.providerSnapshot = { $ref: "#/$defs/provider_snapshot" };
+    for (const definition of [
+      "offer_snapshot",
+      "provider_snapshot",
+      "offer_form_shape",
+      "offer_form_field",
+      "offer_input_slot",
+      "offer_output_slot",
+      "offer_commercial_terms",
+      "nonempty_string_array"
+    ]) {
+      if (!rewritten.$defs?.[definition]) {
+        throw new Error(`Missing closed service-transaction definition: ${definition}`);
+      }
+    }
+    installServiceMoreInformationContract(rewritten, rewritten.$defs.offer_snapshot);
+    installServiceOfferStageContracts(rewritten.$defs.offer_snapshot);
+    rewritten.$defs.offer_snapshot.properties.serviceCategory = {
+      type: "string",
+      enum: serviceOfferTypeKeys
+    };
+    const canonicalServiceId = "^pgs_[a-z0-9]+(?:_[a-z0-9]+)*$";
+    rewritten.properties.serviceId.pattern = canonicalServiceId;
+    rewritten.$defs.offer_snapshot.properties.serviceId.pattern = canonicalServiceId;
+    rewritten.$defs.offer_commercial_terms.properties.taxAndPaymentPolicy = {
+      type: "string",
+      minLength: 1
+    };
+
+    const transactionInput = rewritten.$defs.input_slot;
+    Object.assign(transactionInput.properties, {
+      fileName: { type: "string", minLength: 1 },
+      fileType: { type: "string", pattern: "^pgo_[a-z0-9_]+$" },
+      selectedAt: { type: "string", format: "date-time" },
+      reportCode: { type: "string", minLength: 6, maxLength: 6, pattern: "^[A-Z0-9]{6}$" }
+    });
+
+    rewritten.$defs.snapshot_json_value = {
+      oneOf: [
+        { type: "string" },
+        { type: "number" },
+        { type: "boolean" },
+        {
+          type: "array",
+          items: {
+            oneOf: [
+              { type: "string" },
+              { type: "number" }
+            ]
+          }
+        }
+      ]
+    };
+    rewritten.$defs.snapshot_form_answer = closedObject({
+      key: { type: "string", minLength: 1, pattern: "^[a-z][a-z0-9_]{0,63}$" },
+      value: { $ref: "#/$defs/snapshot_json_value" }
+    }, ["key", "value"], "One frozen answer in a transaction form snapshot.");
+    rewritten.$defs.snapshot_form_data = closedObject({
+      formShape: closedObject({
+        fields: { type: "array", items: { $ref: "#/$defs/offer_form_field" } }
+      }, ["fields"], "Frozen field definitions for the submitted form."),
+      fields: { type: "array", items: { $ref: "#/$defs/snapshot_form_answer" } }
+    }, ["formShape", "fields"], "Frozen form content at transaction admission.");
+    rewritten.$defs.transaction_object_snapshot = {
+      ...closedObject({
+        objectId: { type: "string", pattern: "^obj_[a-z0-9_]+$" },
+        objectType: { type: "string", pattern: "^pgo_[a-z0-9_]+$" },
+        schemaVersion: { type: "string", const: "1.0.0" },
+        revision: { type: "integer", minimum: 1 },
+        createdAt: { $ref: "#/$defs/timestamp" },
+        createdBy: { type: "string", minLength: 1 },
+        createdByEmail: { type: "string", format: "email" },
+        data: { $ref: "#/$defs/snapshot_form_data" }
+      }, ["objectId", "objectType", "schemaVersion", "revision", "createdAt"], "Closed immutable object snapshot stored on a transaction input."),
+      allOf: [{
+        if: { properties: { objectType: { const: "pgo_form" } }, required: ["objectType"] },
+        then: { required: ["data"] },
+        else: { not: { required: ["data"] } }
+      }]
+    };
+    transactionInput.properties.objectSnapshot = { $ref: "#/$defs/transaction_object_snapshot" };
+    delete rewritten.$defs.camel_case_map;
+    delete rewritten.$defs.camel_case_value;
+    rewritten.$defs.timestamp = {
+      type: "string",
+      format: "date-time",
+      description: "RFC 3339 JSON representation of a Firestore timestamp scalar; native SDK writers persist the corresponding Timestamp value."
+    };
+    rewritten.$defs.output_report_snapshot = closedObject({
+      reportCode: { type: "string", minLength: 6, maxLength: 6, pattern: "^[A-Z0-9]{6}$" }
+    }, ["reportCode"], "One supplemental output-only report link. The code resolves through report_codes and uploaded_reports; no report metadata is duplicated here.");
+    rewritten.required = rewritten.required.filter(
+      (key) => key !== "requestedByUserId" && key !== "outputReports"
+    );
     rewritten.properties.requestedByUserEmail = {
       type: "string",
       format: "email",
@@ -964,6 +1593,72 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
       },
       ...nonIdentityConditions
     ];
+    rewritten.allOf = rewritten.allOf.filter(
+      (condition) => condition.if?.properties?.status?.const !== "delivered"
+    );
+    const deliveredWithDeclaredOutputs = {
+      properties: {
+        status: { const: "delivered" },
+        offerSnapshot: {
+          properties: { outputSlots: { minItems: 1 } },
+          required: ["outputSlots"]
+        }
+      },
+      required: ["status", "offerSnapshot"]
+    };
+    const deliveredWithoutDeclaredOutputs = {
+      properties: {
+        status: { const: "delivered" },
+        offerSnapshot: {
+          properties: { outputSlots: { maxItems: 0 } },
+          required: ["outputSlots"]
+        }
+      },
+      required: ["status", "offerSnapshot"]
+    };
+    rewritten.allOf.push(
+      {
+        if: deliveredWithDeclaredOutputs,
+        then: { properties: { outputObjects: { minItems: 1 } } }
+      },
+      {
+        if: deliveredWithoutDeclaredOutputs,
+        then: { properties: { outputObjects: { maxItems: 0 } } }
+      }
+    );
+  }
+  if (fileName === "service-definition.schema.json") {
+    const offer = rewritten.$defs.service_definition;
+    installServiceMoreInformationContract(rewritten, offer);
+    installServiceOfferStageContracts(offer);
+    offer.properties.serviceCategory = {
+      type: "string",
+      enum: serviceOfferTypeKeys,
+      description: "Closed service-offer type key from catalog/service-offer-types.json."
+    };
+    for (const fixtureField of ["sampleFormObject", "sampleRequest", "sampleResult"]) {
+      delete offer.properties[fixtureField];
+      offer.required = offer.required.filter((key) => key !== fixtureField);
+    }
+    offer.properties.serviceId.pattern = "^pgs_[a-z0-9]+(?:_[a-z0-9]+)*$";
+    // Keep this schema a direct service_offers contract. Each removed definition has its own
+    // standalone snake_case protocol schema under schemas/protocol/.
+    for (const fixtureDefinition of [
+      "object_reference",
+      "role_reference",
+      "field_option",
+      "field_definition",
+      "form_field",
+      "form_data",
+      "form_object",
+      "issue",
+      "service_request",
+      "service_result",
+      "api_capability",
+      "provider_definition"
+    ]) {
+      delete rewritten.$defs[fixtureDefinition];
+    }
   }
   writeJSON(filePath, rewritten);
 }
@@ -1008,6 +1703,7 @@ const providersPath = path.join(root, "catalog/providers.json");
 const providersCatalog = readJSON(providersPath);
 providersCatalog.provider_definition = "A provider publishes a service contract and performs each accepted transaction. PGO content remains standalone; identity, ownership, authorization, revisions and service role bindings live in existing platform records.";
 providersCatalog.provider_field_guide.provider_id = "Stable pgp_ provider identifier used by services and transactions. It is not repeated inside PGO content.";
+providersCatalog.provider_field_guide.supported_stages = "One or more of test_planning, wet_lab, bioinformatics and human_advice. human_advice is reserved for sot_human_advice_* offers.";
 providersCatalog.shared_api_contract.form_metadata_location = "The service transaction stores requestedAt plus either requestedByUserId or requestedByUserEmail. requestedByUserId remains optional because an email-only requester may not have an account yet. A pgo_form input contains only its frozen form_shape.fields, submitted fields and optional notes; requester identity and request time are not universal form questions.";
 providersCatalog.shared_api_contract.version_binding = "Validate the pinned integer service_version against the published offer. A submitted pgo_form preserves its frozen definitions but carries no content-level form-shape ID or version.";
 providersCatalog.shared_api_contract.file_transfer = "File-bearing PGO content exposes direct absolute HTTPS download_url values, or direct component URLs for reads and images. Preserve signed query parameters. The API does not embed native bytes and does not require generic file descriptors inside PGO content.";
@@ -1022,9 +1718,12 @@ providersCatalog.shared_api_contract.scope_rule = "Global PGO validity and suita
 providersCatalog.shared_api_contract.object_provenance = "Service input and output relationships are recorded by role-labelled references on the transaction. Standalone PGO content contains no input_refs, source-reference placeholder or generic provenance envelope.";
 providersCatalog.shared_api_contract.empty_slot_policy = "inputSlots and outputSlots are required contract arrays but may each be empty, independently or simultaneously. Empty arrays create no synthetic form, input object, output object or placeholder reference. shortContract writes none for an empty side, including none -> none.";
 providersCatalog.shared_api_contract.delivery_without_outputs = "A delivered transaction with no declared outputSlots is complete when outputObjects is empty. If output slots were declared, every promised role and type remains mandatory before delivered. outputReports never substitute for promised object outputs.";
+providersCatalog.shared_api_contract.linked_output_reports = "service_transactions.outputReports is an optional supplemental output-only array. Omitted, null, or empty means no linked report. Every item is exactly { reportCode: six uppercase ASCII letters or digits }; the code resolves through report_codes/{reportCode}.uploaded_report_id to uploaded_reports. There is no inputReports field, offers never declare report links, and linked reports never affect transaction status or completeness.";
 
 const annotationService = servicesCatalog.services.find((service) => service.serviceId === "pgs_variant_annotation");
-providersCatalog.variant_analysis_api_example.referenced_form_example = structuredClone(annotationService.sampleFormObject);
+providersCatalog.variant_analysis_api_example.referenced_form_example = structuredClone(
+  serviceProtocolFixtures(annotationService.serviceId).formObject
+);
 providersCatalog.variant_analysis_api_example.example_form_note = "This platform fixture contains strict pgo_form content. The immutable shape contains only field definitions; request identity and time remain on the service transaction.";
 providersCatalog.variant_analysis_api_example.example_walkthrough = [
   "Pocket Genes resolves the strict form content, unannotated VCF object and test order at the exact transaction-bound revisions.",
@@ -1039,12 +1738,83 @@ writeJSON(
   path.join(repositoryRoot, "mydnamap-ios/mydnamap/Resources/PocketGenesProvidersCatalog.json"),
   providersCatalog
 );
+writeJSON(
+  path.join(repositoryRoot, "mydnamap-android/app/src/main/assets/PocketGenesProvidersCatalog.json"),
+  providersCatalog
+);
 for (const provider of providersCatalog.providers) {
   writeJSON(path.join(root, `providers/${provider.provider_id}.json`), provider);
 }
 
 const fieldConventionPath = path.join(root, "catalog/field-key-conventions.json");
 const fieldConventions = readJSON(fieldConventionPath);
+const serviceOfferConvention = fieldConventions.collections.find(
+  (entry) => entry.collection === "service_offers"
+);
+serviceOfferConvention.examples = [
+  "serviceId",
+  "isHiddenFromSearch",
+  "isHighlightedOffer",
+  "isProfessionalOffer",
+  "promotionalBannerImageUrl",
+  "promotionalBannerImageUploadDataUrl",
+  "inputSlots",
+  "outputSlots",
+  "objectType",
+  "moreInformation",
+  "frequentQuestions",
+  "question",
+  "answer",
+  "keyInsights",
+  "title",
+  "description",
+  "scientificFacts",
+  "usefulLinks",
+  "url",
+  "sampleLink",
+  "buttonTitle",
+  "bulletSegments",
+  "imageUrl",
+  "imageUploadDataUrl",
+  "technicalInformationFacts",
+  "subitems",
+  "biologicalSampleRequirements",
+  "instructions",
+  "websiteUrl"
+];
+const serviceTransactionConvention = fieldConventions.collections.find(
+  (entry) => entry.collection === "service_transactions"
+);
+serviceTransactionConvention.examples = [
+  "requestedByUserId",
+  "requestedByUserEmail",
+  "outputObjects",
+  "outputReports",
+  "objectType",
+  "objectCode",
+  "reportCode",
+  "offerSnapshot",
+  "moreInformation",
+  "frequentQuestions",
+  "question",
+  "answer",
+  "keyInsights",
+  "title",
+  "description",
+  "scientificFacts",
+  "usefulLinks",
+  "url",
+  "sampleLink",
+  "buttonTitle",
+  "bulletSegments",
+  "imageUrl",
+  "imageUploadDataUrl",
+  "technicalInformationFacts",
+  "subitems",
+  "biologicalSampleRequirements",
+  "instructions",
+  "websiteUrl"
+];
 fieldConventions.serialized_pgo_content = {
   boundary: "standalone_file_content",
   field_key_convention: "snake_case",

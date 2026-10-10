@@ -1,0 +1,33 @@
+Android / iOS Parity Mismatch Audit
+===================================
+
+Canonical identity continuity
+-----------------------------
+
+DELETED_IDENTITY_CONTINUITY_CONTRACT.txt is the repository-wide source of truth
+for active, deleted, unavailable, and unresolved identity presentation. Android
+and iOS must preserve the same state machine, evidence rules, localized labels,
+crossed-out neutral visual semantics, navigation behavior, mutation guards,
+retry handling, and accessibility meaning wherever a corresponding surface
+exists.
+
+Current checkout boundary
+-------------------------
+
+The mobile repositories are not present inside this checkout at the paths used
+by Pocket-Genes-Catalog-Wiki/generate_minimal_pgo_contracts.mjs. Consequently,
+the catalog validator can validate the shared Wiki, schemas, fixtures, and root
+contracts here, but it cannot complete the native resource-mirror and PGI mapping
+checks from this repository alone. Those checks must run in the integrated
+workspace that contains both mydnamap-ios and mydnamap-android at the generator's
+expected paths.
+
+Open parity verification
+------------------------
+
+- Regenerate and compare the 110-entry service-offer type providers on Android
+  and iOS.
+- Verify all native PGI extension mappings, including .pgi1.json.
+- Compare the bundled provider catalog and all generated File Wizard schemas.
+- Exercise the deleted/unavailable identity cases listed in the canonical
+  contract on both clients before declaring mobile parity complete.

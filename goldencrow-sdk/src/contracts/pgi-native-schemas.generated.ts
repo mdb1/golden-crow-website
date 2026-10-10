@@ -1881,7 +1881,16 @@ export const PGI_NATIVE_SCHEMAS = {
           "caseStatus": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "intake",
+                  "awaiting_pick_up",
+                  "in_transit",
+                  "samples_received",
+                  "lab_processing",
+                  "bioinformatics",
+                  "report_ready"
+                ]
               },
               {
                 "type": "null"
@@ -1920,6 +1929,99 @@ export const PGI_NATIVE_SCHEMAS = {
           }
         },
         "required": [],
+        "additionalProperties": false
+      },
+      "TwoPQExecution": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduling": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "providerName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "providerFormat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contactName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contactEmail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "phoneNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "TwoPQBatchRelations": {
+        "type": "object",
+        "properties": {
+          "caseIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 0
+          }
+        },
+        "required": [
+          "caseIds"
+        ],
         "additionalProperties": false
       },
       "TwoPQTimestamps": {
@@ -1982,18 +2084,13 @@ export const PGI_NATIVE_SCHEMAS = {
           "id": {
             "type": "string"
           },
+          "download_url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https?://"
+          },
           "kind": {
             "const": "case"
-          },
-          "download_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "scope": {
             "$ref": "#/$defs/TwoPQScope"

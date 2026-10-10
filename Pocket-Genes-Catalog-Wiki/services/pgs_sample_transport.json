@@ -42,42 +42,6 @@
       }
     ]
   },
-  "sampleFormObject": {
-    "object_id": "obj_demo_form_sample_transport",
-    "object_type": "pgo_form",
-    "schema_version": "1.0.0",
-    "revision": 1,
-    "created_at": "2026-09-16T12:35:00Z",
-    "created_by": "user_demo_001",
-    "data": {
-      "form_shape": {
-        "fields": [
-          {
-            "key": "contact_name",
-            "label": "Contact name",
-            "type": "text",
-            "required": true
-          },
-          {
-            "key": "contact_phone",
-            "label": "Contact phone",
-            "type": "phone",
-            "required": true
-          }
-        ]
-      },
-      "fields": [
-        {
-          "key": "contact_name",
-          "value": "Example Contact"
-        },
-        {
-          "key": "contact_phone",
-          "value": "+541155551234"
-        }
-      ]
-    }
-  },
   "inputSlots": [
     {
       "role": "form",
@@ -140,47 +104,6 @@
     },
     "turnaround": "1d",
     "pricingModel": "calculated_after_submission"
-  },
-  "sampleRequest": {
-    "request_id": "pgr_demo_sample_transport",
-    "service_id": "pgs_sample_transport",
-    "service_version": 1,
-    "inputs": [
-      {
-        "role": "form",
-        "object_ref": {
-          "object_id": "obj_demo_form_sample_transport",
-          "revision": 1
-        }
-      },
-      {
-        "role": "collection_request",
-        "object_ref": {
-          "object_id": "obj_demo_collection",
-          "revision": 1
-        }
-      },
-      {
-        "role": "blood_sample",
-        "object_ref": {
-          "object_id": "obj_demo_blood",
-          "revision": 1
-        }
-      }
-    ]
-  },
-  "sampleResult": {
-    "request_id": "pgr_demo_sample_transport",
-    "status": "delivered",
-    "outputs": [
-      {
-        "role": "delivered_specimen",
-        "object_ref": {
-          "object_id": "obj_demo_blood",
-          "revision": 2
-        }
-      }
-    ]
   },
   "status": "active",
   "serviceCategory": "sot_sample_logistics",

@@ -83,6 +83,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 
 - Candidate status and supporting reasons must be preserved. Ranking does not establish that these genes are affected.
 
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
+
 ## Transaction rule
 
 A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.

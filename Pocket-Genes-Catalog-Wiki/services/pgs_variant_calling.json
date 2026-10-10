@@ -38,38 +38,6 @@
       }
     ]
   },
-  "sampleFormObject": {
-    "object_id": "obj_demo_form_variant_calling",
-    "object_type": "pgo_form",
-    "schema_version": "1.0.0",
-    "revision": 1,
-    "created_at": "2026-09-17T13:05:00Z",
-    "created_by": "user_demo_001",
-    "data": {
-      "form_shape": {
-        "fields": [
-          {
-            "key": "calling_profile",
-            "label": "Variant-calling profile",
-            "type": "enum",
-            "required": true,
-            "options": [
-              {
-                "value": "pg_demo_calling_v1",
-                "label": "Demo variant-calling profile"
-              }
-            ]
-          }
-        ]
-      },
-      "fields": [
-        {
-          "key": "calling_profile",
-          "value": "pg_demo_calling_v1"
-        }
-      ]
-    }
-  },
   "inputSlots": [
     {
       "role": "form",
@@ -130,47 +98,6 @@
     },
     "turnaround": "6h",
     "pricingModel": "calculated_after_submission"
-  },
-  "sampleRequest": {
-    "request_id": "pgr_demo_variant_calling",
-    "service_id": "pgs_variant_calling",
-    "service_version": 1,
-    "inputs": [
-      {
-        "role": "form",
-        "object_ref": {
-          "object_id": "obj_demo_form_variant_calling",
-          "revision": 1
-        }
-      },
-      {
-        "role": "aligned_reads",
-        "object_ref": {
-          "object_id": "obj_demo_bam",
-          "revision": 1
-        }
-      },
-      {
-        "role": "test_order",
-        "object_ref": {
-          "object_id": "obj_demo_order",
-          "revision": 1
-        }
-      }
-    ]
-  },
-  "sampleResult": {
-    "request_id": "pgr_demo_variant_calling",
-    "status": "delivered",
-    "outputs": [
-      {
-        "role": "variants",
-        "object_ref": {
-          "object_id": "obj_demo_unannotated_vcf",
-          "revision": 1
-        }
-      }
-    ]
   },
   "status": "active",
   "serviceCategory": "sot_variant_calling",

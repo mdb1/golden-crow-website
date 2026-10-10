@@ -24,6 +24,8 @@ Every type has optional root `notes: string`. Notes may be absent or empty. Note
 
 The same concept intentionally changes casing at a boundary. There are no aliases, fallback reads, or dual writes.
 
+Entries in `catalog/services.json.services[]` and every `services/*.json` file are direct `service_offers` documents, so every nested document key remains lower camel case. The snake-case platform form objects, provider requests and provider results are separate protocol fixtures under `examples/forms/`, `examples/requests/` and `examples/results/`; they are never embedded in or copied verbatim into a service offer.
+
 ## Exact object registry
 
 | Type | Required content | Optional content |
@@ -61,9 +63,147 @@ The full highlighted card requires both conditions: `isHighlightedOffer` is true
 
 If and only if an offer enables form input, it declares exactly one required `pgo_form` slot with role `form` and a matching external `formShape`. Manual slots cannot use `pgo_form`. The external shape retains generated ID and integer version; the submitted PGO freezes only its field definitions and answers.
 
+### Optional more-information presentation
+
+`moreInformation` is an optional, presentation-only lower-camel-case map on a `service_offers` document. It explains a published offer without changing its input slots, output slots, acceptance rules, price, availability, or provider obligations. The same closed shape is available at `service_transactions.offerSnapshot.moreInformation` so a transaction can freeze the explanatory content that accompanied the selected offer.
+
+| Optional child key | Non-null shape | What to publish |
+| --- | --- | --- |
+| `frequentQuestions` | array of `{ question, answer }` | Questions a requester commonly asks and direct answers. |
+| `keyInsights` | array of `{ title, description }` | The most important takeaways about the service. |
+| `scientificFacts` | array of `{ title, description }` | Relevant scientific context stated for the requester. |
+| `usefulLinks` | array of `{ title, url }` | Titled external resources whose `url` is absolute HTTPS. |
+| `sampleLink` | one `{ title, description, buttonTitle, url }` map | A featured example or sample resource and the exact action label that opens it. |
+| `bulletSegments` | array of `{ title, description, imageUrl?, imageUploadDataUrl? }` | Illustrated explanatory segments. Supply at least one image source: an absolute-HTTPS `imageUrl`, an inline base64 image data URL in `imageUploadDataUrl`, or both. When both are present, apps prefer `imageUrl`. |
+| `technicalInformationFacts` | array of `{ title, description, subitems }` | Technical facts with an ordered `subitems: string[]` list. |
+| `biologicalSampleRequirements` | array of `{ title, description, instructions }` | Biological-material requirements and the instructions needed to satisfy each one. |
+| `websiteUrl` | string | The offer's absolute HTTPS website destination. |
+
+Every child key is independently optional and may explicitly be `null`. The root `moreInformation` value may also be omitted or `null`. An empty map, a map whose children are all null, and empty top-level arrays are valid representations of no displayable content. In those states the service-offer detail screen does not show the **More information** button. When at least one section has displayable content, the button presents a modal list; each key has its own visual component, and every omitted, null, or empty section is skipped. The table documents the persistence contract rather than visual order. Both mobile clients use the editorial order `keyInsights`, `scientificFacts`, `frequentQuestions`, `sampleLink`, `bulletSegments`, `technicalInformationFacts`, `biologicalSampleRequirements`, `usefulLinks`, then `websiteUrl`; absence collapses that section without leaving a gap. The illustrated hero uses the real service display name, and shortcuts or anchor chips are created only for destinations that actually exist.
+
+Every visible segment has a styled title header with a small information control at its upper right. Activating that control expands a localized gray explanation directly below the title on the same screen; it never opens a second modal. The `sampleLink` control is the intentional exception in placement: it overlays the featured card's upper-right corner while preserving a full touch target and reserved title space. This guidance is owned by the mobile apps and is not another Firestore field: catalog authors supply only the optional keys and values in the table above.
+
+The two native apps share the same interaction contract. Frequently asked questions and technical groups disclose their content inline; technical headers reserve equal leading and trailing control slots for vertical alignment. `bulletSegments` accepts either `imageUrl` or `imageUploadDataUrl` and renders a fixed circular leading thumbnail without an expand action. The service website has its own titled section. Supplied decorative artwork is bundled for the hero, featured sample link, illustrated-image fallback, and first biological-requirement summary; artwork does not create a section when the corresponding model value is absent.
+
+Every non-null array item is a closed map and must contain all fields shown for that item type, except that each `bulletSegments[]` item requires `title`, `description`, and at least one of its two optional image-source keys. A non-null `sampleLink` is also closed and requires all four fields. Object members and array string items are nonempty after whitespace; array items themselves cannot be null. Empty `technicalInformationFacts[].subitems` arrays are valid. `usefulLinks[].url`, `sampleLink.url`, `bulletSegments[].imageUrl`, and `websiteUrl` must be nonempty absolute URIs with the exact lowercase `https://` scheme. Userinfo is forbidden; the host must use DNS/IPv4 label form or bracketed IPv6; an optional port contains one to five digits; whitespace is invalid. Paths, queries, and fragments remain valid. `bulletSegments[].imageUploadDataUrl` must be a nonempty `data:image/...;base64,...` value with a valid base64 payload. This is the same uploaded-image representation used elsewhere in the apps and is copied unchanged into transaction offer snapshots.
+
+The map accepts only the nine keys in the table, and every nested item accepts only its documented keys. Unknown properties, malformed non-null values, snake-case aliases such as `more_information`, `frequent_questions`, `button_title`, `image_url`, `image_upload_data_url`, or `website_url`, and wrong-case alternatives are rejected rather than read as compatibility aliases.
+
+#### Complete authoring example
+
+```json
+{
+  "frequentQuestions": [
+    {
+      "question": "What kinds of specimens can be used?",
+      "answer": "The provider reviews compatible blood, tissue, or embryo-biopsy specimens against the selected extraction profile."
+    }
+  ],
+  "keyInsights": [
+    {
+      "title": "A quality DNA input starts with the specimen",
+      "description": "Specimen identity, condition, and the requested downstream study determine whether extraction can proceed."
+    }
+  ],
+  "scientificFacts": [
+    {
+      "title": "Extraction separates DNA from other cellular material",
+      "description": "The laboratory uses a validated workflow to isolate DNA while controlling contamination and degradation."
+    }
+  ],
+  "usefulLinks": [
+    {
+      "title": "DNA extraction overview",
+      "url": "https://example.com/services/dna-extraction/overview"
+    }
+  ],
+  "sampleLink": {
+    "title": "Review a sample result",
+    "description": "See a fictional example of the information returned after an accepted extraction workflow.",
+    "buttonTitle": "Open sample",
+    "url": "https://example.com/services/dna-extraction/sample"
+  },
+  "bulletSegments": [
+    {
+      "title": "Provider review",
+      "description": "The laboratory confirms that the submitted specimen and order are suitable for the published workflow.",
+      "imageUrl": "https://example.com/images/services/dna-extraction-review.png"
+    }
+  ],
+  "technicalInformationFacts": [
+    {
+      "title": "Technical deliverables",
+      "description": "The completed service registers the extracted DNA and the updated source-specimen state.",
+      "subitems": [
+        "Extracted DNA identity and measured properties",
+        "Source-specimen revision reflecting material use"
+      ]
+    }
+  ],
+  "biologicalSampleRequirements": [
+    {
+      "title": "Accepted material",
+      "description": "Submit one specimen compatible with the extraction profile selected in the request form.",
+      "instructions": "Keep the specimen identified and follow the provider's collection, packaging, and delivery directions."
+    }
+  ],
+  "websiteUrl": "https://example.com/services/dna-extraction"
+}
+```
+
 ### Transactions
 
 A transaction is a timed execution created from an existing active offer. It inherits the pinned service ID/version, provider, input slots, and output slots, including explicit empty arrays. Transaction identity and time use root transaction fields; they are not generated form answers. `requestedByUserId` is always optional because a requester may not have an account yet. Every new transaction must have at least one requester identity: an authenticated request has `requestedByUserId` and may retain `requestedByUserEmail`; an accountless request has a normalized `requestedByUserEmail` and no `requestedByUserId`. An offer with no form and no input slots proceeds directly to confirmation and admission without creating a form object or asking for files.
+
+### Supplemental linked output reports
+
+`service_transactions.outputReports` is the one report-link boundary for a service transaction. It is optional, output-only, and independent of the service offer contract. The field may be omitted or explicitly `null`; an empty array is also valid. All three states mean that the transaction has no linked report to present, so native transaction detail screens omit the entire **Linked output reports** section. The section appears only when at least one valid linked report is actually present.
+
+When present and non-null, the value is an array of unique closed maps with exactly one key:
+
+`{ "reportCode": "ABC123" }`
+
+`reportCode` uses the lower-camel-case key required inside `service_transactions`; its value is exactly six uppercase ASCII letters or digits. The snapshot must not duplicate a report title, file name, URL, owner, provider format, upload version, or report payload, and it must not use snake-case `report_code`. There is no `inputReports` field. `outputReports` also never appears on `service_offers` or inside `offerSnapshot`.
+
+Service-offer `inputSlots`, `outputSlots`, the corresponding frozen snapshot arrays, `shortContract`, and `outputObjects` describe Pocket Genes Objects only. They never promise, require, or count uploaded reports. A PGO type such as `pgo_pdf_report` remains an object governed by an object slot; that is distinct from a supplemental uploaded-report link. Consequently, adding or removing `outputReports` never changes transaction status, never makes a transaction complete or incomplete, never satisfies a missing `outputSlots` role, and never prevents delivery. A provider may attach no report, one report, or several reports without changing the contracted object outcome.
+
+#### Backend registration and linkage
+
+Before appending a snapshot, trusted backend/provider tooling registers a real, authorized report through the existing report storage circuit:
+
+1. Normalize and validate the six-character code, then resolve `report_codes/{reportCode}` through its snake-case `uploaded_report_id` field.
+2. Load `uploaded_reports/{uploadedReportId}` and require its snake-case `report_code` to equal the transaction snapshot code exactly. The record must be ready for the requesting user, expose a supported `provider_format`, and have a positive `upload_version_count`.
+3. Supply report bytes through the report record's usable `download_url` or its `linked_file_id`. A linked `file_storage` record must carry the same snake-case `linked_report_code` and a compatible `file_type`/payload.
+4. Only after the report can be resolved safely, append the unique lower-camel-case transaction snapshot `{ "reportCode": "ABC123" }`. Do not copy snake-case storage metadata into the transaction and do not write both naming styles.
+
+For uploaded reports, the canonical `provider_format` values supported by both native clients are exactly `mdm`, `ag`, `2pq`, `vcf`, and `pdf`. When `linked_file_id` is used, `file_storage.file_type` must use the same canonical value. A `pgo_*` value belongs to the separate uploaded-object/`outputObjects` circuit and is never a linked report format.
+
+The following is a partial linkage example; unrelated collection-required ownership, authorization, attribution, and audit fields are intentionally omitted:
+
+    service_transactions/{transactionId}
+    { "outputReports": [{ "reportCode": "ABC123" }] }
+
+    report_codes/ABC123
+    { "uploaded_report_id": "uploaded-report-123" }
+
+    uploaded_reports/uploaded-report-123
+    {
+      "report_code": "ABC123",
+      "provider_format": "pdf",
+      "upload_version_count": 3,
+      "linked_file_id": "file-123"
+    }
+
+    file_storage/file-123
+    {
+      "linked_report_code": "ABC123",
+      "file_type": "pdf",
+      "file_content": "<payload encoded for the normal PDF report pipeline>"
+    }
+
+The direct-download variant writes an unpadded absolute HTTP(S) `download_url` with a host on `uploaded_reports` instead of depending on `linked_file_id` and `file_storage`. In both variants all report-code occurrences must match byte-for-byte; clients do not trim, uppercase, or accept legacy aliases at read time.
+
+The transaction detail screen resolves each code through that same established report path and presents the report experience below **Output files**: download when it is not stored locally, open when it is available, and update when the registered positive upload version is newer. Resolution or authorization failures are report-level errors; they do not retroactively alter the transaction lifecycle. Writers should omit the field when there are no links, although explicit `null` and `[]` remain valid no-content representations for readers and migrations.
 
 ### Email-only requests and deferred linking
 
@@ -86,7 +226,7 @@ Native code checks the one deferred index document for the exact verified accoun
 3. Add the authenticated UID to `service_transactions.requestedByUserId`, producing the same user-to-transaction link as a request originally made while signed in.
 4. Remove the ID from `deferred_service_transactions.deferred_transaction_ids` only after the user and transaction links are written in that same atomic operation.
 
-Missing, malformed, email-mismatched, or conflicting transactions are never attached to the user; unresolved valid references remain available for a later safe retry. Feature-specific post-login work runs only after this normalization attempt finishes. After linking, native reloads `requestedServiceTransactions`, so the normalized transactions appear in the standard list. In the **View my reports** flow, entering the authenticated downloaded-files screen then runs the existing pending-output discovery against the normalized transaction index, allowing newly linked delivered files to appear immediately as download options. The email may remain on the full transaction as immutable requester provenance, but future authorization and user-list lookup use `requestedByUserId`.
+Missing, malformed, email-mismatched, or conflicting transactions are never attached to the user; unresolved valid references remain available for a later safe retry. Feature-specific post-login work runs only after this normalization attempt finishes. After linking, native reloads `requestedServiceTransactions`, so the normalized transactions appear in the standard list. Native pending-output discovery uses that normalized index on app/root startup, when the user enters the **Reports** tab, and from the existing downloaded-file and source-selection entry points. A successful account transition schedules the same authenticated discovery again, so newly linked files do not depend on visiting one particular screen. The email may remain on the full transaction as immutable requester provenance, but future authorization and user-list lookup use `requestedByUserId`.
 
 The native requester sequence is:
 
@@ -97,15 +237,31 @@ The native requester sequence is:
 5. Create the service transaction and either the reduced authenticated-user snapshot or the one-per-email deferred index entry.
 6. Present confirmation over the service hub, then allow process tracking.
 
-Status progression is controlled by provider/backoffice work. Native users cannot force progress. `delivered` is the successful final state and requires every contractually promised output PGO snapshot in `outputObjects`. When `outputSlots` is empty, `delivered` is consistent only with an empty `outputObjects` array and no object is required to prove completion. Optional `outputReports` do not satisfy a declared PGO output slot.
+Status progression is controlled by provider/backoffice work. Native users cannot force progress. `delivered` is the successful final state and requires every contractually promised output PGO snapshot in `outputObjects`. When `outputSlots` is empty, `delivered` is consistent only with an empty `outputObjects` array and no object is required to prove completion. Supplemental `outputReports` are always optional: their absence, null value, empty array, later addition, removal, or resolution failure does not change status or completeness, and they never satisfy a declared PGO output slot.
+
+### Proactive service-output discovery
+
+Output availability and transaction status are intentionally independent in the native clients. For an authenticated requester, discovery starts only from that user's reduced `requestedServiceTransactions` references, fetches the referenced root transactions one by one, verifies `requestedByUserId` against the active user, and inspects every valid referenced transaction regardless of whether its status is `requested`, `received`, `validating`, `awaiting_input`, `accepted`, `queued`, `running`, `delivered`, `rejected`, `failed`, or `cancelled`. A failure or stale reference is isolated to that transaction and does not suppress later checks.
+
+Every scan considers both canonical output boundaries: `outputObjects` and `outputReports`. Objects are eligible as soon as their canonical object snapshot is attached. Reports remain optional and are eligible only when their report code resolves to supported, ready downloadable metadata and payload. Items already present in the local downloaded-file inventory are removed from the result, and repeated pending references are presented only once. A transaction-detail screen likewise shows attached output objects immediately even before `delivered`; early availability never changes status, satisfies missing contract roles, or proves completion.
+
+The app-level discovery coordinator runs asynchronously on root startup, after the authenticated user boundary changes, and whenever the user switches to the **Reports** tab. Its presentation owner lives above the tab content, so the existing **New files available** experience can appear over any root tab, including **Discover**. Existing downloaded-file and report/object source-selection entry points request that same whole-account scan through the global coordinator instead of owning competing modal presentations. Only one global scan or presentation is active at a time: overlapping scan triggers coalesce, routine triggers received while the modal is visible are ignored, and the post-authentication normalization refresh waits until the current presentation ends so newly linked transactions are not missed. Discovery never downloads silently: the user still chooses one item or **Download all**, whose queue is processed sequentially.
 
 ### Ownership and delivery
 
 The creator/administrator of an object is its seeder and may manage its stored source. `is_clinician` grants access to both report and object administration; it does not itself confer ownership. Pocket Genes transports and presents authorized files but does not warrant their clinical content.
 
-Service offers are the primary way a regular user requests new objects. Backoffice/provider tooling performs fulfillment, registers output objects, and marks delivery. The requester keeps the transaction while work is pending, then downloads, opens, and updates delivered objects through the normal nine-digit object-code circuit.
+Service offers are the primary way a regular user requests new objects. Backoffice/provider tooling performs fulfillment, registers output objects, and marks delivery. The requester keeps the transaction throughout its lifecycle and may download, open, and update an attached object through the normal nine-digit object-code circuit as soon as it becomes available; the later `delivered` status still communicates contractual completion rather than file visibility.
 
 Physical specimen identity, custody and consumption safeguards remain operational controls outside PGO content. A transport transaction moves an existing specimen; it does not create duplicate biological material.
+
+## Downloaded-file updates
+
+`DownloadedFileUpdater` keeps authorized local reports and Pocket Genes Objects current without changing backend records or service fulfillment. This lifecycle introduces no new backend collection or document field. Canonical identity is `{ kind, code }`; report codes are six uppercase ASCII letters/digits, object codes are nine ASCII digits, and only a positive canonical `upload_version_count` greater than the installed version creates an update. Replacements must match kind, code, source, and a version at least as new as the probe, then commit over the existing local copy without a delete-first interval.
+
+The three explicit intents are `collectionAutomatic` for the fully blocking **Your downloaded files** sweep, `currentAutomatic` for one silently probed current file, and `currentManual` for the user's one-file **Update now** request. Current-file checks show no UI in the usual up-to-date case. A compact blocker appears only after a newer version is proven and remains through sequential download, validated local replacement, and active-content rehydration.
+
+Automatic intents honor `BlacklistedFileUpdateProvider`. A blacklisted current file shows the green **Update now** action only when its quiet probe proves a newer version; that manual run bypasses filtering once but preserves the opt-out. Runs are serialized, cancellable, watchdog-bounded, failure-safe, retryable as fresh runs, and privacy-safe: public state never contains file payloads, URLs, access credentials, ownership/requester data, or clinical content. iOS and Android share this contract for reports and objects. The full generated specification is `docs/downloaded-file-updates.md`.
 
 ## Deleted identity continuity
 
@@ -191,6 +347,19 @@ Deletion tooling must make non-cascading behavior explicit. Removing authenticat
 
 Clients must not rewrite every historical record to copy a tombstone, and no collection gains ad hoc `isDeletedUser`, deleted-name, or deleted-avatar aliases. The canonical identity lookup (or trusted deletion marker) determines runtime state. Existing snapshots remain provenance only and are overridden at presentation time. Logging and analytics may retain opaque IDs where policy permits, but user-facing UI never shows a raw deleted identity ID or personal snapshot as fallback.
 
+Every producer that persists actor-linked data must write the stable canonical reference available at that boundary. These references are platform metadata, never serialized PGO content:
+
+| Retained boundary | Stable reference used for runtime resolution |
+| --- | --- |
+| Community posts, replies, messages, reactions, Rare Friends relationships/circles, notifications, events, and audit entries | The canonical community-user ID, plus an explicit actor kind only when the record can reference more than one identity collection. |
+| Discover feed items, saved items, opportunities, events, organizations, and professionals | Publisher ID plus publisher kind, resolved against `feed_organizations` or `feed_individuals`. A publisher snapshot is display provenance only. |
+| `service_offers` and `service_transactions` | `providerId` plus `providerKind`; authenticated transactions also retain `requestedByUserId`. Snapshot names and requester emails never replace those references. |
+| `uploaded_reports` and `report_owners` | `report_owner_id` and, when the owner is tied to an account, `owner_community_user_id`. |
+| `uploaded_objects` and `object_owners` | `object_owner_id` and `owner_community_user_id`; service-created objects additionally retain `provider_id` plus `provider_kind`. |
+| `file_storage` | Authenticated submissions retain `submitted_by_user_id`; provider-produced files also retain `provider_id` plus `provider_kind` when that canonical provider is known. |
+
+New writes must not rely on email, username, display name, avatar URL, logo URL, or other mutable personal text as the only actor reference. A legacy record with no usable canonical ID is **Unavailable**, not **Deleted**: keep the domain record, suppress stale personal snapshots, show the provider-owned unavailable state, and do not guess identity by email. A record with a usable canonical reference must resolve that reference before rendering its identity region, even when a cached snapshot is present.
+
 ### Platform parity and acceptance tests
 
 iOS, Android, and web must implement the same state machine, evidence rules, labels by context, gray crossed-out visual semantics, navigation results, mutation guards, retry behavior, accessibility meaning, and English/Spanish localization wherever the corresponding surface exists. Layout may be native to each platform; behavior may not diverge.
@@ -211,17 +380,23 @@ The acceptance rule is universal: every retained record must remain coherent whe
 
 ## Closed service-offer type registry
 
-This registry is the complete and exclusive taxonomy for service offers. It contains exactly 30 values and is intentionally closed: adding a category requires a coordinated contract change to the canonical catalog, schema, validator, documentation, native provider and tests.
+This registry is the complete and exclusive taxonomy for service offers. It contains exactly 110 values and is intentionally closed: adding a category requires a coordinated contract change to the canonical catalog, schema, validator, documentation, native provider and tests. Entries 1–30 describe one atomic genomic professional or pipeline outcome. Entries 31–60 describe an inseparable, end-to-end genomic pathway whose contracted outcome is a completed report. Entries 61–110 describe person-to-person advice, education and support whose outcome is professional guidance rather than genomic processing.
 
-Este registro es la taxonomía completa y exclusiva de las ofertas de servicios. Contiene exactamente 30 valores y es cerrado de manera intencional: agregar una categoría requiere un cambio coordinado del catálogo canónico, el esquema, el validador, la documentación, el proveedor nativo y las pruebas.
+Este registro es la taxonomía completa y exclusiva de las ofertas de servicios. Contiene exactamente 110 valores y es cerrado de manera intencional: agregar una categoría requiere un cambio coordinado del catálogo canónico, el esquema, el validador, la documentación, el proveedor nativo y las pruebas. Las entradas 1–30 describen un resultado profesional o de proceso genómico puntual. Las entradas 31–60 describen un circuito genómico integral e indivisible cuyo resultado contratado es un informe terminado. Las entradas 61–110 describen asesoramiento, educación y apoyo entre personas cuyo resultado es orientación profesional y no procesamiento genómico.
 
 ### Persistence and selection rules / Reglas de persistencia y selección
 
 - **Persist the key only / Persistir únicamente la clave.** The field is the lower-camel-case `service_offers.serviceCategory`, and its value is one exact, case-sensitive `sot_*` key from the table. Never write `service_category`, a translated label, a description or an SF Symbol. / El campo es `service_offers.serviceCategory` en lower camel case y su valor es una clave `sot_*` exacta y sensible a mayúsculas de la tabla. Nunca se guarda `service_category`, una etiqueta traducida, una descripción ni un SF Symbol.
 - **Exactly one category per offer / Exactamente una categoría por oferta.** Select the category that describes the offer's primary contracted and billable outcome. Inputs, supporting steps and the provider's profession do not determine the category. / Se selecciona la categoría que describe el resultado principal contratado y facturable. Los insumos, pasos auxiliares y la profesión del proveedor no determinan la categoría.
 - **Split independently marketed outcomes / Separar resultados comercializados por separado.** If two outcomes can be requested or fulfilled independently, publish separate offers. If several steps are inseparable parts of one package, use the category of the final primary outcome and describe the included supporting work in the offer. / Si dos resultados pueden solicitarse o cumplirse de manera independiente, se publican ofertas separadas. Si varios pasos son partes inseparables de un paquete, se usa la categoría del resultado final principal y se describe el trabajo auxiliar incluido en la oferta.
+- **Reserve `sot_complete_*` for the full pathway / Reservar `sot_complete_*` para el circuito integral.** A complete category is valid only when one offer includes sample planning and collection, laboratory analysis, bioinformatic interpretation and delivery of the named final report. The schema therefore requires exactly the three canonical stages `test_planning`, `wet_lab` and `bioinformatics`. A collection-only, assay-only, interpretation-only or report-formatting offer must use one of entries 1–30 instead. / Una categoría integral solo es válida cuando una misma oferta incluye planificación y toma de muestra, análisis de laboratorio, interpretación bioinformática y entrega del informe final indicado. Por eso el esquema exige exactamente las tres etapas canónicas `test_planning`, `wet_lab` y `bioinformatics`. Una oferta solo de toma, ensayo, interpretación o armado de informe debe usar una de las entradas 1–30.
+- **Reserve `sot_human_advice_*` for human guidance / Reservar `sot_human_advice_*` para la orientación humana.** Entries 61–110 classify a contracted consultation, counseling, teaching or support outcome. They require the single stage `human_advice`; that stage is invalid for every other category. They do not imply that Pocket Genes licensed, accredited or endorsed the provider, and they never represent emergency response, an invasive procedure, legal representation, admission, approval, employment, savings or another guaranteed result unless the offer expressly and lawfully says so. / Las entradas 61–110 clasifican un resultado contratado de consulta, asesoramiento, enseñanza o apoyo. Requieren la única etapa `human_advice`, que es inválida para cualquier otra categoría. No implican que Pocket Genes haya habilitado, acreditado o avalado al prestador y nunca representan respuesta de emergencia, un procedimiento invasivo, representación legal, admisión, aprobación, empleo, ahorro u otro resultado garantizado, salvo que la oferta lo indique de manera expresa y lícita.
+- **Keep service stages separate from PGO stages / Separar las etapas de servicio de las etapas PGO.** `human_advice` extends only the service-offer, transaction-snapshot and provider-capability lifecycle vocabulary. It does not change the three-stage PGO object catalog and is never written into standalone serialized PGO content. / `human_advice` amplía únicamente el vocabulario del ciclo de ofertas, snapshots de transacción y capacidades de prestadores. No modifica el catálogo de objetos PGO de tres etapas y nunca se escribe dentro del contenido PGO serializado e independiente.
+- **Keep provider identity separate / Mantener separada la identidad del prestador.** Human-advice offers are suitable for independent professionals but may also be published by organizations. `providerKind` remains an independent field, while credentials, jurisdiction, delivery mode and precise scope must be stated and verified through their own provider and offer data. / Las ofertas de asesoramiento humano son adecuadas para profesionales independientes, pero también pueden ser publicadas por organizaciones. `providerKind` sigue siendo un campo independiente, mientras que las credenciales, la jurisdicción, la modalidad y el alcance preciso deben declararse y verificarse mediante los datos propios del prestador y de la oferta.
+- **Do not relabel genomic work as advice / No reclasificar trabajo genómico como asesoramiento.** A test, sample, assay, genomic interpretation or report deliverable continues to use entries 1–60. Advice may discuss such work, but the selected category must follow the primary billable outcome. / Un estudio, una muestra, un ensayo, una interpretación genómica o un informe entregable continúa usando las entradas 1–60. El asesoramiento puede tratar esos temas, pero la categoría elegida debe seguir el resultado principal facturable.
+- **Keep screening and diagnosis distinct / Distinguir cribado de diagnóstico.** A category named screening or risk report communicates probability and follow-up needs; it must not be presented as a definitive diagnosis. Non-clinical wellness, ancestry and trait reports must retain their stated limits. / Una categoría denominada cribado o informe de riesgo comunica probabilidades y necesidades de seguimiento; no debe presentarse como diagnóstico definitivo. Los informes no clínicos de bienestar, ascendencia y rasgos deben conservar los límites indicados.
 - **No aliases or inferred values / Sin alias ni valores inferidos.** Writers and backoffice validation accept only registered keys. Labels are localized at display time from the registry, and the SF Symbol is presentation metadata for the picker. / Los escritores y la validación de backoffice aceptan únicamente claves registradas. Las etiquetas se localizan al mostrarse desde el registro y el SF Symbol es metadato de presentación para el selector.
-- **Historical fallback is display-only / El fallback histórico es solo visual.** Native readers tolerate a missing, null, empty or unrecognized historical value and display **Uncategorized / Sin categoría**. That fallback is not a 31st category, is never persisted, and does not match a category filter; editing the offer requires selecting a valid key. / Los lectores nativos toleran un valor histórico ausente, nulo, vacío o desconocido y muestran **Uncategorized / Sin categoría**. Ese fallback no es una categoría número 31, nunca se persiste y no coincide con un filtro de categoría; para editar la oferta se debe elegir una clave válida.
+- **Historical fallback is display-only / El fallback histórico es solo visual.** Native readers tolerate a missing, null, empty or unrecognized historical value and display **Uncategorized / Sin categoría**. That fallback is not a 111th category, is never persisted, and does not match a category filter; editing the offer requires selecting a valid key. / Los lectores nativos toleran un valor histórico ausente, nulo, vacío o desconocido y muestran **Uncategorized / Sin categoría**. Ese fallback no es una categoría número 111, nunca se persiste y no coincide con un filtro de categoría; para editar la oferta se debe elegir una clave válida.
 
 ### Lifecycle routing guide / Guía por etapa del ciclo
 
@@ -233,8 +408,18 @@ Este registro es la taxonomía completa y exclusiva de las ofertas de servicios.
 | Bioinformatics pipeline / Flujo bioinformático | 15–20 | Quality control, alignment, small-variant calling, structural/CNV analysis, annotation or prioritization; each key names one computational boundary. / Control de calidad, alineamiento, detección de variantes pequeñas, análisis estructural/CNV, anotación o priorización; cada clave representa un límite computacional. |
 | Interpretation by purpose / Interpretación por propósito | 21–27 | General clinical interpretation or a purpose-specific analysis for rare disease, hereditary cancer, pharmacogenomics, nutrigenomics/metabolism, ancestry or polygenic risk. / Interpretación clínica general o análisis específico de enfermedad rara, cáncer hereditario, farmacogenómica, nutrigenómica/metabolismo, ascendencia o riesgo poligénico. |
 | Reporting and exchange / Informes e intercambio | 28–30 | Create a report, independently review a completed report, or convert/validate files without biological interpretation. / Crear un informe, revisar de forma independiente un informe terminado o convertir/validar archivos sin interpretación biológica. |
+| Complete human reports / Informes humanos integrales | 31–43 | Use only when collection, laboratory genomics, interpretation and the named human health, wellness, ancestry or trait report are sold as one inseparable service. / Usar solo cuando la toma, el estudio genómico de laboratorio, la interpretación y el informe humano de salud, bienestar, ascendencia o rasgos se venden como un servicio indivisible. |
+| Complete reproductive and early-life reports / Informes reproductivos y de primera etapa de vida integrales | 44–54 | Carrier, fertility, sperm-DNA, karyotype, preimplantation, prenatal or newborn pathways that begin with the required sample and end with the purpose-specific report. / Circuitos de portación, fertilidad, ADN espermático, cariotipo, preimplantación, etapa prenatal o neonatal que comienzan con la muestra requerida y terminan con el informe específico. |
+| Complete animal and authentication reports / Informes animales y de autenticación integrales | 55–60 | Species-aware animal health, traits, diversity, identity or food-authentication workflows delivered from verified sampling through the final report. / Circuitos por especie de salud, rasgos, diversidad, identidad animal o autenticación alimentaria entregados desde el muestreo verificado hasta el informe final. |
+| Health and reproductive guidance / Orientación en salud y reproducción | 61–68 | Non-emergency medical, medication, nutrition, rehabilitation, reproductive, sexual-health, pregnancy or postpartum guidance; choose the professional scope actually contracted. / Orientación no urgente médica, farmacéutica, nutricional, de rehabilitación, reproductiva, de salud sexual, embarazo o posparto; se elige el alcance profesional efectivamente contratado. |
+| Psychological and social support / Apoyo psicológico y social | 69–76 | Psychological, relationship, grief, addiction-recovery, parenting, caregiving, accessibility or social-resource support; emergency response and formal certifications stay outside these categories. / Apoyo psicológico, vincular, en duelo, recuperación de adicciones, crianza, cuidados, accesibilidad o recursos sociales; la respuesta de emergencia y las certificaciones formales quedan fuera de estas categorías. |
+| Legal guidance / Orientación jurídica | 77–81 | Civil, family and estate, labor, commercial-contract or immigration advice under the provider's declared jurisdiction; representation is included only when explicitly stated. / Asesoramiento civil, de familia y sucesiones, laboral, comercial-contractual o migratorio bajo la jurisdicción declarada por el prestador; la representación solo se incluye cuando se indica expresamente. |
+| Education and career / Educación y carrera | 82–86 | Tutoring, specialized learning support, language instruction, admissions planning or career guidance; no credential, admission, funding or employment result is implied. / Tutoría, apoyo especializado al aprendizaje, enseñanza de idiomas, planificación de admisiones u orientación profesional; no se presume un título, admisión, financiamiento ni empleo. |
+| Technology, business and finance / Tecnología, negocios y finanzas | 87–90 | Practical digital support, cybersecurity/privacy consulting, entrepreneurship consulting, or financial/accounting/tax guidance, each limited to the provider's declared competence and authorization. / Soporte digital práctico, consultoría en ciberseguridad y privacidad, consultoría para emprendimientos o asesoramiento financiero, contable e impositivo, cada uno limitado a la competencia y habilitación declaradas por el prestador. |
+| Health professional development and healthcare improvement / Desarrollo profesional y mejora en salud | 91–100 | Career and professional development, clinical mentoring, leadership, training design, research and publication support, evidence-based practice, quality and safety, or practice operations; choose the exact professional or organizational outcome contracted. / Desarrollo de carrera y profesional, mentoría clínica, liderazgo, diseño de capacitación, apoyo en investigación y publicación, práctica basada en evidencia, calidad y seguridad u operaciones de prácticas; se elige el resultado profesional u organizacional exacto contratado. |
+| Digital health and health technology / Salud digital y tecnología sanitaria | 101–110 | Digital-health strategy, system implementation and optimization, interoperability, telehealth, health-data governance, responsible AI adoption, medical-technology products, infrastructure, usability, human factors, or accessibility; select the exact advisory outcome rather than a clinical service or custom engineering deliverable. / Estrategia de salud digital, implementación y optimización de sistemas, interoperabilidad, telesalud, gobierno de datos de salud, adopción responsable de inteligencia artificial, productos de tecnología médica, infraestructura, usabilidad, factores humanos o accesibilidad; se selecciona el resultado de asesoramiento exacto y no un servicio clínico ni un desarrollo de ingeniería a medida. |
 
-### Exact 30-value registry / Registro exacto de 30 valores
+### Exact 110-value registry / Registro exacto de 110 valores
 
 | Key | English | Español | SF Symbol | Closed definition (English) | Definición cerrada (español) |
 | --- | --- | --- | --- | --- | --- |
@@ -268,6 +453,86 @@ Este registro es la taxonomía completa y exclusiva de las ofertas de servicios.
 | `sot_genomic_report_generation` | Genomic report generation | Generación de informe genómico | `doc.richtext.fill` | Assembly of validated service outputs into a human-readable genomic report without adding a separate second-opinion review. | Composición de resultados validados del servicio en un informe genómico legible, sin agregar una revisión independiente de segunda opinión. |
 | `sot_genomic_report_review` | Genomic report review | Revisión de informe genómico | `doc.text.magnifyingglass` | Independent professional review, explanation, or second opinion on an already completed genomic report. | Revisión profesional independiente, explicación o segunda opinión sobre un informe genómico ya finalizado. |
 | `sot_genomic_data_interoperability` | Genomic data conversion and interoperability | Conversión e interoperabilidad de datos genómicos | `arrow.left.arrow.right.square.fill` | Deterministic conversion, packaging, validation, or exchange of genomic files between declared formats without biological analysis or interpretation. | Conversión determinística, empaquetado, validación o intercambio de archivos genómicos entre formatos declarados, sin análisis biológico ni interpretación. |
+| `sot_complete_health_genomics_report` | Comprehensive health genomics report | Informe genómico integral de salud | `heart.text.square.fill` | An inseparable sample-to-report health profile that combines specimen collection, genomic testing, evidence-based interpretation across the declared health domains, and one consolidated final report; it is not a diagnosis of every disease. | Perfil de salud indivisible desde la toma de muestra hasta el informe, que combina obtención de la muestra, estudio genómico, interpretación basada en evidencia de las áreas de salud declaradas y un informe final consolidado; no diagnostica todas las enfermedades. |
+| `sot_complete_rare_disease_diagnostic_report` | Rare-disease genomic diagnosis report | Informe genómico diagnóstico de enfermedades poco frecuentes | `cross.case.fill` | A complete diagnostic pathway for a suspected rare or undiagnosed disorder, from collection of the patient and any declared family samples through phenotype-guided genomic analysis and a clinically interpreted final report. | Circuito diagnóstico completo para una enfermedad poco frecuente o aún no diagnosticada, desde la toma de la muestra de la persona y de los familiares declarados hasta el análisis genómico guiado por el fenotipo y el informe final con interpretación clínica. |
+| `sot_complete_hereditary_cancer_report` | Hereditary cancer genomic report | Informe genómico de cáncer hereditario | `cross.case.circle.fill` | A sample-to-report assessment of inherited cancer susceptibility, including the declared germline panel, family-history context, variant interpretation, and a final report suitable for professional counseling and follow-up. | Evaluación de principio a fin de la predisposición hereditaria al cáncer, que incluye el panel germinal declarado, el contexto de antecedentes familiares, la interpretación de variantes y un informe final apto para asesoramiento y seguimiento profesional. |
+| `sot_complete_inherited_cardiovascular_report` | Inherited cardiovascular disease genomic report | Informe genómico de enfermedades cardiovasculares hereditarias | `heart.circle.fill` | A complete inherited-cardiovascular service covering specimen collection, analysis of the declared cardiomyopathy, arrhythmia, aortopathy, or lipid-disorder genes, case-aware interpretation, and delivery of the final report. | Servicio cardiovascular hereditario completo que abarca la toma de muestra, el análisis de los genes declarados para miocardiopatías, arritmias, aortopatías o trastornos lipídicos, la interpretación según el caso y la entrega del informe final. |
+| `sot_complete_neurogenetic_disease_report` | Neurogenetic disease report | Informe de enfermedades neurogenéticas | `brain.fill` | An end-to-end evaluation for a declared hereditary neurologic or neurodegenerative question, joining sample acquisition, the appropriate molecular assay, phenotype-aware interpretation, and a clear final report with limitations. | Evaluación integral para una consulta neurológica o neurodegenerativa hereditaria declarada, que reúne la obtención de la muestra, el ensayo molecular apropiado, la interpretación según el fenotipo y un informe final claro con sus limitaciones. |
+| `sot_complete_cystic_fibrosis_report` | Cystic fibrosis genetic report | Informe genético de fibrosis quística | `lungs.fill` | A complete CFTR testing service, from an accepted patient or reproductive sample through the declared variant or full-gene analysis, interpretation for the stated diagnostic or reproductive purpose, and the final report. | Servicio completo de estudio de CFTR, desde una muestra aceptada de la persona o con fines reproductivos hasta el análisis de variantes o del gen completo declarado, la interpretación para el objetivo diagnóstico o reproductivo indicado y el informe final. |
+| `sot_complete_pharmacogenomic_report` | Personalized pharmacogenomic report | Informe farmacogenómico personalizado | `pill.circle.fill` | A complete medication-response genomics service that collects the specimen, assays the declared gene-drug markers, assigns supported phenotypes, and delivers a clinician-oriented report without independently prescribing or changing treatment. | Servicio farmacogenómico completo que obtiene la muestra, estudia los marcadores gen-fármaco declarados, asigna los fenotipos respaldados y entrega un informe orientado al profesional, sin prescribir ni modificar tratamientos por sí solo. |
+| `sot_complete_nutrigenomic_report` | Personalized nutrigenomic report | Informe nutrigenómico personalizado | `fork.knife.circle.fill` | An end-to-end nutritional genomics profile, including sample collection, analysis of the declared nutrient and metabolic markers, evidence-graded interpretation, and a final report intended to complement professional nutrition advice. | Perfil nutrigenómico integral que incluye toma de muestra, análisis de los marcadores nutricionales y metabólicos declarados, interpretación graduada según la evidencia y un informe final destinado a complementar el asesoramiento nutricional profesional. |
+| `sot_complete_food_response_genetics_report` | Food-response genetics report | Informe genético de respuesta a los alimentos | `carrot.fill` | A sample-to-report genetic assessment of declared inherited food-response traits, such as lactose metabolism or celiac susceptibility; it excludes IgE or IgG antibody testing and does not diagnose a food allergy. | Evaluación genética de principio a fin de rasgos hereditarios declarados relacionados con la respuesta a los alimentos, como el metabolismo de la lactosa o la susceptibilidad celíaca; excluye los estudios de anticuerpos IgE o IgG y no diagnostica alergias alimentarias. |
+| `sot_complete_sports_performance_genetics_report` | Sports performance genetics report | Informe genético de rendimiento deportivo | `figure.run` | A complete non-diagnostic sports-genetics service that takes a specimen, evaluates the declared performance, recovery, metabolism, and injury-susceptibility markers, and returns a contextualized final report. | Servicio completo y no diagnóstico de genética deportiva que toma una muestra, evalúa los marcadores declarados de rendimiento, recuperación, metabolismo y susceptibilidad a lesiones, y entrega un informe final contextualizado. |
+| `sot_complete_skin_hair_genetics_report` | Skin and hair genetics report | Informe genético de piel y cabello | `sparkles` | An end-to-end cosmetic and wellness genetics profile covering sample collection, analysis of the declared skin or hair traits, cautious interpretation of their evidence, and a personalized non-diagnostic report. | Perfil genético integral de bienestar y cuidado estético que abarca la toma de muestra, el análisis de los rasgos declarados de piel o cabello, una interpretación prudente de la evidencia y un informe personalizado no diagnóstico. |
+| `sot_complete_genetic_ancestry_report` | Comprehensive genetic ancestry report | Informe integral de ascendencia genética | `map.fill` | A complete ancestry service from DNA collection through comparison with declared reference populations and lineages to a final probabilistic report; it makes no medical or legal identity determination. | Servicio completo de ascendencia, desde la toma de ADN y su comparación con poblaciones y linajes de referencia declarados hasta un informe probabilístico final; no determina identidad médica ni legal. |
+| `sot_complete_personal_traits_genetics_report` | Genetic traits and characteristics report | Informe genético de rasgos y características personales | `theatermasks.fill` | A sample-to-report, non-diagnostic profile of declared physical, sensory, or behavioral trait probabilities, with laboratory genotyping, transparent evidence limits, and a final educational report. | Perfil no diagnóstico de principio a fin sobre probabilidades de rasgos físicos, sensoriales o conductuales declarados, con genotipificación de laboratorio, límites de evidencia transparentes y un informe educativo final. |
+| `sot_complete_reproductive_carrier_report` | Reproductive carrier screening report | Informe integral de portación reproductiva | `person.2.circle.fill` | A complete carrier-screening pathway for one person or a reproductive pair, including sample collection, the declared recessive and X-linked panel, couple-aware residual-risk interpretation when applicable, and the final report. | Circuito completo de cribado de portadores para una persona o pareja reproductiva, que incluye toma de muestra, el panel declarado de enfermedades recesivas y ligadas al X, interpretación del riesgo residual de la pareja cuando corresponda y el informe final. |
+| `sot_complete_female_fertility_genetics_report` | Female fertility genetic report | Informe genético de fertilidad femenina | `person.crop.circle.fill.badge.plus` | An end-to-end genetic assessment for a declared female-fertility question, combining sample collection, indicated molecular or cytogenetic testing, reproductive-context interpretation, and a final report without claiming to measure fertility on genetics alone. | Evaluación genética integral para una consulta declarada de fertilidad femenina, que combina toma de muestra, estudios moleculares o citogenéticos indicados, interpretación en contexto reproductivo y un informe final, sin afirmar que la genética por sí sola mide la fertilidad. |
+| `sot_complete_male_infertility_genetics_report` | Male infertility genetic report | Informe genético de infertilidad masculina | `person.crop.circle.fill.badge.checkmark` | A complete genetic workup for an indicated male-infertility presentation, from blood or other accepted sample through the declared karyotype, Y-microdeletion, CFTR, or related testing to an interpreted final report. | Estudio genético completo para una presentación indicada de infertilidad masculina, desde sangre u otra muestra aceptada hasta el cariotipo, las microdeleciones del cromosoma Y, CFTR u otros análisis declarados, con un informe final interpretado. |
+| `sot_complete_sperm_dna_integrity_report` | Sperm DNA integrity report | Informe de integridad del ADN espermático | `waveform.path.ecg` | A complete semen-sample service that measures the declared sperm DNA fragmentation or chromatin-integrity endpoint, performs quality-controlled interpretation, and delivers a fertility-context report; it is not whole-genome sequencing. | Servicio completo sobre una muestra de semen que mide el indicador declarado de fragmentación del ADN espermático o integridad de la cromatina, realiza una interpretación con control de calidad y entrega un informe en contexto de fertilidad; no es secuenciación del genoma completo. |
+| `sot_complete_reproductive_couple_karyotype_report` | Reproductive couple karyotype report | Informe de cariotipo de la pareja reproductiva | `person.2.fill` | An end-to-end cytogenetic service for a reproductive pair, covering both blood collections, chromosome analysis, joint interpretation for infertility or pregnancy-loss risk, and coordinated final reports. | Servicio citogenético integral para una pareja reproductiva que abarca ambas extracciones de sangre, el análisis cromosómico, la interpretación conjunta del riesgo de infertilidad o pérdida gestacional y los informes finales coordinados. |
+| `sot_complete_preimplantation_aneuploidy_report` | Preimplantation aneuploidy screening report | Informe preimplantacional de cribado de aneuploidías | `circle.grid.cross.fill` | A complete PGT-A pathway from accepted embryo-biopsy material through genome-wide chromosome copy-number screening and quality review to an embryo-level report for the treating reproductive team. | Circuito completo de PGT-A, desde el material aceptado de biopsia embrionaria hasta el cribado del número de copias cromosómicas a escala genómica, su control de calidad y un informe por embrión para el equipo de reproducción tratante. |
+| `sot_complete_preimplantation_monogenic_report` | Preimplantation monogenic disease report | Informe preimplantacional de enfermedades monogénicas | `microbe.fill` | A complete PGT-M service for a confirmed familial variant, including case review and assay preparation, embryo-biopsy testing, linkage or direct-variant analysis as declared, and the final embryo report. | Servicio completo de PGT-M para una variante familiar confirmada, que incluye revisión del caso y preparación del ensayo, estudio de biopsias embrionarias, análisis de ligamiento o de la variante directa según lo declarado y el informe final de cada embrión. |
+| `sot_complete_preimplantation_structural_report` | Preimplantation structural rearrangement report | Informe preimplantacional de reordenamientos estructurales | `square.3.layers.3d.down.right` | An end-to-end PGT-SR pathway for a known parental chromosome rearrangement, from case setup and embryo biopsy through the declared unbalanced-rearrangement analysis to the final embryo-level report. | Circuito integral de PGT-SR para un reordenamiento cromosómico parental conocido, desde la preparación del caso y la biopsia embrionaria hasta el análisis declarado de reordenamientos desequilibrados y el informe final por embrión. |
+| `sot_complete_noninvasive_prenatal_report` | Non-invasive prenatal aneuploidy report | Informe prenatal no invasivo de aneuploidías | `cross.vial` | A complete maternal-blood cfDNA screening service, including collection, laboratory and bioinformatic assessment of the declared fetal chromosome risks, quality metrics, and a final risk report; it is screening, not a diagnostic result. | Servicio completo de cribado de ADN fetal libre en sangre materna que incluye extracción, evaluación de laboratorio y bioinformática de los riesgos cromosómicos fetales declarados, métricas de calidad y un informe final de riesgo; es un cribado, no un resultado diagnóstico. |
+| `sot_complete_prenatal_carrier_fetal_risk_report` | Prenatal carrier and fetal-risk report | Informe prenatal de portación y riesgo fetal | `figure.child.circle.fill` | An integrated maternal-sample pathway that combines the declared carrier panel with reflex fetal cfDNA risk assessment when indicated and returns one clearly separated maternal and fetal-risk report; elevated risk requires appropriate confirmation. | Circuito integrado sobre una muestra materna que combina el panel de portación declarado con la evaluación refleja del riesgo fetal mediante ADN libre cuando está indicada, y entrega un informe que separa con claridad los resultados maternos y el riesgo fetal; un riesgo elevado requiere la confirmación correspondiente. |
+| `sot_complete_newborn_genomic_screening_report` | Newborn genomic screening report | Informe de cribado genómico neonatal | `stroller.fill` | A complete newborn screening pathway from the accepted neonatal specimen through the declared genomic analysis and quality review to a family- and clinician-facing report that identifies screening findings and recommended confirmatory follow-up. | Circuito completo de cribado neonatal, desde la muestra aceptada del recién nacido hasta el análisis genómico declarado y su control de calidad, con un informe para la familia y el equipo clínico que identifica hallazgos de cribado y el seguimiento confirmatorio recomendado. |
+| `sot_complete_animal_parentage_identity_report` | Animal parentage and identity report | Informe genético de parentesco e identidad animal | `pawprint.circle.fill` | An end-to-end animal identity service that collects or receives verified specimens, compares the declared parentage or identity markers, applies species-appropriate interpretation, and issues the final relationship or identity report. | Servicio integral de identidad animal que obtiene o recibe muestras verificadas, compara los marcadores declarados de parentesco o identidad, aplica una interpretación adecuada para la especie y emite el informe final de vínculo o identidad. |
+| `sot_complete_canine_health_diversity_report` | Canine health and genetic diversity report | Informe de salud y diversidad genética canina | `dog.fill` | A complete canine DNA profile from cheek-swab collection through the declared breed-relevant disease and diversity markers to a final report for veterinary care or responsible breeding; only validated markers for the stated breed are interpreted. | Perfil completo de ADN canino, desde la toma de hisopado bucal hasta los marcadores declarados de enfermedades y diversidad pertinentes para la raza, con un informe final para la atención veterinaria o la cría responsable; solo se interpretan marcadores validados para la raza indicada. |
+| `sot_complete_feline_health_traits_report` | Feline genetic health and traits report | Informe genético de salud y rasgos felinos | `cat.fill` | An end-to-end feline genetics service covering sample collection, the declared inherited-disease, blood-group, ancestry, or coat-trait panel, species- and breed-aware interpretation, and one final report. | Servicio integral de genética felina que abarca la toma de muestra, el panel declarado de enfermedades hereditarias, grupo sanguíneo, ascendencia o rasgos del pelaje, la interpretación según especie y raza y un informe final. |
+| `sot_complete_equine_health_performance_report` | Equine genetic health and performance report | Informe genético de salud y rendimiento equino | `hare.fill` | A complete equine testing pathway from hair-root or other accepted specimen through the declared inherited-disease, gait, performance, or coat-trait markers to a final veterinary or breeding report. | Circuito completo de estudio equino, desde raíces de pelo u otra muestra aceptada hasta los marcadores declarados de enfermedades hereditarias, locomoción, rendimiento o rasgos del pelaje, con un informe final veterinario o de cría. |
+| `sot_complete_livestock_breeding_traits_report` | Livestock breeding and production genomics report | Informe genético de reproducción y aptitudes productivas ganaderas | `leaf.circle.fill` | An end-to-end livestock genetics service that links a verified animal specimen to the declared reproductive, health, milk, fiber, or production-trait panel and delivers a species-specific report for veterinary or breeding decisions. | Servicio integral de genética ganadera que vincula una muestra animal verificada con el panel declarado de reproducción, salud, leche, fibra o aptitudes productivas y entrega un informe específico para la especie destinado a decisiones veterinarias o de cría. |
+| `sot_complete_meat_species_authentication_report` | Meat species DNA-authentication report | Informe de autenticación de especies cárnicas por ADN | `barcode.viewfinder` | A complete food-authentication service from documented meat sampling through species-targeted DNA analysis and mixture review to a final report identifying the detected declared species; it does not assess nutritional quality or food allergy. | Servicio completo de autenticación alimentaria, desde el muestreo documentado de carne hasta el análisis de ADN dirigido a especies y la revisión de mezclas, con un informe final que identifica las especies declaradas detectadas; no evalúa calidad nutricional ni alergias alimentarias. |
+| `sot_human_advice_medical_consultation` | Medical consultation | Consulta médica | `cross.case.circle` | Non-emergency review of general or specialty health concerns, symptoms, history, prevention, and appropriate next steps by a qualified professional; it excludes procedures and emergency care. | Consulta no urgente con un profesional habilitado sobre inquietudes generales o especializadas de salud, síntomas, antecedentes, prevención y próximos pasos adecuados; no incluye procedimientos ni atención de urgencia. |
+| `sot_human_advice_medical_second_opinion` | Medical second opinion | Segunda opinión médica | `doc.text.fill.viewfinder` | Independent review of an existing diagnosis, result, or treatment plan to clarify alternatives before a decision; it does not guarantee a different diagnosis or outcome. | Revisión independiente de un diagnóstico, resultado o plan terapéutico existente para aclarar alternativas antes de decidir; no garantiza un diagnóstico ni un resultado diferente. |
+| `sot_human_advice_medication_pharmacy_counseling` | Medication and pharmacy counseling | Asesoramiento farmacéutico y sobre medicamentos | `pills.circle.fill` | Guidance on safe use, interactions, adverse effects, adherence, and storage of medicines; prescribing or changes occur only when professionally authorized. | Orientación sobre uso seguro, interacciones, efectos adversos, adherencia y conservación de medicamentos; la prescripción o los cambios solo se realizan cuando el profesional está habilitado. |
+| `sot_human_advice_nutrition_dietary_counseling` | Nutrition and dietary counseling | Asesoramiento nutricional y alimentario | `fork.knife` | Non-genomic assessment of eating patterns, goals, and practical food planning; genetic or nutrigenomic interpretation remains under the existing genomic categories. | Evaluación no genómica de hábitos alimentarios, objetivos y planificación práctica de la alimentación; la interpretación genética o nutrigenómica corresponde a las categorías genómicas existentes. |
+| `sot_human_advice_rehabilitation_physical_therapy_guidance` | Rehabilitation and physical therapy guidance | Orientación en rehabilitación y fisioterapia | `figure.walk.motion` | Professional guidance on mobility, therapeutic exercise, recovery, and self-management within the declared scope; it excludes emergency and procedural care. | Orientación profesional sobre movilidad, ejercicio terapéutico, recuperación y autocuidado dentro del alcance declarado; no incluye atención de urgencia ni procedimientos. |
+| `sot_human_advice_reproductive_fertility_counseling` | Reproductive and fertility counseling | Asesoramiento reproductivo y de fertilidad | `calendar.badge.plus` | Guidance on family-building goals, fertility-care options, care pathways, and referrals; it excludes procedures, laboratory testing, and genetic interpretation. | Orientación sobre objetivos reproductivos, opciones y circuitos de atención de la fertilidad y derivaciones; no incluye procedimientos, estudios de laboratorio ni interpretación genética. |
+| `sot_human_advice_sexual_health_counseling` | Sexual health counseling | Asesoramiento en salud sexual | `heart.text.square` | Confidential guidance on sexual wellbeing, contraception, STI prevention, consent, and care navigation; it excludes emergency care and diagnostic procedures. | Orientación confidencial sobre bienestar sexual, anticoncepción, prevención de infecciones de transmisión sexual, consentimiento y acceso a la atención; no incluye urgencias ni procedimientos diagnósticos. |
+| `sot_human_advice_pregnancy_postpartum_support` | Pregnancy and postpartum support | Acompañamiento durante el embarazo y el posparto | `person.crop.circle.badge.plus` | Non-emergency education and practical support for pregnancy, birth preparation, recovery, and infant feeding; it does not provide obstetric procedures. | Educación y apoyo práctico no urgente durante el embarazo, la preparación para el parto, la recuperación y la alimentación infantil; no incluye procedimientos obstétricos. |
+| `sot_human_advice_psychological_counseling` | Psychological counseling | Asesoramiento psicológico | `brain.head.profile` | Structured support for emotional or behavioral concerns and coping strategies from a qualified professional; it is not an emergency or crisis-response service. | Apoyo estructurado de un profesional habilitado para inquietudes emocionales o conductuales y estrategias de afrontamiento; no es un servicio de urgencia ni de respuesta a crisis. |
+| `sot_human_advice_couples_family_counseling` | Couples and family counseling | Orientación para parejas y familias | `person.3.fill` | Support for communication, conflict, relationship patterns, and family dynamics; it excludes legal mediation or representation. | Apoyo para trabajar comunicación, conflictos, patrones vinculares y dinámicas familiares; no incluye mediación ni representación legal. |
+| `sot_human_advice_grief_bereavement_support` | Grief and bereavement support | Acompañamiento en duelo y pérdidas | `heart.slash.circle.fill` | Emotional and practical support for anticipated or experienced loss and adjustment; it is not crisis response. | Apoyo emocional y práctico ante una pérdida prevista o vivida y su proceso de adaptación; no es atención de crisis. |
+| `sot_human_advice_addiction_recovery_counseling` | Addiction recovery counseling | Asesoramiento para la recuperación de adicciones | `arrow.triangle.2.circlepath.circle.fill` | Support for recovery goals, harm reduction, relapse prevention, and access to resources; it excludes medical detoxification and emergency care. | Apoyo para objetivos de recuperación, reducción de daños, prevención de recaídas y acceso a recursos; no incluye desintoxicación médica ni atención de urgencia. |
+| `sot_human_advice_parenting_guidance` | Parenting guidance | Orientación para la crianza | `figure.2` | Guidance on developmentally appropriate routines, communication, boundaries, and caregiving strategies; it excludes diagnosis, therapy, and custody advice. | Orientación sobre rutinas, comunicación, límites y estrategias de cuidado adecuadas al desarrollo; no incluye diagnóstico, terapia ni asesoramiento sobre custodia. |
+| `sot_human_advice_caregiver_eldercare_support` | Caregiver and eldercare support | Orientación para personas cuidadoras y cuidado de adultos mayores | `person.2.badge.gearshape.fill` | Guidance on care planning, resources, respite, coordination, and aging in place; it excludes direct nursing or clinical care. | Orientación sobre planificación del cuidado, recursos, servicios de respiro, coordinación y envejecimiento en el hogar; no incluye atención directa de enfermería ni atención clínica. |
+| `sot_human_advice_disability_accessibility_guidance` | Disability and accessibility guidance | Orientación sobre discapacidad y accesibilidad | `figure.roll` | Guidance on accommodations, assistive strategies, accessibility, and service navigation; it does not issue medical or legal certification. | Orientación sobre ajustes razonables, estrategias de apoyo, accesibilidad y acceso a servicios; no emite certificaciones médicas ni legales. |
+| `sot_human_advice_social_care_navigation` | Social care navigation | Orientación y acceso a servicios sociales | `hands.sparkles.fill` | Identification and coordination of community, health, benefits, and social supports; it does not guarantee eligibility or provide legal representation. | Identificación y coordinación de recursos comunitarios, sanitarios, prestaciones y apoyos sociales; no garantiza elegibilidad ni brinda representación legal. |
+| `sot_human_advice_personal_civil_legal` | Personal and civil legal advice | Asesoramiento jurídico personal y civil | `building.columns` | Advice on everyday civil matters such as consumer rights, housing, personal contracts, debt, or property within a declared jurisdiction; representation is included only if stated. | Asesoramiento sobre asuntos civiles cotidianos, como consumo, vivienda, contratos personales, deudas o bienes, dentro de una jurisdicción declarada; la representación solo se incluye si se indica. |
+| `sot_human_advice_family_estate_legal` | Family and estate legal advice | Asesoramiento jurídico de familia y sucesiones | `house.and.flag.fill` | Advice on family relationships, separation, custody, adoption, wills, estates, and inheritance within the declared jurisdiction; court representation is included only if stated. | Asesoramiento sobre relaciones familiares, separación, custodia, adopción, testamentos, sucesiones y herencias dentro de la jurisdicción declarada; la representación judicial solo se incluye si se indica. |
+| `sot_human_advice_employment_labor_legal` | Employment and labor legal advice | Asesoramiento jurídico laboral | `briefcase.fill` | Advice on workplace rights, employment terms, obligations, and disputes within the declared jurisdiction; it does not guarantee a legal outcome. | Asesoramiento sobre derechos laborales, condiciones de empleo, obligaciones y conflictos dentro de la jurisdicción declarada; no garantiza un resultado jurídico. |
+| `sot_human_advice_business_contract_legal` | Business and contract legal advice | Asesoramiento jurídico comercial y contractual | `doc.on.doc.fill` | Advice on entity formation, governance, commercial agreements, and business compliance; business strategy belongs to the entrepreneurship category. | Asesoramiento sobre constitución de entidades, gobierno, acuerdos comerciales y cumplimiento empresarial; la estrategia de negocio corresponde a la categoría de emprendimientos. |
+| `sot_human_advice_immigration_residency_legal` | Immigration and residency legal advice | Asesoramiento jurídico migratorio y de residencia | `airplane` | Advice on visas, residency, citizenship, and migration procedures within the declared jurisdiction; it does not guarantee approval. | Asesoramiento sobre visas, residencia, ciudadanía y procedimientos migratorios dentro de la jurisdicción declarada; no garantiza la aprobación. |
+| `sot_human_advice_academic_tutoring` | Academic tutoring | Tutoría y apoyo académico | `books.vertical.fill` | Individual or small-group instruction, explanation, practice, and study skills for declared subjects and levels; it does not award a credential. | Enseñanza individual o en grupos pequeños, explicación, práctica y técnicas de estudio para materias y niveles declarados; no otorga títulos. |
+| `sot_human_advice_special_education_learning_support` | Special education and learning support | Apoyo educativo especializado y al aprendizaje | `person.text.rectangle.fill` | Individual learning strategies, accommodations, and educational support; it does not provide a clinical diagnosis or formal certification. | Estrategias individuales de aprendizaje, ajustes y apoyo educativo; no realiza diagnósticos clínicos ni emite certificaciones formales. |
+| `sot_human_advice_language_learning` | Language instruction | Enseñanza de idiomas | `character.book.closed.fill` | Structured instruction and practice for a declared language and proficiency level; certification is included only when explicitly stated. | Enseñanza y práctica estructuradas para un idioma y nivel declarados; la certificación solo se incluye si se indica expresamente. |
+| `sot_human_advice_academic_admissions_guidance` | Academic and admissions guidance | Orientación académica y para admisiones | `graduationcap.fill` | Guidance on study choices, applications, scholarships, and academic planning; it does not guarantee admission or funding. | Orientación sobre elección de estudios, postulaciones, becas y planificación académica; no garantiza admisión ni financiamiento. |
+| `sot_human_advice_career_vocational_guidance` | Career and vocational guidance | Orientación profesional y vocacional | `arrow.up.right.circle.fill` | Guidance on career direction, transitions, skills, CVs, interviews, and job-search planning; it does not guarantee employment. | Orientación sobre dirección profesional, transiciones, habilidades, currículum, entrevistas y planificación de la búsqueda laboral; no garantiza empleo. |
+| `sot_human_advice_digital_technology_support` | Digital technology support | Asesoramiento y soporte tecnológico digital | `wrench.and.screwdriver.fill` | Person-to-person setup, troubleshooting, and practical guidance for devices, software, connectivity, and online services; it excludes custom engineering and security audits. | Asistencia personalizada para configurar, resolver problemas y aprender a usar dispositivos, software, conectividad y servicios en línea; no incluye ingeniería a medida ni auditorías de seguridad. |
+| `sot_human_advice_cybersecurity_privacy_consulting` | Cybersecurity and privacy consulting | Consultoría en ciberseguridad y privacidad | `lock.shield.fill` | Guidance on risk review, protective controls, security awareness, privacy settings, and incident preparation; it does not guarantee prevention of breaches or legal compliance. | Orientación sobre evaluación de riesgos, controles de protección, concientización, configuración de privacidad y preparación ante incidentes; no garantiza evitar incidentes ni el cumplimiento legal. |
+| `sot_human_advice_business_entrepreneurship_consulting` | Business and entrepreneurship consulting | Consultoría para negocios y emprendimientos | `chart.line.uptrend.xyaxis.circle.fill` | Guidance on business models, markets, strategy, operations, pricing, and planning; it excludes legal or accounting deliverables and guaranteed commercial results. | Orientación sobre modelos de negocio, mercado, estrategia, operaciones, precios y planificación; no incluye entregables legales o contables ni garantiza resultados comerciales. |
+| `sot_human_advice_financial_accounting_tax_consulting` | Financial, accounting and tax consulting | Asesoramiento financiero, contable e impositivo | `banknote.fill` | Guidance on budgeting, records, reporting, and tax planning or compliance within declared credentials and jurisdiction; it does not guarantee savings or returns, and investment recommendations require separate authorization. | Orientación sobre presupuestos, registros, informes y planificación o cumplimiento tributario dentro de las credenciales y jurisdicción declaradas; no garantiza ahorros ni rendimientos, y las recomendaciones de inversión requieren habilitación específica. |
+| `sot_human_advice_health_professional_career_guidance` | Health professional career guidance | Orientación profesional en salud | `stethoscope.circle.fill` | Guidance for health professionals on specialty or role choices, clinical and non-clinical career paths, transitions, credentialing plans, CVs, interviews, and job-search strategy; it does not award credentials or guarantee admission, licensing, or employment. | Orientación para profesionales de la salud sobre elección de especialidad o función, trayectorias clínicas y no clínicas, transiciones, planificación de acreditaciones, currículum, entrevistas y estrategias de búsqueda laboral; no otorga credenciales ni garantiza admisión, habilitación o empleo. |
+| `sot_human_advice_health_professional_development` | Professional development for health professionals | Desarrollo profesional en salud | `person.badge.plus.fill` | Structured planning of competencies, continuing education, reflective practice, professional portfolios, and development goals for people working in health; it excludes clinical supervision and does not issue credentials or formal performance ratings. | Planificación estructurada de competencias, educación continua, práctica reflexiva, portafolios profesionales y objetivos de desarrollo para personas que trabajan en salud; no incluye supervisión clínica ni emite credenciales o evaluaciones formales de desempeño. |
+| `sot_human_advice_clinical_mentoring_supervision` | Clinical mentoring and professional supervision | Mentoría y supervisión profesional clínica | `person.badge.shield.checkmark.fill` | Qualified mentoring or supervision focused on clinical reasoning, ethical practice, professional boundaries, case reflection, and role development; it does not provide direct patient care or transfer responsibility for care, and counts toward mandated supervision only when explicitly stated. | Mentoría o supervisión calificada centrada en razonamiento clínico, práctica ética, límites profesionales, reflexión sobre casos y desarrollo del rol; no brinda atención directa ni transfiere la responsabilidad asistencial, y solo computa como supervisión obligatoria cuando se indica expresamente. |
+| `sot_human_advice_healthcare_leadership_management` | Healthcare leadership and management development | Desarrollo de liderazgo y gestión en salud | `building.2.crop.circle.fill` | Development for current or emerging healthcare leaders covering communication, team leadership, delegation, conflict, change, governance, and management decisions; day-to-day workflow redesign belongs to health practice operations, and organizational results are not guaranteed. | Desarrollo para líderes actuales o emergentes del ámbito de la salud sobre comunicación, conducción de equipos, delegación, conflictos, cambio, gobierno y decisiones de gestión; el rediseño de procesos cotidianos corresponde a la gestión operativa de prácticas de salud y no se garantizan resultados organizacionales. |
+| `sot_human_advice_health_education_training_design` | Health education and training design | Diseño de educación y capacitación en salud | `books.vertical.circle.fill` | Design of learning objectives, curricula, instructional formats, assessments, and materials for patients, communities, students, or health workforces; delivery, accreditation, and credential issuance are included only when explicitly stated. | Diseño de objetivos de aprendizaje, programas, modalidades didácticas, evaluaciones y materiales para pacientes, comunidades, estudiantes o equipos de salud; el dictado, la acreditación y la emisión de credenciales solo se incluyen cuando se indican expresamente. |
+| `sot_human_advice_health_research_methodology` | Health research methodology consulting | Asesoramiento metodológico en investigación en salud | `chart.bar.doc.horizontal.fill` | Methodological guidance on health research questions, protocols, study designs, sampling, measurement, data-analysis plans, and reporting standards; it does not conduct the study, grant ethics approval, or guarantee valid or publishable findings. | Orientación metodológica sobre preguntas de investigación en salud, protocolos, diseños de estudio, muestreo, medición, planes de análisis de datos y estándares de reporte; no ejecuta el estudio, no concede aprobación ética ni garantiza hallazgos válidos o publicables. |
+| `sot_human_advice_health_scientific_writing_publication` | Health scientific writing and publication support | Escritura científica y publicación en salud | `pencil.and.outline` | Ethical support for outlining, drafting, editing, reporting-guideline compliance, journal selection, submission, and responses to reviewers for health research; it excludes undisclosed ghostwriting or fabricated authorship and does not guarantee publication. | Apoyo ético para estructurar, redactar y editar investigaciones en salud, cumplir guías de reporte, seleccionar revistas, preparar envíos y responder a revisores; no incluye redacción no declarada en nombre de terceros ni atribuciones ficticias de autoría, y no garantiza la publicación. |
+| `sot_human_advice_evidence_based_health_practice` | Evidence-based health practice guidance | Orientación en práctica de salud basada en evidencia | `checkmark.shield.fill` | Guidance on framing answerable questions, searching for and critically appraising evidence, synthesizing findings, and applying them within a declared health context; it does not replace professional judgment or provide patient-specific diagnosis or treatment. | Orientación para formular preguntas respondibles, buscar y evaluar críticamente la evidencia, sintetizar hallazgos y aplicarlos dentro de un contexto de salud declarado; no reemplaza el criterio profesional ni brinda diagnóstico o tratamiento específico para un paciente. |
+| `sot_human_advice_healthcare_quality_patient_safety` | Healthcare quality and patient safety consulting | Consultoría en calidad asistencial y seguridad del paciente | `exclamationmark.shield.fill` | Review of clinical-quality indicators, care processes, incidents, risks, safety culture, and improvement plans for healthcare organizations or teams; it does not certify regulatory compliance or guarantee that adverse events will be prevented. | Revisión de indicadores de calidad clínica, procesos asistenciales, incidentes, riesgos, cultura de seguridad y planes de mejora para organizaciones o equipos de salud; no certifica el cumplimiento normativo ni garantiza la prevención de eventos adversos. |
+| `sot_human_advice_health_practice_operations` | Health practice operations consulting | Consultoría en gestión operativa de prácticas de salud | `gearshape.2.fill` | Guidance on day-to-day operations of health practices, including intake, scheduling, capacity, patient flow, roles, documentation, referrals, and service coordination; it excludes clinical decision-making, legal attestations, and guaranteed efficiency or revenue outcomes. | Orientación sobre la operación cotidiana de prácticas de salud, incluidos admisión, turnos, capacidad, flujo de pacientes, funciones, documentación, derivaciones y coordinación de servicios; no incluye decisiones clínicas ni certificaciones legales, y no garantiza resultados de eficiencia o ingresos. |
+| `sot_human_advice_digital_health_strategy_transformation` | Digital health strategy and transformation consulting | Consultoría en estrategia y transformación digital en salud | `bolt.heart.fill` | Advisory for healthcare organizations and teams to define a digital-health vision, assess maturity, prioritize initiatives, establish governance, and build a phased transformation roadmap; it does not implement individual systems, provide clinical care, or guarantee adoption, savings, or health outcomes. | Asesoramiento para organizaciones y equipos de salud orientado a definir una visión de salud digital, evaluar su madurez, priorizar iniciativas, establecer un modelo de gobierno y construir una hoja de ruta de transformación por etapas; no implementa sistemas específicos, no brinda atención clínica ni garantiza adopción, ahorros o resultados de salud. |
+| `sot_human_advice_health_information_systems_implementation` | Health information systems implementation guidance | Asesoramiento para la implementación de sistemas de información en salud | `server.rack` | Guidance on requirements, configuration governance, migration readiness, testing, training, cutover, and go-live planning for electronic health records, laboratory, imaging, practice-management, and related health systems; it does not license or operate software, perform clinical work, or guarantee implementation schedules or outcomes. | Orientación sobre requisitos, gobierno de la configuración, preparación de migraciones, pruebas, capacitación, transición y salida a producción de historias clínicas electrónicas, sistemas de laboratorio, imágenes, gestión de prácticas y otros sistemas de salud; no licencia ni opera software, no realiza tareas clínicas ni garantiza plazos o resultados de implementación. |
+| `sot_human_advice_electronic_health_record_workflow_optimization` | Electronic health record and clinical workflow optimization | Optimización de historias clínicas electrónicas y flujos asistenciales | `doc.text.fill` | Assessment and improvement of an existing electronic health record's templates, orders, alerts, documentation, roles, handoffs, and clinician-facing workflows to reduce avoidable burden and friction; it does not make clinical decisions, directly administer production systems, or guarantee productivity, safety, or financial results. | Evaluación y mejora de plantillas, órdenes, alertas, documentación, funciones, traspasos y flujos asistenciales de una historia clínica electrónica ya implementada para reducir cargas y fricciones evitables; no toma decisiones clínicas, no administra directamente sistemas productivos ni garantiza resultados de productividad, seguridad o rentabilidad. |
+| `sot_human_advice_health_data_interoperability_integration` | Health data interoperability and systems integration consulting | Consultoría en interoperabilidad de datos e integración de sistemas de salud | `network` | Advisory design of architectures, data mappings, interface specifications, APIs, exchange workflows, and validation plans for clinical and administrative health systems using applicable standards; it does not build or operate custom integrations, convert dedicated genomic file formats, certify compliance, or guarantee successful exchange with every external system. | Diseño consultivo de arquitecturas, mapeos de datos, especificaciones de interfaces, API, flujos de intercambio y planes de validación para sistemas clínicos y administrativos de salud mediante los estándares aplicables; no desarrolla ni opera integraciones a medida, no convierte formatos genómicos especializados, no certifica cumplimiento ni garantiza el intercambio exitoso con todos los sistemas externos. |
+| `sot_human_advice_telehealth_remote_care_implementation` | Telehealth and remote care implementation | Implementación de telesalud y atención remota | `video.fill` | Planning of telehealth and remote-care services, including platform requirements, identity and consent workflows, scheduling, remote monitoring, escalation paths, accessibility, and staff and patient onboarding; it does not deliver medical care, supply regulated devices, certify jurisdictional compliance, or guarantee access, adoption, or clinical outcomes. | Planificación de servicios de telesalud y atención remota, incluidos requisitos de plataforma, flujos de identidad y consentimiento, turnos, monitoreo remoto, vías de escalamiento, accesibilidad e incorporación de profesionales y pacientes; no brinda atención médica, no provee dispositivos regulados, no certifica el cumplimiento jurisdiccional ni garantiza acceso, adopción o resultados clínicos. |
+| `sot_human_advice_health_data_governance_analytics` | Health data governance and analytics consulting | Consultoría en gobierno y analítica de datos de salud | `chart.bar.xaxis` | Definition of stewardship, data dictionaries, quality rules, lineage, access, retention, indicators, and analytics or dashboard roadmaps for operational, administrative, and population-level health data; it does not design research studies, interpret genomic variants, replace privacy or cybersecurity review, operate data platforms, or guarantee actionable findings. | Definición de responsables, diccionarios de datos, reglas de calidad, linaje, acceso, retención, indicadores y hojas de ruta de analítica o tableros para datos de salud operativos, administrativos y poblacionales; no diseña estudios de investigación, no interpreta variantes genómicas, no reemplaza revisiones de privacidad o ciberseguridad, no opera plataformas de datos ni garantiza hallazgos accionables. |
+| `sot_human_advice_healthcare_ai_evaluation_adoption` | Healthcare AI evaluation and responsible adoption | Evaluación y adopción responsable de inteligencia artificial en salud | `brain.filled.head.profile` | Guidance on selecting healthcare AI use cases and assessing data fit, workflow fit, performance evidence, bias, safety, explainability, human oversight, monitoring, and rollout governance; it does not train or deploy models, diagnose or treat patients, grant regulatory approval, or guarantee accuracy, fairness, safety, or business value. | Orientación para seleccionar casos de uso de inteligencia artificial en salud y evaluar la adecuación de los datos y flujos, la evidencia de desempeño, los sesgos, la seguridad, la explicabilidad, la supervisión humana, el monitoreo y el gobierno de su adopción; no entrena ni despliega modelos, no diagnostica ni trata pacientes, no concede aprobación regulatoria ni garantiza precisión, equidad, seguridad o valor comercial. |
+| `sot_human_advice_digital_health_product_medical_technology` | Digital health product and medical technology advisory | Asesoramiento en productos digitales y tecnología médica | `cpu.fill` | Product discovery and planning for health applications, software as a medical device, connected devices, and other medical technologies, covering user needs, requirements, clinical context, risk inputs, evidence plans, and lifecycle considerations; it does not engineer or manufacture the product, determine final regulatory classification, secure approval, or guarantee market success. | Descubrimiento y planificación de productos para aplicaciones de salud, software como dispositivo médico, dispositivos conectados y otras tecnologías médicas, abarcando necesidades de usuarios, requisitos, contexto clínico, insumos de riesgo, planes de evidencia y consideraciones del ciclo de vida; no desarrolla ni fabrica el producto, no determina su clasificación regulatoria definitiva, no obtiene aprobaciones ni garantiza éxito comercial. |
+| `sot_human_advice_health_it_infrastructure_cloud_architecture` | Health IT infrastructure and cloud architecture consulting | Consultoría en infraestructura de TI y arquitectura en la nube para salud | `cloud.fill` | Architecture guidance for hosting, networks, identity, availability, backups, disaster recovery, observability, capacity, and cloud services that support healthcare workloads; it does not administer production environments, perform cybersecurity audits, certify regulatory compliance, or guarantee uptime, recovery, performance, or cost savings. | Orientación arquitectónica sobre alojamiento, redes, identidad, disponibilidad, copias de seguridad, recuperación ante desastres, observabilidad, capacidad y servicios en la nube que soportan cargas de trabajo de salud; no administra entornos productivos, no realiza auditorías de ciberseguridad, no certifica cumplimiento normativo ni garantiza disponibilidad, recuperación, rendimiento o ahorro de costos. |
+| `sot_human_advice_health_technology_usability_human_factors_accessibility` | Health technology usability, human factors, and accessibility | Usabilidad, factores humanos y accesibilidad en tecnología de salud | `accessibility.fill` | User research, task analysis, usability and accessibility evaluation, and interaction-design recommendations for clinician- and patient-facing health technologies; it does not replace formal regulatory validation, provide individual disability accommodations, make clinical decisions, or guarantee certification, adoption, safety, or error-free use. | Investigación con usuarios, análisis de tareas, evaluación de usabilidad y accesibilidad, y recomendaciones de diseño de interacción para tecnologías de salud destinadas a profesionales y pacientes; no reemplaza la validación regulatoria formal, no brinda adaptaciones individuales por discapacidad, no toma decisiones clínicas ni garantiza certificación, adopción, seguridad o uso sin errores. |
 
 ## Request limits
 
@@ -1779,6 +2044,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 
 - This service structures supplied information; it does not itself establish a diagnosis.
 
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
+
 ## Transaction rule
 
 A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.
@@ -1869,6 +2138,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 ## Scope rules
 
 - Candidate status and supporting reasons must be preserved. Ranking does not establish that these genes are affected.
+
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
 
 ## Transaction rule
 
@@ -1996,6 +2269,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 ## Scope rules
 
 - The record retains what was consented to, when and by whom. Subsequent use must fit that scope.
+
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
 
 ## Transaction rule
 
@@ -2282,6 +2559,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 
 - Create pgo_test_order content from the patient, test name and sample type actually supplied, plus only the optional context the requester provided.
 - Consent checks and provider suitability checks remain service responsibilities and are not fabricated inside the order content.
+
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
 
 ## Transaction rule
 
@@ -2621,6 +2902,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - Transportation after collection belongs to pgs_sample_transport or another explicit transport service, never to pgs_collection_request.
 - Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.
 
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
+
 ## Transaction rule
 
 A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.
@@ -2706,6 +2991,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - Preserve object_id; return a new revision with destination, custody events and receipt status.
 - If transport or receipt fails, record the real state. Do not fabricate a delivered specimen or create another pickup automatically.
 
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
+
 ## Transaction rule
 
 A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.
@@ -2785,7 +3074,7 @@ The completed form freezes only the definitions and answers. Requester identity 
 
 ## Acceptance conditions
 
-- Exactly one specimen occupies the specimen slot; accepted_types are alternatives, not three required inputs.
+- Exactly one specimen occupies the specimen slot; acceptedTypes are alternatives, not three required inputs.
 - The specimen is received at this provider, available for the planned procedure and accepted under the selected extraction profile.
 - For pgo_embryo_sample, data.material_kind must equal embryo_biopsy. A whole_embryo is rejected by this service.
 - The blood, tissue or embryo-biopsy material must match the selected extraction profile.
@@ -2796,6 +3085,70 @@ The completed form freezes only the definitions and answers. Requester identity 
 - The extracted DNA has its own object_id and a lineage reference to the source specimen. Record source consumption or remaining quantity in specimen tracking.
 - Return a new revision of the source physical object recording consumed material and remaining quantity. This fixture consumes the entire provided aliquot. Physical execution must lock the current revision to prevent concurrent reuse.
 - Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.
+
+## More information
+
+This fixture demonstrates the optional closed `moreInformation` map. Only non-null, non-empty sections are rendered in the modal.
+
+```json
+{
+  "frequentQuestions": [
+    {
+      "question": "What kinds of specimens can be used?",
+      "answer": "The provider reviews compatible blood, tissue, or embryo-biopsy specimens against the selected extraction profile."
+    }
+  ],
+  "keyInsights": [
+    {
+      "title": "A quality DNA input starts with the specimen",
+      "description": "Specimen identity, condition, and the requested downstream study determine whether extraction can proceed."
+    }
+  ],
+  "scientificFacts": [
+    {
+      "title": "Extraction separates DNA from other cellular material",
+      "description": "The laboratory uses a validated workflow to isolate DNA while controlling contamination and degradation."
+    }
+  ],
+  "usefulLinks": [
+    {
+      "title": "DNA extraction overview",
+      "url": "https://example.com/services/dna-extraction/overview"
+    }
+  ],
+  "sampleLink": {
+    "title": "Review a sample result",
+    "description": "See a fictional example of the information returned after an accepted extraction workflow.",
+    "buttonTitle": "Open sample",
+    "url": "https://example.com/services/dna-extraction/sample"
+  },
+  "bulletSegments": [
+    {
+      "title": "Provider review",
+      "description": "The laboratory confirms that the submitted specimen and order are suitable for the published workflow.",
+      "imageUrl": "https://example.com/images/services/dna-extraction-review.png"
+    }
+  ],
+  "technicalInformationFacts": [
+    {
+      "title": "Technical deliverables",
+      "description": "The completed service registers the extracted DNA and the updated source-specimen state.",
+      "subitems": [
+        "Extracted DNA identity and measured properties",
+        "Source-specimen revision reflecting material use"
+      ]
+    }
+  ],
+  "biologicalSampleRequirements": [
+    {
+      "title": "Accepted material",
+      "description": "Submit one specimen compatible with the extraction profile selected in the request form.",
+      "instructions": "Keep the specimen identified and follow the provider's collection, packaging, and delivery directions."
+    }
+  ],
+  "websiteUrl": "https://example.com/services/dna-extraction"
+}
+```
 
 ## Transaction rule
 
@@ -2880,6 +3233,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - Return a new revision of the source physical object recording consumed material and remaining quantity. This fixture consumes the entire provided aliquot. Physical execution must lock the current revision to prevent concurrent reuse.
 - Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.
 
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
+
 ## Transaction rule
 
 A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.
@@ -2959,6 +3316,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - If the input cannot support the requested scope, return awaiting_input or failed with the affected scope; do not report a complete negative result.
 - Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.
 
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
+
 ## Transaction rule
 
 A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.
@@ -3037,6 +3398,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - Fulfillment is measured against the order; file extension alone never proves sufficiency.
 - If the input cannot support the requested scope, return awaiting_input or failed with the affected scope; do not report a complete negative result.
 - Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.
+
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
 
 ## Transaction rule
 
@@ -3118,6 +3483,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - The annotated and unannotated types share .vcf but have different accepted semantic profiles.
 - Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.
 
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
+
 ## Transaction rule
 
 A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.
@@ -3197,6 +3566,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - No test_order is a required input to this specific conversion. It can be purchased for an existing compatible annotated VCF.
 - PGI2/AGAPIModel and PGI3/TwoPQAPIModel use the same pgo_interactive_report registration concept, but require their own native payload sources and schemas.
 - Clinical relevance or report sections live in the native PGI payload and provider profile; patient-specific conclusions belong to the appropriately scoped reporting service.
+
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
 
 ## Transaction rule
 
@@ -3310,6 +3683,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - Both successful requested-scope assessment and explicit limitations must appear in the final self-contained report as appropriate.
 - Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.
 
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
+
 ## Transaction rule
 
 A real request selects this active published offer. The transaction pins `serviceId`, integer `serviceVersion`, provider, roles, and object references. The PGO inputs remain independently valid content; the provider may still reject unsuitable inputs under this published service contract.
@@ -3398,6 +3775,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 - A generic image MIME type is insufficient; the acquisition profile and content must match the analysis.
 - This three-stage catalog places digital image analysis in bioinformatics, used here as the broader digital-analysis stage.
 - Report the examined material, findings, support and limitations for the selected scope.
+
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
 
 ## Transaction rule
 
@@ -3514,6 +3895,10 @@ The completed form freezes only the definitions and answers. Requester identity 
 
 - This PDF is a planning-stage summary. Sharing pgo_pdf_report with a final genomic report does not make the two documents semantically interchangeable.
 - Document-purpose and required-content profiles determine which later services can accept it.
+
+## More information
+
+This offer omits `moreInformation`, so its detail screen shows no More information action.
 
 ## Transaction rule
 

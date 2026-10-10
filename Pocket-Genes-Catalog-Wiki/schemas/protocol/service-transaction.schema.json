@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.pocketgenes.example/protocol/service-transaction/1.2.0/schema.json",
   "title": "Pocket Genes root service transaction v1.2.0",
-  "description": "Strict root service_transactions record. Exact promised-output coverage and uploaded-object readiness require semantic backend validation against the frozen service offer.",
+  "description": "Strict root service_transactions record. outputReports is an optional supplemental output-only report link and never participates in the frozen service-offer object contract or transaction completion. Exact promised-object coverage and uploaded object/report readiness require semantic backend validation.",
   "type": "object",
   "properties": {
     "schemaVersion": {
@@ -18,7 +18,7 @@
     },
     "serviceId": {
       "type": "string",
-      "pattern": "^pgs_[a-z0-9_]+$"
+      "pattern": "^pgs_[a-z0-9]+(?:_[a-z0-9]+)*$"
     },
     "serviceVersion": {
       "type": "integer",
@@ -38,10 +38,6 @@
         "failed",
         "cancelled"
       ]
-    },
-    "name": {
-      "type": "string",
-      "minLength": 1
     },
     "providerId": {
       "type": "string",
@@ -77,11 +73,19 @@
       }
     },
     "outputReports": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/output_report_snapshot"
-      },
-      "uniqueItems": true
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/output_report_snapshot"
+          },
+          "uniqueItems": true
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional supplemental linked reports. Omitted, null, or empty means no report section. These links never satisfy outputSlots and never affect status or completeness."
     },
     "missingRequiredInputRoles": {
       "type": "array",
@@ -100,13 +104,17 @@
       "minLength": 1
     },
     "issues": {
-      "type": "array"
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "offerSnapshot": {
-      "type": "object"
+      "$ref": "#/$defs/offer_snapshot"
     },
     "providerSnapshot": {
-      "type": "object"
+      "$ref": "#/$defs/provider_snapshot"
     },
     "contractSource": {
       "type": "string",
@@ -129,7 +137,6 @@
     }
   },
   "required": [
-    "name",
     "requestId",
     "offerId",
     "serviceId",
@@ -143,7 +150,6 @@
     "idempotencyKey",
     "inputs",
     "outputObjects",
-    "outputReports",
     "issues",
     "missingRequiredInputRoles",
     "offerSnapshot",
@@ -173,16 +179,57 @@
         "properties": {
           "status": {
             "const": "delivered"
+          },
+          "offerSnapshot": {
+            "properties": {
+              "outputSlots": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "outputSlots"
+            ]
           }
         },
         "required": [
-          "status"
+          "status",
+          "offerSnapshot"
         ]
       },
       "then": {
         "properties": {
           "outputObjects": {
             "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "delivered"
+          },
+          "offerSnapshot": {
+            "properties": {
+              "outputSlots": {
+                "maxItems": 0
+              }
+            },
+            "required": [
+              "outputSlots"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "offerSnapshot"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outputObjects": {
+            "maxItems": 0
           }
         }
       }
@@ -235,7 +282,25 @@
           "minLength": 1
         },
         "objectSnapshot": {
-          "$ref": "#/$defs/camel_case_map"
+          "$ref": "#/$defs/transaction_object_snapshot"
+        },
+        "fileName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fileType": {
+          "type": "string",
+          "pattern": "^pgo_[a-z0-9_]+$"
+        },
+        "selectedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reportCode": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 6,
+          "pattern": "^[A-Z0-9]{6}$"
         }
       },
       "required": [
@@ -273,50 +338,876 @@
         }
       ]
     },
-    "camel_case_map": {
+    "provider_snapshot": {
       "type": "object",
-      "propertyNames": {
-        "pattern": "^[a-z][A-Za-z0-9]*$"
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "organization",
+            "individual"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "imageUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "imageUploadDataUrl": {
+          "type": "string",
+          "pattern": "^data:image/[^;]+;base64,"
+        }
       },
-      "additionalProperties": {
-        "$ref": "#/$defs/camel_case_value"
-      }
+      "required": [
+        "id",
+        "kind",
+        "name"
+      ],
+      "additionalProperties": false
     },
-    "camel_case_value": {
-      "anyOf": [
-        {
-          "type": "null"
+    "offer_snapshot": {
+      "type": "object",
+      "properties": {
+        "offerId": {
+          "type": "string",
+          "minLength": 1
         },
-        {
-          "type": "string"
+        "schemaVersion": {
+          "const": 1
         },
-        {
-          "type": "number"
+        "name": {
+          "type": "string",
+          "minLength": 1
         },
-        {
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "active",
+            "inactive",
+            "archived"
+          ]
+        },
+        "isHiddenFromSearch": {
           "type": "boolean"
         },
-        {
+        "isHighlightedOffer": {
+          "type": "boolean"
+        },
+        "isProfessionalOffer": {
+          "type": "boolean"
+        },
+        "providerId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "providerName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "providerKind": {
+          "type": "string",
+          "enum": [
+            "organization",
+            "individual"
+          ]
+        },
+        "serviceId": {
+          "type": "string",
+          "pattern": "^pgs_[a-z0-9]+(?:_[a-z0-9]+)*$"
+        },
+        "serviceVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "subtitle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "promotionalBannerImageUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "promotionalBannerImageUploadDataUrl": {
+          "type": "string",
+          "pattern": "^data:image/[^;]+;base64,"
+        },
+        "serviceCategory": {
+          "type": "string",
+          "enum": [
+            "sot_genetic_counseling",
+            "sot_clinical_intake_phenotyping",
+            "sot_informed_consent",
+            "sot_genetic_test_selection",
+            "sot_genetic_test_ordering",
+            "sot_sample_collection",
+            "sot_sample_logistics",
+            "sot_sample_accession_quality",
+            "sot_dna_extraction",
+            "sot_dna_sequencing",
+            "sot_genotyping",
+            "sot_cytogenetic_analysis",
+            "sot_prenatal_genetic_screening",
+            "sot_reproductive_carrier_screening",
+            "sot_sequence_quality_control",
+            "sot_read_alignment",
+            "sot_variant_calling",
+            "sot_structural_variant_cnv_analysis",
+            "sot_variant_annotation",
+            "sot_gene_variant_prioritization",
+            "sot_genomic_interpretation",
+            "sot_rare_disease_analysis",
+            "sot_hereditary_cancer_analysis",
+            "sot_pharmacogenomic_analysis",
+            "sot_nutrigenomic_metabolic_analysis",
+            "sot_ancestry_analysis",
+            "sot_polygenic_risk_analysis",
+            "sot_genomic_report_generation",
+            "sot_genomic_report_review",
+            "sot_genomic_data_interoperability",
+            "sot_complete_health_genomics_report",
+            "sot_complete_rare_disease_diagnostic_report",
+            "sot_complete_hereditary_cancer_report",
+            "sot_complete_inherited_cardiovascular_report",
+            "sot_complete_neurogenetic_disease_report",
+            "sot_complete_cystic_fibrosis_report",
+            "sot_complete_pharmacogenomic_report",
+            "sot_complete_nutrigenomic_report",
+            "sot_complete_food_response_genetics_report",
+            "sot_complete_sports_performance_genetics_report",
+            "sot_complete_skin_hair_genetics_report",
+            "sot_complete_genetic_ancestry_report",
+            "sot_complete_personal_traits_genetics_report",
+            "sot_complete_reproductive_carrier_report",
+            "sot_complete_female_fertility_genetics_report",
+            "sot_complete_male_infertility_genetics_report",
+            "sot_complete_sperm_dna_integrity_report",
+            "sot_complete_reproductive_couple_karyotype_report",
+            "sot_complete_preimplantation_aneuploidy_report",
+            "sot_complete_preimplantation_monogenic_report",
+            "sot_complete_preimplantation_structural_report",
+            "sot_complete_noninvasive_prenatal_report",
+            "sot_complete_prenatal_carrier_fetal_risk_report",
+            "sot_complete_newborn_genomic_screening_report",
+            "sot_complete_animal_parentage_identity_report",
+            "sot_complete_canine_health_diversity_report",
+            "sot_complete_feline_health_traits_report",
+            "sot_complete_equine_health_performance_report",
+            "sot_complete_livestock_breeding_traits_report",
+            "sot_complete_meat_species_authentication_report",
+            "sot_human_advice_medical_consultation",
+            "sot_human_advice_medical_second_opinion",
+            "sot_human_advice_medication_pharmacy_counseling",
+            "sot_human_advice_nutrition_dietary_counseling",
+            "sot_human_advice_rehabilitation_physical_therapy_guidance",
+            "sot_human_advice_reproductive_fertility_counseling",
+            "sot_human_advice_sexual_health_counseling",
+            "sot_human_advice_pregnancy_postpartum_support",
+            "sot_human_advice_psychological_counseling",
+            "sot_human_advice_couples_family_counseling",
+            "sot_human_advice_grief_bereavement_support",
+            "sot_human_advice_addiction_recovery_counseling",
+            "sot_human_advice_parenting_guidance",
+            "sot_human_advice_caregiver_eldercare_support",
+            "sot_human_advice_disability_accessibility_guidance",
+            "sot_human_advice_social_care_navigation",
+            "sot_human_advice_personal_civil_legal",
+            "sot_human_advice_family_estate_legal",
+            "sot_human_advice_employment_labor_legal",
+            "sot_human_advice_business_contract_legal",
+            "sot_human_advice_immigration_residency_legal",
+            "sot_human_advice_academic_tutoring",
+            "sot_human_advice_special_education_learning_support",
+            "sot_human_advice_language_learning",
+            "sot_human_advice_academic_admissions_guidance",
+            "sot_human_advice_career_vocational_guidance",
+            "sot_human_advice_digital_technology_support",
+            "sot_human_advice_cybersecurity_privacy_consulting",
+            "sot_human_advice_business_entrepreneurship_consulting",
+            "sot_human_advice_financial_accounting_tax_consulting",
+            "sot_human_advice_health_professional_career_guidance",
+            "sot_human_advice_health_professional_development",
+            "sot_human_advice_clinical_mentoring_supervision",
+            "sot_human_advice_healthcare_leadership_management",
+            "sot_human_advice_health_education_training_design",
+            "sot_human_advice_health_research_methodology",
+            "sot_human_advice_health_scientific_writing_publication",
+            "sot_human_advice_evidence_based_health_practice",
+            "sot_human_advice_healthcare_quality_patient_safety",
+            "sot_human_advice_health_practice_operations",
+            "sot_human_advice_digital_health_strategy_transformation",
+            "sot_human_advice_health_information_systems_implementation",
+            "sot_human_advice_electronic_health_record_workflow_optimization",
+            "sot_human_advice_health_data_interoperability_integration",
+            "sot_human_advice_telehealth_remote_care_implementation",
+            "sot_human_advice_health_data_governance_analytics",
+            "sot_human_advice_healthcare_ai_evaluation_adoption",
+            "sot_human_advice_digital_health_product_medical_technology",
+            "sot_human_advice_health_it_infrastructure_cloud_architecture",
+            "sot_human_advice_health_technology_usability_human_factors_accessibility"
+          ]
+        },
+        "deliveryMode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priceSummary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "estimatedResponseTime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "regions": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/camel_case_value"
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "test_planning",
+              "wet_lab",
+              "bioinformatics",
+              "human_advice"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "formShape": {
+          "$ref": "#/$defs/offer_form_shape"
+        },
+        "inputSlots": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/$defs/offer_input_slot"
+          }
+        },
+        "outputSlots": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/$defs/offer_output_slot"
+          }
+        },
+        "acceptedConditions": {
+          "$ref": "#/$defs/nonempty_string_array"
+        },
+        "scopeRules": {
+          "$ref": "#/$defs/nonempty_string_array"
+        },
+        "compatibilityRules": {
+          "$ref": "#/$defs/nonempty_string_array"
+        },
+        "commercialTerms": {
+          "$ref": "#/$defs/offer_commercial_terms"
+        },
+        "availability": {
+          "type": "string",
+          "minLength": 1
+        },
+        "shortContract": {
+          "type": "string",
+          "minLength": 1
+        },
+        "providerWork": {
+          "type": "string",
+          "minLength": 1
+        },
+        "providerApiContractId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "moreInformation": {
+          "description": "Optional closed more-information map. Omission, null, an empty map, or only null/empty child sections produces no More information action.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/service_more_information"
+            }
+          ]
+        }
+      },
+      "required": [
+        "offerId",
+        "schemaVersion",
+        "name",
+        "status",
+        "isHiddenFromSearch",
+        "isHighlightedOffer",
+        "isProfessionalOffer",
+        "providerId",
+        "providerName",
+        "providerKind",
+        "serviceId",
+        "serviceVersion",
+        "description",
+        "serviceCategory",
+        "stages",
+        "availability",
+        "shortContract",
+        "providerWork",
+        "inputSlots",
+        "outputSlots"
+      ],
+      "additionalProperties": false,
+      "not": {
+        "required": [
+          "promotionalBannerImageUrl",
+          "promotionalBannerImageUploadDataUrl"
+        ]
+      },
+      "allOf": [
+        {
+          "x-pocket-genes-rule": "complete-service-offer-stages",
+          "if": {
+            "properties": {
+              "serviceCategory": {
+                "enum": [
+                  "sot_complete_health_genomics_report",
+                  "sot_complete_rare_disease_diagnostic_report",
+                  "sot_complete_hereditary_cancer_report",
+                  "sot_complete_inherited_cardiovascular_report",
+                  "sot_complete_neurogenetic_disease_report",
+                  "sot_complete_cystic_fibrosis_report",
+                  "sot_complete_pharmacogenomic_report",
+                  "sot_complete_nutrigenomic_report",
+                  "sot_complete_food_response_genetics_report",
+                  "sot_complete_sports_performance_genetics_report",
+                  "sot_complete_skin_hair_genetics_report",
+                  "sot_complete_genetic_ancestry_report",
+                  "sot_complete_personal_traits_genetics_report",
+                  "sot_complete_reproductive_carrier_report",
+                  "sot_complete_female_fertility_genetics_report",
+                  "sot_complete_male_infertility_genetics_report",
+                  "sot_complete_sperm_dna_integrity_report",
+                  "sot_complete_reproductive_couple_karyotype_report",
+                  "sot_complete_preimplantation_aneuploidy_report",
+                  "sot_complete_preimplantation_monogenic_report",
+                  "sot_complete_preimplantation_structural_report",
+                  "sot_complete_noninvasive_prenatal_report",
+                  "sot_complete_prenatal_carrier_fetal_risk_report",
+                  "sot_complete_newborn_genomic_screening_report",
+                  "sot_complete_animal_parentage_identity_report",
+                  "sot_complete_canine_health_diversity_report",
+                  "sot_complete_feline_health_traits_report",
+                  "sot_complete_equine_health_performance_report",
+                  "sot_complete_livestock_breeding_traits_report",
+                  "sot_complete_meat_species_authentication_report"
+                ]
+              }
+            },
+            "required": [
+              "serviceCategory"
+            ]
+          },
+          "then": {
+            "properties": {
+              "stages": {
+                "minItems": 3,
+                "maxItems": 3,
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "test_planning"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "wet_lab"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "bioinformatics"
+                    }
+                  }
+                ],
+                "description": "Complete sample-to-report offers must declare exactly test_planning, wet_lab, and bioinformatics."
+              }
+            }
           }
         },
         {
-          "$ref": "#/$defs/camel_case_map"
+          "x-pocket-genes-rule": "human-advice-service-offer-stage",
+          "if": {
+            "properties": {
+              "serviceCategory": {
+                "enum": [
+                  "sot_human_advice_medical_consultation",
+                  "sot_human_advice_medical_second_opinion",
+                  "sot_human_advice_medication_pharmacy_counseling",
+                  "sot_human_advice_nutrition_dietary_counseling",
+                  "sot_human_advice_rehabilitation_physical_therapy_guidance",
+                  "sot_human_advice_reproductive_fertility_counseling",
+                  "sot_human_advice_sexual_health_counseling",
+                  "sot_human_advice_pregnancy_postpartum_support",
+                  "sot_human_advice_psychological_counseling",
+                  "sot_human_advice_couples_family_counseling",
+                  "sot_human_advice_grief_bereavement_support",
+                  "sot_human_advice_addiction_recovery_counseling",
+                  "sot_human_advice_parenting_guidance",
+                  "sot_human_advice_caregiver_eldercare_support",
+                  "sot_human_advice_disability_accessibility_guidance",
+                  "sot_human_advice_social_care_navigation",
+                  "sot_human_advice_personal_civil_legal",
+                  "sot_human_advice_family_estate_legal",
+                  "sot_human_advice_employment_labor_legal",
+                  "sot_human_advice_business_contract_legal",
+                  "sot_human_advice_immigration_residency_legal",
+                  "sot_human_advice_academic_tutoring",
+                  "sot_human_advice_special_education_learning_support",
+                  "sot_human_advice_language_learning",
+                  "sot_human_advice_academic_admissions_guidance",
+                  "sot_human_advice_career_vocational_guidance",
+                  "sot_human_advice_digital_technology_support",
+                  "sot_human_advice_cybersecurity_privacy_consulting",
+                  "sot_human_advice_business_entrepreneurship_consulting",
+                  "sot_human_advice_financial_accounting_tax_consulting",
+                  "sot_human_advice_health_professional_career_guidance",
+                  "sot_human_advice_health_professional_development",
+                  "sot_human_advice_clinical_mentoring_supervision",
+                  "sot_human_advice_healthcare_leadership_management",
+                  "sot_human_advice_health_education_training_design",
+                  "sot_human_advice_health_research_methodology",
+                  "sot_human_advice_health_scientific_writing_publication",
+                  "sot_human_advice_evidence_based_health_practice",
+                  "sot_human_advice_healthcare_quality_patient_safety",
+                  "sot_human_advice_health_practice_operations",
+                  "sot_human_advice_digital_health_strategy_transformation",
+                  "sot_human_advice_health_information_systems_implementation",
+                  "sot_human_advice_electronic_health_record_workflow_optimization",
+                  "sot_human_advice_health_data_interoperability_integration",
+                  "sot_human_advice_telehealth_remote_care_implementation",
+                  "sot_human_advice_health_data_governance_analytics",
+                  "sot_human_advice_healthcare_ai_evaluation_adoption",
+                  "sot_human_advice_digital_health_product_medical_technology",
+                  "sot_human_advice_health_it_infrastructure_cloud_architecture",
+                  "sot_human_advice_health_technology_usability_human_factors_accessibility"
+                ]
+              }
+            },
+            "required": [
+              "serviceCategory"
+            ]
+          },
+          "then": {
+            "properties": {
+              "stages": {
+                "minItems": 1,
+                "maxItems": 1,
+                "contains": {
+                  "const": "human_advice"
+                },
+                "description": "Human advice and support offers must declare exactly the human_advice stage."
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "stages": {
+                "not": {
+                  "contains": {
+                    "const": "human_advice"
+                  }
+                },
+                "description": "The human_advice stage is reserved for sot_human_advice_* categories."
+              }
+            }
+          }
         }
       ]
     },
-    "timestamp": {
-      "anyOf": [
-        {
+    "offer_form_shape": {
+      "type": "object",
+      "properties": {
+        "id": {
           "type": "string",
-          "format": "date-time"
+          "pattern": "^pgfs_[A-Za-z0-9_]+$"
         },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "allowUnknownFields": {
+          "const": false
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/offer_form_field"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "allowUnknownFields",
+        "fields"
+      ],
+      "additionalProperties": false
+    },
+    "offer_form_field": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "\\S"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "long_text",
+            "email",
+            "phone",
+            "url",
+            "address",
+            "postal_code",
+            "country_code",
+            "identifier",
+            "number",
+            "integer",
+            "positive_integer",
+            "percentage",
+            "boolean",
+            "date",
+            "datetime",
+            "time",
+            "enum",
+            "multi_enum",
+            "string_list",
+            "integer_list",
+            "number_list"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            },
+            "required": [
+              "value",
+              "label"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true
+        },
+        "helpInfoText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "\\S"
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "type",
+        "required"
+      ],
+      "additionalProperties": false,
+      "allOf": [
         {
-          "type": "object"
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "enum",
+                  "multi_enum"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "options"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "options"
+              ]
+            }
+          }
         }
       ]
+    },
+    "offer_input_slot": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objectType": {
+          "type": "string",
+          "pattern": "^pgo_[a-z0-9_]+$"
+        },
+        "acceptedTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^pgo_[a-z0-9_]+$"
+          },
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true
+        },
+        "required": {
+          "const": true
+        },
+        "cardinality": {
+          "type": "object",
+          "properties": {
+            "min": {
+              "const": 1
+            },
+            "max": {
+              "const": 1
+            }
+          },
+          "required": [
+            "min",
+            "max"
+          ],
+          "additionalProperties": false
+        },
+        "acceptedProfiles": {
+          "$ref": "#/$defs/nonempty_string_array"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "title",
+        "objectType",
+        "acceptedTypes",
+        "required",
+        "cardinality"
+      ],
+      "additionalProperties": false
+    },
+    "offer_output_slot": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objectType": {
+          "type": "string",
+          "pattern": "^(pgo_[a-z0-9_]+|same_as:[a-z][a-z0-9_]*)$"
+        },
+        "mutationMode": {
+          "type": "string",
+          "enum": [
+            "new_object",
+            "new_revision"
+          ]
+        },
+        "sameIdentityAsInput": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "createsNewObject": {
+          "type": "boolean"
+        },
+        "updatesSourceRevision": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "title",
+        "objectType",
+        "mutationMode",
+        "createsNewObject",
+        "updatesSourceRevision"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "mutationMode": {
+              "const": "new_object"
+            },
+            "createsNewObject": {
+              "const": true
+            },
+            "updatesSourceRevision": {
+              "const": false
+            }
+          },
+          "not": {
+            "required": [
+              "sameIdentityAsInput"
+            ]
+          }
+        },
+        {
+          "properties": {
+            "mutationMode": {
+              "const": "new_revision"
+            },
+            "createsNewObject": {
+              "const": false
+            },
+            "updatesSourceRevision": {
+              "const": true
+            }
+          },
+          "required": [
+            "sameIdentityAsInput"
+          ]
+        }
+      ]
+    },
+    "offer_commercial_terms": {
+      "type": "object",
+      "properties": {
+        "pricingModel": {
+          "type": "string",
+          "enum": [
+            "not_specified",
+            "free",
+            "fixed",
+            "calculated_after_submission"
+          ]
+        },
+        "priceSummary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priceAmount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "priceCurrency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "priceBasis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "turnaround": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*(w|d|h|m)$"
+        },
+        "turnaroundStartsAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "failurePolicy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "taxAndPaymentPolicy": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "minProperties": 1,
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "pricingModel": {
+                "const": "fixed"
+              }
+            },
+            "required": [
+              "pricingModel"
+            ]
+          },
+          "then": {
+            "required": [
+              "priceAmount",
+              "priceCurrency"
+            ]
+          }
+        }
+      ]
+    },
+    "nonempty_string_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 JSON representation of a Firestore timestamp scalar; native SDK writers persist the corresponding Timestamp value."
     },
     "output_object_snapshot": {
       "type": "object",
@@ -364,15 +1255,549 @@
     },
     "output_report_snapshot": {
       "type": "object",
+      "description": "One supplemental output-only report link. The code resolves through report_codes and uploaded_reports; no report metadata is duplicated here.",
       "properties": {
         "reportCode": {
           "type": "string",
+          "minLength": 6,
+          "maxLength": 6,
           "pattern": "^[A-Z0-9]{6}$"
         }
       },
       "required": [
         "reportCode"
       ],
+      "additionalProperties": false
+    },
+    "snapshot_json_value": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "snapshot_form_answer": {
+      "type": "object",
+      "description": "One frozen answer in a transaction form snapshot.",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "value": {
+          "$ref": "#/$defs/snapshot_json_value"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "snapshot_form_data": {
+      "type": "object",
+      "description": "Frozen form content at transaction admission.",
+      "properties": {
+        "formShape": {
+          "type": "object",
+          "description": "Frozen field definitions for the submitted form.",
+          "properties": {
+            "fields": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/offer_form_field"
+              }
+            }
+          },
+          "required": [
+            "fields"
+          ],
+          "additionalProperties": false
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/snapshot_form_answer"
+          }
+        }
+      },
+      "required": [
+        "formShape",
+        "fields"
+      ],
+      "additionalProperties": false
+    },
+    "transaction_object_snapshot": {
+      "type": "object",
+      "description": "Closed immutable object snapshot stored on a transaction input.",
+      "properties": {
+        "objectId": {
+          "type": "string",
+          "pattern": "^obj_[a-z0-9_]+$"
+        },
+        "objectType": {
+          "type": "string",
+          "pattern": "^pgo_[a-z0-9_]+$"
+        },
+        "schemaVersion": {
+          "type": "string",
+          "const": "1.0.0"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "createdByEmail": {
+          "type": "string",
+          "format": "email"
+        },
+        "data": {
+          "$ref": "#/$defs/snapshot_form_data"
+        }
+      },
+      "required": [
+        "objectId",
+        "objectType",
+        "schemaVersion",
+        "revision",
+        "createdAt"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "objectType": {
+                "const": "pgo_form"
+              }
+            },
+            "required": [
+              "objectType"
+            ]
+          },
+          "then": {
+            "required": [
+              "data"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "data"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "service_more_information_frequent_question": {
+      "type": "object",
+      "description": "One frequently asked question and its answer.",
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing question."
+        },
+        "answer": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing answer to the question."
+        }
+      },
+      "required": [
+        "question",
+        "answer"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_key_insight": {
+      "type": "object",
+      "description": "One key service insight.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Short insight heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing explanation of the insight."
+        }
+      },
+      "required": [
+        "title",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_scientific_fact": {
+      "type": "object",
+      "description": "One scientific fact relevant to the service.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Short scientific-fact heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing explanation of the scientific fact."
+        }
+      },
+      "required": [
+        "title",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_useful_link": {
+      "type": "object",
+      "description": "One titled external resource.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Human-readable link title."
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "format": "uri",
+          "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|\\[(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,1}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4})?::)\\])(?::[0-9]{1,5})?(?:[/?#][^\\s]*)?$",
+          "description": "Absolute HTTPS destination for the useful link. Lowercase https only; no userinfo; DNS/IPv4-label or bracketed-IPv6 host; optional numeric one-to-five-digit port; no whitespace."
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_sample_link": {
+      "type": "object",
+      "description": "One featured sample resource and its action.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Sample-resource heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing explanation of the sample resource."
+        },
+        "buttonTitle": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Action label used to open the sample resource."
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "format": "uri",
+          "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|\\[(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,1}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4})?::)\\])(?::[0-9]{1,5})?(?:[/?#][^\\s]*)?$",
+          "description": "Absolute HTTPS destination for the sample resource. Lowercase https only; no userinfo; DNS/IPv4-label or bracketed-IPv6 host; optional numeric one-to-five-digit port; no whitespace."
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "buttonTitle",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_bullet_segment": {
+      "type": "object",
+      "description": "One illustrated bullet segment.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Bullet-segment heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing explanation for the segment."
+        },
+        "imageUrl": {
+          "type": "string",
+          "minLength": 1,
+          "format": "uri",
+          "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|\\[(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,1}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4})?::)\\])(?::[0-9]{1,5})?(?:[/?#][^\\s]*)?$",
+          "description": "Absolute HTTPS URL for the segment image. Lowercase https only; no userinfo; DNS/IPv4-label or bracketed-IPv6 host; optional numeric one-to-five-digit port; no whitespace."
+        },
+        "imageUploadDataUrl": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^data:image/[A-Za-z0-9.+-]+;base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)$",
+          "description": "Inline image data URL with an image media type and a nonempty base64 payload."
+        }
+      },
+      "required": [
+        "title",
+        "description"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "imageUrl"
+          ]
+        },
+        {
+          "required": [
+            "imageUploadDataUrl"
+          ]
+        }
+      ]
+    },
+    "service_more_information_technical_fact": {
+      "type": "object",
+      "description": "One technical-information fact with supporting points.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Technical-information heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing technical explanation."
+        },
+        "subitems": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "One technical-information subitem."
+          },
+          "description": "Ordered supporting technical points; an empty array is valid."
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "subitems"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_biological_sample_requirement": {
+      "type": "object",
+      "description": "One biological-sample requirement.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Biological-sample requirement heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing explanation of the requirement."
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Instructions for satisfying the biological-sample requirement."
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "instructions"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information": {
+      "type": "object",
+      "description": "Optional presentation-only details for a published service offer. Every child key is optional and nullable; unknown keys are invalid.",
+      "properties": {
+        "frequentQuestions": {
+          "description": "Optional frequently asked questions; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_frequent_question"
+              }
+            }
+          ]
+        },
+        "keyInsights": {
+          "description": "Optional key insights; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_key_insight"
+              }
+            }
+          ]
+        },
+        "scientificFacts": {
+          "description": "Optional scientific facts; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_scientific_fact"
+              }
+            }
+          ]
+        },
+        "usefulLinks": {
+          "description": "Optional useful links; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_useful_link"
+              }
+            }
+          ]
+        },
+        "sampleLink": {
+          "description": "Optional featured sample resource; null renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/service_more_information_sample_link"
+            }
+          ]
+        },
+        "bulletSegments": {
+          "description": "Optional illustrated bullet segments; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_bullet_segment"
+              }
+            }
+          ]
+        },
+        "technicalInformationFacts": {
+          "description": "Optional technical facts; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_technical_fact"
+              }
+            }
+          ]
+        },
+        "biologicalSampleRequirements": {
+          "description": "Optional biological-sample requirements; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_biological_sample_requirement"
+              }
+            }
+          ]
+        },
+        "websiteUrl": {
+          "description": "Optional service website; null renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "format": "uri",
+              "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|\\[(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,1}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4})?::)\\])(?::[0-9]{1,5})?(?:[/?#][^\\s]*)?$",
+              "description": "Absolute HTTPS service website URL. Lowercase https only; no userinfo; DNS/IPv4-label or bracketed-IPv6 host; optional numeric one-to-five-digit port; no whitespace."
+            }
+          ]
+        }
+      },
+      "required": [],
       "additionalProperties": false
     }
   }

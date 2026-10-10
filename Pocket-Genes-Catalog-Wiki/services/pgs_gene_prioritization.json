@@ -52,52 +52,6 @@
       }
     ]
   },
-  "sampleFormObject": {
-    "object_id": "obj_demo_form_gene_prioritization",
-    "object_type": "pgo_form",
-    "schema_version": "1.0.0",
-    "revision": 1,
-    "created_at": "2026-09-16T12:06:00Z",
-    "created_by": "user_demo_001",
-    "data": {
-      "form_shape": {
-        "fields": [
-          {
-            "key": "ranking_mode",
-            "label": "Result organization",
-            "type": "enum",
-            "required": true,
-            "options": [
-              {
-                "value": "ranked",
-                "label": "Ranked list"
-              },
-              {
-                "value": "selected",
-                "label": "Selected set"
-              }
-            ]
-          },
-          {
-            "key": "maximum_genes",
-            "label": "Maximum genes",
-            "type": "positive_integer",
-            "required": true
-          }
-        ]
-      },
-      "fields": [
-        {
-          "key": "ranking_mode",
-          "value": "ranked"
-        },
-        {
-          "key": "maximum_genes",
-          "value": 3
-        }
-      ]
-    }
-  },
   "inputSlots": [
     {
       "role": "form",
@@ -144,40 +98,6 @@
     },
     "turnaround": "1d",
     "pricingModel": "calculated_after_submission"
-  },
-  "sampleRequest": {
-    "request_id": "pgr_demo_gene_prioritization",
-    "service_id": "pgs_gene_prioritization",
-    "service_version": 1,
-    "inputs": [
-      {
-        "role": "form",
-        "object_ref": {
-          "object_id": "obj_demo_form_gene_prioritization",
-          "revision": 1
-        }
-      },
-      {
-        "role": "bundle_of_symptoms",
-        "object_ref": {
-          "object_id": "obj_demo_symptoms",
-          "revision": 1
-        }
-      }
-    ]
-  },
-  "sampleResult": {
-    "request_id": "pgr_demo_gene_prioritization",
-    "status": "delivered",
-    "outputs": [
-      {
-        "role": "candidate_genes",
-        "object_ref": {
-          "object_id": "obj_demo_genes",
-          "revision": 1
-        }
-      }
-    ]
   },
   "status": "active",
   "serviceCategory": "sot_gene_variant_prioritization",

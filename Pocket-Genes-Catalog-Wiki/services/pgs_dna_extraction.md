@@ -71,7 +71,7 @@ The completed form freezes only the definitions and answers. Requester identity 
 
 ## Acceptance conditions
 
-- Exactly one specimen occupies the specimen slot; accepted_types are alternatives, not three required inputs.
+- Exactly one specimen occupies the specimen slot; acceptedTypes are alternatives, not three required inputs.
 - The specimen is received at this provider, available for the planned procedure and accepted under the selected extraction profile.
 - For pgo_embryo_sample, data.material_kind must equal embryo_biopsy. A whole_embryo is rejected by this service.
 - The blood, tissue or embryo-biopsy material must match the selected extraction profile.
@@ -82,6 +82,70 @@ The completed form freezes only the definitions and answers. Requester identity 
 - The extracted DNA has its own object_id and a lineage reference to the source specimen. Record source consumption or remaining quantity in specimen tracking.
 - Return a new revision of the source physical object recording consumed material and remaining quantity. This fixture consumes the entire provided aliquot. Physical execution must lock the current revision to prevent concurrent reuse.
 - Validate the transaction-bound inputs, native content and optional order context against this published service; do not infer unsupported coverage, findings or capabilities.
+
+## More information
+
+This fixture demonstrates the optional closed `moreInformation` map. Only non-null, non-empty sections are rendered in the modal.
+
+```json
+{
+  "frequentQuestions": [
+    {
+      "question": "What kinds of specimens can be used?",
+      "answer": "The provider reviews compatible blood, tissue, or embryo-biopsy specimens against the selected extraction profile."
+    }
+  ],
+  "keyInsights": [
+    {
+      "title": "A quality DNA input starts with the specimen",
+      "description": "Specimen identity, condition, and the requested downstream study determine whether extraction can proceed."
+    }
+  ],
+  "scientificFacts": [
+    {
+      "title": "Extraction separates DNA from other cellular material",
+      "description": "The laboratory uses a validated workflow to isolate DNA while controlling contamination and degradation."
+    }
+  ],
+  "usefulLinks": [
+    {
+      "title": "DNA extraction overview",
+      "url": "https://example.com/services/dna-extraction/overview"
+    }
+  ],
+  "sampleLink": {
+    "title": "Review a sample result",
+    "description": "See a fictional example of the information returned after an accepted extraction workflow.",
+    "buttonTitle": "Open sample",
+    "url": "https://example.com/services/dna-extraction/sample"
+  },
+  "bulletSegments": [
+    {
+      "title": "Provider review",
+      "description": "The laboratory confirms that the submitted specimen and order are suitable for the published workflow.",
+      "imageUrl": "https://example.com/images/services/dna-extraction-review.png"
+    }
+  ],
+  "technicalInformationFacts": [
+    {
+      "title": "Technical deliverables",
+      "description": "The completed service registers the extracted DNA and the updated source-specimen state.",
+      "subitems": [
+        "Extracted DNA identity and measured properties",
+        "Source-specimen revision reflecting material use"
+      ]
+    }
+  ],
+  "biologicalSampleRequirements": [
+    {
+      "title": "Accepted material",
+      "description": "Submit one specimen compatible with the extraction profile selected in the request form.",
+      "instructions": "Keep the specimen identified and follow the provider's collection, packaging, and delivery directions."
+    }
+  ],
+  "websiteUrl": "https://example.com/services/dna-extraction"
+}
+```
 
 ## Transaction rule
 

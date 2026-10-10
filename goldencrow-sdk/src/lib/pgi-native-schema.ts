@@ -3,6 +3,7 @@ import {
   type ErrorObject,
   type ValidateFunction,
 } from "ajv/dist/2020.js";
+import addFormatsImport from "ajv-formats";
 import { PGI_NATIVE_SCHEMAS } from "../contracts/pgi-native-schemas.generated.js";
 
 export const SUPPORTED_PGI_NATIVE_MODELS = ["mdm", "ag", "2pq"] as const;
@@ -28,7 +29,12 @@ const ajv = new Ajv2020({
   strict: true,
   strictRequired: false,
   strictTypes: false,
+  validateFormats: true,
 });
+const addFormats = addFormatsImport as unknown as (
+  instance: Ajv2020,
+) => Ajv2020;
+addFormats(ajv);
 
 const validators = new Map<PgiNativeModel, ValidateFunction>(
   SUPPORTED_PGI_NATIVE_MODELS.map((model) => [

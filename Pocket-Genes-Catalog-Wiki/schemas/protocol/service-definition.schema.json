@@ -1,187 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.pocketgenes.example/protocol/service-definition/1.0.0/schema.json",
-  "title": "Pocket Genes service definition v1.0.0",
-  "description": "Self-contained draft protocol schema for the proposed v1 mock catalog. Structural validation does not replace role, identity, scope or analytical-sufficiency checks.",
+  "title": "Pocket Genes direct service offer v1.0.0",
+  "description": "Strict lower-camel-case service_offers document. Snake-case request, result and platform-object examples live only in their separate protocol fixture files and are not embedded in this persistence boundary. Structural validation does not replace role, identity, scope or analytical-sufficiency checks.",
   "$ref": "#/$defs/service_definition",
   "$defs": {
-    "object_reference": {
-      "type": "object",
-      "properties": {
-        "object_id": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^obj_[A-Za-z0-9_]+$"
-        },
-        "revision": {
-          "type": "integer",
-          "minimum": 1
-        }
-      },
-      "required": [
-        "object_id",
-        "revision"
-      ],
-      "additionalProperties": false
-    },
-    "role_reference": {
-      "type": "object",
-      "properties": {
-        "role": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
-        "object_ref": {
-          "$ref": "#/$defs/object_reference"
-        }
-      },
-      "required": [
-        "role",
-        "object_ref"
-      ],
-      "additionalProperties": false
-    },
-    "field_option": {
-      "type": "object",
-      "properties": {
-        "value": {
-          "type": "string",
-          "minLength": 1
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "required": [
-        "value",
-        "label"
-      ],
-      "additionalProperties": false
-    },
-    "field_definition": {
-      "type": "object",
-      "properties": {
-        "key": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^[a-z][a-z0-9_]{0,63}$",
-          "description": "Stable lower snake-case field key.",
-          "maxLength": 64
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "\\S",
-          "description": "Human-readable label.",
-          "maxLength": 120
-        },
-        "type": {
-          "type": "string",
-          "enum": [
-            "text",
-            "long_text",
-            "email",
-            "phone",
-            "url",
-            "address",
-            "postal_code",
-            "country_code",
-            "identifier",
-            "number",
-            "integer",
-            "positive_integer",
-            "percentage",
-            "boolean",
-            "date",
-            "datetime",
-            "time",
-            "enum",
-            "multi_enum",
-            "string_list",
-            "integer_list",
-            "number_list"
-          ],
-          "description": "Field value and validation type."
-        },
-        "required": {
-          "type": "boolean"
-        },
-        "options": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 100,
-          "uniqueItems": true,
-          "items": {
-            "type": "object",
-            "description": "One enum choice.",
-            "properties": {
-              "value": {
-                "type": "string",
-                "minLength": 1,
-                "pattern": "\\S",
-                "description": "Stable stored option value."
-              },
-              "label": {
-                "type": "string",
-                "minLength": 1,
-                "pattern": "\\S",
-                "description": "Human-readable option label frozen with the form."
-              }
-            },
-            "required": [
-              "value",
-              "label"
-            ],
-            "additionalProperties": false
-          }
-        },
-        "helpInfoText": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "\\S",
-          "description": "Optional requester-facing guidance.",
-          "maxLength": 500
-        }
-      },
-      "required": [
-        "key",
-        "label",
-        "type",
-        "required"
-      ],
-      "additionalProperties": false,
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "enum": [
-                  "enum",
-                  "multi_enum"
-                ]
-              }
-            },
-            "required": [
-              "type"
-            ]
-          },
-          "then": {
-            "required": [
-              "options"
-            ]
-          },
-          "else": {
-            "not": {
-              "required": [
-                "options"
-              ]
-            }
-          }
-        }
-      ]
-    },
     "form_shape": {
       "type": "object",
       "description": "Published service-offer form configuration.",
@@ -334,298 +157,6 @@
       ],
       "additionalProperties": false
     },
-    "form_field": {
-      "type": "object",
-      "description": "One submitted answer.",
-      "properties": {
-        "key": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "\\S",
-          "description": "Key of a field declared by form_shape.fields."
-        },
-        "value": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "number"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "array",
-              "items": {
-                "oneOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "number"
-                  }
-                ]
-              }
-            }
-          ],
-          "description": "Typed answer validated against the matching frozen field definition."
-        }
-      },
-      "required": [
-        "key",
-        "value"
-      ],
-      "additionalProperties": false
-    },
-    "form_data": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://schemas.pocketgenes.example/objects/pgo_form/1.0.0/schema.json",
-      "title": "pgo_form content",
-      "type": "object",
-      "description": "Minimal domain content for pgo_form.",
-      "properties": {
-        "form_shape": {
-          "type": "object",
-          "description": "Frozen form shape.",
-          "properties": {
-            "fields": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "key": {
-                    "type": "string",
-                    "minLength": 1,
-                    "pattern": "^[a-z][a-z0-9_]{0,63}$",
-                    "description": "Stable field key.",
-                    "maxLength": 64
-                  },
-                  "label": {
-                    "type": "string",
-                    "minLength": 1,
-                    "pattern": "\\S",
-                    "description": "Human-readable field label.",
-                    "maxLength": 120
-                  },
-                  "type": {
-                    "type": "string",
-                    "enum": [
-                      "text",
-                      "long_text",
-                      "email",
-                      "phone",
-                      "url",
-                      "address",
-                      "postal_code",
-                      "country_code",
-                      "identifier",
-                      "number",
-                      "integer",
-                      "positive_integer",
-                      "percentage",
-                      "boolean",
-                      "date",
-                      "datetime",
-                      "time",
-                      "enum",
-                      "multi_enum",
-                      "string_list",
-                      "integer_list",
-                      "number_list"
-                    ],
-                    "description": "Field value and validation type."
-                  },
-                  "required": {
-                    "type": "boolean",
-                    "description": "Whether an answer must be present."
-                  },
-                  "options": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 100,
-                    "items": {
-                      "type": "object",
-                      "description": "One enum choice.",
-                      "properties": {
-                        "value": {
-                          "type": "string",
-                          "minLength": 1,
-                          "pattern": "\\S",
-                          "description": "Stable stored option value."
-                        },
-                        "label": {
-                          "type": "string",
-                          "minLength": 1,
-                          "pattern": "\\S",
-                          "description": "Human-readable option label frozen with the form."
-                        }
-                      },
-                      "required": [
-                        "value",
-                        "label"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "description": "Allowed choices. Present only for enum and multi_enum."
-                  },
-                  "help_info_text": {
-                    "type": "string",
-                    "minLength": 1,
-                    "pattern": "\\S",
-                    "description": "Optional guidance displayed by the native form.",
-                    "maxLength": 500
-                  }
-                },
-                "required": [
-                  "key",
-                  "label",
-                  "type",
-                  "required"
-                ],
-                "additionalProperties": false,
-                "allOf": [
-                  {
-                    "if": {
-                      "properties": {
-                        "type": {
-                          "enum": [
-                            "enum",
-                            "multi_enum"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "type"
-                      ]
-                    },
-                    "then": {
-                      "required": [
-                        "options"
-                      ]
-                    },
-                    "else": {
-                      "not": {
-                        "required": [
-                          "options"
-                        ]
-                      }
-                    }
-                  }
-                ]
-              },
-              "description": "Ordered frozen field definitions used to render and validate this submission."
-            }
-          },
-          "required": [
-            "fields"
-          ],
-          "additionalProperties": false
-        },
-        "fields": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "description": "One submitted answer.",
-            "properties": {
-              "key": {
-                "type": "string",
-                "minLength": 1,
-                "pattern": "\\S",
-                "description": "Key of a field declared by form_shape.fields."
-              },
-              "value": {
-                "oneOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "array",
-                    "items": {
-                      "oneOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "number"
-                        }
-                      ]
-                    }
-                  }
-                ],
-                "description": "Typed answer validated against the matching frozen field definition."
-              }
-            },
-            "required": [
-              "key",
-              "value"
-            ],
-            "additionalProperties": false
-          },
-          "description": "Submitted answers."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Optional additional information the person wants to communicate. It may be empty."
-        }
-      },
-      "required": [
-        "form_shape",
-        "fields"
-      ],
-      "additionalProperties": false
-    },
-    "form_object": {
-      "type": "object",
-      "description": "Platform fixture surrounding strict pgo_form content.",
-      "properties": {
-        "object_id": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^obj_[A-Za-z0-9_]+$",
-          "description": "Platform-managed object identity."
-        },
-        "object_type": {
-          "const": "pgo_form"
-        },
-        "schema_version": {
-          "const": "1.0.0"
-        },
-        "revision": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "created_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "created_by": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "\\S",
-          "description": "Platform-managed creator identity."
-        },
-        "data": {
-          "$ref": "#/$defs/form_data"
-        }
-      },
-      "required": [
-        "object_id",
-        "object_type",
-        "schema_version",
-        "revision",
-        "created_at",
-        "created_by",
-        "data"
-      ],
-      "additionalProperties": false
-    },
     "cardinality": {
       "type": "object",
       "properties": {
@@ -751,14 +282,14 @@
         {
           "if": {
             "properties": {
-              "accepted_types": {
+              "acceptedTypes": {
                 "contains": {
                   "const": "pgo_form"
                 }
               }
             },
             "required": [
-              "accepted_types"
+              "acceptedTypes"
             ]
           },
           "then": {
@@ -859,211 +390,6 @@
         }
       ]
     },
-    "issue": {
-      "type": "object",
-      "properties": {
-        "code": {
-          "type": "string",
-          "minLength": 1
-        },
-        "message": {
-          "type": "string",
-          "minLength": 1
-        },
-        "object_ref": {
-          "$ref": "#/$defs/object_reference"
-        },
-        "retryable_after_correction": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "code",
-        "message"
-      ],
-      "additionalProperties": false
-    },
-    "service_request": {
-      "type": "object",
-      "properties": {
-        "request_id": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^pgr_[A-Za-z0-9_]+$"
-        },
-        "service_id": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^pgs_[A-Za-z0-9_]+$"
-        },
-        "service_version": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "provider_id": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^pgp_[A-Za-z0-9_]+$"
-        },
-        "inputs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/role_reference"
-          },
-          "minItems": 0
-        },
-        "status": {
-          "type": "string",
-          "enum": [
-            "received",
-            "validating",
-            "accepted",
-            "queued",
-            "running",
-            "awaiting_input",
-            "delivered",
-            "rejected",
-            "failed",
-            "cancelled"
-          ]
-        },
-        "request_revision": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "received_at": {
-          "type": "string",
-          "minLength": 1,
-          "format": "date-time"
-        },
-        "updated_at": {
-          "type": "string",
-          "minLength": 1,
-          "format": "date-time"
-        },
-        "outputs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/role_reference"
-          },
-          "minItems": 0
-        },
-        "issues": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/issue"
-          },
-          "minItems": 0
-        }
-      },
-      "required": [
-        "request_id",
-        "service_id",
-        "service_version",
-        "inputs"
-      ],
-      "additionalProperties": false
-    },
-    "service_result": {
-      "type": "object",
-      "properties": {
-        "request_id": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^pgr_[A-Za-z0-9_]+$"
-        },
-        "service_id": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^pgs_[A-Za-z0-9_]+$"
-        },
-        "service_version": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "provider_id": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^pgp_[A-Za-z0-9_]+$"
-        },
-        "inputs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/role_reference"
-          },
-          "minItems": 0
-        },
-        "status": {
-          "type": "string",
-          "enum": [
-            "received",
-            "validating",
-            "accepted",
-            "queued",
-            "running",
-            "awaiting_input",
-            "delivered",
-            "rejected",
-            "failed",
-            "cancelled"
-          ]
-        },
-        "request_revision": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "received_at": {
-          "type": "string",
-          "minLength": 1,
-          "format": "date-time"
-        },
-        "updated_at": {
-          "type": "string",
-          "minLength": 1,
-          "format": "date-time"
-        },
-        "outputs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/role_reference"
-          },
-          "minItems": 0
-        },
-        "issues": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/issue"
-          },
-          "minItems": 0
-        }
-      },
-      "required": [
-        "request_id",
-        "status"
-      ],
-      "additionalProperties": false,
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "status": {
-                "const": "delivered"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "outputs"
-            ],
-            "properties": {
-              "outputs": {
-                "minItems": 0
-              }
-            }
-          }
-        }
-      ]
-    },
     "commercial_terms": {
       "type": "object",
       "properties": {
@@ -1108,7 +434,7 @@
           "minLength": 2,
           "pattern": "^[1-9][0-9]*(w|d|h|m)$"
         },
-        "tax_and_payment_policy": {
+        "taxAndPaymentPolicy": {
           "type": "string",
           "minLength": 1
         },
@@ -1162,11 +488,12 @@
     },
     "service_definition": {
       "type": "object",
+      "description": "One direct service_offers document. Every document key, nested-map key and map key inside an array is lower camel case; protocol fixtures are separate artifacts.",
       "properties": {
         "serviceId": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^pgs_[A-Za-z0-9_]+$"
+          "pattern": "^pgs_[a-z0-9]+(?:_[a-z0-9]+)*$"
         },
         "schemaVersion": {
           "type": "integer",
@@ -1236,7 +563,87 @@
             "sot_polygenic_risk_analysis",
             "sot_genomic_report_generation",
             "sot_genomic_report_review",
-            "sot_genomic_data_interoperability"
+            "sot_genomic_data_interoperability",
+            "sot_complete_health_genomics_report",
+            "sot_complete_rare_disease_diagnostic_report",
+            "sot_complete_hereditary_cancer_report",
+            "sot_complete_inherited_cardiovascular_report",
+            "sot_complete_neurogenetic_disease_report",
+            "sot_complete_cystic_fibrosis_report",
+            "sot_complete_pharmacogenomic_report",
+            "sot_complete_nutrigenomic_report",
+            "sot_complete_food_response_genetics_report",
+            "sot_complete_sports_performance_genetics_report",
+            "sot_complete_skin_hair_genetics_report",
+            "sot_complete_genetic_ancestry_report",
+            "sot_complete_personal_traits_genetics_report",
+            "sot_complete_reproductive_carrier_report",
+            "sot_complete_female_fertility_genetics_report",
+            "sot_complete_male_infertility_genetics_report",
+            "sot_complete_sperm_dna_integrity_report",
+            "sot_complete_reproductive_couple_karyotype_report",
+            "sot_complete_preimplantation_aneuploidy_report",
+            "sot_complete_preimplantation_monogenic_report",
+            "sot_complete_preimplantation_structural_report",
+            "sot_complete_noninvasive_prenatal_report",
+            "sot_complete_prenatal_carrier_fetal_risk_report",
+            "sot_complete_newborn_genomic_screening_report",
+            "sot_complete_animal_parentage_identity_report",
+            "sot_complete_canine_health_diversity_report",
+            "sot_complete_feline_health_traits_report",
+            "sot_complete_equine_health_performance_report",
+            "sot_complete_livestock_breeding_traits_report",
+            "sot_complete_meat_species_authentication_report",
+            "sot_human_advice_medical_consultation",
+            "sot_human_advice_medical_second_opinion",
+            "sot_human_advice_medication_pharmacy_counseling",
+            "sot_human_advice_nutrition_dietary_counseling",
+            "sot_human_advice_rehabilitation_physical_therapy_guidance",
+            "sot_human_advice_reproductive_fertility_counseling",
+            "sot_human_advice_sexual_health_counseling",
+            "sot_human_advice_pregnancy_postpartum_support",
+            "sot_human_advice_psychological_counseling",
+            "sot_human_advice_couples_family_counseling",
+            "sot_human_advice_grief_bereavement_support",
+            "sot_human_advice_addiction_recovery_counseling",
+            "sot_human_advice_parenting_guidance",
+            "sot_human_advice_caregiver_eldercare_support",
+            "sot_human_advice_disability_accessibility_guidance",
+            "sot_human_advice_social_care_navigation",
+            "sot_human_advice_personal_civil_legal",
+            "sot_human_advice_family_estate_legal",
+            "sot_human_advice_employment_labor_legal",
+            "sot_human_advice_business_contract_legal",
+            "sot_human_advice_immigration_residency_legal",
+            "sot_human_advice_academic_tutoring",
+            "sot_human_advice_special_education_learning_support",
+            "sot_human_advice_language_learning",
+            "sot_human_advice_academic_admissions_guidance",
+            "sot_human_advice_career_vocational_guidance",
+            "sot_human_advice_digital_technology_support",
+            "sot_human_advice_cybersecurity_privacy_consulting",
+            "sot_human_advice_business_entrepreneurship_consulting",
+            "sot_human_advice_financial_accounting_tax_consulting",
+            "sot_human_advice_health_professional_career_guidance",
+            "sot_human_advice_health_professional_development",
+            "sot_human_advice_clinical_mentoring_supervision",
+            "sot_human_advice_healthcare_leadership_management",
+            "sot_human_advice_health_education_training_design",
+            "sot_human_advice_health_research_methodology",
+            "sot_human_advice_health_scientific_writing_publication",
+            "sot_human_advice_evidence_based_health_practice",
+            "sot_human_advice_healthcare_quality_patient_safety",
+            "sot_human_advice_health_practice_operations",
+            "sot_human_advice_digital_health_strategy_transformation",
+            "sot_human_advice_health_information_systems_implementation",
+            "sot_human_advice_electronic_health_record_workflow_optimization",
+            "sot_human_advice_health_data_interoperability_integration",
+            "sot_human_advice_telehealth_remote_care_implementation",
+            "sot_human_advice_health_data_governance_analytics",
+            "sot_human_advice_healthcare_ai_evaluation_adoption",
+            "sot_human_advice_digital_health_product_medical_technology",
+            "sot_human_advice_health_it_infrastructure_cloud_architecture",
+            "sot_human_advice_health_technology_usability_human_factors_accessibility"
           ],
           "description": "Closed service-offer type key from catalog/service-offer-types.json."
         },
@@ -1259,7 +666,8 @@
             "enum": [
               "test_planning",
               "wet_lab",
-              "bioinformatics"
+              "bioinformatics",
+              "human_advice"
             ]
           },
           "minItems": 1,
@@ -1316,9 +724,6 @@
         "sampleFormData": {
           "$ref": "#/$defs/service_form_data"
         },
-        "sampleFormObject": {
-          "$ref": "#/$defs/form_object"
-        },
         "inputSlots": {
           "type": "array",
           "items": {
@@ -1360,11 +765,16 @@
         "commercialTerms": {
           "$ref": "#/$defs/commercial_terms"
         },
-        "sampleRequest": {
-          "$ref": "#/$defs/service_request"
-        },
-        "sampleResult": {
-          "$ref": "#/$defs/service_result"
+        "moreInformation": {
+          "description": "Optional closed more-information map. Omission, null, an empty map, or only null/empty child sections produces no More information action.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/service_more_information"
+            }
+          ]
         }
       },
       "required": [
@@ -1386,180 +796,169 @@
         "shortContract",
         "providerWork",
         "inputSlots",
-        "outputSlots",
-        "sampleRequest",
-        "sampleResult"
+        "outputSlots"
       ],
-      "additionalProperties": false
-    },
-    "api_capability": {
-      "type": "object",
-      "properties": {
-        "status": {
-          "const": "illustrative_not_live"
-        },
-        "contract_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "base_url": {
-          "type": "string",
-          "minLength": 1,
-          "format": "uri"
-        },
-        "execution_modes": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "minItems": 1,
-          "uniqueItems": true
-        },
-        "completion_model": {
-          "const": "asynchronous"
-        },
-        "callbacks": {
-          "const": "signed_callback_to_preregistered_pocket_genes_endpoint"
-        },
-        "state_semantics": {
-          "type": "string",
-          "minLength": 1
-        },
-        "acceptance_checks": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "minItems": 1,
-          "uniqueItems": true
-        },
-        "complete_example_contract": {
-          "type": "string",
-          "minLength": 1
-        },
-        "clinical_role": {
-          "type": "string",
-          "minLength": 1
-        },
-        "stage_note": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "required": [
-        "status",
-        "contract_id",
-        "base_url",
-        "execution_modes",
-        "completion_model",
-        "callbacks"
-      ],
-      "additionalProperties": false
-    },
-    "provider_definition": {
-      "type": "object",
-      "properties": {
-        "provider_id": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^pgp_[A-Za-z0-9_]+$"
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "kind": {
-          "type": "string",
-          "enum": [
-            "bioinformatics_company",
-            "cytogenetics_analysis_company",
-            "laboratory",
-            "professional_services_organization",
-            "report_production_company",
-            "sample_collection_and_transport_provider"
-          ]
-        },
-        "description": {
-          "type": "string",
-          "minLength": 1
-        },
-        "supported_stages": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": [
-              "test_planning",
-              "wet_lab",
-              "bioinformatics"
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "x-pocket-genes-rule": "complete-service-offer-stages",
+          "if": {
+            "properties": {
+              "serviceCategory": {
+                "enum": [
+                  "sot_complete_health_genomics_report",
+                  "sot_complete_rare_disease_diagnostic_report",
+                  "sot_complete_hereditary_cancer_report",
+                  "sot_complete_inherited_cardiovascular_report",
+                  "sot_complete_neurogenetic_disease_report",
+                  "sot_complete_cystic_fibrosis_report",
+                  "sot_complete_pharmacogenomic_report",
+                  "sot_complete_nutrigenomic_report",
+                  "sot_complete_food_response_genetics_report",
+                  "sot_complete_sports_performance_genetics_report",
+                  "sot_complete_skin_hair_genetics_report",
+                  "sot_complete_genetic_ancestry_report",
+                  "sot_complete_personal_traits_genetics_report",
+                  "sot_complete_reproductive_carrier_report",
+                  "sot_complete_female_fertility_genetics_report",
+                  "sot_complete_male_infertility_genetics_report",
+                  "sot_complete_sperm_dna_integrity_report",
+                  "sot_complete_reproductive_couple_karyotype_report",
+                  "sot_complete_preimplantation_aneuploidy_report",
+                  "sot_complete_preimplantation_monogenic_report",
+                  "sot_complete_preimplantation_structural_report",
+                  "sot_complete_noninvasive_prenatal_report",
+                  "sot_complete_prenatal_carrier_fetal_risk_report",
+                  "sot_complete_newborn_genomic_screening_report",
+                  "sot_complete_animal_parentage_identity_report",
+                  "sot_complete_canine_health_diversity_report",
+                  "sot_complete_feline_health_traits_report",
+                  "sot_complete_equine_health_performance_report",
+                  "sot_complete_livestock_breeding_traits_report",
+                  "sot_complete_meat_species_authentication_report"
+                ]
+              }
+            },
+            "required": [
+              "serviceCategory"
             ]
           },
-          "minItems": 1,
-          "uniqueItems": true
+          "then": {
+            "properties": {
+              "stages": {
+                "minItems": 3,
+                "maxItems": 3,
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "test_planning"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "wet_lab"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "bioinformatics"
+                    }
+                  }
+                ],
+                "description": "Complete sample-to-report offers must declare exactly test_planning, wet_lab, and bioinformatics."
+              }
+            }
+          }
         },
-        "country_codes": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^[A-Z]{2}$"
-          },
-          "minItems": 1,
-          "uniqueItems": true
-        },
-        "service_ids": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^pgs_[A-Za-z0-9_]+$"
-          },
-          "minItems": 1,
-          "uniqueItems": true
-        },
-        "contacts": {
-          "type": "object",
-          "properties": {
-            "website": {
-              "type": "string",
-              "minLength": 1,
-              "format": "uri"
+        {
+          "x-pocket-genes-rule": "human-advice-service-offer-stage",
+          "if": {
+            "properties": {
+              "serviceCategory": {
+                "enum": [
+                  "sot_human_advice_medical_consultation",
+                  "sot_human_advice_medical_second_opinion",
+                  "sot_human_advice_medication_pharmacy_counseling",
+                  "sot_human_advice_nutrition_dietary_counseling",
+                  "sot_human_advice_rehabilitation_physical_therapy_guidance",
+                  "sot_human_advice_reproductive_fertility_counseling",
+                  "sot_human_advice_sexual_health_counseling",
+                  "sot_human_advice_pregnancy_postpartum_support",
+                  "sot_human_advice_psychological_counseling",
+                  "sot_human_advice_couples_family_counseling",
+                  "sot_human_advice_grief_bereavement_support",
+                  "sot_human_advice_addiction_recovery_counseling",
+                  "sot_human_advice_parenting_guidance",
+                  "sot_human_advice_caregiver_eldercare_support",
+                  "sot_human_advice_disability_accessibility_guidance",
+                  "sot_human_advice_social_care_navigation",
+                  "sot_human_advice_personal_civil_legal",
+                  "sot_human_advice_family_estate_legal",
+                  "sot_human_advice_employment_labor_legal",
+                  "sot_human_advice_business_contract_legal",
+                  "sot_human_advice_immigration_residency_legal",
+                  "sot_human_advice_academic_tutoring",
+                  "sot_human_advice_special_education_learning_support",
+                  "sot_human_advice_language_learning",
+                  "sot_human_advice_academic_admissions_guidance",
+                  "sot_human_advice_career_vocational_guidance",
+                  "sot_human_advice_digital_technology_support",
+                  "sot_human_advice_cybersecurity_privacy_consulting",
+                  "sot_human_advice_business_entrepreneurship_consulting",
+                  "sot_human_advice_financial_accounting_tax_consulting",
+                  "sot_human_advice_health_professional_career_guidance",
+                  "sot_human_advice_health_professional_development",
+                  "sot_human_advice_clinical_mentoring_supervision",
+                  "sot_human_advice_healthcare_leadership_management",
+                  "sot_human_advice_health_education_training_design",
+                  "sot_human_advice_health_research_methodology",
+                  "sot_human_advice_health_scientific_writing_publication",
+                  "sot_human_advice_evidence_based_health_practice",
+                  "sot_human_advice_healthcare_quality_patient_safety",
+                  "sot_human_advice_health_practice_operations",
+                  "sot_human_advice_digital_health_strategy_transformation",
+                  "sot_human_advice_health_information_systems_implementation",
+                  "sot_human_advice_electronic_health_record_workflow_optimization",
+                  "sot_human_advice_health_data_interoperability_integration",
+                  "sot_human_advice_telehealth_remote_care_implementation",
+                  "sot_human_advice_health_data_governance_analytics",
+                  "sot_human_advice_healthcare_ai_evaluation_adoption",
+                  "sot_human_advice_digital_health_product_medical_technology",
+                  "sot_human_advice_health_it_infrastructure_cloud_architecture",
+                  "sot_human_advice_health_technology_usability_human_factors_accessibility"
+                ]
+              }
             },
-            "operations_email": {
-              "type": "string",
-              "minLength": 1,
-              "format": "email"
-            },
-            "integration_email": {
-              "type": "string",
-              "minLength": 1,
-              "format": "email"
+            "required": [
+              "serviceCategory"
+            ]
+          },
+          "then": {
+            "properties": {
+              "stages": {
+                "minItems": 1,
+                "maxItems": 1,
+                "contains": {
+                  "const": "human_advice"
+                },
+                "description": "Human advice and support offers must declare exactly the human_advice stage."
+              }
             }
           },
-          "required": [
-            "website",
-            "operations_email",
-            "integration_email"
-          ],
-          "additionalProperties": false
-        },
-        "api_capability_proposal": {
-          "$ref": "#/$defs/api_capability"
+          "else": {
+            "properties": {
+              "stages": {
+                "not": {
+                  "contains": {
+                    "const": "human_advice"
+                  }
+                },
+                "description": "The human_advice stage is reserved for sot_human_advice_* categories."
+              }
+            }
+          }
         }
-      },
-      "required": [
-        "provider_id",
-        "name",
-        "kind",
-        "description",
-        "supported_stages",
-        "country_codes",
-        "service_ids",
-        "contacts",
-        "api_capability_proposal"
-      ],
-      "additionalProperties": false
+      ]
     },
     "service_form_data": {
       "type": "object",
@@ -1616,6 +1015,389 @@
       "required": [
         "fields"
       ],
+      "additionalProperties": false
+    },
+    "service_more_information_frequent_question": {
+      "type": "object",
+      "description": "One frequently asked question and its answer.",
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing question."
+        },
+        "answer": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing answer to the question."
+        }
+      },
+      "required": [
+        "question",
+        "answer"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_key_insight": {
+      "type": "object",
+      "description": "One key service insight.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Short insight heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing explanation of the insight."
+        }
+      },
+      "required": [
+        "title",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_scientific_fact": {
+      "type": "object",
+      "description": "One scientific fact relevant to the service.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Short scientific-fact heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing explanation of the scientific fact."
+        }
+      },
+      "required": [
+        "title",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_useful_link": {
+      "type": "object",
+      "description": "One titled external resource.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Human-readable link title."
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "format": "uri",
+          "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|\\[(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,1}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4})?::)\\])(?::[0-9]{1,5})?(?:[/?#][^\\s]*)?$",
+          "description": "Absolute HTTPS destination for the useful link. Lowercase https only; no userinfo; DNS/IPv4-label or bracketed-IPv6 host; optional numeric one-to-five-digit port; no whitespace."
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_sample_link": {
+      "type": "object",
+      "description": "One featured sample resource and its action.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Sample-resource heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing explanation of the sample resource."
+        },
+        "buttonTitle": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Action label used to open the sample resource."
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "format": "uri",
+          "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|\\[(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,1}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4})?::)\\])(?::[0-9]{1,5})?(?:[/?#][^\\s]*)?$",
+          "description": "Absolute HTTPS destination for the sample resource. Lowercase https only; no userinfo; DNS/IPv4-label or bracketed-IPv6 host; optional numeric one-to-five-digit port; no whitespace."
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "buttonTitle",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_bullet_segment": {
+      "type": "object",
+      "description": "One illustrated bullet segment.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Bullet-segment heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing explanation for the segment."
+        },
+        "imageUrl": {
+          "type": "string",
+          "minLength": 1,
+          "format": "uri",
+          "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|\\[(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,1}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4})?::)\\])(?::[0-9]{1,5})?(?:[/?#][^\\s]*)?$",
+          "description": "Absolute HTTPS URL for the segment image. Lowercase https only; no userinfo; DNS/IPv4-label or bracketed-IPv6 host; optional numeric one-to-five-digit port; no whitespace."
+        },
+        "imageUploadDataUrl": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^data:image/[A-Za-z0-9.+-]+;base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)$",
+          "description": "Inline image data URL with an image media type and a nonempty base64 payload."
+        }
+      },
+      "required": [
+        "title",
+        "description"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "imageUrl"
+          ]
+        },
+        {
+          "required": [
+            "imageUploadDataUrl"
+          ]
+        }
+      ]
+    },
+    "service_more_information_technical_fact": {
+      "type": "object",
+      "description": "One technical-information fact with supporting points.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Technical-information heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing technical explanation."
+        },
+        "subitems": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "One technical-information subitem."
+          },
+          "description": "Ordered supporting technical points; an empty array is valid."
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "subitems"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information_biological_sample_requirement": {
+      "type": "object",
+      "description": "One biological-sample requirement.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Biological-sample requirement heading."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Requester-facing explanation of the requirement."
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Instructions for satisfying the biological-sample requirement."
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "instructions"
+      ],
+      "additionalProperties": false
+    },
+    "service_more_information": {
+      "type": "object",
+      "description": "Optional presentation-only details for a published service offer. Every child key is optional and nullable; unknown keys are invalid.",
+      "properties": {
+        "frequentQuestions": {
+          "description": "Optional frequently asked questions; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_frequent_question"
+              }
+            }
+          ]
+        },
+        "keyInsights": {
+          "description": "Optional key insights; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_key_insight"
+              }
+            }
+          ]
+        },
+        "scientificFacts": {
+          "description": "Optional scientific facts; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_scientific_fact"
+              }
+            }
+          ]
+        },
+        "usefulLinks": {
+          "description": "Optional useful links; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_useful_link"
+              }
+            }
+          ]
+        },
+        "sampleLink": {
+          "description": "Optional featured sample resource; null renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/service_more_information_sample_link"
+            }
+          ]
+        },
+        "bulletSegments": {
+          "description": "Optional illustrated bullet segments; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_bullet_segment"
+              }
+            }
+          ]
+        },
+        "technicalInformationFacts": {
+          "description": "Optional technical facts; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_technical_fact"
+              }
+            }
+          ]
+        },
+        "biologicalSampleRequirements": {
+          "description": "Optional biological-sample requirements; null or an empty array renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "$ref": "#/$defs/service_more_information_biological_sample_requirement"
+              }
+            }
+          ]
+        },
+        "websiteUrl": {
+          "description": "Optional service website; null renders no section.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "format": "uri",
+              "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|\\[(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,1}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})|(?:(?:[0-9A-Fa-f]{1,4}:){0,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4})?::)\\])(?::[0-9]{1,5})?(?:[/?#][^\\s]*)?$",
+              "description": "Absolute HTTPS service website URL. Lowercase https only; no userinfo; DNS/IPv4-label or bracketed-IPv6 host; optional numeric one-to-five-digit port; no whitespace."
+            }
+          ]
+        }
+      },
+      "required": [],
       "additionalProperties": false
     }
   }

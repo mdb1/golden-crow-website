@@ -4,6 +4,8 @@ Strict schema-1 reference package for twenty Pocket Genes Object types, fifteen 
 
 The universal [deleted-identity continuity contract](docs/deleted-identity-continuity.md) defines non-cascading content retention, the shared `DeletedUserProvider` presentation boundary, platform parity, and the strict separation between deleted identity fallback and serialized PGO content.
 
+The [downloaded-file update lifecycle](docs/downloaded-file-updates.md) defines canonical report/object identity and version checks, the three automatic/manual run intents, quiet current-file probing, blacklist and manual-update behavior, sequential safe replacement, privacy, failure recovery, and iOS/Android parity.
+
 Run:
 
 ```sh

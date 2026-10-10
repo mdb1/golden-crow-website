@@ -38,35 +38,6 @@
           }
         ]
       },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_symptom_intake",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-16T12:00:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "observations",
-                "label": "Reported observations",
-                "type": "string_list",
-                "required": true
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "observations",
-              "value": [
-                "Hearing loss",
-                "Balance difficulties"
-              ]
-            }
-          ]
-        }
-      },
       "inputSlots": [
         {
           "role": "form",
@@ -101,33 +72,6 @@
         },
         "turnaround": "1d",
         "pricingModel": "calculated_after_submission"
-      },
-      "sampleRequest": {
-        "request_id": "pgr_demo_symptom_intake",
-        "service_id": "pgs_symptom_intake",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_symptom_intake",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_symptom_intake",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "symptoms",
-            "object_ref": {
-              "object_id": "obj_demo_symptoms",
-              "revision": 1
-            }
-          }
-        ]
       },
       "status": "active",
       "serviceCategory": "sot_clinical_intake_phenotyping",
@@ -195,52 +139,6 @@
           }
         ]
       },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_gene_prioritization",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-16T12:06:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "ranking_mode",
-                "label": "Result organization",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "ranked",
-                    "label": "Ranked list"
-                  },
-                  {
-                    "value": "selected",
-                    "label": "Selected set"
-                  }
-                ]
-              },
-              {
-                "key": "maximum_genes",
-                "label": "Maximum genes",
-                "type": "positive_integer",
-                "required": true
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "ranking_mode",
-              "value": "ranked"
-            },
-            {
-              "key": "maximum_genes",
-              "value": 3
-            }
-          ]
-        }
-      },
       "inputSlots": [
         {
           "role": "form",
@@ -287,40 +185,6 @@
         },
         "turnaround": "1d",
         "pricingModel": "calculated_after_submission"
-      },
-      "sampleRequest": {
-        "request_id": "pgr_demo_gene_prioritization",
-        "service_id": "pgs_gene_prioritization",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_gene_prioritization",
-              "revision": 1
-            }
-          },
-          {
-            "role": "bundle_of_symptoms",
-            "object_ref": {
-              "object_id": "obj_demo_symptoms",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_gene_prioritization",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "candidate_genes",
-            "object_ref": {
-              "object_id": "obj_demo_genes",
-              "revision": 1
-            }
-          }
-        ]
       },
       "status": "active",
       "serviceCategory": "sot_gene_variant_prioritization",
@@ -422,86 +286,6 @@
           }
         ]
       },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_informed_consent",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-16T12:00:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "patient",
-                "label": "Patient or source",
-                "type": "text",
-                "required": true
-              },
-              {
-                "key": "consent_title",
-                "label": "Consent title",
-                "type": "text",
-                "required": true
-              },
-              {
-                "key": "consent_text",
-                "label": "Consent text",
-                "type": "long_text",
-                "required": true
-              },
-              {
-                "key": "signer_name",
-                "label": "Expected signer name",
-                "type": "text",
-                "required": false
-              },
-              {
-                "key": "signer_capacity",
-                "label": "Expected signer capacity",
-                "type": "enum",
-                "required": false,
-                "options": [
-                  {
-                    "value": "self",
-                    "label": "Self"
-                  },
-                  {
-                    "value": "representative",
-                    "label": "Representative"
-                  },
-                  {
-                    "value": "other",
-                    "label": "Other"
-                  }
-                ]
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "patient",
-              "value": "Patient AB-123"
-            },
-            {
-              "key": "consent_title",
-              "value": "Consent for genetic testing"
-            },
-            {
-              "key": "consent_text",
-              "value": "Please review the purpose, implications and limitations of the proposed genetic test."
-            },
-            {
-              "key": "signer_name",
-              "value": "Alex Example"
-            },
-            {
-              "key": "signer_capacity",
-              "value": "self"
-            }
-          ]
-        }
-      },
       "inputSlots": [
         {
           "role": "form",
@@ -536,33 +320,6 @@
         },
         "turnaround": "1d",
         "pricingModel": "calculated_after_submission"
-      },
-      "sampleRequest": {
-        "request_id": "pgr_demo_informed_consent",
-        "service_id": "pgs_informed_consent",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_informed_consent",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_informed_consent",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "consent",
-            "object_ref": {
-              "object_id": "obj_demo_consent",
-              "revision": 1
-            }
-          }
-        ]
       },
       "status": "active",
       "serviceCategory": "sot_informed_consent",
@@ -817,239 +574,6 @@
           }
         ]
       },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_test_ordering",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-16T12:11:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "patient",
-                "label": "Patient or source",
-                "type": "text",
-                "required": true
-              },
-              {
-                "key": "test_name",
-                "label": "Requested test name",
-                "type": "text",
-                "required": true
-              },
-              {
-                "key": "sample_type",
-                "label": "Requested specimen",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "blood",
-                    "label": "Blood"
-                  },
-                  {
-                    "value": "dried_blood_spot",
-                    "label": "Dried blood spot"
-                  },
-                  {
-                    "value": "saliva",
-                    "label": "Saliva"
-                  },
-                  {
-                    "value": "buccal_swab",
-                    "label": "Buccal swab"
-                  },
-                  {
-                    "value": "tissue",
-                    "label": "Tissue"
-                  },
-                  {
-                    "value": "skin_biopsy",
-                    "label": "Skin biopsy"
-                  },
-                  {
-                    "value": "bone_marrow_aspirate",
-                    "label": "Bone marrow aspirate"
-                  },
-                  {
-                    "value": "bone_marrow_core",
-                    "label": "Bone marrow core biopsy"
-                  },
-                  {
-                    "value": "amniotic_fluid",
-                    "label": "Amniotic fluid"
-                  },
-                  {
-                    "value": "chorionic_villi",
-                    "label": "Chorionic villi"
-                  },
-                  {
-                    "value": "cord_blood",
-                    "label": "Cord blood"
-                  },
-                  {
-                    "value": "cerebrospinal_fluid",
-                    "label": "Cerebrospinal fluid"
-                  },
-                  {
-                    "value": "urine",
-                    "label": "Urine"
-                  },
-                  {
-                    "value": "stool",
-                    "label": "Stool"
-                  },
-                  {
-                    "value": "hair_follicles",
-                    "label": "Hair follicles"
-                  },
-                  {
-                    "value": "nail_clippings",
-                    "label": "Nail clippings"
-                  },
-                  {
-                    "value": "semen",
-                    "label": "Semen"
-                  },
-                  {
-                    "value": "embryo_biopsy",
-                    "label": "Embryo biopsy"
-                  },
-                  {
-                    "value": "whole_embryo",
-                    "label": "Whole embryo"
-                  },
-                  {
-                    "value": "polar_body",
-                    "label": "Polar body"
-                  },
-                  {
-                    "value": "plasma",
-                    "label": "Plasma"
-                  },
-                  {
-                    "value": "serum",
-                    "label": "Serum"
-                  },
-                  {
-                    "value": "extracted_dna",
-                    "label": "Extracted DNA"
-                  },
-                  {
-                    "value": "extracted_rna",
-                    "label": "Extracted RNA"
-                  },
-                  {
-                    "value": "other",
-                    "label": "Other"
-                  }
-                ]
-              },
-              {
-                "key": "test_type",
-                "label": "Broad test type",
-                "type": "enum",
-                "required": false,
-                "options": [
-                  {
-                    "value": "single_gene",
-                    "label": "Single-gene test"
-                  },
-                  {
-                    "value": "gene_panel",
-                    "label": "Gene panel"
-                  },
-                  {
-                    "value": "exome_sequencing",
-                    "label": "Exome sequencing"
-                  },
-                  {
-                    "value": "genome_sequencing",
-                    "label": "Genome sequencing"
-                  },
-                  {
-                    "value": "targeted_variant_testing",
-                    "label": "Targeted variant testing"
-                  },
-                  {
-                    "value": "repeat_expansion_testing",
-                    "label": "Repeat expansion testing"
-                  },
-                  {
-                    "value": "methylation_analysis",
-                    "label": "Methylation analysis"
-                  },
-                  {
-                    "value": "chromosomal_microarray",
-                    "label": "Chromosomal microarray"
-                  },
-                  {
-                    "value": "karyotype",
-                    "label": "Karyotype"
-                  },
-                  {
-                    "value": "fish",
-                    "label": "FISH"
-                  },
-                  {
-                    "value": "other",
-                    "label": "Other"
-                  }
-                ]
-              },
-              {
-                "key": "objective",
-                "label": "Objective",
-                "type": "long_text",
-                "required": false
-              },
-              {
-                "key": "clinical_suspicion",
-                "label": "Clinical suspicion",
-                "type": "long_text",
-                "required": false
-              },
-              {
-                "key": "genes",
-                "label": "Genes",
-                "type": "string_list",
-                "required": false
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "patient",
-              "value": "Patient AB-123"
-            },
-            {
-              "key": "test_name",
-              "value": "Hereditary cancer panel"
-            },
-            {
-              "key": "sample_type",
-              "value": "blood"
-            },
-            {
-              "key": "test_type",
-              "value": "gene_panel"
-            },
-            {
-              "key": "objective",
-              "value": "Evaluate an inherited cancer predisposition."
-            },
-            {
-              "key": "genes",
-              "value": [
-                "BRCA1",
-                "BRCA2"
-              ]
-            }
-          ]
-        }
-      },
       "inputSlots": [
         {
           "role": "form",
@@ -1110,47 +634,6 @@
         },
         "turnaround": "1d",
         "pricingModel": "calculated_after_submission"
-      },
-      "sampleRequest": {
-        "request_id": "pgr_demo_test_ordering",
-        "service_id": "pgs_test_ordering",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_test_ordering",
-              "revision": 1
-            }
-          },
-          {
-            "role": "informed_consent",
-            "object_ref": {
-              "object_id": "obj_demo_consent",
-              "revision": 1
-            }
-          },
-          {
-            "role": "bundle_of_candidate_genes",
-            "object_ref": {
-              "object_id": "obj_demo_genes",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_test_ordering",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "test_order",
-            "object_ref": {
-              "object_id": "obj_demo_order",
-              "revision": 1
-            }
-          }
-        ]
       },
       "status": "active",
       "serviceCategory": "sot_genetic_test_ordering",
@@ -1456,290 +939,6 @@
           }
         ]
       },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_collection_request",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-16T12:25:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "patient",
-                "label": "Patient or source",
-                "type": "text",
-                "required": true
-              },
-              {
-                "key": "sample_type",
-                "label": "Biological material to collect",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "blood",
-                    "label": "Blood"
-                  },
-                  {
-                    "value": "dried_blood_spot",
-                    "label": "Dried blood spot"
-                  },
-                  {
-                    "value": "saliva",
-                    "label": "Saliva"
-                  },
-                  {
-                    "value": "buccal_swab",
-                    "label": "Buccal swab"
-                  },
-                  {
-                    "value": "tissue",
-                    "label": "Tissue"
-                  },
-                  {
-                    "value": "skin_biopsy",
-                    "label": "Skin biopsy"
-                  },
-                  {
-                    "value": "bone_marrow_aspirate",
-                    "label": "Bone marrow aspirate"
-                  },
-                  {
-                    "value": "bone_marrow_core",
-                    "label": "Bone marrow core biopsy"
-                  },
-                  {
-                    "value": "amniotic_fluid",
-                    "label": "Amniotic fluid"
-                  },
-                  {
-                    "value": "chorionic_villi",
-                    "label": "Chorionic villi"
-                  },
-                  {
-                    "value": "cord_blood",
-                    "label": "Cord blood"
-                  },
-                  {
-                    "value": "cerebrospinal_fluid",
-                    "label": "Cerebrospinal fluid"
-                  },
-                  {
-                    "value": "urine",
-                    "label": "Urine"
-                  },
-                  {
-                    "value": "stool",
-                    "label": "Stool"
-                  },
-                  {
-                    "value": "hair_follicles",
-                    "label": "Hair follicles"
-                  },
-                  {
-                    "value": "nail_clippings",
-                    "label": "Nail clippings"
-                  },
-                  {
-                    "value": "semen",
-                    "label": "Semen"
-                  },
-                  {
-                    "value": "embryo_biopsy",
-                    "label": "Embryo biopsy"
-                  },
-                  {
-                    "value": "whole_embryo",
-                    "label": "Whole embryo"
-                  },
-                  {
-                    "value": "polar_body",
-                    "label": "Polar body"
-                  },
-                  {
-                    "value": "other",
-                    "label": "Other"
-                  }
-                ]
-              },
-              {
-                "key": "collection_method",
-                "label": "Collection method",
-                "type": "enum",
-                "required": false,
-                "options": [
-                  {
-                    "value": "venous_blood_draw",
-                    "label": "Venous blood draw"
-                  },
-                  {
-                    "value": "capillary_blood_collection",
-                    "label": "Capillary blood collection"
-                  },
-                  {
-                    "value": "buccal_swab",
-                    "label": "Buccal swab"
-                  },
-                  {
-                    "value": "saliva_collection",
-                    "label": "Saliva collection"
-                  },
-                  {
-                    "value": "needle_aspiration",
-                    "label": "Needle aspiration"
-                  },
-                  {
-                    "value": "core_biopsy",
-                    "label": "Core biopsy"
-                  },
-                  {
-                    "value": "surgical_biopsy",
-                    "label": "Surgical biopsy"
-                  },
-                  {
-                    "value": "skin_punch_biopsy",
-                    "label": "Skin punch biopsy"
-                  },
-                  {
-                    "value": "amniocentesis",
-                    "label": "Amniocentesis"
-                  },
-                  {
-                    "value": "chorionic_villus_sampling",
-                    "label": "Chorionic villus sampling"
-                  },
-                  {
-                    "value": "lumbar_puncture",
-                    "label": "Lumbar puncture"
-                  },
-                  {
-                    "value": "embryo_biopsy",
-                    "label": "Embryo biopsy"
-                  },
-                  {
-                    "value": "polar_body_biopsy",
-                    "label": "Polar body biopsy"
-                  },
-                  {
-                    "value": "self_collection",
-                    "label": "Self-collection"
-                  },
-                  {
-                    "value": "other",
-                    "label": "Other"
-                  }
-                ]
-              },
-              {
-                "key": "container",
-                "label": "Container or kit",
-                "type": "enum",
-                "required": false,
-                "options": [
-                  {
-                    "value": "edta_tube",
-                    "label": "EDTA tube"
-                  },
-                  {
-                    "value": "heparin_tube",
-                    "label": "Heparin tube"
-                  },
-                  {
-                    "value": "citrate_tube",
-                    "label": "Citrate tube"
-                  },
-                  {
-                    "value": "serum_tube",
-                    "label": "Serum tube"
-                  },
-                  {
-                    "value": "dna_stabilization_tube",
-                    "label": "DNA stabilization tube"
-                  },
-                  {
-                    "value": "rna_stabilization_tube",
-                    "label": "RNA stabilization tube"
-                  },
-                  {
-                    "value": "sterile_container",
-                    "label": "Sterile container"
-                  },
-                  {
-                    "value": "swab_collection_kit",
-                    "label": "Swab collection kit"
-                  },
-                  {
-                    "value": "saliva_collection_kit",
-                    "label": "Saliva collection kit"
-                  },
-                  {
-                    "value": "cryovial",
-                    "label": "Cryovial"
-                  },
-                  {
-                    "value": "filter_paper_card",
-                    "label": "Filter paper card"
-                  },
-                  {
-                    "value": "formalin_container",
-                    "label": "Formalin container"
-                  },
-                  {
-                    "value": "other",
-                    "label": "Other"
-                  }
-                ]
-              },
-              {
-                "key": "requested_quantity",
-                "label": "Requested quantity",
-                "type": "text",
-                "required": false
-              },
-              {
-                "key": "collection_site",
-                "label": "Collection site",
-                "type": "address",
-                "required": false
-              },
-              {
-                "key": "scheduled_at",
-                "label": "Scheduled collection time",
-                "type": "datetime",
-                "required": false
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "patient",
-              "value": "Patient AB-123"
-            },
-            {
-              "key": "sample_type",
-              "value": "blood"
-            },
-            {
-              "key": "collection_method",
-              "value": "venous_blood_draw"
-            },
-            {
-              "key": "container",
-              "value": "edta_tube"
-            },
-            {
-              "key": "requested_quantity",
-              "value": "2 mL"
-            },
-            {
-              "key": "collection_site",
-              "value": "Demo clinical collection room"
-            }
-          ]
-        }
-      },
       "inputSlots": [
         {
           "role": "form",
@@ -1790,40 +989,6 @@
         },
         "turnaround": "2h",
         "pricingModel": "calculated_after_submission"
-      },
-      "sampleRequest": {
-        "request_id": "pgr_demo_collection_request",
-        "service_id": "pgs_collection_request",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_collection_request",
-              "revision": 1
-            }
-          },
-          {
-            "role": "test_order",
-            "object_ref": {
-              "object_id": "obj_demo_order",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_collection_request",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "collection_request",
-            "object_ref": {
-              "object_id": "obj_demo_collection",
-              "revision": 1
-            }
-          }
-        ]
       },
       "status": "active",
       "serviceCategory": "sot_sample_collection",
@@ -1880,42 +1045,6 @@
             "value": "+541155551234"
           }
         ]
-      },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_sample_transport",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-16T12:35:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "contact_name",
-                "label": "Contact name",
-                "type": "text",
-                "required": true
-              },
-              {
-                "key": "contact_phone",
-                "label": "Contact phone",
-                "type": "phone",
-                "required": true
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "contact_name",
-              "value": "Example Contact"
-            },
-            {
-              "key": "contact_phone",
-              "value": "+541155551234"
-            }
-          ]
-        }
       },
       "inputSlots": [
         {
@@ -1980,47 +1109,6 @@
         "turnaround": "1d",
         "pricingModel": "calculated_after_submission"
       },
-      "sampleRequest": {
-        "request_id": "pgr_demo_sample_transport",
-        "service_id": "pgs_sample_transport",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_sample_transport",
-              "revision": 1
-            }
-          },
-          {
-            "role": "collection_request",
-            "object_ref": {
-              "object_id": "obj_demo_collection",
-              "revision": 1
-            }
-          },
-          {
-            "role": "blood_sample",
-            "object_ref": {
-              "object_id": "obj_demo_blood",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_sample_transport",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "delivered_specimen",
-            "object_ref": {
-              "object_id": "obj_demo_blood",
-              "revision": 2
-            }
-          }
-        ]
-      },
       "status": "active",
       "serviceCategory": "sot_sample_logistics",
       "providerName": "Origin Sample Services",
@@ -2081,46 +1169,6 @@
           }
         ]
       },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_dna_extraction",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-16T15:05:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "extraction_profile",
-                "label": "Extraction profile",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "demo_blood_dna_v1",
-                    "label": "Demo blood DNA extraction"
-                  },
-                  {
-                    "value": "demo_tissue_dna_v1",
-                    "label": "Demo tissue DNA extraction"
-                  },
-                  {
-                    "value": "demo_embryo_biopsy_dna_v1",
-                    "label": "Demo embryo-biopsy DNA extraction"
-                  }
-                ]
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "extraction_profile",
-              "value": "demo_blood_dna_v1"
-            }
-          ]
-        }
-      },
       "inputSlots": [
         {
           "role": "form",
@@ -2173,7 +1221,7 @@
         }
       ],
       "acceptedConditions": [
-        "Exactly one specimen occupies the specimen slot; accepted_types are alternatives, not three required inputs.",
+        "Exactly one specimen occupies the specimen slot; acceptedTypes are alternatives, not three required inputs.",
         "The specimen is received at this provider, available for the planned procedure and accepted under the selected extraction profile.",
         "For pgo_embryo_sample, data.material_kind must equal embryo_biopsy. A whole_embryo is rejected by this service.",
         "The blood, tissue or embryo-biopsy material must match the selected extraction profile."
@@ -2191,54 +1239,6 @@
         "turnaround": "1d",
         "pricingModel": "calculated_after_submission"
       },
-      "sampleRequest": {
-        "request_id": "pgr_demo_dna_extraction",
-        "service_id": "pgs_dna_extraction",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_dna_extraction",
-              "revision": 1
-            }
-          },
-          {
-            "role": "blood_sample",
-            "object_ref": {
-              "object_id": "obj_demo_blood",
-              "revision": 2
-            }
-          },
-          {
-            "role": "test_order",
-            "object_ref": {
-              "object_id": "obj_demo_order",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_dna_extraction",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "dna_sample",
-            "object_ref": {
-              "object_id": "obj_demo_dna",
-              "revision": 1
-            }
-          },
-          {
-            "role": "source_specimen",
-            "object_ref": {
-              "object_id": "obj_demo_blood",
-              "revision": 3
-            }
-          }
-        ]
-      },
       "status": "active",
       "serviceCategory": "sot_dna_extraction",
       "providerName": "Atlas Precision Laboratory",
@@ -2249,7 +1249,64 @@
       "providerApiContractId": "pg_api_service_requests_v1",
       "isHiddenFromSearch": false,
       "isHighlightedOffer": false,
-      "isProfessionalOffer": true
+      "isProfessionalOffer": true,
+      "moreInformation": {
+        "frequentQuestions": [
+          {
+            "question": "What kinds of specimens can be used?",
+            "answer": "The provider reviews compatible blood, tissue, or embryo-biopsy specimens against the selected extraction profile."
+          }
+        ],
+        "keyInsights": [
+          {
+            "title": "A quality DNA input starts with the specimen",
+            "description": "Specimen identity, condition, and the requested downstream study determine whether extraction can proceed."
+          }
+        ],
+        "scientificFacts": [
+          {
+            "title": "Extraction separates DNA from other cellular material",
+            "description": "The laboratory uses a validated workflow to isolate DNA while controlling contamination and degradation."
+          }
+        ],
+        "usefulLinks": [
+          {
+            "title": "DNA extraction overview",
+            "url": "https://example.com/services/dna-extraction/overview"
+          }
+        ],
+        "sampleLink": {
+          "title": "Review a sample result",
+          "description": "See a fictional example of the information returned after an accepted extraction workflow.",
+          "buttonTitle": "Open sample",
+          "url": "https://example.com/services/dna-extraction/sample"
+        },
+        "bulletSegments": [
+          {
+            "title": "Provider review",
+            "description": "The laboratory confirms that the submitted specimen and order are suitable for the published workflow.",
+            "imageUrl": "https://example.com/images/services/dna-extraction-review.png"
+          }
+        ],
+        "technicalInformationFacts": [
+          {
+            "title": "Technical deliverables",
+            "description": "The completed service registers the extracted DNA and the updated source-specimen state.",
+            "subitems": [
+              "Extracted DNA identity and measured properties",
+              "Source-specimen revision reflecting material use"
+            ]
+          }
+        ],
+        "biologicalSampleRequirements": [
+          {
+            "title": "Accepted material",
+            "description": "Submit one specimen compatible with the extraction profile selected in the request form.",
+            "instructions": "Keep the specimen identified and follow the provider's collection, packaging, and delivery directions."
+          }
+        ],
+        "websiteUrl": "https://example.com/services/dna-extraction"
+      }
     },
     {
       "name": "Sequence the requested scope",
@@ -2290,38 +1347,6 @@
             "value": "pg_demo_targeted_reads_v1"
           }
         ]
-      },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_sequencing",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-16T16:05:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "sequencing_profile",
-                "label": "Sequencing profile",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "pg_demo_targeted_reads_v1",
-                    "label": "Demo targeted read profile"
-                  }
-                ]
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "sequencing_profile",
-              "value": "pg_demo_targeted_reads_v1"
-            }
-          ]
-        }
       },
       "inputSlots": [
         {
@@ -2393,54 +1418,6 @@
         "turnaround": "3d",
         "pricingModel": "calculated_after_submission"
       },
-      "sampleRequest": {
-        "request_id": "pgr_demo_sequencing",
-        "service_id": "pgs_sequencing",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_sequencing",
-              "revision": 1
-            }
-          },
-          {
-            "role": "dna_sample",
-            "object_ref": {
-              "object_id": "obj_demo_dna",
-              "revision": 1
-            }
-          },
-          {
-            "role": "test_order",
-            "object_ref": {
-              "object_id": "obj_demo_order",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_sequencing",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "reads",
-            "object_ref": {
-              "object_id": "obj_demo_fastq",
-              "revision": 1
-            }
-          },
-          {
-            "role": "source_dna",
-            "object_ref": {
-              "object_id": "obj_demo_dna",
-              "revision": 2
-            }
-          }
-        ]
-      },
       "status": "active",
       "serviceCategory": "sot_dna_sequencing",
       "providerName": "Atlas Precision Laboratory",
@@ -2492,38 +1469,6 @@
             "value": "pg_demo_alignment_v1"
           }
         ]
-      },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_read_alignment",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-17T12:05:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "alignment_profile",
-                "label": "Alignment profile",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "pg_demo_alignment_v1",
-                    "label": "Demo alignment profile"
-                  }
-                ]
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "alignment_profile",
-              "value": "pg_demo_alignment_v1"
-            }
-          ]
-        }
       },
       "inputSlots": [
         {
@@ -2586,47 +1531,6 @@
         "turnaround": "6h",
         "pricingModel": "calculated_after_submission"
       },
-      "sampleRequest": {
-        "request_id": "pgr_demo_read_alignment",
-        "service_id": "pgs_read_alignment",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_read_alignment",
-              "revision": 1
-            }
-          },
-          {
-            "role": "sequence_reads",
-            "object_ref": {
-              "object_id": "obj_demo_fastq",
-              "revision": 1
-            }
-          },
-          {
-            "role": "test_order",
-            "object_ref": {
-              "object_id": "obj_demo_order",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_read_alignment",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "aligned_reads",
-            "object_ref": {
-              "object_id": "obj_demo_bam",
-              "revision": 1
-            }
-          }
-        ]
-      },
       "status": "active",
       "serviceCategory": "sot_read_alignment",
       "providerName": "Variant Analysis Cooperative",
@@ -2678,38 +1582,6 @@
             "value": "pg_demo_calling_v1"
           }
         ]
-      },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_variant_calling",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-17T13:05:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "calling_profile",
-                "label": "Variant-calling profile",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "pg_demo_calling_v1",
-                    "label": "Demo variant-calling profile"
-                  }
-                ]
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "calling_profile",
-              "value": "pg_demo_calling_v1"
-            }
-          ]
-        }
       },
       "inputSlots": [
         {
@@ -2772,47 +1644,6 @@
         "turnaround": "6h",
         "pricingModel": "calculated_after_submission"
       },
-      "sampleRequest": {
-        "request_id": "pgr_demo_variant_calling",
-        "service_id": "pgs_variant_calling",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_variant_calling",
-              "revision": 1
-            }
-          },
-          {
-            "role": "aligned_reads",
-            "object_ref": {
-              "object_id": "obj_demo_bam",
-              "revision": 1
-            }
-          },
-          {
-            "role": "test_order",
-            "object_ref": {
-              "object_id": "obj_demo_order",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_variant_calling",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "variants",
-            "object_ref": {
-              "object_id": "obj_demo_unannotated_vcf",
-              "revision": 1
-            }
-          }
-        ]
-      },
       "status": "active",
       "serviceCategory": "sot_variant_calling",
       "providerName": "Variant Analysis Cooperative",
@@ -2864,38 +1695,6 @@
             "value": "PG_DEMO_ANN_V1"
           }
         ]
-      },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_variant_annotation",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-17T14:05:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "annotation_profile",
-                "label": "Annotation profile",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "PG_DEMO_ANN_V1",
-                    "label": "Demo annotation profile"
-                  }
-                ]
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "annotation_profile",
-              "value": "PG_DEMO_ANN_V1"
-            }
-          ]
-        }
       },
       "inputSlots": [
         {
@@ -2959,47 +1758,6 @@
         "turnaround": "4h",
         "pricingModel": "calculated_after_submission"
       },
-      "sampleRequest": {
-        "request_id": "pgr_demo_variant_annotation",
-        "service_id": "pgs_variant_annotation",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_variant_annotation",
-              "revision": 1
-            }
-          },
-          {
-            "role": "unannotated_vcf",
-            "object_ref": {
-              "object_id": "obj_demo_unannotated_vcf",
-              "revision": 1
-            }
-          },
-          {
-            "role": "test_order",
-            "object_ref": {
-              "object_id": "obj_demo_order",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_variant_annotation",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "annotated_variants",
-            "object_ref": {
-              "object_id": "obj_demo_annotated_vcf",
-              "revision": 1
-            }
-          }
-        ]
-      },
       "status": "active",
       "serviceCategory": "sot_variant_annotation",
       "providerName": "Variant Analysis Cooperative",
@@ -3052,38 +1810,6 @@
           }
         ]
       },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_interactive_interpretation",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-17T15:05:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "interpretation_profile",
-                "label": "Interactive report profile",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "pg_demo_mdm_pgi1_v1",
-                    "label": "Demo PGI1 MDMAPIModel profile"
-                  }
-                ]
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "interpretation_profile",
-              "value": "pg_demo_mdm_pgi1_v1"
-            }
-          ]
-        }
-      },
       "inputSlots": [
         {
           "role": "form",
@@ -3134,40 +1860,6 @@
         },
         "turnaround": "1d",
         "pricingModel": "calculated_after_submission"
-      },
-      "sampleRequest": {
-        "request_id": "pgr_demo_interactive_interpretation",
-        "service_id": "pgs_interactive_interpretation",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_interactive_interpretation",
-              "revision": 1
-            }
-          },
-          {
-            "role": "annotated_vcf",
-            "object_ref": {
-              "object_id": "obj_demo_annotated_vcf",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_interactive_interpretation",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "interactive_report",
-            "object_ref": {
-              "object_id": "obj_demo_interactive",
-              "revision": 1
-            }
-          }
-        ]
       },
       "status": "active",
       "serviceCategory": "sot_genomic_interpretation",
@@ -3249,66 +1941,6 @@
           }
         ]
       },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_final_report",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-17T16:05:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "language",
-                "label": "Report language",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "en",
-                    "label": "English"
-                  },
-                  {
-                    "value": "es-AR",
-                    "label": "Spanish, Argentina"
-                  }
-                ]
-              },
-              {
-                "key": "presentation",
-                "label": "Report presentation",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "clinical",
-                    "label": "Clinical report"
-                  },
-                  {
-                    "value": "patient",
-                    "label": "Patient-facing report"
-                  },
-                  {
-                    "value": "other",
-                    "label": "Other"
-                  }
-                ]
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "language",
-              "value": "en"
-            },
-            {
-              "key": "presentation",
-              "value": "clinical"
-            }
-          ]
-        }
-      },
       "inputSlots": [
         {
           "role": "form",
@@ -3374,47 +2006,6 @@
         "turnaround": "1d",
         "pricingModel": "calculated_after_submission"
       },
-      "sampleRequest": {
-        "request_id": "pgr_demo_final_report",
-        "service_id": "pgs_final_report",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_final_report",
-              "revision": 1
-            }
-          },
-          {
-            "role": "test_order",
-            "object_ref": {
-              "object_id": "obj_demo_order",
-              "revision": 1
-            }
-          },
-          {
-            "role": "interactive_report",
-            "object_ref": {
-              "object_id": "obj_demo_interactive",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_final_report",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "report",
-            "object_ref": {
-              "object_id": "obj_demo_pdf",
-              "revision": 1
-            }
-          }
-        ]
-      },
       "status": "active",
       "serviceCategory": "sot_genomic_report_generation",
       "providerName": "Clarity Report Studio",
@@ -3477,48 +2068,6 @@
           }
         ]
       },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_karyotype_analysis",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-16T12:35:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "objective",
-                "label": "Analysis objective",
-                "type": "long_text",
-                "required": false
-              },
-              {
-                "key": "analysis_profile",
-                "label": "Analysis profile",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "pg_demo_metaphase_review_v1",
-                    "label": "Demo metaphase image review"
-                  }
-                ]
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "objective",
-              "value": "Review the supplied metaphase images."
-            },
-            {
-              "key": "analysis_profile",
-              "value": "pg_demo_metaphase_review_v1"
-            }
-          ]
-        }
-      },
       "inputSlots": [
         {
           "role": "form",
@@ -3567,40 +2116,6 @@
         },
         "turnaround": "1d",
         "pricingModel": "calculated_after_submission"
-      },
-      "sampleRequest": {
-        "request_id": "pgr_demo_karyotype_analysis",
-        "service_id": "pgs_karyotype_analysis",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_karyotype_analysis",
-              "revision": 1
-            }
-          },
-          {
-            "role": "image_bundle",
-            "object_ref": {
-              "object_id": "obj_demo_images",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_karyotype_analysis",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "karyotype_result",
-            "object_ref": {
-              "object_id": "obj_demo_karyotype",
-              "revision": 1
-            }
-          }
-        ]
       },
       "status": "active",
       "serviceCategory": "sot_cytogenetic_analysis",
@@ -3691,75 +2206,6 @@
           }
         ]
       },
-      "sampleFormObject": {
-        "object_id": "obj_demo_form_form_to_pdf",
-        "object_type": "pgo_form",
-        "schema_version": "1.0.0",
-        "revision": 1,
-        "created_at": "2026-09-16T12:00:00Z",
-        "created_by": "user_demo_001",
-        "data": {
-          "form_shape": {
-            "fields": [
-              {
-                "key": "patient_name",
-                "label": "Patient name",
-                "type": "text",
-                "required": false
-              },
-              {
-                "key": "objective",
-                "label": "Document objective",
-                "type": "long_text",
-                "required": true
-              },
-              {
-                "key": "submitted_information",
-                "label": "Information to include",
-                "type": "string_list",
-                "required": true
-              },
-              {
-                "key": "language",
-                "label": "Document language",
-                "type": "enum",
-                "required": true,
-                "options": [
-                  {
-                    "value": "en",
-                    "label": "English"
-                  },
-                  {
-                    "value": "es-AR",
-                    "label": "Spanish, Argentina"
-                  }
-                ]
-              }
-            ]
-          },
-          "fields": [
-            {
-              "key": "patient_name",
-              "value": "Alex Example"
-            },
-            {
-              "key": "objective",
-              "value": "Summarize the submitted request."
-            },
-            {
-              "key": "submitted_information",
-              "value": [
-                "Consultation note A",
-                "Consultation note B"
-              ]
-            },
-            {
-              "key": "language",
-              "value": "en"
-            }
-          ]
-        }
-      },
       "inputSlots": [
         {
           "role": "form",
@@ -3795,33 +2241,6 @@
         },
         "turnaround": "1d",
         "pricingModel": "calculated_after_submission"
-      },
-      "sampleRequest": {
-        "request_id": "pgr_demo_form_to_pdf",
-        "service_id": "pgs_form_to_pdf",
-        "service_version": 1,
-        "inputs": [
-          {
-            "role": "form",
-            "object_ref": {
-              "object_id": "obj_demo_form_form_to_pdf",
-              "revision": 1
-            }
-          }
-        ]
-      },
-      "sampleResult": {
-        "request_id": "pgr_demo_form_to_pdf",
-        "status": "delivered",
-        "outputs": [
-          {
-            "role": "summary",
-            "object_ref": {
-              "object_id": "obj_demo_consultation_pdf",
-              "revision": 1
-            }
-          }
-        ]
       },
       "status": "active",
       "serviceCategory": "sot_genomic_report_generation",

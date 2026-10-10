@@ -473,7 +473,6 @@ export const PGO_OBJECT_SCHEMAS: Readonly<
       },
       "genes": {
         "type": "array",
-        "minItems": 1,
         "items": {
           "type": "string",
           "minLength": 1,

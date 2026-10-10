@@ -2773,12 +2773,26 @@ Optional service offer fields:
     regions: string[]
     promotionalBannerImageUrl: string
     promotionalBannerImageUploadDataUrl: string
+    moreInformation: object | null
     createdAt: timestamp
     updatedAt: timestamp
 
+moreInformation is an optional, presentation-only closed map. Each child may be
+omitted or null, and the root may be omitted, null, empty, or contain only null
+or empty sections. In those no-content states only empty arrays show no action;
+the offer detail shows More information only when at least one supported section
+has displayable content. The same value is frozen at
+offerSnapshot.moreInformation when a transaction is created.
+
+Every moreInformation URL uses the exact lowercase https:// scheme. Userinfo is forbidden;
+hosts use DNS/IPv4 label form or bracketed IPv6; an optional port has
+one to five digits. Paths, queries, and fragments are valid. The closed map and
+all nested maps reject unknown keys, snake-case aliases, malformed values, and
+wrong-case alternatives.
+
 serviceCategory is a closed classification contract defined by
 Pocket-Genes-Catalog-Wiki/catalog/service-offer-types.json. The provider exposes
-exactly 30 sot_* values with English and Spanish names and descriptions plus one
+exactly 110 sot_* values with English and Spanish names and descriptions plus one
 SF Symbol per value. Backoffice must use a picker and persist the key, never a
 localized label or free text. Native parses missing, empty, and unknown historical
 values without rejecting the offer, but displays them as Uncategorized / Sin
@@ -2973,7 +2987,6 @@ Required root fields:
     idempotencyKey: string
     inputs: object[]
     outputObjects: object[]
-    outputReports: object[]
     issues: object[]
     missingRequiredInputRoles: string[]
     offerSnapshot: object
@@ -2989,6 +3002,7 @@ Optional root fields:
     requestedByUserEmail: string
     attachmentsPending: boolean, present as true only for attach-later
     schemaVersion: integer, optional until the native writer emits it
+    outputReports: object[] | null; optional
 
 Every transaction requires at least one requester identity. An authenticated
 request has requestedByUserId and may retain requestedByUserEmail. An email-only
@@ -3042,6 +3056,32 @@ user requested at request time:
     shortContract: calculated string
     acceptedConditions: string[]
     scopeRules: string[]
+    moreInformation: object | null, optional
+
+offerSnapshot.moreInformation preserves the optional explanatory map shown with
+the offer at request time. It is presentation metadata and never changes the
+frozen input/output contract.
+
+Supplemental linked output reports:
+
+service_transactions.outputReports is optional, output-only, and independent of
+the service offer contract. It may be omitted, explicitly null, or an empty
+array. There is no inputReports field: inputSlots and outputSlots describe objects only.
+Adding or removing report links never changes status or completeness and never
+satisfies a promised output object.
+
+When present, outputReports contains unique closed maps with exactly one key:
+
+    { "reportCode": "ABC123" }
+
+Each code resolves through report_codes/{reportCode}, then through the
+uploaded_reports/{uploadedReportId} referenced by the canonical
+`{ "uploaded_report_id": "uploaded-report-123" }` field. Valid report types are
+exactly mdm, ag, 2pq, vcf, and pdf. A file-backed report uses the exact
+`"linked_report_code": "ABC123"` value in file_storage. A direct report uses an
+unpadded absolute HTTP(S) download_url with a host. The transaction detail shows
+the Linked output reports section only when at least one valid link exists;
+resolution errors remain report-level errors and do not mutate the transaction.
 
 providerSnapshot is frozen at request time and contains id, kind, name, and
 optional imageUrl/imageUploadDataUrl. Native renders one tappable provider card
