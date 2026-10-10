@@ -6913,9 +6913,29 @@ function serviceCategoryGroupIcon(groupId: string) {
       return Binary;
     case "interpretation_by_purpose":
       return Search;
+    case "complete_reproductive_reports":
+      return Fingerprint;
+    case "complete_animal_food_reports":
+      return FlaskConical;
+    case "human_health_and_support":
+      return UserRound;
+    case "legal_advice":
+      return Building2;
+    case "education_and_career":
+      return ClipboardList;
+    case "technology_business_and_finance":
+      return BriefcaseBusiness;
     default:
       return FileText;
   }
+}
+
+function normalizeServiceCategorySearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLowerCase();
 }
 
 function ServiceCategoryPicker({
@@ -6931,12 +6951,43 @@ function ServiceCategoryPicker({
   const t = (text: string) => appText(language, text);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<SupportServiceCategoryKey | "">("");
+  const [searchQuery, setSearchQuery] = useState("");
   const selectedCategory = supportServiceCategoryByKey(value);
   const draftCategory = supportServiceCategoryByKey(draft);
+  const normalizedSearchQuery = normalizeServiceCategorySearch(searchQuery);
+  const visibleCategoryGroups = SUPPORT_SERVICE_CATEGORY_GROUPS.map(
+    (group) => ({
+      ...group,
+      categories: group.keys
+        .map((key) =>
+          SUPPORT_SERVICE_CATEGORIES.find(
+            (category) => category.key === key,
+          ),
+        )
+        .filter(
+          (category): category is NonNullable<typeof category> =>
+            category !== undefined,
+        )
+        .filter(
+          (category) =>
+            !normalizedSearchQuery ||
+              normalizeServiceCategorySearch(
+                [
+                  category.key,
+                  category.nameEnglish,
+                  category.nameSpanish,
+                  category.descriptionEnglish,
+                  category.descriptionSpanish,
+                ].join(" "),
+              ).includes(normalizedSearchQuery),
+        ),
+    }),
+  ).filter((group) => group.categories.length > 0);
 
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
       setDraft(selectedCategory?.key ?? "");
+      setSearchQuery("");
     }
     setOpen(nextOpen);
   }
@@ -7010,21 +7061,27 @@ function ServiceCategoryPicker({
             </DialogDescription>
           </DialogHeader>
 
+          <div className="shrink-0 border-b border-violet-100 bg-white px-5 py-4 sm:px-6 dark:border-violet-300/16 dark:bg-slate-950">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-500" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label={t("Search service categories")}
+                placeholder={t("Search service categories by name or code...")}
+                className="h-11 rounded-xl border-violet-200 bg-violet-50/35 pl-10 focus-visible:ring-violet-400 dark:border-violet-400/20 dark:bg-violet-500/8"
+              />
+            </div>
+          </div>
+
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
             <div
               role="radiogroup"
               aria-label={t("Service category options")}
               className="grid gap-7"
             >
-              {SUPPORT_SERVICE_CATEGORY_GROUPS.map((group) => {
+              {visibleCategoryGroups.map((group) => {
                 const GroupIcon = serviceCategoryGroupIcon(group.id);
-                const categories = group.keys
-                  .map((key) =>
-                    SUPPORT_SERVICE_CATEGORIES.find(
-                      (category) => category.key === key,
-                    ),
-                  )
-                  .filter((category) => category !== undefined);
 
                 return (
                   <section key={group.id} className="grid gap-3">
@@ -7046,7 +7103,7 @@ function ServiceCategoryPicker({
                       </div>
                     </div>
                     <div className="grid gap-3 lg:grid-cols-2">
-                      {categories.map((category) => {
+                      {group.categories.map((category) => {
                         const selected = draft === category.key;
                         return (
                           <button
@@ -7090,6 +7147,11 @@ function ServiceCategoryPicker({
                   </section>
                 );
               })}
+              {visibleCategoryGroups.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-violet-200 bg-violet-50/45 px-5 py-10 text-center text-sm text-muted-foreground dark:border-violet-400/24 dark:bg-violet-500/8">
+                  {t("No service categories match this search.")}
+                </div>
+              ) : null}
             </div>
           </div>
 

@@ -239,6 +239,486 @@
       "descriptionEnglish": "Deterministic conversion, packaging, validation, or exchange of genomic files between declared formats without biological analysis or interpretation.",
       "descriptionSpanish": "Conversión determinística, empaquetado, validación o intercambio de archivos genómicos entre formatos declarados, sin análisis biológico ni interpretación.",
       "systemImage": "arrow.left.arrow.right.square.fill"
+    },
+    {
+      "key": "sot_complete_health_genomics_report",
+      "nameEnglish": "Comprehensive health genomics report",
+      "nameSpanish": "Informe genómico integral de salud",
+      "descriptionEnglish": "An inseparable sample-to-report health profile that combines specimen collection, genomic testing, evidence-based interpretation across the declared health domains, and one consolidated final report; it is not a diagnosis of every disease.",
+      "descriptionSpanish": "Perfil de salud indivisible desde la toma de muestra hasta el informe, que combina obtención de la muestra, estudio genómico, interpretación basada en evidencia de las áreas de salud declaradas y un informe final consolidado; no diagnostica todas las enfermedades.",
+      "systemImage": "heart.text.square.fill"
+    },
+    {
+      "key": "sot_complete_rare_disease_diagnostic_report",
+      "nameEnglish": "Rare-disease genomic diagnosis report",
+      "nameSpanish": "Informe genómico diagnóstico de enfermedades poco frecuentes",
+      "descriptionEnglish": "A complete diagnostic pathway for a suspected rare or undiagnosed disorder, from collection of the patient and any declared family samples through phenotype-guided genomic analysis and a clinically interpreted final report.",
+      "descriptionSpanish": "Circuito diagnóstico completo para una enfermedad poco frecuente o aún no diagnosticada, desde la toma de la muestra de la persona y de los familiares declarados hasta el análisis genómico guiado por el fenotipo y el informe final con interpretación clínica.",
+      "systemImage": "cross.case.fill"
+    },
+    {
+      "key": "sot_complete_hereditary_cancer_report",
+      "nameEnglish": "Hereditary cancer genomic report",
+      "nameSpanish": "Informe genómico de cáncer hereditario",
+      "descriptionEnglish": "A sample-to-report assessment of inherited cancer susceptibility, including the declared germline panel, family-history context, variant interpretation, and a final report suitable for professional counseling and follow-up.",
+      "descriptionSpanish": "Evaluación de principio a fin de la predisposición hereditaria al cáncer, que incluye el panel germinal declarado, el contexto de antecedentes familiares, la interpretación de variantes y un informe final apto para asesoramiento y seguimiento profesional.",
+      "systemImage": "cross.case.circle.fill"
+    },
+    {
+      "key": "sot_complete_inherited_cardiovascular_report",
+      "nameEnglish": "Inherited cardiovascular disease genomic report",
+      "nameSpanish": "Informe genómico de enfermedades cardiovasculares hereditarias",
+      "descriptionEnglish": "A complete inherited-cardiovascular service covering specimen collection, analysis of the declared cardiomyopathy, arrhythmia, aortopathy, or lipid-disorder genes, case-aware interpretation, and delivery of the final report.",
+      "descriptionSpanish": "Servicio cardiovascular hereditario completo que abarca la toma de muestra, el análisis de los genes declarados para miocardiopatías, arritmias, aortopatías o trastornos lipídicos, la interpretación según el caso y la entrega del informe final.",
+      "systemImage": "heart.circle.fill"
+    },
+    {
+      "key": "sot_complete_neurogenetic_disease_report",
+      "nameEnglish": "Neurogenetic disease report",
+      "nameSpanish": "Informe de enfermedades neurogenéticas",
+      "descriptionEnglish": "An end-to-end evaluation for a declared hereditary neurologic or neurodegenerative question, joining sample acquisition, the appropriate molecular assay, phenotype-aware interpretation, and a clear final report with limitations.",
+      "descriptionSpanish": "Evaluación integral para una consulta neurológica o neurodegenerativa hereditaria declarada, que reúne la obtención de la muestra, el ensayo molecular apropiado, la interpretación según el fenotipo y un informe final claro con sus limitaciones.",
+      "systemImage": "brain.fill"
+    },
+    {
+      "key": "sot_complete_cystic_fibrosis_report",
+      "nameEnglish": "Cystic fibrosis genetic report",
+      "nameSpanish": "Informe genético de fibrosis quística",
+      "descriptionEnglish": "A complete CFTR testing service, from an accepted patient or reproductive sample through the declared variant or full-gene analysis, interpretation for the stated diagnostic or reproductive purpose, and the final report.",
+      "descriptionSpanish": "Servicio completo de estudio de CFTR, desde una muestra aceptada de la persona o con fines reproductivos hasta el análisis de variantes o del gen completo declarado, la interpretación para el objetivo diagnóstico o reproductivo indicado y el informe final.",
+      "systemImage": "lungs.fill"
+    },
+    {
+      "key": "sot_complete_pharmacogenomic_report",
+      "nameEnglish": "Personalized pharmacogenomic report",
+      "nameSpanish": "Informe farmacogenómico personalizado",
+      "descriptionEnglish": "A complete medication-response genomics service that collects the specimen, assays the declared gene-drug markers, assigns supported phenotypes, and delivers a clinician-oriented report without independently prescribing or changing treatment.",
+      "descriptionSpanish": "Servicio farmacogenómico completo que obtiene la muestra, estudia los marcadores gen-fármaco declarados, asigna los fenotipos respaldados y entrega un informe orientado al profesional, sin prescribir ni modificar tratamientos por sí solo.",
+      "systemImage": "pill.circle.fill"
+    },
+    {
+      "key": "sot_complete_nutrigenomic_report",
+      "nameEnglish": "Personalized nutrigenomic report",
+      "nameSpanish": "Informe nutrigenómico personalizado",
+      "descriptionEnglish": "An end-to-end nutritional genomics profile, including sample collection, analysis of the declared nutrient and metabolic markers, evidence-graded interpretation, and a final report intended to complement professional nutrition advice.",
+      "descriptionSpanish": "Perfil nutrigenómico integral que incluye toma de muestra, análisis de los marcadores nutricionales y metabólicos declarados, interpretación graduada según la evidencia y un informe final destinado a complementar el asesoramiento nutricional profesional.",
+      "systemImage": "fork.knife.circle.fill"
+    },
+    {
+      "key": "sot_complete_food_response_genetics_report",
+      "nameEnglish": "Food-response genetics report",
+      "nameSpanish": "Informe genético de respuesta a los alimentos",
+      "descriptionEnglish": "A sample-to-report genetic assessment of declared inherited food-response traits, such as lactose metabolism or celiac susceptibility; it excludes IgE or IgG antibody testing and does not diagnose a food allergy.",
+      "descriptionSpanish": "Evaluación genética de principio a fin de rasgos hereditarios declarados relacionados con la respuesta a los alimentos, como el metabolismo de la lactosa o la susceptibilidad celíaca; excluye los estudios de anticuerpos IgE o IgG y no diagnostica alergias alimentarias.",
+      "systemImage": "carrot.fill"
+    },
+    {
+      "key": "sot_complete_sports_performance_genetics_report",
+      "nameEnglish": "Sports performance genetics report",
+      "nameSpanish": "Informe genético de rendimiento deportivo",
+      "descriptionEnglish": "A complete non-diagnostic sports-genetics service that takes a specimen, evaluates the declared performance, recovery, metabolism, and injury-susceptibility markers, and returns a contextualized final report.",
+      "descriptionSpanish": "Servicio completo y no diagnóstico de genética deportiva que toma una muestra, evalúa los marcadores declarados de rendimiento, recuperación, metabolismo y susceptibilidad a lesiones, y entrega un informe final contextualizado.",
+      "systemImage": "figure.run"
+    },
+    {
+      "key": "sot_complete_skin_hair_genetics_report",
+      "nameEnglish": "Skin and hair genetics report",
+      "nameSpanish": "Informe genético de piel y cabello",
+      "descriptionEnglish": "An end-to-end cosmetic and wellness genetics profile covering sample collection, analysis of the declared skin or hair traits, cautious interpretation of their evidence, and a personalized non-diagnostic report.",
+      "descriptionSpanish": "Perfil genético integral de bienestar y cuidado estético que abarca la toma de muestra, el análisis de los rasgos declarados de piel o cabello, una interpretación prudente de la evidencia y un informe personalizado no diagnóstico.",
+      "systemImage": "sparkles"
+    },
+    {
+      "key": "sot_complete_genetic_ancestry_report",
+      "nameEnglish": "Comprehensive genetic ancestry report",
+      "nameSpanish": "Informe integral de ascendencia genética",
+      "descriptionEnglish": "A complete ancestry service from DNA collection through comparison with declared reference populations and lineages to a final probabilistic report; it makes no medical or legal identity determination.",
+      "descriptionSpanish": "Servicio completo de ascendencia, desde la toma de ADN y su comparación con poblaciones y linajes de referencia declarados hasta un informe probabilístico final; no determina identidad médica ni legal.",
+      "systemImage": "map.fill"
+    },
+    {
+      "key": "sot_complete_personal_traits_genetics_report",
+      "nameEnglish": "Genetic traits and characteristics report",
+      "nameSpanish": "Informe genético de rasgos y características personales",
+      "descriptionEnglish": "A sample-to-report, non-diagnostic profile of declared physical, sensory, or behavioral trait probabilities, with laboratory genotyping, transparent evidence limits, and a final educational report.",
+      "descriptionSpanish": "Perfil no diagnóstico de principio a fin sobre probabilidades de rasgos físicos, sensoriales o conductuales declarados, con genotipificación de laboratorio, límites de evidencia transparentes y un informe educativo final.",
+      "systemImage": "theatermasks.fill"
+    },
+    {
+      "key": "sot_complete_reproductive_carrier_report",
+      "nameEnglish": "Reproductive carrier screening report",
+      "nameSpanish": "Informe integral de portación reproductiva",
+      "descriptionEnglish": "A complete carrier-screening pathway for one person or a reproductive pair, including sample collection, the declared recessive and X-linked panel, couple-aware residual-risk interpretation when applicable, and the final report.",
+      "descriptionSpanish": "Circuito completo de cribado de portadores para una persona o pareja reproductiva, que incluye toma de muestra, el panel declarado de enfermedades recesivas y ligadas al X, interpretación del riesgo residual de la pareja cuando corresponda y el informe final.",
+      "systemImage": "person.2.circle.fill"
+    },
+    {
+      "key": "sot_complete_female_fertility_genetics_report",
+      "nameEnglish": "Female fertility genetic report",
+      "nameSpanish": "Informe genético de fertilidad femenina",
+      "descriptionEnglish": "An end-to-end genetic assessment for a declared female-fertility question, combining sample collection, indicated molecular or cytogenetic testing, reproductive-context interpretation, and a final report without claiming to measure fertility on genetics alone.",
+      "descriptionSpanish": "Evaluación genética integral para una consulta declarada de fertilidad femenina, que combina toma de muestra, estudios moleculares o citogenéticos indicados, interpretación en contexto reproductivo y un informe final, sin afirmar que la genética por sí sola mide la fertilidad.",
+      "systemImage": "person.crop.circle.fill.badge.plus"
+    },
+    {
+      "key": "sot_complete_male_infertility_genetics_report",
+      "nameEnglish": "Male infertility genetic report",
+      "nameSpanish": "Informe genético de infertilidad masculina",
+      "descriptionEnglish": "A complete genetic workup for an indicated male-infertility presentation, from blood or other accepted sample through the declared karyotype, Y-microdeletion, CFTR, or related testing to an interpreted final report.",
+      "descriptionSpanish": "Estudio genético completo para una presentación indicada de infertilidad masculina, desde sangre u otra muestra aceptada hasta el cariotipo, las microdeleciones del cromosoma Y, CFTR u otros análisis declarados, con un informe final interpretado.",
+      "systemImage": "person.crop.circle.fill.badge.checkmark"
+    },
+    {
+      "key": "sot_complete_sperm_dna_integrity_report",
+      "nameEnglish": "Sperm DNA integrity report",
+      "nameSpanish": "Informe de integridad del ADN espermático",
+      "descriptionEnglish": "A complete semen-sample service that measures the declared sperm DNA fragmentation or chromatin-integrity endpoint, performs quality-controlled interpretation, and delivers a fertility-context report; it is not whole-genome sequencing.",
+      "descriptionSpanish": "Servicio completo sobre una muestra de semen que mide el indicador declarado de fragmentación del ADN espermático o integridad de la cromatina, realiza una interpretación con control de calidad y entrega un informe en contexto de fertilidad; no es secuenciación del genoma completo.",
+      "systemImage": "waveform.path.ecg"
+    },
+    {
+      "key": "sot_complete_reproductive_couple_karyotype_report",
+      "nameEnglish": "Reproductive couple karyotype report",
+      "nameSpanish": "Informe de cariotipo de la pareja reproductiva",
+      "descriptionEnglish": "An end-to-end cytogenetic service for a reproductive pair, covering both blood collections, chromosome analysis, joint interpretation for infertility or pregnancy-loss risk, and coordinated final reports.",
+      "descriptionSpanish": "Servicio citogenético integral para una pareja reproductiva que abarca ambas extracciones de sangre, el análisis cromosómico, la interpretación conjunta del riesgo de infertilidad o pérdida gestacional y los informes finales coordinados.",
+      "systemImage": "person.2.fill"
+    },
+    {
+      "key": "sot_complete_preimplantation_aneuploidy_report",
+      "nameEnglish": "Preimplantation aneuploidy screening report",
+      "nameSpanish": "Informe preimplantacional de cribado de aneuploidías",
+      "descriptionEnglish": "A complete PGT-A pathway from accepted embryo-biopsy material through genome-wide chromosome copy-number screening and quality review to an embryo-level report for the treating reproductive team.",
+      "descriptionSpanish": "Circuito completo de PGT-A, desde el material aceptado de biopsia embrionaria hasta el cribado del número de copias cromosómicas a escala genómica, su control de calidad y un informe por embrión para el equipo de reproducción tratante.",
+      "systemImage": "circle.grid.cross.fill"
+    },
+    {
+      "key": "sot_complete_preimplantation_monogenic_report",
+      "nameEnglish": "Preimplantation monogenic disease report",
+      "nameSpanish": "Informe preimplantacional de enfermedades monogénicas",
+      "descriptionEnglish": "A complete PGT-M service for a confirmed familial variant, including case review and assay preparation, embryo-biopsy testing, linkage or direct-variant analysis as declared, and the final embryo report.",
+      "descriptionSpanish": "Servicio completo de PGT-M para una variante familiar confirmada, que incluye revisión del caso y preparación del ensayo, estudio de biopsias embrionarias, análisis de ligamiento o de la variante directa según lo declarado y el informe final de cada embrión.",
+      "systemImage": "microbe.fill"
+    },
+    {
+      "key": "sot_complete_preimplantation_structural_report",
+      "nameEnglish": "Preimplantation structural rearrangement report",
+      "nameSpanish": "Informe preimplantacional de reordenamientos estructurales",
+      "descriptionEnglish": "An end-to-end PGT-SR pathway for a known parental chromosome rearrangement, from case setup and embryo biopsy through the declared unbalanced-rearrangement analysis to the final embryo-level report.",
+      "descriptionSpanish": "Circuito integral de PGT-SR para un reordenamiento cromosómico parental conocido, desde la preparación del caso y la biopsia embrionaria hasta el análisis declarado de reordenamientos desequilibrados y el informe final por embrión.",
+      "systemImage": "square.3.layers.3d.down.right"
+    },
+    {
+      "key": "sot_complete_noninvasive_prenatal_report",
+      "nameEnglish": "Non-invasive prenatal aneuploidy report",
+      "nameSpanish": "Informe prenatal no invasivo de aneuploidías",
+      "descriptionEnglish": "A complete maternal-blood cfDNA screening service, including collection, laboratory and bioinformatic assessment of the declared fetal chromosome risks, quality metrics, and a final risk report; it is screening, not a diagnostic result.",
+      "descriptionSpanish": "Servicio completo de cribado de ADN fetal libre en sangre materna que incluye extracción, evaluación de laboratorio y bioinformática de los riesgos cromosómicos fetales declarados, métricas de calidad y un informe final de riesgo; es un cribado, no un resultado diagnóstico.",
+      "systemImage": "cross.vial"
+    },
+    {
+      "key": "sot_complete_prenatal_carrier_fetal_risk_report",
+      "nameEnglish": "Prenatal carrier and fetal-risk report",
+      "nameSpanish": "Informe prenatal de portación y riesgo fetal",
+      "descriptionEnglish": "An integrated maternal-sample pathway that combines the declared carrier panel with reflex fetal cfDNA risk assessment when indicated and returns one clearly separated maternal and fetal-risk report; elevated risk requires appropriate confirmation.",
+      "descriptionSpanish": "Circuito integrado sobre una muestra materna que combina el panel de portación declarado con la evaluación refleja del riesgo fetal mediante ADN libre cuando está indicada, y entrega un informe que separa con claridad los resultados maternos y el riesgo fetal; un riesgo elevado requiere la confirmación correspondiente.",
+      "systemImage": "figure.child.circle.fill"
+    },
+    {
+      "key": "sot_complete_newborn_genomic_screening_report",
+      "nameEnglish": "Newborn genomic screening report",
+      "nameSpanish": "Informe de cribado genómico neonatal",
+      "descriptionEnglish": "A complete newborn screening pathway from the accepted neonatal specimen through the declared genomic analysis and quality review to a family- and clinician-facing report that identifies screening findings and recommended confirmatory follow-up.",
+      "descriptionSpanish": "Circuito completo de cribado neonatal, desde la muestra aceptada del recién nacido hasta el análisis genómico declarado y su control de calidad, con un informe para la familia y el equipo clínico que identifica hallazgos de cribado y el seguimiento confirmatorio recomendado.",
+      "systemImage": "stroller.fill"
+    },
+    {
+      "key": "sot_complete_animal_parentage_identity_report",
+      "nameEnglish": "Animal parentage and identity report",
+      "nameSpanish": "Informe genético de parentesco e identidad animal",
+      "descriptionEnglish": "An end-to-end animal identity service that collects or receives verified specimens, compares the declared parentage or identity markers, applies species-appropriate interpretation, and issues the final relationship or identity report.",
+      "descriptionSpanish": "Servicio integral de identidad animal que obtiene o recibe muestras verificadas, compara los marcadores declarados de parentesco o identidad, aplica una interpretación adecuada para la especie y emite el informe final de vínculo o identidad.",
+      "systemImage": "pawprint.circle.fill"
+    },
+    {
+      "key": "sot_complete_canine_health_diversity_report",
+      "nameEnglish": "Canine health and genetic diversity report",
+      "nameSpanish": "Informe de salud y diversidad genética canina",
+      "descriptionEnglish": "A complete canine DNA profile from cheek-swab collection through the declared breed-relevant disease and diversity markers to a final report for veterinary care or responsible breeding; only validated markers for the stated breed are interpreted.",
+      "descriptionSpanish": "Perfil completo de ADN canino, desde la toma de hisopado bucal hasta los marcadores declarados de enfermedades y diversidad pertinentes para la raza, con un informe final para la atención veterinaria o la cría responsable; solo se interpretan marcadores validados para la raza indicada.",
+      "systemImage": "dog.fill"
+    },
+    {
+      "key": "sot_complete_feline_health_traits_report",
+      "nameEnglish": "Feline genetic health and traits report",
+      "nameSpanish": "Informe genético de salud y rasgos felinos",
+      "descriptionEnglish": "An end-to-end feline genetics service covering sample collection, the declared inherited-disease, blood-group, ancestry, or coat-trait panel, species- and breed-aware interpretation, and one final report.",
+      "descriptionSpanish": "Servicio integral de genética felina que abarca la toma de muestra, el panel declarado de enfermedades hereditarias, grupo sanguíneo, ascendencia o rasgos del pelaje, la interpretación según especie y raza y un informe final.",
+      "systemImage": "cat.fill"
+    },
+    {
+      "key": "sot_complete_equine_health_performance_report",
+      "nameEnglish": "Equine genetic health and performance report",
+      "nameSpanish": "Informe genético de salud y rendimiento equino",
+      "descriptionEnglish": "A complete equine testing pathway from hair-root or other accepted specimen through the declared inherited-disease, gait, performance, or coat-trait markers to a final veterinary or breeding report.",
+      "descriptionSpanish": "Circuito completo de estudio equino, desde raíces de pelo u otra muestra aceptada hasta los marcadores declarados de enfermedades hereditarias, locomoción, rendimiento o rasgos del pelaje, con un informe final veterinario o de cría.",
+      "systemImage": "hare.fill"
+    },
+    {
+      "key": "sot_complete_livestock_breeding_traits_report",
+      "nameEnglish": "Livestock breeding and production genomics report",
+      "nameSpanish": "Informe genético de reproducción y aptitudes productivas ganaderas",
+      "descriptionEnglish": "An end-to-end livestock genetics service that links a verified animal specimen to the declared reproductive, health, milk, fiber, or production-trait panel and delivers a species-specific report for veterinary or breeding decisions.",
+      "descriptionSpanish": "Servicio integral de genética ganadera que vincula una muestra animal verificada con el panel declarado de reproducción, salud, leche, fibra o aptitudes productivas y entrega un informe específico para la especie destinado a decisiones veterinarias o de cría.",
+      "systemImage": "leaf.circle.fill"
+    },
+    {
+      "key": "sot_complete_meat_species_authentication_report",
+      "nameEnglish": "Meat species DNA-authentication report",
+      "nameSpanish": "Informe de autenticación de especies cárnicas por ADN",
+      "descriptionEnglish": "A complete food-authentication service from documented meat sampling through species-targeted DNA analysis and mixture review to a final report identifying the detected declared species; it does not assess nutritional quality or food allergy.",
+      "descriptionSpanish": "Servicio completo de autenticación alimentaria, desde el muestreo documentado de carne hasta el análisis de ADN dirigido a especies y la revisión de mezclas, con un informe final que identifica las especies declaradas detectadas; no evalúa calidad nutricional ni alergias alimentarias.",
+      "systemImage": "barcode.viewfinder"
+    },
+    {
+      "key": "sot_human_advice_medical_consultation",
+      "nameEnglish": "Medical consultation",
+      "nameSpanish": "Consulta médica",
+      "descriptionEnglish": "Non-emergency review of general or specialty health concerns, symptoms, history, prevention, and appropriate next steps by a qualified professional; it excludes procedures and emergency care.",
+      "descriptionSpanish": "Consulta no urgente con un profesional habilitado sobre inquietudes generales o especializadas de salud, síntomas, antecedentes, prevención y próximos pasos adecuados; no incluye procedimientos ni atención de urgencia.",
+      "systemImage": "cross.case.circle"
+    },
+    {
+      "key": "sot_human_advice_medical_second_opinion",
+      "nameEnglish": "Medical second opinion",
+      "nameSpanish": "Segunda opinión médica",
+      "descriptionEnglish": "Independent review of an existing diagnosis, result, or treatment plan to clarify alternatives before a decision; it does not guarantee a different diagnosis or outcome.",
+      "descriptionSpanish": "Revisión independiente de un diagnóstico, resultado o plan terapéutico existente para aclarar alternativas antes de decidir; no garantiza un diagnóstico ni un resultado diferente.",
+      "systemImage": "doc.text.fill.viewfinder"
+    },
+    {
+      "key": "sot_human_advice_medication_pharmacy_counseling",
+      "nameEnglish": "Medication and pharmacy counseling",
+      "nameSpanish": "Asesoramiento farmacéutico y sobre medicamentos",
+      "descriptionEnglish": "Guidance on safe use, interactions, adverse effects, adherence, and storage of medicines; prescribing or changes occur only when professionally authorized.",
+      "descriptionSpanish": "Orientación sobre uso seguro, interacciones, efectos adversos, adherencia y conservación de medicamentos; la prescripción o los cambios solo se realizan cuando el profesional está habilitado.",
+      "systemImage": "pills.circle.fill"
+    },
+    {
+      "key": "sot_human_advice_nutrition_dietary_counseling",
+      "nameEnglish": "Nutrition and dietary counseling",
+      "nameSpanish": "Asesoramiento nutricional y alimentario",
+      "descriptionEnglish": "Non-genomic assessment of eating patterns, goals, and practical food planning; genetic or nutrigenomic interpretation remains under the existing genomic categories.",
+      "descriptionSpanish": "Evaluación no genómica de hábitos alimentarios, objetivos y planificación práctica de la alimentación; la interpretación genética o nutrigenómica corresponde a las categorías genómicas existentes.",
+      "systemImage": "fork.knife"
+    },
+    {
+      "key": "sot_human_advice_rehabilitation_physical_therapy_guidance",
+      "nameEnglish": "Rehabilitation and physical therapy guidance",
+      "nameSpanish": "Orientación en rehabilitación y fisioterapia",
+      "descriptionEnglish": "Professional guidance on mobility, therapeutic exercise, recovery, and self-management within the declared scope; it excludes emergency and procedural care.",
+      "descriptionSpanish": "Orientación profesional sobre movilidad, ejercicio terapéutico, recuperación y autocuidado dentro del alcance declarado; no incluye atención de urgencia ni procedimientos.",
+      "systemImage": "figure.walk.motion"
+    },
+    {
+      "key": "sot_human_advice_reproductive_fertility_counseling",
+      "nameEnglish": "Reproductive and fertility counseling",
+      "nameSpanish": "Asesoramiento reproductivo y de fertilidad",
+      "descriptionEnglish": "Guidance on family-building goals, fertility-care options, care pathways, and referrals; it excludes procedures, laboratory testing, and genetic interpretation.",
+      "descriptionSpanish": "Orientación sobre objetivos reproductivos, opciones y circuitos de atención de la fertilidad y derivaciones; no incluye procedimientos, estudios de laboratorio ni interpretación genética.",
+      "systemImage": "calendar.badge.plus"
+    },
+    {
+      "key": "sot_human_advice_sexual_health_counseling",
+      "nameEnglish": "Sexual health counseling",
+      "nameSpanish": "Asesoramiento en salud sexual",
+      "descriptionEnglish": "Confidential guidance on sexual wellbeing, contraception, STI prevention, consent, and care navigation; it excludes emergency care and diagnostic procedures.",
+      "descriptionSpanish": "Orientación confidencial sobre bienestar sexual, anticoncepción, prevención de infecciones de transmisión sexual, consentimiento y acceso a la atención; no incluye urgencias ni procedimientos diagnósticos.",
+      "systemImage": "heart.text.square"
+    },
+    {
+      "key": "sot_human_advice_pregnancy_postpartum_support",
+      "nameEnglish": "Pregnancy and postpartum support",
+      "nameSpanish": "Acompañamiento durante el embarazo y el posparto",
+      "descriptionEnglish": "Non-emergency education and practical support for pregnancy, birth preparation, recovery, and infant feeding; it does not provide obstetric procedures.",
+      "descriptionSpanish": "Educación y apoyo práctico no urgente durante el embarazo, la preparación para el parto, la recuperación y la alimentación infantil; no incluye procedimientos obstétricos.",
+      "systemImage": "person.crop.circle.badge.plus"
+    },
+    {
+      "key": "sot_human_advice_psychological_counseling",
+      "nameEnglish": "Psychological counseling",
+      "nameSpanish": "Asesoramiento psicológico",
+      "descriptionEnglish": "Structured support for emotional or behavioral concerns and coping strategies from a qualified professional; it is not an emergency or crisis-response service.",
+      "descriptionSpanish": "Apoyo estructurado de un profesional habilitado para inquietudes emocionales o conductuales y estrategias de afrontamiento; no es un servicio de urgencia ni de respuesta a crisis.",
+      "systemImage": "brain.head.profile"
+    },
+    {
+      "key": "sot_human_advice_couples_family_counseling",
+      "nameEnglish": "Couples and family counseling",
+      "nameSpanish": "Orientación para parejas y familias",
+      "descriptionEnglish": "Support for communication, conflict, relationship patterns, and family dynamics; it excludes legal mediation or representation.",
+      "descriptionSpanish": "Apoyo para trabajar comunicación, conflictos, patrones vinculares y dinámicas familiares; no incluye mediación ni representación legal.",
+      "systemImage": "person.3.fill"
+    },
+    {
+      "key": "sot_human_advice_grief_bereavement_support",
+      "nameEnglish": "Grief and bereavement support",
+      "nameSpanish": "Acompañamiento en duelo y pérdidas",
+      "descriptionEnglish": "Emotional and practical support for anticipated or experienced loss and adjustment; it is not crisis response.",
+      "descriptionSpanish": "Apoyo emocional y práctico ante una pérdida prevista o vivida y su proceso de adaptación; no es atención de crisis.",
+      "systemImage": "heart.slash.circle.fill"
+    },
+    {
+      "key": "sot_human_advice_addiction_recovery_counseling",
+      "nameEnglish": "Addiction recovery counseling",
+      "nameSpanish": "Asesoramiento para la recuperación de adicciones",
+      "descriptionEnglish": "Support for recovery goals, harm reduction, relapse prevention, and access to resources; it excludes medical detoxification and emergency care.",
+      "descriptionSpanish": "Apoyo para objetivos de recuperación, reducción de daños, prevención de recaídas y acceso a recursos; no incluye desintoxicación médica ni atención de urgencia.",
+      "systemImage": "arrow.triangle.2.circlepath.circle.fill"
+    },
+    {
+      "key": "sot_human_advice_parenting_guidance",
+      "nameEnglish": "Parenting guidance",
+      "nameSpanish": "Orientación para la crianza",
+      "descriptionEnglish": "Guidance on developmentally appropriate routines, communication, boundaries, and caregiving strategies; it excludes diagnosis, therapy, and custody advice.",
+      "descriptionSpanish": "Orientación sobre rutinas, comunicación, límites y estrategias de cuidado adecuadas al desarrollo; no incluye diagnóstico, terapia ni asesoramiento sobre custodia.",
+      "systemImage": "figure.2"
+    },
+    {
+      "key": "sot_human_advice_caregiver_eldercare_support",
+      "nameEnglish": "Caregiver and eldercare support",
+      "nameSpanish": "Orientación para personas cuidadoras y cuidado de adultos mayores",
+      "descriptionEnglish": "Guidance on care planning, resources, respite, coordination, and aging in place; it excludes direct nursing or clinical care.",
+      "descriptionSpanish": "Orientación sobre planificación del cuidado, recursos, servicios de respiro, coordinación y envejecimiento en el hogar; no incluye atención directa de enfermería ni atención clínica.",
+      "systemImage": "person.2.badge.gearshape.fill"
+    },
+    {
+      "key": "sot_human_advice_disability_accessibility_guidance",
+      "nameEnglish": "Disability and accessibility guidance",
+      "nameSpanish": "Orientación sobre discapacidad y accesibilidad",
+      "descriptionEnglish": "Guidance on accommodations, assistive strategies, accessibility, and service navigation; it does not issue medical or legal certification.",
+      "descriptionSpanish": "Orientación sobre ajustes razonables, estrategias de apoyo, accesibilidad y acceso a servicios; no emite certificaciones médicas ni legales.",
+      "systemImage": "figure.roll"
+    },
+    {
+      "key": "sot_human_advice_social_care_navigation",
+      "nameEnglish": "Social care navigation",
+      "nameSpanish": "Orientación y acceso a servicios sociales",
+      "descriptionEnglish": "Identification and coordination of community, health, benefits, and social supports; it does not guarantee eligibility or provide legal representation.",
+      "descriptionSpanish": "Identificación y coordinación de recursos comunitarios, sanitarios, prestaciones y apoyos sociales; no garantiza elegibilidad ni brinda representación legal.",
+      "systemImage": "hands.sparkles.fill"
+    },
+    {
+      "key": "sot_human_advice_personal_civil_legal",
+      "nameEnglish": "Personal and civil legal advice",
+      "nameSpanish": "Asesoramiento jurídico personal y civil",
+      "descriptionEnglish": "Advice on everyday civil matters such as consumer rights, housing, personal contracts, debt, or property within a declared jurisdiction; representation is included only if stated.",
+      "descriptionSpanish": "Asesoramiento sobre asuntos civiles cotidianos, como consumo, vivienda, contratos personales, deudas o bienes, dentro de una jurisdicción declarada; la representación solo se incluye si se indica.",
+      "systemImage": "building.columns"
+    },
+    {
+      "key": "sot_human_advice_family_estate_legal",
+      "nameEnglish": "Family and estate legal advice",
+      "nameSpanish": "Asesoramiento jurídico de familia y sucesiones",
+      "descriptionEnglish": "Advice on family relationships, separation, custody, adoption, wills, estates, and inheritance within the declared jurisdiction; court representation is included only if stated.",
+      "descriptionSpanish": "Asesoramiento sobre relaciones familiares, separación, custodia, adopción, testamentos, sucesiones y herencias dentro de la jurisdicción declarada; la representación judicial solo se incluye si se indica.",
+      "systemImage": "house.and.flag.fill"
+    },
+    {
+      "key": "sot_human_advice_employment_labor_legal",
+      "nameEnglish": "Employment and labor legal advice",
+      "nameSpanish": "Asesoramiento jurídico laboral",
+      "descriptionEnglish": "Advice on workplace rights, employment terms, obligations, and disputes within the declared jurisdiction; it does not guarantee a legal outcome.",
+      "descriptionSpanish": "Asesoramiento sobre derechos laborales, condiciones de empleo, obligaciones y conflictos dentro de la jurisdicción declarada; no garantiza un resultado jurídico.",
+      "systemImage": "briefcase.fill"
+    },
+    {
+      "key": "sot_human_advice_business_contract_legal",
+      "nameEnglish": "Business and contract legal advice",
+      "nameSpanish": "Asesoramiento jurídico comercial y contractual",
+      "descriptionEnglish": "Advice on entity formation, governance, commercial agreements, and business compliance; business strategy belongs to the entrepreneurship category.",
+      "descriptionSpanish": "Asesoramiento sobre constitución de entidades, gobierno, acuerdos comerciales y cumplimiento empresarial; la estrategia de negocio corresponde a la categoría de emprendimientos.",
+      "systemImage": "doc.on.doc.fill"
+    },
+    {
+      "key": "sot_human_advice_immigration_residency_legal",
+      "nameEnglish": "Immigration and residency legal advice",
+      "nameSpanish": "Asesoramiento jurídico migratorio y de residencia",
+      "descriptionEnglish": "Advice on visas, residency, citizenship, and migration procedures within the declared jurisdiction; it does not guarantee approval.",
+      "descriptionSpanish": "Asesoramiento sobre visas, residencia, ciudadanía y procedimientos migratorios dentro de la jurisdicción declarada; no garantiza la aprobación.",
+      "systemImage": "airplane"
+    },
+    {
+      "key": "sot_human_advice_academic_tutoring",
+      "nameEnglish": "Academic tutoring",
+      "nameSpanish": "Tutoría y apoyo académico",
+      "descriptionEnglish": "Individual or small-group instruction, explanation, practice, and study skills for declared subjects and levels; it does not award a credential.",
+      "descriptionSpanish": "Enseñanza individual o en grupos pequeños, explicación, práctica y técnicas de estudio para materias y niveles declarados; no otorga títulos.",
+      "systemImage": "books.vertical.fill"
+    },
+    {
+      "key": "sot_human_advice_special_education_learning_support",
+      "nameEnglish": "Special education and learning support",
+      "nameSpanish": "Apoyo educativo especializado y al aprendizaje",
+      "descriptionEnglish": "Individual learning strategies, accommodations, and educational support; it does not provide a clinical diagnosis or formal certification.",
+      "descriptionSpanish": "Estrategias individuales de aprendizaje, ajustes y apoyo educativo; no realiza diagnósticos clínicos ni emite certificaciones formales.",
+      "systemImage": "person.text.rectangle.fill"
+    },
+    {
+      "key": "sot_human_advice_language_learning",
+      "nameEnglish": "Language instruction",
+      "nameSpanish": "Enseñanza de idiomas",
+      "descriptionEnglish": "Structured instruction and practice for a declared language and proficiency level; certification is included only when explicitly stated.",
+      "descriptionSpanish": "Enseñanza y práctica estructuradas para un idioma y nivel declarados; la certificación solo se incluye si se indica expresamente.",
+      "systemImage": "character.book.closed.fill"
+    },
+    {
+      "key": "sot_human_advice_academic_admissions_guidance",
+      "nameEnglish": "Academic and admissions guidance",
+      "nameSpanish": "Orientación académica y para admisiones",
+      "descriptionEnglish": "Guidance on study choices, applications, scholarships, and academic planning; it does not guarantee admission or funding.",
+      "descriptionSpanish": "Orientación sobre elección de estudios, postulaciones, becas y planificación académica; no garantiza admisión ni financiamiento.",
+      "systemImage": "graduationcap.fill"
+    },
+    {
+      "key": "sot_human_advice_career_vocational_guidance",
+      "nameEnglish": "Career and vocational guidance",
+      "nameSpanish": "Orientación profesional y vocacional",
+      "descriptionEnglish": "Guidance on career direction, transitions, skills, CVs, interviews, and job-search planning; it does not guarantee employment.",
+      "descriptionSpanish": "Orientación sobre dirección profesional, transiciones, habilidades, currículum, entrevistas y planificación de la búsqueda laboral; no garantiza empleo.",
+      "systemImage": "arrow.up.right.circle.fill"
+    },
+    {
+      "key": "sot_human_advice_digital_technology_support",
+      "nameEnglish": "Digital technology support",
+      "nameSpanish": "Asesoramiento y soporte tecnológico digital",
+      "descriptionEnglish": "Person-to-person setup, troubleshooting, and practical guidance for devices, software, connectivity, and online services; it excludes custom engineering and security audits.",
+      "descriptionSpanish": "Asistencia personalizada para configurar, resolver problemas y aprender a usar dispositivos, software, conectividad y servicios en línea; no incluye ingeniería a medida ni auditorías de seguridad.",
+      "systemImage": "wrench.and.screwdriver.fill"
+    },
+    {
+      "key": "sot_human_advice_cybersecurity_privacy_consulting",
+      "nameEnglish": "Cybersecurity and privacy consulting",
+      "nameSpanish": "Consultoría en ciberseguridad y privacidad",
+      "descriptionEnglish": "Guidance on risk review, protective controls, security awareness, privacy settings, and incident preparation; it does not guarantee prevention of breaches or legal compliance.",
+      "descriptionSpanish": "Orientación sobre evaluación de riesgos, controles de protección, concientización, configuración de privacidad y preparación ante incidentes; no garantiza evitar incidentes ni el cumplimiento legal.",
+      "systemImage": "lock.shield.fill"
+    },
+    {
+      "key": "sot_human_advice_business_entrepreneurship_consulting",
+      "nameEnglish": "Business and entrepreneurship consulting",
+      "nameSpanish": "Consultoría para negocios y emprendimientos",
+      "descriptionEnglish": "Guidance on business models, markets, strategy, operations, pricing, and planning; it excludes legal or accounting deliverables and guaranteed commercial results.",
+      "descriptionSpanish": "Orientación sobre modelos de negocio, mercado, estrategia, operaciones, precios y planificación; no incluye entregables legales o contables ni garantiza resultados comerciales.",
+      "systemImage": "chart.line.uptrend.xyaxis.circle.fill"
+    },
+    {
+      "key": "sot_human_advice_financial_accounting_tax_consulting",
+      "nameEnglish": "Financial, accounting and tax consulting",
+      "nameSpanish": "Asesoramiento financiero, contable e impositivo",
+      "descriptionEnglish": "Guidance on budgeting, records, reporting, and tax planning or compliance within declared credentials and jurisdiction; it does not guarantee savings or returns, and investment recommendations require separate authorization.",
+      "descriptionSpanish": "Orientación sobre presupuestos, registros, informes y planificación o cumplimiento tributario dentro de las credenciales y jurisdicción declaradas; no garantiza ahorros ni rendimientos, y las recomendaciones de inversión requieren habilitación específica.",
+      "systemImage": "banknote.fill"
     }
   ]
 }

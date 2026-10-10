@@ -1951,6 +1951,17 @@ describe("support services workbenches", () => {
     expect(within(modal).getAllByRole("radio")).toHaveLength(
       SUPPORT_SERVICE_CATEGORIES.length,
     );
+    const categorySearch = within(modal).getByRole("textbox", {
+      name: "Buscar categorías de servicio",
+    });
+    fireEvent.change(categorySearch, {
+      target: { value: "sot_human_advice_financial_accounting" },
+    });
+    expect(within(modal).getAllByRole("radio")).toHaveLength(1);
+    expect(
+      within(modal).getByText("Asesoramiento financiero, contable e impositivo"),
+    ).toBeTruthy();
+    fireEvent.change(categorySearch, { target: { value: "" } });
     expect(within(modal).getByText("Preparación clínica")).toBeTruthy();
     expect(
       within(modal).getByText(

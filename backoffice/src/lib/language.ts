@@ -5568,6 +5568,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Choose one service category.": "Elegí una categoría de servicio.",
   "Change service category": "Cambiar categoría de servicio",
   "Service category options": "Opciones de categoría de servicio",
+  "Search service categories": "Buscar categorías de servicio",
+  "Search service categories by name or code...":
+    "Buscar categorías de servicio por nombre o código...",
+  "No service categories match this search.":
+    "No hay categorías de servicio que coincidan con esta búsqueda.",
   "Choose the single category that describes the primary contracted and billable outcome. Supporting inputs, steps, and provider profession do not determine it.":
     "Elegí la única categoría que describe el resultado principal contratado y facturable. Los insumos, pasos auxiliares y la profesión del proveedor no la determinan.",
   Uncategorized: "Sin categoría",

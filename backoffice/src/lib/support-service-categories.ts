@@ -31,6 +31,66 @@ export const SUPPORT_SERVICE_CATEGORY_KEYS = [
   "sot_genomic_report_generation",
   "sot_genomic_report_review",
   "sot_genomic_data_interoperability",
+  "sot_complete_health_genomics_report",
+  "sot_complete_rare_disease_diagnostic_report",
+  "sot_complete_hereditary_cancer_report",
+  "sot_complete_inherited_cardiovascular_report",
+  "sot_complete_neurogenetic_disease_report",
+  "sot_complete_cystic_fibrosis_report",
+  "sot_complete_pharmacogenomic_report",
+  "sot_complete_nutrigenomic_report",
+  "sot_complete_food_response_genetics_report",
+  "sot_complete_sports_performance_genetics_report",
+  "sot_complete_skin_hair_genetics_report",
+  "sot_complete_genetic_ancestry_report",
+  "sot_complete_personal_traits_genetics_report",
+  "sot_complete_reproductive_carrier_report",
+  "sot_complete_female_fertility_genetics_report",
+  "sot_complete_male_infertility_genetics_report",
+  "sot_complete_sperm_dna_integrity_report",
+  "sot_complete_reproductive_couple_karyotype_report",
+  "sot_complete_preimplantation_aneuploidy_report",
+  "sot_complete_preimplantation_monogenic_report",
+  "sot_complete_preimplantation_structural_report",
+  "sot_complete_noninvasive_prenatal_report",
+  "sot_complete_prenatal_carrier_fetal_risk_report",
+  "sot_complete_newborn_genomic_screening_report",
+  "sot_complete_animal_parentage_identity_report",
+  "sot_complete_canine_health_diversity_report",
+  "sot_complete_feline_health_traits_report",
+  "sot_complete_equine_health_performance_report",
+  "sot_complete_livestock_breeding_traits_report",
+  "sot_complete_meat_species_authentication_report",
+  "sot_human_advice_medical_consultation",
+  "sot_human_advice_medical_second_opinion",
+  "sot_human_advice_medication_pharmacy_counseling",
+  "sot_human_advice_nutrition_dietary_counseling",
+  "sot_human_advice_rehabilitation_physical_therapy_guidance",
+  "sot_human_advice_reproductive_fertility_counseling",
+  "sot_human_advice_sexual_health_counseling",
+  "sot_human_advice_pregnancy_postpartum_support",
+  "sot_human_advice_psychological_counseling",
+  "sot_human_advice_couples_family_counseling",
+  "sot_human_advice_grief_bereavement_support",
+  "sot_human_advice_addiction_recovery_counseling",
+  "sot_human_advice_parenting_guidance",
+  "sot_human_advice_caregiver_eldercare_support",
+  "sot_human_advice_disability_accessibility_guidance",
+  "sot_human_advice_social_care_navigation",
+  "sot_human_advice_personal_civil_legal",
+  "sot_human_advice_family_estate_legal",
+  "sot_human_advice_employment_labor_legal",
+  "sot_human_advice_business_contract_legal",
+  "sot_human_advice_immigration_residency_legal",
+  "sot_human_advice_academic_tutoring",
+  "sot_human_advice_special_education_learning_support",
+  "sot_human_advice_language_learning",
+  "sot_human_advice_academic_admissions_guidance",
+  "sot_human_advice_career_vocational_guidance",
+  "sot_human_advice_digital_technology_support",
+  "sot_human_advice_cybersecurity_privacy_consulting",
+  "sot_human_advice_business_entrepreneurship_consulting",
+  "sot_human_advice_financial_accounting_tax_consulting",
 ] as const;
 
 export type SupportServiceCategoryKey =
@@ -60,7 +120,7 @@ if (
   rawCategories.some((category) => !CATEGORY_KEY_SET.has(category.key))
 ) {
   throw new Error(
-    "The service-offer category catalog must contain exactly 30 canonical keys.",
+    "The service-offer category catalog must contain exactly 90 canonical keys.",
   );
 }
 
@@ -133,6 +193,76 @@ export const SUPPORT_SERVICE_CATEGORY_GROUPS = [
     descriptionSpanish:
       "Generación y revisión de informes e interoperabilidad de datos genómicos.",
     keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(27, 30),
+  },
+  {
+    id: "complete_genomic_reports",
+    nameEnglish: "Complete genomic reports",
+    nameSpanish: "Informes genómicos completos",
+    descriptionEnglish:
+      "End-to-end diagnostic, health, wellness, ancestry, and trait reports.",
+    descriptionSpanish:
+      "Informes integrales de diagnóstico, salud, bienestar, ascendencia y rasgos.",
+    keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(30, 44),
+  },
+  {
+    id: "complete_reproductive_reports",
+    nameEnglish: "Complete reproductive and prenatal reports",
+    nameSpanish: "Informes reproductivos y prenatales completos",
+    descriptionEnglish:
+      "Fertility, carrier, preimplantation, prenatal, and newborn genomic reports.",
+    descriptionSpanish:
+      "Informes genómicos de fertilidad, portación, preimplantación, prenatal y neonatal.",
+    keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(44, 54),
+  },
+  {
+    id: "complete_animal_food_reports",
+    nameEnglish: "Animal and food genomic reports",
+    nameSpanish: "Informes genómicos animales y alimentarios",
+    descriptionEnglish:
+      "Complete animal health, identity, breeding, and food-authentication services.",
+    descriptionSpanish:
+      "Servicios integrales de salud, identidad y reproducción animal y autenticación alimentaria.",
+    keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(54, 60),
+  },
+  {
+    id: "human_health_and_support",
+    nameEnglish: "Health, wellbeing, and social guidance",
+    nameSpanish: "Orientación en salud, bienestar y apoyo social",
+    descriptionEnglish:
+      "Person-to-person professional guidance for health, relationships, care, and wellbeing.",
+    descriptionSpanish:
+      "Orientación profesional personalizada para salud, vínculos, cuidados y bienestar.",
+    keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(60, 76),
+  },
+  {
+    id: "legal_advice",
+    nameEnglish: "Legal advice",
+    nameSpanish: "Asesoramiento jurídico",
+    descriptionEnglish:
+      "Personal, family, employment, business, and immigration legal guidance.",
+    descriptionSpanish:
+      "Orientación jurídica personal, familiar, laboral, comercial y migratoria.",
+    keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(76, 81),
+  },
+  {
+    id: "education_and_career",
+    nameEnglish: "Education and career guidance",
+    nameSpanish: "Orientación educativa y profesional",
+    descriptionEnglish:
+      "Tutoring, learning support, language instruction, admissions, and career guidance.",
+    descriptionSpanish:
+      "Tutoría, apoyo al aprendizaje, idiomas, admisiones y orientación profesional.",
+    keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(81, 86),
+  },
+  {
+    id: "technology_business_and_finance",
+    nameEnglish: "Technology, business, and finance",
+    nameSpanish: "Tecnología, negocios y finanzas",
+    descriptionEnglish:
+      "Digital support, cybersecurity, entrepreneurship, accounting, and tax consulting.",
+    descriptionSpanish:
+      "Soporte digital, ciberseguridad, emprendimientos, contabilidad e impuestos.",
+    keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(86, 90),
   },
 ] as const;
 
