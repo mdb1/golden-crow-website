@@ -7079,35 +7079,38 @@ function ServiceCategoryPicker({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/55 px-5 py-5 sm:px-6 dark:bg-slate-950/55">
+          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/55 px-5 py-6 sm:px-6 dark:bg-slate-950/55">
             <div
               role="radiogroup"
               aria-label={t("Service category options")}
-              className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-[0_18px_50px_-38px_rgba(76,29,149,0.65)] dark:border-violet-400/16 dark:bg-slate-950/70"
+              className="space-y-5"
             >
               {visibleCategoryGroups.length === 0 ? (
-                <div className="px-5 py-12 text-center text-sm text-muted-foreground">
+                <div className="rounded-2xl border border-dashed border-violet-200 bg-white px-6 py-14 text-center text-base text-muted-foreground shadow-sm dark:border-violet-400/24 dark:bg-slate-950/70">
                   {t("No service categories match this search.")}
                 </div>
               ) : (
-                <div className="divide-y divide-violet-200/80 dark:divide-violet-400/20">
+                <div className="space-y-5">
                   {visibleCategoryGroups.map((group) => {
                     const GroupIcon = serviceCategoryGroupIcon(group.id);
 
                     return (
-                      <section key={group.id}>
-                        <div className="border-b border-violet-100 bg-violet-50/75 px-4 py-3 dark:border-violet-400/16 dark:bg-violet-500/9">
-                          <div className="flex items-start gap-3">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-500/16 dark:text-violet-100">
-                              <GroupIcon className="h-4 w-4" />
+                      <section
+                        key={group.id}
+                        className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-[0_16px_44px_-36px_rgba(76,29,149,0.7)] dark:border-violet-400/18 dark:bg-slate-950/70"
+                      >
+                        <div className="border-b border-violet-100 bg-gradient-to-r from-violet-50 via-violet-50/75 to-white px-5 py-5 dark:border-violet-400/16 dark:from-violet-500/13 dark:via-violet-500/7 dark:to-slate-950/70">
+                          <div className="flex items-start gap-4">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 shadow-sm dark:bg-violet-500/16 dark:text-violet-100">
+                              <GroupIcon className="h-5 w-5" />
                             </span>
                             <div className="min-w-0 flex-1">
-                              <h3 className="truncate text-sm font-semibold text-foreground">
+                              <h3 className="text-base font-semibold leading-6 text-foreground">
                                 {language === "es"
                                   ? group.nameSpanish
                                   : group.nameEnglish}
                               </h3>
-                              <p className="mt-0.5 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                              <p className="mt-1 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                                 {language === "es"
                                   ? group.descriptionSpanish
                                   : group.descriptionEnglish}
@@ -7127,30 +7130,30 @@ function ServiceCategoryPicker({
                                 aria-checked={selected}
                                 onClick={() => setDraft(category.key)}
                                 className={cn(
-                                  "flex w-full min-w-0 items-start gap-3 px-4 py-3.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400",
+                                  "flex w-full min-w-0 items-start gap-4 border-l-4 px-5 py-5 text-left outline-none transition-[background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400",
                                   selected
-                                    ? "bg-violet-50/95 dark:bg-violet-500/14"
-                                    : "bg-white hover:bg-violet-50/55 dark:bg-slate-950/48 dark:hover:bg-violet-500/8",
+                                    ? "border-l-violet-500 bg-violet-50/95 shadow-[inset_0_0_32px_rgba(124,58,237,0.035)] dark:border-l-violet-300 dark:bg-violet-500/14"
+                                    : "border-l-transparent bg-white hover:border-l-violet-200 hover:bg-violet-50/55 dark:bg-slate-950/48 dark:hover:border-l-violet-400/40 dark:hover:bg-violet-500/8",
                                 )}
                               >
                                 <span
                                   className={cn(
-                                    "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors",
+                                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors",
                                     selected
                                       ? "border-violet-600 bg-violet-600 text-white shadow-sm"
                                       : "border-violet-200 bg-white text-transparent dark:border-violet-400/28 dark:bg-slate-950",
                                   )}
                                 >
-                                  <Check className="h-3.5 w-3.5" />
+                                  <Check className="h-4 w-4" />
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                  <span className="block truncate text-sm font-semibold leading-5 text-foreground">
+                                  <span className="block truncate text-base font-semibold leading-6 text-foreground">
                                     {supportServiceCategoryName(
                                       category,
                                       language,
                                     )}
                                   </span>
-                                  <span className="mt-1 block whitespace-normal text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                                  <span className="mt-1.5 block whitespace-normal text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                                     {supportServiceCategoryDescription(
                                       category,
                                       language,
