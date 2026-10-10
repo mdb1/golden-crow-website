@@ -51,6 +51,7 @@ import {
   Save,
   Search,
   Settings2,
+  Stethoscope,
   UserRound,
   Trash2,
   UploadCloud,
@@ -6925,6 +6926,8 @@ function serviceCategoryGroupIcon(groupId: string) {
       return ClipboardList;
     case "technology_business_and_finance":
       return BriefcaseBusiness;
+    case "health_professional_development":
+      return Stethoscope;
     default:
       return FileText;
   }

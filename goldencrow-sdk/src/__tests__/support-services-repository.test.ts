@@ -679,16 +679,16 @@ describe("support service repository versions", () => {
     expect(repaired.serviceVersion).toBe(4);
   });
 
-  it("exports the exact closed 90-key category registry", async () => {
+  it("exports the exact closed 100-key category registry", async () => {
     const { SUPPORT_SERVICE_CATEGORY_KEYS } = await import(
       "../repositories/support-services.repository.js"
     );
 
-    expect(SUPPORT_SERVICE_CATEGORY_KEYS).toHaveLength(90);
-    expect(new Set(SUPPORT_SERVICE_CATEGORY_KEYS).size).toBe(90);
+    expect(SUPPORT_SERVICE_CATEGORY_KEYS).toHaveLength(100);
+    expect(new Set(SUPPORT_SERVICE_CATEGORY_KEYS).size).toBe(100);
     expect(SUPPORT_SERVICE_CATEGORY_KEYS[0]).toBe("sot_genetic_counseling");
-    expect(SUPPORT_SERVICE_CATEGORY_KEYS[89]).toBe(
-      "sot_human_advice_financial_accounting_tax_consulting",
+    expect(SUPPORT_SERVICE_CATEGORY_KEYS[99]).toBe(
+      "sot_human_advice_health_practice_operations",
     );
   });
 

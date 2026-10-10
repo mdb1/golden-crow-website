@@ -91,6 +91,16 @@ export const SUPPORT_SERVICE_CATEGORY_KEYS = [
   "sot_human_advice_cybersecurity_privacy_consulting",
   "sot_human_advice_business_entrepreneurship_consulting",
   "sot_human_advice_financial_accounting_tax_consulting",
+  "sot_human_advice_health_professional_career_guidance",
+  "sot_human_advice_health_professional_development",
+  "sot_human_advice_clinical_mentoring_supervision",
+  "sot_human_advice_healthcare_leadership_management",
+  "sot_human_advice_health_education_training_design",
+  "sot_human_advice_health_research_methodology",
+  "sot_human_advice_health_scientific_writing_publication",
+  "sot_human_advice_evidence_based_health_practice",
+  "sot_human_advice_healthcare_quality_patient_safety",
+  "sot_human_advice_health_practice_operations",
 ] as const;
 
 export type SupportServiceCategoryKey =
@@ -120,7 +130,7 @@ if (
   rawCategories.some((category) => !CATEGORY_KEY_SET.has(category.key))
 ) {
   throw new Error(
-    "The service-offer category catalog must contain exactly 90 canonical keys.",
+    "The service-offer category catalog must contain exactly 100 canonical keys.",
   );
 }
 
@@ -263,6 +273,16 @@ export const SUPPORT_SERVICE_CATEGORY_GROUPS = [
     descriptionSpanish:
       "Soporte digital, ciberseguridad, emprendimientos, contabilidad e impuestos.",
     keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(86, 90),
+  },
+  {
+    id: "health_professional_development",
+    nameEnglish: "Professional development in healthcare",
+    nameSpanish: "Desarrollo profesional en salud",
+    descriptionEnglish:
+      "Career, mentoring, leadership, education, research, evidence, quality, and operations guidance for health professionals.",
+    descriptionSpanish:
+      "Orientación sobre carrera, mentoría, liderazgo, educación, investigación, evidencia, calidad y gestión para profesionales de la salud.",
+    keys: SUPPORT_SERVICE_CATEGORY_KEYS.slice(90, 100),
   },
 ] as const;
 

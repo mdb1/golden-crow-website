@@ -719,6 +719,86 @@
       "descriptionEnglish": "Guidance on budgeting, records, reporting, and tax planning or compliance within declared credentials and jurisdiction; it does not guarantee savings or returns, and investment recommendations require separate authorization.",
       "descriptionSpanish": "Orientación sobre presupuestos, registros, informes y planificación o cumplimiento tributario dentro de las credenciales y jurisdicción declaradas; no garantiza ahorros ni rendimientos, y las recomendaciones de inversión requieren habilitación específica.",
       "systemImage": "banknote.fill"
+    },
+    {
+      "key": "sot_human_advice_health_professional_career_guidance",
+      "nameEnglish": "Health professional career guidance",
+      "nameSpanish": "Orientación profesional en salud",
+      "descriptionEnglish": "Guidance for healthcare professionals on career direction, specialty or role transitions, competency planning, CVs, interviews, and professional opportunities; it does not guarantee employment, credentialing, or admission.",
+      "descriptionSpanish": "Orientación para profesionales de la salud sobre rumbo profesional, cambios de especialidad o rol, planificación de competencias, currículum, entrevistas y oportunidades; no garantiza empleo, habilitación ni admisión.",
+      "systemImage": "stethoscope.circle.fill"
+    },
+    {
+      "key": "sot_human_advice_health_professional_development",
+      "nameEnglish": "Health professional development",
+      "nameSpanish": "Desarrollo profesional en salud",
+      "descriptionEnglish": "Structured guidance for healthcare professionals to identify development goals, strengthen declared competencies, plan continuing education, and document progress; it does not grant certification or licensure.",
+      "descriptionSpanish": "Orientación estructurada para que profesionales de la salud definan objetivos de desarrollo, fortalezcan competencias declaradas, planifiquen formación continua y documenten avances; no otorga certificaciones ni habilitaciones.",
+      "systemImage": "chart.line.uptrend.xyaxis.circle.fill"
+    },
+    {
+      "key": "sot_human_advice_clinical_mentoring_supervision",
+      "nameEnglish": "Clinical mentoring and professional supervision",
+      "nameSpanish": "Mentoría y supervisión profesional clínica",
+      "descriptionEnglish": "Reflective mentoring and supervision for qualified health professionals on professional practice, communication, decision processes, and development within the mentor's declared scope; it does not replace institutional oversight or authorize unsupervised clinical acts.",
+      "descriptionSpanish": "Mentoría y supervisión reflexiva para profesionales de la salud habilitados sobre práctica profesional, comunicación, procesos de decisión y desarrollo dentro del alcance declarado por quien supervisa; no reemplaza la supervisión institucional ni autoriza actos clínicos sin habilitación.",
+      "systemImage": "person.2.badge.gearshape.fill"
+    },
+    {
+      "key": "sot_human_advice_healthcare_leadership_management",
+      "nameEnglish": "Healthcare leadership and management development",
+      "nameSpanish": "Desarrollo de liderazgo y gestión en salud",
+      "descriptionEnglish": "Guidance for current or aspiring healthcare leaders on team leadership, communication, change management, priorities, and operational decision-making; it does not provide legal, accounting, or accreditation approval.",
+      "descriptionSpanish": "Orientación para líderes actuales o futuros del ámbito de la salud sobre conducción de equipos, comunicación, gestión del cambio, prioridades y decisiones operativas; no brinda aprobación jurídica, contable ni de acreditación.",
+      "systemImage": "person.3.sequence.fill"
+    },
+    {
+      "key": "sot_human_advice_health_education_training_design",
+      "nameEnglish": "Health education and training design",
+      "nameSpanish": "Diseño de educación y capacitación en salud",
+      "descriptionEnglish": "Guidance on learning objectives, curricula, teaching methods, assessment, and training materials for healthcare education; it does not award academic credit or professional certification.",
+      "descriptionSpanish": "Orientación sobre objetivos de aprendizaje, programas, métodos de enseñanza, evaluación y materiales para educación en salud; no otorga créditos académicos ni certificaciones profesionales.",
+      "systemImage": "graduationcap.circle.fill"
+    },
+    {
+      "key": "sot_human_advice_health_research_methodology",
+      "nameEnglish": "Health research methodology guidance",
+      "nameSpanish": "Asesoramiento metodológico en investigación en salud",
+      "descriptionEnglish": "Guidance on research questions, study design, methods, analysis planning, reproducibility, and ethical preparation for health research; it does not replace ethics approval, statistical sign-off, or regulatory authorization.",
+      "descriptionSpanish": "Orientación sobre preguntas de investigación, diseño de estudios, métodos, planificación del análisis, reproducibilidad y preparación ética en investigación en salud; no reemplaza la aprobación ética, la validación estadística ni la autorización regulatoria.",
+      "systemImage": "scope"
+    },
+    {
+      "key": "sot_human_advice_health_scientific_writing_publication",
+      "nameEnglish": "Health scientific writing and publication support",
+      "nameSpanish": "Escritura científica y publicación en salud",
+      "descriptionEnglish": "Guidance on structure, clarity, reporting standards, journal selection, submission, and responses to reviewers for health-science work; authors retain responsibility for accuracy, authorship, disclosures, and research integrity.",
+      "descriptionSpanish": "Orientación sobre estructura, claridad, estándares de reporte, selección de revistas, envío y respuesta a revisores para trabajos de ciencias de la salud; las personas autoras conservan la responsabilidad por exactitud, autoría, declaraciones e integridad científica.",
+      "systemImage": "doc.text.magnifyingglass"
+    },
+    {
+      "key": "sot_human_advice_evidence_based_health_practice",
+      "nameEnglish": "Evidence-based health practice guidance",
+      "nameSpanish": "Orientación en práctica de salud basada en evidencia",
+      "descriptionEnglish": "Guidance on framing professional questions, searching and appraising evidence, interpreting guidelines, and applying findings within context; it does not prescribe care for a specific patient.",
+      "descriptionSpanish": "Orientación para formular preguntas profesionales, buscar y evaluar evidencia, interpretar guías y aplicar hallazgos según el contexto; no prescribe atención para un paciente específico.",
+      "systemImage": "checkmark.seal.fill"
+    },
+    {
+      "key": "sot_human_advice_healthcare_quality_patient_safety",
+      "nameEnglish": "Healthcare quality and patient safety consulting",
+      "nameSpanish": "Consultoría en calidad asistencial y seguridad del paciente",
+      "descriptionEnglish": "Guidance on quality indicators, process improvement, incident learning, risk controls, and safety culture in healthcare organizations; it does not certify compliance or replace mandatory reporting and governance.",
+      "descriptionSpanish": "Orientación sobre indicadores de calidad, mejora de procesos, aprendizaje de incidentes, controles de riesgo y cultura de seguridad en organizaciones de salud; no certifica cumplimiento ni reemplaza reportes y gobierno obligatorios.",
+      "systemImage": "shield.checkered"
+    },
+    {
+      "key": "sot_human_advice_health_practice_operations",
+      "nameEnglish": "Health practice operations consulting",
+      "nameSpanish": "Consultoría en gestión operativa de prácticas de salud",
+      "descriptionEnglish": "Guidance on workflows, scheduling, patient communication, documentation, service design, and operational organization for health practices; it excludes clinical decisions, legal advice, billing guarantees, and accreditation.",
+      "descriptionSpanish": "Orientación sobre circuitos de trabajo, agenda, comunicación con pacientes, documentación, diseño de servicios y organización operativa de prácticas de salud; excluye decisiones clínicas, asesoramiento jurídico, garantías de facturación y acreditación.",
+      "systemImage": "building.2.crop.circle.fill"
     }
   ]
 }

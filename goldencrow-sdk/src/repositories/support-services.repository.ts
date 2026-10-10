@@ -407,6 +407,16 @@ export const SUPPORT_SERVICE_CATEGORY_KEYS = [
   "sot_human_advice_cybersecurity_privacy_consulting",
   "sot_human_advice_business_entrepreneurship_consulting",
   "sot_human_advice_financial_accounting_tax_consulting",
+  "sot_human_advice_health_professional_career_guidance",
+  "sot_human_advice_health_professional_development",
+  "sot_human_advice_clinical_mentoring_supervision",
+  "sot_human_advice_healthcare_leadership_management",
+  "sot_human_advice_health_education_training_design",
+  "sot_human_advice_health_research_methodology",
+  "sot_human_advice_health_scientific_writing_publication",
+  "sot_human_advice_evidence_based_health_practice",
+  "sot_human_advice_healthcare_quality_patient_safety",
+  "sot_human_advice_health_practice_operations",
 ] as const;
 
 export type SupportServiceStage = (typeof SUPPORT_SERVICE_STAGES)[number];

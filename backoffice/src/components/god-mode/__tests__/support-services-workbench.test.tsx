@@ -1955,12 +1955,12 @@ describe("support services workbenches", () => {
       name: "Buscar categorías de servicio",
     });
     fireEvent.change(categorySearch, {
-      target: { value: "sot_human_advice_financial_accounting" },
+      target: { value: "sot_human_advice_health_professional_development" },
     });
     expect(within(modal).getAllByRole("radio")).toHaveLength(1);
     expect(
-      within(modal).getByText("Asesoramiento financiero, contable e impositivo"),
-    ).toBeTruthy();
+      within(modal).getAllByText("Desarrollo profesional en salud"),
+    ).toHaveLength(2);
     fireEvent.change(categorySearch, { target: { value: "" } });
     expect(within(modal).getByText("Preparación clínica")).toBeTruthy();
     expect(
