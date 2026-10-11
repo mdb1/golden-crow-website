@@ -1948,6 +1948,11 @@ describe("support services workbenches", () => {
     const modal = await screen.findByRole("dialog");
     expect(modal.className).toContain("80rem");
     expect(within(modal).queryByRole("table")).toBeNull();
+    expect(
+      within(modal).getByText(
+        "Elegí la categoría que mejor representa el resultado principal del servicio. Los insumos, los pasos complementarios y la profesión del proveedor no definen la categoría.",
+      ),
+    ).toBeTruthy();
     expect(within(modal).getByText(selectedDescription)).toBeTruthy();
     expect(within(modal).getAllByRole("radio")).toHaveLength(
       SUPPORT_SERVICE_CATEGORIES.length,

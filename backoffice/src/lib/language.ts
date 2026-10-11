@@ -5574,7 +5574,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No service categories match this search.":
     "No hay categorías de servicio que coincidan con esta búsqueda.",
   "Choose the single category that describes the primary contracted and billable outcome. Supporting inputs, steps, and provider profession do not determine it.":
-    "Elegí la única categoría que describe el resultado principal contratado y facturable. Los insumos, pasos auxiliares y la profesión del proveedor no la determinan.",
+    "Elegí la categoría que mejor representa el resultado principal del servicio. Los insumos, los pasos complementarios y la profesión del proveedor no definen la categoría.",
   Uncategorized: "Sin categoría",
   "Choose one registered category before saving this offer.":
     "Elegí una categoría registrada antes de guardar esta oferta.",
