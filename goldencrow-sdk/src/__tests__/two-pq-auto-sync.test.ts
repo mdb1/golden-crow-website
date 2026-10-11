@@ -343,7 +343,7 @@ describe("2PQ case automatic file and code synchronization", () => {
     });
     expect(mockCreateStoredFileDocument).toHaveBeenCalledWith(
       expect.objectContaining({
-        file_name: "2PQ Sync - Estado del caso DEF",
+        file_name: "Estado del caso DEF",
         creator_email: "info@2pq.life",
       }),
     );

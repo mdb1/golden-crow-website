@@ -9,7 +9,7 @@ function normalizedEmail(value: unknown) {
 export function buildTwoPQSnapshotFileName(threeLetterCode: string) {
   const normalizedCode = threeLetterCode.trim().toUpperCase();
   return /^[A-Z]{3}$/.test(normalizedCode)
-    ? `2PQ Sync - Estado del caso ${normalizedCode}`
+    ? `Estado del caso ${normalizedCode}`
     : "";
 }
 

@@ -18,7 +18,7 @@ const canonicalOwner = {
 describe("2PQ publication difference checks", () => {
   it("builds a descriptive snapshot name without the report-code suffix", () => {
     expect(buildTwoPQSnapshotFileName("can")).toBe(
-      "2PQ Sync - Estado del caso CAN",
+      "Estado del caso CAN",
     );
     expect(buildTwoPQSnapshotFileName("CANXXX")).toBe("");
   });

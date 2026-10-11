@@ -581,7 +581,7 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
   }
 
   const reportCode = `${threeLetterCode}XXX`;
-  const snapshotFileName = `2PQ Sync - Estado del caso ${threeLetterCode}`;
+  const snapshotFileName = `Estado del caso ${threeLetterCode}`;
   if (caseRecord.data.should_automatically_sync_files_and_codes === false) {
     await reportProgress?.({
       step: "file_storage",
