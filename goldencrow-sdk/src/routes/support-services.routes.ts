@@ -523,6 +523,7 @@ const UpdateOfferBodySchema = OfferBodySchema.extend({
   acknowledgesExistingTransactionContracts: z.literal(true),
 });
 const TransactionBodySchema = z.object({
+  customTransactionName: z.string().trim().min(1).nullable().optional(),
   requestId: RequestIdSchema,
   offerId: z.string().trim().min(1),
   serviceId: ServiceIdSchema,

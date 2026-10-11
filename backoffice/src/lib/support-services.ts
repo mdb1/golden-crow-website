@@ -423,6 +423,7 @@ export interface SupportServiceProviderSnapshot extends Record<string, unknown> 
 }
 
 export interface SupportServiceTransactionInput {
+  customTransactionName?: string | null;
   requestId: string;
   offerId: string;
   serviceId: string;
@@ -451,6 +452,7 @@ export interface SupportServiceTransactionRecord
   extends SupportServiceTransactionInput {
   id: string;
   name: string;
+  customTransactionName?: string;
   schemaVersion: number;
   serviceVersion: number;
   status: SupportServiceTransactionStatus;

@@ -5378,6 +5378,24 @@ const SPANISH_TEXT: Record<string, string> = {
   "Output object bindings": "Vínculos de objetos de salida",
   "Delivered output objects": "Archivos de salida",
   "Transaction status": "Estado de la transacción",
+  "Custom transaction name": "Nombre personalizado de la transacción",
+  "Use a custom transaction name": "Usar un nombre personalizado",
+  "No custom name": "Sin nombre personalizado",
+  "Custom name": "Nombre personalizado",
+  Change: "Cambiar",
+  "Save name": "Guardar nombre",
+  "Enter a custom name before saving.":
+    "Ingresá un nombre personalizado antes de guardar.",
+  "Save the transaction before setting a custom name.":
+    "Guardá la transacción antes de asignar un nombre personalizado.",
+  "Save other transaction changes before changing the custom name.":
+    "Guardá los demás cambios de la transacción antes de cambiar el nombre personalizado.",
+  "This optional name changes only how the transaction is presented. The frozen service contract stays unchanged.":
+    "Este nombre opcional cambia únicamente cómo se presenta la transacción. El contrato congelado del servicio no cambia.",
+  "Custom transaction name updated.":
+    "Nombre personalizado de la transacción actualizado.",
+  "Custom transaction name removed.":
+    "Nombre personalizado de la transacción eliminado.",
   "Transaction status options": "Opciones de estado de la transacción",
   "Promised object type": "Tipo de objeto prometido",
   "Object code": "Código de objeto",

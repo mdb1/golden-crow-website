@@ -6714,6 +6714,91 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
+  it("updates and clears the optional custom transaction name atomically, including on terminal transactions", async () => {
+    const { createSupportServiceTransaction, updateSupportServiceTransaction } =
+      await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(context, {
+      ...creationInput(),
+      customTransactionName: "  Initial patient-facing title  ",
+    });
+
+    expect(
+      collectionStore("service_transactions").get("pgr_new_report_1"),
+    ).toMatchObject({
+      customTransactionName: "Initial patient-facing title",
+    });
+    expect(
+      collectionStore("community_users").get("new-user")
+        ?.requestedServiceTransactions,
+    ).toEqual([
+      expect.objectContaining({
+        serviceTransactionId: "pgr_new_report_1",
+        customTransactionName: "Initial patient-facing title",
+      }),
+    ]);
+
+    await updateSupportServiceTransaction(context, "pgr_new_report_1", {
+      status: "cancelled",
+      issues: [{ reason: "Requester withdrew" }],
+    });
+    const renamed = await updateSupportServiceTransaction(
+      context,
+      "pgr_new_report_1",
+      { customTransactionName: "  Replacement title  " },
+    );
+
+    expect(renamed.customTransactionName).toBe("Replacement title");
+    expect(
+      collectionStore("community_users").get("new-user")
+        ?.requestedServiceTransactions,
+    ).toEqual([
+      expect.objectContaining({
+        status: "cancelled",
+        customTransactionName: "Replacement title",
+      }),
+    ]);
+    expect(
+      collectionStore("feed_organizations").get("feed-org-1")
+        ?.requestedServiceTransactions,
+    ).toEqual([
+      expect.objectContaining({
+        status: "cancelled",
+        customTransactionName: "Replacement title",
+      }),
+    ]);
+
+    const cleared = await updateSupportServiceTransaction(
+      context,
+      "pgr_new_report_1",
+      { customTransactionName: null },
+    );
+
+    expect(cleared.customTransactionName).toBeUndefined();
+    expect(
+      collectionStore("service_transactions").get("pgr_new_report_1"),
+    ).not.toHaveProperty("customTransactionName");
+    expect(
+      (
+        collectionStore("community_users").get("new-user")
+          ?.requestedServiceTransactions as Array<Record<string, unknown>>
+      )[0],
+    ).not.toHaveProperty("customTransactionName");
+  });
+
+  it("rejects the snake-case custom transaction name alias", async () => {
+    const { createSupportServiceTransaction, updateSupportServiceTransaction } =
+      await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(context, creationInput());
+
+    await expect(
+      updateSupportServiceTransaction(context, "pgr_new_report_1", {
+        custom_transaction_name: "Wrong field key",
+      } as never),
+    ).rejects.toThrow(
+      "Service transaction uses forbidden snake-case field: custom_transaction_name.",
+    );
+  });
+
   it("requires reasons for exception states and never reopens terminal states", async () => {
     const { createSupportServiceTransaction, updateSupportServiceTransaction } =
       await import("../repositories/support-services.repository.js");

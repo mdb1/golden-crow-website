@@ -11,6 +11,7 @@ const mockDeleteSupportServiceOffer = jest.fn();
 const mockListSupportServiceOffers = jest.fn();
 const mockListSupportServiceTransactions = jest.fn();
 const mockCreateSupportServiceTransaction = jest.fn();
+const mockUpdateSupportServiceTransaction = jest.fn();
 const mockDeleteSupportServiceTransaction = jest.fn();
 const mockAttachSupportServiceTransactionOutputObject = jest.fn();
 const mockAttachSupportServiceTransactionOutputReport = jest.fn();
@@ -83,7 +84,7 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   removeSupportServiceTransactionOutputReport:
     mockRemoveSupportServiceTransactionOutputReport,
   updateSupportServiceOffer: mockUpdateSupportServiceOffer,
-  updateSupportServiceTransaction: jest.fn(),
+  updateSupportServiceTransaction: mockUpdateSupportServiceTransaction,
 }));
 
 const bootstrapContext: AdminContext = {
@@ -294,6 +295,12 @@ describe("support service admin routes", () => {
       id: "txn-1",
       requestId: "pgr_demo_final_report",
       serviceId: "pgs_pocket_genes_report_studio_12345",
+    });
+    mockUpdateSupportServiceTransaction.mockResolvedValue({
+      id: "txn-1",
+      requestId: "pgr_demo_final_report",
+      serviceId: "pgs_pocket_genes_report_studio_12345",
+      customTransactionName: "Personalized title",
     });
     mockAttachSupportServiceTransactionOutputObject.mockResolvedValue({
       transaction: {
@@ -1148,6 +1155,53 @@ describe("support service admin routes", () => {
     const [, transactionBody] =
       mockCreateSupportServiceTransaction.mock.calls.at(-1) ?? [];
     expect(transactionBody).not.toHaveProperty("requestedByUserId");
+  });
+
+  it("accepts a trimmed custom transaction name and null to clear it", async () => {
+    const fastify = await buildTestServer();
+    const payload = {
+      requestId: "pgr_demo_final_report",
+      offerId: "offer-1",
+      serviceId: "pgs_pocket_genes_report_studio_1",
+      providerId: "feed-org-1",
+      providerKind: "organization",
+      requestedByUserId: "user-1",
+      requestedAtClient: "2026-09-16T12:00:00.000Z",
+      status: "received",
+      idempotencyKey: "pgr_demo_final_report:backoffice",
+      contractSource: "service_offer",
+    };
+
+    const renameResponse = await fastify.inject({
+      method: "PUT",
+      url: "/admin/support-services/transactions/pgr_demo_final_report",
+      payload: {
+        ...payload,
+        customTransactionName: "  Personalized title  ",
+      },
+    });
+
+    expect(renameResponse.statusCode).toBe(200);
+    expect(mockUpdateSupportServiceTransaction).toHaveBeenLastCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      expect.objectContaining({
+        customTransactionName: "Personalized title",
+      }),
+    );
+
+    const clearResponse = await fastify.inject({
+      method: "PUT",
+      url: "/admin/support-services/transactions/pgr_demo_final_report",
+      payload: { ...payload, customTransactionName: null },
+    });
+
+    expect(clearResponse.statusCode).toBe(200);
+    expect(mockUpdateSupportServiceTransaction).toHaveBeenLastCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      expect.objectContaining({ customTransactionName: null }),
+    );
   });
 
   it("rejects a service transaction without any requester identity", async () => {

@@ -660,6 +660,7 @@ export type SupportServiceOutputObjectUploadRecord =
 
 export interface SupportServiceTransactionInput {
   name?: string;
+  customTransactionName?: string | null;
   requestId?: string;
   offerId?: string;
   serviceId?: string;
@@ -687,6 +688,7 @@ export interface SupportServiceTransactionInput {
 export interface SupportServiceTransactionRecord {
   id: string;
   name: string;
+  customTransactionName?: string;
   schemaVersion: number;
   requestId: string;
   offerId: string;
@@ -842,6 +844,7 @@ const ISSUE_REQUIRED_STATUSES = new Set<SupportServiceTransactionStatus>([
 ]);
 const FORM_OBJECT_TYPE = "pgo_form";
 const FORBIDDEN_TRANSACTION_ROOT_KEYS = [
+  "custom_transaction_name",
   "request_id",
   "offer_id",
   "service_id",
@@ -2347,6 +2350,7 @@ function transactionDocument(input: SupportServiceTransactionInput) {
     "Service transaction",
   );
   const requestId = cleanString(input.requestId);
+  const customTransactionName = cleanString(input.customTransactionName);
   const offerId = cleanString(input.offerId);
   const serviceId = cleanString(input.serviceId);
   const providerId = cleanString(input.providerId);
@@ -2371,6 +2375,7 @@ function transactionDocument(input: SupportServiceTransactionInput) {
   return withoutUndefined({
     schemaVersion: 1,
     name: cleanString(input.name),
+    customTransactionName: customTransactionName || undefined,
     requestId,
     offerId,
     serviceId,
@@ -2397,7 +2402,7 @@ function transactionDocument(input: SupportServiceTransactionInput) {
       "attachmentsPending",
     ),
     normalizedName: normalizeName(
-      `${cleanString(input.name)} ${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
+      `${customTransactionName} ${cleanString(input.name)} ${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
     ),
   });
 }
@@ -5634,6 +5639,7 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
     data.requestedByUserEmail,
   ).toLowerCase();
   const offerSnapshot = optionalRecord(data.offerSnapshot);
+  const customTransactionName = cleanString(data.customTransactionName);
   const name =
     cleanString(data.name) ||
     cleanString(offerSnapshot.name) ||
@@ -5643,6 +5649,7 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
   return withoutUndefined({
     id,
     name,
+    customTransactionName: customTransactionName || undefined,
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     requestId,
@@ -5673,7 +5680,7 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
     normalizedName:
       cleanString(data.normalizedName) ||
       normalizeName(
-        `${name} ${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
+        `${customTransactionName} ${name} ${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
       ),
     createdAt: timestampToIso(data.createdAt),
     updatedAt: timestampToIso(data.updatedAt),
@@ -5717,6 +5724,7 @@ function toTransactionAdminRecord(
     data.requestedByUserEmail,
   ).toLowerCase();
   const offerSnapshot = optionalRecord(data.offerSnapshot);
+  const customTransactionName = cleanString(data.customTransactionName);
   const name =
     cleanString(data.name) ||
     cleanString(offerSnapshot.name) ||
@@ -5799,6 +5807,7 @@ function toTransactionAdminRecord(
   return withoutUndefined({
     id,
     name,
+    customTransactionName: customTransactionName || undefined,
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     requestId,
@@ -5839,7 +5848,7 @@ function toTransactionAdminRecord(
     normalizedName:
       cleanString(data.normalizedName) ||
       normalizeName(
-        `${name} ${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
+        `${customTransactionName} ${name} ${requestId} ${serviceId} ${requestedByUserId} ${requestedByUserEmail}`,
       ),
     createdAt: timestampToIso(data.createdAt),
     updatedAt,
@@ -6577,6 +6586,7 @@ function transactionSummary(
     serviceTransactionId: document.requestId,
     offerId: document.offerId,
     serviceName: document.name,
+    customTransactionName: document.customTransactionName || undefined,
     providerName: cleanString(providerSnapshot.name),
     providerKind: document.providerKind,
     providerImageUrl: cleanString(providerSnapshot.imageUrl) || undefined,
@@ -6595,6 +6605,7 @@ function replaceTransactionSummaryStatus(
   summaries: unknown[],
   requestId: string,
   status: SupportServiceTransactionStatus,
+  customTransactionName?: string,
 ) {
   let found = false;
   const updated = summaries.map((summary) => {
@@ -6606,9 +6617,52 @@ function replaceTransactionSummaryStatus(
       return summary;
     }
     found = true;
-    return { ...record, status };
+    const { customTransactionName: _previousCustomName, ...rest } = record;
+    return withoutUndefined({
+      ...rest,
+      status,
+      customTransactionName:
+        cleanString(customTransactionName) || undefined,
+    });
   });
   return { found, updated };
+}
+
+function isCustomTransactionNameOnlyUpdate(
+  input: SupportServiceTransactionInput,
+  previous: SupportServiceTransactionRecord,
+) {
+  if (!Object.prototype.hasOwnProperty.call(input, "customTransactionName")) {
+    return false;
+  }
+  if (input.status !== undefined && input.status !== previous.status) {
+    return false;
+  }
+  if (
+    input.inputs !== undefined &&
+    stableString(inputSlotsFromUnknown(input.inputs, true)) !==
+      stableString(previous.inputs)
+  ) {
+    return false;
+  }
+  if (
+    input.outputObjects !== undefined &&
+    stableString(comparableOutputObjects(input.outputObjects)) !==
+      stableString(comparableOutputObjects(previous.outputObjects))
+  ) {
+    return false;
+  }
+  if (
+    input.outputReports !== undefined &&
+    stableString(outputReportsFromUnknown(input.outputReports)) !==
+      stableString(previous.outputReports)
+  ) {
+    return false;
+  }
+  return (
+    input.issues === undefined ||
+    stableString(unknownArray(input.issues)) === stableString(previous.issues)
+  );
 }
 
 function rejectImmutableTransactionChanges(
@@ -9935,7 +9989,11 @@ async function persistSupportServiceTransactionUpdate(
       409,
     );
   }
-  if (!options.allowDelivery && TERMINAL_TRANSACTION_STATUSES.has(previous.status)) {
+  if (
+    !options.allowDelivery &&
+    TERMINAL_TRANSACTION_STATUSES.has(previous.status) &&
+    !isCustomTransactionNameOnlyUpdate(input, previous)
+  ) {
     throw new AdminRepositoryError(
       "Terminal service transactions cannot be edited.",
       409,
@@ -9974,6 +10032,12 @@ async function persistSupportServiceTransactionUpdate(
       providerKind: previous.providerKind,
       status: input.status ?? previous.status,
       name: previous.name,
+      customTransactionName: Object.prototype.hasOwnProperty.call(
+        input,
+        "customTransactionName",
+      )
+        ? input.customTransactionName
+        : previous.customTransactionName,
       requestedByUserId: previous.requestedByUserId,
       requestedByUserEmail: previous.requestedByUserEmail,
       requestedAt: previous.requestedAt,
@@ -10103,6 +10167,7 @@ async function persistSupportServiceTransactionUpdate(
       summaries,
       previous.requestId,
       document.status,
+      document.customTransactionName,
     );
     const providerDocumentData = providerDocumentSnapshot.data() ?? {};
     const providerSummaries = Array.isArray(
@@ -10114,6 +10179,7 @@ async function persistSupportServiceTransactionUpdate(
       providerSummaries,
       previous.requestId,
       document.status,
+      document.customTransactionName,
     );
     const requestedAt = dateFromUnknown(
       previous.requestedAt,

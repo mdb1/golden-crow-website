@@ -3015,8 +3015,15 @@ export function SupportServicesBrowser({
                         </Badge>
                       ) : null}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {transaction.serviceId} · v{transaction.serviceVersion}
+                    <TableCell className="min-w-[14rem]">
+                      <div className="text-sm font-medium text-foreground">
+                        {transaction.customTransactionName?.trim() ||
+                          transaction.name?.trim() ||
+                          transaction.serviceId}
+                      </div>
+                      <div className="mt-1 font-mono text-xs text-muted-foreground">
+                        {transaction.serviceId} · v{transaction.serviceVersion}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -3191,7 +3198,10 @@ function PublisherSupportServiceRows({
               );
             })
           : transactions.map((transaction) => {
-              const transactionName = transaction.name?.trim() ?? "";
+              const transactionName =
+                transaction.customTransactionName?.trim() ||
+                transaction.name?.trim() ||
+                "";
               const serviceName =
                 typeof transaction.offerSnapshot?.name === "string"
                   ? transaction.offerSnapshot.name.trim()
@@ -9424,6 +9434,9 @@ export function SupportServiceTransactionWorkbench({
   const [selectedReportCode, setSelectedReportCode] = useState("");
   const [recentlyAddedReportCode, setRecentlyAddedReportCode] = useState("");
   const [rawExportOpen, setRawExportOpen] = useState(false);
+  const [customNameDialogOpen, setCustomNameDialogOpen] = useState(false);
+  const [customNameDraft, setCustomNameDraft] = useState("");
+  const [customNameError, setCustomNameError] = useState("");
   const isEditing = mode === "edit";
 
   function nextToastId() {
@@ -9609,6 +9622,10 @@ export function SupportServiceTransactionWorkbench({
     typeof form.offerSnapshot.name === "string"
       ? form.offerSnapshot.name
       : form.serviceId;
+  const customTransactionName =
+    transactionRecord?.customTransactionName?.trim() ?? "";
+  const displayedTransactionName =
+    customTransactionName || frozenOfferName || form.serviceId;
   const frozenShortContract =
     typeof form.offerSnapshot.shortContract === "string"
       ? form.offerSnapshot.shortContract
@@ -9682,6 +9699,58 @@ export function SupportServiceTransactionWorkbench({
         `${routeBase}/${encodeURIComponent(result.transaction.requestId)}`,
       );
       router.refresh();
+    },
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
+  });
+
+  const customNameMutation = useMutation({
+    mutationFn: async (customName: string | null) => {
+      if (!transactionId || !transactionRecord) {
+        throw new Error("Save the transaction before setting a custom name.");
+      }
+      if (hasUnsavedTransactionChanges) {
+        throw new Error(
+          "Save other transaction changes before changing the custom name.",
+        );
+      }
+      const persistedForm = transactionFormFromRecord(transactionRecord);
+      const payload = transactionPayloadFromForm(persistedForm, {
+        includeInputs: false,
+      });
+      return sdkFetch<{ transaction: SupportServiceTransactionRecord }>(
+        `/admin/support-services/transactions/${encodeURIComponent(
+          transactionId,
+        )}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            ...payload,
+            customTransactionName: customName,
+          }),
+        },
+      );
+    },
+    onSuccess: async (result, customName) => {
+      setForm(transactionFormFromRecord(result.transaction));
+      queryClient.setQueryData(
+        [TRANSACTIONS_QUERY_KEY, transactionId],
+        { transaction: result.transaction },
+      );
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTIONS_QUERY_KEY],
+      });
+      setCustomNameDialogOpen(false);
+      setCustomNameDraft("");
+      setCustomNameError("");
+      setToast({
+        id: nextToastId(),
+        tone: "success",
+        message: t(
+          customName
+            ? "Custom transaction name updated."
+            : "Custom transaction name removed.",
+        ),
+      });
     },
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
@@ -9956,6 +10025,7 @@ export function SupportServiceTransactionWorkbench({
   });
   const transactionCommandPending =
     saveMutation.isPending ||
+    customNameMutation.isPending ||
     uploadOutputMutation.isPending ||
     attachReportMutation.isPending ||
     removeReportMutation.isPending ||
@@ -10116,6 +10186,26 @@ export function SupportServiceTransactionWorkbench({
     }
   }
 
+  function openCustomNameDialog() {
+    if (hasUnsavedTransactionChanges || customNameMutation.isPending) {
+      return;
+    }
+    setCustomNameDraft(customTransactionName);
+    setCustomNameError("");
+    setCustomNameDialogOpen(true);
+  }
+
+  function handleCustomNameSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextName = customNameDraft.trim();
+    if (!nextName) {
+      setCustomNameError(t("Enter a custom name before saving."));
+      return;
+    }
+    setCustomNameError("");
+    customNameMutation.mutate(nextName);
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
@@ -10191,10 +10281,7 @@ export function SupportServiceTransactionWorkbench({
             </div>
           </div>
         ) : null}
-        <fieldset
-          className="contents"
-          disabled={terminalStatusLocked || transactionCommandPending}
-        >
+        <fieldset className="contents" disabled={transactionCommandPending}>
         <Section title="Request identity">
           <div className="grid gap-4 lg:grid-cols-2">
             <Field label="Service">
@@ -10202,7 +10289,7 @@ export function SupportServiceTransactionWorkbench({
                 <div className="grid min-h-24 gap-2 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 text-sm shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="font-medium text-foreground">
-                      {frozenOfferName || t("Frozen service contract")}
+                      {displayedTransactionName || t("Frozen service contract")}
                     </div>
                     <Badge variant="secondary">
                       {t("Frozen transaction contract")}
@@ -10220,6 +10307,11 @@ export function SupportServiceTransactionWorkbench({
                   <div className="font-mono text-xs text-muted-foreground">
                     {form.serviceId || "-"} · v{form.serviceVersion || 1}
                   </div>
+                  {customTransactionName ? (
+                    <div className="text-xs text-muted-foreground">
+                      {t("Service offer")}: {frozenOfferName || form.serviceId}
+                    </div>
+                  ) : null}
                   {frozenShortContract ? (
                     <div className="text-muted-foreground">
                       {frozenShortContract}
@@ -10290,6 +10382,74 @@ export function SupportServiceTransactionWorkbench({
                 </div>
               )}
             </Field>
+            {isEditing ? (
+              <div className="grid gap-2 text-sm font-medium text-foreground">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("Custom transaction name")}
+                </span>
+                <div className="grid min-h-24 gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 text-sm shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Checkbox
+                      id="use-custom-transaction-name"
+                      checked={Boolean(customTransactionName)}
+                      disabled={
+                        hasUnsavedTransactionChanges ||
+                        customNameMutation.isPending
+                      }
+                      onCheckedChange={(checked) => {
+                        if (checked === true) {
+                          openCustomNameDialog();
+                        } else if (customTransactionName) {
+                          customNameMutation.mutate(null);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="use-custom-transaction-name"
+                      className="cursor-pointer font-medium"
+                    >
+                      {t("Use a custom transaction name")}
+                    </label>
+                    <Badge variant="outline" className="ml-auto">
+                      {t("Always optional")}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-t border-violet-100 pt-3 dark:border-violet-400/14">
+                    <span
+                      className={cn(
+                        "min-w-0 truncate font-medium",
+                        !customTransactionName && "text-muted-foreground",
+                      )}
+                    >
+                      {customTransactionName || t("No custom name")}
+                    </span>
+                    {customTransactionName ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={openCustomNameDialog}
+                        disabled={
+                          hasUnsavedTransactionChanges ||
+                          customNameMutation.isPending
+                        }
+                        className="shrink-0"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        {t("Change")}
+                      </Button>
+                    ) : null}
+                  </div>
+                  {hasUnsavedTransactionChanges ? (
+                    <p className="text-xs text-amber-700 dark:text-amber-200">
+                      {t(
+                        "Save other transaction changes before changing the custom name.",
+                      )}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
             <Field label="Request ID">
               {isEditing ? (
                 <GeneratedValue
@@ -10644,6 +10804,73 @@ export function SupportServiceTransactionWorkbench({
           }
         }}
       />
+      <Dialog
+        open={customNameDialogOpen}
+        onOpenChange={(open) => {
+          if (!customNameMutation.isPending) {
+            setCustomNameDialogOpen(open);
+            if (!open) {
+              setCustomNameError("");
+            }
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <form className="grid gap-5" onSubmit={handleCustomNameSubmit}>
+            <DialogHeader>
+              <DialogTitle>{t("Custom transaction name")}</DialogTitle>
+              <DialogDescription>
+                {t(
+                  "This optional name changes only how the transaction is presented. The frozen service contract stays unchanged.",
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2">
+              <Label htmlFor="custom-transaction-name-input">
+                {t("Custom name")}
+              </Label>
+              <Input
+                id="custom-transaction-name-input"
+                value={customNameDraft}
+                onChange={(event) => {
+                  setCustomNameDraft(event.target.value);
+                  if (customNameError) {
+                    setCustomNameError("");
+                  }
+                }}
+                autoFocus
+                aria-invalid={Boolean(customNameError)}
+              />
+              {customNameError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {customNameError}
+                </p>
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCustomNameDialogOpen(false)}
+                disabled={customNameMutation.isPending}
+              >
+                {t("Cancel")}
+              </Button>
+              <Button
+                type="submit"
+                disabled={customNameMutation.isPending}
+              >
+                {customNameMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {t("Save name")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <RawJsonExportDialog
         open={rawExportOpen}
         onOpenChange={setRawExportOpen}

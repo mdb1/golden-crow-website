@@ -531,6 +531,7 @@ describe("support services workbenches", () => {
       transactions: [
         {
           ...runningTransaction,
+          customTransactionName: "Expedited family review",
           complianceWarnings: ["offerSnapshot is missing or malformed."],
         },
       ],
@@ -540,6 +541,7 @@ describe("support services workbenches", () => {
     renderWithQueryClient(<SupportServicesBrowser kind="transactions" />);
 
     expect(await screen.findByText("1 compliance warnings")).toBeTruthy();
+    expect(screen.getByText("Expedited family review")).toBeTruthy();
     expect(screen.getByText(runningTransaction.requestId)).toBeTruthy();
     expect(screen.queryByText("No records found.")).toBeNull();
   });
@@ -3968,6 +3970,94 @@ describe("support services workbenches", () => {
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Copy JSON" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Download JSON" })).toBeTruthy();
+  });
+
+  it("sets, changes, and clears an optional custom name from the transaction detail", async () => {
+    let storedTransaction: SupportServiceTransactionRecord = {
+      ...deliveredTransaction,
+    };
+    const writtenCustomNames: Array<string | null> = [];
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(`/transactions/${deliveredTransaction.requestId}`) &&
+        !init?.method
+      ) {
+        return { transaction: storedTransaction };
+      }
+      if (value.endsWith(`/offers/${deliveredTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      if (
+        value.endsWith(`/transactions/${deliveredTransaction.requestId}`) &&
+        init?.method === "PUT"
+      ) {
+        const payload = JSON.parse(String(init.body));
+        writtenCustomNames.push(payload.customTransactionName);
+        const { customTransactionName: _previousName, ...transaction } =
+          storedTransaction;
+        storedTransaction = {
+          ...transaction,
+          ...(payload.customTransactionName
+            ? { customTransactionName: payload.customTransactionName }
+            : {}),
+          requestRevision: storedTransaction.requestRevision + 1,
+        };
+        return { transaction: storedTransaction };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={deliveredTransaction.requestId}
+      />,
+    );
+
+    const checkbox = await screen.findByRole("checkbox", {
+      name: "Use a custom transaction name",
+    });
+    expect((checkbox as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByText("No custom name")).toBeTruthy();
+    expect(screen.queryByLabelText("Custom name")).toBeNull();
+
+    fireEvent.click(checkbox);
+    const createDialog = await screen.findByRole("dialog", {
+      name: "Custom transaction name",
+    });
+    fireEvent.change(within(createDialog).getByLabelText("Custom name"), {
+      target: { value: "Priority oncology review" },
+    });
+    fireEvent.click(within(createDialog).getByRole("button", { name: "Save name" }));
+
+    expect(await screen.findAllByText("Priority oncology review")).not.toHaveLength(0);
+    expect(writtenCustomNames).toEqual(["Priority oncology review"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    const changeDialog = await screen.findByRole("dialog", {
+      name: "Custom transaction name",
+    });
+    const customNameInput = within(changeDialog).getByLabelText("Custom name");
+    expect((customNameInput as HTMLInputElement).value).toBe(
+      "Priority oncology review",
+    );
+    fireEvent.change(customNameInput, {
+      target: { value: "Updated oncology review" },
+    });
+    fireEvent.click(within(changeDialog).getByRole("button", { name: "Save name" }));
+
+    expect(await screen.findAllByText("Updated oncology review")).not.toHaveLength(0);
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Use a custom transaction name" }),
+    );
+
+    expect(await screen.findByText("No custom name")).toBeTruthy();
+    expect(writtenCustomNames).toEqual([
+      "Priority oncology review",
+      "Updated oncology review",
+      null,
+    ]);
   });
 
   it("manages optional linked reports in a rich grid without changing a terminal transaction status", async () => {
