@@ -7097,28 +7097,34 @@ function ServiceCategoryPicker({
                     return (
                       <section
                         key={group.id}
-                        className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-[0_16px_44px_-36px_rgba(76,29,149,0.7)] dark:border-violet-400/18 dark:bg-slate-950/70"
+                        className="overflow-hidden rounded-2xl border border-violet-200/80 bg-white shadow-[0_18px_48px_-34px_rgba(76,29,149,0.75)] dark:border-violet-400/24 dark:bg-slate-950/70"
                       >
-                        <div className="border-b border-violet-100 bg-gradient-to-r from-violet-50 via-violet-50/75 to-white px-5 py-5 dark:border-violet-400/16 dark:from-violet-500/13 dark:via-violet-500/7 dark:to-slate-950/70">
+                        <div
+                          data-service-category-group-header
+                          className="border-b-2 border-violet-200 bg-gradient-to-r from-violet-100 via-violet-100/85 to-violet-50 px-5 py-5 shadow-[inset_4px_0_0_#7c3aed] dark:border-violet-400/28 dark:from-violet-500/24 dark:via-violet-500/16 dark:to-violet-950/38 dark:shadow-[inset_4px_0_0_#c4b5fd]"
+                        >
                           <div className="flex items-start gap-4">
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 shadow-sm dark:bg-violet-500/16 dark:text-violet-100">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md shadow-violet-600/20 ring-4 ring-white/55 dark:bg-violet-400 dark:text-violet-950 dark:ring-violet-950/35">
                               <GroupIcon className="h-5 w-5" />
                             </span>
                             <div className="min-w-0 flex-1">
-                              <h3 className="text-base font-semibold leading-6 text-foreground">
+                              <h3 className="text-[17px] font-bold leading-6 text-violet-950 dark:text-violet-50">
                                 {language === "es"
                                   ? group.nameSpanish
                                   : group.nameEnglish}
                               </h3>
-                              <p className="mt-1 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+                              <p className="mt-1 text-sm leading-6 text-violet-900/70 [overflow-wrap:anywhere] dark:text-violet-100/70">
                                 {language === "es"
                                   ? group.descriptionSpanish
                                   : group.descriptionEnglish}
                               </p>
                             </div>
+                            <span className="shrink-0 rounded-full border border-violet-200/80 bg-white/80 px-3 py-1 text-xs font-bold text-violet-700 shadow-sm dark:border-violet-300/20 dark:bg-violet-950/48 dark:text-violet-100">
+                              {group.categories.length} {t("Options").toLowerCase()}
+                            </span>
                           </div>
                         </div>
-                        <div className="divide-y divide-violet-100 dark:divide-violet-400/12">
+                        <div className="divide-y divide-slate-200/80 dark:divide-violet-400/12">
                           {group.categories.map((category) => {
                             const selected = draft === category.key;
 

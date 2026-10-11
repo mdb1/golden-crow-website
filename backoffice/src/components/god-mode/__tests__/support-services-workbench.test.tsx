@@ -1953,6 +1953,11 @@ describe("support services workbenches", () => {
         "Elegí la categoría que mejor representa el resultado principal del servicio. Los insumos, los pasos complementarios y la profesión del proveedor no definen la categoría.",
       ),
     ).toBeTruthy();
+    expect(
+      within(modal)
+        .getByRole("heading", { name: "Preparación clínica" })
+        .closest("[data-service-category-group-header]"),
+    ).toBeTruthy();
     expect(within(modal).getByText(selectedDescription)).toBeTruthy();
     expect(within(modal).getAllByRole("radio")).toHaveLength(
       SUPPORT_SERVICE_CATEGORIES.length,
