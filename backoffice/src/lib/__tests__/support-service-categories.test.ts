@@ -34,6 +34,34 @@ describe("support service categories", () => {
         "sot_human_advice_healthcare_ai_evaluation_adoption",
       ),
     ).toBe(true);
+    expect(
+      isSupportServiceCategoryKey(
+        "sot_human_advice_genomic_biobanking_governance",
+      ),
+    ).toBe(true);
+    expect(
+      isSupportServiceCategoryKey(
+        "sot_human_advice_genomics_regulatory_research_ethics",
+      ),
+    ).toBe(true);
+    expect(
+      isSupportServiceCategoryKey(
+        "sot_human_advice_genomics_science_communication",
+      ),
+    ).toBe(true);
+    expect(
+      isSupportServiceCategoryKey(
+        "sot_human_advice_addiction_recovery_counseling",
+      ),
+    ).toBe(false);
+    expect(
+      isSupportServiceCategoryKey(
+        "sot_human_advice_immigration_residency_legal",
+      ),
+    ).toBe(false);
+    expect(
+      isSupportServiceCategoryKey("sot_human_advice_language_learning"),
+    ).toBe(false);
     expect(isSupportServiceCategoryKey("Genomic report generation")).toBe(
       false,
     );
@@ -42,5 +70,54 @@ describe("support service categories", () => {
     );
     expect(isSupportServiceCategoryKey("")).toBe(false);
     expect(supportServiceCategoryByKey("sot_unknown")).toBeNull();
+  });
+
+  it("uses the genomics-focused names and descriptions from the canonical registry", () => {
+    expect(
+      supportServiceCategoryByKey("sot_human_advice_medical_consultation"),
+    ).toMatchObject({
+      nameEnglish: "Genetics-related medical consultation",
+      nameSpanish: "Consulta médica relacionada con genética",
+      descriptionEnglish:
+        "Clinical evaluation of symptoms, family history, inherited conditions, and appropriate genetic testing or specialist referral.",
+      descriptionSpanish:
+        "Evaluación clínica de síntomas, antecedentes familiares, enfermedades hereditarias y posibles estudios genéticos o derivaciones especializadas.",
+    });
+    expect(
+      supportServiceCategoryByKey(
+        "sot_human_advice_genomic_biobanking_governance",
+      ),
+    ).toMatchObject({
+      nameEnglish: "Genomic biobanking and biospecimen governance",
+      nameSpanish: "Gestión de biobancos genómicos y muestras biológicas",
+    });
+    expect(
+      supportServiceCategoryByKey(
+        "sot_human_advice_genomics_regulatory_research_ethics",
+      ),
+    ).toMatchObject({
+      nameEnglish: "Genomics regulatory and research ethics consulting",
+      nameSpanish: "Consultoría regulatoria y ética en genómica",
+    });
+    expect(
+      supportServiceCategoryByKey(
+        "sot_human_advice_genomics_science_communication",
+      ),
+    ).toMatchObject({
+      nameEnglish: "Genomics science communication and public education",
+      nameSpanish: "Divulgación científica y educación pública en genómica",
+    });
+    expect(
+      supportServiceCategoryByKey(
+        "sot_human_advice_health_technology_usability_human_factors_accessibility",
+      ),
+    ).toMatchObject({
+      nameEnglish: "Genomics technology usability and accessibility",
+      nameSpanish: "Usabilidad y accesibilidad de tecnologías genómicas",
+      descriptionEnglish:
+        "User research and usability or accessibility evaluation for genomic portals, genetic test ordering, report viewers, and patient-facing genetics applications.",
+      descriptionSpanish:
+        "Investigación con usuarios y evaluación de usabilidad o accesibilidad de portales genómicos, solicitud de estudios, visores de informes y aplicaciones genéticas para pacientes.",
+    });
   });
 });

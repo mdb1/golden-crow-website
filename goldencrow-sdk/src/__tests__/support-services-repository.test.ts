@@ -690,6 +690,20 @@ describe("support service repository versions", () => {
     expect(SUPPORT_SERVICE_CATEGORY_KEYS[109]).toBe(
       "sot_human_advice_health_technology_usability_human_factors_accessibility",
     );
+    expect(SUPPORT_SERVICE_CATEGORY_KEYS).toEqual(
+      expect.arrayContaining([
+        "sot_human_advice_genomic_biobanking_governance",
+        "sot_human_advice_genomics_regulatory_research_ethics",
+        "sot_human_advice_genomics_science_communication",
+      ]),
+    );
+    expect(SUPPORT_SERVICE_CATEGORY_KEYS).not.toEqual(
+      expect.arrayContaining([
+        "sot_human_advice_addiction_recovery_counseling",
+        "sot_human_advice_immigration_residency_legal",
+        "sot_human_advice_language_learning",
+      ]),
+    );
   });
 
   it("reports exact service ID availability from offers and atomic claims", async () => {

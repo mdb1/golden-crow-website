@@ -1974,7 +1974,7 @@ describe("support services workbenches", () => {
     expect(within(modal).getAllByRole("radio")).toHaveLength(1);
     expect(
       within(modal).getByText(
-        "Usabilidad, factores humanos y accesibilidad en tecnología de salud",
+        "Usabilidad y accesibilidad de tecnologías genómicas",
       ),
     ).toBeTruthy();
     fireEvent.change(categorySearch, { target: { value: "" } });
