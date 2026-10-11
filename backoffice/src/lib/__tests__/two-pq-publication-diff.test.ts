@@ -1,4 +1,5 @@
 import {
+  buildTwoPQSnapshotFileName,
   hasFileStoragePublicationChanges,
   hasReportCodePublicationChanges,
 } from "@/lib/two-pq-publication-diff";
@@ -15,17 +16,23 @@ const canonicalOwner = {
 };
 
 describe("2PQ publication difference checks", () => {
-  it("treats differently formatted JSON as the same file-storage snapshot", () => {
+  it("builds a descriptive snapshot name without the report-code suffix", () => {
+    expect(buildTwoPQSnapshotFileName("can")).toBe(
+      "2PQ Sync - Estado del caso CAN",
+    );
+    expect(buildTwoPQSnapshotFileName("CANXXX")).toBe("");
+  });
+
+  it("preserves an arbitrary existing name when the snapshot content is unchanged", () => {
     expect(
       hasFileStoragePublicationChanges({
         existingData: {
-          file_name: "CANXXX",
+          file_name: "Nombre legado o editado manualmente",
           creator_email: "admin@example.com",
           file_type: "2pq",
           file_content:
             '{"entities":{"cases":[1]},"main_case":{"id":"CASE-1"}}',
         },
-        nextFileName: "CANXXX",
         nextCreatorEmail: "ADMIN@example.com",
         nextFileType: "2pq",
         nextFileContent: JSON.stringify(
@@ -41,12 +48,11 @@ describe("2PQ publication difference checks", () => {
     expect(
       hasFileStoragePublicationChanges({
         existingData: {
-          file_name: "CANXXX",
+          file_name: "Nombre legado o editado manualmente",
           creator_email: "admin@example.com",
           file_type: "2pq",
           file_content: '{"main_case":{"id":"CASE-1"}}',
         },
-        nextFileName: "CANXXX",
         nextCreatorEmail: "admin@example.com",
         nextFileType: "2pq",
         nextFileContent: '{"main_case":{"id":"CASE-2"}}',

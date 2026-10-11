@@ -98,7 +98,7 @@ describe("2PQ report-code owner persistence", () => {
     mockDocs.set("file_storage/file-1", {
       file_type: "2pq",
       file_content: JSON.stringify({ case: "CASE-00022" }),
-      file_name: "CASE-00022.json",
+      file_name: "2PQ Sync - Estado del caso CAN",
     });
     mockDocs.set(`report_owners/${TWO_PQ_REPORT_OWNER_ID}`, {
       owner_name: "2pq",
@@ -122,6 +122,7 @@ describe("2PQ report-code owner persistence", () => {
     });
     expect(mockDocs.get("uploaded_reports/auto-1")).toMatchObject({
       report_code: "CANXXX",
+      file_name: "2PQ Sync - Estado del caso CAN",
       linked_file_id: "file-1",
       report_owner_id: TWO_PQ_REPORT_OWNER_ID,
       owner_email: TWO_PQ_REPORT_OWNER_EMAIL,

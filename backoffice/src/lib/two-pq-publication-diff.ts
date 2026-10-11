@@ -6,6 +6,13 @@ function normalizedEmail(value: unknown) {
   return normalizedString(value).toLowerCase();
 }
 
+export function buildTwoPQSnapshotFileName(threeLetterCode: string) {
+  const normalizedCode = threeLetterCode.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(normalizedCode)
+    ? `2PQ Sync - Estado del caso ${normalizedCode}`
+    : "";
+}
+
 function canonicalJsonValue(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(canonicalJsonValue);
@@ -39,14 +46,11 @@ function semanticallyEqualJson(left: unknown, right: string) {
 
 export function hasFileStoragePublicationChanges(input: {
   existingData: Record<string, unknown>;
-  nextFileName: string;
   nextCreatorEmail: string;
   nextFileType: string;
   nextFileContent: string;
 }) {
   return (
-    normalizedString(input.existingData.file_name) !==
-      input.nextFileName.trim() ||
     normalizedEmail(input.existingData.creator_email) !==
       input.nextCreatorEmail.trim().toLowerCase() ||
     normalizedString(input.existingData.file_type).toLowerCase() !==

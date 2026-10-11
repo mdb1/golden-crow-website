@@ -581,6 +581,7 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
   }
 
   const reportCode = `${threeLetterCode}XXX`;
+  const snapshotFileName = `2PQ Sync - Estado del caso ${threeLetterCode}`;
   if (caseRecord.data.should_automatically_sync_files_and_codes === false) {
     await reportProgress?.({
       step: "file_storage",
@@ -631,7 +632,6 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
 
   if (storedFileId) {
     const updateResult = await updateStoredFileDocument(storedFileId, {
-      file_name: reportCode,
       file_type: "2pq",
       file_content: fileContent,
     });
@@ -644,7 +644,6 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
 
   if (storedFileId && !storedFileUpdated) {
     const updateResult = await updateStoredFileDocument(storedFileId, {
-      file_name: reportCode,
       file_type: "2pq",
       file_content: fileContent,
     });
@@ -655,7 +654,7 @@ export async function synchronizeTwoPQCaseFilesAndCodes(
 
   if (!storedFileId) {
     const created = await createStoredFileDocument({
-      file_name: reportCode,
+      file_name: snapshotFileName,
       creator_email: isValidEmail(actorEmail)
         ? actorEmail!.trim().toLowerCase()
         : TWO_PQ_REPORT_OWNER_EMAIL,

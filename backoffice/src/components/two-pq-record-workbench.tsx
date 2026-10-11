@@ -95,6 +95,7 @@ import {
   resolveReportCodePublishingPreflight,
 } from "@/lib/two-pq-report-publishing";
 import {
+  buildTwoPQSnapshotFileName,
   hasFileStoragePublicationChanges,
   hasReportCodePublicationChanges,
 } from "@/lib/two-pq-publication-diff";
@@ -1347,8 +1348,8 @@ export function TwoPQRecordWorkbench({
   const expectedCaseLabelFromThreeLetterCode =
     buildExpectedCaseLabelFromThreeLetterCode(normalizedThreeLetterCode);
   const hasThreeLetterCode = normalizedThreeLetterCode.length === 3;
-  const fileStorageSnapshotFileName =
-    buildExpectedCaseLabelFromThreeLetterCode(normalizedThreeLetterCode) ||
+  const newFileStorageSnapshotFileName =
+    buildTwoPQSnapshotFileName(normalizedThreeLetterCode) ||
     detail?.record.caseLabel?.trim() ||
     detail?.record.id ||
     "";
@@ -1587,13 +1588,14 @@ export function TwoPQRecordWorkbench({
   const storedFileDocument = storedFileDocumentQuery.data ?? null;
   const storedFileName =
     getTrimmedUnknownString(storedFileDocument?.data.file_name) ?? "";
+  const fileStorageSnapshotFileName =
+    storedFileName || newFileStorageSnapshotFileName;
   const fileStorageUpdateHasChanges =
     hasStoredFileId &&
     Boolean(storedFileDocument) &&
     Boolean(fileStorageSnapshotQuery.data) &&
     hasFileStoragePublicationChanges({
       existingData: storedFileDocument?.data ?? {},
-      nextFileName: fileStorageSnapshotFileName,
       nextCreatorEmail: adminContext.email,
       nextFileType: "2pq",
       nextFileContent: fileStorageSnapshotQuery.data?.preview ?? "",
@@ -2423,7 +2425,10 @@ export function TwoPQRecordWorkbench({
     setPublishFileStorageModal({
       mode,
       status: "loading",
-      fileName: fileStorageSnapshotFileName,
+      fileName:
+        mode === "update"
+          ? storedFileName || newFileStorageSnapshotFileName
+          : newFileStorageSnapshotFileName,
       snapshot: null,
       preview: "",
       hasChanges: mode === "publish",
@@ -2445,12 +2450,16 @@ export function TwoPQRecordWorkbench({
         throw new Error("Snapshot preview is unavailable.");
       }
       const { snapshot, preview } = snapshotResult.data;
+      const modalFileName =
+        mode === "update"
+          ? getTrimmedUnknownString(storedFileResult.data?.data.file_name) ||
+            newFileStorageSnapshotFileName
+          : newFileStorageSnapshotFileName;
       const hasChanges =
         mode === "publish" ||
         !storedFileResult.data ||
         hasFileStoragePublicationChanges({
           existingData: storedFileResult.data.data,
-          nextFileName: fileStorageSnapshotFileName,
           nextCreatorEmail: adminContext.email,
           nextFileType: "2pq",
           nextFileContent: preview,
@@ -2463,7 +2472,7 @@ export function TwoPQRecordWorkbench({
       setPublishFileStorageModal({
         mode,
         status: "ready",
-        fileName: fileStorageSnapshotFileName,
+        fileName: modalFileName,
         snapshot,
         preview,
         hasChanges,
@@ -2514,7 +2523,6 @@ export function TwoPQRecordWorkbench({
             method: "PUT",
             body: JSON.stringify({
               data: {
-                file_name: modalState.fileName,
                 creator_email: adminContext.email,
                 file_type: "2pq",
                 file_content: modalState.preview,
@@ -7268,14 +7276,14 @@ export function TwoPQRecordWorkbench({
                 <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1.1fr),minmax(0,1fr),minmax(0,1fr)]">
                   <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
-                      {t("6-character file name")}
+                      {t("File name")}
                     </p>
                     <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
                       {fileStorageSnapshotFileName}
                     </p>
                     <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
                       {t(
-                        "Derived from the case three-letter code as the canonical publish name.",
+                        "New files use a descriptive name based on the three-letter code; existing names are preserved.",
                       )}
                     </p>
                   </div>

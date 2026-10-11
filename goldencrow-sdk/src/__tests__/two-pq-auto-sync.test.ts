@@ -230,7 +230,7 @@ describe("2PQ case automatic file and code synchronization", () => {
     ]);
   });
 
-  it("treats a missing preference as enabled and updates file storage before the report code", async () => {
+  it("treats a missing preference as enabled, preserves the file name, and updates storage before the report code", async () => {
     collectionStore("2pq_case").set("CASE-00001", {
       institutionId: "institution-1",
       doctorId: "doctor-1",
@@ -258,15 +258,13 @@ describe("2PQ case automatic file and code synchronization", () => {
       reportCode: "ABCXXX",
       createdStoredFile: false,
     });
+    const updatePayload = mockUpdateStoredFileDocument.mock.calls[0]?.[1];
     expect(mockUpdateStoredFileDocument).toHaveBeenCalledWith(
       "existing-file",
-      expect.objectContaining({
-        file_name: "ABCXXX",
-        file_type: "2pq",
-      }),
+      expect.objectContaining({ file_type: "2pq" }),
     );
-    const fileContent = mockUpdateStoredFileDocument.mock.calls[0]?.[1]
-      ?.file_content as string;
+    expect(updatePayload).not.toHaveProperty("file_name");
+    const fileContent = updatePayload?.file_content as string;
     expect(JSON.parse(fileContent)).toMatchObject({
       main_case: {
         id: "CASE-00001",
@@ -345,7 +343,7 @@ describe("2PQ case automatic file and code synchronization", () => {
     });
     expect(mockCreateStoredFileDocument).toHaveBeenCalledWith(
       expect.objectContaining({
-        file_name: "DEFXXX",
+        file_name: "2PQ Sync - Estado del caso DEF",
         creator_email: "info@2pq.life",
       }),
     );
@@ -478,7 +476,7 @@ describe("2PQ case automatic file and code synchronization", () => {
       linked_file_id: "recovered-file",
     });
     collectionStore("file_storage").set("recovered-file", {
-      file_name: "JKLXXX",
+      file_name: "Nombre legado o editado manualmente",
     });
     mockUpdateStoredFileDocument.mockResolvedValueOnce({
       document: { id: "recovered-file", data: {} },
@@ -495,7 +493,7 @@ describe("2PQ case automatic file and code synchronization", () => {
 
     expect(mockUpdateStoredFileDocument).toHaveBeenCalledWith(
       "recovered-file",
-      expect.objectContaining({ file_name: "JKLXXX" }),
+      expect.not.objectContaining({ file_name: expect.anything() }),
     );
     expect(
       collectionStore("2pq_case").get("CASE-00004")?.stored_file_id,
