@@ -154,6 +154,64 @@ describe("profile setup role linkage", () => {
     });
   });
 
+  it.each([
+    "full_admin",
+    "2pq_admin",
+    "transport_dispatcher",
+    "institution_admin",
+    "institution_operator",
+    "institution_laboratory_staff",
+    "institution_doctor",
+    "patient",
+  ] as const)(
+    "defaults a new %s community profile to non-clinician",
+    async (role) => {
+      documents.set("user_roles/member@example.com", {
+        email: "member@example.com",
+        role,
+        isActive: true,
+      });
+      const { completeProfileSetup } =
+        await import("../repositories/profile-setup.repository");
+
+      await completeProfileSetup("member-uid", role, {
+        fullName: "Member Example",
+        iconName: "person.crop.circle.fill",
+        iconColorHex: "#5A4FCF",
+      });
+
+      expect(documents.get("community_users/member-uid")).toMatchObject({
+        is_clinician: false,
+      });
+    },
+  );
+
+  it.each([
+    "organization_publisher",
+    "individual_publisher",
+  ] as const)(
+    "keeps a new %s community profile clinician-enabled",
+    async (role) => {
+      documents.set("user_roles/member@example.com", {
+        email: "member@example.com",
+        role,
+        isActive: true,
+      });
+      const { completeProfileSetup } =
+        await import("../repositories/profile-setup.repository");
+
+      await completeProfileSetup("member-uid", role, {
+        fullName: "Publisher Example",
+        iconName: "person.crop.circle.fill",
+        iconColorHex: "#5A4FCF",
+      });
+
+      expect(documents.get("community_users/member-uid")).toMatchObject({
+        is_clinician: true,
+      });
+    },
+  );
+
   it("preserves each owner identity metadata while syncing profile fields", async () => {
     documents.set("report_owners/member-uid", {
       accepted_terms: true,

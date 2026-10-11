@@ -121,6 +121,12 @@ function getBoolean(value: unknown) {
   return typeof value === "boolean" ? value : undefined;
 }
 
+function defaultCommunityClinicianStatus(role: AdminRole) {
+  return (
+    role === "organization_publisher" || role === "individual_publisher"
+  );
+}
+
 function getStringArray(value: unknown) {
   if (!Array.isArray(value)) {
     return [];
@@ -805,7 +811,8 @@ export async function completeProfileSetup(
       is_activity_public:
         getBoolean(communityUserData.is_activity_public) ?? false,
       is_clinician:
-        getBoolean(communityUserData.is_clinician) ?? role !== "patient",
+        getBoolean(communityUserData.is_clinician) ??
+        defaultCommunityClinicianStatus(role),
       iconName,
       iconColorHex,
       owned_reports: getStringArray(communityUserData.owned_reports),
