@@ -216,7 +216,7 @@ describe("2PQ case status update orchestration", () => {
       institutionId: "INST-00001",
       doctorId: "DOC-00001",
       email: "patient@example.com",
-      fullName: "Patient",
+      fullName: "Test Patient",
       status: "active",
     });
     collectionStore("2pq_case").set("CASE-00001", {
@@ -350,6 +350,7 @@ describe("2PQ case status update orchestration", () => {
         caseId: "CASE-00002",
         threeLetterCode: "ABC",
         doctorEmail: "doctor@example.com",
+        patientFullName: "Test Patient",
         requestedAtClient: expect.any(String),
         studyRequestForm: linkedStudyRequestForm,
       },

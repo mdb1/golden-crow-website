@@ -5018,6 +5018,7 @@ describe("support service canonical transaction creation", () => {
       caseId: "CASE-00022",
       threeLetterCode: "abc",
       doctorEmail: " Doctor@Clinic.Example ",
+      patientFullName: "  Federico   Bustos  ",
       requestedAtClient: "2026-09-28T22:00:00.000Z",
       studyRequestForm: twoPQStudyRequestForm(),
     };
@@ -5030,12 +5031,21 @@ describe("support service canonical transaction creation", () => {
       institutionalContext,
       transactionInput,
     );
+    const storedBeforeRepair = collectionStore("service_transactions").get(
+      "pgr_2pq_case_00022",
+    )!;
+    delete storedBeforeRepair.customTransactionName;
+    const repaired = await createTwoPQCaseServiceTransaction(
+      institutionalContext,
+      transactionInput,
+    );
     const linkedSnapshot =
       await getTwoPQCaseLinkedServiceTransactionSnapshot("CASE-00022");
 
     expect(created).toMatchObject({
       id: "pgr_2pq_case_00022",
       name: "Solicitud de estudio de ABC",
+      customTransactionName: "Federico Bustos (ABC)",
       requestId: "pgr_2pq_case_00022",
       offerId,
       serviceId: "pgs_2pq_74399",
@@ -5062,6 +5072,13 @@ describe("support service canonical transaction creation", () => {
     });
     expect(created).not.toHaveProperty("requestedByUserId");
     expect(retried.id).toBe(created.id);
+    expect(retried.customTransactionName).toBe("Federico Bustos (ABC)");
+    expect(retried.requestRevision).toBe(1);
+    expect(repaired).toMatchObject({
+      id: created.id,
+      customTransactionName: "Federico Bustos (ABC)",
+      requestRevision: 2,
+    });
     expect(linkedSnapshot).toEqual({
       id: "pgr_2pq_case_00022",
       name: "Solicitud de estudio de ABC",
@@ -5083,6 +5100,7 @@ describe("support service canonical transaction creation", () => {
       collectionStore("service_transactions").get("pgr_2pq_case_00022"),
     ).toMatchObject({
       name: "Solicitud de estudio de ABC",
+      customTransactionName: "Federico Bustos (ABC)",
       offerSnapshot: { name: "Solicitud de PGT" },
       inputs: [
         expect.objectContaining({
@@ -5157,6 +5175,7 @@ describe("support service canonical transaction creation", () => {
         expect.objectContaining({
           serviceTransactionId: "pgr_2pq_case_00022",
           serviceName: "Solicitud de estudio de ABC",
+          customTransactionName: "Federico Bustos (ABC)",
           offerId,
           status: "received",
         }),
@@ -5175,6 +5194,7 @@ describe("support service canonical transaction creation", () => {
       caseId: "CASE-00044",
       threeLetterCode: "LEG",
       doctorEmail: "doctor@clinic.example",
+      patientFullName: "Legacy Patient",
       requestedAtClient: "2026-09-28T22:00:00.000Z",
       studyRequestForm: {
         ...source,
@@ -5262,6 +5282,7 @@ describe("support service canonical transaction creation", () => {
       caseId: "CASE-00045",
       threeLetterCode: "DEF",
       doctorEmail: "doctor@clinic.example",
+      patientFullName: "Owner Patient",
       requestedAtClient: "2026-10-08T22:00:00.000Z",
       studyRequestForm: {
         ...twoPQStudyRequestForm(),
@@ -5305,6 +5326,7 @@ describe("support service canonical transaction creation", () => {
       caseId: "CASE-00022",
       threeLetterCode: "ABC",
       doctorEmail: "doctor@clinic.example",
+      patientFullName: "Report Patient",
       requestedAtClient: "2026-09-28T22:00:00.000Z",
       studyRequestForm: twoPQStudyRequestForm(),
     });
@@ -5390,6 +5412,7 @@ describe("support service canonical transaction creation", () => {
       caseId: "CASE-00053",
       threeLetterCode: "BEH",
       doctorEmail: "doctor@clinic.example",
+      patientFullName: "Fallback Patient",
       requestedAtClient: "2026-09-29T20:00:00.000Z",
       studyRequestForm: null,
     });
@@ -5440,6 +5463,7 @@ describe("support service canonical transaction creation", () => {
       caseId: "CASE-00054",
       threeLetterCode: "NEW",
       doctorEmail: "doctor@clinic.example",
+      patientFullName: "Latest Patient",
       requestedAtClient: "2026-09-30T20:00:00.000Z",
     });
 
@@ -5467,6 +5491,7 @@ describe("support service canonical transaction creation", () => {
       caseId: "CASE-00030",
       threeLetterCode: "ABC",
       doctorEmail: "doctor@clinic.example",
+      patientFullName: "Contract Patient",
       requestedAtClient: "2026-09-28T22:00:00.000Z",
       studyRequestForm: twoPQStudyRequestForm(),
     };
@@ -5538,6 +5563,7 @@ describe("support service canonical transaction creation", () => {
       caseId: "CASE-00019",
       threeLetterCode: "OLD",
       doctorEmail: "doctor@clinic.example",
+      patientFullName: "Historical Patient",
       requestedAtClient: "2026-09-20T10:00:00.000Z",
       studyRequestForm: twoPQStudyRequestForm(),
     });
@@ -5545,8 +5571,10 @@ describe("support service canonical transaction creation", () => {
     expect(existing).toMatchObject({
       requestId,
       serviceVersion: 3,
+      requestRevision: 1,
       inputs: [],
     });
+    expect(existing).not.toHaveProperty("customTransactionName");
     expect(
       collectionStore("file_storage").has(
         "pgo_2pq_case_00019_study_request_form",
@@ -5577,6 +5605,7 @@ describe("support service canonical transaction creation", () => {
         caseId: "CASE-00024",
         threeLetterCode: "ABC",
         doctorEmail,
+        patientFullName: "Admission Patient",
         requestedAtClient: "2026-09-28T22:00:00.000Z",
         studyRequestForm: twoPQStudyRequestForm(),
       }),
@@ -5607,11 +5636,32 @@ describe("support service canonical transaction creation", () => {
         caseId: "CASE-00023",
         threeLetterCode: "PGT-A",
         doctorEmail: "doctor@clinic.example",
+        patientFullName: "Invalid Code Patient",
         requestedAtClient: "2026-09-28T22:00:00.000Z",
         studyRequestForm: twoPQStudyRequestForm(),
       }),
     ).rejects.toThrow(
       "The 2PQ case must have a valid three-letter code before creating its service transaction.",
+    );
+    expect(collectionStore("service_transactions").size).toBe(0);
+  });
+
+  it("rejects a 2PQ transaction when the patient full name is missing", async () => {
+    const { createTwoPQCaseServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createTwoPQCaseServiceTransaction(context, {
+        caseId: "CASE-00025",
+        threeLetterCode: "ABC",
+        doctorEmail: "doctor@clinic.example",
+        patientFullName: "   ",
+        requestedAtClient: "2026-09-28T22:00:00.000Z",
+        studyRequestForm: twoPQStudyRequestForm(),
+      }),
+    ).rejects.toThrow(
+      "The selected 2PQ patient must have a full name before creating a case.",
     );
     expect(collectionStore("service_transactions").size).toBe(0);
   });

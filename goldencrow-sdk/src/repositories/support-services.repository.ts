@@ -9181,6 +9181,7 @@ export async function createTwoPQCaseServiceTransaction(
     caseId: string;
     threeLetterCode: string;
     doctorEmail: string;
+    patientFullName: string;
     requestedAtClient: string;
     studyRequestForm?: TwoPQStudyRequestFormSource | null;
   },
@@ -9192,6 +9193,17 @@ export async function createTwoPQCaseServiceTransaction(
       400,
     );
   }
+  const patientFullName = cleanString(input.patientFullName).replace(
+    /\s+/g,
+    " ",
+  );
+  if (!patientFullName) {
+    throw new AdminRepositoryError(
+      "The selected 2PQ patient must have a full name before creating a case.",
+      400,
+    );
+  }
+  const customTransactionName = `${patientFullName} (${threeLetterCode})`;
   const requestedByUserEmail = cleanString(input.doctorEmail).toLowerCase();
   if (
     !requestedByUserEmail ||
@@ -9223,7 +9235,20 @@ export async function createTwoPQCaseServiceTransaction(
         409,
       );
     }
-    return existing;
+    if (existing.customTransactionName === customTransactionName) {
+      return existing;
+    }
+    if (
+      cleanString(existing.offerSnapshot.offerId) !== existing.offerId
+    ) {
+      return existing;
+    }
+    return persistSupportServiceTransactionUpdate(
+      context,
+      existing.id,
+      { customTransactionName },
+      { allowDelivery: false, requireSupportServicesAccess: false },
+    );
   }
 
   const studyRequestForm =
@@ -9239,6 +9264,7 @@ export async function createTwoPQCaseServiceTransaction(
       context,
       {
         name: `Solicitud de estudio de ${threeLetterCode}`,
+        customTransactionName,
         requestId,
         offerId: TWO_PQ_CASE_SERVICE_OFFER_ID,
         serviceVersion: offer.serviceVersion,

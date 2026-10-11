@@ -1916,6 +1916,7 @@ export async function createTwoPQRecordForContext(
         caseId: recordId,
         threeLetterCode,
         doctorEmail: linkedEntities.doctor.authEmail,
+        patientFullName: linkedEntities.patient?.fullName ?? "",
         requestedAtClient: now,
         studyRequestForm: studyRequestForm!,
       });
