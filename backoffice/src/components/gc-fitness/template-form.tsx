@@ -142,6 +142,11 @@ import { useWorkoutTemplates } from "@/lib/gc-fitness/workout-templates-listener
 // extra Firestore reads).
 import { useExercisesQuery } from "@/lib/gc-fitness/exercises-listener";
 import { estimateTemplateDurationMinutesFromRaw } from "@/lib/gc-fitness/workout-duration-estimate";
+import {
+  isStaleDeploymentError,
+  reloadOntoCurrentDeployment,
+  reportStaleDeployment,
+} from "@/lib/gc-fitness/stale-deployment";
 
 /**
  * Per-label accent classes for superset group borders/pills (D9). Reuses the
@@ -1118,9 +1123,24 @@ export function TemplateForm({
         router.back();
       } catch (err) {
         console.error("[template-form] save failed", err);
-        const message =
-          err instanceof Error ? err.message : t("saveFailed");
-        toast.error(message);
+        // The tab is running last deployment's JS: every retry from here
+        // fails the same way. Write the draft NOW (the debounced autosave may
+        // still be pending) and reload — the mount effect above restores it
+        // with the "draft restored" banner, and the coach saves again on the
+        // current deployment.
+        if (isStaleDeploymentError(err)) {
+          if (draftKey) {
+            writeDraft(draftKey, form.getValues());
+            toast.info(t("staleReloading"));
+            if (reloadOntoCurrentDeployment()) return;
+          }
+          reportStaleDeployment();
+          return;
+        }
+        // Never the raw `err.message`: in production Next redacts a thrown
+        // Server Action error to a generic English sentence (#1104), which is
+        // what reached the coach as an unexplained "Error".
+        toast.error(t("saveFailed"));
       }
     });
   },

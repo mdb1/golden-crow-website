@@ -40,6 +40,7 @@ import {
   type TemplatePropagationPreview,
 } from "@/lib/gc-fitness/workout-assignment-actions";
 import type { WorkoutTemplateInput } from "@/lib/gc-fitness/workout-template-schema";
+import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 
 export interface EditTemplateClientProps {
   id: string;
@@ -92,9 +93,10 @@ export function EditTemplateClient({ id, defaults }: EditTemplateClientProps) {
       router.back();
     } catch (err) {
       console.error("[template-edit] propagate failed", err);
-      const message =
-        err instanceof Error ? err.message : t("updateFailedToast");
-      toast.error(message);
+      // The routine itself is already saved at this point; only the push to future
+      // assignments failed. A stale tab gets the reload banner, anything else a toast —
+      // never the raw message, which production redacts to an English sentence (#1104).
+      if (!noteIfStaleDeployment(err)) toast.error(t("updateFailedToast"));
     } finally {
       setPropagating(false);
     }

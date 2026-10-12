@@ -864,7 +864,10 @@
         "profileTitle": "Nutrition",
         "profileSubtitle": "What they are eating today and how they are keeping to it.",
         "profileManage": "Manage nutrition",
-        "profileExpiredHelp": "The last phase expired and no new one has been assigned."
+        "profileExpiredHelp": "The last phase expired and no new one has been assigned.",
+        "staleReloading": "A new version of the backoffice was published. Reloading the page — your changes are kept, just press Save again.",
+        "draftRestored": "We restored the changes that hadn't been saved. Review them and press Save.",
+        "draftDiscard": "Discard changes"
       }
     },
     "invite": {
@@ -1100,7 +1103,8 @@
       "discardDialogKeepEditing": "Keep editing",
       "discardDialogKeepDraft": "Leave and keep draft",
       "draftRestoredBanner": "Restored your unsaved draft. Pick up where you left off.",
-      "draftRestoredDiscard": "Discard draft"
+      "draftRestoredDiscard": "Discard draft",
+      "staleReloading": "A new version of the backoffice was published. Reloading the page — your changes are kept, just press Save again."
     }
   },
   "habits": {
@@ -2429,8 +2433,9 @@
   },
   "staleDeployment": {
     "title": "A new version of the backoffice was published",
-    "body": "This tab is still running the previous version, so saving won't work until you reload. Copy anything unsaved, then reload.",
+    "body": "This tab is still running the previous version, so saving won't work until you reload. Routines and nutrition plans you were editing come back on their own after the reload.",
     "reload": "Reload",
-    "dismiss": "Not now"
+    "dismiss": "Not now",
+    "boundaryBody": "Reload the page to keep working."
   }
 }

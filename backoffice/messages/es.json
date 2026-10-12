@@ -864,7 +864,10 @@
         "profileTitle": "Nutrición",
         "profileSubtitle": "Qué está comiendo hoy y cómo viene cumpliéndolo.",
         "profileManage": "Gestionar nutrición",
-        "profileExpiredHelp": "La última fase se venció y no hay ninguna cargada después."
+        "profileExpiredHelp": "La última fase se venció y no hay ninguna cargada después.",
+        "staleReloading": "Se publicó una versión nueva del backoffice. Recargamos la página y tus cambios quedan guardados: tocá Guardar de nuevo.",
+        "draftRestored": "Recuperamos los cambios que no se habían guardado. Revisalos y tocá Guardar.",
+        "draftDiscard": "Descartar cambios"
       }
     },
     "invite": {
@@ -1100,7 +1103,8 @@
       "discardDialogKeepEditing": "Seguir editando",
       "discardDialogKeepDraft": "Salir y guardar borrador",
       "draftRestoredBanner": "Recuperamos tu borrador sin guardar. Seguí donde lo dejaste.",
-      "draftRestoredDiscard": "Descartar borrador"
+      "draftRestoredDiscard": "Descartar borrador",
+      "staleReloading": "Se publicó una versión nueva del backoffice. Recargamos la página y tus cambios quedan guardados: tocá Guardar de nuevo."
     }
   },
   "habits": {
@@ -2429,8 +2433,9 @@
   },
   "staleDeployment": {
     "title": "Se publicó una versión nueva del backoffice",
-    "body": "Esta pestaña quedó en la versión anterior, así que guardar no va a funcionar hasta que recargues. Copiá lo que tengas sin guardar y después recargá.",
+    "body": "Esta pestaña quedó en la versión anterior, así que guardar no va a funcionar hasta que recargues. Las rutinas y los planes nutricionales que estabas editando se recuperan solos al recargar.",
     "reload": "Recargar",
-    "dismiss": "Ahora no"
+    "dismiss": "Ahora no",
+    "boundaryBody": "Recargá la página para seguir trabajando."
   }
 }

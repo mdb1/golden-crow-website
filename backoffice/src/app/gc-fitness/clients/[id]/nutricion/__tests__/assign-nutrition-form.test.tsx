@@ -29,7 +29,17 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: routerPush, refresh: jest.fn() }),
 }));
 
-jest.mock("sonner", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
+jest.mock("sonner", () => ({
+  toast: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
+}));
+
+// The reload itself is the one thing jsdom cannot do; everything around it (the
+// detection, the draft write) runs for real.
+const reloadOntoCurrentDeployment = jest.fn(() => true);
+jest.mock("@/lib/gc-fitness/stale-deployment", () => ({
+  ...jest.requireActual("@/lib/gc-fitness/stale-deployment"),
+  reloadOntoCurrentDeployment: () => reloadOntoCurrentDeployment(),
+}));
 
 import { AssignNutritionForm } from "../asignar/AssignNutritionForm";
 
@@ -42,6 +52,8 @@ function renderForm() {
 beforeEach(() => {
   jest.clearAllMocks();
   previewNutritionAssign.mockResolvedValue([]);
+  // The editor autosaves a draft; without this, one test's typing reappears in the next.
+  window.localStorage.clear();
 });
 
 describe("AssignNutritionForm", () => {
@@ -525,5 +537,106 @@ describe("AssignNutritionForm — editing a phase (#949)", () => {
       />,
     );
     expect(screen.queryByTestId("nutrition-template-picker")).not.toBeInTheDocument();
+  });
+});
+
+// ── Drafts survive a reload (coach report 2026-10-12) ────────────────────────────────
+//
+// "Ponía guardar cambios y me aparece error": a deploy rotated the Server Action IDs under
+// an open tab, the save failed, and the only way out — a reload — threw the plan away,
+// because this editor kept everything in React state. These pin the draft contract.
+describe("AssignNutritionForm — draft survives a reload", () => {
+  const DRAFT_KEY = "gc-fitness:nutrition-plan-draft:client-sofia:new";
+
+  function staleDeployError() {
+    // What Next 16 throws for an action ID the new deployment does not know.
+    const error = new Error(
+      'Server Action "40c0ffee" was not found on the server.',
+    ) as Error & { __NEXT_ERROR_CODE?: string };
+    error.name = "UnrecognizedActionError";
+    error.__NEXT_ERROR_CODE = "E715";
+    return error;
+  }
+
+  it("brings back what the coach typed after the page goes away, with a way to discard it", async () => {
+    const user = userEvent.setup();
+    const first = renderForm();
+    await user.type(screen.getByLabelText("Phase name"), "Volumen");
+    const daily = within(screen.getByTestId("nutrition-daily-targets"));
+    await user.type(daily.getByLabelText("Calories"), "2800");
+    first.unmount(); // a reload, as far as the component can tell
+
+    renderForm();
+    await waitFor(() => expect(screen.getByLabelText("Phase name")).toHaveValue("Volumen"));
+    expect(
+      within(screen.getByTestId("nutrition-daily-targets")).getByLabelText("Calories"),
+    ).toHaveValue("2800");
+    expect(screen.getByTestId("nutrition-draft-restored")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(screen.getByLabelText("Phase name")).toHaveValue("");
+    expect(screen.queryByTestId("nutrition-draft-restored")).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("on a stale-deployment save, keeps the plan in the draft and reloads instead of showing an error", async () => {
+    assignNutritionPlan.mockRejectedValueOnce(staleDeployError());
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByLabelText("Phase name"), "Definición");
+    await user.type(screen.getByLabelText("Name"), "Desayuno");
+
+    await user.click(screen.getByTestId("nutrition-save"));
+
+    await waitFor(() => expect(reloadOntoCurrentDeployment).toHaveBeenCalledTimes(1));
+    // The WRITTEN draft, not the screen: it is what the reload restores.
+    const stored = JSON.parse(window.localStorage.getItem(DRAFT_KEY)!) as {
+      data: { name: string; meals: Array<{ name: string }> };
+    };
+    expect(stored.data.name).toBe("Definición");
+    expect(stored.data.meals[0]!.name).toBe("Desayuno");
+    expect(screen.queryByTestId("nutrition-form-error")).not.toBeInTheDocument();
+    expect(routerPush).not.toHaveBeenCalled();
+  });
+
+  it("still shows the inline error for an ordinary failure — and keeps the draft", async () => {
+    assignNutritionPlan.mockRejectedValueOnce(new Error("boom"));
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByLabelText("Phase name"), "Definición");
+    await user.type(screen.getByLabelText("Name"), "Desayuno");
+
+    await user.click(screen.getByTestId("nutrition-save"));
+
+    expect(await screen.findByTestId("nutrition-form-error")).toHaveTextContent(
+      /^The plan could not be assigned\.$/,
+    );
+    expect(reloadOntoCurrentDeployment).not.toHaveBeenCalled();
+    await waitFor(() => expect(window.localStorage.getItem(DRAFT_KEY)).not.toBeNull());
+  });
+
+  it("clears the draft once the plan is saved, so the next visit starts clean", async () => {
+    const user = userEvent.setup();
+    const first = renderForm();
+    await user.type(screen.getByLabelText("Phase name"), "Definición");
+    await user.type(screen.getByLabelText("Name"), "Desayuno");
+    await user.click(screen.getByTestId("nutrition-save"));
+    await waitFor(() => expect(assignNutritionPlan).toHaveBeenCalledTimes(1));
+    first.unmount();
+
+    expect(window.localStorage.getItem(DRAFT_KEY)).toBeNull();
+    renderForm();
+    expect(screen.getByLabelText("Phase name")).toHaveValue("");
+    expect(screen.queryByTestId("nutrition-draft-restored")).not.toBeInTheDocument();
+  });
+
+  it("Cancel discards the draft instead of resurrecting it next time", async () => {
+    const user = userEvent.setup();
+    const first = renderForm();
+    await user.type(screen.getByLabelText("Phase name"), "Borrador");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    first.unmount();
+
+    expect(window.localStorage.getItem(DRAFT_KEY)).toBeNull();
   });
 });
