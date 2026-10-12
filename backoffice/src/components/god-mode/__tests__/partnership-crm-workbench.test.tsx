@@ -269,12 +269,13 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
   });
 
-  it("shows favorite CRM organizations first with a yellow star cell", async () => {
+  it("shows favorite CRM organizations first with a cyan star cell", async () => {
     const favoriteOrganization: PartnershipCrmOrganizationRecord = {
       ...organization,
       id: "org-favorite",
       name: "Favorite Genetics",
       is_favorite: true,
+      status: "contacted",
       normalizedName: "favorite genetics",
     };
 
@@ -298,7 +299,18 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
     expect(within(rows[0]).getByText("Favorite Genetics")).toBeTruthy();
-    expect(within(rows[0]).getByRole("img", { name: "Favorite" })).toBeTruthy();
+    const favoriteSignal = within(rows[0]).getByRole("img", {
+      name: "Favorite",
+    });
+    expect(favoriteSignal.querySelector("svg")?.className.baseVal).toContain(
+      "fill-cyan-400",
+    );
+    expect(
+      favoriteSignal.closest("[data-slot='table-cell']")?.className,
+    ).toContain("bg-cyan-50");
+    expect(
+      within(rows[0]).getByRole("img", { name: "Email sent" }).className,
+    ).toContain("text-orange-600");
   });
 
   it("marks contacted and replied CRM rows in the favorite signal cell", async () => {
@@ -359,8 +371,12 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       name: "Email sent",
     });
     expect(sentSignal.closest("[data-slot='table-cell']")?.className).toContain(
-      "bg-amber-50",
+      "bg-orange-50",
     );
+    expect(sentSignal.className).toContain("text-orange-600");
+    expect(
+      within(contactedRow as HTMLElement).getByText("CRM Contacted").className,
+    ).toContain("bg-orange-50");
 
     const replySignal = within(repliedRow as HTMLElement).getByRole("img", {
       name: "Reply received",

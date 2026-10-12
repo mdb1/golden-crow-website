@@ -160,7 +160,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(screen.queryByPlaceholderText("Category")).toBeNull();
   });
 
-  it("shows favorite templates first with a yellow star cell", async () => {
+  it("shows favorite templates first with a cyan star cell", async () => {
     const favoriteTemplate: PartnershipCrmTemplateRecord = {
       ...template,
       id: "tpl-favorite",
@@ -182,7 +182,15 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
     expect(within(rows[0]).getByText("Favorite outreach")).toBeTruthy();
-    expect(within(rows[0]).getByRole("img", { name: "Favorite" })).toBeTruthy();
+    const favoriteSignal = within(rows[0]).getByRole("img", {
+      name: "Favorite",
+    });
+    expect(favoriteSignal.querySelector("svg")?.className.baseVal).toContain(
+      "fill-cyan-400",
+    );
+    expect(
+      favoriteSignal.closest("[data-slot='table-cell']")?.className,
+    ).toContain("bg-cyan-50");
   });
 
   it("selects and deletes multiple templates from the list", async () => {

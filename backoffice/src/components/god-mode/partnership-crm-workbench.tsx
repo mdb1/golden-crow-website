@@ -2596,7 +2596,14 @@ function StatusBadge({
   language: AppLanguage;
 }) {
   return (
-    <Badge variant={statusBadgeVariant(status)}>
+    <Badge
+      variant={statusBadgeVariant(status)}
+      className={
+        status === "contacted"
+          ? "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-300/30 dark:bg-orange-400/10 dark:text-orange-200"
+          : undefined
+      }
+    >
       {appText(language, statusLabel(status))}
     </Badge>
   );
@@ -2626,7 +2633,7 @@ function FavoriteCell({
         {isFavorite ? (
           <Star
             aria-hidden="true"
-            className="h-4 w-4 fill-amber-400 text-amber-500"
+            className="h-4 w-4 fill-cyan-400 text-cyan-500"
           />
         ) : (
           <span aria-hidden="true" className="text-xs text-muted-foreground/50">
@@ -2639,7 +2646,7 @@ function FavoriteCell({
           role="img"
           aria-label={sentLabel}
           title={sentLabel}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-amber-600 dark:text-amber-300"
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-orange-600 dark:text-orange-300"
         >
           <PlaneTakeoff aria-hidden="true" className="h-3.5 w-3.5" />
         </span>
@@ -2658,9 +2665,16 @@ function FavoriteCell({
   );
 }
 
-function crmDeliveryStatusCellClass(status: PartnershipCrmStatus) {
+function crmSignalCellClass(
+  isFavorite: boolean,
+  status: PartnershipCrmStatus,
+) {
+  if (isFavorite) {
+    return "bg-cyan-50/75 dark:bg-cyan-400/10";
+  }
+
   if (status === "contacted") {
-    return "bg-amber-50/45 dark:bg-amber-400/10";
+    return "bg-orange-50/45 dark:bg-orange-400/10";
   }
 
   if (status === "replied") {
@@ -2758,14 +2772,14 @@ function CrmTemplateSelectItem({
       value={template.id}
       className={cn(
         template.is_favorite &&
-          "bg-amber-50/75 text-amber-950 focus:bg-amber-100 focus:text-amber-950 dark:bg-amber-400/10 dark:text-amber-100 dark:focus:bg-amber-400/15",
+          "bg-cyan-50/75 text-cyan-950 focus:bg-cyan-100 focus:text-cyan-950 dark:bg-cyan-400/10 dark:text-cyan-100 dark:focus:bg-cyan-400/15",
       )}
     >
       <span className="flex min-w-0 items-center gap-2">
         {template.is_favorite ? (
           <Star
             aria-hidden="true"
-            className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-500"
+            className="h-3.5 w-3.5 shrink-0 fill-cyan-400 text-cyan-500"
           />
         ) : null}
         <span className="truncate">{template.name}</span>
@@ -4025,7 +4039,7 @@ function OrganizationDialog({
                   className={cn(
                     "h-4 w-4",
                     form.is_favorite
-                      ? "fill-amber-400 text-amber-500"
+                      ? "fill-cyan-400 text-cyan-500"
                       : "text-muted-foreground/50",
                   )}
                 />
@@ -5354,14 +5368,14 @@ function EmailComposerDialog({
                     type="button"
                     variant="outline"
                     size="lg"
-                    className="border-amber-200 bg-amber-50/70 text-amber-950 hover:border-amber-300 hover:bg-amber-100/80 dark:border-amber-300/30 dark:bg-amber-400/10 dark:text-amber-100 dark:hover:bg-amber-400/15"
+                    className="border-cyan-200 bg-cyan-50/70 text-cyan-950 hover:border-cyan-300 hover:bg-cyan-100/80 dark:border-cyan-300/30 dark:bg-cyan-400/10 dark:text-cyan-100 dark:hover:bg-cyan-400/15"
                     onClick={() => void handleToggleTemplateFavorite()}
                     disabled={!canToggleTemplateFavorite}
                   >
                     <Star
                       className={cn(
-                        "h-4 w-4 text-amber-500",
-                        selectedTemplate?.is_favorite && "fill-amber-300",
+                        "h-4 w-4 text-cyan-500",
+                        selectedTemplate?.is_favorite && "fill-cyan-400",
                       )}
                     />
                     {selectedTemplate?.is_favorite
@@ -9287,7 +9301,10 @@ export function PartnershipCrmWorkbench() {
                           <TableCell
                             className={cn(
                               "w-16",
-                              crmDeliveryStatusCellClass(organization.status),
+                              crmSignalCellClass(
+                                organization.is_favorite,
+                                organization.status,
+                              ),
                             )}
                           >
                             <FavoriteCell
@@ -9488,7 +9505,7 @@ export function PartnershipCrmWorkbench() {
                       className={cn(
                         "h-3.5 w-3.5",
                         selectedOrganization.is_favorite
-                          ? "fill-amber-400 text-amber-500"
+                          ? "fill-cyan-400 text-cyan-500"
                           : "text-muted-foreground/60",
                       )}
                     />

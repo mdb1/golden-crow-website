@@ -1867,10 +1867,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Reglas para importar profesionales del CRM desde CSV.",
   "Rules for CRM template CSV imports.":
     "Reglas para importar plantillas del CRM desde CSV.",
-  "Optional. Use true/false, 1/0, yes/no, or favorito. True rows are shown with a yellow star and sorted first in CRM lists.":
-    "Opcional. Usá true/false, 1/0, yes/no o favorito. Las filas true se muestran con una estrella amarilla y ordenan primero en las listas del CRM.",
-  "Optional. Use true/false, 1/0, yes/no, or favorito. True templates are shown with a yellow star and sorted first in plantillas lists.":
-    "Opcional. Usá true/false, 1/0, yes/no o favorito. Las plantillas true se muestran con una estrella amarilla y ordenan primero en las listas de plantillas.",
+  "Optional. Use true/false, 1/0, yes/no, or favorito. True rows are shown with a cyan star and sorted first in CRM lists.":
+    "Opcional. Usá true/false, 1/0, yes/no o favorito. Las filas true se muestran con una estrella celeste y ordenan primero en las listas del CRM.",
+  "Optional. Use true/false, 1/0, yes/no, or favorito. True templates are shown with a cyan star and sorted first in plantillas lists.":
+    "Opcional. Usá true/false, 1/0, yes/no o favorito. Las plantillas true se muestran con una estrella celeste y ordenan primero en las listas de plantillas.",
   "CSV structure": "Estructura del CSV",
   "Header row": "Fila de encabezados",
   "Example CSV": "CSV de ejemplo",

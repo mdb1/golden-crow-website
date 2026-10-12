@@ -663,7 +663,7 @@ function FavoriteCell({
       {isFavorite ? (
         <Star
           aria-hidden="true"
-          className="h-4 w-4 fill-amber-400 text-amber-500"
+          className="h-4 w-4 fill-cyan-400 text-cyan-500"
         />
       ) : (
         <span aria-hidden="true" className="text-xs text-muted-foreground/50">
@@ -1356,7 +1356,7 @@ function TemplatePreviewSidePanel({
                   className={cn(
                     "h-3.5 w-3.5",
                     template.is_favorite
-                      ? "fill-amber-400 text-amber-500"
+                      ? "fill-cyan-400 text-cyan-500"
                       : "text-muted-foreground/60",
                   )}
                 />
@@ -1739,8 +1739,11 @@ function TemplateImportReviewCard({
             language={language}
           />
           {row.template.is_favorite ? (
-            <Badge variant="warning">
-              <Star className="h-3.5 w-3.5 fill-amber-400" />
+            <Badge
+              variant="outline"
+              className="border-cyan-200 bg-cyan-50 text-cyan-900 dark:border-cyan-300/35 dark:bg-cyan-400/15 dark:text-cyan-100"
+            >
+              <Star className="h-3.5 w-3.5 fill-cyan-400 text-cyan-500" />
               {t("Favorite")}
             </Badge>
           ) : null}
@@ -3830,7 +3833,12 @@ export function PartnershipCrmTemplateBrowser() {
                               </span>
                             </button>
                           </TableCell>
-                          <TableCell>
+                          <TableCell
+                            className={cn(
+                              template.is_favorite &&
+                                "bg-cyan-50/75 dark:bg-cyan-400/10",
+                            )}
+                          >
                             <FavoriteCell
                               isFavorite={template.is_favorite}
                               language={language}
@@ -4368,7 +4376,7 @@ export function PartnershipCrmTemplateWorkbench({
                       className={cn(
                         "h-4 w-4",
                         form.is_favorite
-                          ? "fill-amber-400 text-amber-500"
+                          ? "fill-cyan-400 text-cyan-500"
                           : "text-muted-foreground/50",
                       )}
                     />

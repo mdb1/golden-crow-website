@@ -77,9 +77,9 @@ const PROFESSIONAL_HEADERS = [
 const EXPLICIT_DATETIME_RULE =
   "Optional. Use a complete ISO datetime with an explicit timezone. Accepted: 2026-08-25T17:29:00.000Z or 2026-08-25T14:29:00-03:00. Rejected: 2026-08-25 and 2026-08-25T14:29:00 because they do not include timezone.";
 const CRM_FAVORITE_RULE =
-  "Optional. Use true/false, 1/0, yes/no, or favorito. True rows are shown with a yellow star and sorted first in CRM lists.";
+  "Optional. Use true/false, 1/0, yes/no, or favorito. True rows are shown with a cyan star and sorted first in CRM lists.";
 const TEMPLATE_FAVORITE_RULE =
-  "Optional. Use true/false, 1/0, yes/no, or favorito. True templates are shown with a yellow star and sorted first in plantillas lists.";
+  "Optional. Use true/false, 1/0, yes/no, or favorito. True templates are shown with a cyan star and sorted first in plantillas lists.";
 const CRM_STRUCTURED_NOTES_RULE =
   'Optional structured JSON object string. Maximum 2000 characters. Prefer concise keys such as reviewed, instagram, services, argentina, digital, note, sources, email_route, or linkedin_route. Store each note fragment as a JSON value, for example {"instagram":"https://www.instagram.com/adnsalta/","services":"NIPT listed as a purchasable service."}. Do not use markdown bullets, labels with bold text, or pasted scraped pages. If the JSON is placed in a CSV cell, wrap the whole cell in double quotes and escape each internal quote by doubling it.';
 const ORGANIZATION_NOTES_JSON_EXAMPLE =
