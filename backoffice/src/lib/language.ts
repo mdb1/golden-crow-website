@@ -1802,6 +1802,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add CRM organization": "Agregar organización al CRM",
   "Edit CRM organization": "Editar organización del CRM",
   "CRM organization saved.": "Organización del CRM guardada.",
+  "CRM status updated.": "Estado del CRM actualizado.",
+  "Unable to update CRM status.":
+    "No se pudo actualizar el estado del CRM.",
   "Unable to save CRM organization.":
     "No se pudo guardar la organización del CRM.",
   "CRM organization deleted.": "Organización del CRM eliminada.",

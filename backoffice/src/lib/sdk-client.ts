@@ -53,11 +53,20 @@ async function buildSdkRequestError(
   if (rawText) {
     try {
       parsedBody = JSON.parse(rawText) as Record<string, unknown>;
-      if (typeof parsedBody.error === "string" && parsedBody.error.trim()) {
-        parsedMessage = parsedBody.error.trim();
-      } else if (typeof parsedBody.message === "string" && parsedBody.message.trim()) {
-        parsedMessage = parsedBody.message.trim();
-      }
+      const serverMessage =
+        typeof parsedBody.message === "string" &&
+        parsedBody.message.trim()
+          ? parsedBody.message.trim()
+          : undefined;
+      const publicError =
+        typeof parsedBody.error === "string" &&
+        parsedBody.error.trim()
+          ? parsedBody.error.trim()
+          : undefined;
+      parsedMessage =
+        parsedBody.code === "FST_ERR_VALIDATION" && serverMessage
+          ? serverMessage
+          : publicError ?? serverMessage;
     } catch {
       parsedBody = undefined;
     }

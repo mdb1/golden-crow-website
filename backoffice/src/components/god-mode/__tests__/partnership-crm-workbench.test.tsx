@@ -920,7 +920,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       name: "Contacted Genetics Updated",
       normalizedName: "contacted genetics updated",
       contactEmail: "fresh-contacted@example.org",
-      notes: "Updated while the status picker was open.",
+      notes: "x".repeat(2501),
     };
     let organizations = [organization, contactedOrganization];
 
@@ -928,8 +928,8 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       const stringPath = String(path);
 
       if (
-        stringPath === "/admin/partnership-crm/organizations/org-2" &&
-        init?.method === "PUT"
+        stringPath === "/admin/partnership-crm/organizations/org-2/status" &&
+        init?.method === "PATCH"
       ) {
         const body = JSON.parse(String(init.body));
         const current = organizations.find((entry) => entry.id === "org-2");
@@ -999,27 +999,25 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(
-        "/admin/partnership-crm/organizations/org-2",
-        expect.objectContaining({ method: "PUT" }),
+        "/admin/partnership-crm/organizations/org-2/status",
+        expect.objectContaining({ method: "PATCH" }),
       );
     });
 
-    const putCalls = jest
+    const patchCalls = jest
       .mocked(sdkFetch)
-      .mock.calls.filter(([, init]) => init?.method === "PUT");
-    expect(putCalls).toHaveLength(1);
-    expect(putCalls[0]?.[0]).toBe("/admin/partnership-crm/organizations/org-2");
-    expect(JSON.parse(String(putCalls[0]?.[1]?.body))).toEqual(
-      expect.objectContaining({
-        name: refreshedContactedOrganization.name,
-        status: "meeting",
-        contactEmail: refreshedContactedOrganization.contactEmail,
-        notes: refreshedContactedOrganization.notes,
-      }),
+      .mock.calls.filter(([, init]) => init?.method === "PATCH");
+    expect(patchCalls).toHaveLength(1);
+    expect(patchCalls[0]?.[0]).toBe(
+      "/admin/partnership-crm/organizations/org-2/status",
     );
+    expect(JSON.parse(String(patchCalls[0]?.[1]?.body))).toEqual({
+      status: "meeting",
+    });
     expect(
-      putCalls.some(
-        ([path]) => path === "/admin/partnership-crm/organizations/org-1",
+      patchCalls.some(
+        ([path]) =>
+          path === "/admin/partnership-crm/organizations/org-1/status",
       ),
     ).toBe(false);
 
@@ -1033,6 +1031,72 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         ),
       ).toBeTruthy();
     });
+  });
+
+  it("keeps the status picker open and exposes detailed server errors", async () => {
+    const user = userEvent.setup();
+    const responseDetails = [
+      "PATCH /admin/partnership-crm/organizations/org-1/status",
+      "Status: 400 Bad Request",
+      'Response: {"message":"body/status Invalid option"}',
+    ].join("\n");
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+
+      if (
+        stringPath === "/admin/partnership-crm/organizations/org-1/status" &&
+        init?.method === "PATCH"
+      ) {
+        throw Object.assign(new Error("body/status Invalid option"), {
+          details: responseDetails,
+        });
+      }
+
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: emailTemplates, nextCursor: undefined };
+      }
+
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+
+    await user.click(await screen.findByText(organization.name));
+    const detailPanel = await screen.findByTestId("crm-detail-panel");
+    await user.click(
+      within(detailPanel).getByRole("button", { name: "Change status" }),
+    );
+
+    const statusDialog = await screen.findByRole("dialog", {
+      name: "Change status",
+    });
+    await user.click(
+      within(statusDialog).getByRole("radio", { name: "CRM Meeting" }),
+    );
+    await user.click(within(statusDialog).getByRole("button", { name: "Save" }));
+
+    expect(
+      await within(statusDialog).findByText("Unable to update CRM status."),
+    ).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Change status" })).toBeTruthy();
+
+    const inlineError = within(statusDialog).getByRole("alert");
+    expect(inlineError.textContent).toContain(
+      "PATCH /admin/partnership-crm/organizations/org-1/status",
+    );
+    expect(inlineError.textContent).toContain("Status: 400 Bad Request");
+    expect(inlineError.textContent).toContain(
+      'Response: {"message":"body/status Invalid option"}',
+    );
   });
 
   it("toggles favorite from the CRM detail panel", async () => {

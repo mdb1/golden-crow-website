@@ -32,11 +32,14 @@ import {
   sendPartnershipCrmOrganizationEmail,
   sendPartnershipCrmProfessionalEmail,
   updatePartnershipCrmOrganization,
+  updatePartnershipCrmOrganizationStatus,
   updatePartnershipCrmProfessional,
+  updatePartnershipCrmProfessionalStatus,
   updatePartnershipCrmTemplate,
 } from "../repositories/partnership-crm.repository.js";
 
 const CrmStatusSchema = z.enum(PARTNERSHIP_CRM_STATUSES);
+const CrmStatusBodySchema = z.object({ status: CrmStatusSchema }).strict();
 const CrmActivityTypeSchema = z.enum(PARTNERSHIP_CRM_ACTIVITY_TYPES);
 const CrmTemplateStatusSchema = z.enum(PARTNERSHIP_CRM_TEMPLATE_STATUSES);
 const CrmTemplateAudienceSchema = z.enum(PARTNERSHIP_CRM_TEMPLATE_AUDIENCES);
@@ -371,6 +374,28 @@ export async function partnershipCrmRoutes(
     },
   );
 
+  f.patch(
+    "/admin/partnership-crm/organizations/:organizationId/status",
+    {
+      schema: {
+        params: OrganizationParamsSchema,
+        body: CrmStatusBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const organization = await updatePartnershipCrmOrganizationStatus(
+          request.adminContext!,
+          request.params.organizationId,
+          request.body.status,
+        );
+        return reply.send({ organization });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
   f.delete(
     "/admin/partnership-crm/organizations/:organizationId",
     { schema: { params: OrganizationParamsSchema } },
@@ -468,6 +493,28 @@ export async function partnershipCrmRoutes(
           request.adminContext!,
           request.params.professionalId,
           request.body,
+        );
+        return reply.send({ professional });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.patch(
+    "/admin/partnership-crm/professionals/:professionalId/status",
+    {
+      schema: {
+        params: ProfessionalParamsSchema,
+        body: CrmStatusBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const professional = await updatePartnershipCrmProfessionalStatus(
+          request.adminContext!,
+          request.params.professionalId,
+          request.body.status,
         );
         return reply.send({ professional });
       } catch (error) {

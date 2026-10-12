@@ -447,6 +447,13 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown import error.";
 }
 
+function actionErrorDetails(error: unknown) {
+  return (
+    errorStringProperty(error, "details") ??
+    (error instanceof Error ? error.message : "Unknown action error.")
+  );
+}
+
 function errorStringProperty(error: unknown, key: string) {
   if (!error || typeof error !== "object") {
     return undefined;
@@ -4219,6 +4226,7 @@ function StatusChangeDialog({
   state,
   target,
   pending,
+  errorDetails,
   onClose,
   onDraftChange,
   onSave,
@@ -4227,6 +4235,7 @@ function StatusChangeDialog({
   state: StatusChangeDialogState;
   target: PartnershipCrmTargetRecord | null;
   pending: boolean;
+  errorDetails: string | null;
   onClose: () => void;
   onDraftChange: (status: PartnershipCrmStatus) => void;
   onSave: () => void;
@@ -4293,6 +4302,20 @@ function StatusChangeDialog({
             );
           })}
         </RadioGroup>
+
+        {errorDetails ? (
+          <div
+            role="alert"
+            className="rounded-xl border border-destructive/35 bg-destructive/5 p-3 text-destructive"
+          >
+            <p className="text-sm font-semibold">
+              {t("Unable to update CRM status.")}
+            </p>
+            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-destructive/20 bg-background/85 p-2 font-mono text-xs leading-5 text-foreground">
+              {errorDetails}
+            </pre>
+          </div>
+        ) : null}
 
         <DialogFooter>
           <Button
@@ -6994,6 +7017,9 @@ export function PartnershipCrmWorkbench() {
     useState<OrganizationDialogState>(null);
   const [statusChangeDialog, setStatusChangeDialog] =
     useState<StatusChangeDialogState>(null);
+  const [statusChangeErrorDetails, setStatusChangeErrorDetails] = useState<
+    string | null
+  >(null);
   const [deleteTarget, setDeleteTarget] =
     useState<PartnershipCrmTargetRecord | null>(null);
   const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
@@ -7598,7 +7624,61 @@ export function PartnershipCrmWorkbench() {
           targetKind === "professionals"
             ? t("Unable to save CRM professional.")
             : t("Unable to save CRM organization."),
-        details: error instanceof Error ? error.message : undefined,
+        details: actionErrorDetails(error),
+      });
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({
+      targetId,
+      status,
+    }: {
+      targetId: string;
+      status: PartnershipCrmStatus;
+    }) =>
+      sdkFetch<{
+        organization?: PartnershipCrmOrganizationRecord;
+        professional?: PartnershipCrmProfessionalRecord;
+      }>(
+        `${crmTargetBasePath(targetKind)}/${encodeURIComponent(targetId)}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status }),
+        },
+      ),
+    onMutate: () => {
+      setStatusChangeErrorDetails(null);
+      setToast(null);
+    },
+    onSuccess: (result) => {
+      const target = result.professional ?? result.organization;
+      if (!target) {
+        return;
+      }
+
+      replaceTargetsInCachedPages([target]);
+      setStatusChangeErrorDetails(null);
+      setStatusChangeDialog(null);
+      setSelectedId(target.id);
+      setDetailPanelOpen(true);
+      invalidateOrganizations();
+      invalidateActivities(target.id);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: t("CRM status updated."),
+      });
+    },
+    onError: (error) => {
+      const details = actionErrorDetails(error);
+      setStatusChangeErrorDetails(details);
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to update CRM status."),
+        details,
+        durationMs: 18000,
       });
     },
   });
@@ -8985,19 +9065,7 @@ export function PartnershipCrmWorkbench() {
       return;
     }
 
-    saveOrganizationMutation.mutate(
-      {
-        mode: "edit",
-        organizationId: target.id,
-        payload: targetPayload(
-          { ...toFormState(target, targetKind), status: draft },
-          targetKind,
-        ),
-      },
-      {
-        onSuccess: () => setStatusChangeDialog(null),
-      },
-    );
+    updateStatusMutation.mutate({ targetId: target.id, status: draft });
   }
 
   function updateSelectedFavorite(isFavorite: boolean) {
@@ -9723,13 +9791,15 @@ export function PartnershipCrmWorkbench() {
                 <Button
                   type="button"
                   size="sm"
-                  onClick={() =>
+                  onClick={() => {
+                    setStatusChangeErrorDetails(null);
+                    setToast(null);
                     setStatusChangeDialog({
                       targetId: selectedOrganization.id,
                       draft: selectedOrganization.status,
-                    })
-                  }
-                  disabled={saveOrganizationMutation.isPending}
+                    });
+                  }}
+                  disabled={updateStatusMutation.isPending}
                   className="shrink-0 bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
                 >
                   {t("Change status")}
@@ -9905,13 +9975,19 @@ export function PartnershipCrmWorkbench() {
       <StatusChangeDialog
         state={statusChangeDialog}
         target={statusChangeTarget}
-        pending={saveOrganizationMutation.isPending}
-        onClose={() => setStatusChangeDialog(null)}
-        onDraftChange={(draft) =>
+        pending={updateStatusMutation.isPending}
+        errorDetails={statusChangeErrorDetails}
+        onClose={() => {
+          setStatusChangeErrorDetails(null);
+          setStatusChangeDialog(null);
+        }}
+        onDraftChange={(draft) => {
+          setStatusChangeErrorDetails(null);
+          setToast(null);
           setStatusChangeDialog((current) =>
             current ? { ...current, draft } : current,
-          )
-        }
+          );
+        }}
         onSave={saveStatusChange}
         language={language}
       />

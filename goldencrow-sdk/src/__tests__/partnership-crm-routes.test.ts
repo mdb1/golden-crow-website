@@ -12,6 +12,8 @@ const mockCreatePartnershipCrmProfessional = jest.fn();
 const mockGetPartnershipCrmVisualFilters = jest.fn();
 const mockListPartnershipCrmSentEmailLog = jest.fn();
 const mockPreviewPartnershipCrmProfessionalImport = jest.fn();
+const mockUpdatePartnershipCrmOrganizationStatus = jest.fn();
+const mockUpdatePartnershipCrmProfessionalStatus = jest.fn();
 
 jest.mock("../repositories/partnership-crm.repository.js", () => ({
   PARTNERSHIP_CRM_ACTIVITY_TYPES: [
@@ -60,7 +62,11 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
   sendPartnershipCrmOrganizationEmail: jest.fn(),
   sendPartnershipCrmProfessionalEmail: jest.fn(),
   updatePartnershipCrmOrganization: jest.fn(),
+  updatePartnershipCrmOrganizationStatus:
+    mockUpdatePartnershipCrmOrganizationStatus,
   updatePartnershipCrmProfessional: jest.fn(),
+  updatePartnershipCrmProfessionalStatus:
+    mockUpdatePartnershipCrmProfessionalStatus,
   updatePartnershipCrmTemplate: jest.fn(),
 }));
 
@@ -113,6 +119,16 @@ describe("partnership CRM routes", () => {
     mockCreatePartnershipCrmProfessional.mockResolvedValue({
       id: "pro-1",
       name: "Dra. Ada Genome",
+    });
+    mockUpdatePartnershipCrmOrganizationStatus.mockResolvedValue({
+      id: "org-1",
+      name: "Genome Lab",
+      status: "meeting",
+    });
+    mockUpdatePartnershipCrmProfessionalStatus.mockResolvedValue({
+      id: "pro-1",
+      name: "Dra. Ada Genome",
+      status: "partner",
     });
     mockGetPartnershipCrmVisualFilters.mockResolvedValue({
       targetKind: "organizations",
@@ -180,6 +196,81 @@ describe("partnership CRM routes", () => {
       bootstrapContext,
       "pro-1",
     );
+  });
+
+  it("updates only an organization's status through the dedicated PATCH route", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "PATCH",
+      url: "/admin/partnership-crm/organizations/org-1/status",
+      payload: { status: "meeting" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      organization: expect.objectContaining({
+        id: "org-1",
+        status: "meeting",
+      }),
+    });
+    expect(mockUpdatePartnershipCrmOrganizationStatus).toHaveBeenCalledWith(
+      bootstrapContext,
+      "org-1",
+      "meeting",
+    );
+  });
+
+  it("updates only a professional's status through the dedicated PATCH route", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "PATCH",
+      url: "/admin/partnership-crm/professionals/pro-1/status",
+      payload: { status: "partner" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      professional: expect.objectContaining({
+        id: "pro-1",
+        status: "partner",
+      }),
+    });
+    expect(mockUpdatePartnershipCrmProfessionalStatus).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pro-1",
+      "partner",
+    );
+  });
+
+  it("rejects extra fields from a status-only PATCH", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "PATCH",
+      url: "/admin/partnership-crm/organizations/org-1/status",
+      payload: {
+        status: "meeting",
+        name: "This field must not be accepted",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockUpdatePartnershipCrmOrganizationStatus).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid CRM status before calling the repository", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "PATCH",
+      url: "/admin/partnership-crm/professionals/pro-1/status",
+      payload: { status: "qualified" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockUpdatePartnershipCrmProfessionalStatus).not.toHaveBeenCalled();
   });
 
   it("returns paginated sent CRM email logs", async () => {

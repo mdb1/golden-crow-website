@@ -45,6 +45,63 @@ const mockDocs = new Map<string, MockDocData>();
 const mockCollection = jest.fn((collectionName: string) =>
   mockMakeQuery(collectionName),
 );
+type MockTransactionDocumentRef = {
+  get: jest.Mock;
+  set: jest.Mock;
+  update: jest.Mock;
+};
+type MockTransaction = {
+  get: jest.Mock;
+  set: jest.Mock;
+  update: jest.Mock;
+};
+let mockTransactionCommitError: Error | null = null;
+let mockTransactionRetryBeforeCommit: (() => void) | null = null;
+const mockRunTransaction = jest.fn(
+  async (
+    callback: (transaction: MockTransaction) => Promise<unknown>,
+  ): Promise<unknown> => {
+    async function attempt(): Promise<unknown> {
+      const stagedWrites: Array<() => Promise<unknown>> = [];
+      const transaction: MockTransaction = {
+        get: jest.fn(async (reference: MockTransactionDocumentRef) =>
+          reference.get(),
+        ),
+        update: jest.fn(
+          (reference: MockTransactionDocumentRef, data: MockDocData) => {
+            stagedWrites.push(() => reference.update(data));
+          },
+        ),
+        set: jest.fn(
+          (reference: MockTransactionDocumentRef, data: MockDocData) => {
+            stagedWrites.push(() => reference.set(data));
+          },
+        ),
+      };
+
+      const result = await callback(transaction);
+      if (mockTransactionRetryBeforeCommit) {
+        const retryBeforeCommit = mockTransactionRetryBeforeCommit;
+        mockTransactionRetryBeforeCommit = null;
+        retryBeforeCommit();
+        return attempt();
+      }
+
+      if (mockTransactionCommitError) {
+        const commitError = mockTransactionCommitError;
+        mockTransactionCommitError = null;
+        throw commitError;
+      }
+
+      for (const write of stagedWrites) {
+        await write();
+      }
+      return result;
+    }
+
+    return attempt();
+  },
+);
 
 function mockDocKey(collectionName: string, id: string) {
   return `${collectionName}/${id}`;
@@ -324,6 +381,7 @@ jest.mock("firebase-admin/firestore", () => {
 jest.mock("../config/firebase.js", () => ({
   adminDbFor: jest.fn(() => ({
     collection: mockCollection,
+    runTransaction: mockRunTransaction,
   })),
 }));
 
@@ -453,6 +511,229 @@ describe("partnership CRM repository pagination", () => {
     );
     expect(page.nextCursor).toBeUndefined();
     expect(page.statusCounts.new).toBe(12);
+  });
+});
+
+describe("partnership CRM status updates", () => {
+  beforeEach(() => {
+    mockDocs.clear();
+    mockCollection.mockClear();
+    mockRunTransaction.mockClear();
+    mockTransactionCommitError = null;
+    mockTransactionRetryBeforeCommit = null;
+  });
+
+  it("updates only organization status audit fields and preserves legacy data", async () => {
+    const { updatePartnershipCrmOrganizationStatus } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedOrganization("org-1", 1, "org_genomics_laboratories");
+    const organizationKey = mockDocKey(
+      "partnership_crm_organizations",
+      "org-1",
+    );
+    const before = {
+      ...(mockDocs.get(organizationKey) ?? {}),
+      status: "contacted",
+      notes: "x".repeat(2501),
+      updatedByEmail: "previous@example.org",
+      legacyContactPhone: "+54 11 5555 0101",
+      legacyResearch: {
+        source: "historic-import",
+        score: 97,
+      },
+    };
+    mockDocs.set(organizationKey, before);
+
+    const organization = await updatePartnershipCrmOrganizationStatus(
+      godModeContext,
+      "org-1",
+      "meeting",
+    );
+
+    const after = mockDocs.get(organizationKey);
+    expect(after).toEqual({
+      ...before,
+      status: "meeting",
+      updatedAt: expect.anything(),
+      updatedByEmail: "admin@example.org",
+    });
+    expect(
+      (
+        after?.updatedAt as {
+          toDate: () => Date;
+        }
+      ).toDate().toISOString(),
+    ).toBe("2026-09-10T12:00:00.000Z");
+    expect(organization.status).toBe("meeting");
+
+    const activities = mockDocsIn(
+      "partnership_crm_organizations/org-1/activities",
+    );
+    expect(activities).toHaveLength(1);
+    expect(activities[0]?.data).toEqual(
+      expect.objectContaining({
+        type: "status",
+        title: "Status changed to meeting",
+        body: "Previous status: contacted",
+        createdByEmail: "admin@example.org",
+        metadata: {
+          previousStatus: "contacted",
+          nextStatus: "meeting",
+        },
+      }),
+    );
+  });
+
+  it("updates only professional status audit fields and preserves legacy data", async () => {
+    const { updatePartnershipCrmProfessionalStatus } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedProfessional("pro-1", 1, "pro_clinical_geneticists");
+    const professionalKey = mockDocKey(
+      "partnership_crm_professionals",
+      "pro-1",
+    );
+    const before = {
+      ...(mockDocs.get(professionalKey) ?? {}),
+      status: "replied",
+      notes: "x".repeat(2501),
+      updatedByEmail: "previous@example.org",
+      legacyProfileUrl: "https://legacy.example.org/ada",
+      legacyResearch: {
+        source: "historic-import",
+        topics: ["genomics", "rare disease"],
+      },
+    };
+    mockDocs.set(professionalKey, before);
+
+    const professional = await updatePartnershipCrmProfessionalStatus(
+      godModeContext,
+      "pro-1",
+      "partner",
+    );
+
+    const after = mockDocs.get(professionalKey);
+    expect(after).toEqual({
+      ...before,
+      status: "partner",
+      updatedAt: expect.anything(),
+      updatedByEmail: "admin@example.org",
+    });
+    expect(
+      (
+        after?.updatedAt as {
+          toDate: () => Date;
+        }
+      ).toDate().toISOString(),
+    ).toBe("2026-09-10T12:00:00.000Z");
+    expect(professional.status).toBe("partner");
+
+    const activities = mockDocsIn(
+      "partnership_crm_professionals/pro-1/activities",
+    );
+    expect(activities).toHaveLength(1);
+    expect(activities[0]?.data).toEqual(
+      expect.objectContaining({
+        type: "status",
+        title: "Status changed to partner",
+        body: "Previous status: replied",
+        createdByEmail: "admin@example.org",
+        metadata: {
+          previousStatus: "replied",
+          nextStatus: "partner",
+        },
+      }),
+    );
+  });
+
+  it("leaves an organization untouched when its status is unchanged", async () => {
+    const { updatePartnershipCrmOrganizationStatus } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedOrganization("org-unchanged", 1, "org_genomics_laboratories");
+    const organizationKey = mockDocKey(
+      "partnership_crm_organizations",
+      "org-unchanged",
+    );
+    const before = { ...(mockDocs.get(organizationKey) ?? {}) };
+
+    const organization = await updatePartnershipCrmOrganizationStatus(
+      godModeContext,
+      "org-unchanged",
+      "new",
+    );
+
+    expect(mockDocs.get(organizationKey)).toEqual(before);
+    expect(organization.status).toBe("new");
+    expect(
+      mockDocsIn(
+        "partnership_crm_organizations/org-unchanged/activities",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("does not commit the status when the atomic activity write fails", async () => {
+    const { updatePartnershipCrmOrganizationStatus } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedOrganization("org-failed", 1, "org_genomics_laboratories");
+    const organizationKey = mockDocKey(
+      "partnership_crm_organizations",
+      "org-failed",
+    );
+    const before = { ...(mockDocs.get(organizationKey) ?? {}) };
+    mockTransactionCommitError = new Error("Simulated transaction failure");
+
+    await expect(
+      updatePartnershipCrmOrganizationStatus(
+        godModeContext,
+        "org-failed",
+        "meeting",
+      ),
+    ).rejects.toThrow("Simulated transaction failure");
+
+    expect(mockDocs.get(organizationKey)).toEqual(before);
+    expect(
+      mockDocsIn("partnership_crm_organizations/org-failed/activities"),
+    ).toHaveLength(0);
+  });
+
+  it("records the latest previous status after a transaction retry", async () => {
+    const { updatePartnershipCrmOrganizationStatus } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedOrganization("org-concurrent", 1, "org_genomics_laboratories");
+    const organizationKey = mockDocKey(
+      "partnership_crm_organizations",
+      "org-concurrent",
+    );
+    mockDocs.set(organizationKey, {
+      ...(mockDocs.get(organizationKey) ?? {}),
+      status: "contacted",
+    });
+    mockTransactionRetryBeforeCommit = () => {
+      mockDocs.set(organizationKey, {
+        ...(mockDocs.get(organizationKey) ?? {}),
+        status: "replied",
+      });
+    };
+
+    await updatePartnershipCrmOrganizationStatus(
+      godModeContext,
+      "org-concurrent",
+      "meeting",
+    );
+
+    expect(mockDocs.get(organizationKey)?.status).toBe("meeting");
+    const activities = mockDocsIn(
+      "partnership_crm_organizations/org-concurrent/activities",
+    );
+    expect(activities).toHaveLength(1);
+    expect(activities[0]?.data.metadata).toEqual({
+      previousStatus: "replied",
+      nextStatus: "meeting",
+    });
   });
 });
 

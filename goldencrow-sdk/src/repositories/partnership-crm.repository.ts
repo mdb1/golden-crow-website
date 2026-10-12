@@ -1999,17 +1999,34 @@ async function addSentEmailLog(
   return toSentEmailLogRecord(ref.id, snapshot.data() ?? {});
 }
 
+type PartnershipCrmActivityInput = {
+  type: PartnershipCrmActivityType;
+  title: string;
+  body?: string;
+  metadata?: Record<string, unknown>;
+  occurredAt?: unknown;
+};
+
+function targetActivityDocument(
+  context: AdminContext,
+  activity: PartnershipCrmActivityInput,
+) {
+  return withoutUndefined({
+    type: activity.type,
+    title: activity.title,
+    body: activity.body ?? "",
+    metadata: activity.metadata,
+    occurredAt: activity.occurredAt ?? FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    createdByEmail: context.email,
+  });
+}
+
 async function addTargetActivity(
   collectionName: string,
   targetId: string,
   context: AdminContext,
-  activity: {
-    type: PartnershipCrmActivityType;
-    title: string;
-    body?: string;
-    metadata?: Record<string, unknown>;
-    occurredAt?: unknown;
-  },
+  activity: PartnershipCrmActivityInput,
 ) {
   const ref = adminDb
     .collection(collectionName)
@@ -2017,17 +2034,7 @@ async function addTargetActivity(
     .collection(ACTIVITIES_COLLECTION)
     .doc();
 
-  await ref.set(
-    withoutUndefined({
-      type: activity.type,
-      title: activity.title,
-      body: activity.body ?? "",
-      metadata: activity.metadata,
-      occurredAt: activity.occurredAt ?? FieldValue.serverTimestamp(),
-      createdAt: FieldValue.serverTimestamp(),
-      createdByEmail: context.email,
-    }),
-  );
+  await ref.set(targetActivityDocument(context, activity));
 
   const snapshot = await ref.get();
   return toActivityRecord(ref.id, snapshot.data() ?? {});
@@ -2573,6 +2580,47 @@ export async function updatePartnershipCrmOrganization(
   return getPartnershipCrmOrganization(context, organizationId);
 }
 
+export async function updatePartnershipCrmOrganizationStatus(
+  context: AdminContext,
+  organizationId: string,
+  status: PartnershipCrmStatus,
+) {
+  requireGodMode(context);
+  const reference = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId);
+  const activityReference = reference.collection(ACTIVITIES_COLLECTION).doc();
+
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("CRM organization not found.", 404);
+    }
+
+    const previousStatus = normalizeStatus(snapshot.data()?.status);
+    if (previousStatus === status) {
+      return;
+    }
+
+    transaction.update(reference, {
+      status,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    });
+    transaction.set(
+      activityReference,
+      targetActivityDocument(context, {
+        type: "status",
+        title: `Status changed to ${status}`,
+        body: `Previous status: ${previousStatus}`,
+        metadata: { previousStatus, nextStatus: status },
+      }),
+    );
+  });
+
+  return getPartnershipCrmOrganization(context, organizationId);
+}
+
 export async function deletePartnershipCrmOrganization(
   context: AdminContext,
   organizationId: string,
@@ -2782,6 +2830,47 @@ export async function updatePartnershipCrmProfessional(
       title: "Professional updated",
     });
   }
+
+  return getPartnershipCrmProfessional(context, professionalId);
+}
+
+export async function updatePartnershipCrmProfessionalStatus(
+  context: AdminContext,
+  professionalId: string,
+  status: PartnershipCrmStatus,
+) {
+  requireGodMode(context);
+  const reference = adminDb
+    .collection(PROFESSIONALS_COLLECTION)
+    .doc(professionalId);
+  const activityReference = reference.collection(ACTIVITIES_COLLECTION).doc();
+
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("CRM professional not found.", 404);
+    }
+
+    const previousStatus = normalizeStatus(snapshot.data()?.status);
+    if (previousStatus === status) {
+      return;
+    }
+
+    transaction.update(reference, {
+      status,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    });
+    transaction.set(
+      activityReference,
+      targetActivityDocument(context, {
+        type: "status",
+        title: `Status changed to ${status}`,
+        body: `Previous status: ${previousStatus}`,
+        metadata: { previousStatus, nextStatus: status },
+      }),
+    );
+  });
 
   return getPartnershipCrmProfessional(context, professionalId);
 }
