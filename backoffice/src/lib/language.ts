@@ -1794,6 +1794,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Volver a plantillas": "Volver a plantillas",
   "Pocket Genes partnership outreach CRM.":
     "CRM de alianzas y outreach de Pocket Genes.",
+  "CRM status options": "Opciones de estado del CRM",
+  "Choose the state that best represents this CRM item's current progress.":
+    "Elegí el estado que mejor represente el avance actual de este elemento del CRM.",
   "One organization, one primary contact, and the next action.":
     "Una organización, un contacto principal y la próxima acción.",
   "Add CRM organization": "Agregar organización al CRM",

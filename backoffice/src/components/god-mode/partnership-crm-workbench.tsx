@@ -76,6 +76,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -203,6 +204,11 @@ type OrganizationDialogState =
   | { mode: "create"; organization?: undefined }
   | { mode: "edit"; organization: PartnershipCrmTargetRecord }
   | null;
+
+type StatusChangeDialogState = {
+  targetId: string;
+  draft: PartnershipCrmStatus;
+} | null;
 
 type OrganizationFormState = {
   name: string;
@@ -4209,6 +4215,109 @@ function OrganizationDialog({
   );
 }
 
+function StatusChangeDialog({
+  state,
+  target,
+  pending,
+  onClose,
+  onDraftChange,
+  onSave,
+  language,
+}: {
+  state: StatusChangeDialogState;
+  target: PartnershipCrmTargetRecord | null;
+  pending: boolean;
+  onClose: () => void;
+  onDraftChange: (status: PartnershipCrmStatus) => void;
+  onSave: () => void;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const draft = state?.draft;
+  const unchanged = !target || draft === target.status;
+
+  return (
+    <Dialog
+      open={Boolean(state)}
+      onOpenChange={(open) => {
+        if (!open && !pending) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="crm-control-surface sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t("Change status")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              "Choose the state that best represents this CRM item's current progress.",
+            )}
+            {target ? (
+              <span className="mt-1 block font-medium text-foreground">
+                {target.name}
+              </span>
+            ) : null}
+          </DialogDescription>
+        </DialogHeader>
+
+        <RadioGroup
+          value={draft ?? ""}
+          onValueChange={(value) =>
+            onDraftChange(value as PartnershipCrmStatus)
+          }
+          disabled={pending}
+          aria-label={t("CRM status options")}
+          className="grid gap-2 sm:grid-cols-2"
+        >
+          {[...PIPELINE_STATUSES, ...OUTCOME_STATUSES].map((status) => {
+            const selected = draft === status;
+            const tone = pipelineStatusTone(status, selected);
+
+            return (
+              <Label
+                key={status}
+                htmlFor={`crm-status-option-${status}`}
+                className={cn(
+                  "flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60",
+                  tone.card,
+                  tone.count,
+                )}
+              >
+                <RadioGroupItem
+                  id={`crm-status-option-${status}`}
+                  value={status}
+                  className="border-current/45 data-checked:border-current data-checked:bg-current dark:data-checked:bg-current"
+                />
+                <span>{t(statusLabel(status))}</span>
+              </Label>
+            );
+          })}
+        </RadioGroup>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={pending}
+          >
+            {t("Cancel")}
+          </Button>
+          <Button
+            type="button"
+            onClick={onSave}
+            disabled={pending || unchanged}
+            className="bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {pending ? t("Saving...") : t("Save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function crmVariablePillClassName(variable: CrmTemplateVariableDefinition) {
   return cn(
     "mx-0.5 inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 align-baseline font-mono text-[0.74rem] font-semibold leading-5 shadow-sm whitespace-normal break-words",
@@ -6883,6 +6992,8 @@ export function PartnershipCrmWorkbench() {
   const [detailPanelResizing, setDetailPanelResizing] = useState(false);
   const [organizationDialog, setOrganizationDialog] =
     useState<OrganizationDialogState>(null);
+  const [statusChangeDialog, setStatusChangeDialog] =
+    useState<StatusChangeDialogState>(null);
   const [deleteTarget, setDeleteTarget] =
     useState<PartnershipCrmTargetRecord | null>(null);
   const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
@@ -6966,6 +7077,11 @@ export function PartnershipCrmWorkbench() {
   const selectedOrganization = selectedId
     ? (organizations.find((organization) => organization.id === selectedId) ??
       null)
+    : null;
+  const statusChangeTarget = statusChangeDialog
+    ? (organizations.find(
+        (organization) => organization.id === statusChangeDialog.targetId,
+      ) ?? null)
     : null;
   const selectedTargets = useMemo(
     () =>
@@ -7222,6 +7338,7 @@ export function PartnershipCrmWorkbench() {
     if (!organizations.length) {
       setSelectedId(null);
       setDetailPanelOpen(false);
+      setStatusChangeDialog(null);
       setSelectedTargetIds((current) =>
         current.size === 0 ? current : new Set(),
       );
@@ -7232,6 +7349,7 @@ export function PartnershipCrmWorkbench() {
       setSelectedId(null);
       setDetailPanelOpen(false);
       setActivityLogOpen(false);
+      setStatusChangeDialog(null);
     }
   }, [organizations, selectedId]);
 
@@ -8720,6 +8838,7 @@ export function PartnershipCrmWorkbench() {
     setActivityLogOpen(false);
     setNoteDraft("");
     setOrganizationDialog(null);
+    setStatusChangeDialog(null);
     setDeleteTarget(null);
     setDeleteSelectedOpen(false);
     setEmailOpen(false);
@@ -8768,6 +8887,7 @@ export function PartnershipCrmWorkbench() {
     setDetailPanelOpen(false);
     setActivityLogOpen(false);
     setEmailOpen(false);
+    setStatusChangeDialog(null);
     setNoteDraft("");
   }
 
@@ -8849,19 +8969,35 @@ export function PartnershipCrmWorkbench() {
     }
   }
 
-  function updateSelectedStatus(status: PartnershipCrmStatus) {
-    if (!selectedOrganization) {
+  function saveStatusChange() {
+    if (!statusChangeDialog) {
       return;
     }
 
-    saveOrganizationMutation.mutate({
-      mode: "edit",
-      organizationId: selectedOrganization.id,
-      payload: targetPayload(
-        { ...toFormState(selectedOrganization, targetKind), status },
-        targetKind,
-      ),
-    });
+    const { targetId, draft } = statusChangeDialog;
+    const target = organizations.find((entry) => entry.id === targetId);
+    if (!target) {
+      setStatusChangeDialog(null);
+      return;
+    }
+
+    if (draft === target.status) {
+      return;
+    }
+
+    saveOrganizationMutation.mutate(
+      {
+        mode: "edit",
+        organizationId: target.id,
+        payload: targetPayload(
+          { ...toFormState(target, targetKind), status: draft },
+          targetKind,
+        ),
+      },
+      {
+        onSuccess: () => setStatusChangeDialog(null),
+      },
+    );
   }
 
   function updateSelectedFavorite(isFavorite: boolean) {
@@ -9564,10 +9700,6 @@ export function PartnershipCrmWorkbench() {
                 data-testid="crm-detail-panel-tags"
                 className="mt-4 flex flex-wrap items-center gap-2"
               >
-                <StatusBadge
-                  status={selectedOrganization.status}
-                  language={language}
-                />
                 <CategoryBadgeGroup
                   value={selectedOrganization.category}
                   language={language}
@@ -9575,36 +9707,33 @@ export function PartnershipCrmWorkbench() {
                 />
               </div>
 
-              <div className="mt-4 grid gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  {t("Pipeline")}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {[...PIPELINE_STATUSES, ...OUTCOME_STATUSES].map((status) => {
-                    const isSelectedStatus =
-                      selectedOrganization.status === status;
-                    const selectedTone = pipelineStatusTone(status, true);
-
-                    return (
-                      <Button
-                        key={status}
-                        type="button"
-                        variant="outline"
-                        size="xs"
-                        aria-pressed={isSelectedStatus}
-                        className={
-                          isSelectedStatus
-                            ? cn(selectedTone.card, selectedTone.count)
-                            : undefined
-                        }
-                        onClick={() => updateSelectedStatus(status)}
-                        disabled={saveOrganizationMutation.isPending}
-                      >
-                        {t(statusLabel(status))}
-                      </Button>
-                    );
-                  })}
+              <div
+                data-testid="crm-current-status"
+                className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/20 px-3 py-3"
+              >
+                <div className="grid gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    {t("Current status")}
+                  </p>
+                  <StatusBadge
+                    status={selectedOrganization.status}
+                    language={language}
+                  />
                 </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() =>
+                    setStatusChangeDialog({
+                      targetId: selectedOrganization.id,
+                      draft: selectedOrganization.status,
+                    })
+                  }
+                  disabled={saveOrganizationMutation.isPending}
+                  className="shrink-0 bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
+                >
+                  {t("Change status")}
+                </Button>
               </div>
 
               <div className="mt-4">
@@ -9770,6 +9899,20 @@ export function PartnershipCrmWorkbench() {
         targetKind={targetKind}
         onClose={() => setOrganizationDialog(null)}
         onSubmit={handleOrganizationSubmit}
+        language={language}
+      />
+
+      <StatusChangeDialog
+        state={statusChangeDialog}
+        target={statusChangeTarget}
+        pending={saveOrganizationMutation.isPending}
+        onClose={() => setStatusChangeDialog(null)}
+        onDraftChange={(draft) =>
+          setStatusChangeDialog((current) =>
+            current ? { ...current, draft } : current,
+          )
+        }
+        onSave={saveStatusChange}
         language={language}
       />
 

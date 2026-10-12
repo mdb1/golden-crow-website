@@ -166,7 +166,7 @@ const crossAudienceEmailTemplate: PartnershipCrmTemplateRecord = {
   normalizedName: "universal professional",
 };
 
-function renderWorkbench() {
+function renderWorkbench(language: "en" | "es" = "en") {
   const client = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -174,13 +174,15 @@ function renderWorkbench() {
     },
   });
 
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
-      <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
+      <AppLanguageProvider initialLanguage={language} forcedLanguage={language}>
         <PartnershipCrmWorkbench />
       </AppLanguageProvider>
     </QueryClientProvider>,
   );
+
+  return { ...view, client };
 }
 
 function mockElementScrollIntoView() {
@@ -802,7 +804,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     ).toBeTruthy();
   });
 
-  it("tints the selected Pipeline status pill in the detail panel", async () => {
+  it("shows the current status and opens an explicit status picker", async () => {
     const user = userEvent.setup();
     renderWorkbench();
 
@@ -838,18 +840,199 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     ).toBeTruthy();
     expect(within(actionGroup).queryByText("CRM New")).toBeNull();
     const tagsBlock = within(detailPanel).getByTestId("crm-detail-panel-tags");
-    expect(within(tagsBlock).getByText("CRM New")).toBeTruthy();
+    expect(within(tagsBlock).queryByText("CRM New")).toBeNull();
     expect(within(tagsBlock).getByText("Genomics Laboratory")).toBeTruthy();
     expect(within(detailPanel).queryByText("Favorite")).toBeNull();
-    const selectedStatusButton = within(detailPanel).getByRole("button", {
+    expect(within(detailPanel).queryByText("Pipeline")).toBeNull();
+
+    const statusBlock = within(detailPanel).getByTestId("crm-current-status");
+    expect(within(statusBlock).getByText("Current status")).toBeTruthy();
+    expect(within(statusBlock).getByText("CRM New")).toBeTruthy();
+    const changeStatusButton = within(statusBlock).getByRole("button", {
+      name: "Change status",
+    });
+    expect(changeStatusButton.className).toContain("bg-blue-600");
+    expect(changeStatusButton.className).toContain("text-white");
+    expect(changeStatusButton.className).toContain("hover:bg-blue-700");
+
+    await user.click(changeStatusButton);
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Change status",
+    });
+    expect(within(dialog).getByText(organization.name)).toBeTruthy();
+    expect(within(dialog).getAllByRole("radio")).toHaveLength(8);
+    const currentStatusRadio = within(dialog).getByRole("radio", {
       name: "CRM New",
     });
+    expect(currentStatusRadio.getAttribute("aria-checked")).toBe("true");
+    expect(
+      (within(dialog).getByRole("button", {
+        name: "Save",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(currentStatusRadio.getAttribute("tabindex")).toBe("0");
+    expect(
+      within(dialog)
+        .getByRole("radio", { name: "CRM Contacted" })
+        .getAttribute("tabindex"),
+    ).toBe("-1");
 
-    expect(selectedStatusButton.getAttribute("data-variant")).toBe("outline");
-    expect(selectedStatusButton.getAttribute("aria-pressed")).toBe("true");
-    expect(selectedStatusButton.className).toContain("bg-sky");
-    expect(selectedStatusButton.className).toContain("text-sky");
-    expect(selectedStatusButton.className).not.toContain("bg-secondary");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog", { name: "Change status" })).toBeNull();
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
+  });
+
+  it("uses the requested Spanish wording in the detail status block", async () => {
+    const user = userEvent.setup();
+    renderWorkbench("es");
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
+    });
+    await user.click(screen.getByText("Delete Me Genomics"));
+
+    const detailPanel = await screen.findByTestId("crm-detail-panel");
+    expect(within(detailPanel).getByText("Estado actual")).toBeTruthy();
+    expect(within(detailPanel).queryByText("Pipeline")).toBeNull();
+    expect(
+      within(detailPanel).getByRole("button", { name: "Cambiar estado" }),
+    ).toBeTruthy();
+  });
+
+  it("saves the new status only for the item that opened the picker", async () => {
+    const user = userEvent.setup();
+    const contactedOrganization: PartnershipCrmOrganizationRecord = {
+      ...organization,
+      id: "org-2",
+      name: "Contacted Genetics",
+      normalizedName: "contacted genetics",
+      status: "contacted",
+      contactEmail: "contacted@example.org",
+    };
+    const refreshedContactedOrganization: PartnershipCrmOrganizationRecord = {
+      ...contactedOrganization,
+      name: "Contacted Genetics Updated",
+      normalizedName: "contacted genetics updated",
+      contactEmail: "fresh-contacted@example.org",
+      notes: "Updated while the status picker was open.",
+    };
+    let organizations = [organization, contactedOrganization];
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+
+      if (
+        stringPath === "/admin/partnership-crm/organizations/org-2" &&
+        init?.method === "PUT"
+      ) {
+        const body = JSON.parse(String(init.body));
+        const current = organizations.find((entry) => entry.id === "org-2");
+        const updated = { ...current, ...body };
+        organizations = organizations.map((entry) =>
+          entry.id === updated.id ? updated : entry,
+        );
+        return { organization: updated };
+      }
+
+      if (stringPath.includes("/activities")) {
+        return { activities: [] };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        return { emails: [], nextCursor: undefined };
+      }
+
+      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+        return { templates: emailTemplates, nextCursor: undefined };
+      }
+
+      return { organizations, nextCursor: undefined };
+    });
+
+    const { client } = renderWorkbench();
+
+    await waitFor(() => {
+      expect(screen.getByText(contactedOrganization.name)).toBeTruthy();
+    });
+    await user.click(screen.getByText(contactedOrganization.name));
+
+    const detailPanel = await screen.findByTestId("crm-detail-panel");
+    await user.click(
+      within(detailPanel).getByRole("button", { name: "Change status" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Change status",
+    });
+    expect(
+      within(dialog)
+        .getByRole("radio", { name: "CRM Contacted" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+
+    organizations = [organization, refreshedContactedOrganization];
+    await client.refetchQueries({
+      queryKey: ["god-mode-partnership-crm-organizations"],
+    });
+    await waitFor(() => {
+      expect(
+        within(dialog).getByText(refreshedContactedOrganization.name),
+      ).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("radio", { name: "CRM Meeting" }),
+    );
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
+
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/organizations/org-2",
+        expect.objectContaining({ method: "PUT" }),
+      );
+    });
+
+    const putCalls = jest
+      .mocked(sdkFetch)
+      .mock.calls.filter(([, init]) => init?.method === "PUT");
+    expect(putCalls).toHaveLength(1);
+    expect(putCalls[0]?.[0]).toBe("/admin/partnership-crm/organizations/org-2");
+    expect(JSON.parse(String(putCalls[0]?.[1]?.body))).toEqual(
+      expect.objectContaining({
+        name: refreshedContactedOrganization.name,
+        status: "meeting",
+        contactEmail: refreshedContactedOrganization.contactEmail,
+        notes: refreshedContactedOrganization.notes,
+      }),
+    );
+    expect(
+      putCalls.some(
+        ([path]) => path === "/admin/partnership-crm/organizations/org-1",
+      ),
+    ).toBe(false);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Change status" }),
+      ).toBeNull();
+      expect(
+        within(screen.getByTestId("crm-current-status")).getByText(
+          "CRM Meeting",
+        ),
+      ).toBeTruthy();
+    });
   });
 
   it("toggles favorite from the CRM detail panel", async () => {
