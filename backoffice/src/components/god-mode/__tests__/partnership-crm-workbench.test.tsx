@@ -862,21 +862,39 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
     expect(within(dialog).getByText(organization.name)).toBeTruthy();
     expect(within(dialog).getAllByRole("radio")).toHaveLength(8);
+    const statusOptions = within(dialog).getByRole("radiogroup", {
+      name: "CRM status options",
+    });
+    expect(statusOptions.className).toContain("flex");
+    expect(statusOptions.className).toContain("flex-col");
+    expect(statusOptions.className).not.toContain("grid-cols");
     const currentStatusRadio = within(dialog).getByRole("radio", {
       name: "CRM New",
     });
     expect(currentStatusRadio.getAttribute("aria-checked")).toBe("true");
+    expect(
+      currentStatusRadio
+        .closest("label")
+        ?.contains(within(dialog).getByTestId("crm-selected-status-check")),
+    ).toBe(true);
     expect(
       (within(dialog).getByRole("button", {
         name: "Save",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(currentStatusRadio.getAttribute("tabindex")).toBe("0");
+    const contactedStatusRadio = within(dialog).getByRole("radio", {
+      name: "CRM Contacted",
+    });
+    expect(contactedStatusRadio.getAttribute("tabindex")).toBe("-1");
+
+    await user.click(contactedStatusRadio);
+    expect(contactedStatusRadio.getAttribute("aria-checked")).toBe("true");
     expect(
-      within(dialog)
-        .getByRole("radio", { name: "CRM Contacted" })
-        .getAttribute("tabindex"),
-    ).toBe("-1");
+      contactedStatusRadio
+        .closest("label")
+        ?.contains(within(dialog).getByTestId("crm-selected-status-check")),
+    ).toBe(true);
 
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 

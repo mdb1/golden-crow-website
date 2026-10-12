@@ -27,6 +27,7 @@ import {
   Bold,
   Braces,
   Building2,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -4276,7 +4277,7 @@ function StatusChangeDialog({
           }
           disabled={pending}
           aria-label={t("CRM status options")}
-          className="grid gap-2 sm:grid-cols-2"
+          className="flex flex-col gap-2"
         >
           {[...PIPELINE_STATUSES, ...OUTCOME_STATUSES].map((status) => {
             const selected = draft === status;
@@ -4297,7 +4298,16 @@ function StatusChangeDialog({
                   value={status}
                   className="border-current/45 data-checked:border-current data-checked:bg-current dark:data-checked:bg-current"
                 />
-                <span>{t(statusLabel(status))}</span>
+                <span className="flex-1">{t(statusLabel(status))}</span>
+                {selected ? (
+                  <span
+                    data-testid="crm-selected-status-check"
+                    aria-hidden="true"
+                    className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-current/12"
+                  >
+                    <Check className="h-4 w-4 stroke-[3]" />
+                  </span>
+                ) : null}
               </Label>
             );
           })}
