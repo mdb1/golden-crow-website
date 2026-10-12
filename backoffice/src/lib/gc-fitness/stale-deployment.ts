@@ -15,9 +15,10 @@
 // only escape — a hard reload — throws the form away, which is why the
 // report reads "pierden la sesión del formulario".
 //
-// This module does not reload anything. Losing the form is the actual injury;
-// a banner that explains the state and lets the coach copy their work first is
-// worth more than an automatic refresh.
+// Losing the form is the actual injury, so nothing here reloads on its own.
+// `reloadOntoCurrentDeployment` exists for the callers that have FIRST saved
+// the coach's work to a draft a reload restores (routine editor, nutrition
+// plan editor) and for error boundaries, where the form is already gone.
 //
 // THE REAL FIXES ARE ELSEWHERE, and this is the floor under them:
 //   • `scripts/vercel-ignore-build.sh` stops the backoffice redeploying for
@@ -48,10 +49,72 @@ export function isStaleDeploymentError(error: unknown): boolean {
   // Both phrasings Next has shipped: the client-side reducer throws "Server
   // Action "<id>" was not found on the server." and the server-side handler
   // logs "Failed to find Server Action".
-  return (
+  if (
     /server action[^]*was not found on the server/i.test(message) ||
     /failed to find server action/i.test(message)
+  ) {
+    return true;
+  }
+  return isChunkLoadError(error);
+}
+
+/**
+ * True when the browser failed to load one of last deployment's JS chunks.
+ *
+ * Same root cause as the Server Action case, other symptom: without Skew
+ * Protection the old tab asks the NEW deployment for chunk files that only
+ * existed in the old one, gets a 404, and webpack/turbopack throw while
+ * rendering — which is what escapes every route boundary and lands on Next's
+ * built-in "This page couldn't load" (the coach saw it browser-translated as
+ * "No se pudo cargar esta página" right after "Guardar cambios").
+ */
+export function isChunkLoadError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { name?: unknown; message?: unknown };
+  if (candidate.name === "ChunkLoadError") return true;
+  const message =
+    typeof candidate.message === "string" ? candidate.message : "";
+  return (
+    /loading (css )?chunk [^ ]+ failed/i.test(message) ||
+    /failed to fetch dynamically imported module/i.test(message) ||
+    /importing a module script failed/i.test(message) ||
+    /error loading dynamically imported module/i.test(message)
   );
+}
+
+const AUTO_RELOAD_STAMP_KEY = "gc-fitness:stale-auto-reload-at";
+/** A second stale error inside this window means the reload did not help. */
+const AUTO_RELOAD_COOLDOWN_MS = 60_000;
+
+/**
+ * Reload the tab onto the current deployment — but only when the caller has
+ * ALREADY put the coach's work somewhere a reload can't touch (a localStorage
+ * draft) or there is no work left to lose (an error boundary already
+ * unmounted the form).
+ *
+ * Latched per tab through sessionStorage: if the page reloads and hits a stale
+ * error again within a minute, something other than skew is wrong, and an
+ * endless reload loop is worse than the banner. Returns whether it reloaded,
+ * so the caller can fall back to the banner.
+ */
+export function reloadOntoCurrentDeployment(
+  reload: () => void = () => window.location.reload(),
+  now: () => number = Date.now,
+): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const last = Number(window.sessionStorage.getItem(AUTO_RELOAD_STAMP_KEY));
+    if (Number.isFinite(last) && last > 0 && now() - last < AUTO_RELOAD_COOLDOWN_MS) {
+      return false;
+    }
+    window.sessionStorage.setItem(AUTO_RELOAD_STAMP_KEY, String(now()));
+  } catch {
+    // Storage blocked: without the latch we cannot rule out a loop, so leave
+    // the reload to the coach.
+    return false;
+  }
+  reload();
+  return true;
 }
 
 type Listener = () => void;
@@ -98,4 +161,9 @@ export function noteIfStaleDeployment(error: unknown): boolean {
 export function resetStaleDeploymentForTests(): void {
   reported = false;
   listeners.clear();
+  try {
+    window.sessionStorage.removeItem(AUTO_RELOAD_STAMP_KEY);
+  } catch {
+    /* no window in node tests */
+  }
 }

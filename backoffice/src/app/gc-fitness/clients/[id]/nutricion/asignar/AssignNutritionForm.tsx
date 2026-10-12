@@ -37,7 +37,7 @@
 // numbers — and the weight-vs-plan table would compare a month of weigh-ins against
 // targets that only existed for its last week.
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -69,6 +69,17 @@ import {
 } from "@/lib/gc-fitness/nutrition-macro-math";
 import type { MacroRollupLine } from "@/lib/gc-fitness/nutrition-macro-math";
 import { nutritionPlanFormSchema } from "@/lib/gc-fitness/nutrition-plan-form";
+import {
+  clearNutritionPlanDraft,
+  nutritionPlanDraftKey,
+  readNutritionPlanDraft,
+  writeNutritionPlanDraft,
+} from "@/lib/gc-fitness/nutrition-plan-draft";
+import {
+  isStaleDeploymentError,
+  reloadOntoCurrentDeployment,
+  reportStaleDeployment,
+} from "@/lib/gc-fitness/stale-deployment";
 import type {
   NutritionOverlapNotice,
   NutritionPhaseState,
@@ -104,6 +115,27 @@ interface DraftMeal {
   fatG: string;
   options: DraftOption[];
 }
+
+/**
+ * Everything the coach can type, as one serializable value — what the draft stores.
+ * `showTranslation` and `overlap` are view state and are rebuilt on their own.
+ */
+interface FormSnapshot {
+  scope: EditScope;
+  name: string;
+  nameEn: string;
+  startsOn: string;
+  openEnded: boolean;
+  endsOn: string;
+  kcal: string;
+  proteinG: string;
+  carbsG: string;
+  fatG: string;
+  meals: DraftMeal[];
+  sourceTemplate: NutritionTemplateRow | null;
+}
+
+const DRAFT_DEBOUNCE_MS = 500;
 
 let seq = 0;
 function nextKey(prefix: string): string {
@@ -260,6 +292,125 @@ export function AssignNutritionForm({
   const [error, setError] = useState<string | null>(null);
   /** The template this draft came from, kept so the form can diff against it. */
   const [sourceTemplate, setSourceTemplate] = useState<NutritionTemplateRow | null>(null);
+
+  // ── Draft (see nutrition-plan-draft.ts) ────────────────────────────────────────────
+  // Autosaved on every change, restored on mount, cleared on a successful save or an
+  // explicit Cancel/Discard. A failed save that needs a reload (a deploy rotated the
+  // Server Action IDs) is therefore safe to reload: the plan comes back.
+  const draftKey = nutritionPlanDraftKey(clientId, editing?.planId ?? null);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const snapshot = useMemo<FormSnapshot>(
+    () => ({
+      scope,
+      name,
+      nameEn,
+      startsOn,
+      openEnded,
+      endsOn,
+      kcal,
+      proteinG,
+      carbsG,
+      fatG,
+      meals,
+      sourceTemplate,
+    }),
+    [scope, name, nameEn, startsOn, openEnded, endsOn, kcal, proteinG, carbsG, fatG, meals, sourceTemplate],
+  );
+  /** What the screen opened with — a draft identical to it is no draft. */
+  const initialSnapshotRef = useRef<FormSnapshot>(snapshot);
+  const latestSnapshotRef = useRef<FormSnapshot>(snapshot);
+  latestSnapshotRef.current = snapshot;
+  /** Set once the plan is saved or discarded: nothing may re-persist it after that. */
+  const draftClosedRef = useRef(false);
+
+  const applySnapshot = useCallback((next: FormSnapshot) => {
+    setScope(next.scope);
+    setName(next.name);
+    setNameEn(next.nameEn);
+    setStartsOn(next.startsOn);
+    setOpenEnded(next.openEnded);
+    setEndsOn(next.endsOn);
+    setKcal(next.kcal);
+    setProteinG(next.proteinG);
+    setCarbsG(next.carbsG);
+    setFatG(next.fatG);
+    setMeals(next.meals);
+    setSourceTemplate(next.sourceTemplate);
+  }, []);
+
+  useEffect(() => {
+    const stored = readNutritionPlanDraft<FormSnapshot>(draftKey);
+    if (!stored || !Array.isArray(stored.meals)) return;
+    // Fresh React keys: the stored ones came from the PREVIOUS page load's counter and
+    // would collide with the keys this load hands out to the next added meal/option.
+    applySnapshot({
+      ...stored,
+      // A split is only offered for a running phase that started before today; a draft
+      // from yesterday must not resurrect an option the screen no longer shows.
+      scope: canSplit ? stored.scope : "whole",
+      meals: stored.meals.map((meal) => ({
+        ...meal,
+        key: nextKey("meal"),
+        options: (meal.options ?? []).map((option) => ({ ...option, key: nextKey("option") })),
+      })),
+    });
+    setDraftRestored(true);
+    // Mount-only: a later prop refresh must not overwrite what the coach is typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+
+  const draftTimerRef = useRef<number | null>(null);
+  const firstAutosaveRunRef = useRef(true);
+  useEffect(() => {
+    // The first run is the mount itself — nothing has been typed yet.
+    if (firstAutosaveRunRef.current) {
+      firstAutosaveRunRef.current = false;
+      return;
+    }
+    if (draftClosedRef.current) return;
+    draftTimerRef.current = window.setTimeout(() => {
+      draftTimerRef.current = null;
+      if (draftClosedRef.current) return;
+      if (JSON.stringify(snapshot) === JSON.stringify(initialSnapshotRef.current)) {
+        clearNutritionPlanDraft(draftKey);
+      } else {
+        writeNutritionPlanDraft(draftKey, snapshot);
+      }
+    }, DRAFT_DEBOUNCE_MS);
+    return () => {
+      if (draftTimerRef.current !== null) {
+        window.clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = null;
+      }
+    };
+  }, [snapshot, draftKey]);
+
+  // Leaving within the debounce window (tab close, back button) must not drop the last
+  // keystrokes: flush synchronously on pagehide and on unmount.
+  useEffect(() => {
+    function flush() {
+      if (draftClosedRef.current) return;
+      const latest = latestSnapshotRef.current;
+      if (JSON.stringify(latest) === JSON.stringify(initialSnapshotRef.current)) return;
+      writeNutritionPlanDraft(draftKey, latest);
+    }
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [draftKey]);
+
+  function closeDraft() {
+    draftClosedRef.current = true;
+    clearNutritionPlanDraft(draftKey);
+  }
+
+  function discardDraft() {
+    clearNutritionPlanDraft(draftKey);
+    applySnapshot(initialSnapshotRef.current);
+    setDraftRestored(false);
+  }
 
   const effectiveEndsOn = openEnded ? null : endsOn.trim() === "" ? null : endsOn;
 
@@ -456,9 +607,21 @@ export function AssignNutritionForm({
           await assignNutritionPlan(payload);
           toast.success(editing ? t("editSplitSaved") : t("saved"));
         }
+        closeDraft();
         router.push(`/gc-fitness/clients/${clientId}/nutricion`);
         router.refresh();
-      } catch {
+      } catch (err) {
+        console.error("[nutrition-form] save failed", err);
+        // This tab runs last deployment's JS, so every retry would fail the same way.
+        // The plan is already in the draft — write the latest state anyway (the debounce
+        // may be pending) and reload onto the current deployment; the mount effect puts
+        // it back on screen.
+        if (isStaleDeploymentError(err)) {
+          writeNutritionPlanDraft(draftKey, latestSnapshotRef.current);
+          toast.info(t("staleReloading"));
+          if (!reloadOntoCurrentDeployment()) reportStaleDeployment();
+          return;
+        }
         setError(t("errorGeneric"));
       }
     });
@@ -472,6 +635,18 @@ export function AssignNutritionForm({
 
   return (
     <div className="flex flex-col gap-5" data-testid="assign-nutrition-form">
+      {draftRestored ? (
+        <div
+          role="status"
+          data-testid="nutrition-draft-restored"
+          className="flex flex-col gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span>{t("draftRestored")}</span>
+          <Button type="button" variant="ghost" size="sm" onClick={discardDraft}>
+            {t("draftDiscard")}
+          </Button>
+        </div>
+      ) : null}
       {/* ── From a template (#918) ──────────────────────────────────────────────────
           Hidden while editing: `applyTemplate` replaces every `mealId` with the
           template's, and the daily logs of the phase being edited are keyed by the ids it
@@ -897,7 +1072,10 @@ export function AssignNutritionForm({
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push(`/gc-fitness/clients/${clientId}/nutricion`)}
+          onClick={() => {
+            closeDraft();
+            router.push(`/gc-fitness/clients/${clientId}/nutricion`);
+          }}
         >
           {t("cancel")}
         </Button>

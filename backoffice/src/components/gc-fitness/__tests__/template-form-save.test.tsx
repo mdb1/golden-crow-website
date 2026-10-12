@@ -82,7 +82,14 @@ jest.mock("../template-tags-picker", () => ({
 }));
 
 jest.mock("sonner", () => ({
-  toast: { success: jest.fn(), error: jest.fn() },
+  toast: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
+}));
+
+// jsdom cannot reload; the detection and the draft write around it run for real.
+const mockReloadOntoCurrentDeployment = jest.fn(() => true);
+jest.mock("@/lib/gc-fitness/stale-deployment", () => ({
+  ...jest.requireActual("@/lib/gc-fitness/stale-deployment"),
+  reloadOntoCurrentDeployment: () => mockReloadOntoCurrentDeployment(),
 }));
 
 import { TemplateForm } from "../template-form";
@@ -437,5 +444,64 @@ describe("TemplateForm save — the legacy `tag` mirror", () => {
 
     expect(payload.tags).toEqual(["pull", "upper"]);
     expect(payload.tag).toBe("pull");
+  });
+});
+
+// Coach report 2026-10-12: "ponía guardar cambios y me aparece error". A deploy
+// had rotated the Server Action IDs under the open tab.
+describe("TemplateForm save — a failed save never loses the routine", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { toast } = require("sonner") as {
+    toast: { error: jest.Mock; info: jest.Mock };
+  };
+
+  function renderFailing(error: unknown, draftKey = "edit:tpl-1") {
+    const onSubmit = jest.fn().mockRejectedValue(error);
+    render(
+      <TemplateForm
+        mode="edit"
+        defaultValues={defaults([exercise()])}
+        draftKey={draftKey}
+        onSubmit={onSubmit}
+      />,
+    );
+    return { onSubmit };
+  }
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    jest.clearAllMocks();
+  });
+
+  it("on a stale deployment, writes the draft and reloads — no error toast", async () => {
+    const stale = Object.assign(
+      new Error('Server Action "40c0ffee" was not found on the server.'),
+      { name: "UnrecognizedActionError" },
+    );
+    const { onSubmit } = renderFailing(stale);
+
+    await save(onSubmit);
+
+    await waitFor(() => expect(mockReloadOntoCurrentDeployment).toHaveBeenCalledTimes(1));
+    // The WRITTEN draft is what the reload restores — assert it, not the screen.
+    const draft = JSON.parse(
+      window.localStorage.getItem(`${DRAFT_PREFIX}edit:tpl-1`)!,
+    ) as WorkoutTemplateInput;
+    expect(draft.name).toEqual({ en: "Push Day", es: "Empuje" });
+    expect(draft.exercises).toHaveLength(1);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it("shows the translated failure — never the raw (production-redacted) message", async () => {
+    const { onSubmit } = renderFailing(
+      new Error("An error occurred in the Server Components render."),
+    );
+
+    await save(onSubmit);
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    expect(toast.error).toHaveBeenCalledWith("Couldn't save.");
+    expect(mockReloadOntoCurrentDeployment).not.toHaveBeenCalled();
   });
 });

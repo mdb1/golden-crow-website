@@ -57,6 +57,7 @@ import {
   toMacroDraft,
   type MacroDraft,
 } from "./macro-fields";
+import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 
 interface MealDraft {
   key: string;
@@ -204,8 +205,11 @@ export function NutritionTemplateDialog({
       await onSubmit(payload);
       toast.success(t("saved"));
       onClose();
-    } catch {
-      setError(t("errorGeneric"));
+    } catch (err) {
+      console.error("[nutrition-template-dialog] save failed", err);
+      // A deploy rotated the Server Action IDs: say so (banner with Reload) instead of a
+      // "could not save" the coach would retry forever from this tab.
+      if (!noteIfStaleDeployment(err)) setError(t("errorGeneric"));
     } finally {
       setSaving(false);
     }
