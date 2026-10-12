@@ -27,17 +27,20 @@ import {
   Bold,
   Braces,
   Building2,
+  CalendarClock,
   Check,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  CircleX,
   Clock3,
   Copy,
   ExternalLink,
   FileUp,
   Filter,
   GripVertical,
+  Handshake,
   Italic,
   ListChecks,
   Mail,
@@ -49,10 +52,13 @@ import {
   Save,
   Search,
   Send,
+  Sparkles,
   Star,
+  ThumbsDown,
   Trash2,
   UserRound,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -2570,6 +2576,17 @@ const PIPELINE_STATUS_TONES: Partial<
   },
 };
 
+const CRM_STATUS_ICONS: Record<PartnershipCrmStatus, LucideIcon> = {
+  new: Sparkles,
+  contacted: Send,
+  replied: Mail,
+  meeting: CalendarClock,
+  partner: Handshake,
+  no_response: Clock3,
+  not_interested: ThumbsDown,
+  not_a_fit: CircleX,
+};
+
 function pipelineStatusTone(status: PartnershipCrmStatus, selected: boolean) {
   const tone = PIPELINE_STATUS_TONES[status];
   if (!tone) {
@@ -2626,6 +2643,39 @@ function StatusBadge({
     >
       {appText(language, statusLabel(status))}
     </Badge>
+  );
+}
+
+function CurrentStatusIndicator({
+  status,
+  language,
+}: {
+  status: PartnershipCrmStatus;
+  language: AppLanguage;
+}) {
+  const tone = PIPELINE_STATUS_TONES[status];
+  const Icon = CRM_STATUS_ICONS[status];
+
+  return (
+    <span
+      data-testid="crm-current-status-value"
+      data-status={status}
+      className={cn(
+        "inline-flex w-fit items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold",
+        tone?.activeCard ?? "border-border bg-muted shadow-sm",
+        tone?.count ?? "text-foreground",
+      )}
+    >
+      <Icon
+        data-testid="crm-current-status-icon"
+        aria-hidden="true"
+        className={cn(
+          "h-4 w-4 shrink-0",
+          tone?.label ?? "text-muted-foreground",
+        )}
+      />
+      <span>{appText(language, statusLabel(status))}</span>
+    </span>
   );
 }
 
@@ -9793,7 +9843,7 @@ export function PartnershipCrmWorkbench() {
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     {t("Current status")}
                   </p>
-                  <StatusBadge
+                  <CurrentStatusIndicator
                     status={selectedOrganization.status}
                     language={language}
                   />

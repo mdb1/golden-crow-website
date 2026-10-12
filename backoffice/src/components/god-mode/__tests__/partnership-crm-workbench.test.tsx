@@ -848,6 +848,17 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const statusBlock = within(detailPanel).getByTestId("crm-current-status");
     expect(within(statusBlock).getByText("Current status")).toBeTruthy();
     expect(within(statusBlock).getByText("CRM New")).toBeTruthy();
+    const currentStatusValue = within(statusBlock).getByTestId(
+      "crm-current-status-value",
+    );
+    expect(currentStatusValue.getAttribute("data-status")).toBe("new");
+    expect(currentStatusValue.className).toContain("border-sky-300");
+    expect(currentStatusValue.className).toContain("bg-sky-100/90");
+    expect(
+      within(statusBlock)
+        .getByTestId("crm-current-status-icon")
+        .getAttribute("aria-hidden"),
+    ).toBe("true");
     const changeStatusButton = within(statusBlock).getByRole("button", {
       name: "Change status",
     });
@@ -916,7 +927,18 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByText("Delete Me Genomics"));
 
     const detailPanel = await screen.findByTestId("crm-detail-panel");
-    expect(within(detailPanel).getByText("Estado actual")).toBeTruthy();
+    const statusBlock = within(detailPanel).getByTestId("crm-current-status");
+    expect(within(statusBlock).getByText("Estado actual")).toBeTruthy();
+    expect(within(statusBlock).getByText("Nuevo")).toBeTruthy();
+    const currentStatusValue = within(statusBlock).getByTestId(
+      "crm-current-status-value",
+    );
+    expect(currentStatusValue.getAttribute("data-status")).toBe("new");
+    expect(currentStatusValue.className).toContain("border-sky-300");
+    expect(currentStatusValue.className).toContain("bg-sky-100/90");
+    expect(
+      within(statusBlock).getByTestId("crm-current-status-icon"),
+    ).toBeTruthy();
     expect(within(detailPanel).queryByText("Pipeline")).toBeNull();
     expect(
       within(detailPanel).getByRole("button", { name: "Cambiar estado" }),
@@ -1043,11 +1065,16 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       expect(
         screen.queryByRole("dialog", { name: "Change status" }),
       ).toBeNull();
-      expect(
-        within(screen.getByTestId("crm-current-status")).getByText(
-          "CRM Meeting",
-        ),
-      ).toBeTruthy();
+      const updatedStatusBlock = within(
+        screen.getByTestId("crm-current-status"),
+      );
+      expect(updatedStatusBlock.getByText("CRM Meeting")).toBeTruthy();
+      const updatedStatusValue = updatedStatusBlock.getByTestId(
+        "crm-current-status-value",
+      );
+      expect(updatedStatusValue.getAttribute("data-status")).toBe("meeting");
+      expect(updatedStatusValue.className).toContain("border-violet-300");
+      expect(updatedStatusValue.className).toContain("bg-violet-100/90");
     });
   });
 
