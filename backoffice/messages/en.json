@@ -2437,5 +2437,120 @@
     "reload": "Reload",
     "dismiss": "Not now",
     "boundaryBody": "Reload the page to keep working."
+  },
+  "corvoAdmin": {
+    "title": "Corvo (AI Coach)",
+    "subtitle": "Usage, estimated cost and acceptance of the AI coach over the last 30 days. Conversations can only be read through a report.",
+    "openCard": "Open Corvo dashboard",
+    "cardTitle": "Corvo — AI Coach",
+    "cardDescription": "Messages per day, active users, estimated cost, latency and errors, proposal acceptance, users near their daily quota and reported replies.",
+    "back": "Back to admin",
+    "generatedAt": "Data as of {time} (UTC).",
+    "sectionError": "This section could not be loaded: {error}",
+    "stats": {
+      "turnsToday": "Turns today",
+      "turns30d": "Turns (30 days)",
+      "activeUsers": "Active users",
+      "activeUsersDetail": "{day} in 24 h · {week} in 7 days",
+      "costToday": "Estimated cost today",
+      "cost30d": "Estimated cost (30 days)",
+      "costPerTurn": "{cost} per turn",
+      "avgLatency": "Average latency",
+      "avgLatencyHint": "p50/p95 are not recorded by the server yet",
+      "errorRate": "Error rate",
+      "errorRateDetail": "{errors} failed turns",
+      "quotaRejections": "Quota rejections (30 days)",
+      "prescreenBlocked": "Blocked by pre-screen (30 days)",
+      "notEligible": "Not eligible (30 days)"
+    },
+    "chart": {
+      "title": "Messages per day",
+      "subtitle": "Turns answered by the model, plus messages rejected by the quota or the pre-screen (UTC days).",
+      "turns": "Turns",
+      "quotaRejections": "Quota",
+      "prescreenBlocked": "Pre-screen",
+      "cost": "Cost (US$)",
+      "empty": "Nobody has talked to Corvo in the last 30 days."
+    },
+    "errors": {
+      "title": "Errors by code (30 days)",
+      "empty": "No errors."
+    },
+    "acceptance": {
+      "title": "Acceptance by proposal type",
+      "subtitle": "Applied / shown, proposals created in the last 30 days. Superseded proposals do not count as shown; pending ones do.",
+      "type": "Type",
+      "shown": "Shown",
+      "applied": "Applied",
+      "dismissed": "Dismissed",
+      "failed": "Failed",
+      "expired": "Expired",
+      "pending": "Pending",
+      "rate": "Acceptance",
+      "total": "Total",
+      "empty": "No proposals in the last 30 days."
+    },
+    "proposalTypes": {
+      "body_weight": "Body weight",
+      "routine": "Routine",
+      "follow": "Follow people",
+      "challenge": "Challenge",
+      "fork_routine": "Copy a public routine",
+      "habit_create": "New habit",
+      "habit_update": "Edit habit",
+      "habit_check": "Check off habit",
+      "open_photo_checkin": "Photo check-in",
+      "share_content": "Share",
+      "share_card": "Share card",
+      "schedule_routine": "Schedule routine",
+      "start_workout": "Start workout",
+      "move_workout": "Move workout",
+      "nutrition_plan": "Nutrition plan",
+      "meal_status": "Meal status"
+    },
+    "nearQuota": {
+      "title": "Users near their daily quota",
+      "subtitle": "Users whose last day with Corvo reached at least 80% of their quota (free {free} / Premium {premium} / with a coach {coached} turns per day). The server only keeps each user's last day.",
+      "user": "User",
+      "tier": "Plan",
+      "day": "Day",
+      "usage": "Turns",
+      "reached": "Reached the quota",
+      "free": "Free",
+      "premium": "Premium",
+      "empty": "Nobody is near their quota.",
+      "coached": "Coached"
+    },
+    "reports": {
+      "title": "Reported replies",
+      "subtitle": "Replies users reported from the app. The conversation can only be read from here, and every read is logged.",
+      "date": "Date",
+      "user": "User",
+      "reason": "Reason",
+      "note": "Note",
+      "device": "App",
+      "open": "View context",
+      "empty": "No reported replies."
+    },
+    "reasons": {
+      "incorrect": "Incorrect",
+      "inappropriate": "Inappropriate",
+      "off_topic": "Off topic",
+      "other": "Other"
+    },
+    "context": {
+      "title": "Reported reply",
+      "subtitle": "Read-only: the reported reply and up to 6 previous messages. Nothing after it is shown.",
+      "back": "Back to Corvo",
+      "notFound": "This report does not exist.",
+      "deleted": "Conversation deleted by the user.",
+      "reportedBy": "Reported by {user}",
+      "user": "User",
+      "assistant": "Corvo",
+      "unknown": "Unknown",
+      "reportedBadge": "Reported",
+      "errorMessage": "Error reply ({code})",
+      "emptyText": "(no text)"
+    }
   }
 }

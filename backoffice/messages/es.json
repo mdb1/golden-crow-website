@@ -2437,5 +2437,120 @@
     "reload": "Recargar",
     "dismiss": "Ahora no",
     "boundaryBody": "Recargá la página para seguir trabajando."
+  },
+  "corvoAdmin": {
+    "title": "Corvo (Coach IA)",
+    "subtitle": "Uso, costo estimado y aceptación del coach con IA en los últimos 30 días. Las conversaciones sólo se leen a través de un reporte.",
+    "openCard": "Abrir panel de Corvo",
+    "cardTitle": "Corvo — Coach IA",
+    "cardDescription": "Mensajes por día, usuarios activos, costo estimado, latencia y errores, aceptación de propuestas, usuarios cerca del cupo diario y respuestas reportadas.",
+    "back": "Volver al admin",
+    "generatedAt": "Datos al {time} (UTC).",
+    "sectionError": "No se pudo cargar esta sección: {error}",
+    "stats": {
+      "turnsToday": "Turnos hoy",
+      "turns30d": "Turnos (30 días)",
+      "activeUsers": "Usuarios activos",
+      "activeUsersDetail": "{day} en 24 h · {week} en 7 días",
+      "costToday": "Costo estimado hoy",
+      "cost30d": "Costo estimado (30 días)",
+      "costPerTurn": "{cost} por turno",
+      "avgLatency": "Latencia promedio",
+      "avgLatencyHint": "El servidor todavía no registra p50/p95",
+      "errorRate": "Tasa de error",
+      "errorRateDetail": "{errors} turnos con error",
+      "quotaRejections": "Rechazos por cupo (30 días)",
+      "prescreenBlocked": "Bloqueados por el filtro previo (30 días)",
+      "notEligible": "No habilitados (30 días)"
+    },
+    "chart": {
+      "title": "Mensajes por día",
+      "subtitle": "Turnos que respondió el modelo, más los mensajes rechazados por el cupo o por el filtro previo (días UTC).",
+      "turns": "Turnos",
+      "quotaRejections": "Cupo",
+      "prescreenBlocked": "Filtro previo",
+      "cost": "Costo (US$)",
+      "empty": "Nadie habló con Corvo en los últimos 30 días."
+    },
+    "errors": {
+      "title": "Errores por código (30 días)",
+      "empty": "Sin errores."
+    },
+    "acceptance": {
+      "title": "Aceptación por tipo de propuesta",
+      "subtitle": "Aplicadas / mostradas, propuestas creadas en los últimos 30 días. Las reemplazadas no cuentan como mostradas; las pendientes sí.",
+      "type": "Tipo",
+      "shown": "Mostradas",
+      "applied": "Aplicadas",
+      "dismissed": "Descartadas",
+      "failed": "Fallidas",
+      "expired": "Vencidas",
+      "pending": "Pendientes",
+      "rate": "Aceptación",
+      "total": "Total",
+      "empty": "No hubo propuestas en los últimos 30 días."
+    },
+    "proposalTypes": {
+      "body_weight": "Peso corporal",
+      "routine": "Rutina",
+      "follow": "Seguir personas",
+      "challenge": "Desafío",
+      "fork_routine": "Copiar una rutina pública",
+      "habit_create": "Hábito nuevo",
+      "habit_update": "Editar hábito",
+      "habit_check": "Marcar hábito",
+      "open_photo_checkin": "Check-in de fotos",
+      "share_content": "Compartir",
+      "share_card": "Tarjeta para compartir",
+      "schedule_routine": "Programar rutina",
+      "start_workout": "Empezar entrenamiento",
+      "move_workout": "Mover entrenamiento",
+      "nutrition_plan": "Plan de nutrición",
+      "meal_status": "Estado de comida"
+    },
+    "nearQuota": {
+      "title": "Usuarios cerca del cupo diario",
+      "subtitle": "Usuarios cuyo último día con Corvo llegó al menos al 80% de su cupo (gratis {free} / Premium {premium} / con coach {coached} turnos por día). El servidor sólo guarda el último día de cada usuario.",
+      "user": "Usuario",
+      "tier": "Plan",
+      "day": "Día",
+      "usage": "Turnos",
+      "reached": "Llegó al cupo",
+      "free": "Gratis",
+      "premium": "Premium",
+      "empty": "Nadie está cerca del cupo.",
+      "coached": "Con coach"
+    },
+    "reports": {
+      "title": "Respuestas reportadas",
+      "subtitle": "Respuestas que los usuarios reportaron desde la app. La conversación sólo se puede leer desde acá, y cada lectura queda registrada.",
+      "date": "Fecha",
+      "user": "Usuario",
+      "reason": "Motivo",
+      "note": "Nota",
+      "device": "App",
+      "open": "Ver contexto",
+      "empty": "No hay respuestas reportadas."
+    },
+    "reasons": {
+      "incorrect": "Incorrecta",
+      "inappropriate": "Inapropiada",
+      "off_topic": "Fuera de tema",
+      "other": "Otro"
+    },
+    "context": {
+      "title": "Respuesta reportada",
+      "subtitle": "Sólo lectura: la respuesta reportada y hasta 6 mensajes anteriores. No se muestra nada posterior.",
+      "back": "Volver a Corvo",
+      "notFound": "Este reporte no existe.",
+      "deleted": "Conversación borrada por el usuario.",
+      "reportedBy": "Reportada por {user}",
+      "user": "Usuario",
+      "assistant": "Corvo",
+      "unknown": "Desconocido",
+      "reportedBadge": "Reportada",
+      "errorMessage": "Respuesta con error ({code})",
+      "emptyText": "(sin texto)"
+    }
   }
 }
