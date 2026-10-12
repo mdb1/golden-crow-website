@@ -313,7 +313,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     ).toContain("text-orange-600");
   });
 
-  it("marks contacted and replied CRM rows in the favorite signal cell", async () => {
+  it("uses distinct CRM colors for contacted, replied, and partner", async () => {
     const contactedOrganization: PartnershipCrmOrganizationRecord = {
       ...organization,
       id: "org-contacted",
@@ -327,6 +327,13 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       name: "Replied Genetics",
       status: "replied",
       normalizedName: "replied genetics",
+    };
+    const partnerOrganization: PartnershipCrmOrganizationRecord = {
+      ...organization,
+      id: "org-partner",
+      name: "Partner Genetics",
+      status: "partner",
+      normalizedName: "partner genetics",
     };
 
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
@@ -344,7 +351,11 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       }
 
       return {
-        organizations: [contactedOrganization, repliedOrganization],
+        organizations: [
+          contactedOrganization,
+          repliedOrganization,
+          partnerOrganization,
+        ],
         nextCursor: undefined,
       };
     });
@@ -354,6 +365,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await waitFor(() => {
       expect(screen.getByText("Contacted Genetics")).toBeTruthy();
       expect(screen.getByText("Replied Genetics")).toBeTruthy();
+      expect(screen.getByText("Partner Genetics")).toBeTruthy();
     });
 
     const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
@@ -363,9 +375,13 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const repliedRow = rows.find((row) =>
       within(row).queryByText("Replied Genetics"),
     );
+    const partnerRow = rows.find((row) =>
+      within(row).queryByText("Partner Genetics"),
+    );
 
     expect(contactedRow).toBeTruthy();
     expect(repliedRow).toBeTruthy();
+    expect(partnerRow).toBeTruthy();
 
     const sentSignal = within(contactedRow as HTMLElement).getByRole("img", {
       name: "Email sent",
@@ -384,6 +400,18 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(
       replySignal.closest("[data-slot='table-cell']")?.className,
     ).toContain("bg-emerald-50");
+
+    const partnerBadge = within(partnerRow as HTMLElement).getByText(
+      "CRM Partner",
+    );
+    expect(partnerBadge.className).toContain("bg-indigo-700");
+    expect(partnerBadge.className).not.toContain("success");
+
+    const partnerPipelineCard = screen.getByRole("button", {
+      name: /Partner\s+1/,
+    });
+    expect(partnerPipelineCard.className).toContain("bg-indigo-100");
+    expect(partnerPipelineCard.className).not.toContain("teal");
   });
 
   it("deletes multiple selected organizations from the list", async () => {
@@ -2370,6 +2398,9 @@ describe("PartnershipCrmWorkbench list pager", () => {
       "non-scaling-stroke",
     );
     expect(statusPieSegments).toHaveLength(6);
+    expect(statusPieSegments[4].getAttribute("fill")).toBe(
+      "light-dark(#4338ca, #818cf8)",
+    );
     expect(statusPieSegments[5].getAttribute("fill")).toBe(
       "color-mix(in srgb, var(--chart-1) 74%, var(--foreground))",
     );

@@ -173,6 +173,7 @@ const VISUAL_FILTER_COLORS = [
   "var(--chart-4)",
   "var(--chart-5)",
 ] as const;
+const CRM_PARTNER_VISUAL_FILTER_COLOR = "light-dark(#4338ca, #818cf8)";
 const MAX_VISUAL_FILTER_BUCKETS = 5;
 const CRM_DETAIL_PANEL_MIN_WIDTH_PERCENT = 100 / 3;
 const CRM_DETAIL_PANEL_MAX_WIDTH_PERCENT = 200 / 3;
@@ -2463,9 +2464,6 @@ function CompatibilityValueDisplay({
 }
 
 function statusBadgeVariant(status: PartnershipCrmStatus) {
-  if (status === "partner") {
-    return "success" as const;
-  }
   if (status === "replied" || status === "meeting") {
     return "brand" as const;
   }
@@ -2476,6 +2474,18 @@ function statusBadgeVariant(status: PartnershipCrmStatus) {
     return "secondary" as const;
   }
   return "outline" as const;
+}
+
+function statusBadgeClass(status: PartnershipCrmStatus) {
+  if (status === "contacted") {
+    return "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-300/30 dark:bg-orange-400/10 dark:text-orange-200";
+  }
+
+  if (status === "partner") {
+    return "border-indigo-700 bg-indigo-700 text-white shadow-sm dark:border-indigo-400/60 dark:bg-indigo-500/30 dark:text-indigo-100";
+  }
+
+  return undefined;
 }
 
 type PipelineStatusTone = {
@@ -2517,11 +2527,11 @@ const PIPELINE_STATUS_TONES: Partial<
     count: "text-violet-950 dark:text-violet-50",
   },
   partner: {
-    card: "border-teal-200/80 bg-teal-50/75 hover:border-teal-300/80 hover:bg-teal-100/70 dark:border-teal-300/20 dark:bg-teal-400/10 dark:hover:bg-teal-400/15",
+    card: "border-indigo-300/90 bg-indigo-100/85 hover:border-indigo-500/80 hover:bg-indigo-200/85 dark:border-indigo-400/30 dark:bg-indigo-500/15 dark:hover:border-indigo-300/55 dark:hover:bg-indigo-500/25",
     activeCard:
-      "border-teal-300 bg-teal-100/90 shadow-sm dark:border-teal-300/45 dark:bg-teal-400/20",
-    label: "text-teal-700 dark:text-teal-200/90",
-    count: "text-teal-950 dark:text-teal-50",
+      "border-indigo-700 bg-indigo-200/95 shadow-sm ring-1 ring-indigo-600/20 dark:border-indigo-300/65 dark:bg-indigo-500/30 dark:ring-indigo-300/15",
+    label: "text-indigo-800 dark:text-indigo-200",
+    count: "text-indigo-950 dark:text-indigo-50",
   },
   no_response: {
     card: "border-amber-200/80 bg-amber-50/75 hover:border-amber-300/80 hover:bg-amber-100/70 dark:border-amber-300/20 dark:bg-amber-400/10 dark:hover:bg-amber-400/15",
@@ -2598,11 +2608,7 @@ function StatusBadge({
   return (
     <Badge
       variant={statusBadgeVariant(status)}
-      className={
-        status === "contacted"
-          ? "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-300/30 dark:bg-orange-400/10 dark:text-orange-200"
-          : undefined
-      }
+      className={statusBadgeClass(status)}
     >
       {appText(language, statusLabel(status))}
     </Badge>
@@ -3128,7 +3134,10 @@ function visualFilterBuckets(
     )
     .map(({ sourceIndex, ...bucket }, index) => ({
       ...bucket,
-      color: visualFilterBucketColor(index),
+      color:
+        facet.key === "status" && bucket.value === "partner"
+          ? CRM_PARTNER_VISUAL_FILTER_COLOR
+          : visualFilterBucketColor(index),
     }));
 }
 
