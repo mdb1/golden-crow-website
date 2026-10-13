@@ -8,7 +8,7 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
     <div class="legal-container">
       <p class="legal-lang"><a href="/gc-fitness/privacy">Versión en español</a></p>
       <h1>Privacy Policy — Corvo</h1>
-      <p class="legal-updated">Effective date: October 12, 2026</p>
+      <p class="legal-updated">Effective date: October 13, 2026</p>
 
       <p>
         This policy describes how Golden Crow ("we") handles your personal data when you use the
@@ -131,8 +131,9 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
       <ul>
         <li><strong>What is sent to Anthropic:</strong> your messages to the AI Coach and the
           account data needed to answer them: workouts, personal records, body weight, habits,
-          routines, schedule and nutrition. Your email, progress photos, location and any
-          non-public data about other people are <strong>not</strong> sent.</li>
+          routines, schedule and nutrition. Your email, location and any non-public data about other
+          people are <strong>not</strong> sent. Neither are your progress photos, unless you turn on
+          photo analysis (see <a href="#ai-coach-photos">below</a>).</li>
         <li><strong>Nothing changes without your confirmation:</strong> the AI Coach only proposes
           actions (for example, logging your weight or adding a routine). They are saved only if
           you confirm them.</li>
@@ -145,6 +146,30 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
           replace a health professional.</li>
         <li><strong>Deletion:</strong> you can delete the conversation at any time in the app
           (AI Coach → ⋯ → Delete conversation). Deleting your account deletes it too.</li>
+      </ul>
+
+      <h3 id="ai-coach-photos">Optional analysis of your progress photos</h3>
+      <p>
+        If you want, Corvo can look at your progress photos to recommend which muscle groups to
+        prioritize. It is a <strong>separate</strong> permission from Corvo's, off by default, that
+        you turn on in the app (Corvo → ⋯ → Privacy → "Allow Corvo to see my progress photos").
+      </p>
+      <ul>
+        <li><strong>When they are sent:</strong> only when you ask Corvo for an analysis and the
+          permission is on. The photos of one check-in (front, side and back) are sent together
+          with your training data (sets per muscle and body weight).</li>
+        <li><strong>To whom:</strong> only to <strong>Anthropic</strong>, which acts as a data
+          processor, to generate the answer. No other third party receives them.</li>
+        <li><strong>How:</strong> our server downscales them (at most 1 megapixel) and strips
+          their metadata (such as location or device) before sending them. No copies are kept:
+          neither we nor the AI Coach keep the images that were sent; only the text of the answer
+          stays in the conversation. Your original photos stay where they were, in your account.</li>
+        <li><strong>What Corvo does with them:</strong> it only compares the relative development
+          between muscle groups and symmetry. It does not judge your body or appearance, estimate
+          your body-fat percentage or give clinical numbers. If there are signs of an eating
+          disorder, it does not analyze the photos and recommends seeing a professional.</li>
+        <li><strong>You can revoke it at any time</strong> from the same place. From then on Corvo
+          cannot see your photos again.</li>
       </ul>
 
       <p id="coach-ai-summary">
@@ -165,7 +190,8 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
         <li><strong>RevenueCat:</strong> processes the status of your subscriptions and purchases to
           unlock Premium. It acts as a data processor.</li>
         <li><strong>Anthropic:</strong> processes your messages to the AI Coach and the data
-          needed to answer them, only if you turned the AI Coach on. It acts as a data processor.</li>
+          needed to answer them, only if you turned the AI Coach on, and your progress photos only if
+          you also turned on photo analysis. It acts as a data processor.</li>
         <li><strong>Infrastructure providers:</strong> we use Google Firebase (authentication,
           database, storage, push notifications, Crashlytics, and Analytics) to operate the app.
           Google acts as a data processor.</li>
@@ -245,6 +271,10 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
   .legal-container h2 {
     font-size: 1.2rem;
     margin: 2rem 0 0.5rem;
+  }
+  .legal-container h3 {
+    font-size: 1.05rem;
+    margin: 1.5rem 0 0.4rem;
   }
   .legal-container ul {
     padding-left: 1.25rem;

@@ -8,7 +8,7 @@ import { CORVO_HEAD_ASSETS } from '../../data/gcFitnessPublic';
     <div class="legal-container">
       <p class="legal-lang"><a href="/en/gc-fitness/privacy">English version</a></p>
       <h1>Política de Privacidad — Corvo</h1>
-      <p class="legal-updated">Vigente desde: 12 de octubre de 2026</p>
+      <p class="legal-updated">Vigente desde: 13 de octubre de 2026</p>
 
       <p>
         Esta política describe cómo Golden Crow («nosotros») trata tus datos personales cuando
@@ -133,8 +133,9 @@ import { CORVO_HEAD_ASSETS } from '../../data/gcFitnessPublic';
       <ul>
         <li><strong>Qué se envía a Anthropic:</strong> tus mensajes al Coach IA y los datos de tu
           cuenta que hacen falta para contestarte: entrenamientos, récords, peso corporal, hábitos,
-          rutinas, agenda y nutrición. <strong>No</strong> se envían tu email, tus fotos de progreso,
-          tu ubicación ni datos de otras personas que no sean públicos.</li>
+          rutinas, agenda y nutrición. <strong>No</strong> se envían tu email, tu ubicación ni datos
+          de otras personas que no sean públicos. Tus fotos de progreso tampoco, salvo que actives
+          el análisis de fotos (ver <a href="#coach-ia-fotos">más abajo</a>).</li>
         <li><strong>Nada cambia sin tu confirmación:</strong> el Coach IA sólo propone acciones
           (por ejemplo, cargar tu peso o agregar una rutina). Se guardan únicamente si las
           confirmás.</li>
@@ -148,6 +149,31 @@ import { CORVO_HEAD_ASSETS } from '../../data/gcFitnessPublic';
           profesional de la salud.</li>
         <li><strong>Borrado:</strong> podés borrar la conversación cuando quieras desde la app
           (Coach IA → ⋯ → Borrar conversación). Al eliminar tu cuenta también se borra.</li>
+      </ul>
+
+      <h3 id="coach-ia-fotos">Análisis opcional de tus fotos de progreso</h3>
+      <p>
+        Si querés, Corvo puede mirar tus fotos de progreso para recomendarte qué grupos musculares
+        priorizar. Es un permiso <strong>aparte</strong> del de Corvo, apagado por defecto, que se
+        activa en la app (Corvo → ⋯ → Privacidad → «Permitir que Corvo vea mis fotos de progreso»).
+      </p>
+      <ul>
+        <li><strong>Cuándo se envían:</strong> sólo cuando le pedís a Corvo un análisis y el
+          permiso está activado. Se envían las fotos de un check-in (frente, perfil y espalda) junto
+          con tus datos de entrenamiento (series por músculo y peso corporal).</li>
+        <li><strong>A quién:</strong> únicamente a <strong>Anthropic</strong>, que actúa como
+          encargado del tratamiento, para generar la respuesta. Ningún otro tercero las recibe.</li>
+        <li><strong>Cómo:</strong> nuestro servidor las reduce (como máximo 1 megapíxel) y les
+          quita los metadatos (como la ubicación o el dispositivo) antes de enviarlas. No se
+          guardan copias: ni nosotros ni el Coach IA conservamos las imágenes enviadas; en la
+          conversación sólo queda el texto de la respuesta. Tus fotos originales siguen donde
+          estaban, en tu cuenta.</li>
+        <li><strong>Qué hace Corvo con ellas:</strong> sólo compara el desarrollo relativo entre
+          grupos musculares y la simetría. No juzga tu cuerpo ni tu apariencia, no estima tu
+          porcentaje de grasa ni da números clínicos. Si aparecen señales de un trastorno de la
+          conducta alimentaria, no analiza las fotos y te recomienda consultar a un profesional.</li>
+        <li><strong>Podés revocarlo cuando quieras</strong> desde el mismo lugar. Desde ese
+          momento Corvo no puede volver a ver tus fotos.</li>
       </ul>
 
       <p id="resumen-ia-coach">
@@ -168,7 +194,8 @@ import { CORVO_HEAD_ASSETS } from '../../data/gcFitnessPublic';
         <li><strong>RevenueCat:</strong> procesa el estado de tus suscripciones y compras para
           habilitar Premium. Actúa como encargado del tratamiento.</li>
         <li><strong>Anthropic:</strong> procesa tus mensajes al Coach IA y los datos necesarios
-          para responderlos, sólo si activaste el Coach IA. Actúa como encargado del tratamiento.</li>
+          para responderlos, sólo si activaste el Coach IA, y tus fotos de progreso sólo si además
+          activaste el análisis de fotos. Actúa como encargado del tratamiento.</li>
         <li><strong>Proveedores de infraestructura:</strong> usamos Google Firebase
           (autenticación, base de datos, almacenamiento, notificaciones, Crashlytics y Analytics)
           para operar la app. Google actúa como encargado del tratamiento.</li>
@@ -249,6 +276,10 @@ import { CORVO_HEAD_ASSETS } from '../../data/gcFitnessPublic';
   .legal-container h2 {
     font-size: 1.2rem;
     margin: 2rem 0 0.5rem;
+  }
+  .legal-container h3 {
+    font-size: 1.05rem;
+    margin: 1.5rem 0 0.4rem;
   }
   .legal-container ul {
     padding-left: 1.25rem;
