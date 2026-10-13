@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import {
   addCoachEmailToAllowlist,
@@ -70,6 +71,7 @@ export default async function AdminPage({
   const coaches = await listCoachesForAdmin();
   const allowlistRows = await listCoachAllowlist();
   const openReportsCount = await countOpenReports().catch(() => 0);
+  const tCorvo = await getTranslations("corvoAdmin");
 
   async function addAllowlistEmailAction(formData: FormData) {
     "use server";
@@ -308,6 +310,18 @@ export default async function AdminPage({
         <CardContent>
           <Button asChild variant="outline" className="rounded-full">
             <Link href="/gc-fitness/admin/moderation">Abrir cola de moderación</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">{tCorvo("cardTitle")}</CardTitle>
+          <CardDescription>{tCorvo("cardDescription")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/gc-fitness/admin/corvo">{tCorvo("openCard")}</Link>
           </Button>
         </CardContent>
       </Card>
