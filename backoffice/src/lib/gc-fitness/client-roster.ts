@@ -48,6 +48,7 @@ import { FirestoreCollections } from "./collections";
 import { coachVisibleClientName } from "./client-name";
 import { coerceLegacyHabitLogValue } from "./habit-compliance";
 import { isHabitNotDeleted } from "./habit-visibility";
+import { effectiveIsoWeekdays } from "./habit-schedule";
 import { civilDateToday } from "./civil-date";
 import { getTrainerTimezone } from "./trainer-timezone";
 import { loadNutritionRosterSummaries } from "./nutrition-roster";
@@ -823,9 +824,10 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         if (cadence === "daily") {
           habitsScheduledThisWeek += 7;
         } else if (cadence === "weekly") {
-          const weekdays = Array.isArray(habit.scheduleWeekdays)
-            ? habit.scheduleWeekdays
-            : [];
+          // gc-fitness#1343 — marker-aware effective ISO days.
+          const weekdays = effectiveIsoWeekdays(
+            hdoc.data() as Record<string, unknown>,
+          );
           // iOS uses 1=Mon..7=Sun; JS Date.getDay() uses 0=Sun..6=Sat.
           // Map iOS 7 → JS 0 (Sun), otherwise iOS N → JS N.
           const normalized = new Set(

@@ -63,7 +63,10 @@ import {
   localDateToCivil,
 } from "@/lib/gc-fitness/end-date-presets";
 import { Calendar } from "@/components/ui/calendar";
-import { isHabitScheduledOn } from "@/lib/gc-fitness/habit-schedule";
+import {
+  HABIT_WEEKDAY_FORMAT_ISO,
+  isHabitScheduledOn,
+} from "@/lib/gc-fitness/habit-schedule";
 import {
   addCivilDays,
   MAX_RECURRING_OCCURRENCES,
@@ -279,6 +282,9 @@ export function HabitForm({
       scheduleCadence: watchedScheduleCadence,
       scheduleWeekdays: watchedScheduleWeekdays,
       scheduleMonthDays: watchedScheduleMonthDays,
+      // gc-fitness#1343 — the form's days are ISO, and the save stamps the
+      // marker; preview them exactly as the apps will read the saved doc.
+      weekdayFormat: HABIT_WEEKDAY_FORMAT_ISO,
     };
     const dates: Date[] = [];
     for (let d = startsOn; d <= windowEnd; d = addCivilDays(d, 1)) {

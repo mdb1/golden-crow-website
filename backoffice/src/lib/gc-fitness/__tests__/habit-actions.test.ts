@@ -900,3 +900,89 @@ describe("assignHabitTemplate — recurrence override (#176)", () => {
     expect(mockBatchSet).not.toHaveBeenCalled();
   });
 });
+
+// ── gc-fitness#1343 — every /habits writer stamps `weekdayFormat: "iso"` ────
+// Readers then take `scheduleWeekdays` as ISO and never run the legacy
+// Sun-first heuristic keyed on `startsOn` (which misread a NEW Mon/Wed/Fri
+// habit started on a Thursday as Sun/Tue/Thu). Templates never carry it
+// (no `startsOn` → no heuristic; and the template update allowlist lacks it).
+describe("#1343 — weekdayFormat marker on habit writes", () => {
+  it("createHabit stamps weekdayFormat:'iso' on the habit, NOT on the spawned template", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockSet.mockResolvedValue(undefined);
+
+    await createHabit({
+      ...VALID_BINARY_HABIT_INPUT,
+      scheduleType: "recurring",
+      scheduleCadence: "weekly",
+      scheduleWeekdays: [1, 3, 5],
+      startsOn: "2026-10-08", // a Thursday — the #1343 repro
+    });
+
+    const habitPayload = mockSet.mock.calls[0][0] as Record<string, unknown>;
+    expect(habitPayload.weekdayFormat).toBe("iso");
+    expect(habitPayload.scheduleWeekdays).toEqual([1, 3, 5]);
+    const templatePayload = mockSet.mock.calls[1][0] as Record<string, unknown>;
+    expect(templatePayload.scope).toBe("trainer");
+    expect(templatePayload.weekdayFormat).toBeUndefined();
+  });
+
+  it("updateHabit stamps weekdayFormat:'iso' alongside the rewritten schedule", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeHabitSnapshot({ exists: true, trainerId: ALLOWED_UID, type: "binary" }),
+    );
+    mockUpdate.mockResolvedValue(undefined);
+
+    await updateHabit(`hab-${ALLOWED_UID}-abc`, {
+      name: { en: "Walk", es: "Caminar" },
+      reminderEnabled: false,
+      scheduleType: "recurring",
+      scheduleCadence: "weekly",
+      scheduleWeekdays: [1, 3, 5],
+      startsOn: "2026-10-08",
+    });
+
+    const patch = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    expect(patch.weekdayFormat).toBe("iso");
+    expect(patch.scheduleWeekdays).toEqual([1, 3, 5]);
+  });
+
+  it("assignHabitTemplate stamps weekdayFormat:'iso' on every created habit", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValueOnce(
+      fakeTemplateSnapshot({
+        exists: true,
+        scheduleCadence: "weekly",
+        scheduleWeekdays: [1, 3, 5],
+      }),
+    );
+    mockGet.mockResolvedValueOnce(fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }));
+
+    await assignHabitTemplate({
+      templateId: "habit-template-trainer-A-x",
+      clientIds: ["uid-client-1"],
+      startsOn: "2026-10-08",
+    });
+
+    const payload = mockBatchSet.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.weekdayFormat).toBe("iso");
+    expect(payload.scheduleWeekdays).toEqual([1, 3, 5]);
+  });
+
+  it("softDeleteHabit and the end-recurrence write do NOT stamp the marker", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeHabitSnapshot({ exists: true, trainerId: ALLOWED_UID, type: "binary", startsOn: "2026-01-01" }),
+    );
+    mockUpdate.mockResolvedValue(undefined);
+
+    await softDeleteHabit(`hab-${ALLOWED_UID}-abc`);
+    await deleteHabitRecurrenceFromDate(`hab-${ALLOWED_UID}-abc`, "2026-06-10");
+
+    expect(mockUpdate).toHaveBeenCalled();
+    for (const call of mockUpdate.mock.calls) {
+      expect((call[0] as Record<string, unknown>).weekdayFormat).toBeUndefined();
+    }
+  });
+});
