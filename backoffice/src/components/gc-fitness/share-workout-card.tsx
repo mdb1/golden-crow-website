@@ -1142,7 +1142,7 @@ function ShareCardRenderer({
                 color: ACCENT,
               }}
             >
-              GC FITNESS
+              CORVO
             </div>
             {model.dateLine ? (
               <div style={{ fontSize: 22, color: TEXT_SECONDARY }}>

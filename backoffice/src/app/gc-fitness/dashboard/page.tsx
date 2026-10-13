@@ -44,7 +44,7 @@ import { ChecklistPending } from "./_components/checklist-pending";
 import { UnassignedClientsCard } from "./_components/unassigned-clients-card";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <dashboard>" (issue #170).
+// Tab title: "Corvo - <dashboard>" (issue #170).
 export const generateMetadata = () => sectionMetadata("dashboard");
 
 export const dynamic = "force-dynamic";

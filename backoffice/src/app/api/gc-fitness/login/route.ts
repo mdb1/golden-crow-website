@@ -18,7 +18,7 @@ import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 //   2. We verify the idToken server-side via gcFitnessAuth() (the named-app
 //      Admin SDK init for gcfitness-3476b) — this is the FIRST line of defense
 //      against forged tokens.
-//   3. We promote the signed-in Firebase Auth user to a GC Fitness trainer
+//   3. We promote the signed-in Firebase Auth user to a Corvo trainer
 //      by setting custom claims (`role: "trainer"`).
 //   4. We delegate to next-firebase-auth-edge's `setAuthCookies(...)` which
 //      re-verifies the idToken internally and returns a NextResponse with

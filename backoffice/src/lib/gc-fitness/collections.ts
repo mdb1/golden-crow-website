@@ -143,7 +143,7 @@ export const FirestoreCollections = {
   clientNotes: "client_notes",
 
   /**
-   * GC Fitness coach allowlist managed from the admin backoffice.
+   * Corvo coach allowlist managed from the admin backoffice.
    * Doc id: normalized lowercase email.
    */
   coachAllowlist: "coach_allowlist",

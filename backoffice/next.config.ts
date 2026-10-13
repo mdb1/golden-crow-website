@@ -7,7 +7,7 @@ import path from "node:path";
 // subtree via NextIntlClientProvider in `app/gc-fitness/layout.tsx`.
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
-// #378 — Brave / privacy-browser sign-in. The GC Fitness Firebase Auth handler
+// #378 — Brave / privacy-browser sign-in. The Corvo Firebase Auth handler
 // normally lives on the cross-origin domain gcfitness-3476b.firebaseapp.com.
 // Brave (and Safari ITP / Firefox ETP) block that cross-origin handler's
 // storage, so signInWithPopup is blocked and signInWithRedirect's

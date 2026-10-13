@@ -1,6 +1,6 @@
 // workout-assignment-actions.ts
 //
-// Server Actions for the GC Fitness trainer workout-assignment surface
+// Server Actions for the Corvo trainer workout-assignment surface
 // (single + bulk assign, narrow edit, hard delete, list queries).
 //
 // Plan 04-05 contract (see PLAN.md + 04-RESEARCH.md Pattern 4):

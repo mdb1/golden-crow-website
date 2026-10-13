@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/table";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <adminPanel>" (issue #170).
+// Tab title: "Corvo - <adminPanel>" (issue #170).
 export const generateMetadata = () => sectionMetadata("adminPanel");
 
 export const dynamic = "force-dynamic";
@@ -111,7 +111,7 @@ export default async function AdminPage({
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
         title="Admin Console"
-        subtitle="GC Fitness operator tools. Multi-role is enabled: a user can be trainer and admin at the same time."
+        subtitle="Corvo operator tools. Multi-role is enabled: a user can be trainer and admin at the same time."
       />
 
       {actionMessage ? (

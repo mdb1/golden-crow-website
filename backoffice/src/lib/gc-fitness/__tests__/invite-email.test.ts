@@ -67,7 +67,7 @@ describe("buildClientInviteEmail", () => {
     const linked = buildClientInviteEmail({ ...BASE, kind: "linked", locale: "es" });
     const download = buildClientInviteEmail({ ...BASE, kind: "download", locale: "es" });
     expect(linked.subject).not.toBe(download.subject);
-    expect(linked.text).toContain("Abrir GC Fitness");
+    expect(linked.text).toContain("Abrir Corvo");
     expect(download.text).toContain("Descargar la app");
   });
 

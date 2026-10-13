@@ -1,6 +1,6 @@
 // exercise-server-actions.ts
 //
-// Server Actions for the GC Fitness trainer Exercise CRUD surface. This module
+// Server Actions for the Corvo trainer Exercise CRUD surface. This module
 // is the ONLY trainer-writable path to /exercises (Firestore rules from 03-03
 // deny client-SDK writes). Every guarantee — allowlist enforcement, role
 // check, ownership claim, source-immutability, 60-min signed URL pinned to

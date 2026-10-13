@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { HelperBanner } from "@/components/helper-banner";
 import { BACKOFFICE_VERSION } from "@/lib/app-version";
 
-// GC Fitness trainer sign-in. Surface B of the Phase 2 UI-SPEC.
+// Corvo trainer sign-in. Surface B of the Phase 2 UI-SPEC.
 //
 // Flow:
 //   1. Click "Sign in with Google" → signInWithPopup on the scoped gc-fitness
@@ -142,7 +142,7 @@ export default function GCFitnessLoginPage() {
             <p className="font-heading text-2xl font-bold tracking-tight text-foreground">
               Coach Portal
             </p>
-            <p className="text-sm font-medium text-primary">GC Fitness</p>
+            <p className="text-sm font-medium text-primary">Corvo</p>
           </div>
         </div>
 
@@ -192,7 +192,7 @@ export default function GCFitnessLoginPage() {
         </div>
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
-          GC Fitness · v{BACKOFFICE_VERSION}
+          Corvo · v{BACKOFFICE_VERSION}
         </p>
       </div>
     </main>

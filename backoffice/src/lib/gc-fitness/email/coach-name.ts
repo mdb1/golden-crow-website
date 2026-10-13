@@ -3,7 +3,7 @@
 // The coach's display name, resolved the same way everywhere.
 //
 // It exists because the name is now in the SUBJECT LINE of an email to a
-// third party ("Fede te invitó a entrenar en GC Fitness"). `provisionClient`
+// third party ("Fede te invitó a entrenar en Corvo"). `provisionClient`
 // already resolved it via its private `trainerProfile`, but that helper lives
 // inside a `"use server"` file, where exporting it would turn it into a Server
 // Action. Rather than duplicate the fallback rule and let the two drift, the

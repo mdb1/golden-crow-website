@@ -1,6 +1,6 @@
 // user-actions.ts
 //
-// Server Actions for the GC Fitness trainer's OWN /users/{uid} self-write
+// Server Actions for the Corvo trainer's OWN /users/{uid} self-write
 // surface. Today this module exposes a single Action:
 //
 //   - updateChatQuickReplies(input) — write the trainer's CHAT-11 quick-reply

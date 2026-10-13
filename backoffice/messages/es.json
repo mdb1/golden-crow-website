@@ -74,10 +74,10 @@
   },
   "shell": {
     "eyebrow": "Golden Crow",
-    "appName": "GC Fitness",
+    "appName": "Corvo",
     "tagline": "Consola del entrenador.",
     "footerBlurb": "Gestioná clientes, programación, asignaciones, hábitos y chat desde un solo espacio.",
-    "headerEyebrow": "GC Fitness",
+    "headerEyebrow": "Corvo",
     "headerTitle": "Backoffice del entrenador",
     "languagePicker": {
       "label": "Idioma",
@@ -2293,7 +2293,7 @@
     "cancel": "Cancelar"
   },
   "login": {
-    "eyebrow": "GC Fitness",
+    "eyebrow": "Corvo",
     "title": "Inicio de sesión del entrenador",
     "subtitle": "Iniciá sesión con tu cuenta de Google autorizada.",
     "googleCta": "Iniciar sesión con Google",
@@ -2302,10 +2302,10 @@
     "errorFallback": "Falló el inicio de sesión. Probá de nuevo."
   },
   "forbidden": {
-    "eyebrow": "GC Fitness",
+    "eyebrow": "Corvo",
     "title": "No autorizado",
     "bannerTitle": "Acceso denegado",
-    "body": "Esta cuenta no tiene acceso a GC Fitness. Contactá al administrador."
+    "body": "Esta cuenta no tiene acceso a Corvo. Contactá al administrador."
   },
   "nutritionLibrary": {
     "tabMeals": "Comidas",

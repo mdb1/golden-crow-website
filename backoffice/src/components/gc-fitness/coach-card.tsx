@@ -1,7 +1,7 @@
 "use client";
 
 // CoachCard — the signed-in coach identity card that anchors the bottom of the
-// GC Fitness sidebar (redesign 2026-06). Mirrors the reference design: avatar +
+// Corvo sidebar (redesign 2026-06). Mirrors the reference design: avatar +
 // name + plan, and tucks the secondary controls (theme, language, sign out)
 // behind a dropdown so the rail stays clean.
 //

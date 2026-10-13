@@ -7,7 +7,7 @@ import { authMiddleware } from "next-firebase-auth-edge";
 //
 //   1. /gc-fitness/* and /api/gc-fitness/{login,logout}  →  next-firebase-auth-edge
 //      (cookie-based SSR auth for the gc-fitness trainer surface; access is
-//      based on a valid trainer session cookie minted by the GC Fitness login
+//      based on a valid trainer session cookie minted by the Corvo login
 //      flow. Public login/forbidden pages bypass the gate.)
 //   2. /open-api/*                                      →  public OpenAPI
 //      (client_id/client_secret and bearer tokens are validated inside handlers)
@@ -205,7 +205,7 @@ export default async function proxy(request: NextRequest) {
         missing.join(", "),
       );
       return new NextResponse(
-        "GC Fitness backoffice is misconfigured. Contact your administrator.",
+        "Corvo backoffice is misconfigured. Contact your administrator.",
         { status: 500 },
       );
     }

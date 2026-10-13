@@ -1,5 +1,5 @@
 /**
- * GC Fitness sidebar nav configuration.
+ * Corvo sidebar nav configuration.
  *
  * Closes BO-06 (Phase 11-04) — the trainer-facing sidebar needs its own
  * section + nav metadata so `getProjectNav("gc-fitness", role)` returns

@@ -12,7 +12,7 @@ import {
 import { MyActivityFeed } from "./MyActivityFeed";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <myActivity>" (issue #170).
+// Tab title: "Corvo - <myActivity>" (issue #170).
 export const generateMetadata = () => sectionMetadata("myActivity");
 
 export const dynamic = "force-dynamic";

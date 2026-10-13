@@ -283,7 +283,7 @@ export const WIKI_GROUPS: WikiGroup[] = [
 export const WIKI_LINKS: WikiLink[] = [
   {
     id: "link-dashboard",
-    label: { es: "Dashboard de GC Fitness", en: "GC Fitness dashboard" },
+    label: { es: "Dashboard de Corvo", en: "Corvo dashboard" },
     description: {
       es: "El portal de coaches donde gestionás a tus clientes, entrenamientos y hábitos.",
       en: "The coach portal where you manage your clients, workouts, and habits.",
@@ -306,8 +306,8 @@ export const WIKI_LINKS: WikiLink[] = [
       en: "Client app for iPhone (App Store)",
     },
     description: {
-      es: "Para iPhone: descargá GC Fitness desde la App Store.",
-      en: "For iPhone: download GC Fitness from the App Store.",
+      es: "Para iPhone: descargá Corvo desde la App Store.",
+      en: "For iPhone: download Corvo from the App Store.",
     },
     href: "https://apps.apple.com/us/app/gc-fitness/id6771836254",
   },
@@ -318,8 +318,8 @@ export const WIKI_LINKS: WikiLink[] = [
       en: "Client app for Android (Google Play)",
     },
     description: {
-      es: "Para Android: descargá GC Fitness desde Google Play.",
-      en: "For Android: download GC Fitness from Google Play.",
+      es: "Para Android: descargá Corvo desde Google Play.",
+      en: "For Android: download Corvo from Google Play.",
     },
     href: "https://play.google.com/store/apps/details?id=com.goldencrow.fitness",
   },
@@ -335,8 +335,8 @@ export const WIKI_FAQ: WikiFaq[] = [
       en: "My client signed into the app but I can't see them in my dashboard.",
     },
     answer: {
-      es: "Si el cliente inició sesión con un email distinto al que vos pre-cargaste, queda asignado a un coach general en lugar de a tu cuenta. Esto también pasa con “Iniciar sesión con Apple” cuando usan la opción de ocultar el email (Apple genera un email “relay” distinto al real). Para moverlo a tu cuenta, contactá a un miembro de GC Fitness o escribí a support@goldencrowvs.com y transferimos a ese cliente a tu cuenta.",
-      en: "If the client signed in with an email different from the one you pre-loaded, they get assigned to a general coach instead of your account. This also happens with “Sign in with Apple” when they choose to hide their email (Apple issues a “relay” address that differs from the real one). To move them to your account, contact a GC Fitness team member or email support@goldencrowvs.com and we'll transfer that client to your account.",
+      es: "Si el cliente inició sesión con un email distinto al que vos pre-cargaste, queda asignado a un coach general en lugar de a tu cuenta. Esto también pasa con “Iniciar sesión con Apple” cuando usan la opción de ocultar el email (Apple genera un email “relay” distinto al real). Para moverlo a tu cuenta, contactá a un miembro de Corvo o escribí a support@goldencrowvs.com y transferimos a ese cliente a tu cuenta.",
+      en: "If the client signed in with an email different from the one you pre-loaded, they get assigned to a general coach instead of your account. This also happens with “Sign in with Apple” when they choose to hide their email (Apple issues a “relay” address that differs from the real one). To move them to your account, contact a Corvo team member or email support@goldencrowvs.com and we'll transfer that client to your account.",
     },
   },
   {
@@ -379,8 +379,8 @@ export const WIKI_FAQ: WikiFaq[] = [
       en: "How do progress photos work?",
     },
     answer: {
-      es: "Las fotos de progreso las saca y sube únicamente el cliente desde la app; el coach no puede subir ni borrar fotos. Se organizan por check-in (una fecha) y por ángulo: frente, perfil y espalda.\n\nAl principio el cliente puede subir libremente para armar su línea base. Una vez establecida, la app habilita un nuevo check-in cada 7 días, para tener una cadencia pareja de comparación.\n\nVos ves todas las fotos de tus clientes desde el portal, con un comparador “antes/después” y filtros por ángulo. Las fotos son privadas: solo las pueden ver el cliente y su coach asignado, protegidas por la seguridad de GC Fitness. No están vinculadas al peso corporal: son un seguimiento visual aparte.",
-      en: "Progress photos are taken and uploaded only by the client from the app; the coach can't upload or delete photos. They're organized by check-in (a date) and by angle: front, side, and back.\n\nAt first the client can upload freely to build their baseline. Once that's set, the app opens a new check-in every 7 days, to keep a steady comparison cadence.\n\nYou see all of your clients' photos in the portal, with a “before/after” comparator and angle filters. Photos are private: only the client and their assigned coach can see them, protected by GC Fitness security. They're not tied to body weight — they're a separate visual record.",
+      es: "Las fotos de progreso las saca y sube únicamente el cliente desde la app; el coach no puede subir ni borrar fotos. Se organizan por check-in (una fecha) y por ángulo: frente, perfil y espalda.\n\nAl principio el cliente puede subir libremente para armar su línea base. Una vez establecida, la app habilita un nuevo check-in cada 7 días, para tener una cadencia pareja de comparación.\n\nVos ves todas las fotos de tus clientes desde el portal, con un comparador “antes/después” y filtros por ángulo. Las fotos son privadas: solo las pueden ver el cliente y su coach asignado, protegidas por la seguridad de Corvo. No están vinculadas al peso corporal: son un seguimiento visual aparte.",
+      en: "Progress photos are taken and uploaded only by the client from the app; the coach can't upload or delete photos. They're organized by check-in (a date) and by angle: front, side, and back.\n\nAt first the client can upload freely to build their baseline. Once that's set, the app opens a new check-in every 7 days, to keep a steady comparison cadence.\n\nYou see all of your clients' photos in the portal, with a “before/after” comparator and angle filters. Photos are private: only the client and their assigned coach can see them, protected by Corvo security. They're not tied to body weight — they're a separate visual record.",
     },
   },
   {
@@ -474,7 +474,7 @@ export const WIKI_FAQ: WikiFaq[] = [
 ];
 
 export const WIKI_COPY = {
-  brand: { es: "GC Fitness", en: "GC Fitness" },
+  brand: { es: "Corvo", en: "Corvo" },
   eyebrow: { es: "Centro de ayuda", en: "Help center" },
   title: { es: "Wiki para coaches", en: "Coach Wiki" },
   subtitle: {

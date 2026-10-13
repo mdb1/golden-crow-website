@@ -42,7 +42,7 @@ const COLLECTION = "exercises";
  * curation-soft-deleted docs.
  *
  * Auth mirrors the Firestore rule this replaces (`allow read: if isSignedIn()`)
- * — any authenticated GC Fitness user may read the catalog; the per-row
+ * — any authenticated Corvo user may read the catalog; the per-row
  * ownership scope is applied in `projectExercisesForViewer`. Admins who are
  * not also trainers keep their access, which the client-SDK read gave them.
  *

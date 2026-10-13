@@ -45,11 +45,11 @@ interface ProjectDef {
 }
 
 // Order matters twice over: it is the order of the homepage "Success Stories"
-// carousel AND the order inside each category on /work. GC Fitness leads —
+// carousel AND the order inside each category on /work. Corvo leads —
 // it is our own product, and the carousel only shows three cards at a time, so
 // anything in fourth place is invisible until the user drags.
 const projectDefs: readonly ProjectDef[] = [
-  { key: 'project4', category: 'fitness' },   // GC Fitness
+  { key: 'project4', category: 'fitness' },   // Corvo
   { key: 'project1', category: 'fitness' },   // StrongerU
   { key: 'project2', category: 'health' },    // PocketGenes
   { key: 'project3', category: 'fitness' },   // Anytime Fitness

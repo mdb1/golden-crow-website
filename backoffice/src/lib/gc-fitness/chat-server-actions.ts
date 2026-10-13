@@ -1,6 +1,6 @@
 // chat-server-actions.ts
 //
-// Server Actions for the GC Fitness trainer Chat surface (P08-11 inbox UI
+// Server Actions for the Corvo trainer Chat surface (P08-11 inbox UI
 // consumes this module). 4 actions:
 //   - sendTrainerMessage(input)                      — writer (variant-aware)
 //   - listChatsForTrainer()                          — reader (inbox list)

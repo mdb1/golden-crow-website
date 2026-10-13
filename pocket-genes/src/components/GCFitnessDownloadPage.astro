@@ -5,6 +5,7 @@ import {
   APP_STORE_URL,
   PLAY_STORE_APP_URL,
   PLAY_STORE_URL,
+  CORVO_HEAD_ASSETS,
 } from '../data/gcFitnessPublic';
 import { defaultLang } from '../i18n/ui';
 import type { Lang } from '../i18n/ui';
@@ -13,11 +14,11 @@ const lang = (Astro.currentLocale || defaultLang) as Lang;
 
 const copy = {
   es: {
-    title: 'Descargar GC Fitness',
+    title: 'Descargar Corvo',
     description:
-      'Descargá GC Fitness para iPhone y Android. Entrenamientos, hábitos y progreso en una sola app, con coach o por tu cuenta.',
+      'Descargá Corvo para iPhone y Android. Entrenamientos, hábitos y progreso en una sola app, con coach o por tu cuenta.',
     h1a: 'Descargá',
-    h1b: 'GC Fitness',
+    h1b: 'Corvo',
     lead:
       'Entrenamientos, hábitos y progreso en una sola app. Con coach o por tu cuenta, en iPhone, Android y Apple Watch.',
     chips: [
@@ -31,7 +32,7 @@ const copy = {
     playStoreAlt: 'Disponible en Google Play',
     appStoreNote: 'iPhone y Apple Watch',
     playStoreNote: 'Android',
-    storeGridLabel: 'Opciones de descarga de GC Fitness',
+    storeGridLabel: 'Opciones de descarga de Corvo',
     // #782 — el cartel del navegador in-app. Ver el <script> al pie: desde el
     // navegador de Instagram (o Facebook, TikTok…) iOS NO abre la App Store, y
     // no hay forma de forzarlo desde la página. Lo único que resuelve es que la
@@ -47,11 +48,11 @@ const copy = {
     termsHref: '/gc-fitness/terms',
   },
   en: {
-    title: 'Download GC Fitness',
+    title: 'Download Corvo',
     description:
-      'Download GC Fitness for iPhone and Android. Workouts, habits and progress in one app, with a coach or on your own.',
+      'Download Corvo for iPhone and Android. Workouts, habits and progress in one app, with a coach or on your own.',
     h1a: 'Download',
-    h1b: 'GC Fitness',
+    h1b: 'Corvo',
     lead:
       'Workouts, habits and progress in one app. With a coach or on your own, on iPhone, Android and Apple Watch.',
     chips: [
@@ -65,7 +66,7 @@ const copy = {
     playStoreAlt: 'Get it on Google Play',
     appStoreNote: 'iPhone and Apple Watch',
     playStoreNote: 'Android',
-    storeGridLabel: 'GC Fitness download options',
+    storeGridLabel: 'Corvo download options',
     // #782 — see the Spanish twin above and the <script> at the bottom.
     inAppTitle: "You're in another app's browser",
     inAppBody:
@@ -80,7 +81,7 @@ const copy = {
 }[lang];
 ---
 
-<BaseLayout title={copy.title} description={copy.description} showFooter={false}>
+<BaseLayout title={copy.title} description={copy.description} showFooter={false} {...CORVO_HEAD_ASSETS}>
   <main id="main" class="gcf-download-page">
     <section class="gcf-hero" aria-labelledby="gcf-download-title">
       <div class="gcf-ambient" aria-hidden="true">
@@ -202,7 +203,7 @@ const copy = {
             <div class="gcf-watch">
               <img src="/gc-fitness/screenshots/watch.webp" alt="" width="374" height="446" />
             </div>
-            <img class="gcf-floating-icon" src="/gc-fitness/icon.png" alt="" width="256" height="256" />
+            <img class="gcf-floating-icon" src="/gc-fitness/corvo-icon.png" alt="" width="256" height="256" />
           </div>
         </div>
       </div>

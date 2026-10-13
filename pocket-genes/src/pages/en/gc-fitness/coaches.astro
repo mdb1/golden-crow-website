@@ -3,6 +3,7 @@
 // Misma maqueta y paleta que la página de producto; el copy vive en
 // `data/gcFitnessCoaches.ts`.
 import ProductStoryPage from '../../../components/ProductStoryPage.astro';
+import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
 import { gcFitnessPalette, getGCFitnessStoryNav } from '../../../data/gcFitnessStory';
 import { getGCFitnessCoachesPage } from '../../../data/gcFitnessCoaches';
 import { defaultLang, type Lang } from '../../../i18n/ui';
@@ -15,4 +16,5 @@ const lang = (Astro.currentLocale || defaultLang) as Lang;
   navItems={getGCFitnessStoryNav(lang)}
   activeSlug="coaches"
   palette={gcFitnessPalette}
+  {...CORVO_HEAD_ASSETS}
 />

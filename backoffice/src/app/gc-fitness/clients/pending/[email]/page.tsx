@@ -1,7 +1,7 @@
 import ClientDetailPage from "../../[id]/page";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <clients>" (issue #170).
+// Tab title: "Corvo - <clients>" (issue #170).
 export const generateMetadata = () => sectionMetadata("clients");
 
 export const dynamic = "force-dynamic";
