@@ -40,6 +40,78 @@
 
 type HabitLike = Record<string, unknown>;
 
+/**
+ * gc-fitness#1343 — the `weekdayFormat` wire marker on `habits/{id}`. Every
+ * writer stamps `"iso"` on create and on any write of the schedule; readers
+ * then take `scheduleWeekdays` as ISO Mon=1 … Sun=7 and NEVER run the legacy
+ * Sun-first heuristic keyed on `startsOn`. Absent (pre-#1343 docs) or any
+ * other value ⇒ the legacy heuristic, unchanged.
+ * Twins: iOS `HabitWeekdayFormat`, Android `HabitWeekdayFormat`.
+ */
+export const HABIT_WEEKDAY_FORMAT_ISO = "iso" as const;
+
+/** True only for the exact `"iso"` marker. */
+export function isIsoWeekdayFormat(value: unknown): boolean {
+  return value === HABIT_WEEKDAY_FORMAT_ISO;
+}
+
+/**
+ * gc-fitness#1343 — the Sun-first decision `isHabitScheduledOn` takes for an
+ * UNMARKED doc: the start day's ISO number is NOT in the list while its
+ * Sun-first number IS. Twin of iOS `HabitSchedule.readsAsLegacySundayFirst`.
+ */
+export function readsAsLegacySundayFirst(
+  weekdays: readonly number[],
+  startsOn: unknown,
+): boolean {
+  if (weekdays.length === 0) return false;
+  const start = civilString(startsOn);
+  if (!start) return false;
+  const startsApple = appleWeekday(start);
+  if (startsApple === null) return false;
+  const startsIso = startsApple === 1 ? 7 : startsApple - 1;
+  return !weekdays.includes(startsIso) && weekdays.includes(startsApple);
+}
+
+/**
+ * gc-fitness#1343 — weekly days as ISO Mon=1 … Sun=7, EXACTLY as
+ * `isHabitScheduledOn` reads them (sorted, unique): with the marker the stored
+ * list (1…7 only); without it Sun-first when `startsOn` says so, otherwise ISO
+ * plus the zero-based-Sunday stray (0 ⇒ Sunday).
+ *
+ * Every editor that loads an existing habit into a form uses this (not the raw
+ * array), so re-saving a legacy doc — which now stamps the marker — keeps the
+ * real days. Twins: iOS/Android `HabitSchedule.isoWeekdays`.
+ */
+export function effectiveIsoWeekdaysOf(
+  weekdays: readonly unknown[] | null | undefined,
+  startsOn: unknown,
+  weekdayFormat: unknown,
+): number[] {
+  const list = (Array.isArray(weekdays) ? weekdays : []).filter(
+    (n): n is number => typeof n === "number" && Number.isInteger(n),
+  );
+  const inRange = list.filter((n) => n >= 1 && n <= 7);
+  let out: number[];
+  if (isIsoWeekdayFormat(weekdayFormat)) {
+    out = inRange;
+  } else if (readsAsLegacySundayFirst(list, startsOn)) {
+    out = inRange.map((n) => (n === 1 ? 7 : n - 1));
+  } else {
+    out = list.includes(0) ? [...inRange, 7] : inRange;
+  }
+  return Array.from(new Set(out)).sort((a, b) => a - b);
+}
+
+/** {@link effectiveIsoWeekdaysOf} over a habit doc. */
+export function effectiveIsoWeekdays(habit: HabitLike): number[] {
+  return effectiveIsoWeekdaysOf(
+    Array.isArray(habit.scheduleWeekdays) ? (habit.scheduleWeekdays as unknown[]) : [],
+    habit.startsOn,
+    habit.weekdayFormat,
+  );
+}
+
 function civilString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
@@ -97,6 +169,15 @@ export function isHabitScheduledOn(
     if (weekdays.length === 0) return false;
 
     const isoWeekday = apple === 1 ? 7 : apple - 1; // Mon=1..Sun=7
+
+    // gc-fitness#1343 — an explicit marker wins: an ISO doc is read as ISO,
+    // full stop. The `startsOn` heuristic below exists only for docs written
+    // before the marker, and misread a NEW Mon/Wed/Fri habit started on a
+    // Thursday as Sun/Tue/Thu.
+    if (isIsoWeekdayFormat(habit.weekdayFormat)) {
+      return weekdays.includes(isoWeekday);
+    }
+
     const legacySundayFirstWeekday = apple; // Sun=1..Sat=7
     const zeroBasedSunday = apple - 1; // Sun=0..Sat=6
 

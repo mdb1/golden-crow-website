@@ -22,6 +22,7 @@ import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { listClients } from "@/lib/gc-fitness/client-roster";
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
+import { effectiveIsoWeekdays } from "@/lib/gc-fitness/habit-schedule";
 import type {
   HabitCreateInput,
   HabitType,
@@ -111,7 +112,12 @@ export default async function EditHabitPage({ params }: PageParams) {
     startsOn: data.startsOn ?? civilDateToday(await getTrainerTimezone()),
     endsOn: data.endsOn,
     scheduleCadence: data.scheduleCadence ?? "daily",
-    scheduleWeekdays: data.scheduleWeekdays,
+    // gc-fitness#1343 — load the days as the apps read them (legacy Sun-first
+    // resolved): the save stamps `weekdayFormat:"iso"`, so a raw legacy array
+    // would silently shift every day.
+    scheduleWeekdays: Array.isArray(data.scheduleWeekdays)
+      ? effectiveIsoWeekdays(data)
+      : undefined,
     scheduleDayOfMonth: data.scheduleDayOfMonth,
     scheduleMonthDays:
       data.scheduleMonthDays ??

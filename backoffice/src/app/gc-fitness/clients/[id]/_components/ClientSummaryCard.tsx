@@ -9,6 +9,7 @@ import { loadNutritionRosterSummaries } from "@/lib/gc-fitness/nutrition-roster"
 import type { ClientGoalRow } from "@/lib/gc-fitness/client-goal-actions";
 import { Badge } from "@/components/ui/badge";
 import { ClientSummaryLists } from "./ClientSummaryLists";
+import { effectiveIsoWeekdays } from "@/lib/gc-fitness/habit-schedule";
 const WEEKDAY_LABELS_WORKOUT: Record<number, string> = {
   0: "Dom",
   1: "Lun",
@@ -311,7 +312,8 @@ function habitCadenceLabel(
   if (habit.scheduleType === "one-time") return t("once");
   const cadence = typeof habit.scheduleCadence === "string" ? habit.scheduleCadence : "daily";
   if (cadence === "weekly") {
-    const weekdays = Array.isArray(habit.scheduleWeekdays) ? (habit.scheduleWeekdays as number[]) : [];
+    // gc-fitness#1343 — the days as the apps read them.
+    const weekdays = effectiveIsoWeekdays(habit);
     const mapped = weekdays
       .map((d) => WEEKDAY_LABELS_WORKOUT[d === 7 ? 0 : d])
       .filter((v): v is string => Boolean(v));

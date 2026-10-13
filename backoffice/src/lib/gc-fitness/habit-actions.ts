@@ -54,6 +54,7 @@ import {
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 import { isHabitNotDeleted } from "./habit-visibility";
+import { HABIT_WEEKDAY_FORMAT_ISO, effectiveIsoWeekdays } from "./habit-schedule";
 
 const COLLECTION = FirestoreCollections.habits;
 const TEMPLATE_COLLECTION = FirestoreCollections.habitTemplates;
@@ -233,6 +234,13 @@ export interface HabitRow {
   scheduleWeekdays?: number[];
   scheduleDayOfMonth?: number;
   scheduleMonthDays?: number[];
+  /**
+   * gc-fitness#1343 — always `"iso"` on a projected row: `scheduleWeekdays`
+   * above is already the EFFECTIVE ISO list (`effectiveIsoWeekdays`, legacy
+   * docs resolved), so any reader that re-runs `isHabitScheduledOn` on the row
+   * must not re-apply the Sun-first heuristic to it.
+   */
+  weekdayFormat?: "iso";
   /**
    * Civil dates (YYYY-MM-DD) the trainer removed from this habit's recurrence
    * via the calendar's "quitar de este día" action. The trainer surfaces
@@ -422,9 +430,12 @@ function projectHabitRow(
       data.scheduleCadence === "monthly"
         ? data.scheduleCadence
         : undefined,
+    // gc-fitness#1343 — the days as the apps read them, so editing a legacy
+    // (Sun-first) doc re-saves its REAL days with the ISO marker.
     scheduleWeekdays: Array.isArray(data.scheduleWeekdays)
-      ? (data.scheduleWeekdays as number[])
+      ? effectiveIsoWeekdays(data)
       : undefined,
+    weekdayFormat: HABIT_WEEKDAY_FORMAT_ISO,
     scheduleDayOfMonth:
       typeof data.scheduleDayOfMonth === "number"
         ? data.scheduleDayOfMonth
@@ -621,6 +632,9 @@ export async function createHabit(
     sourceTemplateId, // links the assignment to its (existing or new) template
     id: docId,
     trainerId: trainer.uid, // T-06-05-01: ALWAYS from session, NEVER from input.
+    // gc-fitness#1343 — every habit create carries the explicit ISO marker so
+    // no reader runs the legacy Sun-first heuristic on it.
+    weekdayFormat: HABIT_WEEKDAY_FORMAT_ISO,
     deleted: false,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -741,6 +755,7 @@ export async function createPendingHabit(
     startsOn: normalizeStartsOn(data.startsOn),
     id: docId,
     trainerId: trainer.uid,
+    weekdayFormat: HABIT_WEEKDAY_FORMAT_ISO, // gc-fitness#1343
     deleted: false,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -799,9 +814,8 @@ export async function listPendingHabits(pendingEmail: string): Promise<Array<{
           : data.scheduleCadence === "daily"
             ? "daily"
             : null,
-      scheduleWeekdays: Array.isArray(data.scheduleWeekdays)
-        ? (data.scheduleWeekdays as number[]).filter((d) => Number.isInteger(d) && d >= 1 && d <= 7)
-        : [],
+      // gc-fitness#1343 — the days as the apps read them.
+      scheduleWeekdays: effectiveIsoWeekdays(data),
       scheduleMonthDays: Array.isArray(data.scheduleMonthDays)
         ? (data.scheduleMonthDays as number[]).filter((d) => Number.isInteger(d) && d >= 1 && d <= 31)
         : typeof data.scheduleDayOfMonth === "number" &&
@@ -888,6 +902,10 @@ export async function updateHabit(
     name: parsed.name,
     reminderEnabled: parsed.reminderEnabled,
     scheduleType: parsed.scheduleType,
+    // gc-fitness#1343 — this patch ALWAYS rewrites the schedule (weekdays
+    // below, in ISO: the edit page loads `effectiveIsoWeekdays`), so stamp the
+    // marker. Inside the trainer update allowlist in firestore.rules.
+    weekdayFormat: HABIT_WEEKDAY_FORMAT_ISO,
     updatedAt: FieldValue.serverTimestamp(),
   };
   if (parsed.startsOn !== undefined) {
@@ -1794,6 +1812,7 @@ export async function assignHabitTemplate(input: unknown): Promise<{
         : {}),
       startsOn: parsed.startsOn ?? template.startsOn ?? todayCivilDateUTC(),
       ...scheduleFields,
+      weekdayFormat: HABIT_WEEKDAY_FORMAT_ISO, // gc-fitness#1343
       reminderEnabled: template.reminderEnabled,
       sourceTemplateId: template.id,
       deleted: false,
@@ -1900,6 +1919,7 @@ export async function assignHabitTemplateToPending(input: unknown): Promise<{
       : {}),
     reminderEnabled: template.reminderEnabled,
     sourceTemplateId: template.id,
+    weekdayFormat: HABIT_WEEKDAY_FORMAT_ISO, // gc-fitness#1343
     deleted: false,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),

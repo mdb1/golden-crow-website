@@ -35,6 +35,7 @@
 
 import { dateRangeLabel } from "@/lib/gc-fitness/audit-grouping";
 import { bilingualText } from "@/lib/gc-fitness/coachless-user-model";
+import { effectiveIsoWeekdaysOf } from "@/lib/gc-fitness/habit-schedule";
 
 export type FeedCategory =
   | "workout"
@@ -276,9 +277,14 @@ export function habitFrequencyLabel(habit: Record<string, unknown>): string {
   }
   const cadence = str(habit.scheduleCadence) ?? "daily";
   if (cadence === "weekly") {
-    const days = Array.isArray(habit.scheduleWeekdays)
-      ? (habit.scheduleWeekdays as unknown[]).map(num).filter((d): d is number => d !== null)
-      : [];
+    // gc-fitness#1343 — the days as the apps read them.
+    const days = effectiveIsoWeekdaysOf(
+      Array.isArray(habit.scheduleWeekdays)
+        ? (habit.scheduleWeekdays as unknown[]).map(num).filter((d): d is number => d !== null)
+        : [],
+      habit.startsOn,
+      habit.weekdayFormat,
+    );
     return days.length > 0
       ? `semanal (${days.map((d) => WEEKDAY_ISO[d] ?? String(d)).join(", ")})`
       : "semanal";

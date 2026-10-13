@@ -38,6 +38,7 @@ import type { HabitType } from "./habit-schema";
 // quick-260714-m57 (#403) — effective set type for warmup exclusion (a
 // set_type-only warmup must be skipped like an is_warmup one).
 import { effectiveSetType } from "./set-type";
+import { effectiveIsoWeekdays } from "./habit-schedule";
 
 const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
 const LOGS = FirestoreCollections.workoutLogs;
@@ -286,9 +287,9 @@ function habitScheduledDays(
   if (cadence === "daily") {
     for (let d = lo; d <= hi; d = addCivilDays(d, 1)) out.push(d);
   } else if (cadence === "weekly") {
-    const weekdays = Array.isArray(habit.scheduleWeekdays)
-      ? (habit.scheduleWeekdays as number[])
-      : [];
+    // gc-fitness#1343 — the days as the apps read them (explicit
+    // `weekdayFormat:"iso"` marker, else the legacy startsOn heuristic).
+    const weekdays = effectiveIsoWeekdays(habit);
     // iOS: 1=Mon..7=Sun ; JS getDay: 0=Sun..6=Sat — map 7→0 otherwise N→N.
     const jsWeekdays = new Set(weekdays.map((n) => (n === 7 ? 0 : n)));
     for (let d = lo; d <= hi; d = addCivilDays(d, 1)) {
