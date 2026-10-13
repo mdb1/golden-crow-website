@@ -5052,8 +5052,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Construí tu oferta de servicio paso a paso.",
   "Build your offer step by step": "Construí tu oferta paso a paso",
   "Offer visibility": "Visualización de la oferta",
-  "Choose the name and primary category for this service.":
-    "Elegí el nombre y la categoría principal de este servicio.",
+  "Choose the name and service categories for this offer.":
+    "Elegí el nombre y las categorías de servicio para esta oferta.",
   "Choose where and how this offer appears in the native app.":
     "Elegí dónde y cómo aparece esta oferta en la app nativa.",
   "Promotional image": "Imagen promocional",
@@ -5588,24 +5588,32 @@ const SPANISH_TEXT: Record<string, string> = {
     "El ID de servicio es fijo para esta oferta existente.",
   "Regenerate service ID": "Regenerar ID de servicio",
   "Service category": "Categoría de servicio",
-  "Choose service category": "Elegí una categoría de servicio",
-  "Choose one service category.": "Elegí una categoría de servicio.",
-  "Change service category": "Cambiar categoría de servicio",
+  "Choose service categories": "Elegí categorías de servicio",
+  "Choose at least one service category.":
+    "Elegí al menos una categoría de servicio.",
+  "Choose only registered service categories.":
+    "Elegí únicamente categorías de servicio registradas.",
+  "Change service categories": "Cambiar categorías de servicio",
   "Service category options": "Opciones de categoría de servicio",
   "Search service categories": "Buscar categorías de servicio",
   "Search service categories by name or code...":
     "Buscar categorías de servicio por nombre o código...",
   "No service categories match this search.":
     "No hay categorías de servicio que coincidan con esta búsqueda.",
-  "Choose the single category that describes the primary contracted and billable outcome. Supporting inputs, steps, and provider profession do not determine it.":
-    "Elegí la categoría que mejor representa el resultado principal del servicio. Los insumos, los pasos complementarios y la profesión del proveedor no definen la categoría.",
+  "Choose every category that describes a contracted outcome delivered by this offer. Supporting inputs, steps, and provider profession do not determine categories.":
+    "Elegí todas las categorías que describen resultados contratados entregados por esta oferta. Los insumos, los pasos complementarios y la profesión del proveedor no definen las categorías.",
+  "Genomic and human-advice categories cannot be combined.":
+    "Las categorías genómicas y las de asesoramiento humano no se pueden combinar.",
+  "Remove categories from one family before applying.":
+    "Quitá las categorías de una de las familias antes de aplicar.",
   Uncategorized: "Sin categoría",
-  "Choose one registered category before saving this offer.":
-    "Elegí una categoría registrada antes de guardar esta oferta.",
-  "No category selected": "No hay una categoría seleccionada",
-  "Select one category to continue.":
-    "Seleccioná una categoría para continuar.",
-  "Apply category": "Aplicar categoría",
+  "No service categories selected":
+    "No hay categorías de servicio seleccionadas",
+  "Select at least one category to continue.":
+    "Seleccioná al menos una categoría para continuar.",
+  "service category selected": "categoría de servicio seleccionada",
+  "service categories selected": "categorías de servicio seleccionadas",
+  "Apply categories": "Aplicar categorías",
   "Service offer deleted.": "Oferta de servicio eliminada.",
   "Service offer saved.": "Oferta de servicio guardada.",
   "Existing transaction contracts remain binding":

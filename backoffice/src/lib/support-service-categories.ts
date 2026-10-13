@@ -153,6 +153,10 @@ export const SUPPORT_SERVICE_CATEGORIES: SupportServiceCategory[] =
     return { ...category, key };
   });
 
+const SUPPORT_SERVICE_CATEGORY_BY_KEY = new Map(
+  SUPPORT_SERVICE_CATEGORIES.map((category) => [category.key, category]),
+);
+
 export const SUPPORT_SERVICE_CATEGORY_GROUPS = [
   {
     id: "clinical_preparation",
@@ -312,11 +316,84 @@ export function isSupportServiceCategoryKey(
   return typeof value === "string" && CATEGORY_KEY_SET.has(value);
 }
 
+export function parseSupportServiceCategoryKeys(
+  value: unknown,
+): SupportServiceCategoryKey[] {
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  const seen = new Set<SupportServiceCategoryKey>();
+  const keys: SupportServiceCategoryKey[] = [];
+
+  for (const rawToken of value.split(",")) {
+    const token = rawToken.trim();
+    if (!isSupportServiceCategoryKey(token) || seen.has(token)) {
+      continue;
+    }
+
+    seen.add(token);
+    keys.push(token);
+  }
+
+  return keys;
+}
+
+export type SupportServiceCategoryValueIssue =
+  "empty" | "invalid" | "mixed_families";
+
+export function supportServiceCategoryValueIssue(
+  value: unknown,
+): SupportServiceCategoryValueIssue | null {
+  if (typeof value !== "string" || !value) {
+    return "empty";
+  }
+  if (/\s/.test(value)) {
+    return "invalid";
+  }
+
+  const seen = new Set<SupportServiceCategoryKey>();
+  let family: "genomic" | "human_advice" | null = null;
+
+  for (const token of value.split(",")) {
+    if (!isSupportServiceCategoryKey(token) || seen.has(token)) {
+      return "invalid";
+    }
+
+    const tokenFamily = token.startsWith("sot_human_advice_")
+      ? "human_advice"
+      : "genomic";
+    if (family && family !== tokenFamily) {
+      return "mixed_families";
+    }
+
+    family = tokenFamily;
+    seen.add(token);
+  }
+
+  return seen.size > 0 ? null : "empty";
+}
+
+export function isSupportServiceCategoryValue(value: unknown): value is string {
+  return supportServiceCategoryValueIssue(value) === null;
+}
+
+export function serializeSupportServiceCategoryKeys(keys: readonly string[]) {
+  return parseSupportServiceCategoryKeys(keys.join(",")).join(",");
+}
+
 export function supportServiceCategoryByKey(value: unknown) {
   return isSupportServiceCategoryKey(value)
-    ? (SUPPORT_SERVICE_CATEGORIES.find((category) => category.key === value) ??
-        null)
+    ? (SUPPORT_SERVICE_CATEGORY_BY_KEY.get(value) ?? null)
     : null;
+}
+
+export function supportServiceCategoriesByValue(
+  value: unknown,
+): SupportServiceCategory[] {
+  return parseSupportServiceCategoryKeys(value).map((key) =>
+    SUPPORT_SERVICE_CATEGORY_BY_KEY.get(key)!,
+  );
 }
 
 export function supportServiceCategoryName(

@@ -23,7 +23,40 @@ const mockGetSupportServiceIdAvailability = jest.fn();
 const mockGetSupportServiceOfferTransactionStats = jest.fn();
 
 jest.mock("../repositories/support-services.repository.js", () => ({
-  SUPPORT_SERVICE_CATEGORY_KEYS: ["sot_genomic_report_generation"],
+  SUPPORT_SERVICE_CATEGORY_KEYS: [
+    "sot_genomic_report_generation",
+    "sot_genomic_report_review",
+    "sot_human_advice_medical_consultation",
+  ],
+  isCanonicalSupportServiceCategoryValue: (value: unknown) => {
+    if (typeof value !== "string" || !value) {
+      return false;
+    }
+    const categories = value.split(",");
+    const knownCategories = new Set([
+      "sot_genomic_report_generation",
+      "sot_genomic_report_review",
+      "sot_human_advice_medical_consultation",
+    ]);
+    const hasHumanAdvice = categories.some((category) =>
+      category.startsWith("sot_human_advice_"),
+    );
+    return (
+      categories.every(
+        (category) =>
+          category &&
+          category === category.trim() &&
+          knownCategories.has(category),
+      ) &&
+      new Set(categories).size === categories.length &&
+      !(
+        hasHumanAdvice &&
+        categories.some(
+          (category) => !category.startsWith("sot_human_advice_"),
+        )
+      )
+    );
+  },
   SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH: 900_000,
   SUPPORT_SERVICE_STAGES: ["test_planning", "wet_lab", "bioinformatics"],
   SUPPORT_SERVICE_OFFER_STATUSES: ["draft", "active", "inactive", "archived"],
@@ -599,6 +632,22 @@ describe("support service admin routes", () => {
     ["a translated label", "Generación de informe genómico"],
     ["an unknown key", "sot_unknown"],
     ["a key with surrounding whitespace", " sot_genomic_report_generation "],
+    [
+      "a padded token",
+      "sot_genomic_report_generation, sot_genomic_report_review",
+    ],
+    [
+      "an empty token",
+      "sot_genomic_report_generation,,sot_genomic_report_review",
+    ],
+    [
+      "a duplicate token",
+      "sot_genomic_report_generation,sot_genomic_report_generation",
+    ],
+    [
+      "mixed genomic and human-advice categories",
+      "sot_genomic_report_generation,sot_human_advice_medical_consultation",
+    ],
   ])("rejects %s before calling the offer repository", async (_label, category) => {
     const fastify = await buildTestServer();
     const payload: Record<string, unknown> = { ...validOfferPayload };
@@ -616,6 +665,24 @@ describe("support service admin routes", () => {
 
     expect(response.statusCode).toBe(400);
     expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
+  });
+
+  it("accepts a canonical category set without reordering it", async () => {
+    const fastify = await buildTestServer();
+    const serviceCategory =
+      "sot_genomic_report_review,sot_genomic_report_generation";
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: { ...validOfferPayload, serviceCategory },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
+      bootstrapContext,
+      expect.objectContaining({ serviceCategory }),
+    );
   });
 
   it("accepts canonical promotional banner upload data through the enlarged offer route", async () => {

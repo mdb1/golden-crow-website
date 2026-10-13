@@ -16,8 +16,7 @@ import {
   isSupportServiceMoreInformationImageDataUrl,
 } from "@/lib/support-services";
 import {
-  isSupportServiceCategoryKey,
-  type SupportServiceCategoryKey,
+  isSupportServiceCategoryValue,
 } from "@/lib/support-service-categories";
 
 type RawCatalog = Record<string, unknown>;
@@ -365,9 +364,9 @@ function normalizeStage(value: string): SupportServiceStage {
     : "test_planning";
 }
 
-function normalizeServiceCategory(value: unknown): SupportServiceCategoryKey {
+function normalizeServiceCategory(value: unknown): string {
   const category = typeof value === "string" ? value : "";
-  if (!isSupportServiceCategoryKey(category)) {
+  if (!isSupportServiceCategoryValue(category)) {
     throw new Error(`Unknown serviceCategory: ${category || "empty"}.`);
   }
   return category;

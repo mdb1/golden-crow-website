@@ -3,7 +3,12 @@ import {
   SUPPORT_SERVICE_CATEGORY_GROUPS,
   SUPPORT_SERVICE_CATEGORY_KEYS,
   isSupportServiceCategoryKey,
+  isSupportServiceCategoryValue,
+  parseSupportServiceCategoryKeys,
+  serializeSupportServiceCategoryKeys,
+  supportServiceCategoriesByValue,
   supportServiceCategoryByKey,
+  supportServiceCategoryValueIssue,
 } from "@/lib/support-service-categories";
 
 describe("support service categories", () => {
@@ -70,6 +75,97 @@ describe("support service categories", () => {
     );
     expect(isSupportServiceCategoryKey("")).toBe(false);
     expect(supportServiceCategoryByKey("sot_unknown")).toBeNull();
+  });
+
+  it("parses recognized category keys in stored order with stable deduplication", () => {
+    expect(
+      parseSupportServiceCategoryKeys(
+        " sot_genomic_report_review,unknown,sot_genomic_interpretation,sot_genomic_report_review,,sot_genomic_data_interoperability ",
+      ),
+    ).toEqual([
+      "sot_genomic_report_review",
+      "sot_genomic_interpretation",
+      "sot_genomic_data_interoperability",
+    ]);
+    expect(parseSupportServiceCategoryKeys(null)).toEqual([]);
+  });
+
+  it("validates only strict canonical category values", () => {
+    expect(isSupportServiceCategoryValue("sot_genomic_interpretation")).toBe(
+      true,
+    );
+    expect(
+      isSupportServiceCategoryValue(
+        "sot_genomic_report_review,sot_genomic_interpretation",
+      ),
+    ).toBe(true);
+    expect(
+      isSupportServiceCategoryValue(
+        "sot_human_advice_parenting_guidance,sot_human_advice_social_care_navigation",
+      ),
+    ).toBe(true);
+
+    expect(isSupportServiceCategoryValue("")).toBe(false);
+    expect(
+      isSupportServiceCategoryValue(
+        "sot_genomic_interpretation, sot_genomic_report_review",
+      ),
+    ).toBe(false);
+    expect(
+      isSupportServiceCategoryValue(
+        "sot_genomic_interpretation,,sot_genomic_report_review",
+      ),
+    ).toBe(false);
+    expect(
+      isSupportServiceCategoryValue("sot_genomic_interpretation,sot_unknown"),
+    ).toBe(false);
+    expect(
+      isSupportServiceCategoryValue(
+        "sot_genomic_interpretation,sot_genomic_interpretation",
+      ),
+    ).toBe(false);
+    expect(
+      isSupportServiceCategoryValue(
+        "sot_genomic_interpretation,sot_human_advice_parenting_guidance",
+      ),
+    ).toBe(false);
+    expect(supportServiceCategoryValueIssue("")).toBe("empty");
+    expect(
+      supportServiceCategoryValueIssue(
+        "sot_genomic_interpretation,sot_human_advice_parenting_guidance",
+      ),
+    ).toBe("mixed_families");
+    expect(
+      supportServiceCategoryValueIssue(
+        "sot_genomic_interpretation,sot_unknown",
+      ),
+    ).toBe("invalid");
+    expect(
+      supportServiceCategoryValueIssue(
+        "sot_genomic_report_review,sot_genomic_interpretation",
+      ),
+    ).toBeNull();
+  });
+
+  it("serializes and resolves categories in first-selection order", () => {
+    const value = serializeSupportServiceCategoryKeys([
+      "sot_genomic_report_review",
+      " sot_genomic_interpretation ",
+      "sot_genomic_report_review",
+      "unknown",
+      "sot_genomic_data_interoperability",
+    ]);
+
+    expect(value).toBe(
+      "sot_genomic_report_review,sot_genomic_interpretation,sot_genomic_data_interoperability",
+    );
+    expect(
+      supportServiceCategoriesByValue(value).map((category) => category.key),
+    ).toEqual([
+      "sot_genomic_report_review",
+      "sot_genomic_interpretation",
+      "sot_genomic_data_interoperability",
+    ]);
   });
 
   it("uses the genomics-focused names and descriptions from the canonical registry", () => {

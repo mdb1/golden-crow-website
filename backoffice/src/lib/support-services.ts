@@ -1,5 +1,3 @@
-import type { SupportServiceCategoryKey } from "@/lib/support-service-categories";
-
 export const SUPPORT_SERVICE_STAGES = [
   { value: "test_planning", label: "Test planning" },
   { value: "wet_lab", label: "Wet lab" },
@@ -240,7 +238,7 @@ export interface SupportServiceOfferInput {
   serviceId: string;
   serviceVersion?: number;
   name: string;
-  serviceCategory: SupportServiceCategoryKey;
+  serviceCategory: string;
   providerKind?: SupportServiceProviderKind;
   providerId: string;
   providerName?: string;

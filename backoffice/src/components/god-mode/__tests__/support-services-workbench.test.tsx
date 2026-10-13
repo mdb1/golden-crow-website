@@ -1193,6 +1193,11 @@ describe("support services workbenches", () => {
       screen.getByRole("heading", { level: 1, name: "Offer identity" }),
     ).toBeTruthy();
     expect(screen.getByText("Step 1 of 10")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Choose the name and service categories for this offer.",
+      ),
+    ).toBeTruthy();
     expect(screen.queryByText("Inputs and outputs")).toBeNull();
     expect(screen.queryByText("Publisher Org · publisher-org-1")).toBeNull();
     expect(screen.queryByText("Provider kind")).toBeNull();
@@ -1207,16 +1212,18 @@ describe("support services workbenches", () => {
       target: { value: "Clinical report service" },
     });
     fireEvent.click(
-      screen.getByRole("button", { name: "Choose service category" }),
+      screen.getByRole("button", { name: "Choose service categories" }),
     );
     const categoryDialog = await screen.findByRole("dialog");
     fireEvent.click(
-      within(categoryDialog).getByRole("radio", {
-        name: /Genomic report generation/,
+      within(categoryDialog).getByRole("checkbox", {
+        name: /^Genomic report generation\b/,
       }),
     );
     fireEvent.click(
-      within(categoryDialog).getByRole("button", { name: "Apply category" }),
+      within(categoryDialog).getByRole("button", {
+        name: "Apply categories",
+      }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
@@ -1917,7 +1924,7 @@ describe("support services workbenches", () => {
     );
   });
 
-  it("uses a wide, bilingual single-select registry modal and persists only its key", async () => {
+  it("uses a wide multi-select registry modal and persists the current selection order", async () => {
     sdkFetchMock.mockImplementation(async (path, init) => {
       if (init?.method === "PUT") {
         const payload = JSON.parse(String(init.body));
@@ -1931,41 +1938,47 @@ describe("support services workbenches", () => {
 
     renderWithQueryClient(
       <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
-      "es",
     );
 
     const categoryButton = await screen.findByRole("button", {
-      name: "Cambiar categoría de servicio",
+      name: "Change service categories",
     });
     const selectedCategory = SUPPORT_SERVICE_CATEGORIES.find(
       (category) => category.key === hiddenOffer.serviceCategory,
     )!;
+    const earlierCategory = SUPPORT_SERVICE_CATEGORIES.find(
+      (category) => category.key === "sot_genomic_interpretation",
+    )!;
+    const reviewCategory = SUPPORT_SERVICE_CATEGORIES.find(
+      (category) => category.key === "sot_genomic_report_review",
+    )!;
     const selectedDescription = supportServiceCategoryDescription(
       selectedCategory,
-      "es",
+      "en",
     );
     expect(within(categoryButton).queryByText(selectedDescription)).toBeNull();
+    expect(
+      within(categoryButton)
+        .getAllByTestId("service-category-pill")
+        .map((pill) => pill.textContent),
+    ).toEqual([selectedCategory.nameEnglish]);
     fireEvent.click(categoryButton);
 
     const modal = await screen.findByRole("dialog");
     expect(modal.className).toContain("80rem");
     expect(within(modal).queryByRole("table")).toBeNull();
     expect(
-      within(modal).getByText(
-        "Elegí la categoría que mejor representa el resultado principal del servicio. Los insumos, los pasos complementarios y la profesión del proveedor no definen la categoría.",
-      ),
-    ).toBeTruthy();
-    expect(
       within(modal)
-        .getByRole("heading", { name: "Preparación clínica" })
+        .getByRole("heading", { name: "Clinical preparation" })
         .closest("[data-service-category-group-header]"),
     ).toBeTruthy();
     expect(within(modal).getByText(selectedDescription)).toBeTruthy();
-    expect(within(modal).getAllByRole("radio")).toHaveLength(
+    expect(within(modal).queryByRole("radio")).toBeNull();
+    expect(within(modal).getAllByRole("checkbox")).toHaveLength(
       SUPPORT_SERVICE_CATEGORIES.length,
     );
     const categorySearch = within(modal).getByRole("textbox", {
-      name: "Buscar categorías de servicio",
+      name: "Search service categories",
     });
     fireEvent.change(categorySearch, {
       target: {
@@ -1973,21 +1986,32 @@ describe("support services workbenches", () => {
           "sot_human_advice_health_technology_usability_human_factors_accessibility",
       },
     });
-    expect(within(modal).getAllByRole("radio")).toHaveLength(1);
+    expect(within(modal).getAllByRole("checkbox")).toHaveLength(1);
+    const incompatibleCategory = within(modal).getByRole("checkbox", {
+      name: /^Genomics technology usability and accessibility\b/,
+    });
+    expect(incompatibleCategory.hasAttribute("disabled")).toBe(true);
+    expect(incompatibleCategory.getAttribute("aria-checked")).toBe("false");
+    const familyRestrictionId =
+      incompatibleCategory.getAttribute("aria-describedby");
+    expect(familyRestrictionId).toBeTruthy();
+    expect(
+      document.getElementById(String(familyRestrictionId))?.textContent,
+    ).toBe("Genomic and human-advice categories cannot be combined.");
     expect(
       within(modal).getByText(
-        "Usabilidad y accesibilidad de tecnologías genómicas",
+        "Genomics technology usability and accessibility",
       ),
     ).toBeTruthy();
     fireEvent.change(categorySearch, { target: { value: "" } });
-    expect(within(modal).getByText("Preparación clínica")).toBeTruthy();
+    expect(within(modal).getByText("Clinical preparation")).toBeTruthy();
     expect(
       within(modal).getByText(
-        "Revisión profesional independiente, explicación o segunda opinión sobre un informe genómico ya finalizado.",
+        supportServiceCategoryDescription(reviewCategory, "en"),
       ),
     ).toBeTruthy();
-    const selectedCategoryCell = within(modal).getByRole("radio", {
-      name: new RegExp(selectedCategory.nameSpanish),
+    const selectedCategoryCell = within(modal).getByRole("checkbox", {
+      name: /^Genomic report generation\b/,
     });
     expect(
       within(selectedCategoryCell).queryByText(selectedCategory.key),
@@ -1997,17 +2021,42 @@ describe("support services workbenches", () => {
     ).toBeNull();
 
     fireEvent.click(
-      within(modal).getByRole("radio", {
-        name: /Revisión de informe genómico/,
+      within(modal).getByRole("checkbox", {
+        name: /^Clinical genomic interpretation\b/,
       }),
     );
     fireEvent.click(
-      within(modal).getByRole("button", { name: "Aplicar categoría" }),
+      within(modal).getByRole("button", { name: "Apply categories" }),
     );
+
+    expect(
+      within(categoryButton)
+        .getAllByTestId("service-category-pill")
+        .map((pill) => pill.textContent),
+    ).toEqual([selectedCategory.nameEnglish, earlierCategory.nameEnglish]);
+
+    fireEvent.click(categoryButton);
+    const reorderedModal = await screen.findByRole("dialog");
+    const originallySelectedOption = within(reorderedModal).getByRole(
+      "checkbox",
+      { name: /^Genomic report generation\b/ },
+    );
+    fireEvent.click(originallySelectedOption);
+    fireEvent.click(originallySelectedOption);
     fireEvent.click(
-      screen.getAllByRole("button", { name: "Guardar cambios" })[0],
+      within(reorderedModal).getByRole("button", {
+        name: "Apply categories",
+      }),
     );
-    await acknowledgeExistingOfferContract("es");
+
+    expect(
+      within(categoryButton)
+        .getAllByTestId("service-category-pill")
+        .map((pill) => pill.textContent),
+    ).toEqual([earlierCategory.nameEnglish, selectedCategory.nameEnglish]);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
 
     await waitFor(() => {
       const putCall = sdkFetchMock.mock.calls.find(
@@ -2015,12 +2064,131 @@ describe("support services workbenches", () => {
       );
       expect(putCall).toBeTruthy();
       const payload = JSON.parse(String(putCall?.[1]?.body));
-      expect(payload.serviceCategory).toBe("sot_genomic_report_review");
-      expect(payload.serviceCategory).not.toBe("Revisión de informe genómico");
+      expect(payload.serviceCategory).toBe(
+        "sot_genomic_interpretation,sot_genomic_report_generation",
+      );
+      expect(Array.isArray(payload.serviceCategory)).toBe(false);
       expect(payload.acknowledgesExistingTransactionContracts).toBe(true);
       expect(payload).not.toHaveProperty("changeLogHistoryByVersion");
       expect(payload).not.toHaveProperty("changeLogFormShapeByVersion");
     });
+  });
+
+  it("hydrates comma-separated service categories into ordered pills and checked options", async () => {
+    const multiCategoryOffer: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      id: "offer-multiple-categories",
+      serviceCategory:
+        "sot_genomic_report_generation,sot_genomic_interpretation",
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (String(path).includes("?limit=")) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: multiCategoryOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="edit"
+        offerId={multiCategoryOffer.id}
+      />,
+    );
+
+    const categoryButton = await screen.findByRole("button", {
+      name: "Change service categories",
+    });
+    expect(
+      within(categoryButton)
+        .getAllByTestId("service-category-pill")
+        .map((pill) => pill.textContent),
+    ).toEqual(["Genomic report generation", "Clinical genomic interpretation"]);
+
+    fireEvent.click(categoryButton);
+    const modal = await screen.findByRole("dialog");
+    expect(within(modal).queryByRole("radio")).toBeNull();
+    expect(
+      within(modal)
+        .getByRole("checkbox", { name: /^Genomic report generation\b/ })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(
+      within(modal)
+        .getByRole("checkbox", {
+          name: /^Clinical genomic interpretation\b/,
+        })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+  });
+
+  it("blocks a mixed historical category value until one family is removed", async () => {
+    const mixedCategoryOffer: SupportServiceOfferRecord = {
+      ...hiddenOffer,
+      id: "offer-mixed-category-families",
+      serviceCategory:
+        "sot_genomic_report_generation,sot_human_advice_parenting_guidance",
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (String(path).includes("?limit=")) {
+        return { offers: [], nextCursor: undefined };
+      }
+      return { offer: mixedCategoryOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="edit"
+        offerId={mixedCategoryOffer.id}
+      />,
+    );
+
+    const categoryButton = await screen.findByRole("button", {
+      name: "Change service categories",
+    });
+    expect(
+      within(categoryButton)
+        .getAllByTestId("service-category-pill")
+        .map((pill) => pill.textContent),
+    ).toEqual([
+      "Genomic report generation",
+      "Parenting support for children with genetic conditions",
+    ]);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    expect(
+      await screen.findByText(
+        "Genomic and human-advice categories cannot be combined.",
+      ),
+    ).toBeTruthy();
+    expect(
+      sdkFetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
+
+    fireEvent.click(categoryButton);
+    const modal = await screen.findByRole("dialog");
+    const applyButton = within(modal).getByRole("button", {
+      name: "Apply categories",
+    });
+    expect(applyButton.hasAttribute("disabled")).toBe(true);
+    expect(
+      within(modal).getByText(
+        "Remove categories from one family before applying.",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      within(modal).getByRole("checkbox", {
+        name: /^Parenting support for children with genetic conditions\b/,
+      }),
+    );
+    expect(applyButton.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(applyButton);
+
+    expect(
+      within(categoryButton)
+        .getAllByTestId("service-category-pill")
+        .map((pill) => pill.textContent),
+    ).toEqual(["Genomic report generation"]);
   });
 
   it("also guards status saves with the frozen-contract acknowledgement", async () => {
@@ -2123,7 +2291,7 @@ describe("support services workbenches", () => {
     expect(await screen.findByText("Uncategorized")).toBeTruthy();
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
 
-    expect(await screen.findByText("Choose one service category.")).toBeTruthy();
+    expect(await screen.findByText("Choose at least one service category.")).toBeTruthy();
     expect(
       sdkFetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
     ).toBe(false);

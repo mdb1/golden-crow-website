@@ -3,7 +3,6 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
-  SUPPORT_SERVICE_CATEGORY_KEYS,
   SUPPORT_SERVICE_OFFER_STATUSES,
   SUPPORT_SERVICE_OBJECT_TYPES,
   SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH,
@@ -21,6 +20,7 @@ import {
   getSupportServiceOfferTransactionStats,
   getSupportServiceTransaction,
   getSupportServiceTransactionLinkedReports,
+  isCanonicalSupportServiceCategoryValue,
   listSupportServiceLinkedReportCandidates,
   listSupportServiceOffers,
   listSupportServiceTransactions,
@@ -30,7 +30,10 @@ import {
 } from "../repositories/support-services.repository.js";
 
 const ServiceStageSchema = z.enum(SUPPORT_SERVICE_STAGES);
-const ServiceCategorySchema = z.enum(SUPPORT_SERVICE_CATEGORY_KEYS);
+const ServiceCategorySchema = z.string().refine(
+  isCanonicalSupportServiceCategoryValue,
+  "serviceCategory must be a canonical comma-separated list of one or more exact keys from the closed service-offer category registry.",
+);
 const ServiceObjectTypeSchema = z.enum(SUPPORT_SERVICE_OBJECT_TYPES);
 const OfferStatusSchema = z.enum(SUPPORT_SERVICE_OFFER_STATUSES);
 const TransactionStatusSchema = z.enum(SUPPORT_SERVICE_TRANSACTION_STATUSES);

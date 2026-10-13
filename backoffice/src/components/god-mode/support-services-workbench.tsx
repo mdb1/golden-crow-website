@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -120,10 +121,12 @@ import {
 import {
   SUPPORT_SERVICE_CATEGORIES,
   SUPPORT_SERVICE_CATEGORY_GROUPS,
-  isSupportServiceCategoryKey,
-  supportServiceCategoryByKey,
+  parseSupportServiceCategoryKeys,
+  serializeSupportServiceCategoryKeys,
+  supportServiceCategoriesByValue,
   supportServiceCategoryDescription,
   supportServiceCategoryName,
+  supportServiceCategoryValueIssue,
   type SupportServiceCategoryKey,
 } from "@/lib/support-service-categories";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
@@ -516,7 +519,7 @@ const SUPPORT_SERVICE_TABLE_SHELL_CLASS =
 const SERVICE_OFFER_WIZARD_STEPS = [
   {
     title: "Offer identity",
-    description: "Choose the name and primary category for this service.",
+    description: "Choose the name and service categories for this offer.",
   },
   {
     title: "Offer visibility",
@@ -1309,9 +1312,9 @@ function offerFormFromRecord(
     serviceId: record.serviceId,
     serviceVersion: record.serviceVersion,
     name: record.name,
-    serviceCategory: isSupportServiceCategoryKey(record.serviceCategory)
-      ? record.serviceCategory
-      : "",
+    serviceCategory: serializeSupportServiceCategoryKeys(
+      parseSupportServiceCategoryKeys(record.serviceCategory),
+    ),
     providerKind: record.providerKind ?? "organization",
     providerId: record.providerId,
     providerName: record.providerName ?? "",
@@ -1943,6 +1946,19 @@ function parseJsonArray(value: string, label: string) {
   return parsed;
 }
 
+function serviceCategoryValidationMessage(value: unknown) {
+  switch (supportServiceCategoryValueIssue(value)) {
+    case "empty":
+      return "Choose at least one service category.";
+    case "mixed_families":
+      return "Genomic and human-advice categories cannot be combined.";
+    case "invalid":
+      return "Choose only registered service categories.";
+    default:
+      return null;
+  }
+}
+
 function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
   if (!form.name.trim()) {
     throw new Error("Offer name is required.");
@@ -2063,8 +2079,10 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
   const acceptedConditions = splitLines(form.acceptedConditionsText);
   const scopeRules = splitLines(form.scopeRulesText);
   const serviceCategory = form.serviceCategory;
-  if (!isSupportServiceCategoryKey(serviceCategory)) {
-    throw new Error("Choose one service category.");
+  const serviceCategoryError =
+    serviceCategoryValidationMessage(serviceCategory);
+  if (serviceCategoryError) {
+    throw new Error(serviceCategoryError);
   }
 
   return {
@@ -3124,7 +3142,7 @@ function PublisherSupportServiceRows({
         <div role="list">
           {isOffers
             ? offers.map((offer) => {
-              const category = supportServiceCategoryByKey(
+              const categories = supportServiceCategoriesByValue(
                 offer.serviceCategory,
               );
 
@@ -3153,11 +3171,17 @@ function PublisherSupportServiceRows({
                   </div>
 
                   <div className="min-w-0 space-y-2">
-                    <Badge variant="brand">
-                      {category
-                        ? supportServiceCategoryName(category, language)
-                        : t("Uncategorized")}
-                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {categories.length ? (
+                        categories.map((category) => (
+                          <Badge key={category.key} variant="brand">
+                            {supportServiceCategoryName(category, language)}
+                          </Badge>
+                        ))
+                      ) : (
+                        <Badge variant="brand">{t("Uncategorized")}</Badge>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-1">
                       {offer.stages.map((stage) => (
                         <Badge key={stage} variant="secondary">
@@ -4258,8 +4282,11 @@ export function SupportServiceOfferWorkbench({
       if (!candidateForm.name.trim()) {
         return t("Offer name is required.");
       }
-      if (!isSupportServiceCategoryKey(candidateForm.serviceCategory)) {
-        return t("Choose one service category.");
+      const serviceCategoryError = serviceCategoryValidationMessage(
+        candidateForm.serviceCategory,
+      );
+      if (serviceCategoryError) {
+        return t(serviceCategoryError);
       }
     }
 
@@ -5598,7 +5625,9 @@ function WizardOfferReview({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
-  const selectedCategory = supportServiceCategoryByKey(form.serviceCategory);
+  const selectedCategories = supportServiceCategoriesByValue(
+    form.serviceCategory,
+  );
   const bannerSource =
     form.promotionalBannerImageUrl.trim() ||
     form.promotionalBannerImageUploadDataUrl;
@@ -5693,8 +5722,12 @@ function WizardOfferReview({
             <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-5">
               <dt className="font-semibold text-slate-900">{t("Service category")}</dt>
               <dd>
-                {selectedCategory
-                  ? supportServiceCategoryName(selectedCategory, language)
+                {selectedCategories.length
+                  ? selectedCategories
+                      .map((category) =>
+                        supportServiceCategoryName(category, language),
+                      )
+                      .join(", ")
                   : t("Uncategorized")}
               </dd>
             </div>
@@ -6960,15 +6993,18 @@ function ServiceCategoryPicker({
 }: {
   value: string;
   disabled?: boolean;
-  onChange: (value: SupportServiceCategoryKey) => void;
+  onChange: (value: string) => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const familyRestrictionId = useId();
+  const draftStatusId = useId();
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<SupportServiceCategoryKey | "">("");
+  const [draft, setDraft] = useState<SupportServiceCategoryKey[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const selectedCategory = supportServiceCategoryByKey(value);
-  const draftCategory = supportServiceCategoryByKey(draft);
+  const selectedCategories = supportServiceCategoriesByValue(value);
+  const draftValue = serializeSupportServiceCategoryKeys(draft);
+  const draftIssue = supportServiceCategoryValueIssue(draftValue);
   const normalizedSearchQuery = normalizeServiceCategorySearch(searchQuery);
   const visibleCategoryGroups = SUPPORT_SERVICE_CATEGORY_GROUPS.map(
     (group) => ({
@@ -7001,17 +7037,37 @@ function ServiceCategoryPicker({
 
   function handleOpenChange(nextOpen: boolean) {
     if (nextOpen) {
-      setDraft(selectedCategory?.key ?? "");
+      setDraft(parseSupportServiceCategoryKeys(value));
       setSearchQuery("");
     }
     setOpen(nextOpen);
   }
 
-  function applyCategory() {
-    if (!isSupportServiceCategoryKey(draft)) {
+  function toggleCategory(categoryKey: SupportServiceCategoryKey) {
+    setDraft((current) => {
+      if (current.includes(categoryKey)) {
+        return current.filter((key) => key !== categoryKey);
+      }
+
+      const currentFamily = current[0]?.startsWith("sot_human_advice_")
+        ? "human_advice"
+        : current.length
+          ? "genomic"
+          : null;
+      const nextFamily = categoryKey.startsWith("sot_human_advice_")
+        ? "human_advice"
+        : "genomic";
+      return currentFamily && currentFamily !== nextFamily
+        ? current
+        : [...current, categoryKey];
+    });
+  }
+
+  function applyCategories() {
+    if (draftIssue) {
       return;
     }
-    onChange(draft);
+    onChange(draftValue);
     setOpen(false);
   }
 
@@ -7022,13 +7078,13 @@ function ServiceCategoryPicker({
         onClick={() => handleOpenChange(true)}
         disabled={disabled}
         aria-label={
-          selectedCategory
-            ? t("Change service category")
-            : t("Choose service category")
+          selectedCategories.length
+            ? t("Change service categories")
+            : t("Choose service categories")
         }
         className={cn(
           "flex min-h-20 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left shadow-sm transition",
-          selectedCategory
+          selectedCategories.length
             ? "border-violet-200 bg-white/82 hover:border-violet-300 hover:bg-violet-50/70 dark:border-violet-400/20 dark:bg-slate-950/42 dark:hover:bg-violet-500/10"
             : "border-amber-300 bg-amber-50/85 hover:border-amber-400 hover:bg-amber-50 dark:border-amber-400/30 dark:bg-amber-500/10",
           disabled && "cursor-not-allowed opacity-60",
@@ -7037,28 +7093,35 @@ function ServiceCategoryPicker({
         <span
           className={cn(
             "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
-            selectedCategory
+            selectedCategories.length
               ? "bg-violet-100 text-violet-700 dark:bg-violet-500/16 dark:text-violet-100"
               : "bg-amber-100 text-amber-700 dark:bg-amber-500/16 dark:text-amber-100",
           )}
         >
-          {selectedCategory ? (
+          {selectedCategories.length ? (
             <CheckCircle2 className="h-5 w-5" />
           ) : (
             <CircleAlert className="h-5 w-5" />
           )}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-foreground">
-            {selectedCategory
-              ? supportServiceCategoryName(selectedCategory, language)
-              : t("Uncategorized")}
-          </span>
-          {selectedCategory ? (
-            <code className="mt-1 block truncate text-[11px] text-violet-700 dark:text-violet-200">
-              {selectedCategory.key}
-            </code>
-          ) : null}
+          {selectedCategories.length ? (
+            <span className="flex flex-wrap gap-1.5">
+              {selectedCategories.map((category) => (
+                <span
+                  key={category.key}
+                  data-testid="service-category-pill"
+                  className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-semibold leading-5 text-violet-800 dark:border-violet-300/24 dark:bg-violet-500/12 dark:text-violet-100"
+                >
+                  {supportServiceCategoryName(category, language)}
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span className="block text-sm font-semibold text-foreground">
+              {t("Uncategorized")}
+            </span>
+          )}
         </span>
         <Settings2 className="h-4 w-4 shrink-0 text-violet-600 dark:text-violet-200" />
       </button>
@@ -7067,12 +7130,17 @@ function ServiceCategoryPicker({
         <DialogContent className="flex max-h-[92vh] w-[min(calc(100vw-2rem),80rem)] max-w-none flex-col overflow-hidden rounded-2xl border border-violet-100 bg-white p-0 shadow-[0_34px_120px_rgba(109,40,217,0.24)] sm:max-w-none dark:border-violet-300/20 dark:bg-slate-950">
           <DialogHeader className="shrink-0 border-b border-violet-100 bg-violet-50/55 px-6 py-5 text-left dark:border-violet-300/16 dark:bg-violet-950/24">
             <DialogTitle className="font-heading text-2xl font-semibold">
-              {t("Choose service category")}
+              {t("Choose service categories")}
             </DialogTitle>
             <DialogDescription className="max-w-4xl leading-6">
-              {t(
-                "Choose the single category that describes the primary contracted and billable outcome. Supporting inputs, steps, and provider profession do not determine it.",
-              )}
+              <span>
+                {t(
+                  "Choose every category that describes a contracted outcome delivered by this offer. Supporting inputs, steps, and provider profession do not determine categories.",
+                )}
+              </span>{" "}
+              <span id={familyRestrictionId} className="font-semibold">
+                {t("Genomic and human-advice categories cannot be combined.")}
+              </span>
             </DialogDescription>
           </DialogHeader>
 
@@ -7091,7 +7159,7 @@ function ServiceCategoryPicker({
 
           <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/55 px-5 py-6 sm:px-6 dark:bg-slate-950/55">
             <div
-              role="radiogroup"
+              role="group"
               aria-label={t("Service category options")}
               className="space-y-5"
             >
@@ -7136,25 +7204,56 @@ function ServiceCategoryPicker({
                         </div>
                         <div className="divide-y divide-slate-200/80 dark:divide-violet-400/12">
                           {group.categories.map((category) => {
-                            const selected = draft === category.key;
+                            const selected = draft.includes(category.key);
+                            const selectedFamily = draft[0]?.startsWith(
+                              "sot_human_advice_",
+                            )
+                              ? "human_advice"
+                              : draft.length
+                                ? "genomic"
+                                : null;
+                            const categoryFamily = category.key.startsWith(
+                              "sot_human_advice_",
+                            )
+                              ? "human_advice"
+                              : "genomic";
+                            const incompatible =
+                              !selected &&
+                              Boolean(
+                                selectedFamily &&
+                                selectedFamily !== categoryFamily,
+                              );
 
                             return (
                               <button
                                 key={category.key}
                                 type="button"
-                                role="radio"
+                                role="checkbox"
                                 aria-checked={selected}
-                                onClick={() => setDraft(category.key)}
+                                aria-describedby={
+                                  incompatible ? familyRestrictionId : undefined
+                                }
+                                disabled={incompatible}
+                                title={
+                                  incompatible
+                                    ? t(
+                                        "Genomic and human-advice categories cannot be combined.",
+                                      )
+                                    : undefined
+                                }
+                                onClick={() => toggleCategory(category.key)}
                                 className={cn(
                                   "flex w-full min-w-0 items-start gap-4 border-l-4 px-5 py-5 text-left outline-none transition-[background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400",
                                   selected
                                     ? "border-l-violet-500 bg-violet-50/95 shadow-[inset_0_0_32px_rgba(124,58,237,0.035)] dark:border-l-violet-300 dark:bg-violet-500/14"
                                     : "border-l-transparent bg-white hover:border-l-violet-200 hover:bg-violet-50/55 dark:bg-slate-950/48 dark:hover:border-l-violet-400/40 dark:hover:bg-violet-500/8",
+                                  incompatible &&
+                                    "cursor-not-allowed opacity-45 hover:border-l-transparent hover:bg-white dark:hover:border-l-transparent dark:hover:bg-slate-950/48",
                                 )}
                               >
                                 <span
                                   className={cn(
-                                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors",
+                                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors",
                                     selected
                                       ? "border-violet-600 bg-violet-600 text-white shadow-sm"
                                       : "border-violet-200 bg-white text-transparent dark:border-violet-400/28 dark:bg-slate-950",
@@ -7189,15 +7288,31 @@ function ServiceCategoryPicker({
           </div>
 
           <DialogFooter className="shrink-0 gap-3 border-t border-violet-100 bg-white/95 px-6 py-4 dark:border-violet-300/16 dark:bg-slate-950/95">
-            <div className="mr-auto hidden min-w-0 sm:block">
-              <p className="truncate text-sm font-semibold text-foreground">
-                {draftCategory
-                  ? supportServiceCategoryName(draftCategory, language)
-                  : t("No category selected")}
+            <div
+              id={draftStatusId}
+              aria-live="polite"
+              className="mr-auto min-w-0 text-left"
+            >
+              <p className="text-sm font-semibold text-foreground">
+                {draft.length
+                  ? `${draft.length} ${t(
+                      draft.length === 1
+                        ? "service category selected"
+                        : "service categories selected",
+                    )}`
+                  : t("No service categories selected")}
               </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {draftCategory?.key ?? t("Select one category to continue.")}
-              </p>
+              {draftIssue ? (
+                <p className="text-xs font-medium leading-5 text-amber-700 dark:text-amber-200">
+                  {t(
+                    draftIssue === "empty"
+                      ? "Select at least one category to continue."
+                      : draftIssue === "mixed_families"
+                        ? "Remove categories from one family before applying."
+                        : "Choose only registered service categories.",
+                  )}
+                </p>
+              ) : null}
             </div>
             <Button
               type="button"
@@ -7209,12 +7324,13 @@ function ServiceCategoryPicker({
             </Button>
             <Button
               type="button"
-              onClick={applyCategory}
-              disabled={!draftCategory}
+              onClick={applyCategories}
+              disabled={draftIssue !== null}
+              aria-describedby={draftIssue ? draftStatusId : undefined}
               className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
             >
               <Check className="h-4 w-4" />
-              {t("Apply category")}
+              {t("Apply categories")}
             </Button>
           </DialogFooter>
         </DialogContent>

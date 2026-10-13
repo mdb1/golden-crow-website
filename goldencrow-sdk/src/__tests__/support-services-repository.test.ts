@@ -613,8 +613,13 @@ describe("support service repository versions", () => {
     "Genomic report generation",
     "sot_unknown",
     " sot_genomic_report_generation ",
+    "sot_genomic_report_generation, sot_genomic_report_review",
+    "sot_genomic_report_generation,,sot_genomic_report_review",
+    "sot_genomic_report_generation,sot_genomic_report_generation",
+    "sot_genomic_report_generation,sot_unknown",
+    "sot_genomic_report_generation,sot_human_advice_medical_consultation",
   ])(
-    "rejects non-registry serviceCategory value %p on write",
+    "rejects non-canonical serviceCategory value %p on write",
     async (serviceCategory) => {
       const { createSupportServiceOffer } = await import(
         "../repositories/support-services.repository.js"
@@ -645,10 +650,41 @@ describe("support service repository versions", () => {
           ],
         }),
       ).rejects.toThrow(
-        "serviceCategory must be one exact key from the closed service-offer category registry.",
+        "serviceCategory must be a canonical comma-separated list of one or more exact keys from the closed service-offer category registry.",
       );
     },
   );
+
+  it("persists canonical service categories in submitted order", async () => {
+    const { createSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const serviceCategory =
+      "sot_genomic_report_review,sot_genomic_report_generation,sot_genomic_interpretation";
+
+    const offer = await createSupportServiceOffer(context, {
+      serviceId: "pgs_pocket_genes_54321",
+      name: "Ordered category service",
+      serviceCategory,
+      providerKind: "organization",
+      providerId: "feed-org-1",
+      providerName: "Pocket Genes",
+      stages: ["bioinformatics"],
+      status: "draft",
+      isHiddenFromSearch: false,
+      isHighlightedOffer: false,
+      isProfessionalOffer: true,
+      description: "Exercise ordered category persistence.",
+      providerWork: "Preserve the selected category order.",
+      inputSlots: [],
+      outputSlots: [],
+    });
+
+    expect(offer.serviceCategory).toBe(serviceCategory);
+    expect(
+      collectionStore("service_offers").get(offer.id)?.serviceCategory,
+    ).toBe(serviceCategory);
+  });
 
   it("shows an invalid historical category as Uncategorized with a remediation warning", async () => {
     seedDoc("service_offers", "offer-historical", {
@@ -677,6 +713,29 @@ describe("support service repository versions", () => {
     );
     expect(repaired.serviceCategory).toBe("sot_genomic_report_generation");
     expect(repaired.serviceVersion).toBe(4);
+  });
+
+  it("recovers recognized historical categories without sorting them", async () => {
+    seedDoc("service_offers", "offer-historical-multi", {
+      ...baseOffer,
+      serviceCategory:
+        " sot_genomic_report_review ,sot_unknown,sot_genomic_report_generation,sot_genomic_report_review",
+    });
+    const { getSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const offer = await getSupportServiceOffer(
+      context,
+      "offer-historical-multi",
+    );
+
+    expect(offer.serviceCategory).toBe(
+      "sot_genomic_report_review,sot_genomic_report_generation",
+    );
+    expect(offer.complianceWarnings).toContain(
+      "serviceCategory  sot_genomic_report_review ,sot_unknown,sot_genomic_report_generation,sot_genomic_report_review is malformed or partially unrecognized; recognized categories are shown in their stored order and must be corrected before saving.",
+    );
   });
 
   it("exports the exact closed 110-key category registry", async () => {
@@ -5690,6 +5749,63 @@ describe("support service canonical transaction creation", () => {
         createSupportServiceTransaction(context, creationInput()),
       ).rejects.toThrow(
         "must define boolean isHighlightedOffer and isProfessionalOffer",
+      );
+      expect(
+        collectionStore("service_transactions").has("pgr_new_report_1"),
+      ).toBe(false);
+    },
+  );
+
+  it("freezes recognized stored categories in their original order", async () => {
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      serviceCategory:
+        " sot_genomic_report_review ,sot_unknown,sot_genomic_report_generation,sot_genomic_report_review",
+    });
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+
+    expect(created.offerSnapshot.serviceCategory).toBe(
+      "sot_genomic_report_review,sot_genomic_report_generation",
+    );
+    expect(
+      collectionStore("service_transactions").get("pgr_new_report_1")
+        ?.offerSnapshot,
+    ).toEqual(
+      expect.objectContaining({
+        serviceCategory:
+          "sot_genomic_report_review,sot_genomic_report_generation",
+      }),
+    );
+  });
+
+  it.each([
+    [
+      "mixed genomic and human-advice categories",
+      "sot_genomic_report_generation,sot_human_advice_medical_consultation",
+    ],
+    ["only unrecognized categories", "sot_unknown,sot_also_unknown"],
+  ])(
+    "rejects transaction creation from an offer with %s",
+    async (_label, serviceCategory) => {
+      seedDoc("service_offers", "offer-1", {
+        ...baseOffer,
+        serviceCategory,
+      });
+      const { createSupportServiceTransaction } = await import(
+        "../repositories/support-services.repository.js"
+      );
+
+      await expect(
+        createSupportServiceTransaction(context, creationInput()),
+      ).rejects.toThrow(
+        "Selected service offer must define a canonical serviceCategory before it can receive new transactions.",
       );
       expect(
         collectionStore("service_transactions").has("pgr_new_report_1"),

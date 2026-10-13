@@ -1028,22 +1028,96 @@ function cleanString(value: unknown) {
 const SUPPORT_SERVICE_CATEGORY_SET = new Set<string>(
   SUPPORT_SERVICE_CATEGORY_KEYS,
 );
+const HUMAN_ADVICE_SERVICE_CATEGORY_PREFIX = "sot_human_advice_";
+const SUPPORT_SERVICE_CATEGORY_VALUE_ERROR =
+  "serviceCategory must be a canonical comma-separated list of one or more exact keys from the closed service-offer category registry.";
+
+function hasMixedServiceCategoryFamilies(categories: string[]) {
+  const hasHumanAdvice = categories.some((category) =>
+    category.startsWith(HUMAN_ADVICE_SERVICE_CATEGORY_PREFIX),
+  );
+  return (
+    hasHumanAdvice &&
+    categories.some(
+      (category) =>
+        !category.startsWith(HUMAN_ADVICE_SERVICE_CATEGORY_PREFIX),
+    )
+  );
+}
+
+function canonicalServiceCategoryTokens(value: unknown): string[] | null {
+  if (typeof value !== "string" || !value) {
+    return null;
+  }
+  const categories = value.split(",");
+  if (
+    categories.some(
+      (category) =>
+        !category ||
+        category !== category.trim() ||
+        !SUPPORT_SERVICE_CATEGORY_SET.has(category),
+    ) ||
+    new Set(categories).size !== categories.length ||
+    hasMixedServiceCategoryFamilies(categories)
+  ) {
+    return null;
+  }
+  return categories;
+}
+
+export function isCanonicalSupportServiceCategoryValue(value: unknown) {
+  return canonicalServiceCategoryTokens(value) !== null;
+}
+
+function tolerantStoredServiceCategoryValue(value: unknown): {
+  serviceCategory: string;
+  warning?: string;
+} {
+  const rawCategory = typeof value === "string" ? value : "";
+  const categories: string[] = [];
+  const seen = new Set<string>();
+
+  for (const rawToken of rawCategory.split(",")) {
+    const category = rawToken.trim();
+    if (
+      !category ||
+      !SUPPORT_SERVICE_CATEGORY_SET.has(category) ||
+      seen.has(category)
+    ) {
+      continue;
+    }
+    seen.add(category);
+    categories.push(category);
+  }
+
+  const serviceCategory = categories.join(",");
+  if (isCanonicalSupportServiceCategoryValue(rawCategory)) {
+    return { serviceCategory };
+  }
+  if (!serviceCategory) {
+    return {
+      serviceCategory,
+      warning: `${rawCategory.trim() ? `serviceCategory ${rawCategory} is not registered` : "serviceCategory is missing"}; it is shown as Uncategorized and must be selected before saving.`,
+    };
+  }
+  return {
+    serviceCategory,
+    warning: `serviceCategory ${rawCategory} is malformed or partially unrecognized; recognized categories are shown in their stored order and must be corrected before saving.`,
+  };
+}
 
 function serviceCategoryValue(
   value: unknown,
   options: { allowHistorical?: boolean } = {},
 ) {
   const category = typeof value === "string" ? value : "";
-  if (SUPPORT_SERVICE_CATEGORY_SET.has(category)) {
+  if (isCanonicalSupportServiceCategoryValue(category)) {
     return category;
   }
   if (options.allowHistorical) {
     return category;
   }
-  throw new AdminRepositoryError(
-    "serviceCategory must be one exact key from the closed service-offer category registry.",
-    400,
-  );
+  throw new AdminRepositoryError(SUPPORT_SERVICE_CATEGORY_VALUE_ERROR, 400);
 }
 
 function normalizeKey(value: string) {
@@ -3197,12 +3271,9 @@ function validateOfferDocument(
   }
   if (
     !options.allowHistoricalServiceCategory &&
-    !SUPPORT_SERVICE_CATEGORY_SET.has(document.serviceCategory)
+    !isCanonicalSupportServiceCategoryValue(document.serviceCategory)
   ) {
-    throw new AdminRepositoryError(
-      "serviceCategory must be one exact key from the closed service-offer category registry.",
-      400,
-    );
+    throw new AdminRepositoryError(SUPPORT_SERVICE_CATEGORY_VALUE_ERROR, 400);
   }
   const formInputSlotCount = document.inputSlots.filter(
     (slot) => slot.objectType === FORM_OBJECT_TYPE,
@@ -5159,13 +5230,10 @@ function toOfferRecord(
   const name = cleanString(data.name);
   const inputSlots = normalizeOfferInputSlots(data.inputSlots);
   const outputSlots = normalizeOfferOutputSlots(data.outputSlots);
-  const storedServiceCategory =
-    typeof data.serviceCategory === "string" ? data.serviceCategory : "";
-  const serviceCategory = SUPPORT_SERVICE_CATEGORY_SET.has(
-    storedServiceCategory,
-  )
-    ? storedServiceCategory
-    : "";
+  const storedServiceCategory = tolerantStoredServiceCategoryValue(
+    data.serviceCategory,
+  );
+  const serviceCategory = storedServiceCategory.serviceCategory;
 
   const record = {
     id,
@@ -5233,7 +5301,9 @@ function toOfferRecord(
     updatedAt: timestampToIso(data.updatedAt),
     createdByEmail: cleanString(data.createdByEmail),
     updatedByEmail: cleanString(data.updatedByEmail),
-    complianceWarnings: [],
+    complianceWarnings: storedServiceCategory.warning
+      ? [storedServiceCategory.warning]
+      : [],
   } satisfies SupportServiceOfferRecord;
   validateOfferDocument(
     offerDocument(record, { allowHistoricalServiceCategory: true }),
@@ -5513,15 +5583,14 @@ function toOfferAdminRecord(
   const providerId = cleanString(data.providerId);
   const providerName = cleanString(data.providerName);
   const name = cleanString(data.name);
-  const rawServiceCategory =
-    typeof data.serviceCategory === "string" ? data.serviceCategory : "";
-  const serviceCategory = SUPPORT_SERVICE_CATEGORY_SET.has(rawServiceCategory)
-    ? rawServiceCategory
-    : "";
-  if (!serviceCategory) {
+  const storedServiceCategory = tolerantStoredServiceCategoryValue(
+    data.serviceCategory,
+  );
+  const serviceCategory = storedServiceCategory.serviceCategory;
+  if (storedServiceCategory.warning) {
     pushComplianceWarning(
       complianceWarnings,
-      `${rawServiceCategory.trim() ? `serviceCategory ${rawServiceCategory} is not registered` : "serviceCategory is missing"}; it is shown as Uncategorized and must be selected before saving.`,
+      storedServiceCategory.warning,
     );
   }
   const createdAt = timestampToIso(data.createdAt);
@@ -7659,6 +7728,12 @@ async function createSupportServiceTransactionWithPolicy(
   const offer = toOfferRecord(offerSnapshot.id, offerSnapshot.data() ?? {}, {
     requirePresentationFlags: true,
   });
+  if (!isCanonicalSupportServiceCategoryValue(offer.serviceCategory)) {
+    throw new AdminRepositoryError(
+      "Selected service offer must define a canonical serviceCategory before it can receive new transactions.",
+      400,
+    );
+  }
   if (offer.status !== "active") {
     throw new AdminRepositoryError(
       "Only active service offers are selectable for new transactions.",
