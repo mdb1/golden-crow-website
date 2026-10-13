@@ -1,5 +1,5 @@
 // Forma de una "story page" de producto — la maqueta que estrenó Pocket Genes
-// y que ahora también usa GC Fitness (ver `ProductStoryPage.astro`).
+// y que ahora también usa Corvo (ver `ProductStoryPage.astro`).
 //
 // Los tipos viven acá y no en `pocketGenesStory.ts` para que agregar un
 // producto no dependa del copy de otro.

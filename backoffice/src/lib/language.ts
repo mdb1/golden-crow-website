@@ -22,7 +22,7 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 const SPANISH_TEXT: Record<string, string> = {
   "Golden Crow": "Golden Crow",
   "Pocket Gyms": "Pocket Gyms",
-  "GC Fitness": "GC Fitness",
+  "Corvo": "Corvo",
   PocketGenes: "PocketGenes",
   Operator: "Operador",
   "Pocket Genes Admin": "Administración Pocket Genes",

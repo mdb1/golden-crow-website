@@ -92,7 +92,7 @@ function readConfig(): SmtpConfig | null {
     password,
     // Gmail rewrites From to the authenticated mailbox anyway, so a mismatched
     // GC_FITNESS_MAIL_FROM is silently ignored rather than being a failure.
-    from: process.env.GC_FITNESS_MAIL_FROM?.trim() || `GC Fitness <${user}>`,
+    from: process.env.GC_FITNESS_MAIL_FROM?.trim() || `Corvo <${user}>`,
   };
 }
 

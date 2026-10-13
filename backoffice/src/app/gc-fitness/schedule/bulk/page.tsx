@@ -20,7 +20,7 @@ import { ScheduleQueryProvider } from "../providers";
 import { BulkAssignForm } from "@/components/gc-fitness/schedule/bulk-assign-form";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <schedule>" (issue #170).
+// Tab title: "Corvo - <schedule>" (issue #170).
 export const generateMetadata = () => sectionMetadata("schedule");
 
 export const dynamic = "force-dynamic";

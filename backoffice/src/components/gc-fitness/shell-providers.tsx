@@ -4,9 +4,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 
-// Shell-scoped QueryClient for the GC Fitness trainer surface (BADGE-04).
+// Shell-scoped QueryClient for the Corvo trainer surface (BADGE-04).
 //
-// The GC Fitness layout wraps every /gc-fitness/* route in this provider so
+// The Corvo layout wraps every /gc-fitness/* route in this provider so
 // the sidebar's chat badge (useTrainerChats) has a QueryClient on every
 // surface, not just routes that already mount their own per-group provider
 // (chat/clients/schedule/habits/exercises/templates).

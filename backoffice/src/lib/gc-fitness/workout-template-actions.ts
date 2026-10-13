@@ -1,6 +1,6 @@
 // workout-template-actions.ts
 //
-// Server Actions for the GC Fitness trainer Workout Template CRUD surface.
+// Server Actions for the Corvo trainer Workout Template CRUD surface.
 // This module is the ONLY trainer-writable path to /workout_templates
 // (Firestore rules from P04-02 deny client-SDK writes). Every guarantee —
 // allowlist enforcement, role check, trainerId set from session, version

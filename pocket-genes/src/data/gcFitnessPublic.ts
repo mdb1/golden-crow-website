@@ -1,4 +1,4 @@
-// Public store links for the GC Fitness app.
+// Public store links for the Corvo app.
 //
 // Kept in sync with the backoffice wiki (`backoffice/src/app/gc-fitness/wiki/wiki-data.ts`,
 // entries `link-app-store` / `link-play-store`) and `gc-fitness/README.md`.
@@ -44,3 +44,18 @@ export const PLAY_STORE_APP_URL = 'market://details?id=com.goldencrow.fitness';
 
 export const GC_FITNESS_BUNDLE_ID = 'com.goldencrow.fitness';
 export const GC_FITNESS_SUPPORT_EMAIL = 'support@goldencrowvs.com';
+
+// gc-fitness#1368 — Corvo brand assets for every page of the app's site (favicon, home-screen
+// icon and Open Graph card). Spread into BaseLayout / ProductStoryPage so the app's pages
+// stop showing the Golden Crow studio favicon and generic social card. The source is option A
+// of the 2.0.0 rebrand icon (crow head, metal gold on the night background).
+export const CORVO_HEAD_ASSETS = {
+  faviconHref: '/gc-fitness/favicon-48x48.png',
+  favicon32Href: '/gc-fitness/favicon-32x32.png',
+  favicon16Href: '/gc-fitness/favicon-16x16.png',
+  appleTouchIconHref: '/gc-fitness/apple-touch-icon.png',
+  socialImage: '/gc-fitness/og-image.png',
+  socialImageWidth: 1200,
+  socialImageHeight: 630,
+  socialImageType: 'image/png',
+} as const;

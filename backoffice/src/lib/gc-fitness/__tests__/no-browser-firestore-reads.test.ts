@@ -1,6 +1,6 @@
 // no-browser-firestore-reads.test.ts
 //
-// AN INVARIANT, NOT A UNIT TEST. Nothing under the GC Fitness surface may read
+// AN INVARIANT, NOT A UNIT TEST. Nothing under the Corvo surface may read
 // or write Firestore with the BROWSER SDK (`firebase/firestore`).
 //
 // WHY (#1104). The coach portal has TWO unrelated credentials:
@@ -37,7 +37,7 @@ const ALLOWED: string[] = [];
 
 const SRC = path.join(__dirname, "..", "..", "..");
 
-/** Surfaces this invariant covers — the GC Fitness coach portal. */
+/** Surfaces this invariant covers — the Corvo coach portal. */
 const SCANNED = [
   path.join(SRC, "lib", "gc-fitness"),
   path.join(SRC, "components", "gc-fitness"),

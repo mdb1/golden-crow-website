@@ -23,7 +23,7 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { resolveDisplayTier } from "@/lib/gc-fitness/coachless-user-model";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <adminPanel>" (issue #170).
+// Tab title: "Corvo - <adminPanel>" (issue #170).
 export const generateMetadata = () => sectionMetadata("adminPanel");
 
 export const dynamic = "force-dynamic";

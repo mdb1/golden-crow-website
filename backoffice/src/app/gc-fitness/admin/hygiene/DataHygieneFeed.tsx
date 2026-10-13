@@ -107,7 +107,7 @@ export function DataHygieneFeed({
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">Hygiene summary</CardTitle>
-          <CardDescription>Preview of orphaned or suspicious GC Fitness records detected from recent scans.</CardDescription>
+          <CardDescription>Preview of orphaned or suspicious Corvo records detected from recent scans.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard label="Users" value={summary.user} />

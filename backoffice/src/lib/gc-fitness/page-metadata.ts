@@ -2,7 +2,7 @@
 //
 // Every gc-fitness page exports `generateMetadata = () => sectionMetadata(navKey)`
 // with the SAME `nav.*` translation key its sidebar entry uses, so the tab
-// reads "GC Fitness - <section>" in the trainer's language. The "GC Fitness - "
+// reads "Corvo - <section>" in the trainer's language. The "Corvo - "
 // prefix comes from the title template in `src/app/gc-fitness/layout.tsx`;
 // pages only supply the section name.
 

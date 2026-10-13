@@ -33,7 +33,7 @@ function projectLabel(project: ProjectKey) {
   }
 
   if (project === "gc-fitness") {
-    return "GC Fitness";
+    return "Corvo";
   }
 
   return "PocketGenes";

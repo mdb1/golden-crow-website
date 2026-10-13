@@ -47,9 +47,9 @@ function plural(n: number, one: string, many: string): string {
 }
 
 function metadataDescription(profile: PublicProfile): string {
-  if (profile.isPrivate) return `Seguí a @${profile.handle} en GC Fitness.`;
+  if (profile.isPrivate) return `Seguí a @${profile.handle} en Corvo.`;
   if (profile.bio) return profile.bio;
-  return `Seguí a @${profile.handle} en GC Fitness — ${plural(
+  return `Seguí a @${profile.handle} en Corvo — ${plural(
     profile.publicRoutineCount ?? 0,
     "rutina pública",
     "rutinas públicas",
@@ -60,10 +60,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { uid } = await params;
   const profile = await readPublicProfile(uid);
   if (!profile) {
-    return { title: "GC Fitness" };
+    return { title: "Corvo" };
   }
 
-  const title = `${profile.displayName} (@${profile.handle}) · GC Fitness`;
+  const title = `${profile.displayName} (@${profile.handle}) · Corvo`;
   const description = metadataDescription(profile);
 
   // Sin OG tags, el link llega a WhatsApp como una URL cruda y nadie lo toca.
@@ -118,7 +118,7 @@ export default async function SharedProfilePage({ params }: PageProps) {
 
       {profile.isPrivate ? (
         <p className="rounded-xl border border-neutral-200 px-4 py-3 text-sm text-neutral-600">
-          <strong className="font-semibold">Perfil privado.</strong> Abrí GC Fitness para
+          <strong className="font-semibold">Perfil privado.</strong> Abrí Corvo para
           pedir seguir a @{profile.handle}.
         </p>
       ) : (

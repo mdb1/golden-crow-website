@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // PageHeader — the large in-page title block used at the top of every
-// redesigned GC Fitness screen (2026-06). Big navy title + muted subtitle on
+// redesigned Corvo screen (2026-06). Big navy title + muted subtitle on
 // the left, optional actions (CTAs, filters) on the right. Server-component
 // safe (no hooks). Pair hero CTAs with `className="rounded-full"` for the pill
 // look from the reference design.

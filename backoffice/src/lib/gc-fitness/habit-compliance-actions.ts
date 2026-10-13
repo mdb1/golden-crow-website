@@ -1,6 +1,6 @@
 // habit-compliance-actions.ts
 //
-// Server Action surface for the GC Fitness trainer per-habit compliance view
+// Server Action surface for the Corvo trainer per-habit compliance view
 // (Plan 06-08). The pure-function math lives in the sibling
 // `habit-compliance.ts` so it can be imported from client components and
 // exercised by Jest without mocking Firestore. This file is the I/O wrapper:

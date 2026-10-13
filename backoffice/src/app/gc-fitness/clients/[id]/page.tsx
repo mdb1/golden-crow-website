@@ -102,7 +102,7 @@ import { NutritionProfileWidget } from "./_components/NutritionProfileWidget";
 import { ClientCalendarPeek } from "./_components/ClientCalendarPeek";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <clients>" (issue #170).
+// Tab title: "Corvo - <clients>" (issue #170).
 export const generateMetadata = () => sectionMetadata("clients");
 
 export const dynamic = "force-dynamic";
@@ -596,7 +596,7 @@ function PendingClientView({
   return (
     <div className="gc-page flex w-full flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <p className="section-eyebrow">GC Fitness · Pending</p>
+        <p className="section-eyebrow">Corvo · Pending</p>
         <h1 className="gc-page-title text-[1.7rem] leading-tight sm:text-3xl">
           {displayName}
         </h1>

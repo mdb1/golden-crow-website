@@ -60,7 +60,7 @@ export async function grantEngineering(
   try {
     userRecord = await auth.getUserByEmail(parsed.email);
   } catch {
-    throw new Error(`No GC Fitness user found for ${parsed.email}.`);
+    throw new Error(`No Corvo user found for ${parsed.email}.`);
   }
   const db = gcFitnessFirestore();
   await db

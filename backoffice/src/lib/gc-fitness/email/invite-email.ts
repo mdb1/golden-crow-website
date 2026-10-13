@@ -95,11 +95,11 @@ function copyFor({ kind, locale, coachName, clientName }: {
   if (locale === "es") {
     return kind === "download"
       ? {
-          subject: `${coachName} te invitó a entrenar en GC Fitness`,
+          subject: `${coachName} te invitó a entrenar en Corvo`,
           preheader: "Descargá la app y empezá con tu plan.",
           heading: `Hola ${clientName}`,
           intro:
-            `${coachName} te sumó como cliente en GC Fitness. Ahí vas a tener tus ` +
+            `${coachName} te sumó como cliente en Corvo. Ahí vas a tener tus ` +
             "entrenamientos, tus hábitos, tu plan de nutrición y el chat con tu coach, " +
             "todo en un solo lugar.",
           emailNote:
@@ -111,14 +111,14 @@ function copyFor({ kind, locale, coachName, clientName }: {
           signoff: "Nos vemos adentro.",
         }
       : {
-          subject: `${coachName} ahora es tu coach en GC Fitness`,
+          subject: `${coachName} ahora es tu coach en Corvo`,
           preheader: "Ya podés ver tu plan en la app.",
           heading: `Hola ${clientName}`,
           intro:
-            `${coachName} te sumó como cliente en GC Fitness. Abrí la app y vas a ver ` +
+            `${coachName} te sumó como cliente en Corvo. Abrí la app y vas a ver ` +
             "tus entrenamientos, tus hábitos y el chat con tu coach.",
           emailNote: "Tu cuenta es la de {email}.",
-          cta: "Abrir GC Fitness",
+          cta: "Abrir Corvo",
           outro: "¿Borraste la app? La bajás de nuevo desde acá:",
           signoff: "A entrenar.",
         };
@@ -126,11 +126,11 @@ function copyFor({ kind, locale, coachName, clientName }: {
 
   return kind === "download"
     ? {
-        subject: `${coachName} invited you to train on GC Fitness`,
+        subject: `${coachName} invited you to train on Corvo`,
         preheader: "Download the app and start your plan.",
         heading: `Hi ${clientName}`,
         intro:
-          `${coachName} added you as a client on GC Fitness. That is where your ` +
+          `${coachName} added you as a client on Corvo. That is where your ` +
           "workouts, habits, nutrition plan and coach chat all live.",
         emailNote:
           "Important: sign in with this same address — {email} — so your account is " +
@@ -140,14 +140,14 @@ function copyFor({ kind, locale, coachName, clientName }: {
         signoff: "See you inside.",
       }
     : {
-        subject: `${coachName} is now your coach on GC Fitness`,
+        subject: `${coachName} is now your coach on Corvo`,
         preheader: "Your plan is waiting in the app.",
         heading: `Hi ${clientName}`,
         intro:
-          `${coachName} added you as a client on GC Fitness. Open the app to see your ` +
+          `${coachName} added you as a client on Corvo. Open the app to see your ` +
           "workouts, habits and coach chat.",
         emailNote: "Your account is {email}.",
-        cta: "Open GC Fitness",
+        cta: "Open Corvo",
         outro: "Deleted the app? Get it again here:",
         signoff: "Go train.",
       };
@@ -179,7 +179,7 @@ export function buildClientInviteEmail(input: InviteEmailInput): BuiltEmail {
     `${copy.cta}: ${GC_FITNESS_DOWNLOAD_URL}`,
     "",
     copy.signoff,
-    "GC Fitness",
+    "Corvo",
   ].join("\n");
 
   const e = escapeHtml;
@@ -192,7 +192,7 @@ export function buildClientInviteEmail(input: InviteEmailInput): BuiltEmail {
     </tr>
     <tr>
       <td style="padding:32px 28px 8px 28px;">
-        <p style="margin:0 0 4px 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A85;">GC Fitness</p>
+        <p style="margin:0 0 4px 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A85;">Corvo</p>
         <h1 style="margin:0 0 16px 0;font-size:22px;line-height:1.3;color:#1C1C19;font-weight:600;">${e(copy.heading)}</h1>
         <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#3F3F3A;">${e(copy.intro)}</p>
         <p style="margin:0 0 24px 0;padding:12px 14px;background:#FBF6EA;border-radius:10px;font-size:14px;line-height:1.55;color:#5A4A22;">${e(emailNote)}</p>

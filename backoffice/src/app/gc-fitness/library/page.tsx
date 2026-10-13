@@ -29,7 +29,7 @@ import { NutritionLibraryQueryProvider } from "./_nutrition/providers";
 import { NutritionLibraryClient } from "./_nutrition/NutritionLibraryClient";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <library>" (issue #170).
+// Tab title: "Corvo - <library>" (issue #170).
 export const generateMetadata = () => sectionMetadata("library");
 
 export const dynamic = "force-dynamic";

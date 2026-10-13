@@ -2,7 +2,7 @@
 
 // timezone-sync.tsx — bridges the browser's real IANA timezone into a cookie
 // the server can read (see trainer-timezone.ts). Mounted once near the top of
-// the GC Fitness layout.
+// the Corvo layout.
 //
 // LOOP GUARD: writing the cookie + calling router.refresh() re-renders Server
 // Components, which re-mounts this client subtree and re-runs this effect. If

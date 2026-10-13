@@ -153,10 +153,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { routineId } = await params;
   const card = await readCard(routineId);
   if (!card) {
-    return { title: "GC Fitness" };
+    return { title: "Corvo" };
   }
 
-  const title = `${card.name} · GC Fitness`;
+  const title = `${card.name} · Corvo`;
   const parts = [`${card.exerciseCount} ejercicios`];
   if (card.estimatedMinutes) parts.push(`~${card.estimatedMinutes} min`);
   const description =

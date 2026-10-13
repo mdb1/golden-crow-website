@@ -17,14 +17,14 @@ import { countOpenReports } from "@/lib/gc-fitness/moderation-actions";
 
 // Issue #170 — tab titles. Pages export `generateMetadata` with their section
 // name (see lib/gc-fitness/page-metadata.ts); the template prefixes it so tabs
-// read "GC Fitness - Agenda", "GC Fitness - Inicio", etc. Pages without a
+// read "Corvo - Agenda", "Corvo - Inicio", etc. Pages without a
 // title (login, redirects) fall back to the default.
 export const metadata: Metadata = {
   title: {
-    template: "GC Fitness - %s",
-    default: "GC Fitness Admin",
+    template: "Corvo - %s",
+    default: "Corvo Admin",
   },
-  description: "GC Fitness trainer backoffice.",
+  description: "Corvo trainer backoffice.",
 };
 
 // Plan 13-03 (Phase 13 i18n).

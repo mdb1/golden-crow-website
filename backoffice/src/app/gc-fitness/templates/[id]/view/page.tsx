@@ -28,7 +28,7 @@ import { WorkoutMuscleHeatmapSection } from "@/components/gc-fitness/workout-mus
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 import { ViewTemplateActions } from "./actions";
 
-// Tab title: "GC Fitness - <workouts>" (issue #170).
+// Tab title: "Corvo - <workouts>" (issue #170).
 export const generateMetadata = () => sectionMetadata("workouts");
 
 export const dynamic = "force-dynamic";

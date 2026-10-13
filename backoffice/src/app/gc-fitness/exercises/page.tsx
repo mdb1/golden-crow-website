@@ -4,7 +4,7 @@
 import { redirect } from "next/navigation";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <exercises>" (issue #170).
+// Tab title: "Corvo - <exercises>" (issue #170).
 export const generateMetadata = () => sectionMetadata("exercises");
 
 export const dynamic = "force-dynamic";

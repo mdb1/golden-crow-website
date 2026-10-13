@@ -13,7 +13,7 @@ interface PageProps {
   params: Promise<{ logId: string }>;
 }
 
-// Tab title: "GC Fitness - <recentLogs>" (issue #170).
+// Tab title: "Corvo - <recentLogs>" (issue #170).
 export const generateMetadata = () => sectionMetadata("recentLogs");
 
 export const dynamic = "force-dynamic";

@@ -1,7 +1,7 @@
 "use client";
 
 // firebase-telemetry-init.tsx — boots Analytics + Performance for the
-// GC Fitness web client. Mounted once near the top of the layout so the
+// Corvo web client. Mounted once near the top of the layout so the
 // page-load span captures the real initial paint. Both SDKs are
 // safe-noop on SSR via the lazy getters in gc-fitness-client.ts.
 

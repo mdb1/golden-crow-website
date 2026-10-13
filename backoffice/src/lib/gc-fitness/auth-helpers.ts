@@ -4,7 +4,7 @@
 // `next-firebase-auth-edge`'s `getTokens` with the cookie + service-account
 // config established in P02-11 (`proxy.ts` / `dashboard/page.tsx`) and
 // adds a single auth gate for the gc-fitness trainer surface. The current
-// bootstrap flow allows any authenticated account to enter GC Fitness and
+// bootstrap flow allows any authenticated account to enter Corvo and
 // be promoted to trainer on login; the old allowlist gate was removed to
 // unblock early iteration on the backoffice MVP.
 //

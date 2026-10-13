@@ -1,6 +1,6 @@
 // habit-actions.ts
 //
-// Server Actions for the GC Fitness trainer Habit CRUD surface.
+// Server Actions for the Corvo trainer Habit CRUD surface.
 // This module is the ONLY trainer-writable path to /habits (Firestore rules
 // from P06-03 deny client-SDK writes). Every guarantee — allowlist
 // enforcement, trainerId set from session, soft-delete-only deletes,
