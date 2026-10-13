@@ -2443,7 +2443,7 @@
     "subtitle": "Uso, costo estimado y aceptación del coach con IA en los últimos 30 días. Las conversaciones sólo se leen a través de un reporte.",
     "openCard": "Abrir panel de Corvo",
     "cardTitle": "Corvo — Coach IA",
-    "cardDescription": "Mensajes por día, usuarios activos, costo estimado, latencia y errores, aceptación de propuestas, usuarios cerca del cupo diario y respuestas reportadas.",
+    "cardDescription": "Mensajes por día, usuarios activos, costo estimado, latencia y errores, aceptación de propuestas, usuarios cerca del cupo y respuestas reportadas.",
     "back": "Volver al admin",
     "generatedAt": "Datos al {time} (UTC).",
     "sectionError": "No se pudo cargar esta sección: {error}",
@@ -2509,8 +2509,8 @@
       "meal_status": "Estado de comida"
     },
     "nearQuota": {
-      "title": "Usuarios cerca del cupo diario",
-      "subtitle": "Usuarios cuyo último día con Corvo llegó al menos al 80% de su cupo (gratis {free} / Premium {premium} / con coach {coached} turnos por día). El servidor sólo guarda el último día de cada usuario.",
+      "title": "Usuarios cerca del cupo",
+      "subtitle": "Usuarios que usaron al menos el 80% de su cupo: gratis {free} turnos en total (de por vida, no se renueva), Premium {premium} y con coach {coached} turnos por día (cuenta sólo el uso de hoy).",
       "user": "Usuario",
       "tier": "Plan",
       "day": "Día",
@@ -2519,7 +2519,8 @@
       "free": "Gratis",
       "premium": "Premium",
       "empty": "Nadie está cerca del cupo.",
-      "coached": "Con coach"
+      "coached": "Con coach",
+      "lifetime": "En total"
     },
     "reports": {
       "title": "Respuestas reportadas",

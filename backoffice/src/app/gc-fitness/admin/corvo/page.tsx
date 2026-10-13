@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { loadCorvoDashboard, type CorvoDashboard, type Section } from "@/lib/gc-fitness/ai-coach-admin-actions";
 import {
-  AI_COACH_DAILY_QUOTA,
+  AI_COACH_QUOTA,
   formatLatency,
   formatMicroUsd,
   formatPercent,
@@ -169,9 +169,9 @@ export default async function CorvoAdminPage() {
           <CardTitle className="text-xl">{t("nearQuota.title")}</CardTitle>
           <CardDescription>
             {t("nearQuota.subtitle", {
-              free: AI_COACH_DAILY_QUOTA.free,
-              premium: AI_COACH_DAILY_QUOTA.premium,
-              coached: AI_COACH_DAILY_QUOTA.coached,
+              free: AI_COACH_QUOTA.free.limit,
+              premium: AI_COACH_QUOTA.premium.limit,
+              coached: AI_COACH_QUOTA.coached.limit,
             })}
           </CardDescription>
         </CardHeader>

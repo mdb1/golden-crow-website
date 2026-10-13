@@ -222,9 +222,12 @@ describe("loadCorvoDashboard", () => {
     const recent = new Date(Date.now() - 3600_000);
     store.set(`ai_coach_usage/${today}`, { turns: 4, estimatedMicroUsd: 90_000, latencyMsTotal: 8000, errors: { upstream: 1 } });
     store.set("ai_coach_usage/2020-01-01", { turns: 999, estimatedMicroUsd: 999_999_999 });
-    store.set("ai_coach/u1", { lastMessageAt: recent, usage: { civilDate: today, count: 5 } });
-    store.set("ai_coach/u2", { lastMessageAt: recent, usage: { civilDate: today, count: 1 } });
+    // #1359: free is measured with the lifetime `total`, premium with today's `count`.
+    store.set("ai_coach/u1", { lastMessageAt: recent, usage: { civilDate: today, count: 1, total: 10 } });
+    store.set("ai_coach/u2", { lastMessageAt: recent, usage: { civilDate: today, count: 9 } }); // free, no total ⇒ 0
+    store.set("ai_coach/u3", { lastMessageAt: recent, usage: { civilDate: today, count: 12, total: 80 } });
     store.set("users/u1", { email: "near@x.com" });
+    store.set("users/u3", { email: "prem@x.com", entitlement: { tier: "premium" } });
     store.set("ai_coach/u1/proposals/p1", { type: "routine", status: "applied", createdAt: recent });
     store.set("ai_coach/u1/proposals/p2", { type: "routine", status: "dismissed", createdAt: recent });
     store.set("other/u9/proposals/px", { type: "routine", status: "applied", createdAt: recent });
@@ -238,8 +241,11 @@ describe("loadCorvoDashboard", () => {
     expect(d.usage.data.series).toHaveLength(30);
     expect(d.usage.data.summary.cost30dMicroUsd).toBe(90_000); // the 2020 doc is outside the window
     expect(d.usage.data.summary.today.turns).toBe(4);
-    expect(d.activeUsers.data.last24h).toBe(2);
-    expect(d.nearQuota.data.map((r) => [r.uid, r.email, r.reachedQuota])).toEqual([["u1", "near@x.com", true]]);
+    expect(d.activeUsers.data.last24h).toBe(3);
+    expect(d.nearQuota.data.map((r) => [r.uid, r.email, `${r.used}/${r.limit}`, r.reachedQuota])).toEqual([
+      ["u1", "near@x.com", "10/10", true],
+      ["u3", "prem@x.com", "12/15", false],
+    ]);
     expect(d.acceptance.data).toEqual([expect.objectContaining({ type: "routine", shown: 2, applied: 1 })]);
     expect(d.reports.data.map((r) => `${r.uid}/${r.messageId}`)).toEqual(["u1/m10"]);
     // The dashboard never reads message text.

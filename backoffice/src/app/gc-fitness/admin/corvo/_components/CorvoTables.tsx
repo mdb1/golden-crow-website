@@ -1,5 +1,5 @@
 // CorvoTables — the three tables of /gc-fitness/admin/corvo (#1330): acceptance
-// by proposal type, users near their daily quota, and reported replies.
+// by proposal type, users near their quota, and reported replies.
 // Presentational only (no hooks besides translations), so they render as server
 // components on the page and mount directly in tests.
 
@@ -108,9 +108,11 @@ export function CorvoNearQuotaTable({ rows }: { rows: NearQuotaUser[] }) {
                   <div className="font-mono text-xs text-muted-foreground">{row.uid}</div>
                 </TableCell>
                 <TableCell>{t(row.tier)}</TableCell>
-                <TableCell className="tabular-nums">{row.civilDate}</TableCell>
+                <TableCell className="tabular-nums" data-testid={`near-quota-day-${row.uid}`}>
+                  {row.kind === "lifetime" ? t("lifetime") : row.civilDate}
+                </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  <span data-testid={`near-quota-usage-${row.uid}`}>{`${row.count}/${row.quota}`}</span>
+                  <span data-testid={`near-quota-usage-${row.uid}`}>{`${row.used}/${row.limit}`}</span>
                   {row.reachedQuota ? (
                     <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-300">
                       {t("reached")}

@@ -63,13 +63,16 @@ describe("CorvoNearQuotaTable", () => {
     render(
       <CorvoNearQuotaTable
         rows={[
-          { uid: "a", email: "a@x.com", displayName: null, tier: "free", civilDate: "2026-10-11", count: 5, quota: 5, reachedQuota: true },
-          { uid: "b", email: null, displayName: "Bea", tier: "premium", civilDate: "2026-10-10", count: 41, quota: 50, reachedQuota: false },
+          { uid: "a", email: "a@x.com", displayName: null, tier: "free", kind: "lifetime", civilDate: "2026-10-11", used: 10, limit: 10, reachedQuota: true },
+          { uid: "b", email: null, displayName: "Bea", tier: "premium", kind: "daily", civilDate: "2026-10-13", used: 13, limit: 15, reachedQuota: false },
         ]}
       />,
     );
-    expect(screen.getByTestId("near-quota-usage-a")).toHaveTextContent(/^5\/5$/);
-    expect(screen.getByTestId("near-quota-usage-b")).toHaveTextContent(/^41\/50$/);
+    expect(screen.getByTestId("near-quota-usage-a")).toHaveTextContent(/^10\/10$/);
+    expect(screen.getByTestId("near-quota-usage-b")).toHaveTextContent(/^13\/15$/);
+    // free is lifetime: no day, "In total"; a daily tier shows today's date
+    expect(screen.getByTestId("near-quota-day-a")).toHaveTextContent(/^In total$/);
+    expect(screen.getByTestId("near-quota-day-b")).toHaveTextContent(/^2026-10-13$/);
     expect(within(screen.getByTestId("near-quota-a")).getByText("Reached the quota")).toBeInTheDocument();
     expect(within(screen.getByTestId("near-quota-b")).queryByText("Reached the quota")).toBeNull();
     expect(within(screen.getByTestId("near-quota-b")).getByText("Bea")).toBeInTheDocument();

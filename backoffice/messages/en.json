@@ -2443,7 +2443,7 @@
     "subtitle": "Usage, estimated cost and acceptance of the AI coach over the last 30 days. Conversations can only be read through a report.",
     "openCard": "Open Corvo dashboard",
     "cardTitle": "Corvo — AI Coach",
-    "cardDescription": "Messages per day, active users, estimated cost, latency and errors, proposal acceptance, users near their daily quota and reported replies.",
+    "cardDescription": "Messages per day, active users, estimated cost, latency and errors, proposal acceptance, users near their quota and reported replies.",
     "back": "Back to admin",
     "generatedAt": "Data as of {time} (UTC).",
     "sectionError": "This section could not be loaded: {error}",
@@ -2509,8 +2509,8 @@
       "meal_status": "Meal status"
     },
     "nearQuota": {
-      "title": "Users near their daily quota",
-      "subtitle": "Users whose last day with Corvo reached at least 80% of their quota (free {free} / Premium {premium} / with a coach {coached} turns per day). The server only keeps each user's last day.",
+      "title": "Users near their quota",
+      "subtitle": "Users who used at least 80% of their quota: free {free} turns in total (lifetime, it never resets), Premium {premium} and with a coach {coached} turns per day (only today's count counts).",
       "user": "User",
       "tier": "Plan",
       "day": "Day",
@@ -2519,7 +2519,8 @@
       "free": "Free",
       "premium": "Premium",
       "empty": "Nobody is near their quota.",
-      "coached": "Coached"
+      "coached": "Coached",
+      "lifetime": "In total"
     },
     "reports": {
       "title": "Reported replies",

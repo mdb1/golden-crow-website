@@ -133,9 +133,9 @@ export async function loadCorvoDashboard(): Promise<CorvoDashboard> {
   const activePromise = section(async () => summarizeThreads(await threadsPromise, now));
 
   const nearQuotaPromise = section(async () => {
-    const candidates = (await threadsPromise).filter(isNearQuotaCandidate);
+    const candidates = (await threadsPromise).filter((thread) => isNearQuotaCandidate(thread, now));
     const rows = await Promise.all(
-      candidates.map(async (thread) => nearQuotaUser(thread, await readUserDoc(thread.uid))),
+      candidates.map(async (thread) => nearQuotaUser(thread, await readUserDoc(thread.uid), now)),
     );
     return sortNearQuota(rows.filter((r): r is NearQuotaUser => r !== null));
   });
