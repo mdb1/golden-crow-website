@@ -868,6 +868,34 @@
         "staleReloading": "A new version of the backoffice was published. Reloading the page — your changes are kept, just press Save again.",
         "draftRestored": "We restored the changes that hadn't been saved. Review them and press Save.",
         "draftDiscard": "Discard changes"
+      },
+      "aiSummary": {
+        "title": "Week summary (AI)",
+        "consent": "AI-generated from the data you already see for your client.",
+        "generate": "Generate summary",
+        "regenerate": "Regenerate",
+        "loading": "Generating the summary… this can take a few seconds.",
+        "empty": "There is no summary for this week yet. Generate one to see adherence, volume, records, habits and nutrition for the last 7 days.",
+        "quota": "{remaining} of {limit} left today",
+        "flagsTitle": "To check",
+        "window": "From {from} to {to}",
+        "generatedAt": "generated {date}",
+        "disclaimer": "May contain mistakes; not medical advice.",
+        "sections": {
+          "adherence": "Adherence",
+          "volume": "Volume",
+          "prs": "Records",
+          "habits": "Habits",
+          "nutrition": "Nutrition",
+          "bodyWeight": "Body weight"
+        },
+        "errors": {
+          "quota": "You reached today's limit of 20 summaries. You can generate more tomorrow.",
+          "opted_out": "This client has not enabled AI summaries.",
+          "forbidden": "You don't have access to this client.",
+          "unavailable": "The AI service did not respond. Try again in a while.",
+          "generic": "We couldn't generate the summary. Try again."
+        }
       }
     },
     "invite": {
@@ -2461,7 +2489,11 @@
       "errorRateDetail": "{errors} failed turns",
       "quotaRejections": "Quota rejections (30 days)",
       "prescreenBlocked": "Blocked by pre-screen (30 days)",
-      "notEligible": "Not eligible (30 days)"
+      "notEligible": "Not eligible (30 days)",
+      "coachSummaries": "Coach AI summaries (30 days)",
+      "coachSummariesDetail": "Today: {today} · from cache: {cached} · over quota: {rejected} · errors: {errors}",
+      "coachSummariesCost": "Summaries cost (30 days)",
+      "coachSummariesTokens": "Tokens: {input} input · {output} output"
     },
     "chart": {
       "title": "Messages per day",

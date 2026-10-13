@@ -338,3 +338,38 @@ describe("reports", () => {
     expect(ctx.filter((m) => m.isReported).map((m) => m.id)).toEqual(["rep"]);
   });
 });
+
+// gc-fitness #1347 — the coach's «Resumen de la semana (IA)» writes its own
+// `coachSummary` map into the same day doc. It is summed separately and never
+// leaks into Corvo's turns / cost.
+describe("coach summaries usage (#1347)", () => {
+  test("decoded from the coachSummary map, summed apart from Corvo", () => {
+    const yesterday = decodeUsageDay("2026-10-12", {
+      turns: 3,
+      estimatedMicroUsd: 1000,
+      coachSummary: { generated: 2, cacheHits: 1, quotaRejections: 0, errors: { upstream: 1 }, inputTokens: 500, cacheReadInputTokens: 100, outputTokens: 50, estimatedMicroUsd: 4000 },
+    });
+    const today = decodeUsageDay("2026-10-13", {
+      coachSummary: { generated: 1, cacheHits: 3, quotaRejections: 1, errors: { timeout: 1, internal: 2 }, inputTokens: 200, outputTokens: 20, estimatedMicroUsd: 1500 },
+    });
+    expect(yesterday.coachSummary).toEqual({ generated: 2, cacheHits: 1, quotaRejections: 0, errors: 1, inputTokens: 600, outputTokens: 50, estimatedMicroUsd: 4000 });
+    const summary = summarizeUsage([yesterday, today]);
+    expect(summary.coachSummaries).toEqual({
+      generated: 3,
+      generatedToday: 1,
+      cacheHits: 4,
+      quotaRejections: 1,
+      errors: 4,
+      inputTokens: 800,
+      outputTokens: 70,
+      estimatedMicroUsd: 5500,
+    });
+    // Corvo's numbers are untouched by the coach summaries.
+    expect(summary.turns30d).toBe(3);
+    expect(summary.cost30dMicroUsd).toBe(1000);
+  });
+
+  test("a day without the map is all zeros", () => {
+    expect(decodeUsageDay("2026-10-13", {}).coachSummary.generated).toBe(0);
+  });
+});

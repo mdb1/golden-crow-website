@@ -868,6 +868,34 @@
         "staleReloading": "Se publicó una versión nueva del backoffice. Recargamos la página y tus cambios quedan guardados: tocá Guardar de nuevo.",
         "draftRestored": "Recuperamos los cambios que no se habían guardado. Revisalos y tocá Guardar.",
         "draftDiscard": "Descartar cambios"
+      },
+      "aiSummary": {
+        "title": "Resumen de la semana (IA)",
+        "consent": "Generado con IA a partir de los datos que ya ves de tu cliente.",
+        "generate": "Generar resumen",
+        "regenerate": "Regenerar",
+        "loading": "Generando el resumen… puede tardar unos segundos.",
+        "empty": "Todavía no hay resumen de esta semana. Generalo para ver adherencia, volumen, récords, hábitos y nutrición de los últimos 7 días.",
+        "quota": "Te quedan {remaining} de {limit} hoy",
+        "flagsTitle": "Para revisar",
+        "window": "Del {from} al {to}",
+        "generatedAt": "generado {date}",
+        "disclaimer": "Puede tener errores; no es consejo médico.",
+        "sections": {
+          "adherence": "Adherencia",
+          "volume": "Volumen",
+          "prs": "Récords",
+          "habits": "Hábitos",
+          "nutrition": "Nutrición",
+          "bodyWeight": "Peso corporal"
+        },
+        "errors": {
+          "quota": "Llegaste al límite de 20 resúmenes por hoy. Mañana podés generar más.",
+          "opted_out": "Este cliente no habilitó resúmenes con IA.",
+          "forbidden": "No tenés acceso a este cliente.",
+          "unavailable": "El servicio de IA no respondió. Probá de nuevo en un rato.",
+          "generic": "No pudimos generar el resumen. Probá de nuevo."
+        }
       }
     },
     "invite": {
@@ -2461,7 +2489,11 @@
       "errorRateDetail": "{errors} turnos con error",
       "quotaRejections": "Rechazos por cupo (30 días)",
       "prescreenBlocked": "Bloqueados por el filtro previo (30 días)",
-      "notEligible": "No habilitados (30 días)"
+      "notEligible": "No habilitados (30 días)",
+      "coachSummaries": "Resúmenes IA para coaches (30 días)",
+      "coachSummariesDetail": "Hoy: {today} · desde cache: {cached} · sin cupo: {rejected} · errores: {errors}",
+      "coachSummariesCost": "Costo de resúmenes (30 días)",
+      "coachSummariesTokens": "Tokens: {input} entrada · {output} salida"
     },
     "chart": {
       "title": "Mensajes por día",

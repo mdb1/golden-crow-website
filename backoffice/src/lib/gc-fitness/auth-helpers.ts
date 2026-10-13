@@ -155,6 +155,51 @@ export async function getCurrentTrainer(): Promise<CurrentTrainer> {
   };
 }
 
+/**
+ * #1347 — the signed-in trainer's Firebase ID token (the JWT inside the
+ * `GcFitnessAuthToken` cookie, refreshed by the proxy), for calling a
+ * Cloud Functions callable from a Server Action with
+ * `Authorization: Bearer <token>`. Same gate as `getCurrentTrainer`:
+ * throws `Error("Forbidden")` without a valid trainer session.
+ */
+export async function getCurrentTrainerIdToken(): Promise<{
+  uid: string;
+  idToken: string;
+}> {
+  const apiKey = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY;
+  const cookieSignatureKey = process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY;
+  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.GC_FITNESS_FIREBASE_ADMIN_CLIENT_EMAIL;
+  const privateKeyB64 = process.env.GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY;
+  if (
+    !apiKey ||
+    !cookieSignatureKey ||
+    !projectId ||
+    !clientEmail ||
+    !privateKeyB64
+  ) {
+    throw new Error(
+      "gc-fitness/auth-helpers: server misconfigured — required env vars missing.",
+    );
+  }
+  const tokens = await getTokens(await cookies(), {
+    apiKey,
+    cookieName: "GcFitnessAuthToken",
+    cookieSignatureKeys: [cookieSignatureKey],
+    serviceAccount: {
+      projectId,
+      clientEmail,
+      privateKey: Buffer.from(privateKeyB64, "base64").toString("utf8"),
+    },
+  });
+  if (!tokens) throw new Error("Forbidden");
+  const roles = normalizeRolesFromToken(
+    tokens.decodedToken as unknown as Record<string, unknown>,
+  );
+  if (!roles.includes("trainer")) throw new Error("Forbidden");
+  return { uid: tokens.decodedToken.uid, idToken: tokens.token };
+}
+
 export async function getCurrentAdmin(): Promise<CurrentAdmin> {
   const user = await getCurrentGCFitnessUser();
   if (!user.isAdmin) {

@@ -95,6 +95,9 @@ import {
 } from "./_components/ClientInviteCard";
 import { UnlinkClientButton } from "./_components/UnlinkClientButton";
 import { ClientSummaryCard } from "./_components/ClientSummaryCard";
+// #1347 — «Resumen de la semana (IA)», read-only, coach-visible data only.
+import { CoachWeeklySummaryCard } from "./_components/CoachWeeklySummaryCard";
+import { loadCoachWeeklySummary } from "@/lib/gc-fitness/coach-ai-summary-actions";
 import { NutritionProfileWidget } from "./_components/NutritionProfileWidget";
 import { ClientCalendarPeek } from "./_components/ClientCalendarPeek";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
@@ -216,7 +219,7 @@ export default async function ClientDetailPage({
   const needsExerciseAggregation =
     showsChart("muscleGroups") || showsChart("exerciseProgress");
 
-  const [notes, progressPhotos, goals, bodyWeightFulfilled, calendarPeek, appDevices, exerciseProgress] =
+  const [notes, progressPhotos, goals, bodyWeightFulfilled, calendarPeek, appDevices, exerciseProgress, aiSummary] =
     await Promise.all([
     getClientNotes(id).catch(() => ({ notes: "", updatedAt: null, entries: [] })),
     listProgressPhotosForClient(id),
@@ -234,6 +237,9 @@ export default async function ClientDetailPage({
     needsExerciseAggregation
       ? getClientExerciseProgress(id, timezone).catch(() => null)
       : Promise.resolve(null),
+    // #1347 — cached summary of this ISO week + today's quota. Admin SDK reads
+    // only (never the model); fail-soft like every other card here.
+    loadCoachWeeklySummary(id).catch(() => ({ ok: false as const, error: "generic" as const })),
   ]);
   // Header "Peso" = the client's most recent weigh-in BY MEASUREMENT DATE.
   // On a transient read error fall back to NULL (em dash), never to the
@@ -437,6 +443,8 @@ export default async function ClientDetailPage({
         timezone={timezone}
         goals={goals}
       />
+
+      <CoachWeeklySummaryCard clientId={id} initial={aiSummary} />
 
       {/* #949 — nutrición era UN BOTÓN en el header y nada más. Ahora es una
           sección propia, justo debajo del resumen, y con estado vacío: un
