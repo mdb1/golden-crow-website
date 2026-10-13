@@ -20,7 +20,7 @@ import type { ExerciseInput } from "@/lib/gc-fitness/exercise-schema";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 import { resolveExercisePreviewUrl } from "@/lib/gc-fitness/exercise-preview-url";
 
-// Tab title: "GC Fitness - <exercises>" (issue #170).
+// Tab title: "Corvo - <exercises>" (issue #170).
 export const generateMetadata = () => sectionMetadata("exercises");
 
 export const dynamic = "force-dynamic";

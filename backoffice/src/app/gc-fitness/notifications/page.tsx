@@ -43,7 +43,7 @@ import { listRecentLogsForTrainerPage } from "@/lib/gc-fitness/recent-logs-actio
 import { UpcomingWorkoutAlerts } from "@/components/gc-fitness/upcoming-workout-alerts";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <notifications>" (issue #170).
+// Tab title: "Corvo - <notifications>" (issue #170).
 export const generateMetadata = () => sectionMetadata("notifications");
 
 export const dynamic = "force-dynamic";

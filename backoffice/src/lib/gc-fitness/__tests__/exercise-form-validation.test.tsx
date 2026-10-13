@@ -72,7 +72,7 @@ jest.mock("@tanstack/react-query", () => ({
 }));
 
 // This validation suite never exercises the upload path, so stub the
-// GC Fitness Firebase client helper to avoid importing the browser-only
+// Corvo Firebase client helper to avoid importing the browser-only
 // Firebase Auth module under the Node-based Jest environment.
 jest.mock("@/lib/firebase/gc-fitness-client", () => ({
   getGCFitnessStorage: () => ({}),

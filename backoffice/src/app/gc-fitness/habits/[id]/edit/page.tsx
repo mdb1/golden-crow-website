@@ -29,7 +29,7 @@ import type {
 import { EditHabitClient } from "./client";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <habits>" (issue #170).
+// Tab title: "Corvo - <habits>" (issue #170).
 export const generateMetadata = () => sectionMetadata("habits");
 
 export const dynamic = "force-dynamic";

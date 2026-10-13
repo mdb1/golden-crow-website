@@ -1,7 +1,8 @@
 ---
-// Página de producto de GC Fitness. Usa la misma maqueta que /pocket-genes
+// Página de producto de Corvo. Usa la misma maqueta que /pocket-genes
 // (ProductStoryPage), con la paleta ámbar de la marca (ver `gcFitnessPalette`).
 import ProductStoryPage from '../../../components/ProductStoryPage.astro';
+import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
 import { gcFitnessPalette, getGCFitnessStoryNav, getGCFitnessStoryPage } from '../../../data/gcFitnessStory';
 import { defaultLang, type Lang } from '../../../i18n/ui';
 
@@ -13,4 +14,5 @@ const lang = (Astro.currentLocale || defaultLang) as Lang;
   navItems={getGCFitnessStoryNav(lang)}
   activeSlug="product"
   palette={gcFitnessPalette}
+  {...CORVO_HEAD_ASSETS}
 />

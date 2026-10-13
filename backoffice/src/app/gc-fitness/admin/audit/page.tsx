@@ -40,7 +40,7 @@ import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 import { ActivityFeedList, CATEGORY_LABEL } from "./_components/ActivityFeedList";
 
-// Tab title: "GC Fitness - <adminPanel>" (issue #170).
+// Tab title: "Corvo - <adminPanel>" (issue #170).
 export const generateMetadata = () => sectionMetadata("adminPanel");
 
 export const dynamic = "force-dynamic";

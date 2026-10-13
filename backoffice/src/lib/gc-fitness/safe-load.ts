@@ -1,6 +1,6 @@
 // safe-load.ts
 //
-// Section-level resilience for GC Fitness pages.
+// Section-level resilience for Corvo pages.
 //
 // WHY THIS EXISTS (260529 dashboard + recent-logs outage):
 // A Server Component page that `await`s a data loader directly will 500 the

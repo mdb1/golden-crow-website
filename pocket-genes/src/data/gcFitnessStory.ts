@@ -1,11 +1,11 @@
-// Copy de la página de producto de GC Fitness (/gc-fitness), en la misma forma
+// Copy de la página de producto de Corvo (/gc-fitness), en la misma forma
 // que la de Pocket Genes. Los datos duros (links de tienda) salen de
 // `gcFitnessPublic.ts` para no tener dos fuentes de verdad.
 import type { Lang } from '../i18n/ui';
 import type { ProductStoryPageData, StoryNavItem, StoryPalette } from './productStory';
 
 /**
- * Paleta ámbar de GC Fitness, compartida por /gc-fitness y /gc-fitness/coaches.
+ * Paleta ámbar de Corvo, compartida por /gc-fitness y /gc-fitness/coaches.
  *
  * La imagen del hero es la misma de la card, y trae el logo y el nombre
  * pintados a la izquierda. El velo va casi opaco hasta el 42% para tapar ese
@@ -39,14 +39,14 @@ const copy: Record<Lang, StoryCopy> = {
       { label: 'Privacidad', path: '/gc-fitness/privacy', slug: 'privacy' },
     ],
     page: {
-      title: 'GC Fitness — Entrenamientos, hábitos y progreso en una sola app',
-      navLabel: 'Secciones de GC Fitness',
+      title: 'Corvo — Entrenamientos, hábitos y progreso en una sola app',
+      navLabel: 'Secciones de Corvo',
       eyebrow: 'Producto propio de Golden Crow',
       heroTitle: 'Tu gimnasio entra en tu bolsillo',
       heroLead:
         'El coach arma la semana desde el backoffice y el cliente la ejecuta, la registra y la mide desde el teléfono o el Apple Watch. Con coach o por tu cuenta.',
-      heroImage: '/gc-fitness-card.webp',
-      heroImageAlt: 'GC Fitness en iPhone y Apple Watch',
+      heroImage: '/gc-fitness/corvo-card.webp',
+      heroImageAlt: 'Corvo en iPhone y Apple Watch',
       primaryActionLabel: 'Descargar la app',
       primaryActionHref: '/gc-fitness/download',
       secondaryActionLabel: 'Quiero una app así',
@@ -56,7 +56,7 @@ const copy: Record<Lang, StoryCopy> = {
       introTitle: 'El plan de entrenamiento se pierde entre la planilla y las capturas de pantalla',
       introBody: [
         'El coach arma la semana en una planilla. El cliente le saca una captura, la guarda en la galería y ahí se pierde entre fotos. En el gimnasio no se acuerda cuánto levantó la vez pasada, y el coach no se entera de lo que pasó hasta la próxima consulta.',
-        'GC Fitness cierra ese círculo: el coach asigna el entrenamiento y el cliente lo abre, le da play y registra cada serie. Lo que se registra vuelve al coach en el momento, con el peso, las repeticiones y el tiempo real de cada sesión.',
+        'Corvo cierra ese círculo: el coach asigna el entrenamiento y el cliente lo abre, le da play y registra cada serie. Lo que se registra vuelve al coach en el momento, con el peso, las repeticiones y el tiempo real de cada sesión.',
         'Y funciona igual de bien sin coach: el cliente arma sus propias rutinas, las repite cuando quiere y mide su progreso con los mismos gráficos.',
       ],
 
@@ -95,7 +95,7 @@ const copy: Record<Lang, StoryCopy> = {
           title: 'La sesión, tal como la vive el cliente',
           body: 'Abrir, dar play y no volver a pensar en la app hasta la próxima serie.',
           image: '/gc-fitness/screenshots/logging.webp',
-          imageAlt: 'Pantalla de registro de una serie en GC Fitness',
+          imageAlt: 'Pantalla de registro de una serie en Corvo',
           items: [
             {
               title: 'Series, repeticiones y kilos',
@@ -121,7 +121,7 @@ const copy: Record<Lang, StoryCopy> = {
           title: 'Cada serie registrada se convierte en una línea del gráfico',
           body: 'El progreso deja de ser una sensación y pasa a ser algo que se mira.',
           image: '/gc-fitness/screenshots/progress.webp',
-          imageAlt: 'Gráficos de progreso por grupo muscular en GC Fitness',
+          imageAlt: 'Gráficos de progreso por grupo muscular en Corvo',
           items: [
             {
               title: 'Series por grupo muscular',
@@ -147,7 +147,7 @@ const copy: Record<Lang, StoryCopy> = {
           title: 'El teléfono se queda en el bolso',
           body: 'La app de Apple Watch no es un espejo: registra por sí sola y sincroniza cuando vuelve la conexión.',
           image: '/gc-fitness/screenshots/watch.webp',
-          imageAlt: 'GC Fitness en el Apple Watch, registrando una serie',
+          imageAlt: 'Corvo en el Apple Watch, registrando una serie',
           items: [
             {
               title: 'Registrás desde el reloj',
@@ -199,7 +199,7 @@ const copy: Record<Lang, StoryCopy> = {
         'No vendemos datos ni los usamos para publicidad de terceros.',
       ],
 
-      ctaTitle: 'Probá GC Fitness',
+      ctaTitle: 'Probá Corvo',
       ctaBody:
         'Está en la App Store y en Google Play. Y si lo que querés es un producto así para tu negocio, esa es exactamente nuestra otra mitad del trabajo.',
       ctaPrimaryLabel: 'Descargar la app',
@@ -217,14 +217,14 @@ const copy: Record<Lang, StoryCopy> = {
       { label: 'Privacy', path: '/gc-fitness/privacy', slug: 'privacy' },
     ],
     page: {
-      title: 'GC Fitness — Workouts, habits and progress in one app',
-      navLabel: 'GC Fitness sections',
+      title: 'Corvo — Workouts, habits and progress in one app',
+      navLabel: 'Corvo sections',
       eyebrow: 'A Golden Crow product',
       heroTitle: 'Your gym fits in your pocket',
       heroLead:
         'Coaches build the week from the backoffice; clients run it, log it and measure it from their phone or Apple Watch. With a coach or on your own.',
-      heroImage: '/gc-fitness-card.webp',
-      heroImageAlt: 'GC Fitness on iPhone and Apple Watch',
+      heroImage: '/gc-fitness/corvo-card.webp',
+      heroImageAlt: 'Corvo on iPhone and Apple Watch',
       primaryActionLabel: 'Download the app',
       primaryActionHref: '/gc-fitness/download',
       secondaryActionLabel: 'I want an app like this',
@@ -234,7 +234,7 @@ const copy: Record<Lang, StoryCopy> = {
       introTitle: 'Training plans get lost between the spreadsheet and the camera roll',
       introBody: [
         'The coach builds the week in a spreadsheet. The client screenshots it, and the screenshot disappears into the camera roll. At the gym nobody remembers last week’s numbers, and the coach only finds out how it went at the next check-in.',
-        'GC Fitness closes that loop: the coach assigns the workout, the client opens it, hits play and logs every set. What gets logged reaches the coach right away — weight, reps and the real duration of each session.',
+        'Corvo closes that loop: the coach assigns the workout, the client opens it, hits play and logs every set. What gets logged reaches the coach right away — weight, reps and the real duration of each session.',
         'And it works just as well without a coach: clients build their own routines, repeat them whenever they want, and track progress with the same charts.',
       ],
 
@@ -273,7 +273,7 @@ const copy: Record<Lang, StoryCopy> = {
           title: 'The session, as the client lives it',
           body: 'Open it, hit play, and forget about the app until the next set.',
           image: '/gc-fitness/screenshots/logging.webp',
-          imageAlt: 'Set logging screen in GC Fitness',
+          imageAlt: 'Set logging screen in Corvo',
           items: [
             {
               title: 'Sets, reps and weight',
@@ -299,7 +299,7 @@ const copy: Record<Lang, StoryCopy> = {
           title: 'Every logged set becomes a line on the chart',
           body: 'Progress stops being a feeling and becomes something you can look at.',
           image: '/gc-fitness/screenshots/progress.webp',
-          imageAlt: 'Progress charts per muscle group in GC Fitness',
+          imageAlt: 'Progress charts per muscle group in Corvo',
           items: [
             {
               title: 'Sets per muscle group',
@@ -325,7 +325,7 @@ const copy: Record<Lang, StoryCopy> = {
           title: 'The phone stays in the bag',
           body: 'The Apple Watch app is not a mirror: it logs on its own and syncs when the connection is back.',
           image: '/gc-fitness/screenshots/watch.webp',
-          imageAlt: 'GC Fitness on Apple Watch, logging a set',
+          imageAlt: 'Corvo on Apple Watch, logging a set',
           items: [
             {
               title: 'Log from the watch',
@@ -377,7 +377,7 @@ const copy: Record<Lang, StoryCopy> = {
         'We do not sell data or use it for third-party advertising.',
       ],
 
-      ctaTitle: 'Try GC Fitness',
+      ctaTitle: 'Try Corvo',
       ctaBody:
         'It is on the App Store and Google Play. And if what you want is a product like this for your own business, that is exactly the other half of what we do.',
       ctaPrimaryLabel: 'Download the app',

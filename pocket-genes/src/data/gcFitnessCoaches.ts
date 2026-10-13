@@ -30,14 +30,14 @@ function coachShots(lang: Lang, shots: Array<[file: string, caption: string, alt
 
 const pages: Record<Lang, ProductStoryPageData> = {
   es: {
-    title: 'GC Fitness para coaches — Tu método, en la app de cada cliente',
-    navLabel: 'Secciones de GC Fitness',
-    eyebrow: 'GC Fitness para coaches',
+    title: 'Corvo para coaches — Tu método, en la app de cada cliente',
+    navLabel: 'Secciones de Corvo',
+    eyebrow: 'Corvo para coaches',
     heroTitle: 'Dejá de perseguir capturas de pantalla',
     heroLead:
       'Armás la semana desde tu panel, tu cliente la ejecuta desde el teléfono o el reloj, y cada serie te llega en el momento. Sin planillas, sin PDFs y sin enterarte recién en la próxima consulta.',
-    heroImage: '/gc-fitness-card.webp',
-    heroImageAlt: 'GC Fitness en iPhone y Apple Watch',
+    heroImage: '/gc-fitness/corvo-card.webp',
+    heroImageAlt: 'Corvo en iPhone y Apple Watch',
     primaryActionLabel: 'Quiero sumarme como coach',
     primaryActionHref: '/#booking',
     secondaryActionLabel: 'Conocé la app',
@@ -48,7 +48,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
     introBody: [
       'Armás el plan con cuidado. El cliente le saca una captura, la pierde entre las fotos de la galería y en el gimnasio pone el mismo peso de siempre, porque no se acuerda con cuánto hizo press la semana pasada. Y si no se acuerda, no progresa: repite.',
       'Vos te enterás de todo eso tarde, por WhatsApp, o en la próxima consulta. Para entonces ya pasaron dos semanas.',
-      'GC Fitness cierra ese círculo: vos asignás, tu cliente abre la app y le da play, y lo que registra — peso, repeticiones, descansos, hábitos, comidas y fotos — vuelve a tu panel el mismo día. Tu método deja de depender de la memoria de tu cliente.',
+      'Corvo cierra ese círculo: vos asignás, tu cliente abre la app y le da play, y lo que registra — peso, repeticiones, descansos, hábitos, comidas y fotos — vuelve a tu panel el mismo día. Tu método deja de depender de la memoria de tu cliente.',
     ],
 
     stats: [
@@ -85,7 +85,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
         badge: 'Nuevo',
         eyebrow: 'El modo coach',
         title: 'Tu panel, también en el bolsillo',
-        body: 'Entrás a GC Fitness con tu cuenta de coach y la app se convierte en la tuya: tus clientes, sus semanas y sus mensajes, en el teléfono. Lo que hacés ahí aparece en el panel, y al revés.',
+        body: 'Entrás a Corvo con tu cuenta de coach y la app se convierte en la tuya: tus clientes, sus semanas y sus mensajes, en el teléfono. Lo que hacés ahí aparece en el panel, y al revés.',
         wide: true,
         items: [
           {
@@ -123,7 +123,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
         ],
         gallery: coachShots('es', [
           ['hoy', 'Hoy', 'La pantalla Hoy del modo coach: sesiones del día, clientes que necesitan atención y pendientes'],
-          ['clientes', 'Clientes', 'La lista de clientes del coach en GC Fitness'],
+          ['clientes', 'Clientes', 'La lista de clientes del coach en Corvo'],
           ['ficha', 'Ficha del cliente', 'La ficha de un cliente: su semana, su último entrenamiento y su progreso'],
           ['asignar', 'Asignar', 'La hoja para asignar una rutina a un cliente, con día y repetición'],
           ['mensajes', 'Mensajes', 'La bandeja de mensajes del coach con sus clientes'],
@@ -136,7 +136,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
         body: 'Donde el entrenamiento se diseña antes de llegar al teléfono de tu cliente.',
         image: '/gc-fitness/screenshots/logging.webp',
         twoColumns: true,
-        imageAlt: 'Una rutina asignada por el coach, lista para registrar en GC Fitness',
+        imageAlt: 'Una rutina asignada por el coach, lista para registrar en Corvo',
         items: [
           {
             title: 'Creador de rutinas',
@@ -171,7 +171,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
         body: 'Cada serie registrada se convierte en un dato que ves vos, no en una sensación que te cuenta tu cliente.',
         image: '/gc-fitness/screenshots/progress.webp',
         twoColumns: true,
-        imageAlt: 'Gráficos de progreso por grupo muscular en GC Fitness',
+        imageAlt: 'Gráficos de progreso por grupo muscular en Corvo',
         items: [
           {
             title: 'Seguimiento de rutinas',
@@ -231,7 +231,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
         body: 'Pensada para usarse con una mano, entre serie y serie. Si la experiencia es buena, tu cliente vuelve; si vuelve, se queda.',
         image: '/gc-fitness/screenshots/watch.webp',
         twoColumns: true,
-        imageAlt: 'GC Fitness en el Apple Watch, registrando una serie',
+        imageAlt: 'Corvo en el Apple Watch, registrando una serie',
         items: [
           {
             title: 'iPhone, iPad y Android',
@@ -392,14 +392,14 @@ const pages: Record<Lang, ProductStoryPageData> = {
   },
 
   en: {
-    title: 'GC Fitness for coaches — Your method, in every client’s app',
-    navLabel: 'GC Fitness sections',
-    eyebrow: 'GC Fitness for coaches',
+    title: 'Corvo for coaches — Your method, in every client’s app',
+    navLabel: 'Corvo sections',
+    eyebrow: 'Corvo for coaches',
     heroTitle: 'Stop chasing screenshots',
     heroLead:
       'You build the week from your dashboard, your client runs it from their phone or watch, and every set reaches you as it happens. No spreadsheets, no PDFs, no finding out at the next check-in.',
-    heroImage: '/gc-fitness-card.webp',
-    heroImageAlt: 'GC Fitness on iPhone and Apple Watch',
+    heroImage: '/gc-fitness/corvo-card.webp',
+    heroImageAlt: 'Corvo on iPhone and Apple Watch',
     primaryActionLabel: 'I’m a coach — let’s talk',
     primaryActionHref: '/#booking',
     secondaryActionLabel: 'See the app',
@@ -410,7 +410,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
     introBody: [
       'You build the plan carefully. Your client screenshots it, loses it in the camera roll, and at the gym puts on the same weight as always, because they don’t remember what they benched last week. If they don’t remember, they don’t progress — they repeat.',
       'You find out late, over WhatsApp, or at the next check-in. By then two weeks have gone by.',
-      'GC Fitness closes that loop: you assign, your client opens the app and hits play, and what they log — weight, reps, rest, habits, meals and photos — lands in your dashboard the same day. Your method stops depending on your client’s memory.',
+      'Corvo closes that loop: you assign, your client opens the app and hits play, and what they log — weight, reps, rest, habits, meals and photos — lands in your dashboard the same day. Your method stops depending on your client’s memory.',
     ],
 
     stats: [
@@ -447,7 +447,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
         badge: 'New',
         eyebrow: 'Coach mode',
         title: 'Your dashboard, in your pocket too',
-        body: 'You sign in to GC Fitness with your coach account and the app becomes yours: your clients, their weeks and their messages, on your phone. What you do there shows up in the dashboard, and the other way around.',
+        body: 'You sign in to Corvo with your coach account and the app becomes yours: your clients, their weeks and their messages, on your phone. What you do there shows up in the dashboard, and the other way around.',
         wide: true,
         items: [
           {
@@ -485,7 +485,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
         ],
         gallery: coachShots('en', [
           ['today', 'Today', 'Coach mode’s Today screen: the day’s sessions, clients who need attention and to-dos'],
-          ['clients', 'Clients', 'The coach’s client list in GC Fitness'],
+          ['clients', 'Clients', 'The coach’s client list in Corvo'],
           ['profile', 'Client profile', 'A client’s profile: their week, latest workout and progress'],
           ['assign', 'Assign', 'The sheet to assign a routine to a client, with day and repeat'],
           ['messages', 'Messages', 'The coach’s inbox with their clients'],
@@ -498,7 +498,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
         body: 'Where training is designed before it reaches your client’s phone.',
         image: '/gc-fitness/screenshots/logging.webp',
         twoColumns: true,
-        imageAlt: 'A coach-assigned routine, ready to log in GC Fitness',
+        imageAlt: 'A coach-assigned routine, ready to log in Corvo',
         items: [
           {
             title: 'Routine builder',
@@ -533,7 +533,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
         body: 'Every logged set becomes data you can see, not a feeling your client tells you about.',
         image: '/gc-fitness/screenshots/progress.webp',
         twoColumns: true,
-        imageAlt: 'Progress charts per muscle group in GC Fitness',
+        imageAlt: 'Progress charts per muscle group in Corvo',
         items: [
           {
             title: 'Workout tracking',
@@ -593,7 +593,7 @@ const pages: Record<Lang, ProductStoryPageData> = {
         body: 'Built to be used one-handed, between sets. When the experience is good, clients come back; when they come back, they stay.',
         image: '/gc-fitness/screenshots/watch.webp',
         twoColumns: true,
-        imageAlt: 'GC Fitness on Apple Watch, logging a set',
+        imageAlt: 'Corvo on Apple Watch, logging a set',
         items: [
           {
             title: 'iPhone, iPad and Android',

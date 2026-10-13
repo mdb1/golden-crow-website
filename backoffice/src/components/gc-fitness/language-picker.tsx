@@ -1,6 +1,6 @@
 "use client";
 
-// Language picker for the GC Fitness trainer surface (Plan 13-03).
+// Language picker for the Corvo trainer surface (Plan 13-03).
 //
 // Sits in the top bar of the gc-fitness shell. Three options:
 //   - Auto (system) — deletes the NEXT_LOCALE cookie so request.ts falls back

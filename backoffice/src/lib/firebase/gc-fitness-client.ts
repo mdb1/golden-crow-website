@@ -92,7 +92,7 @@ export function getGCFitnessStorage(): FirebaseStorage {
 let analyticsInstance: Analytics | null = null;
 let analyticsInitPromise: Promise<Analytics | null> | null = null;
 /**
- * Returns the GC Fitness Analytics instance lazily. Resolves to `null` on
+ * Returns the Corvo Analytics instance lazily. Resolves to `null` on
  * SSR / unsupported browsers (e.g. private-mode without storage). Safe to
  * call from a useEffect on the client; idempotent across HMR.
  */
@@ -112,7 +112,7 @@ export function getGCFitnessAnalytics(): Promise<Analytics | null> {
 
 let performanceInstance: FirebasePerformance | null = null;
 /**
- * Returns the GC Fitness Performance Monitoring instance lazily. Safe-noop
+ * Returns the Corvo Performance Monitoring instance lazily. Safe-noop
  * on the server. The SDK auto-traces page load + HTTPS network requests.
  */
 export function getGCFitnessPerformance(): FirebasePerformance | null {

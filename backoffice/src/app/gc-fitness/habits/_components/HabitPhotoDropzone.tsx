@@ -9,7 +9,7 @@
 //   2. MIME: `file.type` is one of image/jpeg | image/png | image/webp.
 //   3. Size: `file.size <= 10 * 1024 * 1024` (matches the server-side cap).
 //
-// On a valid image, the dropzone POSTs the file to the GC Fitness upload
+// On a valid image, the dropzone POSTs the file to the Corvo upload
 // route. The route owns authorization, canonical path construction, and the
 // actual Cloud Storage write, so the browser no longer depends on bucket
 // CORS or Storage client SDK auth state.

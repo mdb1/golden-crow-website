@@ -216,7 +216,7 @@
 }
 
 @layer components {
-  /* GC Fitness — redesign (2026-06). Dark theme, polished to parity with the
+  /* Corvo — redesign (2026-06). Dark theme, polished to parity with the
      light look: gold accent, soft neutral surfaces, hairline borders, flat
      ambient (no glows) for a calm, content-first coach portal. */
   .gc-fitness-theme {
@@ -279,7 +279,7 @@
     --ambient-fade-mid: #0e1016;
   }
 
-  /* GC Fitness — redesign (2026-06). Light theme is the reference design:
+  /* Corvo — redesign (2026-06). Light theme is the reference design:
      white sidebar + cards float on a soft light-grey canvas, mustard-gold
      accent, deep-navy ink, hairline borders, generous radius. */
   html[data-theme="light"] .gc-fitness-theme {
@@ -408,7 +408,7 @@
   }
 
   /* ===================================================================
-     GC Fitness redesign (2026-06) — shell + control overrides.
+     Corvo redesign (2026-06) — shell + control overrides.
      These restyle the shadcn primitives in-place so every page inside
      /gc-fitness inherits the new look without per-page edits.
      =================================================================== */
@@ -853,7 +853,7 @@
 }
 
 /* ===================================================================
-   GC Fitness — UNLAYERED overrides (2026-06 redesign).
+   Corvo — UNLAYERED overrides (2026-06 redesign).
    These intentionally sit OUTSIDE @layer so they win over Tailwind
    utility classes (which live in the `utilities` cascade layer and
    otherwise beat @layer components regardless of specificity).

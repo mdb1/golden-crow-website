@@ -16,7 +16,7 @@ import {
 import { ActiveWorkoutSession } from "./_components/active-workout-session";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <activeWorkout>" (issue #170).
+// Tab title: "Corvo - <activeWorkout>" (issue #170).
 export const generateMetadata = () => sectionMetadata("activeWorkout");
 
 export const dynamic = "force-dynamic";

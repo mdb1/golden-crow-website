@@ -63,7 +63,7 @@ function detect(): Environment {
 }
 
 interface SharedLinkActionsProps {
-  /** `gcfitness://…` — "Abrir en GC Fitness". `null` esconde el botón. */
+  /** `gcfitness://…` — "Abrir en Corvo". `null` esconde el botón. */
   appUrl: string | null;
   /** El link `https://fit.goldencrowvs.com/f/…` que copia el botón del WebView. */
   webUrl: string | null;
@@ -100,7 +100,7 @@ export function SharedLinkActions({ appUrl, webUrl }: SharedLinkActionsProps) {
           href={appUrl}
           className="rounded-xl bg-neutral-900 px-4 py-3 text-center text-sm font-semibold text-white"
         >
-          Abrir en GC Fitness
+          Abrir en Corvo
         </a>
       ) : null}
 
@@ -109,7 +109,7 @@ export function SharedLinkActions({ appUrl, webUrl }: SharedLinkActionsProps) {
         // qué hacer en vez de ofrecer un botón que muere sin decir nada.
         <div className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p>
-            Estás dentro del navegador de la app. Para bajar GC Fitness, abrí esta página
+            Estás dentro del navegador de la app. Para bajar Corvo, abrí esta página
             en Safari: tocá el menú <strong>⋯</strong> arriba a la derecha y elegí{" "}
             <strong>Abrir en el navegador</strong>.
           </p>

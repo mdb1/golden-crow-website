@@ -1,4 +1,4 @@
-// Single source of truth for supported locales in the GC Fitness backoffice.
+// Single source of truth for supported locales in the Corvo backoffice.
 // Plan 13-03 — Phase 13 i18n.
 //
 // 'es' (Argentine Spanish, "vos" where natural) is the default: the Coach

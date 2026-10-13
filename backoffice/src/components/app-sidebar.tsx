@@ -90,7 +90,7 @@ export function AppSidebar({
     adminContext.project === "pocket-gyms"
       ? appText(language, "Pocket Gyms")
       : adminContext.project === "gc-fitness"
-        ? appText(language, "GC Fitness")
+        ? appText(language, "Corvo")
         : appText(language, "PocketGenes");
   const showPocketGenesVersion = adminContext.project === "mydnamap";
 

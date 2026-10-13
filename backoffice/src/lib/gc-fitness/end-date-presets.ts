@@ -1,6 +1,6 @@
 // end-date-presets.ts
 //
-// Small helper for preset duration pills in GC Fitness forms.
+// Small helper for preset duration pills in Corvo forms.
 //
 // The inputs and outputs are civil dates ("YYYY-MM-DD"), not instants.
 

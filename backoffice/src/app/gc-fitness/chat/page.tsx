@@ -43,7 +43,7 @@ import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { ChatInboxClient } from "./client";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-// Tab title: "GC Fitness - <chat>" (issue #170).
+// Tab title: "Corvo - <chat>" (issue #170).
 export const generateMetadata = () => sectionMetadata("chat");
 
 export const dynamic = "force-dynamic";

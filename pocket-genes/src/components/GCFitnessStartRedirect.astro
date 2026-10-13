@@ -57,7 +57,7 @@
 // one test on a real device. And the DESIGN RULE, which cost the most: a control that cannot
 // work is worse than no control. It spends the one tap of attention we get and teaches the
 // visitor the page is broken — which costs us the instructions sitting right below it.
-import { APP_STORE_URL, PLAY_STORE_URL } from '../data/gcFitnessPublic';
+import { APP_STORE_URL, CORVO_HEAD_ASSETS, PLAY_STORE_URL } from '../data/gcFitnessPublic';
 import { defaultLang } from '../i18n/ui';
 import type { Lang } from '../i18n/ui';
 
@@ -65,13 +65,13 @@ const lang = (Astro.currentLocale || defaultLang) as Lang;
 
 const copy = {
   es: {
-    title: 'Abriendo GC Fitness…',
-    description: 'Te llevamos a la tienda de tu teléfono para descargar GC Fitness.',
+    title: 'Abriendo Corvo…',
+    description: 'Te llevamos a la tienda de tu teléfono para descargar Corvo.',
     working: 'Abriendo la tienda…',
     // An INVITATION, not a diagnosis. For the Meta web views this card is the first thing on
     // screen and the tap on it is the mechanism, not a consolation prize — so the copy must
     // not open by apologizing for a failure the visitor never saw.
-    tapTitle: 'Descargá GC Fitness',
+    tapTitle: 'Descargá Corvo',
     // Says what will actually happen. From Instagram the tap opens SAFARI, and Safari then
     // opens the store — promising "abrí la App Store" and delivering a browser switch reads
     // as a bug even when it is working exactly as designed.
@@ -95,10 +95,10 @@ const copy = {
     seeMore: 'Ver la página completa',
   },
   en: {
-    title: 'Opening GC Fitness…',
-    description: "Taking you to your phone's store to download GC Fitness.",
+    title: 'Opening Corvo…',
+    description: "Taking you to your phone's store to download Corvo.",
     working: 'Opening the store…',
-    tapTitle: 'Get GC Fitness',
+    tapTitle: 'Get Corvo',
     tapBody: 'Tap the button: we open Safari, and Safari opens the store.',
     tapCta: 'Open the App Store',
     tapCtaAndroid: 'Open Google Play',
@@ -128,8 +128,16 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
     <!-- A turnstile has nothing to index, and `/download` is the page that should rank. -->
     <meta name="robots" content="noindex, follow" />
     <link rel="canonical" href={`https://goldencrowvs.com${downloadHref}`} />
-    <link rel="icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href={CORVO_HEAD_ASSETS.faviconHref} />
+    <link rel="icon" type="image/png" sizes="32x32" href={CORVO_HEAD_ASSETS.favicon32Href} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={t.title} />
+    <meta property="og:description" content={t.description} />
+    <meta property="og:image" content={`https://goldencrowvs.com${CORVO_HEAD_ASSETS.socialImage}`} />
+    <meta property="og:image:width" content={String(CORVO_HEAD_ASSETS.socialImageWidth)} />
+    <meta property="og:image:height" content={String(CORVO_HEAD_ASSETS.socialImageHeight)} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="apple-touch-icon" href={CORVO_HEAD_ASSETS.appleTouchIconHref} />
     <!--
       Safari's Smart App Banner. Costs one tag and covers the case the redirect cannot: the
       app is ALREADY installed, and the banner offers "Open" instead of a store round trip.
@@ -517,7 +525,7 @@ const downloadHref = lang === 'en' ? '/en/gc-fitness/download' : '/gc-fitness/do
         an icon that silently does nothing is the same dead-tap tax as the button that was
         just removed. The store case has a real CTA below.
       -->
-      <img class="gcf-logo" src="/gc-fitness/icon.png" alt="GC Fitness" width="256" height="256" />
+      <img class="gcf-logo" src="/gc-fitness/corvo-icon.png" alt="Corvo" width="256" height="256" />
 
       <div class="gcf-spinner" role="status" aria-label={t.working}></div>
       <p class="gcf-working">{t.working}</p>

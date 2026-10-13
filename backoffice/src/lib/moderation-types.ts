@@ -17,7 +17,7 @@ export type AdminSectionKey =
   | "gym-members"
   | "gym-scheduling"
   | "gym-programs"
-  // Phase 11-04: GC Fitness trainer-facing sidebar sections.
+  // Phase 11-04: Corvo trainer-facing sidebar sections.
   | "gc-fitness-roster"
   | "gc-fitness-content"
   | "gc-fitness-engagement"
