@@ -17,8 +17,10 @@
 //         change (a histogram field) and are deliberately not invented here;
 //       · "active users" cannot be a per-day series — see `summarizeThreads`.
 //   - `ai_coach/{uid}` — the per-user thread doc: `lastMessageAt` (cleared when the
-//     user deletes the conversation) and `usage: {civilDate, count}` — the quota
-//     counter for the user's LAST civil day of use only (no history).
+//     user deletes the conversation) and `usage: {civilDate, count, total}` (#1359):
+//     `count` = turns on `civilDate` (the user's LAST civil day of use, in THEIR
+//     timezone — no history), `total` = turns EVER across tiers (never resets;
+//     missing on pre-#1359 threads ⇒ 0).
 //   - `ai_coach/{uid}/proposals/{pid}` — `type`, `status`, `createdAt`.
 //   - `ai_coach/{uid}/reports/{messageId}` — the "Reportar respuesta" contract
 //     (#1330): messageId, reason, note, createdAt, platform, appVersion.
@@ -39,15 +41,25 @@ export const AI_COACH_USAGE_COLLECTION = "ai_coach_usage";
 export const CORVO_WINDOW_DAYS = 30;
 /** Messages shown BEFORE the reported one in the context view. */
 export const REPORT_CONTEXT_PREVIOUS_MESSAGES = 6;
-/** A user is "near quota" when their last day of use reached this share of it. */
+/** A user is "near quota" when the counter their tier is measured with reached this share of it. */
 export const NEAR_QUOTA_RATIO = 0.8;
 
+export type AICoachQuotaKind = "lifetime" | "daily";
+
 /**
- * Twin of functions/src/aiCoach/config.ts `DAILY_QUOTA` (turns per civil day).
- * `coached` (#1331, quick 261012-eu0) is a Corvo-only tier for clients with a human coach.
+ * Twin of functions/src/aiCoach/config.ts `QUOTA` (#1359):
+ *   - `lifetime` (free): counted against `usage.total` — turns EVER, never resets;
+ *   - `daily` (premium / coached): counted against `usage.count` of `usage.civilDate`
+ *     when that is the user's civil date today.
+ * A turn is allowed while used < limit. `coached` (#1331) is the Corvo-only tier for
+ * clients with a human coach.
  */
-export const AI_COACH_DAILY_QUOTA = { free: 5, premium: 50, coached: 10 } as const;
-export type AICoachTier = keyof typeof AI_COACH_DAILY_QUOTA;
+export const AI_COACH_QUOTA = {
+  free: { kind: "lifetime", limit: 10 },
+  premium: { kind: "daily", limit: 15 },
+  coached: { kind: "daily", limit: 10 },
+} as const satisfies Record<string, { kind: AICoachQuotaKind; limit: number }>;
+export type AICoachTier = keyof typeof AI_COACH_QUOTA;
 
 /** Error codes that mean "the model was called and the turn failed". */
 export const LLM_ERROR_CODES = ["upstream", "timeout", "refusal", "internal"] as const;
@@ -301,8 +313,17 @@ export function formatLatency(ms: number | null): string {
 export interface ThreadSummary {
   uid: string;
   lastMessageAtMs: number | null;
+  /** `usage.civilDate` — the user's last civil day of use (THEIR timezone). */
   usageCivilDate: string | null;
+  /** `usage.count` — turns on `usageCivilDate`. */
   usageCount: number;
+  /** `usage.total` — turns ever (missing / non-numeric / negative ⇒ 0). */
+  usageTotal: number;
+}
+
+/** Twin of the server's quota counter coercion: a positive finite number, floored; else 0. */
+function counter(raw: unknown): number {
+  return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
 }
 
 export function decodeThread(uid: string, data: Record<string, unknown>): ThreadSummary {
@@ -312,7 +333,8 @@ export function decodeThread(uid: string, data: Record<string, unknown>): Thread
     uid,
     lastMessageAtMs: toMillis(data.lastMessageAt),
     usageCivilDate: /^\d{4}-\d{2}-\d{2}$/.test(civilDate) ? civilDate : null,
-    usageCount: num(usage.count),
+    usageCount: counter(usage.count),
+    usageTotal: counter(usage.total),
   };
 }
 
@@ -352,14 +374,74 @@ export function resolveAICoachTier(userDoc: Record<string, unknown> | null | und
   return "free";
 }
 
-const SMALLEST_QUOTA = Math.min(...Object.values(AI_COACH_DAILY_QUOTA));
+// ── Quota (#1359) — twin of functions/src/aiCoach/quota.ts ───────────────────
+
+export interface AICoachUsage {
+  /** Turns counted today (0 when the stored `civilDate` is another day). */
+  dailyUsed: number;
+  /** Turns counted ever (0 when `total` is missing). */
+  total: number;
+}
+
+/** Twin of the server's `readUsage(raw, civilDate)`. */
+export function readAICoachUsage(raw: unknown, civilDate: string): AICoachUsage {
+  const usage =
+    raw && typeof raw === "object" ? (raw as { civilDate?: unknown; count?: unknown; total?: unknown }) : {};
+  return {
+    dailyUsed: usage.civilDate === civilDate ? counter(usage.count) : 0,
+    total: counter(usage.total),
+  };
+}
+
+export interface AICoachQuotaCheck {
+  allowed: boolean;
+  kind: AICoachQuotaKind;
+  limit: number;
+  /** The counter the tier is measured against (total for lifetime, dailyUsed for daily). */
+  used: number;
+  remaining: number;
+}
+
+/** Twin of the server's `quotaCheck(tier, usage)`. */
+export function aiCoachQuotaCheck(tier: AICoachTier, usage: AICoachUsage): AICoachQuotaCheck {
+  const rule = AI_COACH_QUOTA[tier];
+  const used = rule.kind === "lifetime" ? usage.total : usage.dailyUsed;
+  return { allowed: used < rule.limit, kind: rule.kind, limit: rule.limit, used, remaining: Math.max(0, rule.limit - used) };
+}
 
 /**
- * Cheap pre-filter before reading `/users`: a count below 80% of the SMALLEST
- * quota can't be near any quota.
+ * The civil dates that are "today" SOMEWHERE right now (UTC−12 … UTC+14). The server
+ * stamps `usage.civilDate` in the user's timezone, which the admin can't see (it comes
+ * with each request, it is not stored), so a daily counter counts as today's when its
+ * date is one of these. Sampling the two extremes and `now` covers every date in the
+ * 26 h span.
  */
-export function isNearQuotaCandidate(thread: ThreadSummary): boolean {
-  return thread.usageCivilDate !== null && thread.usageCount >= Math.ceil(SMALLEST_QUOTA * NEAR_QUOTA_RATIO);
+export function possibleTodayCivilDates(now: Date): Set<string> {
+  const t = now.getTime();
+  return new Set([utcDayKey(new Date(t - 12 * 3_600_000)), utcDayKey(now), utcDayKey(new Date(t + 14 * 3_600_000))]);
+}
+
+/** What the thread's counters mean right now: today's count only if its date can still be today. */
+export function threadUsageNow(thread: ThreadSummary, now: Date): AICoachUsage {
+  const isToday = thread.usageCivilDate !== null && possibleTodayCivilDates(now).has(thread.usageCivilDate);
+  return { dailyUsed: isToday ? thread.usageCount : 0, total: thread.usageTotal };
+}
+
+function nearThreshold(limit: number): number {
+  return Math.ceil(limit * NEAR_QUOTA_RATIO);
+}
+
+/**
+ * Cheap pre-filter before reading `/users` (the tier needs the user doc): can this
+ * thread be near ANY tier's quota? Lifetime rules look at `total`, daily ones at
+ * today's `count`.
+ */
+export function isNearQuotaCandidate(thread: ThreadSummary, now: Date): boolean {
+  const usage = threadUsageNow(thread, now);
+  return Object.values(AI_COACH_QUOTA).some((rule) => {
+    const used = rule.kind === "lifetime" ? usage.total : usage.dailyUsed;
+    return used >= nearThreshold(rule.limit);
+  });
 }
 
 export interface NearQuotaUser {
@@ -367,20 +449,22 @@ export interface NearQuotaUser {
   email: string | null;
   displayName: string | null;
   tier: AICoachTier;
-  civilDate: string;
-  count: number;
-  quota: number;
+  kind: AICoachQuotaKind;
+  /** Last civil day of use (for a daily tier it is today's). */
+  civilDate: string | null;
+  used: number;
+  limit: number;
   reachedQuota: boolean;
 }
 
 export function nearQuotaUser(
   thread: ThreadSummary,
   userDoc: Record<string, unknown> | null,
+  now: Date,
 ): NearQuotaUser | null {
-  if (!thread.usageCivilDate) return null;
   const tier = resolveAICoachTier(userDoc);
-  const quota = AI_COACH_DAILY_QUOTA[tier];
-  if (thread.usageCount < Math.ceil(quota * NEAR_QUOTA_RATIO)) return null;
+  const check = aiCoachQuotaCheck(tier, threadUsageNow(thread, now));
+  if (check.used < nearThreshold(check.limit)) return null;
   const email = userDoc ? str(userDoc.email) : "";
   const displayName = userDoc ? str(userDoc.displayName) : "";
   return {
@@ -388,18 +472,22 @@ export function nearQuotaUser(
     email: email || null,
     displayName: displayName || null,
     tier,
+    kind: check.kind,
     civilDate: thread.usageCivilDate,
-    count: thread.usageCount,
-    quota,
-    reachedQuota: thread.usageCount >= quota,
+    used: check.used,
+    limit: check.limit,
+    reachedQuota: !check.allowed,
   };
 }
 
-/** Most recent day first, then the fullest. */
+/** Fullest first, then the most recent day of use. */
 export function sortNearQuota(rows: NearQuotaUser[]): NearQuotaUser[] {
   return [...rows].sort((a, b) => {
-    if (a.civilDate !== b.civilDate) return a.civilDate < b.civilDate ? 1 : -1;
-    return b.count / b.quota - a.count / a.quota;
+    const byRatio = b.used / b.limit - a.used / a.limit;
+    if (byRatio !== 0) return byRatio;
+    const da = a.civilDate ?? "";
+    const db = b.civilDate ?? "";
+    return da === db ? a.uid.localeCompare(b.uid) : da < db ? 1 : -1;
   });
 }
 
