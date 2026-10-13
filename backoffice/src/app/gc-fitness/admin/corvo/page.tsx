@@ -127,6 +127,33 @@ export default async function CorvoAdminPage() {
           value={summary ? String(summary.prescreenBlocked30d) : dash}
           detail={summary ? `${t("stats.notEligible")}: ${summary.notEligible30d}` : undefined}
         />
+        {/* gc-fitness #1347 — the coach's «Resumen de la semana (IA)», same day docs. */}
+        <Stat
+          label={t("stats.coachSummaries")}
+          value={summary ? String(summary.coachSummaries.generated) : dash}
+          detail={
+            summary
+              ? t("stats.coachSummariesDetail", {
+                  today: summary.coachSummaries.generatedToday,
+                  cached: summary.coachSummaries.cacheHits,
+                  rejected: summary.coachSummaries.quotaRejections,
+                  errors: summary.coachSummaries.errors,
+                })
+              : undefined
+          }
+        />
+        <Stat
+          label={t("stats.coachSummariesCost")}
+          value={summary ? formatMicroUsd(summary.coachSummaries.estimatedMicroUsd) : dash}
+          detail={
+            summary
+              ? t("stats.coachSummariesTokens", {
+                  input: summary.coachSummaries.inputTokens,
+                  output: summary.coachSummaries.outputTokens,
+                })
+              : undefined
+          }
+        />
       </section>
 
       {usage ? <CorvoUsageChart points={usageChartPoints(usage.series)} /> : null}

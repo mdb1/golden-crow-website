@@ -165,6 +165,37 @@ export interface UsageDay {
   latencyMsTotal: number;
   estimatedMicroUsd: number;
   proposalsCreated: number;
+  /** #1347 — the coach's «Resumen de la semana (IA)», same day doc, own map. */
+  coachSummary: CoachSummaryUsageDay;
+}
+
+/**
+ * gc-fitness #1347 — `ai_coach_usage/{day}.coachSummary`, written by the
+ * `coachWeeklySummary` callable. Separate from Corvo's counters on purpose:
+ * Corvo's totals/cost stay exactly what they were.
+ */
+export interface CoachSummaryUsageDay {
+  generated: number;
+  cacheHits: number;
+  quotaRejections: number;
+  errors: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedMicroUsd: number;
+}
+
+export function decodeCoachSummaryUsage(raw: unknown): CoachSummaryUsageDay {
+  const d = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const errors = Object.values(numMap(d.errors)).reduce((a, b) => a + b, 0);
+  return {
+    generated: num(d.generated),
+    cacheHits: num(d.cacheHits),
+    quotaRejections: num(d.quotaRejections),
+    errors,
+    inputTokens: num(d.inputTokens) + num(d.cacheReadInputTokens) + num(d.cacheCreationInputTokens),
+    outputTokens: num(d.outputTokens),
+    estimatedMicroUsd: num(d.estimatedMicroUsd),
+  };
 }
 
 export function emptyUsageDay(date: string): UsageDay {
@@ -188,6 +219,7 @@ export function decodeUsageDay(date: string, data: Record<string, unknown>): Usa
     latencyMsTotal: num(data.latencyMsTotal),
     estimatedMicroUsd: num(data.estimatedMicroUsd),
     proposalsCreated: num(data.proposalsCreated),
+    coachSummary: decodeCoachSummaryUsage(data.coachSummary),
   };
 }
 
@@ -219,6 +251,8 @@ export interface UsageSummary {
   /** null when there were no turns. */
   avgCostPerTurnMicroUsd: number | null;
   toolCalls30d: Record<string, number>;
+  /** #1347 — coach summaries over the window (+ today's count). */
+  coachSummaries: CoachSummaryUsageDay & { generatedToday: number };
 }
 
 function addMaps(into: Record<string, number>, from: Record<string, number>): void {
@@ -242,7 +276,11 @@ export function summarizeUsage(series: UsageDay[]): UsageSummary {
   let llmErrors = 0;
   const errorsByCode: Record<string, number> = {};
   const toolCalls: Record<string, number> = {};
+  const coach: CoachSummaryUsageDay = decodeCoachSummaryUsage(null);
   for (const day of series) {
+    for (const k of Object.keys(coach) as Array<keyof CoachSummaryUsageDay>) {
+      coach[k] += day.coachSummary[k];
+    }
     turns += day.turns;
     quota += day.quotaRejections;
     prescreen += day.prescreenBlocked;
@@ -267,6 +305,7 @@ export function summarizeUsage(series: UsageDay[]): UsageSummary {
     errorsByCode,
     avgCostPerTurnMicroUsd: turns > 0 ? Math.round(cost / turns) : null,
     toolCalls30d: toolCalls,
+    coachSummaries: { ...coach, generatedToday: today.coachSummary.generated },
   };
 }
 
