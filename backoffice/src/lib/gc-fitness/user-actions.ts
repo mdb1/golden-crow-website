@@ -913,9 +913,14 @@ const unlinkClientSchema = z.object({
 
 /**
  * Detach an ACTIVE client from the calling coach — "des-linkear", the inverse
- * of `provisionClient`. The person keeps their account, their history and the
- * program they were given; they simply become coach-less (self-serve) and drop
- * off this coach's roster.
+ * of `provisionClient`. The person keeps their account and their history; they
+ * become coach-less (self-serve) and drop off this coach's roster.
+ *
+ * gc-fitness#1395 — what this coach SCHEDULED from the client's today on
+ * (future assignments, coach habits, the coach's nutrition plan) is removed by
+ * the gc-fitness Cloud Function `onClientCoachUnlinked`, which fires on the
+ * `coachId` delete below. Nothing to do here — keep it that way, so the app's
+ * `coachUnlinkClient` callable and these Server Actions can never drift.
  *
  * Mirrors `unlinkClientFromCoach` in `admin-actions.ts` field for field: clear
  * the link + the denormalized coach fields, clear `coachId` on the 1:1 chat doc

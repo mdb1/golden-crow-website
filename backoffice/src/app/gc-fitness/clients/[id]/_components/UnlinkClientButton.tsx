@@ -2,9 +2,10 @@
 //
 // A destructive-but-recoverable action, so it gets the full confirm treatment:
 // the button never fires the mutation directly, the dialog spells out what
-// SURVIVES (the account, the history, the program) and what does not (the
-// roster link, the chat thread's place in this coach's inbox, the coached
-// premium entitlement), and the confirm stays disabled while the action runs.
+// SURVIVES (the account, the history) and what does not (the roster link, the
+// chat thread's place in this coach's inbox, the coached premium entitlement,
+// and — gc-fitness#1395 — everything this coach scheduled from today on), and
+// the confirm stays disabled while the action runs.
 //
 // On success we leave the page — the client is no longer this coach's, so
 // /gc-fitness/clients/{id} would 404 on the very next render (its ownership

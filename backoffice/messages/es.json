@@ -634,10 +634,10 @@
       },
       "unlink": {
         "title": "Desvincular cliente",
-        "body": "Sacá a esta persona de tu lista. Conserva su cuenta, su historial y las rutinas que ya le diste, pero deja de ser tu cliente.",
+        "body": "Sacá a esta persona de tu lista. Conserva su cuenta y su historial, pero deja de ser tu cliente y se borra lo que le agendaste de hoy en adelante.",
         "cta": "Desvincular",
         "confirmTitle": "¿Desvincular a {name}?",
-        "confirmBody": "Va a dejar de aparecer en tu lista y no vas a poder verle el progreso ni escribirle. Su cuenta, su historial y el contenido que le asignaste quedan intactos, y el chat vuelve si más adelante la volvés a agregar. Ojo: si tenía premium por ser tu cliente, lo pierde.",
+        "confirmBody": "Va a dejar de aparecer en tu lista y no vas a poder verle el progreso ni escribirle. Su cuenta y su historial quedan intactos, pero se borra lo que le agendaste de hoy en adelante (rutinas, hábitos y plan de nutrición). El chat vuelve si más adelante la volvés a agregar. Ojo: si tenía premium por ser tu cliente, lo pierde.",
         "confirmCta": "Sí, desvincular",
         "cancel": "Cancelar",
         "pending": "Desvinculando…",
