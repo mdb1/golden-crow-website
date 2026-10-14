@@ -4,9 +4,54 @@ import PanelImage from "../components/PanelImage.astro"
 import { useTranslations } from '../i18n/index';
 import { formatBrandText } from '../utils/brandFormatting';
 const t = useTranslations(Astro.currentLocale);
+
+const panelItems = [
+  {
+    title: t.panels.healthTitle,
+    description: t.panels.healthDesc,
+    color: 'primary',
+    panelKeys: 'reports',
+  },
+  {
+    title: t.panels.nutritionTitle,
+    description: t.panels.nutritionDesc,
+    color: 'secondary',
+    panelKeys: 'genetics-learning',
+  },
+  {
+    title: t.panels.medicationTitle,
+    description: t.panels.medicationDesc,
+    color: 'success',
+    panelKeys: 'medical-questions',
+  },
+  {
+    title: t.panels.ancestryTitle,
+    description: t.panels.ancestryDesc,
+    color: 'accent',
+    panelKeys: 'rarefriends',
+  },
+  {
+    title: t.panels.educationTitle,
+    description: t.panels.educationDesc,
+    color: 'warning',
+    panelKeys: 'provider-directory resources',
+  },
+] as const;
+
+const initialRollPosition = (index: number) => {
+  if (index === panelItems.length - 1) return 'previous';
+  if (index === 0) return 'current';
+  if (index === 1) return 'next';
+  return '';
+};
+
+const initialPanelOrder = [
+  panelItems.length - 1,
+  ...panelItems.slice(0, -1).map((_, index) => index),
+];
 ---
 
-<section id="screen3" class="panels_body">
+<section id="screen3" class="panels_body" data-panel-roll-index="0">
   <div class="content-wrapper">
     <div class="panels_container">
       <div class="section-header">
@@ -16,37 +61,21 @@ const t = useTranslations(Astro.currentLocale);
         </h1>
         <p class="panels_subtitle" set:html={formatBrandText(t.panels.description)} />
       </div>
-      <div class="panels-grid">
-        <ListItem
-          title={t.panels.healthTitle}
-          description={t.panels.healthDesc}
-          color="primary"
-          panelKeys="reports"
-        />
-        <ListItem
-          title={t.panels.nutritionTitle}
-          description={t.panels.nutritionDesc}
-          color="secondary"
-          panelKeys="genetics-learning"
-        />
-        <ListItem
-          title={t.panels.medicationTitle}
-          description={t.panels.medicationDesc}
-          color="success"
-          panelKeys="medical-questions"
-        />
-        <ListItem
-          title={t.panels.ancestryTitle}
-          description={t.panels.ancestryDesc}
-          color="accent"
-          panelKeys="rarefriends"
-        />
-        <ListItem
-          title={t.panels.educationTitle}
-          description={t.panels.educationDesc}
-          color="warning"
-          panelKeys="provider-directory resources"
-        />
+      <div class="panels-grid" role="list" aria-live="polite" aria-label={t.panels.title2}>
+        {initialPanelOrder.map((panelIndex) => {
+          const item = panelItems[panelIndex];
+          const rollPosition = initialRollPosition(panelIndex);
+
+          return (
+            <ListItem
+              {...item}
+              panelIndex={panelIndex}
+              rollPosition={rollPosition}
+              initiallyHidden={!rollPosition}
+              isRollCard={true}
+            />
+          );
+        })}
       </div>
     </div>
     <div class="image-wrapper">
@@ -59,28 +88,114 @@ const t = useTranslations(Astro.currentLocale);
   const panelSection = document.querySelector('#screen3');
 
   if (panelSection) {
-    const cards = Array.from(panelSection.querySelectorAll('[data-panel-card]'));
-    const nodes = Array.from(panelSection.querySelectorAll('[data-panel-node]'));
-    const hubs = Array.from(panelSection.querySelectorAll('[data-panel-hub]'));
-    const interactiveElements = [...cards, ...nodes, ...hubs];
+    const cards = Array.from(panelSection.querySelectorAll<HTMLElement>('[data-panel-card]'));
+    const nodes = Array.from(panelSection.querySelectorAll<HTMLElement>('[data-panel-node]'));
+    const hubs = Array.from(panelSection.querySelectorAll<HTMLElement>('[data-panel-hub]'));
+    const panelGrid = panelSection.querySelector<HTMLElement>('.panels-grid');
+    const interactiveElements = [...nodes, ...hubs];
+    const linkedElements = [...cards, ...nodes];
+    const stateElements = [...cards, ...interactiveElements];
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    const readKeys = (element) =>
+    const readKeys = (element: HTMLElement) =>
       (element.getAttribute('data-panel-keys') || '')
         .split(/\s+/)
         .filter(Boolean);
 
-    const hasSharedKey = (element, activeKeys) => {
+    const hasSharedKey = (element: HTMLElement, activeKeys: string[]) => {
       const keys = readKeys(element);
       return keys.some((key) => activeKeys.includes(key));
     };
 
-    const setActive = (source) => {
+    const normalizePanelIndex = (index: number) => {
+      if (!cards.length) return 0;
+      return ((index % cards.length) + cards.length) % cards.length;
+    };
+
+    const readPanelIndex = (element: HTMLElement) => {
+      const value = element.getAttribute('data-panel-step-index');
+      if (value === null) return null;
+
+      const panelIndex = Number(value);
+      return Number.isFinite(panelIndex) ? normalizePanelIndex(panelIndex) : null;
+    };
+
+    const updatePanelRoll = (panelIndex = 0) => {
+      if (!cards.length) return;
+
+      const activeIndex = normalizePanelIndex(panelIndex);
+      const previousIndex = normalizePanelIndex(activeIndex - 1);
+      const nextIndex = normalizePanelIndex(activeIndex + 1);
+
+      panelSection.setAttribute('data-panel-roll-index', String(activeIndex));
+
+      for (const card of cards) {
+        const cardIndex = readPanelIndex(card);
+        const rollPosition =
+          cardIndex === previousIndex
+            ? 'previous'
+            : cardIndex === activeIndex
+              ? 'current'
+              : cardIndex === nextIndex
+                ? 'next'
+                : '';
+        const isVisible = Boolean(rollPosition);
+        const isCurrent = rollPosition === 'current';
+
+        card.hidden = !isVisible;
+        card.classList.toggle('is-roll-previous', rollPosition === 'previous');
+        card.classList.toggle('is-roll-current', isCurrent);
+        card.classList.toggle('is-roll-next', rollPosition === 'next');
+
+        if (isVisible) {
+          card.removeAttribute('aria-hidden');
+          card.removeAttribute('tabindex');
+        } else {
+          card.setAttribute('aria-hidden', 'true');
+          card.tabIndex = -1;
+        }
+
+        if (isCurrent) {
+          card.setAttribute('aria-current', 'step');
+          card.classList.remove('is-roll-entering');
+
+          if (!prefersReducedMotion) {
+            void card.offsetWidth;
+            card.classList.add('is-roll-entering');
+          }
+        } else {
+          card.removeAttribute('aria-current');
+          card.classList.remove('is-roll-entering');
+        }
+      }
+
+      if (panelGrid) {
+        const orderedIndexes = [previousIndex, activeIndex, nextIndex];
+
+        for (const orderedIndex of orderedIndexes) {
+          const card = cards.find((item) => readPanelIndex(item) === orderedIndex);
+          if (card) panelGrid.append(card);
+        }
+
+        for (const card of cards) {
+          if (card.hidden) panelGrid.append(card);
+        }
+      }
+    };
+
+    const setActive = (source: HTMLElement) => {
+      const sourcePanelIndex = readPanelIndex(source);
+
+      if (sourcePanelIndex !== null) {
+        updatePanelRoll(sourcePanelIndex);
+      }
+
       const activeKeys = readKeys(source);
       if (!activeKeys.length) return;
 
       panelSection.setAttribute('data-active-panel', activeKeys.join(' '));
 
-      for (const element of [...cards, ...nodes]) {
+      for (const element of linkedElements) {
         const isActive = hasSharedKey(element, activeKeys);
         element.classList.toggle('is-linked-active', isActive);
         element.classList.toggle('is-linked-dimmed', !isActive);
@@ -94,7 +209,7 @@ const t = useTranslations(Astro.currentLocale);
     const clearActive = () => {
       panelSection.removeAttribute('data-active-panel');
 
-      for (const element of interactiveElements) {
+      for (const element of stateElements) {
         element.classList.remove('is-linked-active', 'is-linked-dimmed');
       }
     };
@@ -104,7 +219,16 @@ const t = useTranslations(Astro.currentLocale);
       element.addEventListener('pointerleave', clearActive);
       element.addEventListener('focusin', () => setActive(element));
       element.addEventListener('focusout', clearActive);
+      element.addEventListener('click', () => setActive(element));
+      element.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+
+        event.preventDefault();
+        setActive(element);
+      });
     }
+
+    updatePanelRoll(0);
   }
 </script>
 
@@ -169,9 +293,12 @@ const t = useTranslations(Astro.currentLocale);
   }
 
   .panels-grid {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: clamp(0.75rem, 1.1vw, 1rem);
+    max-width: 640px;
+    isolation: isolate;
   }
 
   .image-wrapper {

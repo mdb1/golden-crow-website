@@ -1,7 +1,16 @@
 ---
 import { formatBrandText } from '../utils/brandFormatting';
 
-const { title, description, color, panelKeys = '' } = Astro.props;
+const {
+  title,
+  description,
+  color,
+  panelKeys = '',
+  panelIndex,
+  rollPosition = '',
+  initiallyHidden = false,
+  isRollCard = false,
+} = Astro.props;
 
 const colorMapping = {
   primary: {
@@ -59,11 +68,20 @@ const panelStyle = [
 ---
 
 <div
-    class="panel-item"
+    class:list={[
+      'panel-item',
+      isRollCard && 'is-panel-roll-card',
+      rollPosition && `is-roll-${rollPosition}`,
+    ]}
     data-color={color}
     data-panel-card
     data-panel-keys={panelKeys}
-    tabindex="0"
+    data-panel-step-index={panelIndex}
+    role={isRollCard ? 'listitem' : undefined}
+    aria-current={rollPosition === 'current' ? 'step' : undefined}
+    aria-hidden={initiallyHidden ? 'true' : undefined}
+    tabindex={initiallyHidden ? '-1' : isRollCard ? undefined : '0'}
+    hidden={initiallyHidden}
     style={panelStyle}
 >
     <div class="icon-wrapper">
@@ -242,6 +260,158 @@ const panelStyle = [
         .gradient-icon {
             width: 25px;
             height: 25px;
+        }
+    }
+
+    .panel-item.is-panel-roll-card {
+        min-height: clamp(112px, 10vw, 138px);
+        gap: clamp(0.85rem, 1.2vw, 1.1rem);
+        margin: 0;
+        padding: clamp(1rem, 1.55vw, 1.35rem);
+        opacity: 0.66;
+        cursor: default;
+        transform: translateX(-0.5rem) scale(0.97);
+        transform-origin: center;
+        transition:
+            border-color 0.32s ease,
+            box-shadow 0.34s ease,
+            opacity 0.26s ease,
+            filter 0.28s ease,
+            transform 0.42s cubic-bezier(0.18, 1, 0.32, 1);
+    }
+
+    .panel-item.is-panel-roll-card[hidden] {
+        display: none;
+    }
+
+    .panel-item.is-panel-roll-card.is-roll-previous {
+        order: 0;
+        transform: translateX(-0.5rem) translateY(0.35rem) scale(0.97);
+    }
+
+    .panel-item.is-panel-roll-card.is-roll-current {
+        order: 1;
+        border-color: var(--panel-border-color);
+        box-shadow:
+            0 18px 42px rgba(17, 24, 39, 0.12),
+            0 10px 30px var(--panel-glow-color),
+            0 0 0 1px var(--panel-border-color);
+        opacity: 1;
+        transform: translateX(0.75rem) scale(1);
+    }
+
+    .panel-item.is-panel-roll-card.is-roll-next {
+        order: 2;
+        transform: translateX(-0.5rem) translateY(-0.35rem) scale(0.97);
+    }
+
+    .panel-item.is-panel-roll-card .icon-wrapper {
+        width: clamp(44px, 4vw, 52px);
+        height: clamp(44px, 4vw, 52px);
+    }
+
+    .panel-item.is-panel-roll-card .gradient-icon {
+        width: clamp(28px, 2.8vw, 34px);
+        height: clamp(28px, 2.8vw, 34px);
+    }
+
+    .panel-item.is-panel-roll-card .panel-title {
+        margin-bottom: 0.35rem;
+        font-size: clamp(1.05rem, 1.45vw, 1.3rem);
+    }
+
+    .panel-item.is-panel-roll-card .panel-description {
+        font-size: clamp(0.86rem, 1.05vw, 0.98rem);
+        line-height: 1.42;
+    }
+
+    .panel-item.is-panel-roll-card.is-roll-current .panel-title {
+        color: var(--brand-color);
+    }
+
+    .panel-item.is-panel-roll-card.is-roll-current .hover-effect {
+        opacity: 0.7;
+    }
+
+    .panel-item.is-panel-roll-card.is-linked-active {
+        border-color: var(--panel-border-color);
+        box-shadow:
+            0 20px 46px rgba(17, 24, 39, 0.13),
+            0 12px 32px var(--panel-glow-color);
+        opacity: 1;
+        transform: translateX(0.75rem) translateY(-4px) scale(1);
+    }
+
+    .panel-item.is-panel-roll-card.is-roll-previous:hover {
+        border-color: var(--card-border);
+        box-shadow: var(--card-shadow);
+        transform: translateX(-0.5rem) translateY(0.35rem) scale(0.97);
+    }
+
+    .panel-item.is-panel-roll-card.is-roll-current:hover {
+        border-color: var(--panel-border-color);
+        box-shadow:
+            0 18px 42px rgba(17, 24, 39, 0.12),
+            0 10px 30px var(--panel-glow-color),
+            0 0 0 1px var(--panel-border-color);
+        transform: translateX(0.75rem) scale(1);
+    }
+
+    .panel-item.is-panel-roll-card.is-roll-next:hover {
+        border-color: var(--card-border);
+        box-shadow: var(--card-shadow);
+        transform: translateX(-0.5rem) translateY(-0.35rem) scale(0.97);
+    }
+
+    .panel-item.is-panel-roll-card:hover .panel-title {
+        color: var(--text-primary);
+    }
+
+    .panel-item.is-panel-roll-card.is-roll-current:hover .panel-title {
+        color: var(--brand-color);
+    }
+
+    .panel-item.is-panel-roll-card:hover .panel-description {
+        color: var(--text-secondary);
+    }
+
+    .panel-item.is-panel-roll-card:hover .icon-wrapper,
+    .panel-item.is-panel-roll-card:hover .gradient-icon {
+        box-shadow: none;
+        transform: none;
+    }
+
+    .panel-item.is-panel-roll-card:hover .hover-effect {
+        opacity: 0;
+    }
+
+    .panel-item.is-panel-roll-card.is-roll-current:hover .hover-effect {
+        opacity: 0.7;
+    }
+
+    .panel-item.is-panel-roll-card.is-linked-dimmed {
+        opacity: 0.42;
+        transform: translateX(-0.5rem) scale(0.95);
+    }
+
+    .panel-item.is-panel-roll-card.is-roll-entering {
+        animation: panelRollSelected 0.48s cubic-bezier(0.18, 1, 0.32, 1);
+    }
+
+    @keyframes panelRollSelected {
+        from {
+            opacity: 0.72;
+            transform: translateX(0) scale(0.975);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .panel-item.is-panel-roll-card {
+            transition-duration: 0.01ms;
+        }
+
+        .panel-item.is-panel-roll-card.is-roll-entering {
+            animation: none;
         }
     }
 </style>
