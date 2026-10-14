@@ -12,6 +12,7 @@ const pageCopy = {
     description: 'Pocket Genes helps people organize genetic reports, understand key concepts, and prepare safer next steps.',
     heroLead:
       'Pocket Genes helps you understand a genetic result, find trusted connections, and choose a clear next step without making your private report public by default.',
+    heroLeadEmphasis: '',
     downloadCta: 'Download the app',
     joinUsCta: 'Join us',
     appPreviewLabel: 'Pocket Genes app preview',
@@ -154,7 +155,8 @@ const pageCopy = {
     title: 'Pocket Genes - Tu guía para entender tus resultados genéticos',
     description: 'Pocket Genes te ayuda a organizar informes genéticos, entender resultados y preparar qué hacer después.',
     heroLead:
-      'Te ayudamos a entender tus resultados genéticos,\nencontrar información relevante para tu caso,\nrecibir ayuda de profesionales de confianza\ny saber cómo seguir después de recibir tu informe.',
+      'Te ayudamos a entender tus informes genéticos,\nencontrar profesionales de confianza y saber',
+    heroLeadEmphasis: 'cómo seguir después de recibir el resultado.',
     downloadCta: 'Descargar la app',
     joinUsCta: 'Sumate',
     appPreviewLabel: 'Vista previa de la app Pocket Genes',
@@ -317,10 +319,13 @@ const trustMailSubject = encodeURIComponent(
         <div class="pg-home-copy">
           <h1>
             <span>Pocket</span>
-            <span>Genes</span>
+            <span class="pg-home-title-accent">Genes</span>
           </h1>
           <p class="pg-home-lead">
             {copy.heroLead}
+            {copy.heroLeadEmphasis && (
+              <strong class="pg-home-lead-emphasis">{copy.heroLeadEmphasis}</strong>
+            )}
           </p>
           <div class="pg-button-row">
             <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/download')}>
@@ -602,6 +607,10 @@ const trustMailSubject = encodeURIComponent(
     display: block;
   }
 
+  .pg-home-copy h1 .pg-home-title-accent {
+    color: var(--pocket_genes_pink);
+  }
+
   .pg-home-lead {
     max-width: 680px;
     margin: 20px 0 0;
@@ -609,6 +618,11 @@ const trustMailSubject = encodeURIComponent(
     font-size: 1.14rem;
     line-height: 1.66;
     white-space: pre-line;
+  }
+
+  .pg-home-lead-emphasis {
+    display: block;
+    font-weight: 600;
   }
 
   .pg-home-copy .pg-button-row {
