@@ -1643,9 +1643,11 @@ const unlinkClientSchema = z.object({
  * — a later `transferClientToCoach` re-points the same doc and the history comes
  * back. (`deleteClientCascade` is the only path that recursively deletes chats.)
  *
- * Like a transfer, content the old coach authored (workout_assignments / habits
- * carrying their trainerId) is intentionally left in place — the user keeps
- * their program. Note the user drops to their own entitlement tier once
+ * gc-fitness#1395 — UNLIKE a transfer, what the old coach SCHEDULED from the
+ * client's today on (future workout_assignments, coach habits, the coach's
+ * nutrition plan) is removed — not here but by the gc-fitness Cloud Function
+ * `onClientCoachUnlinked`, which fires on the `coachId` delete below (so every
+ * unlink path gets it). Past history stays. Note the user drops to their own entitlement tier once
  * unlinked: coached ⇒ premium no longer applies, so a client with no
  * subscription becomes free.
  */
