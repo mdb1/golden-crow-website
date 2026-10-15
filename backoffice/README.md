@@ -428,20 +428,61 @@ If any step fails, see the troubleshooting section of the 11-08 runbook.
 
 ## Deploys and the stale-tab problem (#382)
 
-**Every production deploy invalidates every open tab's ability to save.**
-Next.js derives each Server Action's ID from a hash of the build, so a redeploy
-rotates them all and a tab opened beforehand posts an ID the server no longer
-knows:
+A tab opened before a deploy can lose the ability to save. When the server no
+longer knows the Server Action ID the tab posts, it answers **404** with
+`x-nextjs-action-not-found: 1`, and the client throws `UnrecognizedActionError`
+(code `E715`):
 
 ```
 Server Action "404583b2…" was not found on the server.
 ```
 
 A coach hit that under a form they had already filled in. The only escape is a
-hard reload, which throws the form away — that is the actual injury, not the
-error text.
+hard reload, which used to throw the form away — that is the actual injury, not
+the error text.
 
-Three things sit between a coach and that state. Two are in this repo.
+### 0. The fixed key — `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`
+
+Next.js computes every action ID as a hash of **this key + the file path + the
+export name** (the first byte also encodes which arguments the function uses).
+Unset, `next build` invents a random key (cached in `.next/cache` for at most 14
+days), so a redeploy could rotate every ID at once. With the key fixed in Vercel
+(Production and Preview), an action keeps its ID across deploys as long as its
+file, name and arguments don't change. The key also encrypts the values inline
+closures capture, so it must be the same at build and runtime — Vercel injects
+one value into both.
+
+- A production build (`VERCEL_ENV=production`) **fails** without a valid key —
+  `src/lib/server-actions-key.ts`, called from `next.config.ts`. That is on
+  purpose: a missing key looks exactly like working until the next deploy.
+- Generate it with `openssl rand -base64 32`. Never commit it. Changing it
+  rotates every ID once, like the old behavior did on every deploy.
+- `bash scripts/verify-action-ids.sh` (from `backoffice/`) proves the key is
+  doing its job: two clean builds with the same key must give identical IDs,
+  and a third with another key must change all of them. ~1.5 min.
+
+#### Rules for anyone touching a Server Action
+
+The key does **not** protect against changing an action itself. Any of these
+gives the action a new ID, and every tab opened before the deploy gets the
+"not found" error on its next submit:
+
+- **renaming** an exported action, or **moving** it to another file;
+- **changing which arguments it uses** (the ID's first byte encodes them);
+- **adding, removing or reordering inline `"use server"` closures** in a page or
+  component. Those are named by position (`$$RSC_SERVER_ACTION_0`, `_1`, …), so
+  inserting one shifts the names of every closure after it. **Worse than a
+  "not found":** the shifted ID can now belong to a *different* closure, and an
+  old tab's submit runs that other action with its form data. Measured on
+  `admin/page.tsx`: adding one closure at the top made the old "promote to
+  admin" ID point at "add to allowlist". Put new inline closures at the END of
+  the file, or better, write the action as a named export in a `"use server"`
+  module.
+
+When an action in use has to change shape, **keep the old one exported for at
+least one deploy** next to the new one (a thin wrapper is enough), and remove it
+in a later deploy — a day later is fine; tabs older than that will hit the
+banner and recover from the draft.
 
 ### 1. `vercel.json` → `scripts/vercel-ignore-build.sh`
 
@@ -471,8 +512,9 @@ git repos, including version-only and marketing-plus-version commits.
 
 Note this only helps commits that leave `backoffice/` alone. The `discover`
 surface (MyDNAMap) lives in the same Next app, so its commits legitimately
-redeploy and rotate the IDs for coaches too. Splitting the projects is the only
-thing that would fix that, and it is not on the table.
+redeploy. With the fixed key that no longer rotates the action IDs, but every
+deploy still deletes the previous build's JS chunks (no Skew Protection), so an
+old tab can fail to load a chunk — the banner below covers that symptom too.
 
 ### 2. `StaleDeploymentBanner` (the floor)
 
@@ -484,9 +526,20 @@ button.
 **It deliberately does not reload by itself.** Losing the filled-in form is the
 reported injury; an automatic refresh causes it faster and every time. Call
 sites route their own `catch` through `noteIfStaleDeployment(err)` so they skip
-their "try again" toast: from a stale tab, every retry fails identically.
+their "try again" toast: from a stale tab, every retry fails identically. Every
+gc-fitness `QueryClient` spreads `staleAwareQueryCaches()` so actions called
+from `useQuery`/`useMutation` (polling included) reach the banner too.
 
-### 3. Vercel Skew Protection — NOT ENABLED, needs a Pro plan
+**Drafts make the reload safe.** `useFormDraft` (`src/lib/gc-fitness/use-form-draft.ts`)
+keeps the long forms in `sessionStorage` under `draft:<form>:<entity>`: restored
+with a notice after the reload, cleared on a successful save, discarded on
+cancel, wiped on sign-out. Wired into the exercise form, the habit form, the
+nutrition meal and template dialogs and the assigned-workout editor; the routine
+and nutrition-plan editors keep their own `localStorage` drafts. Client notes
+are deliberately not drafted (sensitive). A new long form should use the hook —
+and list any sensitive field in `omit`.
+
+### 3. Vercel Skew Protection — NOT ENABLED, needs a Pro plan (and not planned)
 
 This is the platform-level fix: Vercel keeps serving the matching deployment to
 older clients instead of breaking their actions. It is a project setting
