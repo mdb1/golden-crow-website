@@ -8,22 +8,21 @@
 // thing they are about — the settings dialog + the weight chart for `weight`,
 // the progress-photos section for `progressPhotos`.
 //
-// Each row owns its own server action (closed over `clientId` + `kind`), so
+// Each row binds its own server action to `clientId` + `kind`, so
 // rendering the weight row TWICE on one page is fine — they are independent
 // forms posting the same idempotent request.
 
 import { Check } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
-import { revalidatePath } from "next/cache";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { runClientRequest } from "@/lib/gc-fitness/client-request-actions";
 import {
   getClientRequestStatus,
   type ClientRequestKind,
 } from "@/lib/gc-fitness/client-request-state";
 import type { RequestFulfillment } from "@/lib/gc-fitness/client-request-fulfillment";
+import { submitClientRequest } from "./client-request-form-actions";
 
 type RequestState = {
   statusText: string;
@@ -83,12 +82,9 @@ export async function ClientRequestRow({
       })
     : null;
 
-  async function submit() {
-    "use server";
-    await runClientRequest(clientId, kind);
-    revalidatePath(`/gc-fitness/clients/${clientId}`);
-    revalidatePath("/gc-fitness/my-activity");
-  }
+  // #382 — a named export bound to this row, not an inline closure: inline
+  // closures are numbered by position and an old tab could hit another one.
+  const submit = submitClientRequest.bind(null, clientId, kind);
 
   const title = kind === "weight" ? t("weight.title") : t("progressPhotos.title");
   const description =

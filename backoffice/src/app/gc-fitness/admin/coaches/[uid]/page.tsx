@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
@@ -18,18 +17,20 @@ import {
 } from "@/components/ui/table";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import {
-  deleteClientCascade,
-  deactivateClientForCoach,
   getDeletionTargetInfo,
   getCoachAdminDetail,
   listCoachesForAdmin,
   previewClientCascade,
-  removePendingClientForCoach,
-  transferClientToCoach,
-  unlinkClientFromCoach,
 } from "@/lib/gc-fitness/admin-actions";
 import { AdminSubmitButton } from "../../_components/admin-submit-button";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+import {
+  deactivateClientAction,
+  deleteClientAction,
+  removePendingAction,
+  transferClientAction,
+  unlinkClientAction,
+} from "./actions";
 
 // Tab title: "Corvo - <adminPanel>" (issue #170).
 export const generateMetadata = () => sectionMetadata("adminPanel");
@@ -77,52 +78,6 @@ export default async function CoachAdminDetailPage({
     }
   }
   const canExecuteClientDelete = previewClientUid.length > 0 && clientPreview !== null;
-
-  async function deactivateClientAction(formData: FormData) {
-    "use server";
-    const coachUid = String(formData.get("coachUid") ?? "");
-    const clientUid = String(formData.get("clientUid") ?? "");
-    await deactivateClientForCoach({ coachUid, clientUid });
-    revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
-  }
-
-  async function transferClientAction(formData: FormData) {
-    "use server";
-    const coachUid = String(formData.get("coachUid") ?? "");
-    const clientUid = String(formData.get("clientUid") ?? "");
-    const newCoachUid = String(formData.get("newCoachUid") ?? "");
-    await transferClientToCoach({ clientUid, newCoachUid });
-    revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
-    redirect(`/gc-fitness/admin/coaches/${coachUid}?op=transfer_client&ok=1`);
-  }
-
-  async function unlinkClientAction(formData: FormData) {
-    "use server";
-    const coachUid = String(formData.get("coachUid") ?? "");
-    const clientUid = String(formData.get("clientUid") ?? "");
-    await unlinkClientFromCoach({ coachUid, clientUid });
-    revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
-    revalidatePath("/gc-fitness/admin/coach-less-users");
-    redirect(`/gc-fitness/admin/coaches/${coachUid}?op=unlink_client&ok=1`);
-  }
-
-  async function removePendingAction(formData: FormData) {
-    "use server";
-    const coachUid = String(formData.get("coachUid") ?? "");
-    const email = String(formData.get("email") ?? "");
-    await removePendingClientForCoach({ coachUid, email });
-    revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
-  }
-
-  async function deleteClientAction(formData: FormData) {
-    "use server";
-    const coachUid = String(formData.get("coachUid") ?? "");
-    const clientUid = String(formData.get("clientUid") ?? "");
-    const confirmation = String(formData.get("confirmation") ?? "");
-    await deleteClientCascade({ clientUid, confirmation, mode: "execute" });
-    revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
-    redirect(`/gc-fitness/admin/coaches/${coachUid}?op=delete_client&ok=1`);
-  }
 
   return (
     <div className="gc-page flex flex-col gap-6">

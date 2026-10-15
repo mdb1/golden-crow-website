@@ -469,15 +469,17 @@ gives the action a new ID, and every tab opened before the deploy gets the
 
 - **renaming** an exported action, or **moving** it to another file;
 - **changing which arguments it uses** (the ID's first byte encodes them);
-- **adding, removing or reordering inline `"use server"` closures** in a page or
-  component. Those are named by position (`$$RSC_SERVER_ACTION_0`, `_1`, …), so
-  inserting one shifts the names of every closure after it. **Worse than a
-  "not found":** the shifted ID can now belong to a *different* closure, and an
-  old tab's submit runs that other action with its form data. Measured on
-  `admin/page.tsx`: adding one closure at the top made the old "promote to
-  admin" ID point at "add to allowlist". Put new inline closures at the END of
-  the file, or better, write the action as a named export in a `"use server"`
-  module.
+- **inline `"use server"` closures — none left, and none allowed.** Next names
+  them by position (`$$RSC_SERVER_ACTION_0`, `_1`, …), so inserting one shifted
+  every closure after it, and an old tab's ID could then resolve to a
+  *different* closure and run it with its form data (measured on
+  `admin/page.tsx`: the old "promote to admin" ID ran "add to allowlist"). All
+  20 now live as named exports in `actions.ts` modules next to their pages;
+  per-render values (an email, a client id) go through `.bind(null, …)` — which
+  the client can see and alter, so the action must re-check ownership, as these
+  do. `src/lib/__tests__/no-inline-server-actions.test.ts` fails if an inline
+  one comes back. With named exports, adding an action to a module adds one ID
+  and moves none (measured: 205 → 206, zero changed).
 
 When an action in use has to change shape, **keep the old one exported for at
 least one deploy** next to the new one (a thin wrapper is enough), and remove it

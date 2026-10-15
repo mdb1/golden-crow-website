@@ -17,7 +17,6 @@
 // client, so this URL can't be used to read a coached client's data.
 
 import { formatAppDevice } from "@/lib/gc-fitness/client-app-devices";
-import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -50,14 +49,8 @@ import {
   listClientHabitsForAdmin,
   listClientNutritionForAdmin,
   listCoachOptionsForAdmin,
-  transferClientToCoach,
 } from "@/lib/gc-fitness/admin-actions";
-import {
-  deleteCoachlessUser,
-  getCoachlessUserProfile,
-  setUserEntitlementTier,
-  type CoachlessUserProfile,
-} from "@/lib/gc-fitness/admin-coachless-actions";
+import { getCoachlessUserProfile, type CoachlessUserProfile } from "@/lib/gc-fitness/admin-coachless-actions";
 import {
   daysSince,
   resolveDisplayTier,
@@ -81,6 +74,7 @@ import { addCivilDays } from "@/app/gc-fitness/clients/[id]/_components/trend-ra
 import { AdminReadOnlyCalendar } from "./_components/AdminReadOnlyCalendar";
 import { ClientRecentLogsFeed } from "@/app/gc-fitness/clients/[id]/_components/ClientRecentLogsFeed";
 import { ProgressPhotosGridClient } from "@/app/gc-fitness/clients/[id]/_components/ProgressPhotosGridClient";
+import { assignCoachAction, deleteUserAction, setTierAction } from "./actions";
 
 export const generateMetadata = () => sectionMetadata("adminPanel");
 
@@ -277,39 +271,6 @@ export default async function CoachlessUserDetailPage({
   const tier = resolveDisplayTier(profile.entitlement);
   const isPremium = tier === "premium";
   const displayName = profile.displayName || profile.email || uid;
-
-  // Assigning a coach IS a transfer — from no coach to one. Reuses the tested
-  // `transferClientToCoach` (doc re-point + chat move + coachId claim resync)
-  // rather than adding a second write path. Afterwards this profile 404s (the
-  // user is no longer coach-less), so land on their coached drill-down instead.
-  async function assignCoachAction(formData: FormData) {
-    "use server";
-    const clientUid = String(formData.get("uid") ?? "");
-    const newCoachUid = String(formData.get("newCoachUid") ?? "");
-    await transferClientToCoach({ clientUid, newCoachUid });
-    revalidatePath(LIST_ROUTE);
-    revalidatePath(`/gc-fitness/admin/coaches/${newCoachUid}`);
-    redirect(`/gc-fitness/admin/coaches/${newCoachUid}/clients/${clientUid}`);
-  }
-
-  async function setTierAction(formData: FormData) {
-    "use server";
-    const targetUid = String(formData.get("uid") ?? "");
-    const nextTier = String(formData.get("tier") ?? "");
-    await setUserEntitlementTier({ uid: targetUid, tier: nextTier });
-    revalidatePath(`${LIST_ROUTE}/${targetUid}`);
-    redirect(`${LIST_ROUTE}/${targetUid}?op=set_${nextTier}&ok=1`);
-  }
-
-  async function deleteUserAction(formData: FormData) {
-    "use server";
-    const targetUid = String(formData.get("uid") ?? "");
-    const emailConfirmation = String(formData.get("emailConfirmation") ?? "");
-    await deleteCoachlessUser({ uid: targetUid, emailConfirmation });
-    revalidatePath(LIST_ROUTE);
-    // The user no longer exists — land back on the list, not on a 404.
-    redirect(`${LIST_ROUTE}?op=delete_user&ok=1`);
-  }
 
   return (
     <div className="gc-page flex flex-col gap-6">

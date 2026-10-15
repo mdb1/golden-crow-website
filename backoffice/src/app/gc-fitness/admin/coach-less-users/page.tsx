@@ -1,4 +1,3 @@
-import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -6,25 +5,17 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
-import {
-  listCoachOptionsForAdmin,
-  transferClientToCoach,
-} from "@/lib/gc-fitness/admin-actions";
+import { listCoachOptionsForAdmin } from "@/lib/gc-fitness/admin-actions";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
-import {
-  listCoachlessUsersWithStats,
-  setUserEntitlementTier,
-  deleteCoachlessUser,
-} from "@/lib/gc-fitness/admin-coachless-actions";
+import { listCoachlessUsersWithStats } from "@/lib/gc-fitness/admin-coachless-actions";
 
 import { CoachlessUsersTable } from "./_components/CoachlessUsersTable";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
+import { assignCoachAction, deleteUserAction, setTierAction } from "./actions";
 
 export const generateMetadata = () => sectionMetadata("adminPanel");
 
 export const dynamic = "force-dynamic";
-
-const ROUTE = "/gc-fitness/admin/coach-less-users";
 
 export default async function CoachlessUsersPage({
   searchParams,
@@ -50,37 +41,6 @@ export default async function CoachlessUsersPage({
     listCoachlessUsersWithStats(),
     listCoachOptionsForAdmin(),
   ]);
-
-  // Assigning a coach IS a transfer — from no coach to one. `transferClientToCoach`
-  // already handles the null-coach origin (re-points the doc, moves the chat if
-  // one exists, resyncs the coachId custom claim), so there's no second code path.
-  async function assignCoachAction(formData: FormData) {
-    "use server";
-    const clientUid = String(formData.get("uid") ?? "");
-    const newCoachUid = String(formData.get("newCoachUid") ?? "");
-    await transferClientToCoach({ clientUid, newCoachUid });
-    revalidatePath(ROUTE);
-    revalidatePath(`/gc-fitness/admin/coaches/${newCoachUid}`);
-    redirect(`${ROUTE}?op=assign_coach&ok=1`);
-  }
-
-  async function setTierAction(formData: FormData) {
-    "use server";
-    const uid = String(formData.get("uid") ?? "");
-    const tier = String(formData.get("tier") ?? "");
-    await setUserEntitlementTier({ uid, tier });
-    revalidatePath(ROUTE);
-    redirect(`${ROUTE}?op=set_${tier}&ok=1`);
-  }
-
-  async function deleteUserAction(formData: FormData) {
-    "use server";
-    const uid = String(formData.get("uid") ?? "");
-    const emailConfirmation = String(formData.get("emailConfirmation") ?? "");
-    await deleteCoachlessUser({ uid, emailConfirmation });
-    revalidatePath(ROUTE);
-    redirect(`${ROUTE}?op=delete_user&ok=1`);
-  }
 
   return (
     <div className="gc-page flex flex-col gap-6">
