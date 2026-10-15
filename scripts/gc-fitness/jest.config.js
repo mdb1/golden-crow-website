@@ -7,7 +7,15 @@ module.exports = {
   testEnvironment: "node",
   testMatch: ["**/__tests__/**/*.test.ts"],
   testPathIgnorePatterns: ["/node_modules/"],
+  // SWC, not ts-jest: TypeScript 7 dropped the JS API ts-jest needs. SWC only
+  // strips types; __tests__/typecheck.test.ts runs `tsc --noEmit`.
   transform: {
-    "^.+\\.ts$": ["ts-jest", { tsconfig: "<rootDir>/tsconfig.json" }],
+    "^.+\\.ts$": [
+      "@swc/jest",
+      {
+        jsc: { parser: { syntax: "typescript" }, target: "es2022" },
+        module: { type: "commonjs" },
+      },
+    ],
   },
 };
