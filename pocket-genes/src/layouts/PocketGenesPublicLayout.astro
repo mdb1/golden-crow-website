@@ -61,9 +61,13 @@ const enSwitcherPath = `${enPath}${currentSearch}`;
 const localizePath = (path: string) => (isEnglish ? `/en${path === '/' ? '/' : path}` : path);
 const localizedCanonicalPath =
   isEnglish && canonicalPath.startsWith('/pocket-genes') ? `/en${canonicalPath}` : canonicalPath;
+// Same rule as BaseLayout: the build emits /x/ (format: directory) and GitHub Pages answers
+// /x with a 301, so the canonical/og:url must be the trailing-slash form or Google sees a redirect.
+const withTrailingSlash = (path: string) =>
+  path.endsWith('/') || /\.[a-z0-9]+$/i.test(path) ? path : `${path}/`;
 const canonicalUrl = localizedCanonicalPath.startsWith('http')
   ? localizedCanonicalPath
-  : `${siteBase}${localizedCanonicalPath}`;
+  : `${siteBase}${withTrailingSlash(localizedCanonicalPath)}`;
 const navItems = publicNavItems.map((item) => ({
   ...item,
   href: localizePath(item.href),
