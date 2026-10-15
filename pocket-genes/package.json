@@ -6,10 +6,17 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "npm run test:unit && npm run test:dist",
+    "test:unit": "node --import ./test/support/register-ts.mjs --test \"test/unit/*.test.ts\"",
+    "test:dist": "node --test \"test/dist/*.test.mjs\"",
+    "test:full": "npm run build && npm test"
   },
   "dependencies": {
     "@tsparticles/slim": "^4.4.0",
     "astro": "^7.4.0"
+  },
+  "devDependencies": {
+    "node-html-parser": "^9.0.4"
   }
 }
