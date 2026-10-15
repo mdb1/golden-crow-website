@@ -2460,7 +2460,7 @@
     }
   },
   "staleDeployment": {
-    "title": "A new version of the backoffice was published",
+    "title": "There is a new version of the system",
     "body": "This tab is still running the previous version, so saving won't work until you reload. Routines and nutrition plans you were editing come back on their own after the reload.",
     "reload": "Reload",
     "dismiss": "Not now",

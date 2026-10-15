@@ -4,28 +4,34 @@
 // JavaScript against this deployment's server", and lets any call site report
 // it to the banner in `stale-deployment-banner.tsx`.
 //
-// WHY (#382). Next.js derives every Server Action's ID from a hash of the
-// build. A redeploy rotates those IDs, and a tab opened before it keeps
-// POSTing an ID the server no longer knows, so Next throws
+// WHY (#382). Next.js salts every Server Action ID with
+// NEXT_SERVER_ACTIONS_ENCRYPTION_KEY; when that was unset, builds invented
+// their own key and a redeploy could rotate every ID. A tab opened before it
+// kept POSTing an ID the server no longer knew, so Next threw
 //
 //     Server Action "404583b2…" was not found on the server.
 //
-// A coach saw that under a form they had already filled in. The message is
-// accurate and useless: nothing in it says the page is simply old, and the
-// only escape — a hard reload — throws the form away, which is why the
-// report reads "pierden la sesión del formulario".
+// (server side: a 404 with `x-nextjs-action-not-found: 1`; client side:
+// `UnrecognizedActionError`, code E715.) A coach saw that under a form they
+// had already filled in, and the only escape — a hard reload — threw the form
+// away, which is why the report reads "pierden la sesión del formulario".
 //
 // Losing the form is the actual injury, so nothing here reloads on its own.
 // `reloadOntoCurrentDeployment` exists for the callers that have FIRST saved
-// the coach's work to a draft a reload restores (routine editor, nutrition
-// plan editor) and for error boundaries, where the form is already gone.
+// the coach's work to a draft a reload restores (`use-form-draft.ts`, the
+// routine and nutrition-plan editors) and for error boundaries, where the form
+// is already gone.
 //
 // THE REAL FIXES ARE ELSEWHERE, and this is the floor under them:
-//   • `scripts/vercel-ignore-build.sh` stops the backoffice redeploying for
-//     commits that don't touch it — most rotations never happen.
-//   • Vercel Skew Protection keeps serving the matching deployment to old
-//     clients — but it has a maximum age (default one day), so a tab left open
-//     over a weekend lands here anyway.
+//   • The fixed key (backoffice/.env.example; a production build refuses to
+//     run without it) keeps an action's ID stable while its file and name
+//     don't change. Renaming or moving an action — or reordering inline
+//     "use server" closures — still changes IDs: see backoffice/README.md.
+//   • `scripts/vercel-ignore-build.sh` + the version-bump hook stop the
+//     backoffice redeploying for commits that don't touch it.
+//   • There is NO Skew Protection (Hobby plan), so a redeploy still deletes the
+//     old JS chunks — `isChunkLoadError` below is that symptom, and the key
+//     does nothing for it.
 
 /**
  * True for Next.js's unrecognized-Server-Action error.

@@ -2460,7 +2460,7 @@
     }
   },
   "staleDeployment": {
-    "title": "Se publicó una versión nueva del backoffice",
+    "title": "Hay una versión nueva del sistema",
     "body": "Esta pestaña quedó en la versión anterior, así que guardar no va a funcionar hasta que recargues. Las rutinas y los planes nutricionales que estabas editando se recuperan solos al recargar.",
     "reload": "Recargar",
     "dismiss": "Ahora no",

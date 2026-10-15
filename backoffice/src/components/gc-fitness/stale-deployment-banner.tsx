@@ -4,9 +4,9 @@
 //
 // #382 — the bar a coach sees when their tab has fallen behind a deploy.
 //
-// A redeploy rotates every Server Action ID, so a tab opened before it can no
-// longer save anything: Next.js throws `Server Action "…" was not found on the
-// server`. That error reached a coach verbatim, under a form they had already
+// A redeploy can leave a tab opened before it unable to save: its JS chunks
+// are gone (no Skew Protection), or an action it calls was renamed/moved, and
+// Next.js throws `Server Action "…" was not found on the server`. That error reached a coach verbatim, under a form they had already
 // filled in, with no hint that the page was simply old.
 //
 // WHAT THIS DELIBERATELY DOES NOT DO: reload. Losing the filled-in form is the
@@ -19,7 +19,9 @@
 //   1. window `error` / `unhandledrejection` — the uncaught case, which is how
 //      the coach originally saw the raw message;
 //   2. `noteIfStaleDeployment(err)` called from a call site's own `catch`,
-//      for the handlers that swallow the error into a toast.
+//      for the handlers that swallow the error into a toast;
+//   3. every gc-fitness QueryClient (`stale-aware-query-caches.ts`), for the
+//      actions called from useQuery / useMutation, polling included.
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
