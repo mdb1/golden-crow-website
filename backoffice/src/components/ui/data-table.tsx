@@ -1,11 +1,17 @@
 "use client";
 import {
-  ColumnDef,
+  columnFilteringFeature,
+  columnVisibilityFeature,
+  createFilteredRowModel,
+  createPaginatedRowModel,
+  filterFn_includesString,
   flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  useReactTable,
+  globalFilteringFeature,
+  rowPaginationFeature,
+  tableFeatures,
+  useTable,
+  type ColumnDef,
+  type RowData,
 } from "@tanstack/react-table";
 import {
   Table,
@@ -19,33 +25,52 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[];
+// TanStack Table v9 registers nothing by default. This table filters globally
+// (the search box) and paginates; the 'auto' global filter matches strings and
+// numbers exactly like v8 did.
+const dataTableFeatures = tableFeatures({
+  columnVisibilityFeature, // row.getVisibleCells()
+  columnFilteringFeature,
+  globalFilteringFeature,
+  rowPaginationFeature,
+  filteredRowModel: createFilteredRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+  filterFns: { includesString: filterFn_includesString },
+});
+
+/** Column definitions for `DataTable` (v9 types carry the feature set). */
+export type DataTableColumnDef<TData extends RowData> = ColumnDef<
+  typeof dataTableFeatures,
+  TData,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any
+>;
+
+interface DataTableProps<TData extends RowData> {
+  columns: DataTableColumnDef<TData>[];
   data: TData[];
   filterKey?: string;
   filterPlaceholder?: string;
 }
 
-export function DataTable<TData, TValue>({
+export function DataTable<TData extends RowData>({
   columns,
   data,
   filterKey,
   filterPlaceholder = "Filter...",
-}: DataTableProps<TData, TValue>) {
+}: DataTableProps<TData>) {
   const [globalFilter, setGlobalFilter] = useState("");
 
-  const table = useReactTable({
+  const table = useTable({
+    features: dataTableFeatures,
     data,
     columns,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     state: {
       globalFilter,
     },
     onGlobalFilterChange: setGlobalFilter,
     initialState: {
-      pagination: { pageSize: 20 },
+      pagination: { pageIndex: 0, pageSize: 20 },
     },
   });
 
@@ -100,7 +125,7 @@ export function DataTable<TData, TValue>({
       </div>
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Page {table.getState().pagination.pageIndex + 1} of{" "}
+          Page {table.state.pagination.pageIndex + 1} of{" "}
           {table.getPageCount()}
         </p>
         <div className="flex gap-2">

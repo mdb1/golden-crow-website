@@ -39,16 +39,28 @@ module.exports = {
   // (server-action tests) the DOM-conditional shims are silently inert.
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   transform: {
-    // Use a Jest-specific tsconfig that overrides `moduleResolution: bundler`
-    // (Next.js default — incompatible with ts-jest) and sets a `rootDir` so
-    // ts-jest doesn't infer it from the first test file it finds.
-    "^.+\\.tsx?$": [
-      "ts-jest",
+    // SWC, not ts-jest: TypeScript 7 (the native compiler) no longer ships the
+    // JS compiler API ts-jest needs. SWC only strips types, so the TYPE check
+    // of test files ts-jest used to do now lives in
+    // `src/lib/__tests__/typecheck-tests.test.ts` (tsc -p tsconfig.jest.json).
+    // `@swc/jest` hoists `jest.mock` calls above the imports like babel-jest.
+    "^.+\\.(t|j)sx?$": [
+      "@swc/jest",
       {
-        tsconfig: "<rootDir>/tsconfig.jest.json",
+        jsc: {
+          parser: { syntax: "typescript", tsx: true },
+          transform: { react: { runtime: "automatic" } },
+          target: "es2022",
+        },
+        module: { type: "commonjs" },
       },
     ],
   },
+  // ESM-only packages (no CommonJS build) must go through the transform too:
+  // @tanstack/react-table 9 and jose (via next-firebase-auth-edge).
+  transformIgnorePatterns: [
+    "/node_modules/(?!(@tanstack/react-table|@tanstack/table-core|jose)/)",
+  ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
     // `server-only` is a Next.js build-time guard module that throws if it

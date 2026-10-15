@@ -1,5 +1,5 @@
 "use client";
-import { ColumnDef } from "@tanstack/react-table";
+import type { DataTableColumnDef } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -25,7 +25,7 @@ export interface AdminUser {
   iconColorHex: string;
 }
 
-export const columns: ColumnDef<AdminUser>[] = [
+export const columns: DataTableColumnDef<AdminUser>[] = [
   {
     accessorKey: "displayName",
     header: "Name",
