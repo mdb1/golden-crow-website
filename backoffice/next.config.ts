@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import path from "node:path";
+import { assertServerActionsKey } from "./src/lib/server-actions-key";
+
+// #382 — production builds refuse to run without a fixed Server Actions key.
+assertServerActionsKey(process.env);
 
 // next-intl plugin loads `src/i18n/request.ts` at build time so getRequestConfig
 // is wired into RSC + middleware. Plan 13-03 — scoped to the gc-fitness route
