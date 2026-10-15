@@ -12,12 +12,14 @@ type MockQueryOperation =
     }
   | { type: "orderBy"; fieldPath: string; direction: "asc" | "desc" }
   | { type: "startAfter"; values: unknown[] }
-  | { type: "limit"; count: number };
+  | { type: "limit"; count: number }
+  | { type: "select"; fields: string[] };
 type MockQueryDocumentSnapshot = {
   exists: true;
   id: string;
   data: () => MockDocData;
   ref: {
+    get: jest.Mock;
     set: jest.Mock;
     update: jest.Mock;
     delete: jest.Mock;
@@ -26,6 +28,7 @@ type MockQueryDocumentSnapshot = {
 };
 type MockQuery = {
   doc: (id?: string) => {
+    id: string;
     get: jest.Mock;
     set: jest.Mock;
     update: jest.Mock;
@@ -45,6 +48,11 @@ const mockDocs = new Map<string, MockDocData>();
 const mockCollection = jest.fn((collectionName: string) =>
   mockMakeQuery(collectionName),
 );
+const mockQueryReadLog: Array<{
+  collectionName: string;
+  operations: MockQueryOperation[];
+}> = [];
+const mockPointReadLog: Array<{ collectionName: string; id: string }> = [];
 type MockTransactionDocumentRef = {
   get: jest.Mock;
   set: jest.Mock;
@@ -124,18 +132,51 @@ function mockValueForField(doc: MockStoredDoc, fieldPath: string) {
   return fieldPath === "__name__" ? doc.id : doc.data[fieldPath];
 }
 
-function mockComparableValue(value: unknown) {
+function mockTimestampParts(value: unknown) {
   if (
+    value &&
+    typeof value === "object" &&
+    "seconds" in value &&
+    typeof value.seconds === "number" &&
+    "nanoseconds" in value &&
+    typeof value.nanoseconds === "number"
+  ) {
+    return { seconds: value.seconds, nanoseconds: value.nanoseconds };
+  }
+
+  let date: Date | undefined;
+  if (value instanceof Date) {
+    date = value;
+  } else if (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)
+  ) {
+    date = new Date(value);
+  } else if (
     value &&
     typeof value === "object" &&
     "toDate" in value &&
     typeof value.toDate === "function"
   ) {
-    return value.toDate().toISOString();
+    date = value.toDate();
   }
 
-  if (value instanceof Date) {
-    return value.toISOString();
+  if (!date || Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  const milliseconds = date.getTime();
+  const seconds = Math.floor(milliseconds / 1_000);
+  return {
+    seconds,
+    nanoseconds: (milliseconds - seconds * 1_000) * 1_000_000,
+  };
+}
+
+function mockComparableValue(value: unknown) {
+  const timestamp = mockTimestampParts(value);
+  if (timestamp) {
+    return `timestamp:${timestamp.seconds}:${timestamp.nanoseconds}`;
   }
 
   return String(value ?? "");
@@ -146,14 +187,32 @@ function mockCompareValues(
   right: unknown,
   direction: "asc" | "desc",
 ) {
-  const comparison = mockComparableValue(left).localeCompare(
-    mockComparableValue(right),
-  );
+  const leftTimestamp = mockTimestampParts(left);
+  const rightTimestamp = mockTimestampParts(right);
+  const comparison =
+    leftTimestamp && rightTimestamp
+      ? leftTimestamp.seconds === rightTimestamp.seconds
+        ? Math.sign(leftTimestamp.nanoseconds - rightTimestamp.nanoseconds)
+        : Math.sign(leftTimestamp.seconds - rightTimestamp.seconds)
+      : mockComparableValue(left).localeCompare(mockComparableValue(right));
   return direction === "desc" ? comparison * -1 : comparison;
 }
 
-function mockDocumentRef(collectionName: string, id: string) {
+function mockDocumentRef(
+  collectionName: string,
+  id: string,
+): MockQueryDocumentSnapshot["ref"] {
   return {
+    get: jest.fn(async () => {
+      mockPointReadLog.push({ collectionName, id });
+      const data = mockDocs.get(mockDocKey(collectionName, id));
+      return {
+        exists: Boolean(data),
+        id,
+        data: () => data,
+        ref: mockDocumentRef(collectionName, id),
+      };
+    }),
     set: jest.fn(async (data: MockDocData) => {
       mockDocs.set(mockDocKey(collectionName, id), data);
     }),
@@ -288,7 +347,30 @@ function mockApplyQueryOperations(
     docs = docs.slice(0, limit.count);
   }
 
-  return docs.map((doc) => mockDocumentSnapshotFor(collectionName, doc));
+  const selection = [...operations]
+    .reverse()
+    .find(
+      (
+        operation,
+      ): operation is Extract<MockQueryOperation, { type: "select" }> =>
+        operation.type === "select",
+    );
+
+  return docs.map((doc) =>
+    mockDocumentSnapshotFor(
+      collectionName,
+      selection
+        ? {
+            ...doc,
+            data: Object.fromEntries(
+              selection.fields
+                .filter((field) => field in doc.data)
+                .map((field) => [field, doc.data[field]]),
+            ),
+          }
+        : doc,
+    ),
+  );
 }
 
 function mockMakeQuery(
@@ -297,15 +379,7 @@ function mockMakeQuery(
 ): MockQuery {
   return {
     doc: (id = `mock-doc-${mockDocs.size + 1}`) => ({
-      get: jest.fn(async () => {
-        const data = mockDocs.get(mockDocKey(collectionName, id));
-        return {
-          exists: Boolean(data),
-          id,
-          data: () => data,
-          ref: mockDocumentRef(collectionName, id),
-        };
-      }),
+      id,
       ...mockDocumentRef(collectionName, id),
     }),
     where: jest.fn(
@@ -337,7 +411,10 @@ function mockMakeQuery(
       const operation: MockQueryOperation = { type: "limit", count };
       return mockMakeQuery(collectionName, [...operations, operation]);
     }),
-    select: jest.fn(() => mockMakeQuery(collectionName, operations)),
+    select: jest.fn((...fields: string[]) => {
+      const operation: MockQueryOperation = { type: "select", fields };
+      return mockMakeQuery(collectionName, [...operations, operation]);
+    }),
     count: jest.fn(() => ({
       get: jest.fn(async () => ({
         data: () => ({
@@ -346,6 +423,10 @@ function mockMakeQuery(
       })),
     })),
     get: jest.fn(async () => {
+      mockQueryReadLog.push({
+        collectionName,
+        operations: [...operations],
+      });
       const docs = mockApplyQueryOperations(collectionName, operations);
       return {
         empty: docs.length === 0,
@@ -357,18 +438,31 @@ function mockMakeQuery(
 
 jest.mock("firebase-admin/firestore", () => {
   class MockTimestamp {
-    private constructor(private readonly date: Date) {}
+    constructor(
+      readonly seconds: number,
+      readonly nanoseconds: number,
+    ) {}
 
     static fromDate(date: Date) {
-      return new MockTimestamp(date);
+      const milliseconds = date.getTime();
+      const seconds = Math.floor(milliseconds / 1_000);
+      return new MockTimestamp(
+        seconds,
+        (milliseconds - seconds * 1_000) * 1_000_000,
+      );
     }
 
     toDate() {
-      return this.date;
+      return new Date(
+        this.seconds * 1_000 + Math.floor(this.nanoseconds / 1_000_000),
+      );
     }
   }
 
   return {
+    FieldPath: {
+      documentId: jest.fn(() => "__name__"),
+    },
     FieldValue: {
       serverTimestamp: jest.fn(() =>
         MockTimestamp.fromDate(new Date("2026-09-10T12:00:00.000Z")),
@@ -400,6 +494,12 @@ const godModeContext = {
   canAccessPGFlex: false,
   projectAccess: ["mydnamap" as const],
 };
+
+beforeEach(() => {
+  mockQueryReadLog.length = 0;
+  mockPointReadLog.length = 0;
+});
+
 function mockIsoAt(index: number) {
   return new Date(
     Date.parse("2026-09-10T12:00:00.000Z") - index * 60_000,
@@ -459,7 +559,7 @@ describe("partnership CRM repository pagination", () => {
     mockCollection.mockClear();
   });
 
-  it("returns all filtered organizations on one page when fewer than the page limit match", async () => {
+  it("returns only matches from one bounded organization scan", async () => {
     const { listPartnershipCrmOrganizations } =
       await import("../repositories/partnership-crm.repository");
 
@@ -479,14 +579,14 @@ describe("partnership CRM repository pagination", () => {
       limit: 50,
     });
 
-    expect(page.organizations.map((organization) => organization.id)).toEqual(
-      Array.from({ length: 12 }, (_, index) => `match-${index}`),
-    );
-    expect(page.nextCursor).toBeUndefined();
-    expect(page.statusCounts.new).toBe(12);
+    expect(page.organizations).toEqual([]);
+    expect(page.nextCursor).toEqual(expect.any(String));
+    expect(page.statusCounts.new).toBe(0);
+    expect(page.scanned).toBe(11);
+    expect(page.partial).toBe(true);
   });
 
-  it("returns all filtered professionals on one page when fewer than the page limit match", async () => {
+  it("returns only matches from one bounded professional scan", async () => {
     const { listPartnershipCrmProfessionals } =
       await import("../repositories/partnership-crm.repository");
 
@@ -506,11 +606,531 @@ describe("partnership CRM repository pagination", () => {
       limit: 50,
     });
 
-    expect(page.professionals.map((professional) => professional.id)).toEqual(
-      Array.from({ length: 12 }, (_, index) => `match-${index}`),
+    expect(page.professionals).toEqual([]);
+    expect(page.nextCursor).toEqual(expect.any(String));
+    expect(page.statusCounts.new).toBe(0);
+    expect(page.scanned).toBe(11);
+    expect(page.partial).toBe(true);
+  });
+
+  it("limits an unfiltered page to ten records plus one lookahead", async () => {
+    const { listPartnershipCrmOrganizations } = await import(
+      "../repositories/partnership-crm.repository"
     );
-    expect(page.nextCursor).toBeUndefined();
-    expect(page.statusCounts.new).toBe(12);
+    for (let index = 0; index < 30; index += 1) {
+      seedOrganization(`org-${index}`, index, "org_genomics_laboratories");
+    }
+
+    const page = await listPartnershipCrmOrganizations(godModeContext);
+
+    expect(page.organizations).toHaveLength(10);
+    expect(page.scanned).toBe(11);
+    expect(page.nextCursor).toEqual(expect.any(String));
+    expect(page.partial).toBe(false);
+  });
+
+  it("reads exactly one twenty-document chunk for an explicit deep search", async () => {
+    const { listPartnershipCrmProfessionals } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 60; index += 1) {
+      seedProfessional(`deep-${index}`, index, "pro_other");
+    }
+
+    const page = await listPartnershipCrmProfessionals(godModeContext, {
+      query: "not present",
+      deep: true,
+    });
+
+    expect(page.professionals).toEqual([]);
+    expect(page.scanned).toBe(20);
+    expect(page.nextCursor).toEqual(expect.any(String));
+    expect(page.partial).toBe(true);
+  });
+
+  it("matches deep professional fields before projecting the response summary", async () => {
+    const { listPartnershipCrmProfessionals } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedProfessional("deep-match", 0, "pro_other");
+    const professionalKey = mockDocKey(
+      "partnership_crm_professionals",
+      "deep-match",
+    );
+    mockDocs.set(professionalKey, {
+      ...(mockDocs.get(professionalKey) ?? {}),
+      researchBasis: "Rare marker only in the long research field",
+    });
+
+    const page = await listPartnershipCrmProfessionals(godModeContext, {
+      query: "rare marker only",
+      deep: true,
+    });
+
+    expect(page.professionals).toHaveLength(1);
+    expect(page.professionals[0]).toEqual(
+      expect.objectContaining({
+        id: "deep-match",
+        researchBasis: "",
+      }),
+    );
+    expect(page.scanned).toBe(1);
+  });
+
+  it("matches organization notes before projecting the response summary", async () => {
+    const { listPartnershipCrmOrganizations } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedOrganization("notes-match", 0, "org_other");
+    const organizationKey = mockDocKey(
+      "partnership_crm_organizations",
+      "notes-match",
+    );
+    mockDocs.set(organizationKey, {
+      ...(mockDocs.get(organizationKey) ?? {}),
+      notes: "Only the private notes contain the sapphire marker",
+    });
+
+    const page = await listPartnershipCrmOrganizations(godModeContext, {
+      query: "sapphire marker",
+      deep: true,
+    });
+
+    expect(page.organizations).toEqual([
+      expect.objectContaining({ id: "notes-match", notes: "" }),
+    ]);
+    expect(page.scanned).toBe(1);
+  });
+
+  it("matches template bodies before projecting the response summary", async () => {
+    const { listPartnershipCrmTemplates } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    mockDocs.set(mockDocKey("plantillas", "body-match"), {
+      schemaVersion: 1,
+      name: "Ordinary template",
+      audience: "organizations",
+      category: "org_other",
+      subject: "Ordinary subject",
+      body: "Only the full body contains the copper marker",
+      status: "active",
+      notes: "",
+      is_favorite: false,
+      normalizedName: "ordinary template",
+      createdAt: mockIsoAt(0),
+      updatedAt: mockIsoAt(0),
+    });
+
+    const page = await listPartnershipCrmTemplates(godModeContext, {
+      query: "copper marker",
+      deep: true,
+    });
+
+    expect(page.templates).toEqual([
+      expect.objectContaining({ id: "body-match", body: "" }),
+    ]);
+    expect(page.scanned).toBe(1);
+  });
+
+  it("uses document id as a cursor tie-breaker for equal timestamps", async () => {
+    const { listPartnershipCrmOrganizations } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 12; index += 1) {
+      seedOrganization(`same-${index.toString().padStart(2, "0")}`, index, "");
+      const key = mockDocKey(
+        "partnership_crm_organizations",
+        `same-${index.toString().padStart(2, "0")}`,
+      );
+      mockDocs.set(key, {
+        ...(mockDocs.get(key) ?? {}),
+        updatedAt: "2026-09-10T12:00:00.000Z",
+      });
+    }
+
+    const first = await listPartnershipCrmOrganizations(godModeContext);
+    const second = await listPartnershipCrmOrganizations(godModeContext, {
+      cursor: first.nextCursor,
+    });
+    const ids = [
+      ...first.organizations.map((record) => record.id),
+      ...second.organizations.map((record) => record.id),
+    ];
+
+    expect(new Set(ids).size).toBe(12);
+    expect(ids).toHaveLength(12);
+  });
+
+  it("preserves Firestore nanoseconds across cursor pages", async () => {
+    const { Timestamp } = await import("firebase-admin/firestore");
+    const { listPartnershipCrmOrganizations } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    const seconds = Math.floor(
+      Date.parse("2026-09-10T12:00:00.000Z") / 1_000,
+    );
+    for (let index = 0; index < 12; index += 1) {
+      const id = `nano-${index.toString().padStart(2, "0")}`;
+      seedOrganization(id, index, "");
+      const key = mockDocKey("partnership_crm_organizations", id);
+      mockDocs.set(key, {
+        ...(mockDocs.get(key) ?? {}),
+        updatedAt: new Timestamp(seconds, 100_000 + index),
+      });
+    }
+
+    const first = await listPartnershipCrmOrganizations(godModeContext);
+    expect(first.nextCursor).toEqual(expect.any(String));
+    const decodedCursor = JSON.parse(
+      Buffer.from(first.nextCursor ?? "", "base64url").toString("utf8"),
+    ) as {
+      v: number;
+      value: { seconds: number; nanoseconds: number };
+    };
+    expect(decodedCursor).toMatchObject({
+      v: 2,
+      value: { seconds, nanoseconds: 100_002 },
+    });
+
+    const second = await listPartnershipCrmOrganizations(godModeContext, {
+      cursor: first.nextCursor,
+    });
+    const ids = [
+      ...first.organizations.map((record) => record.id),
+      ...second.organizations.map((record) => record.id),
+    ];
+
+    expect(first.organizations).toHaveLength(10);
+    expect(second.organizations).toHaveLength(2);
+    expect(new Set(ids).size).toBe(12);
+    expect(ids).toHaveLength(12);
+
+    const legacyCursor = Buffer.from(
+      JSON.stringify({ ...decodedCursor, v: 1 }),
+      "utf8",
+    ).toString("base64url");
+    await expect(
+      listPartnershipCrmOrganizations(godModeContext, {
+        cursor: legacyCursor,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        statusCode: 400,
+        message: "CRM cursor is invalid or does not match the current filters.",
+      }),
+    );
+  });
+
+  it("rejects a cursor when the raw lowercase search semantics change", async () => {
+    const { listPartnershipCrmOrganizations } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 12; index += 1) {
+      seedOrganization(`query-${index}`, index, "org_other");
+    }
+
+    const first = await listPartnershipCrmOrganizations(godModeContext, {
+      query: "café",
+    });
+    expect(first.nextCursor).toEqual(expect.any(String));
+
+    await expect(
+      listPartnershipCrmOrganizations(godModeContext, {
+        query: "cafe",
+        cursor: first.nextCursor,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        statusCode: 400,
+        message: "CRM cursor is invalid or does not match the current filters.",
+      }),
+    );
+  });
+
+  it("returns visual-filter metadata without reading a source collection", async () => {
+    const { getPartnershipCrmVisualFilters } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+
+    const filters = await getPartnershipCrmVisualFilters(
+      godModeContext,
+      "professionals",
+    );
+
+    expect(filters.targetKind).toBe("professionals");
+    expect(filters.facets.status.buckets).toEqual([]);
+    expect(mockCollection).not.toHaveBeenCalled();
+  });
+});
+
+describe("partnership CRM sent email log", () => {
+  beforeEach(() => {
+    mockDocs.clear();
+    mockCollection.mockClear();
+  });
+
+  it("lists only summary fields and loads the full body by point id", async () => {
+    const {
+      getPartnershipCrmSentEmailLog,
+      listPartnershipCrmSentEmailLog,
+    } = await import("../repositories/partnership-crm.repository");
+    mockDocs.set(mockDocKey("crm_sent_email_log", "email-1"), {
+      targetKind: "organizations",
+      targetId: "org-1",
+      targetName: "Genome Lab",
+      from: "partners@example.org",
+      to: "ada@example.org",
+      subject: "A bounded summary",
+      body: "The long email body is only available from the detail endpoint.",
+      sentAt: mockIsoAt(0),
+      createdAt: mockIsoAt(0),
+      createdByEmail: "admin@example.org",
+      templateId: "template-1",
+      templateName: "Outreach",
+    });
+
+    const page = await listPartnershipCrmSentEmailLog(godModeContext);
+
+    expect(page.emails).toEqual([
+      expect.objectContaining({
+        id: "email-1",
+        subject: "A bounded summary",
+        body: "",
+      }),
+    ]);
+
+    const detail = await getPartnershipCrmSentEmailLog(
+      godModeContext,
+      "email-1",
+    );
+    expect(detail.body).toBe(
+      "The long email body is only available from the detail endpoint.",
+    );
+  });
+
+  it("returns not found for an unknown sent email log id", async () => {
+    const { getPartnershipCrmSentEmailLog } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+
+    await expect(
+      getPartnershipCrmSentEmailLog(godModeContext, "missing-email"),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        statusCode: 404,
+        message: "CRM sent email log not found.",
+      }),
+    );
+  });
+});
+
+describe("partnership CRM daily usage", () => {
+  beforeEach(() => {
+    mockDocs.clear();
+    mockCollection.mockClear();
+    mockRunTransaction.mockClear();
+    mockTransactionCommitError = null;
+    mockTransactionRetryBeforeCommit = null;
+  });
+
+  it("atomically increments once and recognizes the same event id", async () => {
+    const { consumePartnershipCrmDailyUsage } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+
+    const first = await consumePartnershipCrmDailyUsage(
+      godModeContext,
+      "crm",
+      "event-1",
+      "page_load",
+    );
+    const duplicate = await consumePartnershipCrmDailyUsage(
+      godModeContext,
+      "crm",
+      "event-1",
+      "page_load",
+    );
+
+    expect(first).toEqual({
+      duplicate: false,
+      usage: expect.objectContaining({ used: 1, remaining: 99 }),
+    });
+    expect(duplicate).toEqual({
+      duplicate: true,
+      usage: expect.objectContaining({ used: 1, remaining: 99 }),
+    });
+    expect(mockDocsIn("partnership_crm_daily_usage")).toHaveLength(1);
+    expect(mockDocsIn("partnership_crm_daily_usage")[0]?.data).toEqual(
+      expect.objectContaining({
+        surface: "crm",
+        used: 1,
+        eventIds: ["event-1"],
+        byKind: { page_load: 1 },
+      }),
+    );
+  });
+
+  it("keeps CRM and Plantillas in separate 100-unit pools", async () => {
+    const { consumePartnershipCrmDailyUsage } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+
+    await consumePartnershipCrmDailyUsage(
+      godModeContext,
+      "crm",
+      "crm-event",
+      "list",
+    );
+    await consumePartnershipCrmDailyUsage(
+      godModeContext,
+      "plantillas",
+      "template-event",
+      "list",
+    );
+
+    expect(
+      mockDocsIn("partnership_crm_daily_usage").map((doc) => ({
+        surface: doc.data.surface,
+        used: doc.data.used,
+      })),
+    ).toEqual(
+      expect.arrayContaining([
+        { surface: "crm", used: 1 },
+        { surface: "plantillas", used: 1 },
+      ]),
+    );
+  });
+
+  it("rejects the next action after unit 100 without recording its event", async () => {
+    const { consumePartnershipCrmDailyUsage, PartnershipCrmUsageError } =
+      await import("../repositories/partnership-crm.repository");
+
+    await consumePartnershipCrmDailyUsage(
+      godModeContext,
+      "crm",
+      "seed-event",
+      "page_load",
+    );
+    const usageDoc = mockDocsIn("partnership_crm_daily_usage")[0];
+    expect(usageDoc).toBeDefined();
+    const eventIds = [
+      "seed-event",
+      ...Array.from({ length: 99 }, (_, index) => `prior-event-${index + 1}`),
+    ];
+    mockDocs.set(
+      mockDocKey("partnership_crm_daily_usage", usageDoc!.id),
+      {
+        ...usageDoc!.data,
+        used: 100,
+        eventIds,
+      },
+    );
+
+    await expect(
+      consumePartnershipCrmDailyUsage(
+        godModeContext,
+        "crm",
+        "blocked-event",
+        "list",
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<InstanceType<typeof PartnershipCrmUsageError>>>({
+        statusCode: 429,
+        code: "CRM_DAILY_LIMIT_REACHED",
+        usage: expect.objectContaining({ used: 100, locked: true }),
+      }),
+    );
+    expect(mockDocsIn("partnership_crm_daily_usage")[0]?.data.eventIds).toEqual(
+      eventIds,
+    );
+  });
+
+  it("allows unit 100 and reports the surface as locked afterward", async () => {
+    const { consumePartnershipCrmDailyUsage } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    await consumePartnershipCrmDailyUsage(
+      godModeContext,
+      "plantillas",
+      "seed-event",
+      "page_load",
+    );
+    const usageDoc = mockDocsIn("partnership_crm_daily_usage")[0]!;
+    mockDocs.set(
+      mockDocKey("partnership_crm_daily_usage", usageDoc.id),
+      {
+        ...usageDoc.data,
+        used: 99,
+        eventIds: [
+          "seed-event",
+          ...Array.from(
+            { length: 98 },
+            (_, index) => `prior-event-${index + 1}`,
+          ),
+        ],
+      },
+    );
+
+    const result = await consumePartnershipCrmDailyUsage(
+      godModeContext,
+      "plantillas",
+      "unit-100",
+      "mutation",
+    );
+
+    expect(result).toEqual({
+      duplicate: false,
+      usage: expect.objectContaining({
+        surface: "plantillas",
+        used: 100,
+        remaining: 0,
+        locked: true,
+      }),
+    });
+  });
+
+  it.each([
+    ["missing used", { used: undefined }],
+    ["negative used", { used: -1 }],
+    ["non-finite used", { used: Number.NaN }],
+    ["fractional used", { used: 0.5 }],
+    ["over-limit used", { used: 101 }],
+    ["missing event ids", { eventIds: undefined }],
+    ["non-array event ids", { eventIds: "event-1" }],
+    ["invalid event id entries", { eventIds: [42] }],
+    ["duplicate event ids", { eventIds: ["event-1", "event-1"] }],
+    ["mismatched receipt count", { used: 2, eventIds: ["event-1"] }],
+    ["wrong surface", { surface: "plantillas" }],
+    ["wrong date", { date: "1900-01-01" }],
+    ["wrong limit", { limit: 99 }],
+  ])("fails closed for an existing quota document with %s", async (_label, patch) => {
+    const { consumePartnershipCrmDailyUsage, PartnershipCrmUsageError } =
+      await import("../repositories/partnership-crm.repository");
+    await consumePartnershipCrmDailyUsage(
+      godModeContext,
+      "crm",
+      "event-1",
+      "page_load",
+    );
+    const usageDoc = mockDocsIn("partnership_crm_daily_usage")[0]!;
+    mockDocs.set(mockDocKey("partnership_crm_daily_usage", usageDoc.id), {
+      ...usageDoc.data,
+      ...patch,
+    });
+
+    await expect(
+      consumePartnershipCrmDailyUsage(
+        godModeContext,
+        "crm",
+        "event-2",
+        "list",
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<InstanceType<typeof PartnershipCrmUsageError>>>({
+        statusCode: 503,
+        code: "CRM_USAGE_UNAVAILABLE",
+      }),
+    );
   });
 });
 
@@ -737,6 +1357,312 @@ describe("partnership CRM status updates", () => {
   });
 });
 
+describe("partnership CRM favorite updates", () => {
+  beforeEach(() => {
+    mockDocs.clear();
+    mockCollection.mockClear();
+    mockRunTransaction.mockClear();
+    mockTransactionCommitError = null;
+    mockTransactionRetryBeforeCommit = null;
+  });
+
+  it("changes only the organization favorite and audit fields", async () => {
+    const { updatePartnershipCrmOrganizationFavorite } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedOrganization("org-favorite", 1, "org_genomics_laboratories");
+    const key = mockDocKey(
+      "partnership_crm_organizations",
+      "org-favorite",
+    );
+    const before = {
+      ...(mockDocs.get(key) ?? {}),
+      notes: "Long notes that must survive a summary-row favorite action.",
+      legacyContactPhone: "+54 11 5555 0199",
+    };
+    mockDocs.set(key, before);
+
+    const organization = await updatePartnershipCrmOrganizationFavorite(
+      godModeContext,
+      "org-favorite",
+      true,
+    );
+
+    expect(mockDocs.get(key)).toEqual({
+      ...before,
+      is_favorite: true,
+      updatedAt: expect.anything(),
+      updatedByEmail: "admin@example.org",
+    });
+    expect(organization).toEqual(
+      expect.objectContaining({
+        id: "org-favorite",
+        is_favorite: true,
+        notes: before.notes,
+      }),
+    );
+    expect(mockDocsIn("partnership_crm_organizations/org-favorite/activities"))
+      .toHaveLength(1);
+    expect(mockRunTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("changes only the professional favorite and audit fields", async () => {
+    const { updatePartnershipCrmProfessionalFavorite } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedProfessional("pro-favorite", 1, "pro_clinical_geneticists");
+    const key = mockDocKey(
+      "partnership_crm_professionals",
+      "pro-favorite",
+    );
+    const before = {
+      ...(mockDocs.get(key) ?? {}),
+      researchBasis: "Full research retained",
+      notes: "Full notes retained",
+      legacyProfileUrl: "https://legacy.example.org/favorite",
+    };
+    mockDocs.set(key, before);
+
+    const professional = await updatePartnershipCrmProfessionalFavorite(
+      godModeContext,
+      "pro-favorite",
+      true,
+    );
+
+    expect(mockDocs.get(key)).toEqual({
+      ...before,
+      is_favorite: true,
+      updatedAt: expect.anything(),
+      updatedByEmail: "admin@example.org",
+    });
+    expect(professional).toEqual(
+      expect.objectContaining({
+        id: "pro-favorite",
+        is_favorite: true,
+        researchBasis: before.researchBasis,
+        notes: before.notes,
+      }),
+    );
+    expect(mockDocsIn("partnership_crm_professionals/pro-favorite/activities"))
+      .toHaveLength(1);
+    expect(mockRunTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("changes only the template favorite and audit fields", async () => {
+    const { updatePartnershipCrmTemplateFavorite } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    const key = mockDocKey("plantillas", "template-favorite");
+    const before = {
+      schemaVersion: 1,
+      name: "Favorite template",
+      audience: "organizations",
+      category: "org_genomics_laboratories",
+      subject: "Subject retained",
+      body: "The complete template body must survive.",
+      status: "active",
+      notes: "Private template notes retained",
+      is_favorite: false,
+      normalizedName: "favorite template",
+      createdAt: mockIsoAt(1),
+      updatedAt: mockIsoAt(1),
+      legacyImportSource: "historic-csv",
+    };
+    mockDocs.set(key, before);
+
+    const template = await updatePartnershipCrmTemplateFavorite(
+      godModeContext,
+      "template-favorite",
+      true,
+    );
+
+    expect(mockDocs.get(key)).toEqual({
+      ...before,
+      is_favorite: true,
+      updatedAt: expect.anything(),
+      updatedByEmail: "admin@example.org",
+    });
+    expect(template).toEqual(
+      expect.objectContaining({
+        id: "template-favorite",
+        is_favorite: true,
+        body: before.body,
+        notes: before.notes,
+      }),
+    );
+    expect(mockDocsIn("plantillas")).toHaveLength(1);
+    expect(mockRunTransaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("partnership CRM template imports", () => {
+  beforeEach(() => {
+    mockDocs.clear();
+    mockCollection.mockClear();
+    mockRunTransaction.mockClear();
+  });
+
+  it("creates after one normalized-name lookup bounded to five candidates", async () => {
+    const { importPartnershipCrmTemplate } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+
+    const result = await importPartnershipCrmTemplate(godModeContext, {
+      name: "First outreach",
+      audience: "organizations",
+      category: "org_genomics_laboratories",
+      subject: "Hello",
+      body: "Welcome to Pocket Genes",
+      status: "active",
+      notes: "Imported note",
+      is_favorite: false,
+    });
+
+    expect(result).toEqual({
+      action: "created",
+      template: expect.objectContaining({
+        id: "mock-doc-1",
+        name: "First outreach",
+        audience: "organizations",
+        subject: "Hello",
+        body: "Welcome to Pocket Genes",
+      }),
+    });
+    expect(mockDocs.get(mockDocKey("plantillas", "mock-doc-1"))).toEqual(
+      expect.objectContaining({
+        normalizedName: "first outreach",
+        notes: "Imported note",
+      }),
+    );
+    expect(mockQueryReadLog).toEqual([
+      {
+        collectionName: "plantillas",
+        operations: expect.arrayContaining([
+          expect.objectContaining({
+            type: "where",
+            fieldPath: "normalizedName",
+            operator: "==",
+            value: "first outreach",
+          }),
+          { type: "limit", count: 5 },
+        ]),
+      },
+    ]);
+    expect(mockPointReadLog).toEqual([]);
+  });
+
+  it("transactionally merges a same-audience match while preserving identity fields", async () => {
+    const { importPartnershipCrmTemplate } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    const key = mockDocKey("plantillas", "existing-template");
+    const before = {
+      schemaVersion: 1,
+      name: "Welcome Labs",
+      audience: "organizations",
+      category: "org_genomics_laboratories",
+      subject: "Old subject",
+      body: "Old body",
+      status: "inactive",
+      notes: "Keep this note",
+      is_favorite: false,
+      normalizedName: "welcome labs",
+      createdAt: mockIsoAt(2),
+      createdByEmail: "original@example.org",
+      updatedAt: mockIsoAt(1),
+      updatedByEmail: "original@example.org",
+      legacyImportSource: "historic-csv",
+    };
+    mockDocs.set(key, before);
+
+    const result = await importPartnershipCrmTemplate(godModeContext, {
+      name: "WELCOME LABS",
+      audience: "organizations",
+      category: "org_other",
+      subject: "New subject",
+      body: "New body",
+      status: "archived",
+      notes: "New CSV note",
+      is_favorite: true,
+    });
+
+    expect(result).toEqual({
+      action: "updated",
+      template: expect.objectContaining({
+        id: "existing-template",
+        name: "Welcome Labs",
+        audience: "organizations",
+        category: "org_genomics_laboratories",
+        status: "inactive",
+        subject: "New subject",
+        body: "New body",
+        notes: "Keep this note\n\n--- CSV import ---\nNew CSV note",
+        is_favorite: true,
+      }),
+    });
+    expect(mockDocs.get(key)).toEqual({
+      ...before,
+      subject: "New subject",
+      body: "New body",
+      notes: "Keep this note\n\n--- CSV import ---\nNew CSV note",
+      is_favorite: true,
+      updatedAt: expect.anything(),
+      updatedByEmail: "admin@example.org",
+    });
+    expect(mockRunTransaction).toHaveBeenCalledTimes(1);
+    expect(mockPointReadLog).toEqual([
+      { collectionName: "plantillas", id: "existing-template" },
+    ]);
+    expect(mockQueryReadLog[0]).toEqual(
+      expect.objectContaining({
+        collectionName: "plantillas",
+        operations: expect.arrayContaining([{ type: "limit", count: 5 }]),
+      }),
+    );
+  });
+
+  it("does not merge a normalized-name match from the other audience", async () => {
+    const { importPartnershipCrmTemplate } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    mockDocs.set(mockDocKey("plantillas", "professional-template"), {
+      schemaVersion: 1,
+      name: "Shared name",
+      audience: "professionals",
+      category: "pro_other",
+      subject: "Professional subject",
+      body: "Professional body",
+      status: "active",
+      notes: "",
+      is_favorite: false,
+      normalizedName: "shared name",
+      createdAt: mockIsoAt(1),
+      updatedAt: mockIsoAt(1),
+    });
+
+    const result = await importPartnershipCrmTemplate(godModeContext, {
+      name: "Shared name",
+      audience: "organizations",
+      category: "org_other",
+      subject: "Organization subject",
+      body: "Organization body",
+      status: "active",
+      notes: "",
+      is_favorite: false,
+    });
+
+    expect(result.action).toBe("created");
+    expect(result.template.id).not.toBe("professional-template");
+    expect(mockDocs.get(mockDocKey("plantillas", "professional-template"))).toEqual(
+      expect.objectContaining({ subject: "Professional subject" }),
+    );
+    expect(mockDocsIn("plantillas")).toHaveLength(2);
+    expect(mockQueryReadLog[0]?.operations).toEqual(
+      expect.arrayContaining([{ type: "limit", count: 5 }]),
+    );
+  });
+});
+
 describe("partnership CRM email sending", () => {
   beforeEach(async () => {
     mockDocs.clear();
@@ -780,6 +1706,93 @@ describe("partnership CRM duplicate imports", () => {
   beforeEach(() => {
     mockDocs.clear();
     mockCollection.mockClear();
+    mockRunTransaction.mockClear();
+  });
+
+  it("reuses one deterministic organization document after a lost response", async () => {
+    const { importPartnershipCrmOrganizations } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    const row = {
+      rowId: "row-1",
+      idempotencyKey: "upload-session-1:row-1",
+      duplicateAction: "import" as const,
+      name: "Idempotent Genome Lab",
+      category: "org_genomics_laboratories",
+      contactEmail: "hello@idempotent.example",
+    };
+
+    const first = await importPartnershipCrmOrganizations(godModeContext, [
+      row,
+    ]);
+    const retry = await importPartnershipCrmOrganizations(godModeContext, [
+      row,
+    ]);
+    const firstId = first.results[0]?.organizationId;
+
+    expect(firstId).toMatch(/^crm_import_org_[a-f0-9]{64}$/);
+    expect(retry.results[0]).toEqual(
+      expect.objectContaining({
+        action: "created",
+        organizationId: firstId,
+      }),
+    );
+    expect(
+      [...mockDocs.keys()].filter(
+        (key) =>
+          key.startsWith("partnership_crm_organizations/") &&
+          key.split("/").length === 2,
+      ),
+    ).toEqual([`partnership_crm_organizations/${firstId}`]);
+    expect(mockRunTransaction).toHaveBeenCalledTimes(1);
+    expect(
+      mockQueryReadLog.filter(
+        (entry) => entry.collectionName === "partnership_crm_organizations",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("reuses one deterministic professional document after a lost response", async () => {
+    const { importPartnershipCrmProfessionals } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    const row = {
+      rowId: "row-1",
+      idempotencyKey: "upload-session-2:row-1",
+      duplicateAction: "import" as const,
+      name: "Dr. Retry Safe",
+      category: "pro_clinical_geneticists",
+      email: "retry-safe@example.org",
+    };
+
+    const first = await importPartnershipCrmProfessionals(godModeContext, [
+      row,
+    ]);
+    const retry = await importPartnershipCrmProfessionals(godModeContext, [
+      row,
+    ]);
+    const firstId = first.results[0]?.professionalId;
+
+    expect(firstId).toMatch(/^crm_import_pro_[a-f0-9]{64}$/);
+    expect(retry.results[0]).toEqual(
+      expect.objectContaining({
+        action: "created",
+        professionalId: firstId,
+      }),
+    );
+    expect(
+      [...mockDocs.keys()].filter(
+        (key) =>
+          key.startsWith("partnership_crm_professionals/") &&
+          key.split("/").length === 2,
+      ),
+    ).toEqual([`partnership_crm_professionals/${firstId}`]);
+    expect(mockRunTransaction).toHaveBeenCalledTimes(1);
+    expect(
+      mockQueryReadLog.filter(
+        (entry) => entry.collectionName === "partnership_crm_professionals",
+      ),
+    ).toHaveLength(1);
   });
 
   it("strips editorial labels from professional editor fit import preview values", async () => {

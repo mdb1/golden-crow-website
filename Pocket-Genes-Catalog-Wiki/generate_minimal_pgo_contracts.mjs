@@ -322,7 +322,7 @@ const httpsURL = (description) => ({
   type: "string",
   minLength: 1,
   format: "uri",
-  pattern: "^https://",
+  pattern: "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
   description
 });
 
@@ -445,8 +445,15 @@ const formFieldTypes = [
 ];
 
 const formOption = closedObject({
-  value: nonemptyString("Stable stored option value."),
-  label: nonemptyString("Human-readable option label frozen with the form.")
+  value: {
+    ...nonemptyString("Stable stored option value."),
+    maxLength: 128,
+    pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  label: {
+    ...nonemptyString("Human-readable option label frozen with the form."),
+    maxLength: 120
+  }
 }, ["value", "label"], "One enum choice.");
 
 const formFieldDefinition = {

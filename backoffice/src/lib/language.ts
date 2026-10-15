@@ -1662,6 +1662,55 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se pudo revelar la contraseña temporal.",
   "See all bookings": "Ver todas las reuniones",
   Plantillas: "Plantillas",
+  "Plantillas daily usage": "Uso diario de Plantillas",
+  "Daily limit reached. Cached data remains available until reset.":
+    "Se alcanzó el límite diario. Los datos en caché siguen disponibles hasta el reinicio.",
+  "Daily limit reached. Fresh Plantillas data and actions are unavailable until reset.":
+    "Se alcanzó el límite diario. Los datos nuevos y las acciones de Plantillas no están disponibles hasta el reinicio.",
+  "Fresh Plantillas actions are unavailable until usage can be verified.":
+    "Las acciones nuevas de Plantillas no están disponibles hasta verificar el uso.",
+  "Retry verification": "Reintentar verificación",
+  "Verifying usage...": "Verificando uso...",
+  "The failing template outcome is unknown.":
+    "No se puede confirmar el resultado de la plantilla que falló.",
+  "The failing template was not sent.":
+    "La plantilla que falló no fue enviada.",
+  "This template was not sent because the daily limit was reached or usage could not be verified.":
+    "Esta plantilla no fue enviada porque se alcanzó el límite diario o no se pudo verificar el uso.",
+  "Template action was not sent.":
+    "La acción de la plantilla no fue enviada.",
+  "Plantillas is cached and read-only because its daily limit has been reached.":
+    "Plantillas está en modo de solo lectura con datos en caché porque alcanzó su límite diario.",
+  "Plantillas data and actions are unavailable because its daily limit has been reached.":
+    "Los datos y las acciones de Plantillas no están disponibles porque se alcanzó el límite diario.",
+  "the next daily reset": "el próximo reinicio diario",
+  "Resets at": "Se reinicia a las",
+  "Templates load only when you ask for them.":
+    "Las plantillas se cargan solo cuando lo pedís.",
+  "Load 10 templates": "Cargar 10 plantillas",
+  "Load templates": "Cargar plantillas",
+  "See 10 more": "Ver 10 más",
+  "templates loaded": "plantillas cargadas",
+  "Tap to see more": "Tocá para ver más",
+  "Approximate bounded sample": "Muestra aproximada y limitada",
+  "records checked": "registros revisados",
+  "Use See 10 more to continue.": "Usá Ver 10 más para continuar.",
+  "No matches in this bounded sample.":
+    "No hubo coincidencias en esta muestra limitada.",
+  "As of": "Al",
+  "Enter at least three characters, then apply the search.":
+    "Ingresá al menos tres caracteres y luego aplicá la búsqueda.",
+  "Cached summaries as of": "Resúmenes en caché desde",
+  "Refresh only when needed.": "Actualizá solo cuando sea necesario.",
+  "Import saved. Refresh the list only when needed.":
+    "Importación guardada. Actualizá la lista solo cuando sea necesario.",
+  "Template details load only when you ask for them.":
+    "Los detalles de la plantilla se cargan solo cuando lo pedís.",
+  "Load template": "Cargar plantilla",
+  "Manual, bounded import": "Importación manual y limitada",
+  "Selecting a CSV does not scan existing templates. Import rows deliberately, at most five at a time.":
+    "Seleccionar un CSV no recorre las plantillas existentes. Importá las filas deliberadamente, como máximo cinco por vez.",
+  "Process next 5 rows": "Procesar las próximas 5 filas",
   Plantilla: "Plantilla",
   "Alta de plantilla": "Alta de plantilla",
   "CRUD system email templates for the CRM.":
@@ -1751,6 +1800,31 @@ const SPANISH_TEXT: Record<string, string> = {
   "Import templates from CSV": "Importar plantillas desde CSV",
   "Review each template before creating it in plantillas.":
     "Revisá cada plantilla antes de crearla en plantillas.",
+  "Review each template before submitting it to plantillas.":
+    "Revisá cada plantilla antes de enviarla a Plantillas.",
+  "Process row": "Procesar fila",
+  "The server decides whether each submitted row creates or updates a template.":
+    "El servidor decide si cada fila enviada crea o actualiza una plantilla.",
+  "Server decides create or update": "El servidor decide crear o actualizar",
+  "Summary only": "Solo resumen",
+  "The cached summary does not include the message, notes, or fit score. Details can be loaded after the daily reset.":
+    "El resumen en caché no incluye el mensaje, las notas ni el puntaje. Los detalles se pueden cargar después del reinicio diario.",
+  "The cached summary does not include the message, notes, or fit score. Details are unavailable while daily usage is being verified.":
+    "El resumen en caché no incluye el mensaje, las notas ni el puntaje. Los detalles no están disponibles mientras se verifica el uso diario.",
+  "The cached summary does not include the message, notes, or fit score. Details are unavailable because daily usage could not be verified. Retry verification to continue.":
+    "El resumen en caché no incluye el mensaje, las notas ni el puntaje. Los detalles no están disponibles porque no se pudo verificar el uso diario. Reintentá la verificación para continuar.",
+  "The cached summary does not include the message, notes, or fit score. Load details only when needed.":
+    "El resumen en caché no incluye el mensaje, las notas ni el puntaje. Cargá los detalles solo cuando sean necesarios.",
+  "Available after daily reset": "Disponible después del reinicio diario",
+  "Tap to load details": "Tocá para cargar los detalles",
+  "Bulk delete stopped after a partial failure.":
+    "La eliminación en lote se detuvo por un error parcial.",
+  "templates were deleted before the failure.":
+    "plantillas se eliminaron antes del error.",
+  "Bulk favorite update stopped after a partial failure.":
+    "La actualización de favoritos se detuvo por un error parcial.",
+  "templates were updated before the failure.":
+    "plantillas se actualizaron antes del error.",
   "Sample template CSV": "CSV de ejemplo de plantilla",
   "Selected file": "Archivo seleccionado",
   "CSV parsed": "CSV parseado",
@@ -1765,8 +1839,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Showing first": "Mostrando primeras",
   "parsed rows": "filas parseadas",
   "Template import finished": "Importación de plantillas finalizada",
-  "Templates were processed one by one and the plantillas list has been refreshed.":
-    "Las plantillas se procesaron una por una y la lista de plantillas fue actualizada.",
+  "Templates were processed one by one. Refresh the plantillas list only when needed.":
+    "Las plantillas se procesaron una por una. Actualizá la lista solo cuando sea necesario.",
   "Use sample": "Usar ejemplo",
   "No import rows found.": "No se encontraron filas para importar.",
   "Created templates": "Creadas",
@@ -1922,12 +1996,12 @@ const SPANISH_TEXT: Record<string, string> = {
     "Si la importación falla en el medio, las filas completadas se conservan y el checkpoint permite continuar desde el último punto guardado.",
   "Duplicates are surfaced on the row card. Add imports anyway; Skip leaves the existing CRM untouched.":
     "Los duplicados aparecen en la tarjeta de la fila. Agregar importa igual; Omitir deja el CRM existente sin cambios.",
-  "Preview the parsed template rows before creating templates.":
-    "Revisá las filas parseadas antes de crear plantillas.",
+  "Preview the parsed template rows before submitting them.":
+    "Revisá las filas parseadas antes de enviarlas.",
   "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.":
     "La importación de plantillas crea filas válidas una por una; las filas inválidas se omiten y las completadas no se revierten.",
-  "Use Evaluate one by one to decide Add / Skip / Combine for each row. Possible duplicates are surfaced on the row card before anything is saved.":
-    "Usá Evaluar una por una para decidir Agregar / Omitir / Combinar en cada fila. Los posibles duplicados se muestran en la tarjeta antes de guardar nada.",
+  "Each deliberate Process row request sends exactly one row. The server decides whether to create or update it.":
+    "Cada solicitud deliberada de Procesar fila envía exactamente una fila. El servidor decide si la crea o la actualiza.",
   "Literal \\n is converted to a line break in template body and notes.":
     "El texto literal \\n se convierte en salto de línea en el cuerpo y las notas de la plantilla.",
   "Use active templates for the CRM send flow; archived templates are kept out of normal sending.":
@@ -2287,8 +2361,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "No duplicate target found for this row.":
     "No se encontró un duplicado de destino para esta fila.",
   "CRM import finished": "Importación del CRM finalizada",
-  "The imported rows were committed one by one and the CRM list has been refreshed.":
-    "Las filas importadas se confirmaron una por una y la lista del CRM fue actualizada.",
+  "The imported rows were saved one by one. Use Refresh when you deliberately want the current CRM list.":
+    "Las filas importadas se guardaron una por una. Usá Actualizar cuando quieras cargar deliberadamente la lista actual del CRM.",
   "Import another CSV": "Importar otro CSV",
   "Previewing...": "Generando vista previa...",
   "Resume preview": "Continuar vista previa",

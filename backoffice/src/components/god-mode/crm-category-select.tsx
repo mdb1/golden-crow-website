@@ -48,6 +48,7 @@ export function CrmCategorySelect({
   language,
   mode,
   audience = "organizations",
+  disabled = false,
 }: {
   id: string;
   value: string;
@@ -55,6 +56,7 @@ export function CrmCategorySelect({
   language: AppLanguage;
   mode: "filter" | "form";
   audience?: PartnershipCrmTemplateAudience;
+  disabled?: boolean;
 }) {
   const t = (text: string) => appText(language, text);
   const emptyValue =
@@ -76,6 +78,7 @@ export function CrmCategorySelect({
   return (
     <Select
       value={selectedValue}
+      disabled={disabled}
       onValueChange={(nextValue) =>
         onChange(
           nextValue === emptyValue

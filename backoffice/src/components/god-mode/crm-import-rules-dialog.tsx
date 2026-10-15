@@ -607,9 +607,9 @@ function dialogDescriptionFor(kind: ImportRulesKind) {
 function importBehaviorLinesFor(kind: ImportRulesKind) {
   return kind === "templates"
     ? [
-        "Preview the parsed template rows before creating templates.",
+        "Preview the parsed template rows before submitting them.",
         "Template imports create valid rows one by one; invalid rows are skipped and completed rows are not reverted.",
-        "Use Evaluate one by one to decide Add / Skip / Combine for each row. Possible duplicates are surfaced on the row card before anything is saved.",
+        "Each deliberate Process row request sends exactly one row. The server decides whether to create or update it.",
         "Literal \\n is converted to a line break in template body and notes.",
         "Use active templates for the CRM send flow; archived templates are kept out of normal sending.",
       ]

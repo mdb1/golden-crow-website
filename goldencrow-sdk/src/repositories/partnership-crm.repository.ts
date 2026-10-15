@@ -1,9 +1,11 @@
 import {
+  FieldPath,
   FieldValue,
   Timestamp,
   type Query,
   type QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
+import { createHash } from "node:crypto";
 import { adminDbFor } from "../config/firebase.js";
 import {
   PARTNERSHIP_CRM_FROM_EMAIL,
@@ -24,12 +26,78 @@ const PROFESSIONALS_COLLECTION = "partnership_crm_professionals";
 const TEMPLATES_COLLECTION = "plantillas";
 const SENT_EMAIL_LOG_COLLECTION = "crm_sent_email_log";
 const ACTIVITIES_COLLECTION = "activities";
-const MAX_PAGE_SIZE = 50;
+const DAILY_USAGE_COLLECTION = "partnership_crm_daily_usage";
+const MAX_PAGE_SIZE = 10;
 const DEFAULT_PAGE_SIZE = MAX_PAGE_SIZE;
-const FILTERED_BATCH_LIMIT = MAX_PAGE_SIZE;
-const MAX_FILTERED_SCAN = MAX_PAGE_SIZE * 3;
-const STATUS_COUNT_BATCH_LIMIT = 500;
-const VISUAL_FILTER_BATCH_LIMIT = 500;
+const FILTERED_BATCH_LIMIT = 20;
+const DAILY_USAGE_LIMIT = 100;
+const DAILY_USAGE_TIME_ZONE = "America/Los_Angeles";
+const ORGANIZATION_SUMMARY_FIELDS = [
+  "schemaVersion",
+  "name",
+  "category",
+  "website",
+  "websiteDomain",
+  "country",
+  "status",
+  "contactName",
+  "contactEmail",
+  "contactLinkedIn",
+  "lastContactAt",
+  "is_favorite",
+  "normalizedName",
+  "createdAt",
+  "updatedAt",
+  "createdByEmail",
+  "updatedByEmail",
+] as const;
+const PROFESSIONAL_SUMMARY_FIELDS = [
+  "schemaVersion",
+  "name",
+  "category",
+  "title",
+  "primaryAffiliation",
+  "website",
+  "websiteDomain",
+  "country",
+  "status",
+  "email",
+  "linkedIn",
+  "lastContactAt",
+  "is_favorite",
+  "normalizedName",
+  "createdAt",
+  "updatedAt",
+  "createdByEmail",
+  "updatedByEmail",
+] as const;
+const TEMPLATE_SUMMARY_FIELDS = [
+  "schemaVersion",
+  "name",
+  "audience",
+  "category",
+  "subject",
+  "status",
+  "is_favorite",
+  "normalizedName",
+  "createdAt",
+  "updatedAt",
+  "createdByEmail",
+  "updatedByEmail",
+] as const;
+const SENT_EMAIL_LOG_SUMMARY_FIELDS = [
+  "targetKind",
+  "targetId",
+  "targetName",
+  "from",
+  "to",
+  "subject",
+  "sentAt",
+  "createdAt",
+  "createdByEmail",
+  "templateId",
+  "templateName",
+] as const;
 const MISSING_CATEGORY_FILTER_VALUE = "__no_category__";
 const MISSING_COUNTRY_FILTER_VALUE = "__no_country__";
 
@@ -75,6 +143,7 @@ export type PartnershipCrmTemplateStatus =
 export type PartnershipCrmTemplateAudience =
   (typeof PARTNERSHIP_CRM_TEMPLATE_AUDIENCES)[number];
 export type PartnershipCrmTargetKind = PartnershipCrmTemplateAudience;
+export type PartnershipCrmUsageSurface = "crm" | "plantillas";
 
 export type PartnershipCrmLinkedInState = "has_linkedin" | "missing_linkedin";
 export type PartnershipCrmStatusCounts = Record<PartnershipCrmStatus, number>;
@@ -89,7 +158,32 @@ type PartnershipCrmTargetListOptions = {
   category?: string;
   country?: string;
   linkedInState?: PartnershipCrmLinkedInState;
+  deep?: boolean;
 };
+
+export interface PartnershipCrmDailyUsage {
+  surface: PartnershipCrmUsageSurface;
+  used: number;
+  limit: number;
+  percentage: number;
+  remaining: number;
+  resetAt: string;
+  locked: boolean;
+}
+
+export class PartnershipCrmUsageError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly code:
+      | "CRM_DAILY_LIMIT_REACHED"
+      | "CRM_USAGE_UNAVAILABLE",
+    public readonly usage?: PartnershipCrmDailyUsage,
+  ) {
+    super(message);
+    this.name = "PartnershipCrmUsageError";
+  }
+}
 
 export interface PartnershipCrmOrganizationInput {
   name?: string;
@@ -107,6 +201,7 @@ export interface PartnershipCrmOrganizationInput {
 
 export interface PartnershipCrmImportRowInput extends PartnershipCrmOrganizationInput {
   rowId?: string;
+  idempotencyKey?: string;
   duplicateAction?:
     "skip" | "update" | "import" | "fill_missing" | "replace_variables";
   duplicateOrganizationId?: string;
@@ -133,6 +228,7 @@ export interface PartnershipCrmProfessionalInput {
 
 export interface PartnershipCrmProfessionalImportRowInput extends PartnershipCrmProfessionalInput {
   rowId?: string;
+  idempotencyKey?: string;
   duplicateAction?:
     "skip" | "update" | "import" | "fill_missing" | "replace_variables";
   duplicateProfessionalId?: string;
@@ -152,6 +248,7 @@ export interface PartnershipCrmOrganizationRecord {
   contactLinkedIn: string;
   lastContactAt: string | null;
   notes: string;
+  notesPreview?: string;
   is_favorite: boolean;
   normalizedName: string;
   createdAt?: string;
@@ -179,6 +276,7 @@ export interface PartnershipCrmProfessionalRecord {
   linkedIn: string;
   lastContactAt: string | null;
   notes: string;
+  notesPreview?: string;
   is_favorite: boolean;
   normalizedName: string;
   createdAt?: string;
@@ -219,6 +317,7 @@ export interface PartnershipCrmTemplateRecord {
   body: string;
   status: PartnershipCrmTemplateStatus;
   notes: string;
+  notesPreview?: string;
   is_favorite: boolean;
   normalizedName: string;
   createdAt?: string;
@@ -231,22 +330,32 @@ export interface PartnershipCrmOrganizationsPage {
   organizations: PartnershipCrmOrganizationRecord[];
   nextCursor?: string;
   statusCounts: PartnershipCrmStatusCounts;
+  partial: boolean;
+  scanned: number;
+  asOf: string;
 }
 
 export interface PartnershipCrmProfessionalsPage {
   professionals: PartnershipCrmProfessionalRecord[];
   nextCursor?: string;
   statusCounts: PartnershipCrmStatusCounts;
+  partial: boolean;
+  scanned: number;
+  asOf: string;
 }
 
 export interface PartnershipCrmActivitiesPage {
   activities: PartnershipCrmActivityRecord[];
   nextCursor?: string;
+  asOf?: string;
 }
 
 export interface PartnershipCrmTemplatesPage {
   templates: PartnershipCrmTemplateRecord[];
   nextCursor?: string;
+  partial: boolean;
+  scanned: number;
+  asOf: string;
 }
 
 export interface PartnershipCrmSentEmailLogRecord {
@@ -268,6 +377,7 @@ export interface PartnershipCrmSentEmailLogRecord {
 export interface PartnershipCrmSentEmailLogsPage {
   emails: PartnershipCrmSentEmailLogRecord[];
   nextCursor?: string;
+  asOf?: string;
 }
 
 export interface PartnershipCrmVisualFilterBucket {
@@ -357,6 +467,223 @@ const TEMPLATE_AUDIENCE_SET = new Set<string>(
 function requireGodMode(context: AdminContext) {
   if (!context.isBootstrap) {
     throw new AdminRepositoryError("GOD MODE access required", 403);
+  }
+}
+
+function zonedDateParts(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+
+  return {
+    year: value("year"),
+    month: value("month"),
+    day: value("day"),
+    hour: value("hour"),
+    minute: value("minute"),
+    second: value("second"),
+  };
+}
+
+function zonedMidnightToUtc(
+  year: number,
+  month: number,
+  day: number,
+  timeZone: string,
+) {
+  const targetAsUtc = Date.UTC(year, month - 1, day, 0, 0, 0);
+  let candidate = targetAsUtc;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const actual = zonedDateParts(new Date(candidate), timeZone);
+    const actualAsUtc = Date.UTC(
+      actual.year,
+      actual.month - 1,
+      actual.day,
+      actual.hour,
+      actual.minute,
+      actual.second,
+    );
+    candidate -= actualAsUtc - targetAsUtc;
+  }
+
+  return new Date(candidate);
+}
+
+function partnershipCrmUsageWindow(now = new Date()) {
+  const current = zonedDateParts(now, DAILY_USAGE_TIME_ZONE);
+  const date = `${current.year.toString().padStart(4, "0")}-${current.month
+    .toString()
+    .padStart(2, "0")}-${current.day.toString().padStart(2, "0")}`;
+  const nextCalendarDay = new Date(
+    Date.UTC(current.year, current.month - 1, current.day + 1),
+  );
+  const resetAt = zonedMidnightToUtc(
+    nextCalendarDay.getUTCFullYear(),
+    nextCalendarDay.getUTCMonth() + 1,
+    nextCalendarDay.getUTCDate(),
+    DAILY_USAGE_TIME_ZONE,
+  ).toISOString();
+
+  return { date, resetAt };
+}
+
+function partnershipCrmUsageState(
+  surface: PartnershipCrmUsageSurface,
+  used: number,
+  resetAt: string,
+): PartnershipCrmDailyUsage {
+  const normalizedUsed = Math.min(Math.max(Math.trunc(used), 0), DAILY_USAGE_LIMIT);
+
+  return {
+    surface,
+    used: normalizedUsed,
+    limit: DAILY_USAGE_LIMIT,
+    percentage: normalizedUsed,
+    remaining: DAILY_USAGE_LIMIT - normalizedUsed,
+    resetAt,
+    locked: normalizedUsed >= DAILY_USAGE_LIMIT,
+  };
+}
+
+function validatedPartnershipCrmUsageDocument(
+  data: Record<string, unknown>,
+  surface: PartnershipCrmUsageSurface,
+  date: string,
+) {
+  const used = data.used;
+  const eventIds = data.eventIds;
+  const validEventIds =
+    Array.isArray(eventIds) &&
+    eventIds.length <= DAILY_USAGE_LIMIT &&
+    eventIds.every(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0,
+    ) &&
+    new Set(eventIds).size === eventIds.length;
+  const validUsed =
+    typeof used === "number" &&
+    Number.isFinite(used) &&
+    Number.isInteger(used) &&
+    used >= 0 &&
+    used <= DAILY_USAGE_LIMIT;
+
+  if (
+    data.surface !== surface ||
+    data.date !== date ||
+    data.limit !== DAILY_USAGE_LIMIT ||
+    !validUsed ||
+    !validEventIds ||
+    eventIds.length !== used
+  ) {
+    throw new PartnershipCrmUsageError(
+      "CRM usage tracking is unavailable. Fresh CRM actions are disabled.",
+      503,
+      "CRM_USAGE_UNAVAILABLE",
+    );
+  }
+
+  return { used, eventIds };
+}
+
+export async function consumePartnershipCrmDailyUsage(
+  context: AdminContext,
+  surface: PartnershipCrmUsageSurface,
+  eventId: string,
+  kind: string,
+): Promise<{ usage: PartnershipCrmDailyUsage; duplicate: boolean }> {
+  requireGodMode(context);
+  const normalizedEventId = cleanString(eventId);
+  if (!normalizedEventId) {
+    throw new AdminRepositoryError("CRM usage event id is required.", 400);
+  }
+
+  const window = partnershipCrmUsageWindow();
+  const reference = adminDb
+    .collection(DAILY_USAGE_COLLECTION)
+    .doc(`${window.date}__${surface}`);
+
+  try {
+    return await adminDb.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(reference);
+      const data = snapshot.exists ? (snapshot.data() ?? {}) : {};
+      const { used, eventIds } = snapshot.exists
+        ? validatedPartnershipCrmUsageDocument(data, surface, window.date)
+        : { used: 0, eventIds: [] };
+
+      if (eventIds.includes(normalizedEventId)) {
+        return {
+          usage: partnershipCrmUsageState(surface, used, window.resetAt),
+          duplicate: true,
+        };
+      }
+
+      if (used >= DAILY_USAGE_LIMIT) {
+        const usage = partnershipCrmUsageState(surface, used, window.resetAt);
+        throw new PartnershipCrmUsageError(
+          `The ${surface} daily usage limit has been reached.`,
+          429,
+          "CRM_DAILY_LIMIT_REACHED",
+          usage,
+        );
+      }
+
+      const nextUsed = used + 1;
+      const existingByKind =
+        data.byKind && typeof data.byKind === "object"
+          ? (data.byKind as Record<string, unknown>)
+          : {};
+      const normalizedKind = cleanString(kind) || "other";
+      const previousKindCount = existingByKind[normalizedKind];
+      const byKind = {
+        ...existingByKind,
+        [normalizedKind]:
+          (typeof previousKindCount === "number" ? previousKindCount : 0) + 1,
+      };
+
+      transaction.set(reference, {
+        surface,
+        date: window.date,
+        used: nextUsed,
+        limit: DAILY_USAGE_LIMIT,
+        eventIds: [...eventIds, normalizedEventId],
+        byKind,
+        lastKind: normalizedKind,
+        lastAdminHash: createHash("sha256")
+          .update(context.email.toLowerCase())
+          .digest("hex")
+          .slice(0, 16),
+        updatedAt: FieldValue.serverTimestamp(),
+        createdAt: data.createdAt ?? FieldValue.serverTimestamp(),
+      });
+
+      return {
+        usage: partnershipCrmUsageState(surface, nextUsed, window.resetAt),
+        duplicate: false,
+      };
+    });
+  } catch (error) {
+    if (
+      error instanceof PartnershipCrmUsageError ||
+      error instanceof AdminRepositoryError
+    ) {
+      throw error;
+    }
+
+    throw new PartnershipCrmUsageError(
+      "CRM usage tracking is unavailable. Fresh CRM actions are disabled.",
+      503,
+      "CRM_USAGE_UNAVAILABLE",
+    );
   }
 }
 
@@ -822,17 +1149,181 @@ function timestampToIso(value: unknown): string | undefined {
   return undefined;
 }
 
-function parseCursorTimestamp(cursor?: string) {
+type PartnershipCrmCursorField =
+  | "updatedAt"
+  | "occurredAt"
+  | "sentAt"
+  | "normalizedName"
+  | "documentId";
+
+type PartnershipCrmCursorTimestamp = {
+  seconds: number;
+  nanoseconds: number;
+};
+
+type PartnershipCrmCursorPayload = {
+  v: 2;
+  field: PartnershipCrmCursorField;
+  value: string | PartnershipCrmCursorTimestamp;
+  id: string;
+  fingerprint: string;
+};
+
+function timestampToCursorValue(
+  value: unknown,
+): PartnershipCrmCursorTimestamp | undefined {
+  let timestamp: Timestamp;
+
+  if (value instanceof Timestamp) {
+    timestamp = value;
+  } else if (value instanceof Date) {
+    timestamp = Timestamp.fromDate(value);
+  } else if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return undefined;
+    }
+    timestamp = Timestamp.fromDate(parsed);
+  } else {
+    return undefined;
+  }
+
+  return {
+    seconds: timestamp.seconds,
+    nanoseconds: timestamp.nanoseconds,
+  };
+}
+
+function isCursorTimestamp(
+  value: unknown,
+): value is PartnershipCrmCursorTimestamp {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const keys = Object.keys(candidate).sort();
+  return (
+    keys.length === 2 &&
+    keys[0] === "nanoseconds" &&
+    keys[1] === "seconds" &&
+    typeof candidate.seconds === "number" &&
+    Number.isSafeInteger(candidate.seconds) &&
+    typeof candidate.nanoseconds === "number" &&
+    Number.isInteger(candidate.nanoseconds) &&
+    candidate.nanoseconds >= 0 &&
+    candidate.nanoseconds < 1_000_000_000
+  );
+}
+
+function cursorFingerprint(value: unknown) {
+  return createHash("sha256")
+    .update(JSON.stringify(value))
+    .digest("base64url")
+    .slice(0, 16);
+}
+
+function encodeCursor(
+  doc: QueryDocumentSnapshot,
+  field: PartnershipCrmCursorField,
+  fingerprint: string,
+) {
+  const rawValue = field === "documentId" ? doc.id : doc.data()[field];
+  const value =
+    field === "normalizedName" || field === "documentId"
+      ? cleanString(rawValue)
+      : timestampToCursorValue(rawValue);
+
+  if (!value) {
+    return undefined;
+  }
+
+  const payload: PartnershipCrmCursorPayload = {
+    v: 2,
+    field,
+    value,
+    id: doc.id,
+    fingerprint,
+  };
+
+  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+}
+
+function parseCursor(
+  cursor: string | undefined,
+  field: PartnershipCrmCursorField,
+  fingerprint: string,
+) {
   if (!cursor) {
     return undefined;
   }
 
-  const parsed = new Date(cursor);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
+  try {
+    const payload = JSON.parse(
+      Buffer.from(cursor, "base64url").toString("utf8"),
+    ) as unknown;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("Cursor payload is invalid.");
+    }
+
+    const candidate = payload as Record<string, unknown>;
+    const keys = Object.keys(candidate).sort();
+    if (
+      keys.length !== 5 ||
+      keys[0] !== "field" ||
+      keys[1] !== "fingerprint" ||
+      keys[2] !== "id" ||
+      keys[3] !== "v" ||
+      keys[4] !== "value" ||
+      candidate.v !== 2 ||
+      candidate.field !== field ||
+      candidate.fingerprint !== fingerprint ||
+      typeof candidate.id !== "string" ||
+      !candidate.id
+    ) {
+      throw new Error("Cursor metadata does not match the request.");
+    }
+
+    if (field === "normalizedName" || field === "documentId") {
+      if (typeof candidate.value !== "string" || !candidate.value) {
+        throw new Error("Cursor value is invalid.");
+      }
+      return { value: candidate.value, id: candidate.id };
+    }
+
+    if (!isCursorTimestamp(candidate.value)) {
+      throw new Error("Cursor timestamp is invalid.");
+    }
+
+    return {
+      value: new Timestamp(
+        candidate.value.seconds,
+        candidate.value.nanoseconds,
+      ),
+      id: candidate.id,
+    };
+  } catch {
+    throw new AdminRepositoryError(
+      "CRM cursor is invalid or does not match the current filters.",
+      400,
+    );
+  }
+}
+
+function applyCursor(
+  query: Query,
+  cursor: string | undefined,
+  field: PartnershipCrmCursorField,
+  fingerprint: string,
+) {
+  const parsed = parseCursor(cursor, field, fingerprint);
+  if (!parsed) {
+    return query;
   }
 
-  return Timestamp.fromDate(parsed);
+  return field === "documentId"
+    ? query.startAfter(parsed.id)
+    : query.startAfter(parsed.value, parsed.id);
 }
 
 function parseDateTimestamp(value: unknown) {
@@ -1162,6 +1653,39 @@ function templateDocument(
   });
 }
 
+function normalizeTemplateMergeValue(value: unknown) {
+  return cleanString(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function mergeTemplateImportNotes(existing: unknown, incoming: unknown) {
+  const existingText = cleanString(existing);
+  const incomingText = cleanString(incoming);
+
+  if (!existingText) {
+    return incomingText;
+  }
+  if (!incomingText) {
+    return existingText;
+  }
+
+  const normalizedIncoming = normalizeTemplateMergeValue(incomingText);
+  const alreadyPresent = existingText
+    .split("\n\n--- CSV import ---\n")
+    .some(
+      (entry) => normalizeTemplateMergeValue(entry) === normalizedIncoming,
+    );
+  if (alreadyPresent) {
+    return existingText;
+  }
+
+  return `${existingText}\n\n--- CSV import ---\n${incomingText}`;
+}
+
 function toOrganizationRecord(
   id: string,
   data: Record<string, unknown>,
@@ -1184,6 +1708,8 @@ function toOrganizationRecord(
     contactLinkedIn: cleanString(data.contactLinkedIn),
     lastContactAt: timestampToIso(data.lastContactAt) ?? null,
     notes: cleanString(data.notes),
+    notesPreview:
+      cleanString(data.notesPreview) || cleanString(data.notes).slice(0, 240),
     is_favorite: normalizeBoolean(data.is_favorite),
     normalizedName:
       cleanString(data.normalizedName) || normalizeName(cleanString(data.name)),
@@ -1223,6 +1749,8 @@ function toProfessionalRecord(
     linkedIn: cleanString(data.linkedIn),
     lastContactAt: timestampToIso(data.lastContactAt) ?? null,
     notes: cleanString(data.notes),
+    notesPreview:
+      cleanString(data.notesPreview) || cleanString(data.notes).slice(0, 240),
     is_favorite: normalizeBoolean(data.is_favorite),
     normalizedName:
       cleanString(data.normalizedName) || normalizeName(cleanString(data.name)),
@@ -1273,6 +1801,8 @@ function toTemplateRecord(
     body: cleanString(data.body),
     status: normalizeTemplateStatus(data.status),
     notes: cleanString(data.notes),
+    notesPreview:
+      cleanString(data.notesPreview) || cleanString(data.notes).slice(0, 240),
     is_favorite: normalizeBoolean(data.is_favorite),
     normalizedName:
       cleanString(data.normalizedName) || normalizeName(cleanString(data.name)),
@@ -1305,6 +1835,31 @@ function toSentEmailLogRecord(
     templateId: cleanString(data.templateId),
     templateName: cleanString(data.templateName),
   };
+}
+
+function toOrganizationSummary(
+  record: PartnershipCrmOrganizationRecord,
+): PartnershipCrmOrganizationRecord {
+  return { ...record, notes: "" };
+}
+
+function toProfessionalSummary(
+  record: PartnershipCrmProfessionalRecord,
+): PartnershipCrmProfessionalRecord {
+  return {
+    ...record,
+    potentialPocketGenesEditorFit: "",
+    emailRoute: "",
+    linkedInRoute: "",
+    researchBasis: "",
+    notes: "",
+  };
+}
+
+function toTemplateSummary(
+  record: PartnershipCrmTemplateRecord,
+): PartnershipCrmTemplateRecord {
+  return { ...record, body: "", notes: "" };
 }
 
 function duplicateCandidateFromRecord(
@@ -1498,203 +2053,12 @@ function emptyStatusCounts(): PartnershipCrmStatusCounts {
   ) as PartnershipCrmStatusCounts;
 }
 
-function listStatusCountFilters(options: PartnershipCrmTargetListOptions) {
-  return {
-    query: options.query,
-    status: "all",
-    category: options.category,
-    country: options.country,
-    linkedInState: options.linkedInState,
-  };
-}
-
-function hasProjectedStatusCountFilters(
-  options: PartnershipCrmTargetListOptions,
-) {
-  return Boolean(
-    cleanString(options.query) ||
-    cleanString(options.category) ||
-    cleanString(options.country) ||
-    options.linkedInState,
-  );
-}
-
 function incrementStatusCount(
   counts: PartnershipCrmStatusCounts,
   status: unknown,
 ) {
   const normalizedStatus = normalizeStatus(status);
   counts[normalizedStatus] += 1;
-}
-
-async function aggregateStatusCounts(
-  collectionName: string,
-): Promise<PartnershipCrmStatusCounts> {
-  const counts = emptyStatusCounts();
-  const collection = adminDb.collection(collectionName);
-  const nonNewStatuses = PARTNERSHIP_CRM_STATUSES.filter(
-    (status) => status !== "new",
-  );
-  const [totalSnapshot, ...statusSnapshots] = await Promise.all([
-    collection.count().get(),
-    ...nonNewStatuses.map((status) =>
-      collection.where("status", "==", status).count().get(),
-    ),
-  ]);
-  const total = totalSnapshot.data().count;
-  let knownNonNewTotal = 0;
-
-  nonNewStatuses.forEach((status, index) => {
-    const count = statusSnapshots[index]?.data().count ?? 0;
-    counts[status] = count;
-    knownNonNewTotal += count;
-  });
-
-  counts.new = Math.max(0, total - knownNonNewTotal);
-
-  return counts;
-}
-
-async function scanOrganizationStatusCounts(
-  options: PartnershipCrmTargetListOptions,
-): Promise<PartnershipCrmStatusCounts> {
-  const counts = emptyStatusCounts();
-  const filters = listStatusCountFilters(options);
-  const baseQuery: Query = adminDb
-    .collection(ORGANIZATIONS_COLLECTION)
-    .orderBy("updatedAt", "desc")
-    .select(
-      "name",
-      "category",
-      "website",
-      "websiteDomain",
-      "country",
-      "status",
-      "contactName",
-      "contactEmail",
-      "contactLinkedIn",
-      "notes",
-      "updatedAt",
-    );
-  let query: Query = baseQuery;
-
-  while (true) {
-    const snapshot = await query.limit(STATUS_COUNT_BATCH_LIMIT).get();
-    if (snapshot.empty) {
-      break;
-    }
-
-    for (const doc of snapshot.docs) {
-      const organization = toOrganizationRecord(doc.id, doc.data());
-      if (matchesFilters(organization, filters)) {
-        incrementStatusCount(counts, organization.status);
-      }
-    }
-
-    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-    if (!lastDoc || snapshot.docs.length < STATUS_COUNT_BATCH_LIMIT) {
-      break;
-    }
-
-    query = baseQuery.startAfter(lastDoc);
-  }
-
-  return counts;
-}
-
-async function scanProfessionalStatusCounts(
-  options: PartnershipCrmTargetListOptions,
-): Promise<PartnershipCrmStatusCounts> {
-  const counts = emptyStatusCounts();
-  const filters = listStatusCountFilters(options);
-  const baseQuery: Query = adminDb
-    .collection(PROFESSIONALS_COLLECTION)
-    .orderBy("updatedAt", "desc")
-    .select(
-      "name",
-      "category",
-      "title",
-      "primaryAffiliation",
-      "potentialPocketGenesEditorFit",
-      "emailRoute",
-      "linkedInRoute",
-      "researchBasis",
-      "website",
-      "websiteDomain",
-      "country",
-      "status",
-      "email",
-      "linkedIn",
-      "notes",
-      "updatedAt",
-    );
-  let query: Query = baseQuery;
-
-  while (true) {
-    const snapshot = await query.limit(STATUS_COUNT_BATCH_LIMIT).get();
-    if (snapshot.empty) {
-      break;
-    }
-
-    for (const doc of snapshot.docs) {
-      const professional = toProfessionalRecord(doc.id, doc.data());
-      if (matchesProfessionalFilters(professional, filters)) {
-        incrementStatusCount(counts, professional.status);
-      }
-    }
-
-    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-    if (!lastDoc || snapshot.docs.length < STATUS_COUNT_BATCH_LIMIT) {
-      break;
-    }
-
-    query = baseQuery.startAfter(lastDoc);
-  }
-
-  return counts;
-}
-
-function organizationStatusCounts(options: PartnershipCrmTargetListOptions) {
-  return hasProjectedStatusCountFilters(options)
-    ? scanOrganizationStatusCounts(options)
-    : aggregateStatusCounts(ORGANIZATIONS_COLLECTION);
-}
-
-function professionalStatusCounts(options: PartnershipCrmTargetListOptions) {
-  return hasProjectedStatusCountFilters(options)
-    ? scanProfessionalStatusCounts(options)
-    : aggregateStatusCounts(PROFESSIONALS_COLLECTION);
-}
-
-function visualFacetFilters(
-  options: PartnershipCrmTargetListOptions,
-  facetKey: PartnershipCrmVisualFilterFacetKey,
-): PartnershipCrmTargetListOptions {
-  return {
-    query: options.query,
-    status: facetKey === "status" ? "all" : options.status,
-    category: facetKey === "category" ? "" : options.category,
-    country: facetKey === "country" ? "" : options.country,
-    linkedInState:
-      facetKey === "linkedInState" ? undefined : options.linkedInState,
-  };
-}
-
-function incrementFacetCount(counts: Map<string, number>, value: string) {
-  counts.set(value, (counts.get(value) ?? 0) + 1);
-}
-
-function primaryCategoryFacetValue(
-  category: string,
-  audience: PartnershipCrmTemplateAudience,
-) {
-  return (
-    crmCategoryKeys(category, audience)[0] ?? MISSING_CATEGORY_FILTER_VALUE
-  );
-}
-
-function primaryCountryFacetValue(country: string) {
-  return crmCountryCodes(country)[0] ?? MISSING_COUNTRY_FILTER_VALUE;
 }
 
 function linkedInStateFacetValue(
@@ -1775,156 +2139,12 @@ function emptyVisualFacetCounts() {
   } satisfies Record<PartnershipCrmVisualFilterFacetKey, Map<string, number>>;
 }
 
-async function scanOrganizationVisualFilters(
-  options: PartnershipCrmTargetListOptions,
-): Promise<PartnershipCrmVisualFilters> {
-  const counts = emptyVisualFacetCounts();
-  const statusFilters = visualFacetFilters(options, "status");
-  const categoryFilters = visualFacetFilters(options, "category");
-  const countryFilters = visualFacetFilters(options, "country");
-  const linkedInStateFilters = visualFacetFilters(options, "linkedInState");
-  const baseQuery: Query = adminDb
-    .collection(ORGANIZATIONS_COLLECTION)
-    .orderBy("updatedAt", "desc")
-    .select(
-      "name",
-      "category",
-      "website",
-      "websiteDomain",
-      "country",
-      "status",
-      "contactName",
-      "contactEmail",
-      "contactLinkedIn",
-      "notes",
-      "updatedAt",
-    );
-  let query: Query = baseQuery;
-
-  while (true) {
-    const snapshot = await query.limit(VISUAL_FILTER_BATCH_LIMIT).get();
-    if (snapshot.empty) {
-      break;
-    }
-
-    for (const doc of snapshot.docs) {
-      const organization = toOrganizationRecord(doc.id, doc.data());
-      if (matchesFilters(organization, statusFilters)) {
-        incrementFacetCount(counts.status, organization.status);
-      }
-      if (matchesFilters(organization, categoryFilters)) {
-        incrementFacetCount(
-          counts.category,
-          primaryCategoryFacetValue(organization.category, "organizations"),
-        );
-      }
-      if (matchesFilters(organization, countryFilters)) {
-        incrementFacetCount(
-          counts.country,
-          primaryCountryFacetValue(organization.country),
-        );
-      }
-      if (matchesFilters(organization, linkedInStateFilters)) {
-        incrementFacetCount(
-          counts.linkedInState,
-          linkedInStateFacetValue(Boolean(organization.contactLinkedIn)),
-        );
-      }
-    }
-
-    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-    if (!lastDoc || snapshot.docs.length < VISUAL_FILTER_BATCH_LIMIT) {
-      break;
-    }
-
-    query = baseQuery.startAfter(lastDoc);
-  }
-
-  return visualFacetResponse("organizations", counts);
-}
-
-async function scanProfessionalVisualFilters(
-  options: PartnershipCrmTargetListOptions,
-): Promise<PartnershipCrmVisualFilters> {
-  const counts = emptyVisualFacetCounts();
-  const statusFilters = visualFacetFilters(options, "status");
-  const categoryFilters = visualFacetFilters(options, "category");
-  const countryFilters = visualFacetFilters(options, "country");
-  const linkedInStateFilters = visualFacetFilters(options, "linkedInState");
-  const baseQuery: Query = adminDb
-    .collection(PROFESSIONALS_COLLECTION)
-    .orderBy("updatedAt", "desc")
-    .select(
-      "name",
-      "category",
-      "title",
-      "primaryAffiliation",
-      "potentialPocketGenesEditorFit",
-      "emailRoute",
-      "linkedInRoute",
-      "researchBasis",
-      "website",
-      "websiteDomain",
-      "country",
-      "status",
-      "email",
-      "linkedIn",
-      "notes",
-      "updatedAt",
-    );
-  let query: Query = baseQuery;
-
-  while (true) {
-    const snapshot = await query.limit(VISUAL_FILTER_BATCH_LIMIT).get();
-    if (snapshot.empty) {
-      break;
-    }
-
-    for (const doc of snapshot.docs) {
-      const professional = toProfessionalRecord(doc.id, doc.data());
-      if (matchesProfessionalFilters(professional, statusFilters)) {
-        incrementFacetCount(counts.status, professional.status);
-      }
-      if (matchesProfessionalFilters(professional, categoryFilters)) {
-        incrementFacetCount(
-          counts.category,
-          primaryCategoryFacetValue(professional.category, "professionals"),
-        );
-      }
-      if (matchesProfessionalFilters(professional, countryFilters)) {
-        incrementFacetCount(
-          counts.country,
-          primaryCountryFacetValue(professional.country),
-        );
-      }
-      if (matchesProfessionalFilters(professional, linkedInStateFilters)) {
-        incrementFacetCount(
-          counts.linkedInState,
-          linkedInStateFacetValue(Boolean(professional.linkedIn)),
-        );
-      }
-    }
-
-    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-    if (!lastDoc || snapshot.docs.length < VISUAL_FILTER_BATCH_LIMIT) {
-      break;
-    }
-
-    query = baseQuery.startAfter(lastDoc);
-  }
-
-  return visualFacetResponse("professionals", counts);
-}
-
 export async function getPartnershipCrmVisualFilters(
   context: AdminContext,
   targetKind: PartnershipCrmTargetKind,
 ): Promise<PartnershipCrmVisualFilters> {
   requireGodMode(context);
-
-  return targetKind === "professionals"
-    ? scanProfessionalVisualFilters({})
-    : scanOrganizationVisualFilters({});
+  return visualFacetResponse(targetKind, emptyVisualFacetCounts());
 }
 
 async function getOrganizationSnapshot(organizationId: string) {
@@ -1977,26 +2197,31 @@ async function addSentEmailLog(
   },
 ) {
   const ref = adminDb.collection(SENT_EMAIL_LOG_COLLECTION).doc();
+  const now = new Date();
+  const record = withoutUndefined({
+    targetKind: input.targetKind,
+    targetId: input.targetId,
+    targetName: input.targetName,
+    from: PARTNERSHIP_CRM_FROM_EMAIL,
+    to: input.to,
+    subject: input.subject,
+    body: input.body,
+    sentAt: now,
+    createdAt: now,
+    createdByEmail: context.email,
+    templateId: input.templateId || undefined,
+    templateName: input.templateName || undefined,
+  });
 
   await ref.set(
     withoutUndefined({
-      targetKind: input.targetKind,
-      targetId: input.targetId,
-      targetName: input.targetName,
-      from: PARTNERSHIP_CRM_FROM_EMAIL,
-      to: input.to,
-      subject: input.subject,
-      body: input.body,
+      ...record,
       sentAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
-      createdByEmail: context.email,
-      templateId: input.templateId || undefined,
-      templateName: input.templateName || undefined,
     }),
   );
 
-  const snapshot = await ref.get();
-  return toSentEmailLogRecord(ref.id, snapshot.data() ?? {});
+  return toSentEmailLogRecord(ref.id, record);
 }
 
 type PartnershipCrmActivityInput = {
@@ -2034,10 +2259,15 @@ async function addTargetActivity(
     .collection(ACTIVITIES_COLLECTION)
     .doc();
 
-  await ref.set(targetActivityDocument(context, activity));
+  const now = new Date();
+  const storedDocument = targetActivityDocument(context, activity);
+  await ref.set(storedDocument);
 
-  const snapshot = await ref.get();
-  return toActivityRecord(ref.id, snapshot.data() ?? {});
+  return toActivityRecord(ref.id, {
+    ...storedDocument,
+    occurredAt: activity.occurredAt ?? now,
+    createdAt: now,
+  });
 }
 
 function addActivity(
@@ -2069,114 +2299,240 @@ function addProfessionalActivity(
 async function findDuplicateOrganizations(
   input: PartnershipCrmOrganizationInput,
 ) {
-  const byId = new Map<string, PartnershipCrmDuplicateCandidate>();
   const name = cleanString(input.name);
   const normalizedName = normalizeName(cleanString(input.name));
   const lookupPrefix = organizationNameLookupPrefix(normalizedName);
   const domain = websiteDomain(input.website);
   const collection = adminDb.collection(ORGANIZATIONS_COLLECTION);
-
-  async function addSnapshotDocs(
-    snapshotDocs: QueryDocumentSnapshot<Record<string, unknown>>[],
-    options: { requireCompatibleName?: boolean } = {},
-  ) {
-    snapshotDocs.forEach((doc) => {
-      const record = toOrganizationRecord(doc.id, doc.data());
-      if (
-        options.requireCompatibleName &&
-        !organizationNamesCanReferToSameEntity(name, record.name)
-      ) {
-        return;
-      }
-
-      byId.set(record.id, duplicateCandidateFromRecord(record));
-    });
-  }
-
-  if (normalizedName) {
-    const snapshot = await collection
-      .where("normalizedName", "==", normalizedName)
-      .limit(5)
-      .get();
-    await addSnapshotDocs(snapshot.docs);
-  }
-
+  let query: Query | undefined;
   if (lookupPrefix) {
-    const snapshot = await collection
+    query = collection
       .where("normalizedName", ">=", lookupPrefix)
       .where("normalizedName", "<", `${lookupPrefix}\uf8ff`)
       .orderBy("normalizedName", "asc")
-      .limit(25)
-      .get();
-    await addSnapshotDocs(snapshot.docs, { requireCompatibleName: true });
+      .orderBy(FieldPath.documentId(), "asc");
+  } else if (domain) {
+    query = collection.where("websiteDomain", "==", domain);
   }
 
-  if (domain) {
-    const snapshot = await collection
-      .where("websiteDomain", "==", domain)
-      .limit(5)
-      .get();
-    await addSnapshotDocs(snapshot.docs);
+  if (!query) {
+    return [];
   }
 
-  return [...byId.values()];
+  const snapshot = await query.limit(5).get();
+  return snapshot.docs.flatMap((doc) => {
+    const record = toOrganizationRecord(doc.id, doc.data());
+    return organizationNamesCanReferToSameEntity(name, record.name)
+      ? [duplicateCandidateFromRecord(record)]
+      : [];
+  });
 }
 
 async function findDuplicateProfessionals(
   input: PartnershipCrmProfessionalInput,
 ) {
-  const byId = new Map<string, PartnershipCrmProfessionalDuplicateCandidate>();
   const name = cleanString(input.name);
   const normalizedName = normalizeName(name);
   const email = normalizeEmail(input.email);
   const domain = websiteDomain(input.website);
   const linkedIn = normalizeWebsite(input.linkedIn);
   const collection = adminDb.collection(PROFESSIONALS_COLLECTION);
-
-  function addSnapshotDocs(
-    snapshotDocs: QueryDocumentSnapshot<Record<string, unknown>>[],
-  ) {
-    snapshotDocs.forEach((doc) => {
-      const record = toProfessionalRecord(doc.id, doc.data());
-      if (professionalNamesCanReferToSamePerson(name, record.name)) {
-        byId.set(record.id, professionalDuplicateCandidateFromRecord(record));
-      }
-    });
-  }
-
-  if (normalizedName) {
-    const snapshot = await collection
-      .where("normalizedName", "==", normalizedName)
-      .limit(5)
-      .get();
-    addSnapshotDocs(snapshot.docs);
-  }
-
+  let query: Query | undefined;
   if (email) {
-    const snapshot = await collection
-      .where("email", "==", email)
-      .limit(5)
-      .get();
-    addSnapshotDocs(snapshot.docs);
+    query = collection.where("email", "==", email);
+  } else if (linkedIn) {
+    query = collection.where("linkedIn", "==", linkedIn);
+  } else if (domain) {
+    query = collection.where("websiteDomain", "==", domain);
+  } else if (normalizedName) {
+    query = collection.where("normalizedName", "==", normalizedName);
   }
 
-  if (domain) {
-    const snapshot = await collection
-      .where("websiteDomain", "==", domain)
-      .limit(5)
-      .get();
-    addSnapshotDocs(snapshot.docs);
+  if (!query) {
+    return [];
   }
 
-  if (linkedIn) {
-    const snapshot = await collection
-      .where("linkedIn", "==", linkedIn)
-      .limit(5)
-      .get();
-    addSnapshotDocs(snapshot.docs);
+  const snapshot = await query.limit(5).get();
+  return snapshot.docs.flatMap((doc) => {
+    const record = toProfessionalRecord(doc.id, doc.data());
+    return professionalNamesCanReferToSamePerson(name, record.name)
+      ? [professionalDuplicateCandidateFromRecord(record)]
+      : [];
+  });
+}
+
+async function findTemplateImportCandidate(
+  input: PartnershipCrmTemplateInput,
+) {
+  const normalizedName = normalizeName(cleanString(input.name));
+  if (!normalizedName) {
+    return undefined;
   }
 
-  return [...byId.values()];
+  const audience = normalizeTemplateAudience(input.audience);
+  const snapshot = await adminDb
+    .collection(TEMPLATES_COLLECTION)
+    .where("normalizedName", "==", normalizedName)
+    .limit(5)
+    .get();
+
+  return snapshot.docs.find(
+    (doc) =>
+      normalizeTemplateAudience(doc.data().audience) === audience,
+  );
+}
+
+type BoundedCrmQuery = {
+  query: Query;
+  cursorField: PartnershipCrmCursorField;
+  hasFilters: boolean;
+  fingerprint: string;
+};
+
+function normalizedTargetListFingerprint(
+  targetKind: PartnershipCrmTargetKind,
+  options: PartnershipCrmTargetListOptions,
+) {
+  return cursorFingerprint({
+    targetKind,
+    query: cleanString(options.query).toLowerCase(),
+    status: cleanString(options.status),
+    category: cleanString(options.category),
+    country: cleanString(options.country),
+    linkedInState: options.linkedInState ?? "",
+    deep: Boolean(options.deep),
+  });
+}
+
+function buildTargetListQuery(
+  targetKind: PartnershipCrmTargetKind,
+  options: PartnershipCrmTargetListOptions,
+): BoundedCrmQuery {
+  const collectionName =
+    targetKind === "professionals"
+      ? PROFESSIONALS_COLLECTION
+      : ORGANIZATIONS_COLLECTION;
+  const collection = adminDb.collection(collectionName);
+  const search = cleanString(options.query);
+  const status = cleanString(options.status);
+  const category = cleanString(options.category);
+  const country = cleanString(options.country);
+  const hasFilters = Boolean(
+    search ||
+      (status && status !== "all") ||
+      category ||
+      country ||
+      options.linkedInState,
+  );
+  const fingerprint = normalizedTargetListFingerprint(targetKind, options);
+  if (search && normalizeName(search).length < 3 && !search.includes("@")) {
+    throw new AdminRepositoryError(
+      "CRM searches require at least 3 characters.",
+      400,
+    );
+  }
+  const cursorField: PartnershipCrmCursorField = "updatedAt";
+  const query = collection
+    .orderBy("updatedAt", "desc")
+    .orderBy(FieldPath.documentId(), "desc");
+
+  return {
+    query: applyCursor(query, options.cursor, cursorField, fingerprint),
+    cursorField,
+    hasFilters,
+    fingerprint,
+  };
+}
+
+function templateListFingerprint(options: {
+  query?: string;
+  status?: string;
+  category?: string;
+  audience?: string;
+  deep?: boolean;
+}) {
+  return cursorFingerprint({
+    query: cleanString(options.query).toLowerCase(),
+    status: cleanString(options.status),
+    category: cleanString(options.category),
+    audience: cleanString(options.audience),
+    deep: Boolean(options.deep),
+  });
+}
+
+function buildTemplateListQuery(options: {
+  cursor?: string;
+  query?: string;
+  status?: string;
+  category?: string;
+  audience?: string;
+  deep?: boolean;
+}): BoundedCrmQuery {
+  const collection = adminDb.collection(TEMPLATES_COLLECTION);
+  const search = cleanString(options.query);
+  const status = cleanString(options.status);
+  const category = cleanString(options.category);
+  const audience = cleanString(options.audience);
+  const hasFilters = Boolean(
+    search || (status && status !== "all") || category || audience,
+  );
+  const fingerprint = templateListFingerprint(options);
+  if (search && normalizeName(search).length < 3) {
+    throw new AdminRepositoryError(
+      "Template searches require at least 3 characters.",
+      400,
+    );
+  }
+  const cursorField: PartnershipCrmCursorField = "updatedAt";
+  const query = collection
+    .orderBy("updatedAt", "desc")
+    .orderBy(FieldPath.documentId(), "desc");
+
+  return {
+    query: applyCursor(query, options.cursor, cursorField, fingerprint),
+    cursorField,
+    hasFilters,
+    fingerprint,
+  };
+}
+
+function pageStatusCounts(
+  records: ReadonlyArray<{ status: PartnershipCrmStatus }>,
+) {
+  const counts = emptyStatusCounts();
+  records.forEach((record) => incrementStatusCount(counts, record.status));
+  return counts;
+}
+
+function requireSingleImportRow(rows: readonly unknown[]) {
+  if (rows.length !== 1) {
+    throw new AdminRepositoryError(
+      "CRM imports process exactly one row per request.",
+      400,
+    );
+  }
+}
+
+function importIdempotencyDocumentId(
+  targetKind: PartnershipCrmTargetKind,
+  value: unknown,
+) {
+  const key = cleanString(value);
+  if (!key) {
+    return undefined;
+  }
+  if (key.length > 200) {
+    throw new AdminRepositoryError(
+      "CRM import idempotency keys must be 200 characters or fewer.",
+      400,
+    );
+  }
+
+  const digest = createHash("sha256")
+    .update(`${targetKind}\0${key}`, "utf8")
+    .digest("hex");
+  const prefix = targetKind === "organizations" ? "org" : "pro";
+  return `crm_import_${prefix}_${digest}`;
 }
 
 export async function listPartnershipCrmTemplates(
@@ -2188,105 +2544,47 @@ export async function listPartnershipCrmTemplates(
     status?: string;
     category?: string;
     audience?: string;
+    deep?: boolean;
   } = {},
 ): Promise<PartnershipCrmTemplatesPage> {
   requireGodMode(context);
 
   const limit = normalizeLimit(options.limit);
-  const cursorTimestamp = parseCursorTimestamp(options.cursor);
-  const hasFilters = Boolean(
-    cleanString(options.query) ||
-    (cleanString(options.status) && options.status !== "all") ||
-    cleanString(options.category) ||
-    cleanString(options.audience),
-  );
-  const baseQuery = adminDb
-    .collection(TEMPLATES_COLLECTION)
-    .orderBy("updatedAt", "desc");
-  let query: Query = baseQuery;
-
-  if (cursorTimestamp) {
-    query = query.startAfter(cursorTimestamp);
-  }
-
-  if (!hasFilters) {
-    const snapshot = await query.limit(limit + 1).get();
-    const visibleDocs = snapshot.docs.slice(0, limit);
-    const templates = visibleDocs.map((doc) =>
-      toTemplateRecord(doc.id, doc.data()),
-    );
-    const lastVisible = visibleDocs[visibleDocs.length - 1];
-    const nextCursor =
-      snapshot.docs.length > limit && lastVisible
-        ? timestampToIso(lastVisible.data().updatedAt)
-        : undefined;
-
-    return { templates: favoriteFirstRecords(templates), nextCursor };
-  }
-
+  const built = buildTemplateListQuery(options);
+  const scanLimit = options.deep ? FILTERED_BATCH_LIMIT : limit + 1;
+  const listQuery = options.deep
+    ? built.query
+    : built.query.select(...TEMPLATE_SUMMARY_FIELDS);
+  const snapshot = await listQuery.limit(scanLimit).get();
   const templates: PartnershipCrmTemplateRecord[] = [];
-  let pageCursorTimestamp = cursorTimestamp;
-  let scannedDocs = 0;
-  let nextCursor: string | undefined;
-
-  while (templates.length < limit && scannedDocs < MAX_FILTERED_SCAN) {
-    const batchLimit = Math.min(
-      FILTERED_BATCH_LIMIT,
-      MAX_FILTERED_SCAN - scannedDocs,
-    );
-    let batchQuery: Query = baseQuery;
-
-    if (pageCursorTimestamp) {
-      batchQuery = batchQuery.startAfter(pageCursorTimestamp);
-    }
-
-    const snapshot = await batchQuery.limit(batchLimit).get();
-    if (snapshot.empty) {
-      nextCursor = undefined;
-      break;
-    }
-
-    let lastConsumedDoc: QueryDocumentSnapshot | undefined;
-
-    for (const doc of snapshot.docs) {
-      lastConsumedDoc = doc;
-      scannedDocs += 1;
-
-      const template = toTemplateRecord(doc.id, doc.data());
-      if (matchesTemplateFilters(template, options)) {
-        templates.push(template);
-        if (templates.length >= limit) {
-          break;
-        }
-      }
-
-      if (scannedDocs >= MAX_FILTERED_SCAN) {
+  let lastConsumedDoc: QueryDocumentSnapshot | undefined;
+  let consumed = 0;
+  for (const doc of snapshot.docs) {
+    lastConsumedDoc = doc;
+    consumed += 1;
+    const template = toTemplateRecord(doc.id, doc.data());
+    if (matchesTemplateFilters(template, options)) {
+      templates.push(toTemplateSummary(template));
+      if (templates.length >= limit) {
         break;
       }
     }
-
-    if (!lastConsumedDoc) {
-      nextCursor = undefined;
-      break;
-    }
-
-    nextCursor = timestampToIso(lastConsumedDoc.data().updatedAt);
-    const lastSnapshotDoc = snapshot.docs[snapshot.docs.length - 1];
-    const consumedWholeBatch =
-      lastSnapshotDoc && lastConsumedDoc.id === lastSnapshotDoc.id;
-
-    if (!consumedWholeBatch || snapshot.docs.length < batchLimit) {
-      break;
-    }
-
-    pageCursorTimestamp = parseCursorTimestamp(nextCursor);
-    if (!pageCursorTimestamp) {
-      nextCursor = undefined;
-      break;
-    }
   }
 
-  return { templates: favoriteFirstRecords(templates), nextCursor };
+  const canContinue =
+    consumed < snapshot.docs.length || snapshot.docs.length === scanLimit;
+  const nextCursor =
+    canContinue && lastConsumedDoc
+      ? encodeCursor(lastConsumedDoc, built.cursorField, built.fingerprint)
+      : undefined;
+
+  return {
+    templates: favoriteFirstRecords(templates),
+    nextCursor,
+    partial: built.hasFilters,
+    scanned: snapshot.docs.length,
+    asOf: new Date().toISOString(),
+  };
 }
 
 export async function getPartnershipCrmTemplate(
@@ -2319,6 +2617,7 @@ export async function createPartnershipCrmTemplate(
   }
 
   const ref = adminDb.collection(TEMPLATES_COLLECTION).doc();
+  const now = new Date();
   await ref.set(
     withoutUndefined({
       ...document,
@@ -2329,7 +2628,86 @@ export async function createPartnershipCrmTemplate(
     }),
   );
 
-  return getPartnershipCrmTemplate(context, ref.id);
+  return toTemplateRecord(ref.id, {
+    ...document,
+    createdAt: now,
+    updatedAt: now,
+    createdByEmail: context.email,
+    updatedByEmail: context.email,
+  });
+}
+
+export async function importPartnershipCrmTemplate(
+  context: AdminContext,
+  input: PartnershipCrmTemplateInput,
+): Promise<{
+  action: "created" | "updated";
+  template: PartnershipCrmTemplateRecord;
+}> {
+  requireGodMode(context);
+  const incomingDocument = templateDocument(input);
+  const normalizedName = cleanString(incomingDocument.normalizedName);
+  const incomingSubject = cleanString(incomingDocument.subject);
+  const incomingBody = cleanString(incomingDocument.body);
+  if (!cleanString(incomingDocument.name)) {
+    throw new AdminRepositoryError("Template name is required.", 400);
+  }
+  if (!incomingSubject) {
+    throw new AdminRepositoryError("Template subject is required.", 400);
+  }
+  if (!incomingBody) {
+    throw new AdminRepositoryError("Template body is required.", 400);
+  }
+
+  const candidate = await findTemplateImportCandidate(input);
+  if (!candidate) {
+    return {
+      action: "created",
+      template: await createPartnershipCrmTemplate(context, input),
+    };
+  }
+
+  const expectedAudience = normalizeTemplateAudience(input.audience);
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(candidate.ref);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError(
+        "The matching template changed during import. Try again.",
+        409,
+      );
+    }
+
+    const existingData = recordData(snapshot.data());
+    const existing = toTemplateRecord(candidate.id, existingData);
+    if (
+      existing.normalizedName !== normalizedName ||
+      existing.audience !== expectedAudience
+    ) {
+      throw new AdminRepositoryError(
+        "The matching template changed during import. Try again.",
+        409,
+      );
+    }
+
+    const updates = {
+      subject: incomingSubject || existing.subject,
+      body: incomingBody || existing.body,
+      notes: mergeTemplateImportNotes(existing.notes, input.notes),
+      is_favorite: Boolean(existing.is_favorite || input.is_favorite),
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    };
+    transaction.update(candidate.ref, updates);
+
+    return {
+      action: "updated" as const,
+      template: toTemplateRecord(candidate.id, {
+        ...existingData,
+        ...updates,
+        updatedAt: new Date(),
+      }),
+    };
+  });
 }
 
 export async function updatePartnershipCrmTemplate(
@@ -2364,7 +2742,47 @@ export async function updatePartnershipCrmTemplate(
     }),
   );
 
-  return getPartnershipCrmTemplate(context, templateId);
+  return toTemplateRecord(templateId, {
+    ...document,
+    createdAt: snapshot.data()?.createdAt,
+    createdByEmail: snapshot.data()?.createdByEmail,
+    updatedAt: new Date(),
+    updatedByEmail: context.email,
+  });
+}
+
+export async function updatePartnershipCrmTemplateFavorite(
+  context: AdminContext,
+  templateId: string,
+  isFavorite: boolean,
+) {
+  requireGodMode(context);
+  const reference = adminDb.collection(TEMPLATES_COLLECTION).doc(templateId);
+
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("CRM template not found.", 404);
+    }
+
+    const data = snapshot.data() ?? {};
+    if (normalizeBoolean(data.is_favorite) === isFavorite) {
+      return toTemplateRecord(templateId, data);
+    }
+
+    transaction.update(reference, {
+      is_favorite: isFavorite,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    });
+
+    return toTemplateRecord(templateId, {
+      ...data,
+      is_favorite: isFavorite,
+      updatedAt: new Date(),
+      updatedByEmail: context.email,
+    });
+  });
 }
 
 export async function deletePartnershipCrmTemplate(
@@ -2387,109 +2805,41 @@ export async function listPartnershipCrmOrganizations(
   requireGodMode(context);
 
   const limit = normalizeLimit(options.limit);
-  const cursorTimestamp = parseCursorTimestamp(options.cursor);
-  const hasFilters = Boolean(
-    cleanString(options.query) ||
-    (cleanString(options.status) && options.status !== "all") ||
-    cleanString(options.category) ||
-    cleanString(options.country) ||
-    options.linkedInState,
-  );
-  const baseQuery = adminDb
-    .collection(ORGANIZATIONS_COLLECTION)
-    .orderBy("updatedAt", "desc");
-  let query: Query = baseQuery;
-
-  if (cursorTimestamp) {
-    query = query.startAfter(cursorTimestamp);
-  }
-
-  if (!hasFilters) {
-    const [snapshot, statusCounts] = await Promise.all([
-      query.limit(limit + 1).get(),
-      organizationStatusCounts(options),
-    ]);
-    const visibleDocs = snapshot.docs.slice(0, limit);
-    const organizations = visibleDocs.map((doc) =>
-      toOrganizationRecord(doc.id, doc.data()),
-    );
-    const lastVisible = visibleDocs[visibleDocs.length - 1];
-    const nextCursor =
-      snapshot.docs.length > limit && lastVisible
-        ? timestampToIso(lastVisible.data().updatedAt)
-        : undefined;
-
-    return {
-      organizations: favoriteFirstRecords(organizations),
-      nextCursor,
-      statusCounts,
-    };
-  }
-
+  const built = buildTargetListQuery("organizations", options);
+  const scanLimit = options.deep ? FILTERED_BATCH_LIMIT : limit + 1;
+  const listQuery = options.deep
+    ? built.query
+    : built.query.select(...ORGANIZATION_SUMMARY_FIELDS);
+  const snapshot = await listQuery.limit(scanLimit).get();
   const organizations: PartnershipCrmOrganizationRecord[] = [];
-  let pageCursorTimestamp = cursorTimestamp;
-  let nextCursor: string | undefined;
-
-  while (organizations.length < limit) {
-    let batchQuery: Query = baseQuery;
-
-    if (pageCursorTimestamp) {
-      batchQuery = batchQuery.startAfter(pageCursorTimestamp);
-    }
-
-    const snapshot = await batchQuery.limit(FILTERED_BATCH_LIMIT).get();
-    if (snapshot.empty) {
-      nextCursor = undefined;
-      break;
-    }
-
-    let lastConsumedDoc: QueryDocumentSnapshot | undefined;
-
-    for (const doc of snapshot.docs) {
-      lastConsumedDoc = doc;
-
-      const organization = toOrganizationRecord(doc.id, doc.data());
-      if (matchesFilters(organization, options)) {
-        organizations.push(organization);
-        if (organizations.length >= limit) {
-          break;
-        }
+  let lastConsumedDoc: QueryDocumentSnapshot | undefined;
+  let consumed = 0;
+  for (const doc of snapshot.docs) {
+    lastConsumedDoc = doc;
+    consumed += 1;
+    const organization = toOrganizationRecord(doc.id, doc.data());
+    if (matchesFilters(organization, options)) {
+      organizations.push(toOrganizationSummary(organization));
+      if (organizations.length >= limit) {
+        break;
       }
     }
-
-    if (!lastConsumedDoc) {
-      nextCursor = undefined;
-      break;
-    }
-
-    const lastSnapshotDoc = snapshot.docs[snapshot.docs.length - 1];
-    const consumedWholeBatch =
-      lastSnapshotDoc && lastConsumedDoc.id === lastSnapshotDoc.id;
-    const exhaustedCollection =
-      consumedWholeBatch && snapshot.docs.length < FILTERED_BATCH_LIMIT;
-
-    if (exhaustedCollection) {
-      nextCursor = undefined;
-      break;
-    }
-
-    nextCursor = timestampToIso(lastConsumedDoc.data().updatedAt);
-
-    if (!nextCursor || !consumedWholeBatch || organizations.length >= limit) {
-      break;
-    }
-
-    pageCursorTimestamp = parseCursorTimestamp(nextCursor);
-    if (!pageCursorTimestamp) {
-      nextCursor = undefined;
-      break;
-    }
   }
+
+  const canContinue =
+    consumed < snapshot.docs.length || snapshot.docs.length === scanLimit;
+  const nextCursor =
+    canContinue && lastConsumedDoc
+      ? encodeCursor(lastConsumedDoc, built.cursorField, built.fingerprint)
+      : undefined;
 
   return {
     organizations: favoriteFirstRecords(organizations),
     nextCursor,
-    statusCounts: await organizationStatusCounts(options),
+    statusCounts: pageStatusCounts(organizations),
+    partial: built.hasFilters,
+    scanned: snapshot.docs.length,
+    asOf: new Date().toISOString(),
   };
 }
 
@@ -2517,6 +2867,7 @@ export async function createPartnershipCrmOrganization(
   }
 
   const ref = adminDb.collection(ORGANIZATIONS_COLLECTION).doc();
+  const now = new Date();
   await ref.set(
     withoutUndefined({
       ...document,
@@ -2532,7 +2883,13 @@ export async function createPartnershipCrmOrganization(
     body: cleanString(input.notes),
   });
 
-  return getPartnershipCrmOrganization(context, ref.id);
+  return toOrganizationRecord(ref.id, {
+    ...document,
+    createdAt: now,
+    updatedAt: now,
+    createdByEmail: context.email,
+    updatedByEmail: context.email,
+  });
 }
 
 export async function updatePartnershipCrmOrganization(
@@ -2577,7 +2934,13 @@ export async function updatePartnershipCrmOrganization(
     });
   }
 
-  return getPartnershipCrmOrganization(context, organizationId);
+  return toOrganizationRecord(organizationId, {
+    ...document,
+    createdAt: snapshot.data()?.createdAt,
+    createdByEmail: snapshot.data()?.createdByEmail,
+    updatedAt: new Date(),
+    updatedByEmail: context.email,
+  });
 }
 
 export async function updatePartnershipCrmOrganizationStatus(
@@ -2591,7 +2954,7 @@ export async function updatePartnershipCrmOrganizationStatus(
     .doc(organizationId);
   const activityReference = reference.collection(ACTIVITIES_COLLECTION).doc();
 
-  await adminDb.runTransaction(async (transaction) => {
+  return adminDb.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(reference);
     if (!snapshot.exists) {
       throw new AdminRepositoryError("CRM organization not found.", 404);
@@ -2599,7 +2962,7 @@ export async function updatePartnershipCrmOrganizationStatus(
 
     const previousStatus = normalizeStatus(snapshot.data()?.status);
     if (previousStatus === status) {
-      return;
+      return toOrganizationRecord(organizationId, snapshot.data() ?? {});
     }
 
     transaction.update(reference, {
@@ -2616,9 +2979,59 @@ export async function updatePartnershipCrmOrganizationStatus(
         metadata: { previousStatus, nextStatus: status },
       }),
     );
+    return toOrganizationRecord(organizationId, {
+      ...(snapshot.data() ?? {}),
+      status,
+      updatedAt: new Date(),
+      updatedByEmail: context.email,
+    });
   });
+}
 
-  return getPartnershipCrmOrganization(context, organizationId);
+export async function updatePartnershipCrmOrganizationFavorite(
+  context: AdminContext,
+  organizationId: string,
+  isFavorite: boolean,
+) {
+  requireGodMode(context);
+  const reference = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId);
+  const activityReference = reference.collection(ACTIVITIES_COLLECTION).doc();
+
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("CRM organization not found.", 404);
+    }
+
+    const data = snapshot.data() ?? {};
+    if (normalizeBoolean(data.is_favorite) === isFavorite) {
+      return toOrganizationRecord(organizationId, data);
+    }
+
+    transaction.update(reference, {
+      is_favorite: isFavorite,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    });
+    transaction.set(
+      activityReference,
+      targetActivityDocument(context, {
+        type: "updated",
+        title: isFavorite
+          ? "Organization marked as favorite"
+          : "Organization unmarked as favorite",
+      }),
+    );
+
+    return toOrganizationRecord(organizationId, {
+      ...data,
+      is_favorite: isFavorite,
+      updatedAt: new Date(),
+      updatedByEmail: context.email,
+    });
+  });
 }
 
 export async function deletePartnershipCrmOrganization(
@@ -2641,109 +3054,41 @@ export async function listPartnershipCrmProfessionals(
   requireGodMode(context);
 
   const limit = normalizeLimit(options.limit);
-  const cursorTimestamp = parseCursorTimestamp(options.cursor);
-  const hasFilters = Boolean(
-    cleanString(options.query) ||
-    (cleanString(options.status) && options.status !== "all") ||
-    cleanString(options.category) ||
-    cleanString(options.country) ||
-    options.linkedInState,
-  );
-  const baseQuery = adminDb
-    .collection(PROFESSIONALS_COLLECTION)
-    .orderBy("updatedAt", "desc");
-  let query: Query = baseQuery;
-
-  if (cursorTimestamp) {
-    query = query.startAfter(cursorTimestamp);
-  }
-
-  if (!hasFilters) {
-    const [snapshot, statusCounts] = await Promise.all([
-      query.limit(limit + 1).get(),
-      professionalStatusCounts(options),
-    ]);
-    const visibleDocs = snapshot.docs.slice(0, limit);
-    const professionals = visibleDocs.map((doc) =>
-      toProfessionalRecord(doc.id, doc.data()),
-    );
-    const lastVisible = visibleDocs[visibleDocs.length - 1];
-    const nextCursor =
-      snapshot.docs.length > limit && lastVisible
-        ? timestampToIso(lastVisible.data().updatedAt)
-        : undefined;
-
-    return {
-      professionals: favoriteFirstRecords(professionals),
-      nextCursor,
-      statusCounts,
-    };
-  }
-
+  const built = buildTargetListQuery("professionals", options);
+  const scanLimit = options.deep ? FILTERED_BATCH_LIMIT : limit + 1;
+  const listQuery = options.deep
+    ? built.query
+    : built.query.select(...PROFESSIONAL_SUMMARY_FIELDS);
+  const snapshot = await listQuery.limit(scanLimit).get();
   const professionals: PartnershipCrmProfessionalRecord[] = [];
-  let pageCursorTimestamp = cursorTimestamp;
-  let nextCursor: string | undefined;
-
-  while (professionals.length < limit) {
-    let batchQuery: Query = baseQuery;
-
-    if (pageCursorTimestamp) {
-      batchQuery = batchQuery.startAfter(pageCursorTimestamp);
-    }
-
-    const snapshot = await batchQuery.limit(FILTERED_BATCH_LIMIT).get();
-    if (snapshot.empty) {
-      nextCursor = undefined;
-      break;
-    }
-
-    let lastConsumedDoc: QueryDocumentSnapshot | undefined;
-
-    for (const doc of snapshot.docs) {
-      lastConsumedDoc = doc;
-
-      const professional = toProfessionalRecord(doc.id, doc.data());
-      if (matchesProfessionalFilters(professional, options)) {
-        professionals.push(professional);
-        if (professionals.length >= limit) {
-          break;
-        }
+  let lastConsumedDoc: QueryDocumentSnapshot | undefined;
+  let consumed = 0;
+  for (const doc of snapshot.docs) {
+    lastConsumedDoc = doc;
+    consumed += 1;
+    const professional = toProfessionalRecord(doc.id, doc.data());
+    if (matchesProfessionalFilters(professional, options)) {
+      professionals.push(toProfessionalSummary(professional));
+      if (professionals.length >= limit) {
+        break;
       }
     }
-
-    if (!lastConsumedDoc) {
-      nextCursor = undefined;
-      break;
-    }
-
-    const lastSnapshotDoc = snapshot.docs[snapshot.docs.length - 1];
-    const consumedWholeBatch =
-      lastSnapshotDoc && lastConsumedDoc.id === lastSnapshotDoc.id;
-    const exhaustedCollection =
-      consumedWholeBatch && snapshot.docs.length < FILTERED_BATCH_LIMIT;
-
-    if (exhaustedCollection) {
-      nextCursor = undefined;
-      break;
-    }
-
-    nextCursor = timestampToIso(lastConsumedDoc.data().updatedAt);
-
-    if (!nextCursor || !consumedWholeBatch || professionals.length >= limit) {
-      break;
-    }
-
-    pageCursorTimestamp = parseCursorTimestamp(nextCursor);
-    if (!pageCursorTimestamp) {
-      nextCursor = undefined;
-      break;
-    }
   }
+
+  const canContinue =
+    consumed < snapshot.docs.length || snapshot.docs.length === scanLimit;
+  const nextCursor =
+    canContinue && lastConsumedDoc
+      ? encodeCursor(lastConsumedDoc, built.cursorField, built.fingerprint)
+      : undefined;
 
   return {
     professionals: favoriteFirstRecords(professionals),
     nextCursor,
-    statusCounts: await professionalStatusCounts(options),
+    statusCounts: pageStatusCounts(professionals),
+    partial: built.hasFilters,
+    scanned: snapshot.docs.length,
+    asOf: new Date().toISOString(),
   };
 }
 
@@ -2771,6 +3116,7 @@ export async function createPartnershipCrmProfessional(
   }
 
   const ref = adminDb.collection(PROFESSIONALS_COLLECTION).doc();
+  const now = new Date();
   await ref.set(
     withoutUndefined({
       ...document,
@@ -2786,7 +3132,13 @@ export async function createPartnershipCrmProfessional(
     body: cleanString(input.notes),
   });
 
-  return getPartnershipCrmProfessional(context, ref.id);
+  return toProfessionalRecord(ref.id, {
+    ...document,
+    createdAt: now,
+    updatedAt: now,
+    createdByEmail: context.email,
+    updatedByEmail: context.email,
+  });
 }
 
 export async function updatePartnershipCrmProfessional(
@@ -2831,7 +3183,13 @@ export async function updatePartnershipCrmProfessional(
     });
   }
 
-  return getPartnershipCrmProfessional(context, professionalId);
+  return toProfessionalRecord(professionalId, {
+    ...document,
+    createdAt: snapshot.data()?.createdAt,
+    createdByEmail: snapshot.data()?.createdByEmail,
+    updatedAt: new Date(),
+    updatedByEmail: context.email,
+  });
 }
 
 export async function updatePartnershipCrmProfessionalStatus(
@@ -2845,7 +3203,7 @@ export async function updatePartnershipCrmProfessionalStatus(
     .doc(professionalId);
   const activityReference = reference.collection(ACTIVITIES_COLLECTION).doc();
 
-  await adminDb.runTransaction(async (transaction) => {
+  return adminDb.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(reference);
     if (!snapshot.exists) {
       throw new AdminRepositoryError("CRM professional not found.", 404);
@@ -2853,7 +3211,7 @@ export async function updatePartnershipCrmProfessionalStatus(
 
     const previousStatus = normalizeStatus(snapshot.data()?.status);
     if (previousStatus === status) {
-      return;
+      return toProfessionalRecord(professionalId, snapshot.data() ?? {});
     }
 
     transaction.update(reference, {
@@ -2870,9 +3228,59 @@ export async function updatePartnershipCrmProfessionalStatus(
         metadata: { previousStatus, nextStatus: status },
       }),
     );
+    return toProfessionalRecord(professionalId, {
+      ...(snapshot.data() ?? {}),
+      status,
+      updatedAt: new Date(),
+      updatedByEmail: context.email,
+    });
   });
+}
 
-  return getPartnershipCrmProfessional(context, professionalId);
+export async function updatePartnershipCrmProfessionalFavorite(
+  context: AdminContext,
+  professionalId: string,
+  isFavorite: boolean,
+) {
+  requireGodMode(context);
+  const reference = adminDb
+    .collection(PROFESSIONALS_COLLECTION)
+    .doc(professionalId);
+  const activityReference = reference.collection(ACTIVITIES_COLLECTION).doc();
+
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("CRM professional not found.", 404);
+    }
+
+    const data = snapshot.data() ?? {};
+    if (normalizeBoolean(data.is_favorite) === isFavorite) {
+      return toProfessionalRecord(professionalId, data);
+    }
+
+    transaction.update(reference, {
+      is_favorite: isFavorite,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    });
+    transaction.set(
+      activityReference,
+      targetActivityDocument(context, {
+        type: "updated",
+        title: isFavorite
+          ? "Professional marked as favorite"
+          : "Professional unmarked as favorite",
+      }),
+    );
+
+    return toProfessionalRecord(professionalId, {
+      ...data,
+      is_favorite: isFavorite,
+      updatedAt: new Date(),
+      updatedByEmail: context.email,
+    });
+  });
 }
 
 export async function deletePartnershipCrmProfessional(
@@ -2894,19 +3302,18 @@ export async function listPartnershipCrmActivities(
   options: { cursor?: string; limit?: unknown } = {},
 ): Promise<PartnershipCrmActivitiesPage> {
   requireGodMode(context);
-  const organization = await getOrganizationSnapshot(organizationId);
-  if (!organization) {
-    throw new AdminRepositoryError("CRM organization not found.", 404);
-  }
-
   const limit = normalizeLimit(options.limit);
-  let query = organization.ref
+  const fingerprint = cursorFingerprint({
+    type: "organization-activities",
+    organizationId,
+  });
+  let query: Query = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId)
     .collection(ACTIVITIES_COLLECTION)
-    .orderBy("occurredAt", "desc");
-  const cursorTimestamp = parseCursorTimestamp(options.cursor);
-  if (cursorTimestamp) {
-    query = query.startAfter(cursorTimestamp);
-  }
+    .orderBy("occurredAt", "desc")
+    .orderBy(FieldPath.documentId(), "desc");
+  query = applyCursor(query, options.cursor, "occurredAt", fingerprint);
 
   const snapshot = await query.limit(limit + 1).get();
   const visibleDocs = snapshot.docs.slice(0, limit);
@@ -2916,10 +3323,10 @@ export async function listPartnershipCrmActivities(
   const lastVisible = visibleDocs[visibleDocs.length - 1];
   const nextCursor =
     snapshot.docs.length > limit && lastVisible
-      ? timestampToIso(lastVisible.data().occurredAt)
+      ? encodeCursor(lastVisible, "occurredAt", fingerprint)
       : undefined;
 
-  return { activities, nextCursor };
+  return { activities, nextCursor, asOf: new Date().toISOString() };
 }
 
 export async function createPartnershipCrmActivity(
@@ -2959,19 +3366,18 @@ export async function listPartnershipCrmProfessionalActivities(
   options: { cursor?: string; limit?: unknown } = {},
 ): Promise<PartnershipCrmActivitiesPage> {
   requireGodMode(context);
-  const professional = await getProfessionalSnapshot(professionalId);
-  if (!professional) {
-    throw new AdminRepositoryError("CRM professional not found.", 404);
-  }
-
   const limit = normalizeLimit(options.limit);
-  let query = professional.ref
+  const fingerprint = cursorFingerprint({
+    type: "professional-activities",
+    professionalId,
+  });
+  let query: Query = adminDb
+    .collection(PROFESSIONALS_COLLECTION)
+    .doc(professionalId)
     .collection(ACTIVITIES_COLLECTION)
-    .orderBy("occurredAt", "desc");
-  const cursorTimestamp = parseCursorTimestamp(options.cursor);
-  if (cursorTimestamp) {
-    query = query.startAfter(cursorTimestamp);
-  }
+    .orderBy("occurredAt", "desc")
+    .orderBy(FieldPath.documentId(), "desc");
+  query = applyCursor(query, options.cursor, "occurredAt", fingerprint);
 
   const snapshot = await query.limit(limit + 1).get();
   const visibleDocs = snapshot.docs.slice(0, limit);
@@ -2981,10 +3387,10 @@ export async function listPartnershipCrmProfessionalActivities(
   const lastVisible = visibleDocs[visibleDocs.length - 1];
   const nextCursor =
     snapshot.docs.length > limit && lastVisible
-      ? timestampToIso(lastVisible.data().occurredAt)
+      ? encodeCursor(lastVisible, "occurredAt", fingerprint)
       : undefined;
 
-  return { activities, nextCursor };
+  return { activities, nextCursor, asOf: new Date().toISOString() };
 }
 
 export async function createPartnershipCrmProfessionalActivity(
@@ -3025,13 +3431,13 @@ export async function listPartnershipCrmSentEmailLog(
   requireGodMode(context);
 
   const limit = normalizeLimit(options.limit);
+  const fingerprint = cursorFingerprint({ type: "sent-email-log" });
   let query = adminDb
     .collection(SENT_EMAIL_LOG_COLLECTION)
-    .orderBy("sentAt", "desc");
-  const cursorTimestamp = parseCursorTimestamp(options.cursor);
-  if (cursorTimestamp) {
-    query = query.startAfter(cursorTimestamp);
-  }
+    .orderBy("sentAt", "desc")
+    .orderBy(FieldPath.documentId(), "desc")
+    .select(...SENT_EMAIL_LOG_SUMMARY_FIELDS);
+  query = applyCursor(query, options.cursor, "sentAt", fingerprint);
 
   const snapshot = await query.limit(limit + 1).get();
   const visibleDocs = snapshot.docs.slice(0, limit);
@@ -3041,10 +3447,112 @@ export async function listPartnershipCrmSentEmailLog(
   const lastVisible = visibleDocs[visibleDocs.length - 1];
   const nextCursor =
     snapshot.docs.length > limit && lastVisible
-      ? timestampToIso(lastVisible.data().sentAt)
+      ? encodeCursor(lastVisible, "sentAt", fingerprint)
       : undefined;
 
-  return { emails, nextCursor };
+  return { emails, nextCursor, asOf: new Date().toISOString() };
+}
+
+export async function getPartnershipCrmSentEmailLog(
+  context: AdminContext,
+  emailLogId: string,
+): Promise<PartnershipCrmSentEmailLogRecord> {
+  requireGodMode(context);
+
+  const normalizedId = cleanString(emailLogId);
+  if (!normalizedId) {
+    throw new AdminRepositoryError("CRM sent email log id is required.", 400);
+  }
+
+  const snapshot = await adminDb
+    .collection(SENT_EMAIL_LOG_COLLECTION)
+    .doc(normalizedId)
+    .get();
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError("CRM sent email log not found.", 404);
+  }
+
+  return toSentEmailLogRecord(snapshot.id, snapshot.data() ?? {});
+}
+
+async function createIdempotentImportedOrganization(
+  context: AdminContext,
+  documentId: string,
+  document: Record<string, unknown>,
+) {
+  const reference = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(documentId);
+  const now = new Date();
+
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (snapshot.exists) {
+      return {
+        created: false,
+        record: toOrganizationRecord(documentId, snapshot.data() ?? {}),
+      };
+    }
+
+    const storedDocument = withoutUndefined({
+      ...document,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      createdByEmail: context.email,
+      updatedByEmail: context.email,
+    });
+    transaction.set(reference, storedDocument);
+    return {
+      created: true,
+      record: toOrganizationRecord(documentId, {
+        ...document,
+        createdAt: now,
+        updatedAt: now,
+        createdByEmail: context.email,
+        updatedByEmail: context.email,
+      }),
+    };
+  });
+}
+
+async function createIdempotentImportedProfessional(
+  context: AdminContext,
+  documentId: string,
+  document: Record<string, unknown>,
+) {
+  const reference = adminDb
+    .collection(PROFESSIONALS_COLLECTION)
+    .doc(documentId);
+  const now = new Date();
+
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (snapshot.exists) {
+      return {
+        created: false,
+        record: toProfessionalRecord(documentId, snapshot.data() ?? {}),
+      };
+    }
+
+    const storedDocument = withoutUndefined({
+      ...document,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      createdByEmail: context.email,
+      updatedByEmail: context.email,
+    });
+    transaction.set(reference, storedDocument);
+    return {
+      created: true,
+      record: toProfessionalRecord(documentId, {
+        ...document,
+        createdAt: now,
+        updatedAt: now,
+        createdByEmail: context.email,
+        updatedByEmail: context.email,
+      }),
+    };
+  });
 }
 
 export async function previewPartnershipCrmImport(
@@ -3052,6 +3560,7 @@ export async function previewPartnershipCrmImport(
   rows: PartnershipCrmImportRowInput[],
 ): Promise<PartnershipCrmImportPreview> {
   requireGodMode(context);
+  requireSingleImportRow(rows);
   const previews: PartnershipCrmImportPreviewRow[] = [];
 
   for (const [index, row] of rows.entries()) {
@@ -3102,6 +3611,7 @@ export async function importPartnershipCrmOrganizations(
   rows: PartnershipCrmImportRowInput[],
 ) {
   requireGodMode(context);
+  requireSingleImportRow(rows);
   const results: Array<{
     rowId: string;
     action: "created" | "updated" | "skipped" | "invalid";
@@ -3124,9 +3634,30 @@ export async function importPartnershipCrmOrganizations(
         continue;
       }
 
-      const duplicateCandidates = await findDuplicateOrganizations(row);
-      const duplicateId =
-        row.duplicateOrganizationId ?? duplicateCandidates[0]?.id;
+      const idempotentDocumentId = importIdempotencyDocumentId(
+        "organizations",
+        row.idempotencyKey,
+      );
+      if (idempotentDocumentId) {
+        const replaySnapshot = await adminDb
+          .collection(ORGANIZATIONS_COLLECTION)
+          .doc(idempotentDocumentId)
+          .get();
+        if (replaySnapshot.exists) {
+          results.push({
+            rowId,
+            action: "created",
+            organizationId: idempotentDocumentId,
+          });
+          continue;
+        }
+      }
+
+      const requestedDuplicateId = cleanString(row.duplicateOrganizationId);
+      const duplicateCandidates = requestedDuplicateId
+        ? []
+        : await findDuplicateOrganizations(row);
+      const duplicateId = requestedDuplicateId || duplicateCandidates[0]?.id;
       const duplicateAction =
         duplicateCandidates.length > 0 || duplicateId
           ? (row.duplicateAction ?? "skip")
@@ -3192,12 +3723,34 @@ export async function importPartnershipCrmOrganizations(
         continue;
       }
 
-      const created = await createPartnershipCrmOrganization(context, row);
-      await addActivity(created.id, context, {
-        type: "import",
-        title: "Imported from CSV",
-        body: cleanString(row.notes),
-      });
+      let created: PartnershipCrmOrganizationRecord;
+      if (idempotentDocumentId) {
+        const idempotentCreate = await createIdempotentImportedOrganization(
+          context,
+          idempotentDocumentId,
+          document,
+        );
+        created = idempotentCreate.record;
+        if (idempotentCreate.created) {
+          await addActivity(created.id, context, {
+            type: "created",
+            title: "Organization created",
+            body: cleanString(row.notes),
+          });
+          await addActivity(created.id, context, {
+            type: "import",
+            title: "Imported from CSV",
+            body: cleanString(row.notes),
+          });
+        }
+      } else {
+        created = await createPartnershipCrmOrganization(context, row);
+        await addActivity(created.id, context, {
+          type: "import",
+          title: "Imported from CSV",
+          body: cleanString(row.notes),
+        });
+      }
       results.push({ rowId, action: "created", organizationId: created.id });
     } catch (error) {
       if (error instanceof AdminRepositoryError) {
@@ -3230,6 +3783,7 @@ export async function previewPartnershipCrmProfessionalImport(
   rows: PartnershipCrmProfessionalImportRowInput[],
 ): Promise<PartnershipCrmProfessionalImportPreview> {
   requireGodMode(context);
+  requireSingleImportRow(rows);
   const previews: PartnershipCrmProfessionalImportPreviewRow[] = [];
 
   for (const [index, row] of rows.entries()) {
@@ -3287,6 +3841,7 @@ export async function importPartnershipCrmProfessionals(
   rows: PartnershipCrmProfessionalImportRowInput[],
 ) {
   requireGodMode(context);
+  requireSingleImportRow(rows);
   const results: Array<{
     rowId: string;
     action: "created" | "updated" | "skipped" | "invalid";
@@ -3309,9 +3864,30 @@ export async function importPartnershipCrmProfessionals(
         continue;
       }
 
-      const duplicateCandidates = await findDuplicateProfessionals(row);
-      const duplicateId =
-        row.duplicateProfessionalId ?? duplicateCandidates[0]?.id;
+      const idempotentDocumentId = importIdempotencyDocumentId(
+        "professionals",
+        row.idempotencyKey,
+      );
+      if (idempotentDocumentId) {
+        const replaySnapshot = await adminDb
+          .collection(PROFESSIONALS_COLLECTION)
+          .doc(idempotentDocumentId)
+          .get();
+        if (replaySnapshot.exists) {
+          results.push({
+            rowId,
+            action: "created",
+            professionalId: idempotentDocumentId,
+          });
+          continue;
+        }
+      }
+
+      const requestedDuplicateId = cleanString(row.duplicateProfessionalId);
+      const duplicateCandidates = requestedDuplicateId
+        ? []
+        : await findDuplicateProfessionals(row);
+      const duplicateId = requestedDuplicateId || duplicateCandidates[0]?.id;
       const duplicateAction =
         duplicateCandidates.length > 0 || duplicateId
           ? (row.duplicateAction ?? "skip")
@@ -3377,12 +3953,34 @@ export async function importPartnershipCrmProfessionals(
         continue;
       }
 
-      const created = await createPartnershipCrmProfessional(context, row);
-      await addProfessionalActivity(created.id, context, {
-        type: "import",
-        title: "Imported from CSV",
-        body: cleanString(row.notes),
-      });
+      let created: PartnershipCrmProfessionalRecord;
+      if (idempotentDocumentId) {
+        const idempotentCreate = await createIdempotentImportedProfessional(
+          context,
+          idempotentDocumentId,
+          document,
+        );
+        created = idempotentCreate.record;
+        if (idempotentCreate.created) {
+          await addProfessionalActivity(created.id, context, {
+            type: "created",
+            title: "Professional created",
+            body: cleanString(row.notes),
+          });
+          await addProfessionalActivity(created.id, context, {
+            type: "import",
+            title: "Imported from CSV",
+            body: cleanString(row.notes),
+          });
+        }
+      } else {
+        created = await createPartnershipCrmProfessional(context, row);
+        await addProfessionalActivity(created.id, context, {
+          type: "import",
+          title: "Imported from CSV",
+          body: cleanString(row.notes),
+        });
+      }
       results.push({ rowId, action: "created", professionalId: created.id });
     } catch (error) {
       if (error instanceof AdminRepositoryError) {
@@ -3488,10 +4086,14 @@ export async function sendPartnershipCrmOrganizationEmail(
     templateId,
     templateName,
   });
-  const updatedOrganization = await getPartnershipCrmOrganization(
-    context,
-    organizationId,
-  );
+  const now = new Date().toISOString();
+  const updatedOrganization: PartnershipCrmOrganizationRecord = {
+    ...organization,
+    status: nextStatus,
+    lastContactAt: now,
+    updatedAt: now,
+    updatedByEmail: context.email,
+  };
 
   return { organization: updatedOrganization, activity, sentEmailLog };
 }
@@ -3574,10 +4176,14 @@ export async function sendPartnershipCrmProfessionalEmail(
     templateId,
     templateName,
   });
-  const updatedProfessional = await getPartnershipCrmProfessional(
-    context,
-    professionalId,
-  );
+  const now = new Date().toISOString();
+  const updatedProfessional: PartnershipCrmProfessionalRecord = {
+    ...professional,
+    status: nextStatus,
+    lastContactAt: now,
+    updatedAt: now,
+    updatedByEmail: context.email,
+  };
 
   return { professional: updatedProfessional, activity, sentEmailLog };
 }
