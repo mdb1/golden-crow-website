@@ -452,10 +452,15 @@ keeps pointing at the deployment coaches already have open and no IDs rotate.
 
 Two things about it are important:
 
-- **The visible version bump counts as a backoffice change.**
-  `.githooks/pre-commit` runs `bump-sidebar-version.py` on every pushed commit.
-  Production redeploys when that file changes so the authentication screen
-  always shows the committed version and operators can verify the bump shipped.
+- **The visible version bump counts as a backoffice change — so the hook only
+  bumps when the commit ships backoffice code.** `.githooks/pre-commit` runs
+  `bump-sidebar-version.py`, which bumps `src/lib/app-version.ts` only if the
+  commit stages something else under `backoffice/`. Production redeploys when
+  that file changes, so the authentication screen always shows the running
+  version; and a `pocket-genes/`-only commit carries no bump, so it does not
+  redeploy (until 2026-10 it did, and every marketing commit rotated the action
+  IDs). `scripts/__tests__/bump-sidebar-version.test.ts` commits through the
+  real hook and checks Vercel's decision on the result.
 - **It runs from the Root Directory** (`backoffice/`), so `.` means the
   backoffice subtree. The script asserts this via `package.json` and builds on
   any doubt, because the dangerous failure is a confident wrong "nothing
