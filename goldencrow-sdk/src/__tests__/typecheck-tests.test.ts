@@ -20,3 +20,17 @@ it("type-checks (tsc -p tsconfig.jest.json --noEmit)", () => {
   expect(errors).toEqual([]);
   expect(result.status).toBe(0);
 }, 180_000);
+
+// 2026-10-15: `npm run build` (tsc over `src/`) was green while the Vercel
+// deploy failed with 335 errors — @vercel/node type-checks starting from
+// api/index.ts, and from there the FastifyRequest augmentation in
+// src/types/fastify.d.ts was unreachable. Check that entry the same way.
+it("type-checks from the Vercel function entry (tsc -p tsconfig.vercel.json)", () => {
+  const tsc = path.join(ROOT, "node_modules", ".bin", "tsc");
+  const result = spawnSync(tsc, ["-p", "tsconfig.vercel.json"], { cwd: ROOT, encoding: "utf8" });
+  const errors = `${result.stdout}${result.stderr}`
+    .split("\n")
+    .filter((line) => line.includes("error TS"));
+  expect(errors).toEqual([]);
+  expect(result.status).toBe(0);
+}, 180_000);

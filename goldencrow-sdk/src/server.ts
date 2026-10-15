@@ -1,3 +1,8 @@
+// The FastifyRequest augmentation (`user`, `adminContext`). Referenced here, not
+// just picked up by tsconfig's `include`, because Vercel type-checks starting
+// from api/index.ts — without this line its build sees none of the routes'
+// request fields and fails (2026-10-15, after @vercel/node 24).
+/// <reference path="./types/fastify.d.ts" />
 import "dotenv/config";
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
