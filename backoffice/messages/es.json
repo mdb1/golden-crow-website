@@ -2459,9 +2459,14 @@
       "adductors": "Aductores"
     }
   },
+  "formDraft": {
+    "restored": "Recuperamos lo que estabas cargando antes de recargar la página. Todavía no está guardado.",
+    "discard": "Descartar borrador",
+    "keep": "Seguir editando"
+  },
   "staleDeployment": {
-    "title": "Se publicó una versión nueva del backoffice",
-    "body": "Esta pestaña quedó en la versión anterior, así que guardar no va a funcionar hasta que recargues. Las rutinas y los planes nutricionales que estabas editando se recuperan solos al recargar.",
+    "title": "Hay una versión nueva del sistema",
+    "body": "Recargá la página para seguir: lo que estabas cargando en rutinas, planes nutricionales, comidas, ejercicios, hábitos y entrenamientos asignados queda guardado como borrador y se recupera al recargar.",
     "reload": "Recargar",
     "dismiss": "Ahora no",
     "boundaryBody": "Recargá la página para seguir trabajando."

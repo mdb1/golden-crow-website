@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { staleAwareQueryCaches } from "@/lib/gc-fitness/stale-aware-query-caches";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -75,6 +76,7 @@ export function ClientCalendarPeek({
   const [queryClient] = useState(
     () =>
       new QueryClient({
+        ...staleAwareQueryCaches(),
         defaultOptions: {
           queries: { staleTime: 30_000, refetchOnWindowFocus: false },
         },

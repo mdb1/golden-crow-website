@@ -4,6 +4,7 @@ import { signOut } from "firebase/auth";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { getGCFitnessAuth } from "@/lib/firebase/gc-fitness-client";
+import { clearAllFormDrafts } from "@/lib/gc-fitness/use-form-draft";
 
 // Two-step sign-out for the gc-fitness trainer surface:
 //   1. signOut on the scoped Firebase Web SDK clears any in-memory auth state
@@ -27,6 +28,9 @@ export function SignOutButton() {
     } catch {
       // best-effort — proxy will redirect to /login on next request anyway
     }
+    // #382 — form drafts live in this tab's sessionStorage; none of them may
+    // survive into whoever signs in next on this tab.
+    clearAllFormDrafts();
     window.location.href = "/gc-fitness/login";
   }
 

@@ -73,6 +73,9 @@ import {
   NO_END_HORIZON_DAYS,
 } from "@/lib/gc-fitness/recurrence-expansion";
 import { HabitPhotoDropzone } from "./HabitPhotoDropzone";
+import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
+import { formDraftKey, useFormDraft } from "@/lib/gc-fitness/use-form-draft";
+import { FormDraftRestoredNotice } from "@/components/gc-fitness/form-draft-restored-notice";
 
 // #294 — class applied to every day cell the habit will be active on, so the
 // trainer previews the schedule on the calendar before assigning. Matches the
@@ -241,6 +244,23 @@ export function HabitForm({
     defaultValues: initialDefaults,
     mode: "onSubmit",
   });
+
+  // #382 — a reload (stale deployment, F5) brings the coach's edit back. A
+  // create-mode `habitId` is a fresh random draft id per mount, so a new habit
+  // is keyed by the client it is for instead.
+  const draft = useFormDraft<HabitCreateInput>({
+    key: formDraftKey(
+      "habit",
+      mode === "edit" ? habitId : `new:${defaultValues?.clientId ?? ""}`,
+    ),
+    value: form.watch(),
+    onRestore: (saved) =>
+      form.reset({ ...initialDefaults, ...saved }, { keepDefaultValues: true }),
+  });
+  const discardDraft = () => {
+    form.reset(initialDefaults);
+    draft.discard(initialDefaults);
+  };
 
   // Watch `reminderEnabled` so the conditional reminder UI re-renders.
   const watchedReminderEnabled = useWatch({
@@ -427,6 +447,7 @@ export function HabitForm({
         cleaned.name = mirrorLocalizedBlank(cleaned.name);
         cleaned.description = mirrorLocalizedBlank(cleaned.description);
         const result = await onSubmit(cleaned);
+        draft.clear();
         if (mode === "create" && result?.id) {
           toast.success(t("createdToast"));
           if (onAfterSubmit) {
@@ -446,6 +467,9 @@ export function HabitForm({
         }
       } catch (err) {
         console.error("[habit-form] save failed", err);
+        // #382 — a stale tab: the banner explains it and the draft survives
+        // the reload; a raw "Server Action … not found" toast would not.
+        if (noteIfStaleDeployment(err)) return;
         const message =
           err instanceof Error ? err.message : t("saveFailed");
         setSubmitError(message);
@@ -457,6 +481,12 @@ export function HabitForm({
   return (
     <Form {...form}>
       <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
+        {draft.restored ? (
+          <FormDraftRestoredNotice
+            onDiscard={discardDraft}
+            onDismiss={draft.dismissNotice}
+          />
+        ) : null}
         {/* Single top-right translation toggle for the whole form. While
             hidden, localized fields show just the coach-language input. */}
         {!showTranslations ? (
@@ -954,7 +984,10 @@ export function HabitForm({
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => router.back()}
+                onClick={() => {
+                  draft.discard();
+                  router.back();
+                }}
                 disabled={pending}
               >
                 {t("cancel")}

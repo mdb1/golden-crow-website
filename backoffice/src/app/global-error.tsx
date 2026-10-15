@@ -21,7 +21,7 @@ import "./globals.css";
 
 const COPY = {
   es: {
-    staleTitle: "Se publicó una versión nueva",
+    staleTitle: "Hay una versión nueva del sistema",
     staleBody:
       "Esta pestaña quedó en la versión anterior. Recargá para seguir: las rutinas y los planes nutricionales que estabas editando se recuperan solos.",
     title: "Algo salió mal al cargar esta página",
@@ -30,7 +30,7 @@ const COPY = {
     back: "Volver",
   },
   en: {
-    staleTitle: "A new version was published",
+    staleTitle: "There is a new version of the system",
     staleBody:
       "This tab is still on the previous version. Reload to keep going — routines and nutrition plans you were editing come back on their own.",
     title: "Something went wrong loading this page",

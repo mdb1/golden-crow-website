@@ -2459,9 +2459,14 @@
       "adductors": "Adductors"
     }
   },
+  "formDraft": {
+    "restored": "We restored what you were entering before the page reloaded. It is not saved yet.",
+    "discard": "Discard draft",
+    "keep": "Keep editing"
+  },
   "staleDeployment": {
-    "title": "A new version of the backoffice was published",
-    "body": "This tab is still running the previous version, so saving won't work until you reload. Routines and nutrition plans you were editing come back on their own after the reload.",
+    "title": "There is a new version of the system",
+    "body": "Reload the page to keep working: what you were entering in routines, nutrition plans, meals, exercises, habits and assigned workouts is kept as a draft and comes back after the reload.",
     "reload": "Reload",
     "dismiss": "Not now",
     "boundaryBody": "Reload the page to keep working."

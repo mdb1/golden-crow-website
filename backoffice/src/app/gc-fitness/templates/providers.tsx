@@ -12,6 +12,7 @@
 // devtools mounted only when this surface is on screen.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { staleAwareQueryCaches } from "@/lib/gc-fitness/stale-aware-query-caches";
 import { useState, type ReactNode } from "react";
 
 export function TemplatesQueryProvider({
@@ -22,6 +23,7 @@ export function TemplatesQueryProvider({
   const [client] = useState(
     () =>
       new QueryClient({
+        ...staleAwareQueryCaches(),
         defaultOptions: {
           queries: {
             // Templates: 30s staleTime is plenty (server-action driven, not

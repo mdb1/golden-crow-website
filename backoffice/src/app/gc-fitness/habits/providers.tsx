@@ -13,6 +13,7 @@
 // the next mount to refresh after the user navigates away briefly.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { staleAwareQueryCaches } from "@/lib/gc-fitness/stale-aware-query-caches";
 import { useState, type ReactNode } from "react";
 
 export function HabitsQueryProvider({
@@ -23,6 +24,7 @@ export function HabitsQueryProvider({
   const [client] = useState(
     () =>
       new QueryClient({
+        ...staleAwareQueryCaches(),
         defaultOptions: {
           queries: {
             refetchOnWindowFocus: false,

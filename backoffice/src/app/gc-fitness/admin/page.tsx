@@ -1,16 +1,11 @@
-import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import {
-  addCoachEmailToAllowlist,
-  deleteCoachCascade,
   listCoachesForAdmin,
   listCoachAllowlist,
-  removeCoachEmailFromAllowlist,
   previewCoachCascade,
-  promoteUserToAdmin,
 } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { countOpenReports } from "@/lib/gc-fitness/moderation-actions";
@@ -28,6 +23,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+import {
+  addAllowlistEmailAction,
+  deleteCoachAction,
+  promoteToAdminAction,
+  removeAllowlistEmailAction,
+} from "./actions";
 
 // Tab title: "Corvo - <adminPanel>" (issue #170).
 export const generateMetadata = () => sectionMetadata("adminPanel");
@@ -72,40 +73,6 @@ export default async function AdminPage({
   const allowlistRows = await listCoachAllowlist();
   const openReportsCount = await countOpenReports().catch(() => 0);
   const tCorvo = await getTranslations("corvoAdmin");
-
-  async function addAllowlistEmailAction(formData: FormData) {
-    "use server";
-    const email = String(formData.get("email") ?? "");
-    await addCoachEmailToAllowlist(email);
-    revalidatePath("/gc-fitness/admin");
-    redirect("/gc-fitness/admin?op=allowlist_add&ok=1");
-  }
-
-  async function promoteToAdminAction(formData: FormData) {
-    "use server";
-    const email = String(formData.get("email") ?? "");
-    await promoteUserToAdmin({ email, keepTrainer: true });
-    revalidatePath("/gc-fitness/admin");
-    redirect("/gc-fitness/admin?op=promote_admin&ok=1");
-  }
-
-  async function removeAllowlistEmailAction(formData: FormData) {
-    "use server";
-    const email = String(formData.get("email") ?? "");
-    await removeCoachEmailFromAllowlist({ email });
-    revalidatePath("/gc-fitness/admin");
-    redirect("/gc-fitness/admin?op=allowlist_remove&ok=1");
-  }
-
-  async function deleteCoachAction(formData: FormData) {
-    "use server";
-    const coachUid = String(formData.get("coachUid") ?? "");
-    const confirmation = String(formData.get("confirmation") ?? "");
-    const mode = String(formData.get("mode") ?? "dry_run");
-    await deleteCoachCascade({ coachUid, confirmation, mode });
-    revalidatePath("/gc-fitness/admin");
-    redirect("/gc-fitness/admin?op=delete_coach&ok=1");
-  }
 
   return (
     <div className="gc-page flex flex-col gap-6">

@@ -22,6 +22,7 @@
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { staleAwareQueryCaches } from "@/lib/gc-fitness/stale-aware-query-caches";
 import { Pencil } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,7 @@ export function ClientSummaryLists({
   const [queryClient] = useState(
     () =>
       new QueryClient({
+        ...staleAwareQueryCaches(),
         defaultOptions: {
           queries: { staleTime: 30_000, refetchOnWindowFocus: false },
         },
