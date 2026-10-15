@@ -4,13 +4,13 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && npm test",
     "preview": "astro preview",
     "astro": "astro",
     "test": "npm run test:unit && npm run test:dist",
     "test:unit": "node --import ./test/support/register-ts.mjs --test \"test/unit/*.test.ts\"",
     "test:dist": "node --test \"test/dist/*.test.mjs\"",
-    "test:full": "npm run build && npm test"
+    "build:site": "astro build"
   },
   "dependencies": {
     "@tsparticles/slim": "^4.4.0",
