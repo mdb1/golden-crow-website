@@ -486,6 +486,19 @@ least one deploy** next to the new one (a thin wrapper is enough), and remove it
 in a later deploy — a day later is fine; tabs older than that will hit the
 banner and recover from the draft.
 
+#### The guards (run them; they exist because each of these already happened)
+
+| What | Where | When |
+|---|---|---|
+| **Server Actions contract** — every exported action (file, name, argument shape) is listed in `server-actions.contract.json`; a removed, renamed, moved or re-shaped action fails `npx jest` | `src/lib/__tests__/server-actions-contract.test.ts` | always (part of `npx jest`). New action → `npm run actions:contract`. Removing one on purpose → same command moves it to `retired` with the date, for review |
+| **Deploy skew check** — builds `origin/main` and the working tree with the same key; every old action ID must still exist and point to the SAME action; then smoke-tests the new build under `--no-experimental-require-module` (login 200, protected page 307, session API loads firebase-admin → 403, all assets 200, an old ID still routed, no `ERR_REQUIRE_ESM`) | `npm run check:deploy-skew [base-ref]` (~1–2 min) | before merging any PR that touches a `"use server"` file **or dependencies** |
+| **Server packages load without require(esm)** — the Vercel function runtime refuses it; Node 24 locally does not, so everything was green while production 500'd (2026-10-15, firebase-admin 14 → jwks-rsa 4 → jose 6) | `src/lib/__tests__/server-deps-load-without-require-esm.test.ts` | always (part of `npx jest`) |
+| **No inline `"use server"` closures** | `src/lib/__tests__/no-inline-server-actions.test.ts` | always |
+| **Last boundary** — a ChunkLoadError / missing action reloads once onto the new deployment, never loops; other errors keep their flow | `src/app/__tests__/global-error.test.tsx`, `route-error-boundary.test.tsx`, `stale-aware-query-caches.test.ts` | always |
+
+What none of them can cover: the previous build's JS chunks (no Skew Protection) —
+an old tab that lazily loads one hits the banner and the drafts bring the form back.
+
 ### 1. `vercel.json` → `scripts/vercel-ignore-build.sh`
 
 The Ignored Build Step. It aborts the build (exit **0** — Vercel's codes are
