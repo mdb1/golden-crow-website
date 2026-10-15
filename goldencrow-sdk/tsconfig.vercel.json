@@ -1,0 +1,7 @@
+{
+  "//": "Type-checks the way Vercel's @vercel/node builder does: starting from the function entry, not from tsconfig's include. See src/__tests__/typecheck-tests.test.ts.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true, "rootDir": "." },
+  "include": [],
+  "files": ["api/index.ts"]
+}
