@@ -62,6 +62,8 @@ module.exports = {
     "/node_modules/(?!(@tanstack/react-table|@tanstack/table-core|jose)/)",
   ],
   moduleNameMapper: {
+    // Stylesheets (e.g. app/global-error.tsx imports globals.css).
+    "\\.css$": "<rootDir>/src/lib/test-utils/style-stub.ts",
     "^@/(.*)$": "<rootDir>/src/$1",
     // `server-only` is a Next.js build-time guard module that throws if it
     // ends up in a client bundle. It is not resolvable under plain Jest;

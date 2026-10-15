@@ -23,7 +23,7 @@ const COPY = {
   es: {
     staleTitle: "Hay una versión nueva del sistema",
     staleBody:
-      "Esta pestaña quedó en la versión anterior. Recargá para seguir: las rutinas y los planes nutricionales que estabas editando se recuperan solos.",
+      "Esta pestaña quedó en la versión anterior. Recargá para seguir: lo que estabas cargando en rutinas, planes nutricionales, comidas, ejercicios, hábitos y entrenamientos asignados se recupera al recargar.",
     title: "Algo salió mal al cargar esta página",
     body: "Recargá la página para intentarlo de nuevo. Si estabas editando una rutina o un plan nutricional, tus cambios se recuperan al volver a abrirlo.",
     reload: "Recargar",
@@ -32,7 +32,7 @@ const COPY = {
   en: {
     staleTitle: "There is a new version of the system",
     staleBody:
-      "This tab is still on the previous version. Reload to keep going — routines and nutrition plans you were editing come back on their own.",
+      "This tab is still on the previous version. Reload to keep going — what you were entering in routines, nutrition plans, meals, exercises, habits and assigned workouts comes back after the reload.",
     title: "Something went wrong loading this page",
     body: "Reload the page to try again. If you were editing a routine or a nutrition plan, your changes come back when you reopen it.",
     reload: "Reload",
