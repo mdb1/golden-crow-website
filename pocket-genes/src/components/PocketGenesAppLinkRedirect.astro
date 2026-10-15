@@ -14,6 +14,7 @@ interface Props {
 
 const { area, resource } = Astro.props;
 const customSchemeBase = `pocketgenes://${area}/${resource}`;
+const isOrganizationRoute = resource === 'organizations';
 const isEnglishPage = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const pageLang = isEnglishPage ? 'en' : 'es';
 const canonicalSocialFieldKey = (value: string) =>
@@ -51,6 +52,12 @@ const initialCopy = isEnglishPage
       breadcrumbLabel: 'Shared content',
       breadcrumbDiscover: 'Discover',
       breadcrumbEvent: 'Event',
+      breadcrumbOrganization: 'Organization',
+      organizationProfileLabel: 'Organization profile',
+      organizationLayoutDescription: 'View a public organization profile on Pocket Genes.',
+      organizationDescriptionTitle: 'Description',
+      openOrganizationInApp: 'Open in Pocket Genes',
+      organizationLoading: 'Loading organization profile',
       appPromotionEyebrow: 'Get Pocket Genes',
       appPromotionTitle: 'Available for iPhone and Android.',
       appPromotionBody: 'Download Pocket Genes from the App Store or Google Play.',
@@ -81,6 +88,12 @@ const initialCopy = isEnglishPage
       breadcrumbLabel: 'Contenido compartido',
       breadcrumbDiscover: 'Discover',
       breadcrumbEvent: 'Evento',
+      breadcrumbOrganization: 'Organización',
+      organizationProfileLabel: 'Perfil de organización',
+      organizationLayoutDescription: 'Consultá un perfil público de organización en Pocket Genes.',
+      organizationDescriptionTitle: 'Descripción',
+      openOrganizationInApp: 'Abrir en Pocket Genes',
+      organizationLoading: 'Cargando perfil de organización',
       appPromotionEyebrow: 'Descargá Pocket Genes',
       appPromotionTitle: 'Disponible para iPhone y Android.',
       appPromotionBody: 'Descargá Pocket Genes desde la App Store o Google Play.',
@@ -96,13 +109,20 @@ const initialCopy = isEnglishPage
 ---
 
 <PocketGenesPublicLayout
-  title={initialCopy.layoutTitle}
-  description={initialCopy.layoutDescription}
+  title={isOrganizationRoute ? `${initialCopy.organizationProfileLabel} | Pocket Genes` : initialCopy.layoutTitle}
+  description={isOrganizationRoute ? initialCopy.organizationLayoutDescription : initialCopy.layoutDescription}
   canonicalPath={Astro.url.pathname}
   showFooter={true}
   image="/pocket-genes/banner.png"
 >
-  <main id="main" class="app-link-page event-page">
+  <main
+    id="main"
+    class:list={[
+      'app-link-page',
+      'event-page',
+      { 'is-organization-route': isOrganizationRoute, 'is-preview-loading': isOrganizationRoute },
+    ]}
+  >
     <div class="event-page__shell">
       <section class="app-link-content" aria-labelledby="app-link-title" data-app-link-hero>
         <img class="app-icon" src="/pocket-genes/icon_simple.png" alt="" width="112" height="112" />
@@ -139,6 +159,33 @@ const initialCopy = isEnglishPage
         </p>
       </section>
 
+      {
+        isOrganizationRoute && (
+          <section
+            class="organization-loading"
+            data-organization-loading
+            role="status"
+            aria-label={initialCopy.organizationLoading}
+          >
+            <div class="organization-loading__identity" aria-hidden="true">
+              <span class="organization-loading__logo"></span>
+              <span class="organization-loading__name"></span>
+              <span class="organization-loading__badge"></span>
+            </div>
+            <div class="organization-loading__columns" aria-hidden="true">
+              <div class="organization-loading__copy">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <div class="organization-loading__rail"></div>
+            </div>
+            <span class="visually-hidden">{initialCopy.organizationLoading}</span>
+          </section>
+        )
+      }
+
       <nav class="app-link-breadcrumb" aria-label={initialCopy.breadcrumbLabel} data-preview-breadcrumb hidden>
         <a href={isEnglishPage ? '/en/pocket-genes/home' : '/pocket-genes/home'}>Pocket Genes</a>
         <span aria-hidden="true"></span>
@@ -146,105 +193,170 @@ const initialCopy = isEnglishPage
           {initialCopy.breadcrumbDiscover}
         </a>
         <span aria-hidden="true"></span>
-        <span aria-current="page">{initialCopy.breadcrumbEvent}</span>
+        <span aria-current="page">
+          {isOrganizationRoute ? initialCopy.breadcrumbOrganization : initialCopy.breadcrumbEvent}
+        </span>
       </nav>
 
       <article
         id="shared-preview"
         class="shared-preview"
         hidden
-        aria-label={isEnglishPage ? 'Shared content preview' : 'Vista previa del contenido compartido'}
+        aria-label={isOrganizationRoute
+          ? initialCopy.organizationProfileLabel
+          : isEnglishPage
+            ? 'Shared content preview'
+            : 'Vista previa del contenido compartido'}
       >
-        <div class="shared-preview-banner" data-preview-banner-shell hidden>
-          <img data-preview-banner alt="" hidden />
-        </div>
-        <header class="event-intro">
-          <p class="shared-preview-eyebrow" data-preview-eyebrow></p>
-          <h1 data-preview-title></h1>
-          <p class="shared-preview-summary" data-preview-summary hidden></p>
-          <div class="shared-preview-organizer">
-            <div class="shared-preview-avatar" data-preview-avatar>
-              <span data-preview-fallback>DNA</span>
-              <img data-preview-image alt="" hidden />
-            </div>
-            <div class="shared-preview-organizer-copy">
-              <p class="shared-preview-publisher" data-preview-publisher></p>
-              <p class="shared-preview-publisher-support" data-preview-publisher-support hidden></p>
-            </div>
-          </div>
-          <div class="shared-preview-badges" data-preview-badges></div>
-        </header>
-        <aside class="event-rail">
-          <section class="shared-preview-event event-details" data-preview-event hidden></section>
-          <section class="shared-preview-publication publication-details" data-preview-publication hidden></section>
-          <div class="note-primary-action" data-preview-primary-action hidden>
-            <a class="shared-preview-website" data-preview-website href="#" target="_blank" rel="noopener noreferrer" hidden>
-              {initialCopy.website}
-            </a>
-            <p class="note-primary-action-support" data-preview-primary-action-support hidden></p>
-          </div>
-          <figure class="event-cover" data-preview-cover hidden>
-            <img class="shared-preview-media" data-preview-media alt="" hidden />
-          </figure>
-        </aside>
-        <div class="event-copy" data-preview-body-shell hidden>
-          <div class="shared-preview-body" data-preview-body hidden></div>
-          <section class="shared-preview-share" data-preview-share hidden>
-            <h2>{initialCopy.shareTitle}</h2>
-            <div class="shared-preview-share-actions" aria-label={initialCopy.shareTitle}>
-              <a class="shared-preview-share-link" data-share-platform="facebook" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareFacebook} title={initialCopy.shareFacebook}>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M15.5 8.2h-2.1c-.7 0-1 .3-1 1v1.5h2.9l-.4 3h-2.5V21H9.3v-7.3H7v-3h2.3V8.8c0-2.5 1.5-3.8 3.7-3.8 1.1 0 2 .1 2.5.2v3Z" />
-                </svg>
-              </a>
-              <a class="shared-preview-share-link" data-share-platform="x" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareX} title={initialCopy.shareX}>
-                <span aria-hidden="true">X</span>
-              </a>
-              <a class="shared-preview-share-link" data-share-platform="instagram" href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareInstagram} title={initialCopy.shareInstagram}>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="5" y="5" width="14" height="14" rx="4" />
-                  <circle cx="12" cy="12" r="3.1" />
-                  <circle cx="16.3" cy="7.8" r=".8" />
-                </svg>
-              </a>
-              <a class="shared-preview-share-link" data-share-platform="whatsapp" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareWhatsapp} title={initialCopy.shareWhatsapp}>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6.7 18.1 5.4 21l3.1-1.1a8.1 8.1 0 1 0-1.8-1.8Z" />
-                  <path d="M9.5 8.8c.2-.4.4-.4.7-.4h.5c.2 0 .4.1.5.4l.7 1.6c.1.3 0 .5-.1.6l-.4.5c-.1.1-.2.3-.1.5.3.7 1.4 1.8 2.3 2.2.2.1.4.1.5-.1l.6-.7c.2-.2.4-.2.7-.1l1.5.7c.3.1.4.3.4.5 0 .7-.6 1.7-1.5 1.7-.8 0-2.6-.5-4.3-2.1-1.7-1.6-2.7-3.5-2.7-4.4 0-.5.3-1 .4-1.4Z" />
-                </svg>
-              </a>
-              <a class="shared-preview-share-link" data-share-platform="linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareLinkedin} title={initialCopy.shareLinkedin}>
-                <span aria-hidden="true">in</span>
-              </a>
-              <a class="shared-preview-share-link" data-share-platform="telegram" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareTelegram} title={initialCopy.shareTelegram}>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M20 5 4.8 11.1c-.9.4-.9 1.1 0 1.4l3.8 1.2 1.5 4.5c.3.8.8.9 1.3.3l2.1-2.3 4 2.9c.7.5 1.2.2 1.4-.7L21 6c.2-.9-.3-1.3-1-.9Z" />
-                  <path d="m8.8 13.5 8-5.1-6.2 6.2-.2 2.8" />
-                </svg>
-              </a>
-            </div>
-            <p class="shared-preview-share-status" data-preview-share-status hidden>{initialCopy.shareCopied}</p>
-          </section>
-        </div>
-        <div class="shared-preview-sections" data-preview-sections hidden>
-          <section class="shared-preview-section" data-preview-categories-section hidden>
-            <h3 data-preview-categories-title></h3>
-            <div class="shared-preview-pill-row" data-preview-categories></div>
-          </section>
-          <section class="shared-preview-section" data-preview-countries-section hidden>
-            <h3 data-preview-countries-title></h3>
-            <div class="shared-preview-pill-row" data-preview-countries></div>
-          </section>
-          <section class="shared-preview-section shared-preview-report-section" data-preview-reports-section hidden>
-            <h3 data-preview-reports-title></h3>
-            <ul data-preview-reports></ul>
-          </section>
-          <section class="shared-preview-section" data-preview-socials-section hidden>
-            <h3 data-preview-socials-title></h3>
-            <div class="shared-preview-socials" data-preview-socials></div>
-          </section>
-        </div>
-        <div class="shared-preview-meta" data-preview-meta hidden></div>
+        {
+          isOrganizationRoute ? (
+            <>
+              <div class="organization-profile-banner" data-preview-banner-shell hidden>
+                <img data-preview-banner alt="" hidden />
+              </div>
+              <header class="organization-profile-identity">
+                <div class="organization-profile-logo shared-preview-avatar" data-preview-avatar>
+                  <span data-preview-fallback>DNA</span>
+                  <img data-preview-image alt="" hidden />
+                </div>
+                <div class="organization-profile-heading">
+                  <h1 data-preview-title></h1>
+                  <div class="shared-preview-badges" data-preview-badges></div>
+                </div>
+              </header>
+              <aside class="organization-profile-actions">
+                <div class="note-primary-action" data-preview-primary-action hidden>
+                  <a class="shared-preview-website" data-preview-website href="#" target="_blank" rel="noopener noreferrer" hidden>
+                    {initialCopy.website}
+                  </a>
+                </div>
+                <a
+                  class="shared-preview-open-app"
+                  data-preview-open-app
+                  href={customSchemeBase}
+                  hidden
+                >
+                  {initialCopy.openOrganizationInApp}
+                </a>
+              </aside>
+              <section class="organization-profile-description" data-preview-body-shell hidden>
+                <h2 class="organization-description-title">{initialCopy.organizationDescriptionTitle}</h2>
+                <div class="shared-preview-body" data-preview-body hidden></div>
+              </section>
+              <aside class="organization-profile-facts shared-preview-sections" data-preview-sections hidden>
+                <section class="shared-preview-section" data-preview-categories-section hidden>
+                  <h3 data-preview-categories-title></h3>
+                  <div class="shared-preview-pill-row" data-preview-categories></div>
+                </section>
+                <section class="shared-preview-section" data-preview-countries-section hidden>
+                  <h3 data-preview-countries-title></h3>
+                  <div class="shared-preview-pill-row" data-preview-countries></div>
+                </section>
+                <section class="shared-preview-section shared-preview-report-section" data-preview-reports-section hidden>
+                  <h3 data-preview-reports-title></h3>
+                  <ul data-preview-reports></ul>
+                </section>
+                <section class="shared-preview-section" data-preview-socials-section hidden>
+                  <h3 data-preview-socials-title></h3>
+                  <div class="shared-preview-socials" data-preview-socials></div>
+                </section>
+              </aside>
+            </>
+          ) : (
+            <>
+              <div class="shared-preview-banner" data-preview-banner-shell hidden>
+                <img data-preview-banner alt="" hidden />
+              </div>
+              <header class="event-intro">
+                <p class="shared-preview-eyebrow" data-preview-eyebrow></p>
+                <h1 data-preview-title></h1>
+                <p class="shared-preview-summary" data-preview-summary hidden></p>
+                <div class="shared-preview-organizer">
+                  <div class="shared-preview-avatar" data-preview-avatar>
+                    <span data-preview-fallback>DNA</span>
+                    <img data-preview-image alt="" hidden />
+                  </div>
+                  <div class="shared-preview-organizer-copy">
+                    <p class="shared-preview-publisher" data-preview-publisher></p>
+                    <p class="shared-preview-publisher-support" data-preview-publisher-support hidden></p>
+                  </div>
+                </div>
+                <div class="shared-preview-badges" data-preview-badges></div>
+              </header>
+              <aside class="event-rail">
+                <section class="shared-preview-event event-details" data-preview-event hidden></section>
+                <section class="shared-preview-publication publication-details" data-preview-publication hidden></section>
+                <div class="note-primary-action" data-preview-primary-action hidden>
+                  <a class="shared-preview-website" data-preview-website href="#" target="_blank" rel="noopener noreferrer" hidden>
+                    {initialCopy.website}
+                  </a>
+                  <p class="note-primary-action-support" data-preview-primary-action-support hidden></p>
+                </div>
+                <figure class="event-cover" data-preview-cover hidden>
+                  <img class="shared-preview-media" data-preview-media alt="" hidden />
+                </figure>
+              </aside>
+              <div class="event-copy" data-preview-body-shell hidden>
+                <div class="shared-preview-body" data-preview-body hidden></div>
+                <section class="shared-preview-share" data-preview-share hidden>
+                  <h2>{initialCopy.shareTitle}</h2>
+                  <div class="shared-preview-share-actions" aria-label={initialCopy.shareTitle}>
+                    <a class="shared-preview-share-link" data-share-platform="facebook" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareFacebook} title={initialCopy.shareFacebook}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M15.5 8.2h-2.1c-.7 0-1 .3-1 1v1.5h2.9l-.4 3h-2.5V21H9.3v-7.3H7v-3h2.3V8.8c0-2.5 1.5-3.8 3.7-3.8 1.1 0 2 .1 2.5.2v3Z" />
+                      </svg>
+                    </a>
+                    <a class="shared-preview-share-link" data-share-platform="x" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareX} title={initialCopy.shareX}>
+                      <span aria-hidden="true">X</span>
+                    </a>
+                    <a class="shared-preview-share-link" data-share-platform="instagram" href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareInstagram} title={initialCopy.shareInstagram}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="5" y="5" width="14" height="14" rx="4" />
+                        <circle cx="12" cy="12" r="3.1" />
+                        <circle cx="16.3" cy="7.8" r=".8" />
+                      </svg>
+                    </a>
+                    <a class="shared-preview-share-link" data-share-platform="whatsapp" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareWhatsapp} title={initialCopy.shareWhatsapp}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M6.7 18.1 5.4 21l3.1-1.1a8.1 8.1 0 1 0-1.8-1.8Z" />
+                        <path d="M9.5 8.8c.2-.4.4-.4.7-.4h.5c.2 0 .4.1.5.4l.7 1.6c.1.3 0 .5-.1.6l-.4.5c-.1.1-.2.3-.1.5.3.7 1.4 1.8 2.3 2.2.2.1.4.1.5-.1l.6-.7c.2-.2.4-.2.7-.1l1.5.7c.3.1.4.3.4.5 0 .7-.6 1.7-1.5 1.7-.8 0-2.6-.5-4.3-2.1-1.7-1.6-2.7-3.5-2.7-4.4 0-.5.3-1 .4-1.4Z" />
+                      </svg>
+                    </a>
+                    <a class="shared-preview-share-link" data-share-platform="linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareLinkedin} title={initialCopy.shareLinkedin}>
+                      <span aria-hidden="true">in</span>
+                    </a>
+                    <a class="shared-preview-share-link" data-share-platform="telegram" href="#" target="_blank" rel="noopener noreferrer" aria-label={initialCopy.shareTelegram} title={initialCopy.shareTelegram}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M20 5 4.8 11.1c-.9.4-.9 1.1 0 1.4l3.8 1.2 1.5 4.5c.3.8.8.9 1.3.3l2.1-2.3 4 2.9c.7.5 1.2.2 1.4-.7L21 6c.2-.9-.3-1.3-1-.9Z" />
+                        <path d="m8.8 13.5 8-5.1-6.2 6.2-.2 2.8" />
+                      </svg>
+                    </a>
+                  </div>
+                  <p class="shared-preview-share-status" data-preview-share-status hidden>{initialCopy.shareCopied}</p>
+                </section>
+              </div>
+              <div class="shared-preview-sections" data-preview-sections hidden>
+                <section class="shared-preview-section" data-preview-categories-section hidden>
+                  <h3 data-preview-categories-title></h3>
+                  <div class="shared-preview-pill-row" data-preview-categories></div>
+                </section>
+                <section class="shared-preview-section" data-preview-countries-section hidden>
+                  <h3 data-preview-countries-title></h3>
+                  <div class="shared-preview-pill-row" data-preview-countries></div>
+                </section>
+                <section class="shared-preview-section shared-preview-report-section" data-preview-reports-section hidden>
+                  <h3 data-preview-reports-title></h3>
+                  <ul data-preview-reports></ul>
+                </section>
+                <section class="shared-preview-section" data-preview-socials-section hidden>
+                  <h3 data-preview-socials-title></h3>
+                  <div class="shared-preview-socials" data-preview-socials></div>
+                </section>
+              </div>
+              <div class="shared-preview-meta" data-preview-meta hidden></div>
+            </>
+          )
+        }
       </article>
       <section class="app-link-promotion" data-app-promotion hidden>
         <div class="app-link-promotion-copy">
@@ -284,6 +396,8 @@ const initialCopy = isEnglishPage
   const hero = document.querySelector('[data-app-link-hero]');
   const breadcrumb = document.querySelector('[data-preview-breadcrumb]');
   const appPromotion = document.querySelector('[data-app-promotion]');
+  const organizationLoading = document.querySelector('[data-organization-loading]');
+  const organizationOpenLink = preview?.querySelector('[data-preview-open-app]');
   const shareSection = preview?.querySelector('[data-preview-share]');
   const shareStatus = preview?.querySelector('[data-preview-share-status]');
   const isEnglish = pageLang === 'en';
@@ -314,7 +428,10 @@ const initialCopy = isEnglishPage
         organizationPreview: 'Organization preview',
         organizationTitle: 'Organization profile on Pocket Genes',
         organizationDescription: 'Preview this publisher profile or open it in the app for the complete experience.',
+        organizationUnavailableTitle: 'This organization profile is unavailable.',
+        organizationUnavailableDescription: 'It may have been removed, deactivated, or the link may no longer be valid.',
         feedPreview: 'Post preview',
+        breadcrumbOrganization: 'Organization',
         verified: 'Verified',
         notVerified: 'Pending verification',
         website: 'Website',
@@ -641,7 +758,10 @@ const initialCopy = isEnglishPage
         organizationPreview: 'Vista previa de organización',
         organizationTitle: 'Perfil de organización en Pocket Genes',
         organizationDescription: 'Previsualizá este perfil público o abrilo en la app para ver la experiencia completa.',
+        organizationUnavailableTitle: 'Este perfil de organización no está disponible.',
+        organizationUnavailableDescription: 'Puede haber sido retirado, desactivado o el enlace puede haber dejado de ser válido.',
         feedPreview: 'Vista previa del post',
+        breadcrumbOrganization: 'Organización',
         verified: 'Verificada',
         notVerified: 'Pendiente de verificación',
         website: 'Sitio web',
@@ -1217,7 +1337,9 @@ const initialCopy = isEnglishPage
   });
   if (!contentId) {
     disableOpenAppLink(openLink);
+    disableOpenAppLink(organizationOpenLink);
     setStatusMessage(copy.missing);
+    showOrganizationUnavailable();
   } else {
     const query = `?id=${encodeURIComponent(contentId)}`;
     const customURL = `${customSchemeBase}${query}`;
@@ -1227,6 +1349,7 @@ const initialCopy = isEnglishPage
     const appURL = isAndroid ? androidIntent : customURL;
 
     enableOpenAppLink(openLink, appURL);
+    enableOpenAppLink(organizationOpenLink, appURL);
 
     if (isMobile) {
       setStatusRetry(copy.openingPrefix, copy.retryLink, copy.openingSuffix);
@@ -1303,6 +1426,7 @@ const initialCopy = isEnglishPage
           : feedEntryPreviewData(fields);
 
       if (!previewData) {
+        showOrganizationUnavailable();
         return;
       }
 
@@ -1313,7 +1437,23 @@ const initialCopy = isEnglishPage
       renderPreview(previewData);
     } catch {
       preview.hidden = true;
+      showOrganizationUnavailable();
     }
+  }
+
+  function showOrganizationUnavailable() {
+    if (resource !== 'organizations') return;
+    organizationLoading?.setAttribute('hidden', '');
+    page?.classList.remove('is-preview-loading');
+    page?.classList.add('has-preview-error');
+    if (hero) hero.hidden = false;
+    title.textContent = copy.organizationUnavailableTitle;
+    description.textContent = copy.organizationUnavailableDescription;
+    updateOrganizationMetadata({
+      title: copy.organizationUnavailableTitle,
+      body: copy.organizationUnavailableDescription,
+      bannerUrl: '',
+    });
   }
 
   async function fetchPublisherImage(fields) {
@@ -1532,6 +1672,7 @@ const initialCopy = isEnglishPage
       title: name,
       pageTitle: isEnglish ? `${name}\non Pocket Genes` : `${name}\nen Pocket Genes`,
       pageDescription: copy.organizationDescription,
+      breadcrumbCurrent: copy.breadcrumbOrganization,
       summary: '',
       body,
       imageUrl: imageSource(fields.imageUrl) || imageSource(fields.imageUploadDataUrl),
@@ -2418,16 +2559,24 @@ const initialCopy = isEnglishPage
 
   function renderPreview(data) {
     const isFeedPreview = data.kind === 'feed';
+    const isOrganizationPreview = data.kind === 'organization';
+    const isContentPreview = isFeedPreview || isOrganizationPreview;
     const isEventPreview = Boolean(data.event);
     const isPublicationPreview = isFeedPreview && !isEventPreview;
     preview.dataset.kind = data.kind;
     preview.classList.toggle('shared-preview--event', isEventPreview);
     preview.classList.toggle('shared-preview--publication', isPublicationPreview);
+    preview.classList.toggle('shared-preview--organization', isOrganizationPreview);
+    page?.classList.remove('is-preview-loading', 'has-preview-error');
+    page?.classList.toggle('has-content-preview', isContentPreview);
     page?.classList.toggle('has-feed-preview', isFeedPreview);
+    page?.classList.toggle('has-organization-preview', isOrganizationPreview);
     page?.classList.toggle('has-event-preview', isEventPreview);
-    if (hero) hero.hidden = isFeedPreview;
-    if (breadcrumb) breadcrumb.hidden = !isFeedPreview;
-    if (appPromotion) appPromotion.hidden = !isFeedPreview;
+    if (organizationLoading) organizationLoading.hidden = true;
+    if (organizationOpenLink) organizationOpenLink.hidden = !isOrganizationPreview;
+    if (hero) hero.hidden = isContentPreview;
+    if (breadcrumb) breadcrumb.hidden = !isContentPreview;
+    if (appPromotion) appPromotion.hidden = !isContentPreview;
     updateBreadcrumbCurrent(data.breadcrumbCurrent || (isEventPreview ? copy.types.upcoming_event : copy.breadcrumbEvent));
 
     if (data.accent) {
@@ -2467,7 +2616,9 @@ const initialCopy = isEnglishPage
       fallback.hidden = Boolean(data.imageUrl);
     }
 
-    if (isFeedPreview) {
+    if (isOrganizationPreview) {
+      updateOrganizationMetadata(data);
+    } else if (isContentPreview) {
       document.title = `${data.title} | Pocket Genes`;
     }
 
@@ -2554,6 +2705,45 @@ const initialCopy = isEnglishPage
   function currentShareUrl() {
     const url = new URL(window.location.href);
     url.hash = '';
+    return url.toString();
+  }
+
+  function updateOrganizationMetadata(data) {
+    const pageTitle = `${cleanText(data.title)} | Pocket Genes`;
+    const descriptionText = cleanText(data.body).replace(/\s+/g, ' ');
+    const pageDescription =
+      descriptionText.length > 160
+        ? `${descriptionText.slice(0, 157).trimEnd()}...`
+        : descriptionText || copy.organizationDescription;
+    const canonicalUrl = organizationCanonicalUrl();
+
+    document.title = pageTitle;
+    setHeadContent('meta[name="description"]', pageDescription);
+    setHeadContent('meta[property="og:title"]', pageTitle);
+    setHeadContent('meta[property="og:description"]', pageDescription);
+    setHeadContent('meta[property="og:url"]', canonicalUrl);
+    setHeadContent('meta[name="twitter:title"]', pageTitle);
+    setHeadContent('meta[name="twitter:description"]', pageDescription);
+
+    const canonical = document.querySelector('link[rel="canonical"]');
+    canonical?.setAttribute('href', canonicalUrl);
+
+    const bannerUrl = cleanText(data.bannerUrl);
+    if (bannerUrl && !bannerUrl.startsWith('data:')) {
+      const absoluteBannerUrl = new URL(bannerUrl, window.location.origin).toString();
+      setHeadContent('meta[property="og:image"]', absoluteBannerUrl);
+      setHeadContent('meta[name="twitter:image"]', absoluteBannerUrl);
+    }
+  }
+
+  function setHeadContent(selector, value) {
+    const node = document.querySelector(selector);
+    if (node && value) node.setAttribute('content', value);
+  }
+
+  function organizationCanonicalUrl() {
+    const url = new URL(window.location.pathname, window.location.origin);
+    if (contentId) url.searchParams.set('id', contentId);
     return url.toString();
   }
 
@@ -3409,12 +3599,6 @@ const initialCopy = isEnglishPage
     object-fit: cover;
   }
 
-  .shared-preview-topline {
-    display: flex;
-    gap: 0.95rem;
-    align-items: flex-start;
-  }
-
   .shared-preview-avatar {
     flex: 0 0 auto;
     width: 86px;
@@ -3433,20 +3617,10 @@ const initialCopy = isEnglishPage
       inset 0 0 0 10px rgba(255, 255, 255, 0.42);
   }
 
-  .shared-preview[data-kind="organization"] .shared-preview-banner:not([hidden]) + .shared-preview-topline .shared-preview-avatar {
-    margin-top: -3.4rem;
-  }
-
   .shared-preview-avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-  }
-
-  .shared-preview-heading {
-    min-width: 0;
-    width: 100%;
-    padding-top: 0.25rem;
   }
 
   .shared-preview-publisher {
@@ -3953,49 +4127,6 @@ const initialCopy = isEnglishPage
     font-weight: 800;
   }
 
-  .shared-preview > .shared-preview-website {
-    position: relative;
-    z-index: 3;
-    min-height: 42px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 1rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.78);
-    color: var(--pg-ink);
-    padding: 0.55rem 1rem;
-    font-weight: 600;
-    text-decoration: none;
-    box-shadow: 0 10px 22px rgba(23, 32, 51, 0.08);
-  }
-
-  @media (min-width: 900px) {
-    .app-link-content:has(.shared-preview:not([hidden])) {
-      width: min(100%, 760px);
-      text-align: center;
-    }
-
-    .app-link-content:has(.shared-preview:not([hidden])) h1,
-    .app-link-content:has(.shared-preview:not([hidden])) .app-description {
-      max-width: 520px;
-    }
-
-    .app-link-content:has(.shared-preview:not([hidden])) .app-link-actions,
-    .app-link-content:has(.shared-preview:not([hidden])) .app-link-status {
-      max-width: 560px;
-    }
-
-    .app-link-content:has(.shared-preview:not([hidden])) .shared-preview {
-      max-width: 720px;
-      margin-top: 1.6rem;
-    }
-
-    .app-link-content:has(.shared-preview:not([hidden])) .shared-preview-banner {
-      height: 210px;
-    }
-  }
-
   @media (max-width: 520px) {
     .app-link-page {
       align-items: start;
@@ -4034,18 +4165,10 @@ const initialCopy = isEnglishPage
       margin: -7px 0;
     }
 
-    .shared-preview-topline {
-      gap: 0.75rem;
-    }
-
     .shared-preview-avatar {
       width: 72px;
       height: 72px;
       border-radius: 20px;
-    }
-
-    .shared-preview[data-kind="organization"] .shared-preview-banner:not([hidden]) + .shared-preview-topline .shared-preview-avatar {
-      margin-top: -2.8rem;
     }
   }
 
@@ -4153,7 +4276,13 @@ const initialCopy = isEnglishPage
     box-shadow: 0 10px 22px rgba(23, 32, 51, 0.08);
   }
 
-  .app-link-page.has-feed-preview {
+  :global(body:has(.app-link-page.has-content-preview)),
+  :global(body:has(.app-link-page.is-organization-route)) {
+    min-width: 0;
+  }
+
+  .app-link-page.has-content-preview,
+  .app-link-page.is-preview-loading {
     display: block;
     min-height: 100vh;
     min-height: 100svh;
@@ -4164,19 +4293,26 @@ const initialCopy = isEnglishPage
     font-family: inherit;
   }
 
-  .app-link-page.has-feed-preview .event-page__shell {
+  .app-link-page.has-content-preview .event-page__shell,
+  .app-link-page.is-preview-loading .event-page__shell {
     box-sizing: border-box;
-    width: min(100vw, 1184px);
+    width: auto;
     max-width: 1184px;
     margin-inline: auto;
     padding: 30px 44px 32px;
   }
 
-  .app-link-page.has-feed-preview .app-link-content {
+  .app-link-page.has-content-preview .app-link-content,
+  .app-link-page.is-preview-loading .app-link-content {
     display: none;
   }
 
-  .app-link-page.has-feed-preview .app-link-breadcrumb {
+  .app-link-page.is-organization-route.has-preview-error .app-link-actions,
+  .app-link-page.is-organization-route.has-preview-error .app-link-status {
+    display: none;
+  }
+
+  .app-link-page.has-content-preview .app-link-breadcrumb {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -4188,22 +4324,135 @@ const initialCopy = isEnglishPage
     line-height: 1.5;
   }
 
-  .app-link-page.has-feed-preview .app-link-breadcrumb a {
+  .app-link-page.has-content-preview .app-link-breadcrumb a {
     color: #6b40b4;
     text-decoration: none;
   }
 
-  .app-link-page.has-feed-preview .app-link-breadcrumb a:hover,
-  .app-link-page.has-feed-preview .app-link-breadcrumb a:focus-visible {
+  .app-link-page.has-content-preview .app-link-breadcrumb a:hover,
+  .app-link-page.has-content-preview .app-link-breadcrumb a:focus-visible {
     color: #c52f6d;
   }
 
-  .app-link-page.has-feed-preview .app-link-breadcrumb span[aria-hidden="true"] {
+  .app-link-page.has-content-preview .app-link-breadcrumb span[aria-hidden="true"] {
     width: 7px;
     height: 7px;
     border-top: 1.5px solid currentColor;
     border-right: 1.5px solid currentColor;
     transform: rotate(45deg);
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .organization-loading {
+    display: grid;
+    gap: 32px;
+    width: 100%;
+    padding-top: 48px;
+  }
+
+  .organization-loading[hidden] {
+    display: none;
+  }
+
+  .organization-loading__identity {
+    display: grid;
+    grid-template-columns: 80px minmax(0, 1fr);
+    grid-template-rows: 34px 26px;
+    gap: 10px 20px;
+    align-items: center;
+    max-width: 760px;
+  }
+
+  .organization-loading__logo,
+  .organization-loading__name,
+  .organization-loading__badge,
+  .organization-loading__copy span,
+  .organization-loading__rail {
+    display: block;
+    border-radius: 8px;
+    background: linear-gradient(100deg, #f0edf3 25%, #faf9fb 42%, #f0edf3 60%);
+    background-size: 240% 100%;
+    animation: organization-loading-shimmer 1.4s ease-in-out infinite;
+  }
+
+  .organization-loading__logo {
+    grid-row: 1 / span 2;
+    width: 80px;
+    height: 80px;
+    border-radius: 18px;
+  }
+
+  .organization-loading__name {
+    width: min(100%, 480px);
+    height: 30px;
+  }
+
+  .organization-loading__badge {
+    width: min(55%, 230px);
+    height: 22px;
+  }
+
+  .organization-loading__columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 46px;
+    padding-top: 30px;
+    border-top: 1px solid #e9e5ed;
+  }
+
+  .organization-loading__copy {
+    display: grid;
+    gap: 14px;
+  }
+
+  .organization-loading__copy span {
+    height: 16px;
+  }
+
+  .organization-loading__copy span:nth-child(2) {
+    width: 94%;
+  }
+
+  .organization-loading__copy span:nth-child(3) {
+    width: 88%;
+  }
+
+  .organization-loading__copy span:nth-child(4) {
+    width: 62%;
+  }
+
+  .organization-loading__rail {
+    min-height: 220px;
+    border-radius: 15px;
+  }
+
+  @keyframes organization-loading-shimmer {
+    from {
+      background-position: 100% 0;
+    }
+
+    to {
+      background-position: -100% 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .organization-loading__logo,
+    .organization-loading__name,
+    .organization-loading__badge,
+    .organization-loading__copy span,
+    .organization-loading__rail {
+      animation: none;
+    }
   }
 
   .app-link-page.has-event-preview .shared-preview--event {
@@ -5216,7 +5465,341 @@ const initialCopy = isEnglishPage
     text-underline-offset: 0.18em;
   }
 
-  .app-link-page.has-feed-preview .app-link-promotion {
+  .app-link-page.has-organization-preview .shared-preview--organization {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-areas:
+      "banner banner"
+      "identity identity"
+      "description actions"
+      "description facts";
+    grid-template-rows: auto auto auto 1fr;
+    column-gap: 46px;
+    row-gap: 0;
+    align-items: start;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #292333;
+    text-align: left;
+  }
+
+  .shared-preview--organization .organization-profile-banner {
+    grid-area: banner;
+    width: 100%;
+    height: 210px;
+    overflow: hidden;
+    margin: 0 0 30px;
+    border: 1px solid #e9e5ed;
+    border-radius: 12px;
+    background: #f8f6fa;
+  }
+
+  .shared-preview--organization .organization-profile-banner[hidden] {
+    display: none;
+  }
+
+  .shared-preview--organization .organization-profile-banner img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+    object-position: center;
+  }
+
+  .shared-preview--organization .organization-profile-identity {
+    grid-area: identity;
+    display: grid;
+    grid-template-columns: 80px minmax(0, 1fr);
+    column-gap: 20px;
+    align-items: center;
+    min-width: 0;
+    margin: 0 0 30px;
+    border-bottom: 1px solid #e9e5ed;
+    padding: 0 0 30px;
+  }
+
+  .shared-preview--organization .organization-profile-heading {
+    min-width: 0;
+    display: grid;
+    gap: 12px;
+  }
+
+  .shared-preview--organization .organization-profile-logo {
+    display: grid;
+    place-items: center;
+    width: 80px;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .shared-preview--organization .shared-preview-avatar {
+    box-sizing: border-box;
+    width: 80px;
+    height: 80px;
+    border: 1px solid #e9e5ed;
+    border-radius: 18px;
+    background: #ffffff;
+    color: #514a58;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--shared-preview-accent) 75%, #ffffff);
+  }
+
+  .shared-preview--organization .shared-preview-avatar img {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+    padding: 8px;
+    object-fit: contain;
+    object-position: center;
+  }
+
+  .shared-preview--organization h1 {
+    width: 100%;
+    max-width: 760px;
+    margin: 0;
+    border-left: 3px solid var(--shared-preview-accent);
+    color: #292333;
+    padding-left: 18px;
+    font-size: clamp(2.2rem, 4vw, 2.75rem);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .shared-preview--organization .shared-preview-badges {
+    margin: 0;
+    padding-left: 21px;
+    gap: 8px;
+  }
+
+  .shared-preview--organization :global(.shared-preview-badge) {
+    min-height: 30px;
+    border: 1px solid #ded9e3;
+    border-radius: 999px;
+    background: #f8f6fa;
+    color: #514a58;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .shared-preview--organization .organization-profile-actions {
+    grid-area: actions;
+    display: grid;
+    gap: 12px;
+    align-self: start;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .shared-preview--organization .note-primary-action {
+    width: 100%;
+    margin: 0;
+  }
+
+  .shared-preview--organization .note-primary-action .shared-preview-website,
+  .shared-preview--organization .shared-preview-open-app {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: none;
+    overflow-wrap: anywhere;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
+
+  .shared-preview--organization .note-primary-action .shared-preview-website {
+    border: 1px solid #6b40b4;
+    background: #6b40b4;
+    color: #ffffff;
+  }
+
+  .shared-preview--organization .note-primary-action .shared-preview-website:hover,
+  .shared-preview--organization .note-primary-action .shared-preview-website:focus-visible {
+    border-color: #52318c;
+    background: #52318c;
+  }
+
+  .shared-preview--organization .shared-preview-open-app {
+    border: 1px solid #d8d1df;
+    background: #ffffff;
+    color: #6b40b4;
+  }
+
+  .shared-preview--organization .shared-preview-open-app[hidden] {
+    display: none;
+  }
+
+  .shared-preview--organization .shared-preview-open-app:hover,
+  .shared-preview--organization .shared-preview-open-app:focus-visible {
+    border-color: #6b40b4;
+    background: #f8f6fa;
+  }
+
+  .shared-preview--organization .note-primary-action .shared-preview-website:focus-visible,
+  .shared-preview--organization .shared-preview-open-app:focus-visible {
+    outline: 3px solid rgba(107, 64, 180, 0.24);
+    outline-offset: 3px;
+  }
+
+  .shared-preview--organization .organization-profile-description {
+    grid-area: description;
+    align-self: start;
+    min-width: 0;
+    max-width: 730px;
+    margin: 0;
+    padding-right: 6px;
+  }
+
+  .shared-preview--organization .organization-description-title {
+    margin: 0;
+    color: #292333;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0;
+  }
+
+  .shared-preview--organization .shared-preview-body {
+    display: block;
+    max-height: none;
+    margin: 14px 0 0;
+    overflow: visible;
+    color: #514a58;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.72;
+    -webkit-box-orient: unset;
+    -webkit-line-clamp: unset;
+  }
+
+  .shared-preview--organization .shared-preview-body :global(p) {
+    margin: 0;
+  }
+
+  .shared-preview--organization .shared-preview-body :global(p + p) {
+    margin-top: 1em;
+  }
+
+  .shared-preview--organization .shared-preview-body :global(a) {
+    color: #6b40b4;
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+
+  .shared-preview--organization .organization-profile-facts {
+    grid-area: facts;
+    display: grid;
+    gap: 20px;
+    align-self: start;
+    min-width: 0;
+    margin: 20px 0 0;
+    border: 1px solid #e9e5ed;
+    border-radius: 15px;
+    background: #f8f6fa;
+    padding: 22px;
+  }
+
+  .shared-preview--organization .organization-profile-facts[hidden] {
+    display: none;
+  }
+
+  .shared-preview--organization .shared-preview-section:not([hidden]) ~ .shared-preview-section:not([hidden]) {
+    border-top: 1px solid #e2dde6;
+    padding-top: 18px;
+  }
+
+  .shared-preview--organization .shared-preview-section h3 {
+    margin: 0;
+    color: #514a58;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .shared-preview--organization .shared-preview-pill-row {
+    gap: 7px;
+    margin-top: 8px;
+  }
+
+  .shared-preview--organization :global(.shared-preview-data-pill) {
+    min-height: 0;
+    border-color: #e2dde6;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #292333;
+    padding: 7px 9px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.35;
+    box-shadow: none;
+  }
+
+  .shared-preview--organization .shared-preview-report-section ul {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .shared-preview--organization :global(.shared-preview-report-section li) {
+    color: #514a58;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .shared-preview--organization :global(.shared-preview-report-section li::before) {
+    background: var(--shared-preview-accent);
+  }
+
+  .shared-preview--organization .shared-preview-socials {
+    gap: 8px;
+    margin-top: 9px;
+  }
+
+  .shared-preview--organization :global(.shared-preview-social-link) {
+    width: 44px;
+    height: 44px;
+    border-color: #ded9e3;
+    background: #ffffff;
+    box-shadow: none;
+  }
+
+  .shared-preview--organization :global(.shared-preview-social-link:hover),
+  .shared-preview--organization :global(.shared-preview-social-link:focus-visible) {
+    border-color: #6b40b4;
+    box-shadow: none;
+  }
+
+  .shared-preview--organization :global(.shared-preview-social-link:focus-visible) {
+    outline: 3px solid rgba(107, 64, 180, 0.24);
+    outline-offset: 3px;
+  }
+
+  .app-link-page.has-content-preview .app-link-promotion {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(320px, auto);
     align-items: center;
@@ -5229,11 +5812,11 @@ const initialCopy = isEnglishPage
     text-align: left;
   }
 
-  .app-link-page.has-feed-preview .app-link-promotion .pg-eyebrow {
+  .app-link-page.has-content-preview .app-link-promotion .pg-eyebrow {
     margin: 0 0 12px;
   }
 
-  .app-link-page.has-feed-preview .app-link-promotion h2 {
+  .app-link-page.has-content-preview .app-link-promotion h2 {
     margin: 0;
     color: var(--pg-ink);
     font-size: 2rem;
@@ -5242,7 +5825,7 @@ const initialCopy = isEnglishPage
     letter-spacing: 0;
   }
 
-  .app-link-page.has-feed-preview .app-link-promotion p:not(.pg-eyebrow) {
+  .app-link-page.has-content-preview .app-link-promotion p:not(.pg-eyebrow) {
     margin: 12px 0 0;
     color: var(--pg-ink-soft);
     font-size: 1rem;
@@ -5329,7 +5912,7 @@ const initialCopy = isEnglishPage
   }
 
   @container (max-width: 1040px) {
-    .app-link-page.has-feed-preview .app-link-promotion {
+    .app-link-page.has-content-preview .app-link-promotion {
       grid-template-columns: 1fr;
     }
 
@@ -5339,8 +5922,51 @@ const initialCopy = isEnglishPage
   }
 
   @container (max-width: 900px) {
-    .app-link-page.has-feed-preview .event-page__shell {
+    .app-link-page.has-content-preview .event-page__shell,
+    .app-link-page.is-preview-loading .event-page__shell {
       padding: 26px 28px;
+    }
+
+    .organization-loading__columns {
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 32px;
+    }
+
+    .app-link-page.has-organization-preview .shared-preview--organization {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .shared-preview--organization .organization-profile-banner {
+      order: 0;
+    }
+
+    .shared-preview--organization .organization-profile-identity {
+      order: 1;
+      width: 100%;
+      margin-bottom: 0;
+    }
+
+    .shared-preview--organization .organization-profile-actions {
+      order: 2;
+      width: 100%;
+      margin-top: 24px;
+    }
+
+    .shared-preview--organization .organization-profile-description {
+      order: 3;
+      width: 100%;
+      max-width: none;
+      margin-top: 30px;
+      border-top: 1px solid #e9e5ed;
+      padding: 27px 0 0;
+    }
+
+    .shared-preview--organization .organization-profile-facts {
+      order: 4;
+      width: 100%;
+      margin-top: 30px;
     }
 
     .app-link-page.has-event-preview .shared-preview--event {
@@ -5431,16 +6057,101 @@ const initialCopy = isEnglishPage
   }
 
   @container (max-width: 620px) {
-    .app-link-page.has-feed-preview {
+    .app-link-page.has-content-preview,
+    .app-link-page.is-preview-loading {
       padding-top: 82px;
     }
 
-    .app-link-page.has-feed-preview .event-page__shell {
+    .app-link-page.has-content-preview .event-page__shell,
+    .app-link-page.is-preview-loading .event-page__shell {
       padding: 23px 22px 27px;
     }
 
-    .app-link-page.has-feed-preview .app-link-breadcrumb {
+    .app-link-page.has-content-preview .app-link-breadcrumb {
       margin-bottom: 25px;
+    }
+
+    .organization-loading {
+      gap: 26px;
+      padding-top: 28px;
+    }
+
+    .organization-loading__identity {
+      grid-template-columns: 68px minmax(0, 1fr);
+      grid-template-rows: 30px 22px;
+      gap: 8px 16px;
+    }
+
+    .organization-loading__logo {
+      width: 68px;
+      height: 68px;
+      border-radius: 16px;
+    }
+
+    .organization-loading__columns {
+      grid-template-columns: 1fr;
+      gap: 26px;
+      padding-top: 26px;
+    }
+
+    .organization-loading__rail {
+      min-height: 150px;
+    }
+
+    .shared-preview--organization .organization-profile-banner {
+      height: 160px;
+      margin-bottom: 24px;
+      border-radius: 10px;
+    }
+
+    .shared-preview--organization .organization-profile-identity {
+      grid-template-columns: 72px minmax(0, 1fr);
+      column-gap: 16px;
+      padding-bottom: 24px;
+    }
+
+    .shared-preview--organization .organization-profile-logo,
+    .shared-preview--organization .shared-preview-avatar {
+      width: 72px;
+    }
+
+    .shared-preview--organization .shared-preview-avatar {
+      height: 72px;
+      border-radius: 16px;
+    }
+
+    .shared-preview--organization h1 {
+      padding-left: 14px;
+      font-size: clamp(1.75rem, 9vw, 2rem);
+      line-height: 1.14;
+    }
+
+    .shared-preview--organization .shared-preview-badges {
+      padding-left: 17px;
+      gap: 6px;
+    }
+
+    .shared-preview--organization :global(.shared-preview-badge) {
+      font-size: 11px;
+    }
+
+    .shared-preview--organization .organization-profile-actions {
+      margin-top: 22px;
+    }
+
+    .shared-preview--organization .organization-profile-description {
+      margin-top: 26px;
+      padding-top: 24px;
+    }
+
+    .shared-preview--organization .shared-preview-body {
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .shared-preview--organization .organization-profile-facts {
+      margin-top: 26px;
+      padding: 20px;
     }
 
     .shared-preview--event h1 {
@@ -5481,7 +6192,7 @@ const initialCopy = isEnglishPage
       font-size: 16px;
     }
 
-    .app-link-page.has-feed-preview .app-link-promotion {
+    .app-link-page.has-content-preview .app-link-promotion {
       grid-template-columns: 1fr;
       gap: 13px;
       margin-top: 30px;
