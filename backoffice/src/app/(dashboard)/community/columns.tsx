@@ -1,5 +1,5 @@
 "use client";
-import { ColumnDef } from "@tanstack/react-table";
+import type { DataTableColumnDef } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -24,7 +24,7 @@ export interface CommunityPost {
   score: number;
 }
 
-export const columns: ColumnDef<CommunityPost>[] = [
+export const columns: DataTableColumnDef<CommunityPost>[] = [
   {
     accessorKey: "title",
     header: "Title",

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ColumnDef } from "@tanstack/react-table";
+import type { DataTableColumnDef } from "@/components/ui/data-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +15,7 @@ export interface GymMember {
   gymId: string;
 }
 
-export const columns: ColumnDef<GymMember>[] = [
+export const columns: DataTableColumnDef<GymMember>[] = [
   {
     accessorKey: "displayName",
     header: "Athlete",

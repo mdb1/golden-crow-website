@@ -1,5 +1,5 @@
 "use client";
-import { ColumnDef } from "@tanstack/react-table";
+import type { DataTableColumnDef } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { ReportPill } from "@/components/reports/report-pill";
 import {
@@ -26,7 +26,7 @@ export interface DnaReport {
   ownerEmail?: string | null;
 }
 
-export const columns: ColumnDef<DnaReport>[] = [
+export const columns: DataTableColumnDef<DnaReport>[] = [
   {
     accessorKey: "code",
     header: "Report Code",

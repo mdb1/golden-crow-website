@@ -16,7 +16,7 @@
 // Actions are passed in via props from `client.tsx` so the column-def file
 // stays free of router / state imports.
 
-import type { ColumnDef } from "@tanstack/react-table";
+import type { GcFitnessColumnDef } from "@/lib/gc-fitness/table-features";
 import { Eye, Copy, Pencil, Trash2 } from "lucide-react";
 import type { useTranslations } from "next-intl";
 
@@ -121,7 +121,7 @@ export function makeColumns(
   tVocab: TFn,
   usageCounts?: Record<string, number>,
   locale?: string,
-): ColumnDef<ExerciseRow>[] {
+): GcFitnessColumnDef<ExerciseRow>[] {
   // Spanish coaches read the ES name first: show the coach-locale name on top
   // and the other language below (muted). Falls back to whichever exists.
   const esFirst = (locale ?? "").startsWith("es");

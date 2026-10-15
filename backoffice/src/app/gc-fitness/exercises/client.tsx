@@ -45,9 +45,7 @@ import { toast } from "sonner";
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 import {
   flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  useReactTable,
+  useTable,
 } from "@tanstack/react-table";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -77,6 +75,7 @@ import {
 } from "./_components/ExerciseFilters";
 import { NewExerciseDialog } from "./_components/NewExerciseDialog";
 import { makeColumns } from "./columns";
+import { gcFitnessTableFeatures } from "@/lib/gc-fitness/table-features";
 
 const EMPTY_FILTERS: ExerciseFiltersState = {
   search: "",
@@ -238,12 +237,11 @@ export function ExerciseLibraryClient({
     [handlers, columnsT, vocabT, usageCounts, locale],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features: gcFitnessTableFeatures,
     data: rows,
     columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 50 } },
+    initialState: { pagination: { pageIndex: 0, pageSize: 50 } },
   });
 
   const isFilteredEmpty =
@@ -418,7 +416,7 @@ export function ExerciseLibraryClient({
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               {t("pagination", {
-                current: table.getState().pagination.pageIndex + 1,
+                current: table.state.pagination.pageIndex + 1,
                 total: Math.max(1, table.getPageCount()),
               })}
             </p>

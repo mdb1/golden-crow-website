@@ -29,16 +29,17 @@
     "test": "jest"
   },
   "dependencies": {
-    "firebase-admin": "^13.10.0",
+    "firebase-admin": "^14.5.0",
     "gif-encoder-2": "^1.0.5",
     "jpeg-js": "^0.4.4",
-    "tsx": "^4.7.0"
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
+    "@swc/core": "^1.16.18",
+    "@swc/jest": "^0.2.39",
     "@types/jest": "^30.0.0",
-    "@types/node": "^25.9.0",
-    "jest": "^30.4.2",
-    "ts-jest": "^29.1.0",
-    "typescript": "^6.0.3"
+    "@types/node": "^26.6.5",
+    "jest": "^30.5.2",
+    "typescript": "^7.0.2"
   }
 }

@@ -13,7 +13,7 @@
 //   5. Updated — relative time
 //   6. Actions — View + Edit + Delete
 
-import type { ColumnDef } from "@tanstack/react-table";
+import type { GcFitnessColumnDef } from "@/lib/gc-fitness/table-features";
 import { Edit, MoreHorizontal, Trash2, Eye } from "lucide-react";
 import type { useTranslations } from "next-intl";
 
@@ -66,7 +66,7 @@ export function makeHabitColumns(
   handlers: HabitColumnHandlers,
   clientNameMap: Map<string, string>,
   t: TFn,
-): ColumnDef<HabitRow>[] {
+): GcFitnessColumnDef<HabitRow>[] {
   return [
     {
       accessorKey: "clientId",
