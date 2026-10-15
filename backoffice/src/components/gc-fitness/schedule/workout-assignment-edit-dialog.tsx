@@ -63,6 +63,9 @@ import {
   inferEndDatePresetMonths,
   type EndDatePresetMonths,
 } from "@/lib/gc-fitness/end-date-presets";
+import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
+import { formDraftKey, useFormDraft } from "@/lib/gc-fitness/use-form-draft";
+import { FormDraftRestoredNotice } from "@/components/gc-fitness/form-draft-restored-notice";
 
 interface WorkoutAssignmentEditDialogProps {
   open: boolean;
@@ -267,6 +270,64 @@ export function WorkoutAssignmentEditDialog({
       setSeriesEndPresetMonths(null);
     }
   }, [open]);
+
+  // #382 — a reload (stale deployment, F5) brings the coach's edits back.
+  // Declared AFTER the seeding effects so, when the detail loads, the restored
+  // draft lands on top of the seeded rows. `rowId` is minted per page load, so
+  // it stays out of the draft and restored rows get fresh ones.
+  type AssignmentEditDraft = {
+    drafts: Omit<ExerciseDraftRow, "rowId">[];
+    scope: "one" | "series";
+    seriesEndDate: string;
+  };
+  const stripRowIds = (rows: ExerciseDraftRow[]) =>
+    rows.map(({ rowId: _rowId, ...row }) => row);
+  const draftBaseline = useMemo<AssignmentEditDraft | undefined>(
+    () =>
+      data
+        ? {
+            drafts: stripRowIds(seedDraftRows(data.exercises)),
+            scope: "one",
+            seriesEndDate: initialEndDateForSeries(data),
+          }
+        : undefined,
+    [data],
+  );
+  const draft = useFormDraft<AssignmentEditDraft>({
+    key:
+      open && data ? formDraftKey("assignment-exercises", assignmentId) : null,
+    value: { drafts: stripRowIds(drafts), scope, seriesEndDate },
+    baseline: draftBaseline,
+    onRestore: (saved) => {
+      if (saved.drafts) {
+        setDrafts(saved.drafts.map((row) => ({ ...row, rowId: makeRowId() })));
+      }
+      if (saved.scope) setScope(saved.scope);
+      if (saved.seriesEndDate !== undefined && data) {
+        setSeriesEndDate(saved.seriesEndDate);
+        setSeriesEndPresetMonths(
+          inferEndDatePresetMonths(data.scheduledFor, saved.seriesEndDate),
+        );
+      }
+    },
+  });
+  const discardDraft = () => {
+    if (data) {
+      const nextEndDate = initialEndDateForSeries(data);
+      setDrafts(seedDraftRows(data.exercises));
+      setScope("one");
+      setSeriesEndDate(nextEndDate);
+      setSeriesEndPresetMonths(
+        inferEndDatePresetMonths(data.scheduledFor, nextEndDate),
+      );
+    }
+    draft.discard(draftBaseline);
+  };
+  /** Closing without saving is a cancel: the draft goes with it. */
+  const handleOpenChange = (next: boolean) => {
+    if (!next) draft.discard(draftBaseline);
+    onOpenChange(next);
+  };
 
   const isSeries = Boolean(data?.seriesId || data?.recurrence);
   const initialSeriesEndDate = initialEndDateForSeries(data);
@@ -481,8 +542,12 @@ export function WorkoutAssignmentEditDialog({
             ? "Workout actualizado"
             : `${result.updatedCount} ocurrencias actualizadas`,
       );
+      draft.clear();
       onSaved();
     } catch (err) {
+      // #382 — a stale tab: the banner explains it and the draft survives the
+      // reload; a raw "Server Action … not found" toast would not.
+      if (noteIfStaleDeployment(err)) return;
       toast.error(
         err instanceof Error ? err.message : "No se pudo guardar la edición",
       );
@@ -492,7 +557,7 @@ export function WorkoutAssignmentEditDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="flex max-h-[88vh] flex-col gap-4 overflow-hidden sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="truncate">
@@ -505,6 +570,12 @@ export function WorkoutAssignmentEditDialog({
         </DialogHeader>
 
         <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
+          {draft.restored ? (
+            <FormDraftRestoredNotice
+              onDiscard={discardDraft}
+              onDismiss={draft.dismissNotice}
+            />
+          ) : null}
           <div className="flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
@@ -999,7 +1070,7 @@ export function WorkoutAssignmentEditDialog({
             <Button
               variant="ghost"
               tabIndex={-1}
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
               disabled={saving}
             >
               Cancelar

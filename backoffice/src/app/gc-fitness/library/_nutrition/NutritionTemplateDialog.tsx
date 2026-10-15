@@ -58,6 +58,8 @@ import {
   type MacroDraft,
 } from "./macro-fields";
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
+import { formDraftKey, useFormDraft } from "@/lib/gc-fitness/use-form-draft";
+import { FormDraftRestoredNotice } from "@/components/gc-fitness/form-draft-restored-notice";
 
 interface MealDraft {
   key: string;
@@ -129,6 +131,42 @@ export function NutritionTemplateDialog({
           }))
       : [blankMeal()],
   );
+
+  // #382 — a reload (stale deployment, F5) brings what the coach typed back.
+  // Row keys are minted per page load, so they stay out of the draft: a
+  // restored row gets a fresh one (an old key could collide with the next
+  // "add meal"), and a reset must not read as an edit.
+  const snapshot = {
+    name,
+    nameEn,
+    showTranslation,
+    macros,
+    meals: meals.map(({ key: _key, ...meal }) => meal),
+  };
+  type TemplateDraft = typeof snapshot;
+  const [initial] = useState<TemplateDraft>(snapshot);
+  const applyDraft = (saved: Partial<TemplateDraft>) => {
+    if (saved.name !== undefined) setName(saved.name);
+    if (saved.nameEn !== undefined) setNameEn(saved.nameEn);
+    if (saved.showTranslation !== undefined) setShowTranslation(saved.showTranslation);
+    if (saved.macros !== undefined) setMacros(saved.macros);
+    if (saved.meals !== undefined) {
+      setMeals(saved.meals.map((meal) => ({ ...meal, key: nextKey() })));
+    }
+  };
+  const draft = useFormDraft<TemplateDraft>({
+    key: formDraftKey("nutrition-template", template?.id),
+    value: snapshot,
+    onRestore: applyDraft,
+  });
+  const discardDraft = () => {
+    applyDraft(initial);
+    draft.discard(initial);
+  };
+  const cancel = () => {
+    draft.discard();
+    onClose();
+  };
 
   function patchMeal(key: string, patch: Partial<MealDraft>) {
     setMeals((current) =>
@@ -203,6 +241,7 @@ export function NutritionTemplateDialog({
     setSaving(true);
     try {
       await onSubmit(payload);
+      draft.clear();
       toast.success(t("saved"));
       onClose();
     } catch (err) {
@@ -216,13 +255,19 @@ export function NutritionTemplateDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => (!open && !saving ? onClose() : undefined)}>
+    <Dialog open onOpenChange={(open) => (!open && !saving ? cancel() : undefined)}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{template ? t("editTemplate") : t("newTemplate")}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4" data-testid="nutrition-template-dialog">
+          {draft.restored ? (
+            <FormDraftRestoredNotice
+              onDiscard={discardDraft}
+              onDismiss={draft.dismissNotice}
+            />
+          ) : null}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="nutrition-template-name">{t("templateName")}</Label>
             <Input
@@ -375,7 +420,7 @@ export function NutritionTemplateDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={saving}>
+          <Button variant="ghost" onClick={cancel} disabled={saving}>
             {t("cancel")}
           </Button>
           <Button onClick={save} disabled={saving} data-testid="nutrition-template-save">

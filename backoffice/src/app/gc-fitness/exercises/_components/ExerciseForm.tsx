@@ -24,6 +24,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
+import { formDraftKey, useFormDraft } from "@/lib/gc-fitness/use-form-draft";
+import { FormDraftRestoredNotice } from "@/components/gc-fitness/form-draft-restored-notice";
 import { useTranslations, useLocale } from "next-intl";
 
 import {
@@ -229,6 +231,17 @@ export function ExerciseForm({
     defaultValues: formDefaults,
     mode: "onSubmit",
   });
+  // #382 — a reload (stale deployment, F5) brings the coach's edit back.
+  const draft = useFormDraft<ExerciseInput>({
+    key: isView ? null : formDraftKey("exercise", exerciseId ?? "new"),
+    value: form.watch(),
+    onRestore: (saved) =>
+      form.reset({ ...formDefaults, ...saved }, { keepDefaultValues: true }),
+  });
+  const discardDraft = () => {
+    form.reset(formDefaults);
+    draft.discard(formDefaults);
+  };
   const locale = useLocale();
   const esPrimary = locale.startsWith("es");
   const primaryLang = esPrimary ? "es" : "en";
@@ -331,6 +344,7 @@ export function ExerciseForm({
             return;
           }
           const id = result.id;
+          draft.clear();
           await invalidateExercises();
           toast.success(t("savedToast"));
           // B4 — modal mode: hand control back to the Dialog parent (which
@@ -357,6 +371,7 @@ export function ExerciseForm({
             toast.error(t("saveFailedToast"), { description: result.error });
             return;
           }
+          draft.clear();
           await invalidateExercises();
           toast.success(t("savedToast"));
           router.push("/gc-fitness/exercises");
@@ -402,6 +417,7 @@ export function ExerciseForm({
         toast.error(t("deleteFailedToast"), { description: result.error });
         return;
       }
+      draft.clear();
       await invalidateExercises();
       toast.success(t("deletedToast"));
       router.push("/gc-fitness/exercises");
@@ -432,6 +448,12 @@ export function ExerciseForm({
       )}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-6" noValidate>
+        {draft.restored ? (
+          <FormDraftRestoredNotice
+            onDiscard={discardDraft}
+            onDismiss={draft.dismissNotice}
+          />
+        ) : null}
         {/* 26-09 — single top-right translation toggle for the whole form.
             While hidden, every localized field shows just its coach-language
             input (the language is implied by the UI locale); revealing it
@@ -801,7 +823,11 @@ export function ExerciseForm({
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => (onCancel ? onCancel() : router.back())}
+                onClick={() => {
+                  draft.discard();
+                  if (onCancel) onCancel();
+                  else router.back();
+                }}
                 disabled={pending}
               >
                 {t("cancel")}

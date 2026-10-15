@@ -52,6 +52,9 @@ import {
 } from "@/lib/gc-fitness/nutrition-schema";
 
 import { MacroFields, numberOrNull, type MacroDraft, toMacroDraft } from "./macro-fields";
+import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
+import { formDraftKey, useFormDraft } from "@/lib/gc-fitness/use-form-draft";
+import { FormDraftRestoredNotice } from "@/components/gc-fitness/form-draft-restored-notice";
 
 interface OptionDraft {
   key: string;
@@ -100,6 +103,44 @@ export function NutritionMealDialog({
     })),
   );
 
+  // #382 — a reload (stale deployment, F5) brings what the coach typed back.
+  // Row keys are minted per page load, so they stay out of the draft: a
+  // restored row gets a fresh one (an old key could collide with the next
+  // "add option"), and a reset must not read as an edit.
+  const snapshot = {
+    name,
+    nameEn,
+    showTranslation,
+    moment,
+    macros,
+    options: options.map(({ key: _key, ...option }) => option),
+  };
+  type MealDraft = typeof snapshot;
+  const [initial] = useState<MealDraft>(snapshot);
+  const applyDraft = (saved: Partial<MealDraft>) => {
+    if (saved.name !== undefined) setName(saved.name);
+    if (saved.nameEn !== undefined) setNameEn(saved.nameEn);
+    if (saved.showTranslation !== undefined) setShowTranslation(saved.showTranslation);
+    if (saved.moment !== undefined) setMoment(saved.moment);
+    if (saved.macros !== undefined) setMacros(saved.macros);
+    if (saved.options !== undefined) {
+      setOptions(saved.options.map((option) => ({ ...option, key: nextKey() })));
+    }
+  };
+  const draft = useFormDraft<MealDraft>({
+    key: formDraftKey("nutrition-meal", meal?.id),
+    value: snapshot,
+    onRestore: applyDraft,
+  });
+  const discardDraft = () => {
+    applyDraft(initial);
+    draft.discard(initial);
+  };
+  const cancel = () => {
+    draft.discard();
+    onClose();
+  };
+
   function buildPayload() {
     return {
       name: { es: name.trim(), en: (showTranslation ? nameEn : name).trim() },
@@ -136,11 +177,13 @@ export function NutritionMealDialog({
     setSaving(true);
     try {
       await onSubmit(payload);
+      draft.clear();
       toast.success(t("saved"));
       onClose();
-    } catch {
+    } catch (err) {
       // The dialog STAYS OPEN. Closing on failure throws away everything typed for a write
       // that never happened.
+      if (noteIfStaleDeployment(err)) return;
       setError(t("errorGeneric"));
     } finally {
       setSaving(false);
@@ -148,13 +191,19 @@ export function NutritionMealDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => (!open && !saving ? onClose() : undefined)}>
+    <Dialog open onOpenChange={(open) => (!open && !saving ? cancel() : undefined)}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{meal ? t("editMeal") : t("newMeal")}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4" data-testid="nutrition-meal-dialog">
+          {draft.restored ? (
+            <FormDraftRestoredNotice
+              onDiscard={discardDraft}
+              onDismiss={draft.dismissNotice}
+            />
+          ) : null}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="nutrition-meal-name">{t("mealName")}</Label>
             <Input
@@ -297,7 +346,7 @@ export function NutritionMealDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={saving}>
+          <Button variant="ghost" onClick={cancel} disabled={saving}>
             {t("cancel")}
           </Button>
           <Button onClick={save} disabled={saving} data-testid="nutrition-meal-save">

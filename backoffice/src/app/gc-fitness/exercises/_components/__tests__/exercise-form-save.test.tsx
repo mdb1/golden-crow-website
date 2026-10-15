@@ -128,6 +128,10 @@ function metricChip(name: RegExp) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // #382 — the form keeps an unsaved edit as a sessionStorage draft and
+  // restores it on the next mount; a case that leaves one behind would
+  // otherwise pre-fill the next case's form.
+  window.sessionStorage.clear();
   // #1104 — `{ ok }`-shaped results; the actions no longer throw failures.
   mockCreateExercise.mockResolvedValue({ ok: true, id: "new-1" });
   mockUpdateExercise.mockResolvedValue({ ok: true });
@@ -396,5 +400,41 @@ describe("ExerciseForm — % of body weight (#1307)", () => {
 
     const payload = await savedPayload();
     expect("bodyweightLoadFactor" in payload).toBe(false);
+  });
+});
+
+describe("ExerciseForm — the draft across a reload (#382)", () => {
+  // A reload is unmount + a fresh mount against the same sessionStorage —
+  // what the stale-deployment banner's "Reload" does to an open form.
+  it("brings an unsaved edit back, says so, and drops the draft once saved", async () => {
+    const user = userEvent.setup();
+    const before = render(
+      <ExerciseForm mode="edit" exerciseId="ex-1" defaultValues={defaults()} />,
+    );
+    await user.click(metricChip(/Reps \(no weight\)/));
+    before.unmount();
+
+    renderEdit();
+
+    expect(await screen.findByTestId("form-draft-restored")).toBeInTheDocument();
+    expect(metricChip(/Reps \(no weight\)/)).toHaveAttribute("aria-pressed", "true");
+    await save(user);
+    expect(await savedPayload()).toMatchObject({ tracksWeight: false });
+    expect(window.sessionStorage.getItem("draft:exercise:ex-1")).toBeNull();
+  });
+
+  it("Cancel throws the draft away", async () => {
+    const user = userEvent.setup();
+    const before = render(
+      <ExerciseForm mode="edit" exerciseId="ex-1" defaultValues={defaults()} />,
+    );
+    await user.click(metricChip(/Reps \(no weight\)/));
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    before.unmount();
+
+    renderEdit();
+
+    expect(screen.queryByTestId("form-draft-restored")).not.toBeInTheDocument();
+    expect(metricChip(/Reps × Weight/)).toHaveAttribute("aria-pressed", "true");
   });
 });
