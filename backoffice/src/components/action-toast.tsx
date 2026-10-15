@@ -18,6 +18,7 @@ export interface ActionToastState {
   id: number;
   tone: "success" | "error";
   message: string;
+  notice?: string;
   details?: string;
   durationMs?: number;
 }
@@ -103,6 +104,11 @@ export function ActionToast({
               {toast.tone === "success" ? t("Saved") : t("Action failed")}
             </p>
             <p className="mt-0.5 text-sm opacity-90">{toast.message}</p>
+            {toast.notice ? (
+              <p className="mt-1 text-sm font-medium opacity-90">
+                {toast.notice}
+              </p>
+            ) : null}
             {canViewLog ? (
               <div className="mt-3">
                 <Button

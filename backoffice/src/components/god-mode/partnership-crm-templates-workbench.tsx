@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -15,8 +16,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useMutation,
-  useQuery,
   useQueryClient,
+  type InfiniteData,
   type QueryClient,
 } from "@tanstack/react-query";
 import {
@@ -83,10 +84,11 @@ import { CrmTargetSegmentedControl } from "@/components/god-mode/crm-target-segm
 import { appText, type AppLanguage } from "@/lib/language";
 import {
   CRM_TEMPLATE_STATUS_OPTIONS,
+  createPartnershipCrmUsageEventId,
   DEFAULT_CRM_CATEGORY,
   DEFAULT_CRM_PROFESSIONAL_CATEGORY,
   PARTNERSHIP_CRM_FROM_EMAIL,
-  mergeCrmTemplateInputWithExisting,
+  normalizeCrmCategoryKeys,
   normalizeCrmPrimaryCategory,
   parseCrmTemplateCsv,
   templateStatusLabel,
@@ -104,6 +106,441 @@ import { sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
 const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
+const PLANTILLAS_USAGE_LIMIT = 100;
+const PLANTILLAS_RESET_RETRY_MS = 5 * 60 * 1000;
+const PLANTILLAS_USAGE_STORAGE_KEY = "golden-crow-plantillas-daily-usage-v1";
+const PLANTILLAS_SUMMARY_STORAGE_KEY =
+  "golden-crow-plantillas-summary-cache-v1";
+const PLANTILLAS_SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+type PlantillasDailyUsage = {
+  surface: "plantillas";
+  used: number;
+  limit: number;
+  percentage: number;
+  remaining: number;
+  resetAt: string;
+  locked: boolean;
+};
+
+type PlantillasUsageEnvelope = {
+  usage?: PlantillasDailyUsage;
+};
+
+class PlantillasRequestNotSentError extends Error {
+  constructor() {
+    super("Plantillas request was not sent because usage is locked or unverified.");
+    this.name = "PlantillasRequestNotSentError";
+  }
+}
+
+type PlantillasRequest = <T>(
+  path: string,
+  init?: RequestInit,
+) => Promise<T>;
+
+function readStoredUsage(): PlantillasDailyUsage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const stored = JSON.parse(
+      window.sessionStorage.getItem(PLANTILLAS_USAGE_STORAGE_KEY) ?? "null",
+    ) as PlantillasDailyUsage | null;
+    const normalized = normalizeUsage(stored);
+    if (!normalized) {
+      return null;
+    }
+    const resetAt = Date.parse(normalized.resetAt);
+    if (!Number.isFinite(resetAt) || resetAt <= Date.now()) {
+      window.sessionStorage.removeItem(PLANTILLAS_USAGE_STORAGE_KEY);
+      return null;
+    }
+    return normalized;
+  } catch {
+    return null;
+  }
+}
+
+function plantillasUsageFromError(error: unknown) {
+  if (!error || typeof error !== "object" || !("details" in error)) {
+    return undefined;
+  }
+  const details = (error as { details?: unknown }).details;
+  if (typeof details !== "string") {
+    return undefined;
+  }
+  const marker = "Response JSON:\n";
+  const markerIndex = details.lastIndexOf(marker);
+  if (markerIndex === -1) {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(details.slice(markerIndex + marker.length)) as {
+      usage?: PlantillasDailyUsage;
+    };
+    return parsed.usage;
+  } catch {
+    return undefined;
+  }
+}
+
+function isRateLimitError(error: unknown) {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "status" in error &&
+    (error as { status?: unknown }).status === 429
+  );
+}
+
+function plantillasErrorCode(error: unknown) {
+  if (!error || typeof error !== "object" || !("details" in error)) {
+    return undefined;
+  }
+  const details = (error as { details?: unknown }).details;
+  if (typeof details !== "string") {
+    return undefined;
+  }
+  const marker = "Response JSON:\n";
+  const markerIndex = details.lastIndexOf(marker);
+  if (markerIndex === -1) {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(details.slice(markerIndex + marker.length)) as {
+      code?: unknown;
+    };
+    return typeof parsed.code === "string" ? parsed.code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isPlantillasRequestKnownNotExecuted(error: unknown) {
+  return (
+    error instanceof PlantillasRequestNotSentError ||
+    isRateLimitError(error) ||
+    (error !== null &&
+      typeof error === "object" &&
+      "status" in error &&
+      (error as { status?: unknown }).status === 503 &&
+      plantillasErrorCode(error) === "CRM_USAGE_UNAVAILABLE")
+  );
+}
+
+function storeUsage(usage: PlantillasDailyUsage) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      PLANTILLAS_USAGE_STORAGE_KEY,
+      JSON.stringify(usage),
+    );
+  } catch {
+    // The server remains authoritative when browser storage is unavailable.
+  }
+}
+
+function normalizeUsage(
+  value: unknown,
+): PlantillasDailyUsage | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const candidate = value as Partial<PlantillasDailyUsage>;
+  if (
+    candidate.surface !== "plantillas" ||
+    typeof candidate.used !== "number" ||
+    !Number.isFinite(candidate.used) ||
+    !Number.isInteger(candidate.used) ||
+    candidate.used < 0 ||
+    candidate.used > PLANTILLAS_USAGE_LIMIT ||
+    typeof candidate.limit !== "number" ||
+    !Number.isFinite(candidate.limit) ||
+    candidate.limit !== PLANTILLAS_USAGE_LIMIT ||
+    typeof candidate.percentage !== "number" ||
+    !Number.isFinite(candidate.percentage) ||
+    candidate.percentage < 0 ||
+    candidate.percentage > 100 ||
+    typeof candidate.remaining !== "number" ||
+    !Number.isFinite(candidate.remaining) ||
+    candidate.remaining < 0 ||
+    candidate.remaining > PLANTILLAS_USAGE_LIMIT ||
+    typeof candidate.resetAt !== "string" ||
+    !Number.isFinite(Date.parse(candidate.resetAt)) ||
+    Date.parse(candidate.resetAt) <= Date.now() ||
+    typeof candidate.locked !== "boolean"
+  ) {
+    return null;
+  }
+
+  const limit = Math.max(1, candidate.limit);
+  const used = Math.min(limit, Math.max(0, candidate.used));
+  return {
+    surface: "plantillas",
+    used,
+    limit,
+    percentage: Math.round((used / limit) * 100),
+    remaining: Math.max(0, limit - used),
+    resetAt: candidate.resetAt,
+    locked: used >= limit,
+  };
+}
+
+function withDerivedPlantillasUsage(
+  usage: PlantillasDailyUsage,
+): PlantillasDailyUsage {
+  const limit = PLANTILLAS_USAGE_LIMIT;
+  const used = Math.min(limit, Math.max(0, usage.used));
+  return {
+    ...usage,
+    used,
+    limit,
+    percentage: Math.round((used / limit) * 100),
+    remaining: Math.max(0, limit - used),
+    locked: used >= limit,
+  };
+}
+
+export function mergePlantillasUsage(
+  current: PlantillasDailyUsage | null,
+  incoming: PlantillasDailyUsage,
+) {
+  if (!current) {
+    return withDerivedPlantillasUsage(incoming);
+  }
+
+  const currentResetAt = Date.parse(current.resetAt);
+  const incomingResetAt = Date.parse(incoming.resetAt);
+  if (
+    Number.isFinite(incomingResetAt) &&
+    (!Number.isFinite(currentResetAt) || incomingResetAt > currentResetAt)
+  ) {
+    return withDerivedPlantillasUsage(incoming);
+  }
+  if (
+    Number.isFinite(currentResetAt) &&
+    (!Number.isFinite(incomingResetAt) || incomingResetAt < currentResetAt)
+  ) {
+    return withDerivedPlantillasUsage(current);
+  }
+
+  const limit = Math.min(current.limit, incoming.limit);
+  const used = Math.min(limit, Math.max(current.used, incoming.used));
+  return withDerivedPlantillasUsage({
+    ...incoming,
+    used,
+    limit,
+  });
+}
+
+function usePlantillasDailyUsage() {
+  const [usage, setUsage] = useState<PlantillasDailyUsage | null>(null);
+  const usageRef = useRef<PlantillasDailyUsage | null>(null);
+  const [usageError, setUsageError] = useState("");
+  const usageErrorRef = useRef("");
+  const [usageReady, setUsageReady] = useState(false);
+  const pageLoadStartedRef = useRef(false);
+  const pageLoadEventIdRef = useRef<string | null>(null);
+
+  const updateUsageError = useCallback((message: string) => {
+    usageErrorRef.current = message;
+    setUsageError(message);
+  }, []);
+
+  const acceptUsage = useCallback((next: PlantillasDailyUsage | undefined) => {
+    const normalized = normalizeUsage(next);
+    if (!normalized) {
+      return null;
+    }
+    const merged = mergePlantillasUsage(usageRef.current, normalized);
+    usageRef.current = merged;
+    setUsage(merged);
+    storeUsage(merged);
+    return merged;
+  }, []);
+
+  const lockUsage = useCallback(() => {
+    const current = usageRef.current;
+    const next: PlantillasDailyUsage = {
+      surface: "plantillas",
+      used: current?.limit ?? PLANTILLAS_USAGE_LIMIT,
+      limit: current?.limit ?? PLANTILLAS_USAGE_LIMIT,
+      percentage: 100,
+      remaining: 0,
+      resetAt: current?.resetAt ?? "",
+      locked: true,
+    };
+    usageRef.current = next;
+    setUsage(next);
+    if (
+      next.resetAt &&
+      Number.isFinite(Date.parse(next.resetAt)) &&
+      Date.parse(next.resetAt) > Date.now()
+    ) {
+      storeUsage(next);
+    } else if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(PLANTILLAS_USAGE_STORAGE_KEY);
+    }
+  }, []);
+
+  const verifyPageLoad = useCallback(async (): Promise<
+    "unlocked" | "locked" | "error"
+  > => {
+    setUsageReady(false);
+    const eventId =
+      pageLoadEventIdRef.current ?? createPartnershipCrmUsageEventId();
+    pageLoadEventIdRef.current = eventId;
+    try {
+      const response = await sdkFetch<PlantillasUsageEnvelope>(
+        "/admin/partnership-crm/daily-usage/page-load",
+        {
+          method: "POST",
+          headers: {
+            "X-CRM-Usage-Surface": "plantillas",
+            "X-CRM-Usage-Event-ID": eventId,
+          },
+          body: JSON.stringify({ surface: "plantillas", eventId }),
+        },
+      );
+      const accepted = acceptUsage(response.usage);
+      if (!accepted) {
+        updateUsageError(
+          "Plantillas usage verification returned no valid usage.",
+        );
+        return "error";
+      }
+      updateUsageError("");
+      return accepted.locked ? "locked" : "unlocked";
+    } catch (error) {
+      const serverUsage = plantillasUsageFromError(error);
+      if (serverUsage) {
+        const accepted = acceptUsage(serverUsage);
+        updateUsageError(error instanceof Error ? error.message : String(error));
+        return accepted?.locked ? "locked" : "error";
+      } else if (isRateLimitError(error)) {
+        lockUsage();
+        updateUsageError(error instanceof Error ? error.message : String(error));
+        return "locked";
+      }
+      updateUsageError(error instanceof Error ? error.message : String(error));
+      return "error";
+    } finally {
+      setUsageReady(true);
+    }
+  }, [acceptUsage, lockUsage, updateUsageError]);
+
+  useEffect(() => {
+    if (pageLoadStartedRef.current) {
+      return;
+    }
+    pageLoadStartedRef.current = true;
+
+    const stored = readStoredUsage();
+    if (stored?.locked) {
+      usageRef.current = stored;
+      setUsage(stored);
+      setUsageReady(true);
+      return;
+    }
+    if (stored) {
+      usageRef.current = stored;
+      setUsage(stored);
+    }
+
+    void verifyPageLoad();
+  }, [verifyPageLoad]);
+
+  useEffect(() => {
+    if (!usage?.locked || !usage.resetAt) {
+      return;
+    }
+
+    const resetAt = Date.parse(usage.resetAt);
+    if (!Number.isFinite(resetAt)) {
+      return;
+    }
+
+    let retryTimer: number | undefined;
+    let cancelled = false;
+    const reverifyUntilUnlocked = async () => {
+      const outcome = await verifyPageLoad();
+      if (!cancelled && outcome !== "unlocked") {
+        retryTimer = window.setTimeout(
+          reverifyUntilUnlocked,
+          PLANTILLAS_RESET_RETRY_MS,
+        );
+      }
+    };
+    const timer = window.setTimeout(() => {
+      void reverifyUntilUnlocked();
+    }, Math.max(0, resetAt - Date.now() + 1000));
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (retryTimer !== undefined) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, [usage?.locked, usage?.resetAt, verifyPageLoad]);
+
+  const request = useCallback<PlantillasRequest>(
+    async <T,>(path: string, init?: RequestInit) => {
+      if (!usageReady || usageRef.current?.locked || usageErrorRef.current) {
+        throw new PlantillasRequestNotSentError();
+      }
+
+      const eventId = createPartnershipCrmUsageEventId();
+      const headers = new Headers(init?.headers);
+      headers.set("X-CRM-Usage-Surface", "plantillas");
+      headers.set("X-CRM-Usage-Event-ID", eventId);
+
+      try {
+        const response = await sdkFetch<T & PlantillasUsageEnvelope>(path, {
+          ...init,
+          headers,
+        });
+        if (!acceptUsage(response?.usage)) {
+          updateUsageError("Plantillas action returned no valid usage.");
+        }
+        return response;
+      } catch (error) {
+        const serverUsage = plantillasUsageFromError(error);
+        const acceptedUsage = serverUsage
+          ? acceptUsage(serverUsage)
+          : null;
+        if (acceptedUsage) {
+          // The failed action still returned an authoritative usage snapshot.
+        } else if (isRateLimitError(error)) {
+          lockUsage();
+          updateUsageError(
+            error instanceof Error ? error.message : String(error),
+          );
+        } else {
+          updateUsageError(error instanceof Error ? error.message : String(error));
+        }
+        throw error;
+      }
+    },
+    [acceptUsage, lockUsage, updateUsageError, usageReady],
+  );
+
+  return {
+    usage,
+    usageError,
+    canUseFresh: usageReady && !usage?.locked && !usageError,
+    locked: Boolean(usage?.locked),
+    request,
+    retryUsageVerification: verifyPageLoad,
+    usageVerificationPending: !usageReady,
+  };
+}
 const TEMPLATE_IMPORT_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
 const ORGANIZATION_TEMPLATE_VARIABLES = [
@@ -318,16 +755,6 @@ type TemplateImportPreviewRow = {
   template: PartnershipCrmTemplateInput;
   errors: string[];
   valid: boolean;
-  duplicateTemplate?: PartnershipCrmTemplateRecord;
-  duplicateReason?: string;
-  conflicts: TemplateImportConflict[];
-};
-
-type TemplateImportConflict = {
-  key: keyof PartnershipCrmTemplateInput;
-  label: string;
-  existingValue: unknown;
-  incomingValue: unknown;
 };
 
 type TemplateImportResult = {
@@ -336,6 +763,16 @@ type TemplateImportResult = {
   templateId?: string;
   template?: PartnershipCrmTemplateRecord;
   error?: string;
+  notSent?: boolean;
+};
+
+type SequentialBulkResult<T> = {
+  completed: T[];
+  failure?: {
+    itemId: string;
+    error: string;
+    notSent: boolean;
+  };
 };
 
 const EMPTY_TEMPLATE_FORM: TemplateFormState = {
@@ -602,7 +1039,7 @@ function templateFitAnalysis(template: PartnershipCrmTemplateRecord) {
 
 function buildTemplateListPath(filters: TemplateFilters, cursor?: string) {
   const params = new URLSearchParams({
-    limit: "20",
+    limit: "10",
     audience: filters.audience,
   });
   const category = normalizeCrmPrimaryCategory(
@@ -623,6 +1060,38 @@ function buildTemplateListPath(filters: TemplateFilters, cursor?: string) {
   }
 
   return `/admin/partnership-crm/templates?${params.toString()}`;
+}
+
+function templateMatchesAppliedFilters(
+  template: PartnershipCrmTemplateRecord,
+  filters: TemplateFilters,
+) {
+  const query = filters.query.trim().toLocaleLowerCase();
+  const category = normalizeCrmPrimaryCategory(
+    filters.category,
+    filters.audience,
+  );
+  const templateCategories = normalizeCrmCategoryKeys(
+    template.category,
+    template.audience,
+  );
+  const searchableSummary = [
+    template.id,
+    template.name,
+    template.audience,
+    template.category,
+    template.subject,
+    template.status,
+  ]
+    .join(" ")
+    .toLocaleLowerCase();
+
+  return (
+    template.audience === filters.audience &&
+    (filters.status === "all" || template.status === filters.status) &&
+    (!category || templateCategories.includes(category)) &&
+    (!query || searchableSummary.includes(query))
+  );
 }
 
 function formatDateTime(
@@ -698,6 +1167,144 @@ function isPartnershipCrmTemplatesPage(
   );
 }
 
+type PlantillasSummaryCache = {
+  savedAt: string;
+  filters: TemplateFilters;
+  page: PartnershipCrmTemplatesPage;
+};
+
+function isCachedTemplateFilters(value: unknown): value is TemplateFilters {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<TemplateFilters>;
+  return (
+    typeof candidate.query === "string" &&
+    (candidate.audience === "organizations" ||
+      candidate.audience === "professionals") &&
+    (candidate.status === "all" ||
+      CRM_TEMPLATE_STATUS_OPTIONS.some(
+        (option) => option.value === candidate.status,
+      )) &&
+    typeof candidate.category === "string"
+  );
+}
+
+function isCachedTemplateSummary(
+  value: unknown,
+): value is PartnershipCrmTemplateRecord {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<PartnershipCrmTemplateRecord>;
+  return (
+    typeof candidate.id === "string" &&
+    candidate.id.length > 0 &&
+    typeof candidate.schemaVersion === "number" &&
+    Number.isInteger(candidate.schemaVersion) &&
+    candidate.schemaVersion >= 1 &&
+    typeof candidate.name === "string" &&
+    (candidate.audience === "organizations" ||
+      candidate.audience === "professionals") &&
+    typeof candidate.category === "string" &&
+    typeof candidate.subject === "string" &&
+    typeof candidate.body === "string" &&
+    CRM_TEMPLATE_STATUS_OPTIONS.some(
+      (option) => option.value === candidate.status,
+    ) &&
+    typeof candidate.notes === "string" &&
+    typeof candidate.is_favorite === "boolean" &&
+    typeof candidate.normalizedName === "string"
+  );
+}
+
+function isCachedTemplatesPage(
+  value: unknown,
+): value is PartnershipCrmTemplatesPage {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<PartnershipCrmTemplatesPage>;
+  return (
+    Array.isArray(candidate.templates) &&
+    candidate.templates.every(isCachedTemplateSummary) &&
+    (candidate.nextCursor === undefined ||
+      typeof candidate.nextCursor === "string") &&
+    (candidate.partial === undefined || typeof candidate.partial === "boolean") &&
+    (candidate.scanned === undefined ||
+      (typeof candidate.scanned === "number" &&
+        Number.isInteger(candidate.scanned) &&
+        candidate.scanned >= 0)) &&
+    (candidate.asOf === undefined || typeof candidate.asOf === "string")
+  );
+}
+
+function toTemplateSummary(
+  template: PartnershipCrmTemplateRecord,
+): PartnershipCrmTemplateRecord {
+  return {
+    ...template,
+    body: "",
+    notes: "",
+  };
+}
+
+function readTemplateSummaryCache(): PlantillasSummaryCache | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const cached = JSON.parse(
+      window.sessionStorage.getItem(PLANTILLAS_SUMMARY_STORAGE_KEY) ?? "null",
+    ) as PlantillasSummaryCache | null;
+    const savedAt = cached ? Date.parse(cached.savedAt) : Number.NaN;
+    const now = Date.now();
+    if (
+      !cached ||
+      !isCachedTemplateFilters(cached.filters) ||
+      !isCachedTemplatesPage(cached.page) ||
+      !Number.isFinite(savedAt) ||
+      savedAt > now ||
+      now - savedAt >= PLANTILLAS_SUMMARY_CACHE_TTL_MS
+    ) {
+      window.sessionStorage.removeItem(PLANTILLAS_SUMMARY_STORAGE_KEY);
+      return null;
+    }
+    return cached;
+  } catch {
+    window.sessionStorage.removeItem(PLANTILLAS_SUMMARY_STORAGE_KEY);
+    return null;
+  }
+}
+
+function storeTemplateSummaryCache(cache: PlantillasSummaryCache) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      PLANTILLAS_SUMMARY_STORAGE_KEY,
+      JSON.stringify(cache),
+    );
+  } catch {
+    // The page remains usable without browser storage.
+  }
+}
+
+function clearTemplateSummaryCache() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem(PLANTILLAS_SUMMARY_STORAGE_KEY);
+  } catch {
+    // A stale cache cannot be reused when browser storage is unavailable.
+  }
+}
+
 function updateCachedTemplateListPages(
   queryClient: QueryClient,
   updater: (
@@ -714,6 +1321,33 @@ function updateCachedTemplateListPages(
           }
         : current,
   );
+
+  for (const audience of ["organizations", "professionals"] as const) {
+    queryClient.setQueryData<
+      InfiniteData<PartnershipCrmTemplatesPage, string>
+    >([TEMPLATES_QUERY_KEY, "active", audience], (current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        pages: current.pages.map((page) => ({
+          ...page,
+          templates: updater(page.templates).filter(
+            (template) =>
+              template.status === "active" && template.audience === audience,
+          ),
+        })),
+      };
+    });
+  }
+}
+
+function clearCrmTemplateComposerCache(queryClient: QueryClient) {
+  queryClient.removeQueries({
+    queryKey: [TEMPLATES_QUERY_KEY, "active"],
+  });
 }
 
 function templatePayload(
@@ -783,198 +1417,8 @@ function statusBadgeVariant(status: PartnershipCrmTemplateStatus) {
   return "secondary" as const;
 }
 
-const TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_LIMIT = 50;
-const TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_CAP = 10;
-
-const TEMPLATE_IMPORT_CONFLICT_FIELDS: Array<{
-  key: keyof PartnershipCrmTemplateInput;
-  label: string;
-}> = [
-  { key: "name", label: "Template name" },
-  { key: "audience", label: "Applies to" },
-  { key: "category", label: "Category" },
-  { key: "subject", label: "Subject" },
-  { key: "body", label: "Message" },
-  { key: "status", label: "Status" },
-  { key: "notes", label: "Notes" },
-  { key: "is_favorite", label: "Favorite" },
-];
-
-function normalizeTemplateMatchValue(value: string | undefined | null) {
-  return (value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function templateNameMatchTokens(value: string | undefined | null) {
-  return normalizeTemplateMatchValue(value)
-    .split(/[^a-z0-9]+/)
-    .filter((token) => token.length >= 3);
-}
-
-function templateLeadingCode(value: string | undefined | null) {
-  const normalized = normalizeTemplateMatchValue(value);
-  const match = normalized.match(
-    /^([a-z]{1,4})\s*[-_.]?\s*(\d{1,4})(?=$|[^a-z0-9])/,
-  );
-  if (!match) {
-    return null;
-  }
-  return `${match[1]}${Number(match[2])}`;
-}
-
-function templateNameWithoutLeadingCode(value: string | undefined | null) {
-  return normalizeTemplateMatchValue(value)
-    .replace(
-      /^([a-z]{1,4})\s*[-_.]?\s*(\d{1,4})(?=$|[^a-z0-9])\s*[-:–—.]?\s*/,
-      "",
-    )
-    .trim();
-}
-
-function templateNamesAreCompatible(
-  existingName: string | undefined | null,
-  incomingName: string | undefined | null,
-) {
-  const existingCode = templateLeadingCode(existingName);
-  const incomingCode = templateLeadingCode(incomingName);
-  let existing = normalizeTemplateMatchValue(existingName);
-  let incoming = normalizeTemplateMatchValue(incomingName);
-
-  if (!existing || !incoming) {
-    return false;
-  }
-
-  if (existing === incoming) {
-    return true;
-  }
-
-  if (existingCode || incomingCode) {
-    if (existingCode !== incomingCode) {
-      return false;
-    }
-
-    existing = templateNameWithoutLeadingCode(existingName);
-    incoming = templateNameWithoutLeadingCode(incomingName);
-    if (!existing || !incoming) {
-      return false;
-    }
-    if (existing === incoming) {
-      return true;
-    }
-  }
-
-  const shorter = existing.length < incoming.length ? existing : incoming;
-  const longer = existing.length < incoming.length ? incoming : existing;
-
-  if (shorter.length >= 12 && longer.includes(shorter)) {
-    return true;
-  }
-
-  const existingTokens = new Set(templateNameMatchTokens(existing));
-  const incomingTokens = templateNameMatchTokens(incoming);
-
-  if (existingTokens.size === 0 || incomingTokens.length === 0) {
-    return false;
-  }
-
-  const sharedCount = incomingTokens.filter((token) =>
-    existingTokens.has(token),
-  ).length;
-  const smallerTokenCount = Math.min(
-    existingTokens.size,
-    incomingTokens.length,
-  );
-
-  return sharedCount >= 2 && sharedCount / smallerTokenCount >= 0.6;
-}
-
-function templateImportAudience(
-  template:
-    PartnershipCrmTemplateInput | PartnershipCrmTemplateRecord | undefined,
-): PartnershipCrmTemplateAudience {
-  return template?.audience ?? "organizations";
-}
-
-function findTemplateDuplicateCandidate(
-  incoming: PartnershipCrmTemplateInput,
-  existingTemplates: PartnershipCrmTemplateRecord[],
-) {
-  const incomingAudience = templateImportAudience(incoming);
-  const incomingName = normalizeTemplateMatchValue(incoming.name);
-  const incomingSubject = normalizeTemplateMatchValue(incoming.subject);
-  const incomingCategory = normalizeTemplateMatchValue(incoming.category);
-  const sameAudienceTemplates = existingTemplates.filter(
-    (template) => templateImportAudience(template) === incomingAudience,
-  );
-  const byName = sameAudienceTemplates.find(
-    (template) => normalizeTemplateMatchValue(template.name) === incomingName,
-  );
-  if (byName) {
-    return {
-      template: byName,
-      reason: "Same audience and template name.",
-    };
-  }
-
-  if (!incomingSubject) {
-    return null;
-  }
-
-  const bySubject = sameAudienceTemplates.find(
-    (template) =>
-      normalizeTemplateMatchValue(template.category) === incomingCategory &&
-      normalizeTemplateMatchValue(template.subject) === incomingSubject &&
-      templateNamesAreCompatible(template.name, incoming.name),
-  );
-
-  return bySubject
-    ? {
-        template: bySubject,
-        reason:
-          "Same audience, category, and subject, with compatible template name.",
-      }
-    : null;
-}
-
-function comparableTemplateImportValue(
-  value: unknown,
-  key: keyof PartnershipCrmTemplateInput,
-) {
-  if (key === "is_favorite") {
-    return Boolean(value);
-  }
-
-  return typeof value === "string" ? value.trim() : (value ?? "");
-}
-
-function templateImportConflicts(
-  existing: PartnershipCrmTemplateRecord,
-  incoming: PartnershipCrmTemplateInput,
-): TemplateImportConflict[] {
-  return TEMPLATE_IMPORT_CONFLICT_FIELDS.flatMap(({ key, label }) => {
-    const existingValue = comparableTemplateImportValue(existing[key], key);
-    const incomingValue = comparableTemplateImportValue(incoming[key], key);
-
-    return existingValue === incomingValue
-      ? []
-      : [
-          {
-            key,
-            label,
-            existingValue,
-            incomingValue,
-          },
-        ];
-  });
-}
-
 function templatePreviewRows(
   parsed: ParsedCrmTemplateCsv,
-  existingTemplates: PartnershipCrmTemplateRecord[] = [],
 ): TemplateImportPreviewRow[] {
   const errorsByRow = parsed.errors.reduce((map, error) => {
     const errors = map.get(error.row) ?? [];
@@ -986,21 +1430,11 @@ function templatePreviewRows(
   return parsed.rows.map((template, index) => {
     const rowNumber = index + 2;
     const errors = errorsByRow.get(rowNumber) ?? [];
-    const duplicate = findTemplateDuplicateCandidate(
-      template,
-      existingTemplates,
-    );
-
     return {
       rowNumber,
       template,
       errors,
       valid: errors.length === 0,
-      duplicateTemplate: duplicate?.template,
-      duplicateReason: duplicate?.reason,
-      conflicts: duplicate
-        ? templateImportConflicts(duplicate.template, template)
-        : [],
     };
   });
 }
@@ -1022,34 +1456,6 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error.";
 }
 
-function formatTemplateImportValue(
-  key: keyof PartnershipCrmTemplateInput,
-  value: unknown,
-  audience: PartnershipCrmTemplateAudience,
-  language: AppLanguage,
-) {
-  const t = (text: string) => appText(language, text);
-
-  if (key === "is_favorite") {
-    return value ? t("Favorite") : t("Not favorite");
-  }
-
-  if (key === "audience") {
-    return value === "professionals" ? t("Professionals") : t("Organizations");
-  }
-
-  if (key === "category") {
-    return formatCrmCategory(String(value ?? ""), language, audience) || "-";
-  }
-
-  if (key === "status") {
-    return t(templateStatusLabel(value as PartnershipCrmTemplateStatus));
-  }
-
-  const text = String(value ?? "").trim();
-  return text || "-";
-}
-
 function TemplateStatusBadge({
   status,
   language,
@@ -1069,6 +1475,104 @@ function ErrorBanner({ children }: { children: React.ReactNode }) {
     <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
       {children}
     </p>
+  );
+}
+
+function PlantillasDailyUsageBar({
+  usage,
+  usageError,
+  hasCachedData,
+  language,
+  onRetryVerification,
+  verificationPending,
+}: {
+  usage: PlantillasDailyUsage | null;
+  usageError: string;
+  hasCachedData: boolean;
+  language: AppLanguage;
+  onRetryVerification: () => Promise<"unlocked" | "locked" | "error">;
+  verificationPending: boolean;
+}) {
+  const t = (text: string) => appText(language, text);
+  const used = usage?.used ?? 0;
+  const limit = usage?.limit ?? PLANTILLAS_USAGE_LIMIT;
+  const percentage = usage?.percentage ?? Math.round((used / limit) * 100);
+  const resetLabel = usage?.resetAt
+    ? formatDateTime(usage.resetAt, language)
+    : t("the next daily reset");
+  const hasKnownFutureReset = Boolean(
+    usage?.resetAt &&
+      Number.isFinite(Date.parse(usage.resetAt)) &&
+      Date.parse(usage.resetAt) > Date.now(),
+  );
+  const tone =
+    percentage >= 100
+      ? "bg-red-600"
+      : percentage >= 90
+        ? "bg-orange-600"
+        : percentage >= 70
+          ? "bg-amber-500"
+          : "bg-cyan-500";
+
+  return (
+    <div
+      className="rounded-xl border border-border/80 bg-background/60 px-3 py-2.5"
+      data-testid="plantillas-daily-usage"
+    >
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="font-medium text-foreground">
+          {t("Plantillas daily usage")}
+        </span>
+        <span className="tabular-nums text-muted-foreground">
+          {used} / {limit} · {percentage}%
+        </span>
+      </div>
+      <div
+        role="progressbar"
+        aria-label={t("Plantillas daily usage")}
+        aria-valuemin={0}
+        aria-valuemax={limit}
+        aria-valuenow={used}
+        className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
+      >
+        <div
+          className={cn("h-full rounded-full transition-[width]", tone)}
+          style={{ width: `${Math.min(100, percentage)}%` }}
+        />
+      </div>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        {usage?.locked
+          ? hasCachedData
+            ? t("Daily limit reached. Cached data remains available until reset.")
+            : t(
+                "Daily limit reached. Fresh Plantillas data and actions are unavailable until reset.",
+              )
+          : `${t("Resets at")} ${resetLabel}.`}
+      </p>
+      {usageError && (!usage?.locked || !hasKnownFutureReset) ? (
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-amber-700 dark:text-amber-300">
+          <p>
+            {t(
+              "Fresh Plantillas actions are unavailable until usage can be verified.",
+            )}
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={verificationPending}
+            onClick={() => void onRetryVerification()}
+          >
+            <RefreshCw
+              className={cn("h-3.5 w-3.5", verificationPending && "animate-spin")}
+            />
+            {verificationPending
+              ? t("Verifying usage...")
+              : t("Retry verification")}
+          </Button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1271,7 +1775,9 @@ function TemplatePreviewSidePanel({
   onDelete,
   onClose,
   pending,
+  favoritePending,
   deletePending,
+  readOnly,
   language,
 }: {
   template: PartnershipCrmTemplateRecord;
@@ -1281,7 +1787,9 @@ function TemplatePreviewSidePanel({
   onDelete: () => void;
   onClose: () => void;
   pending: boolean;
+  favoritePending: boolean;
   deletePending: boolean;
+  readOnly: boolean;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
@@ -1350,7 +1858,7 @@ function TemplatePreviewSidePanel({
                 onClick={() =>
                   onQuickUpdate({ is_favorite: !template.is_favorite })
                 }
-                disabled={pending}
+                disabled={favoritePending}
               >
                 <Star
                   className={cn(
@@ -1366,12 +1874,19 @@ function TemplatePreviewSidePanel({
                 variant="outline"
                 size="icon-sm"
                 className="shrink-0"
+                disabled={readOnly}
                 asChild
               >
                 <Link
                   href={`/god-mode/plantillas/${encodeURIComponent(template.id)}`}
                   aria-label={t("Edit")}
                   title={t("Edit")}
+                  aria-disabled={readOnly}
+                  onClick={(event) => {
+                    if (readOnly) {
+                      event.preventDefault();
+                    }
+                  }}
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   <span className="sr-only">{t("Edit")}</span>
@@ -1450,6 +1965,7 @@ function TemplatePreviewSidePanel({
               language={language}
               mode="form"
               audience={template.audience}
+              disabled={pending}
             />
           </div>
         </div>
@@ -1459,9 +1975,18 @@ function TemplatePreviewSidePanel({
         type="button"
         size="lg"
         className="h-12 w-full bg-blue-600 text-base font-semibold text-white shadow-[0_12px_28px_rgba(37,99,235,0.28)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
+        disabled={readOnly}
         asChild
       >
-        <Link href={`/god-mode/plantillas/${encodeURIComponent(template.id)}`}>
+        <Link
+          href={`/god-mode/plantillas/${encodeURIComponent(template.id)}`}
+          aria-disabled={readOnly}
+          onClick={(event) => {
+            if (readOnly) {
+              event.preventDefault();
+            }
+          }}
+        >
           <Pencil className="h-4 w-4" />
           {t("Edit text")}
         </Link>
@@ -1600,6 +2125,7 @@ function TemplatePreviewSidePanel({
           value={notesDraft}
           onChange={(event) => onNotesDraftChange(event.target.value)}
           className="mt-2 min-h-24"
+          disabled={pending}
         />
         <Button
           type="button"
@@ -1616,6 +2142,106 @@ function TemplatePreviewSidePanel({
   );
 }
 
+function TemplateSummaryOnlySidePanel({
+  template,
+  quotaLocked,
+  freshAccessAvailable,
+  verificationPending,
+  loading,
+  onLoad,
+  onRetryVerification,
+  onClose,
+  language,
+}: {
+  template: PartnershipCrmTemplateRecord;
+  quotaLocked: boolean;
+  freshAccessAvailable: boolean;
+  verificationPending: boolean;
+  loading: boolean;
+  onLoad: () => void;
+  onRetryVerification: () => void;
+  onClose: () => void;
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const verificationUnavailable = !quotaLocked && !freshAccessAvailable;
+
+  return (
+    <aside
+      data-testid="template-summary-only-panel"
+      className="grid content-start gap-4 xl:min-h-0 xl:overflow-y-auto xl:pl-2"
+    >
+      <div className="rounded-xl border border-border/80 bg-background/70 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Badge variant="outline">{t("Summary only")}</Badge>
+            <h3 className="mt-3 font-heading text-xl font-semibold">
+              {template.name}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {formatCrmCategory(
+                template.category,
+                language,
+                template.audience,
+              ) || t("No category")}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("Hide details")}
+            onClick={onClose}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <div className="mt-4 rounded-lg border border-border/70 bg-muted/25 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {t("Subject")}
+          </p>
+          <p className="mt-1 text-sm font-medium">
+            {template.subject || t("No subject")}
+          </p>
+        </div>
+        <p className="mt-4 text-sm leading-6 text-muted-foreground">
+          {quotaLocked
+            ? t(
+                "The cached summary does not include the message, notes, or fit score. Details can be loaded after the daily reset.",
+              )
+            : verificationUnavailable
+              ? verificationPending
+                ? t(
+                    "The cached summary does not include the message, notes, or fit score. Details are unavailable while daily usage is being verified.",
+                  )
+                : t(
+                    "The cached summary does not include the message, notes, or fit score. Details are unavailable because daily usage could not be verified. Retry verification to continue.",
+                  )
+            : t(
+                "The cached summary does not include the message, notes, or fit score. Load details only when needed.",
+              )}
+        </p>
+        <Button
+          type="button"
+          className="mt-4 w-full"
+          onClick={verificationUnavailable ? onRetryVerification : onLoad}
+          disabled={quotaLocked || loading || verificationPending}
+        >
+          {verificationPending
+            ? t("Verifying usage...")
+            : loading
+            ? t("Loading...")
+            : quotaLocked
+              ? t("Available after daily reset")
+              : verificationUnavailable
+                ? t("Retry verification")
+              : t("Tap to load details")}
+        </Button>
+      </div>
+    </aside>
+  );
+}
+
 function TemplateImportReviewCard({
   row,
   rowIndex,
@@ -1623,7 +2249,7 @@ function TemplateImportReviewCard({
   result,
   importing,
   pauseRequested,
-  checkingDuplicates,
+  locked,
   onAdd,
   onSkip,
   onImportAllRemaining,
@@ -1640,7 +2266,7 @@ function TemplateImportReviewCard({
   result?: TemplateImportResult;
   importing: boolean;
   pauseRequested: boolean;
-  checkingDuplicates: boolean;
+  locked: boolean;
   onAdd: () => void;
   onSkip: () => void;
   onImportAllRemaining: () => void;
@@ -1671,8 +2297,6 @@ function TemplateImportReviewCard({
     : row.valid
       ? "Ready"
       : "Row invalid";
-  const hasDuplicate = Boolean(row.duplicateTemplate);
-
   return (
     <section
       data-testid="template-import-current-row"
@@ -1780,89 +2404,6 @@ function TemplateImportReviewCard({
         <ErrorBanner>{result.error}</ErrorBanner>
       ) : null}
 
-      {row.duplicateTemplate ? (
-        <div
-          data-testid="template-import-duplicate"
-          className="rounded-xl border border-amber-200 bg-amber-50/85 p-3 text-amber-950 dark:border-amber-300/25 dark:bg-amber-400/12 dark:text-amber-50"
-        >
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">{t("Possible duplicate")}</p>
-              <p className="mt-1 text-sm leading-6 text-amber-950/75 dark:text-amber-50/75">
-                {t(
-                  "This row matches an existing template. Duplicate rows never create a second template. Updating applies this row to the existing template using the compatibility rules below; keeping existing leaves the database unchanged.",
-                )}
-              </p>
-              {row.duplicateReason ? (
-                <p className="mt-1 text-xs text-amber-950/65 dark:text-amber-50/65">
-                  {t(row.duplicateReason)}
-                </p>
-              ) : null}
-            </div>
-            <Badge variant="warning" className="max-w-full truncate">
-              {row.duplicateTemplate.name}
-            </Badge>
-          </div>
-
-          <div className="mt-3 rounded-lg border border-amber-200/80 bg-white/70 dark:border-amber-300/20 dark:bg-black/20">
-            {row.conflicts.length > 0 ? (
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-amber-200/80 dark:border-amber-300/20">
-                  <tr>
-                    <th className="px-2 py-2 font-semibold">{t("Field")}</th>
-                    <th className="px-2 py-2 font-semibold">
-                      {t("Existing template")}
-                    </th>
-                    <th className="px-2 py-2 font-semibold">{t("CSV new")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {row.conflicts.map((conflict) => (
-                    <tr
-                      key={conflict.key}
-                      className="border-b border-amber-200/70 last:border-b-0 dark:border-amber-300/20"
-                    >
-                      <th className="w-36 px-2 py-2 align-top font-medium">
-                        {t(conflict.label)}
-                      </th>
-                      <td className="max-w-[16rem] whitespace-pre-wrap px-2 py-2 align-top">
-                        {formatTemplateImportValue(
-                          conflict.key,
-                          conflict.existingValue,
-                          audience,
-                          language,
-                        )}
-                      </td>
-                      <td className="max-w-[16rem] whitespace-pre-wrap px-2 py-2 align-top">
-                        {formatTemplateImportValue(
-                          conflict.key,
-                          conflict.incomingValue,
-                          audience,
-                          language,
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="px-3 py-2 text-sm text-amber-950/75 dark:text-amber-50/75">
-                {t("No field differences detected.")}
-              </p>
-            )}
-          </div>
-
-          <p className="mt-2 text-xs leading-5 text-amber-950/70 dark:text-amber-50/70">
-            {t(
-              "Overwrite subject and body uses the same compatibility method as automatic import.",
-            )}{" "}
-            {t(
-              "CSV subject and body overwrite existing values when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
-            )}
-          </p>
-        </div>
-      ) : null}
-
       <div className="grid gap-3">
         <div className="space-y-1.5">
           <Label>{t("Subject")}</Label>
@@ -1951,34 +2492,31 @@ function TemplateImportReviewCard({
           disabled={importing || Boolean(result)}
         >
           <X className="h-4 w-4" />
-          {t(hasDuplicate ? "Keep existing unchanged" : "Skip row")}
+          {t("Skip row")}
         </Button>
         <Button
           type="button"
           onClick={onAdd}
           disabled={
-            importing || checkingDuplicates || Boolean(result) || !row.valid
+            importing ||
+            locked ||
+            Boolean(result) ||
+            !row.valid
           }
         >
-          {hasDuplicate ? (
-            <RefreshCw className="h-4 w-4" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
-          {checkingDuplicates
-            ? t("Checking...")
-            : importing
-              ? t("Importing...")
-              : t(hasDuplicate ? "Overwrite subject and body" : "Add row")}
+          <Plus className="h-4 w-4" />
+          {importing ? t("Importing...") : t("Process row")}
         </Button>
         <Button
           type="button"
           variant="outline"
           onClick={onImportAllRemaining}
-          disabled={importing || checkingDuplicates || Boolean(result)}
+          disabled={
+            importing || locked || Boolean(result)
+          }
         >
           <FileUp className="h-4 w-4" />
-          {t("Import pending rows - overwrite duplicate subject/body")}
+          {t("Process next 5 rows")}
         </Button>
       </div>
     </section>
@@ -1990,13 +2528,19 @@ function TemplateImportDialog({
   initialAudience,
   onOpenChange,
   onImported,
+  onAmbiguousMutation,
   language,
+  request,
+  locked,
 }: {
   open: boolean;
   initialAudience: PartnershipCrmTemplateAudience;
   onOpenChange: (open: boolean) => void;
-  onImported: () => void;
+  onImported: (templates: PartnershipCrmTemplateRecord[]) => void;
+  onAmbiguousMutation: () => void;
   language: AppLanguage;
+  request: PlantillasRequest;
+  locked: boolean;
 }) {
   const t = (text: string) => appText(language, text);
   const [audience, setAudience] =
@@ -2013,11 +2557,6 @@ function TemplateImportDialog({
   const importPauseRequestedRef = useRef(false);
   const [pauseRequested, setPauseRequested] = useState(false);
   const [autoImportPaused, setAutoImportPaused] = useState(false);
-  const [existingTemplates, setExistingTemplates] = useState<
-    PartnershipCrmTemplateRecord[]
-  >([]);
-  const [duplicateScanLoading, setDuplicateScanLoading] = useState(false);
-  const [duplicateScanError, setDuplicateScanError] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -2043,91 +2582,11 @@ function TemplateImportDialog({
     importPauseRequestedRef.current = false;
     setPauseRequested(false);
     setAutoImportPaused(false);
-    setExistingTemplates([]);
-    setDuplicateScanLoading(false);
-    setDuplicateScanError("");
   }, [initialAudience, open]);
 
-  useEffect(() => {
-    const parsedForScan = parsed;
-
-    if (!open || !parsedForScan) {
-      setExistingTemplates([]);
-      setDuplicateScanError("");
-      setDuplicateScanLoading(false);
-      return;
-    }
-
-    const rowsForDuplicateScan = parsedForScan.rows;
-    let cancelled = false;
-
-    async function loadExistingTemplatesForDuplicateScan() {
-      setDuplicateScanLoading(true);
-      setDuplicateScanError("");
-
-      try {
-        const loaded: PartnershipCrmTemplateRecord[] = [];
-        const audiencesToScan = Array.from(
-          new Set(
-            rowsForDuplicateScan.length > 0
-              ? rowsForDuplicateScan.map((row) => templateImportAudience(row))
-              : [audience],
-          ),
-        );
-
-        for (const scanAudience of audiencesToScan) {
-          let cursor: string | undefined;
-
-          for (
-            let pageIndex = 0;
-            pageIndex < TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_CAP;
-            pageIndex += 1
-          ) {
-            const params = new URLSearchParams({
-              limit: String(TEMPLATE_IMPORT_DUPLICATE_SCAN_PAGE_LIMIT),
-              audience: scanAudience,
-            });
-            if (cursor) {
-              params.set("cursor", cursor);
-            }
-
-            const page = await sdkFetch<PartnershipCrmTemplatesPage>(
-              `/admin/partnership-crm/templates?${params.toString()}`,
-            );
-            loaded.push(...page.templates);
-
-            if (!page.nextCursor) {
-              break;
-            }
-            cursor = page.nextCursor;
-          }
-        }
-
-        if (!cancelled) {
-          setExistingTemplates(loaded);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setExistingTemplates([]);
-          setDuplicateScanError(errorMessage(error));
-        }
-      } finally {
-        if (!cancelled) {
-          setDuplicateScanLoading(false);
-        }
-      }
-    }
-
-    void loadExistingTemplatesForDuplicateScan();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [audience, open, parsed]);
-
   const previewRows = useMemo(
-    () => (parsed ? templatePreviewRows(parsed, existingTemplates) : []),
-    [existingTemplates, parsed],
+    () => (parsed ? templatePreviewRows(parsed) : []),
+    [parsed],
   );
   const validRows = useMemo(
     () => previewRows.filter((row) => row.valid),
@@ -2174,7 +2633,7 @@ function TemplateImportDialog({
     hasPendingRows &&
     !importing &&
     !completed &&
-    !duplicateScanLoading;
+    !locked;
 
   function resetImportState() {
     csvTextRef.current = "";
@@ -2189,9 +2648,6 @@ function TemplateImportDialog({
     importPauseRequestedRef.current = false;
     setPauseRequested(false);
     setAutoImportPaused(false);
-    setExistingTemplates([]);
-    setDuplicateScanLoading(false);
-    setDuplicateScanError("");
   }
 
   function parseCsv(
@@ -2210,8 +2666,6 @@ function TemplateImportDialog({
     importPauseRequestedRef.current = false;
     setPauseRequested(false);
     setAutoImportPaused(false);
-    setExistingTemplates([]);
-    setDuplicateScanError("");
   }
 
   function handleAudienceChange(nextAudience: PartnershipCrmTemplateAudience) {
@@ -2239,8 +2693,6 @@ function TemplateImportDialog({
       importPauseRequestedRef.current = false;
       setPauseRequested(false);
       setAutoImportPaused(false);
-      setExistingTemplates([]);
-      setDuplicateScanError("");
     } catch (error) {
       csvTextRef.current = "";
       setFileName(file.name);
@@ -2256,8 +2708,6 @@ function TemplateImportDialog({
       importPauseRequestedRef.current = false;
       setPauseRequested(false);
       setAutoImportPaused(false);
-      setExistingTemplates([]);
-      setDuplicateScanError("");
     } finally {
       input.value = "";
     }
@@ -2292,6 +2742,18 @@ function TemplateImportDialog({
     rowIndex: number,
     nextResults: TemplateImportResult[],
   ) {
+    const failedResult = nextResults.find((result) => result.action === "failed");
+    if (failedResult) {
+      const failedRowIndex = previewRows.findIndex(
+        (row) => row.rowNumber === failedResult.rowNumber,
+      );
+      setResults(nextResults);
+      setProcessedCount(nextResults.length);
+      setActiveRowIndex(Math.max(0, failedRowIndex));
+      setReviewPanelOpen(true);
+      setCompleted(false);
+      return;
+    }
     const nextRowIndex = nextUnprocessedRowIndex(rowIndex, nextResults);
 
     setResults(nextResults);
@@ -2307,20 +2769,7 @@ function TemplateImportDialog({
     setCompleted(previewRows.length > 0);
   }
 
-  function absorbImportedTemplate(result: TemplateImportResult) {
-    if (!result.template) {
-      return;
-    }
-
-    setExistingTemplates((current) => {
-      const withoutCurrent = current.filter(
-        (template) => template.id !== result.template!.id,
-      );
-      return [...withoutCurrent, result.template!];
-    });
-  }
-
-  async function createTemplateFromRow(row: TemplateImportPreviewRow) {
+  async function importTemplateFromRow(row: TemplateImportPreviewRow) {
     if (!row.valid) {
       return {
         rowNumber: row.rowNumber,
@@ -2330,82 +2779,36 @@ function TemplateImportDialog({
     }
 
     try {
-      const response = await sdkFetch<{
+      const response = await request<{
+        action: "created" | "updated";
         template: PartnershipCrmTemplateRecord;
-      }>("/admin/partnership-crm/templates", {
+      }>("/admin/partnership-crm/templates/import", {
         method: "POST",
         body: JSON.stringify(row.template),
       });
 
       return {
         rowNumber: row.rowNumber,
-        action: "created" as const,
+        action: response.action,
         templateId: response.template.id,
         template: response.template,
       };
     } catch (error) {
+      const notSent = isPlantillasRequestKnownNotExecuted(error);
+      if (!notSent) {
+        onAmbiguousMutation();
+      }
       return {
         rowNumber: row.rowNumber,
         action: "failed" as const,
-        error: errorMessage(error),
+        error: notSent
+          ? t(
+              "This template was not sent because the daily limit was reached or usage could not be verified.",
+            )
+          : `${t("The failing template outcome is unknown.")} ${errorMessage(error)}`,
+        notSent,
       };
     }
-  }
-
-  async function mergeTemplateFromRow(row: TemplateImportPreviewRow) {
-    if (!row.valid) {
-      return {
-        rowNumber: row.rowNumber,
-        action: "invalid" as const,
-        error: row.errors.join(" "),
-      };
-    }
-
-    if (!row.duplicateTemplate) {
-      return {
-        rowNumber: row.rowNumber,
-        action: "failed" as const,
-        error: "No duplicate template was found for this row.",
-      };
-    }
-
-    try {
-      const response = await sdkFetch<{
-        template: PartnershipCrmTemplateRecord;
-      }>(
-        `/admin/partnership-crm/templates/${encodeURIComponent(
-          row.duplicateTemplate.id,
-        )}`,
-        {
-          method: "PUT",
-          body: JSON.stringify(
-            mergeCrmTemplateInputWithExisting(
-              row.duplicateTemplate,
-              row.template,
-            ),
-          ),
-        },
-      );
-
-      return {
-        rowNumber: row.rowNumber,
-        action: "updated" as const,
-        templateId: response.template.id,
-        template: response.template,
-      };
-    } catch (error) {
-      return {
-        rowNumber: row.rowNumber,
-        action: "failed" as const,
-        error: errorMessage(error),
-      };
-    }
-  }
-
-  async function importTemplateFromRow(row: TemplateImportPreviewRow) {
-    return row.duplicateTemplate
-      ? mergeTemplateFromRow(row)
-      : createTemplateFromRow(row);
   }
 
   async function handleAddCurrentRow() {
@@ -2418,12 +2821,13 @@ function TemplateImportDialog({
     setImporting(true);
     const result = await importTemplateFromRow(currentRow);
     const nextResults = mergeResult(results, result);
-    absorbImportedTemplate(result);
     setImporting(false);
     commitImportProgress(activeRowIndex, nextResults);
 
     if (result.action === "created" || result.action === "updated") {
-      onImported();
+      if (result.template) {
+        onImported([result.template]);
+      }
     }
   }
 
@@ -2521,8 +2925,9 @@ function TemplateImportDialog({
     }
 
     let workingResults = results;
-    let changedAny = false;
+    const changedTemplates: PartnershipCrmTemplateRecord[] = [];
     let paused = false;
+    let failedRowIndex = -1;
 
     importPauseRequestedRef.current = false;
     setPauseRequested(false);
@@ -2531,6 +2936,7 @@ function TemplateImportDialog({
     setReviewPanelOpen(true);
     setImporting(true);
 
+    let processedThisRun = 0;
     for (
       let rowIndex = startIndex;
       rowIndex < previewRows.length;
@@ -2552,15 +2958,23 @@ function TemplateImportDialog({
       setActiveRowIndex(rowIndex);
       const result = await importTemplateFromRow(row);
       workingResults = mergeResult(workingResults, result);
-      absorbImportedTemplate(result);
-      changedAny =
-        changedAny ||
-        result.action === "created" ||
-        result.action === "updated";
+      if (
+        (result.action === "created" || result.action === "updated") &&
+        result.template
+      ) {
+        changedTemplates.push(result.template);
+      }
       setResults(workingResults);
       setProcessedCount(workingResults.length);
+      processedThisRun += 1;
 
-      if (importPauseRequestedRef.current) {
+      if (result.action === "failed") {
+        paused = true;
+        failedRowIndex = rowIndex;
+        break;
+      }
+
+      if (importPauseRequestedRef.current || processedThisRun >= 5) {
         paused = true;
         break;
       }
@@ -2570,11 +2984,14 @@ function TemplateImportDialog({
     setImporting(false);
     setPauseRequested(false);
 
-    if (paused) {
-      const nextRowIndex = nextUnprocessedRowIndex(-1, workingResults);
-      if (nextRowIndex >= 0) {
-        setActiveRowIndex(nextRowIndex);
-      }
+    const nextRowIndex = nextUnprocessedRowIndex(-1, workingResults);
+    if (failedRowIndex >= 0) {
+      setActiveRowIndex(failedRowIndex);
+      setReviewPanelOpen(true);
+      setCompleted(false);
+      setAutoImportPaused(true);
+    } else if (paused && nextRowIndex >= 0) {
+      setActiveRowIndex(nextRowIndex);
       setReviewPanelOpen(true);
       setCompleted(false);
       setAutoImportPaused(true);
@@ -2585,8 +3002,8 @@ function TemplateImportDialog({
       setAutoImportPaused(false);
     }
 
-    if (changedAny) {
-      onImported();
+    if (changedTemplates.length > 0) {
+      onImported(changedTemplates);
     }
   }
 
@@ -2613,7 +3030,7 @@ function TemplateImportDialog({
         <DialogHeader>
           <DialogTitle>{t("Import templates from CSV")}</DialogTitle>
           <DialogDescription>
-            {t("Review each template before creating it in plantillas.")}
+            {t("Review each template before submitting it to plantillas.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -2645,7 +3062,7 @@ function TemplateImportDialog({
                       </h3>
                       <p className="mt-2 text-sm leading-6 text-emerald-950/72 dark:text-emerald-50/72">
                         {t(
-                          "Templates were processed one by one and the plantillas list has been refreshed.",
+                          "Templates were processed one by one. Refresh the plantillas list only when needed.",
                         )}
                       </p>
                       {fileName ? (
@@ -2806,11 +3223,9 @@ function TemplateImportDialog({
                 <div className="rounded-xl border border-border/80 bg-background/70 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-medium">
-                      {duplicateScanLoading
-                        ? t("Checking existing templates")
-                        : importing
-                          ? t("Importing one row at a time")
-                          : t("Ready for review")}
+                      {importing
+                        ? t("Importing one row at a time")
+                        : t("Ready for review")}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {processedCount} / {previewRows.length} {t("templates")}
@@ -2850,7 +3265,7 @@ function TemplateImportDialog({
                         <p className="text-sm font-semibold">
                           {autoImportPaused
                             ? t("Automatic import paused.")
-                            : t("Automatic duplicate handling")}
+                            : t("Manual, bounded import")}
                         </p>
                       </div>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -2859,27 +3274,20 @@ function TemplateImportDialog({
                               "Automatic import paused. Review the current row, then continue with pending rows when ready.",
                             )
                           : t(
-                              "When a CSV row matches an existing template, automatic import overwrites that template's subject and body from the CSV instead of creating a duplicate.",
+                              "Selecting a CSV does not scan existing templates. Import rows deliberately, at most five at a time.",
                             )}
                       </p>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
                         {t(
-                          "CSV subject and body overwrite existing values when present; missing fields are filled; new notes are appended; favorite stays active if either side is active.",
+                          "The server decides whether each submitted row creates or updates a template.",
                         )}
                       </p>
                     </div>
                     <Badge variant={autoImportPaused ? "default" : "outline"}>
-                      {t("Overwrite subject and body")}
+                      {t("Server decides create or update")}
                     </Badge>
                   </div>
                 </div>
-              ) : null}
-
-              {duplicateScanError ? (
-                <ErrorBanner>
-                  {t("Unable to check existing templates for duplicates.")}{" "}
-                  {duplicateScanError}
-                </ErrorBanner>
               ) : null}
 
               {headerErrors.length > 0 ? (
@@ -2896,7 +3304,7 @@ function TemplateImportDialog({
                     totalRows={previewRows.length}
                     result={currentRowResult}
                     importing={importing}
-                    checkingDuplicates={duplicateScanLoading}
+                    locked={locked}
                     onAdd={handleAddCurrentRow}
                     onSkip={handleSkipCurrentRow}
                     onImportAllRemaining={handleImportAllRemaining}
@@ -3058,7 +3466,7 @@ function TemplateImportDialog({
                   <FileUp className="h-4 w-4" />
                   {importing
                     ? t("Importing...")
-                    : t("Import all - overwrite duplicate subject/body")}
+                    : t("Process next 5 rows")}
                 </Button>
               ) : null}
             </>
@@ -3073,6 +3481,15 @@ export function PartnershipCrmTemplateBrowser() {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const queryClient = useQueryClient();
+  const {
+    usage,
+    usageError,
+    locked,
+    canUseFresh,
+    request,
+    retryUsageVerification,
+    usageVerificationPending,
+  } = usePlantillasDailyUsage();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     null,
   );
@@ -3096,25 +3513,131 @@ export function PartnershipCrmTemplateBrowser() {
     status: "all",
     category: "",
   });
-  const [cursorStack, setCursorStack] = useState<string[]>([]);
+  const [appliedFilters, setAppliedFilters] = useState<TemplateFilters>({
+    query: "",
+    audience: "organizations",
+    status: "all",
+    category: "",
+  });
+  const [templatesPage, setTemplatesPage] =
+    useState<PartnershipCrmTemplatesPage | null>(null);
+  const [summaryCacheAsOf, setSummaryCacheAsOf] = useState("");
+  const [templateDetails, setTemplateDetails] = useState<
+    Map<string, PartnershipCrmTemplateRecord>
+  >(() => new Map());
+  const templateDetailInFlightRef = useRef<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [importRulesOpen, setImportRulesOpen] = useState(false);
-  const currentCursor = cursorStack[cursorStack.length - 1];
+  const cacheHydratedRef = useRef(false);
 
-  const templatesQuery = useQuery({
-    queryKey: [TEMPLATES_QUERY_KEY, filters, currentCursor],
-    queryFn: () =>
-      sdkFetch<PartnershipCrmTemplatesPage>(
-        buildTemplateListPath(filters, currentCursor),
+  useEffect(() => {
+    if (cacheHydratedRef.current) {
+      return;
+    }
+    cacheHydratedRef.current = true;
+    const cached = readTemplateSummaryCache();
+    if (!cached) {
+      return;
+    }
+    setFilters(cached.filters);
+    setAppliedFilters(cached.filters);
+    setTemplatesPage(cached.page);
+    setSummaryCacheAsOf(cached.savedAt);
+  }, []);
+
+  const templatesMutation = useMutation({
+    mutationFn: ({
+      filters: requestedFilters,
+      cursor,
+      signal,
+    }: {
+      filters: TemplateFilters;
+      cursor?: string;
+      signal?: AbortSignal;
+    }) =>
+      request<PartnershipCrmTemplatesPage>(
+        buildTemplateListPath(requestedFilters, cursor),
+        { signal },
       ),
+    onSuccess: (response, variables) => {
+      const received = response.templates;
+      const loadedAt = new Date().toISOString();
+      const existingCache = variables.cursor
+        ? readTemplateSummaryCache()
+        : null;
+      const savedAt = variables.cursor
+        ? summaryCacheAsOf || existingCache?.savedAt || loadedAt
+        : loadedAt;
+      setAppliedFilters(variables.filters);
+      setSummaryCacheAsOf(savedAt);
+      setSelectedTemplateIds(new Set());
+      setTemplatesPage((current) => {
+        const templates = variables.cursor
+          ? Array.from(
+              new Map(
+                [...(current?.templates ?? []), ...received].map((template) => [
+                  template.id,
+                  template,
+                ]),
+              ).values(),
+            )
+          : received;
+        const previousScanned = variables.cursor ? (current?.scanned ?? 0) : 0;
+        const next: PartnershipCrmTemplatesPage = {
+          ...response,
+          templates,
+          partial: Boolean(response.partial || (variables.cursor && current?.partial)),
+          scanned: previousScanned + (response.scanned ?? received.length),
+          asOf: variables.cursor
+            ? current?.asOf ?? response.asOf ?? savedAt
+            : response.asOf ?? savedAt,
+        };
+        storeTemplateSummaryCache({
+          savedAt,
+          filters: variables.filters,
+          page: {
+            ...next,
+            templates: next.templates.map(toTemplateSummary),
+          },
+        });
+        return next;
+      });
+    },
+  });
+
+  const templateDetailMutation = useMutation({
+    mutationFn: (templateId: string) =>
+      request<{ template: PartnershipCrmTemplateRecord }>(
+        `/admin/partnership-crm/templates/${encodeURIComponent(templateId)}`,
+      ),
+    onSuccess: ({ template }) => {
+      if (!template) {
+        return;
+      }
+      setTemplateDetails((current) => {
+        const next = new Map(current);
+        next.set(template.id, template);
+        return next;
+      });
+    },
+    onSettled: (_data, _error, templateId) => {
+      templateDetailInFlightRef.current.delete(templateId);
+    },
   });
   const templates = useMemo(
-    () => favoriteFirstRecords(templatesQuery.data?.templates ?? []),
-    [templatesQuery.data?.templates],
+    () => favoriteFirstRecords(templatesPage?.templates ?? []),
+    [templatesPage?.templates],
   );
   const selectedTemplate = selectedTemplateId
-    ? (templates.find((template) => template.id === selectedTemplateId) ?? null)
+    ? (templateDetails.get(selectedTemplateId) ??
+      templates.find((template) => template.id === selectedTemplateId) ??
+      null)
     : null;
+  const selectedTemplateHasFullDetail = Boolean(
+    selectedTemplate &&
+      (templateDetails.has(selectedTemplate.id) ||
+        selectedTemplate.body.trim().length > 0),
+  );
   const selectedTemplates = useMemo(
     () => templates.filter((template) => selectedTemplateIds.has(template.id)),
     [selectedTemplateIds, templates],
@@ -3150,6 +3673,101 @@ export function PartnershipCrmTemplateBrowser() {
     [templates],
   );
 
+  function patchVisibleTemplates(
+    updater: (
+      templates: PartnershipCrmTemplateRecord[],
+    ) => PartnershipCrmTemplateRecord[],
+  ) {
+    setTemplatesPage((current) => {
+      if (!current) {
+        return current;
+      }
+      const next = {
+        ...current,
+        templates: updater(current.templates).filter((template) =>
+          templateMatchesAppliedFilters(template, appliedFilters),
+        ),
+      };
+      const cached = readTemplateSummaryCache();
+      if (cached) {
+        storeTemplateSummaryCache({
+          ...cached,
+          page: {
+            ...cached.page,
+            templates: updater(cached.page.templates)
+              .filter((template) =>
+                templateMatchesAppliedFilters(template, cached.filters),
+              )
+              .map(toTemplateSummary),
+          },
+        });
+      } else {
+        clearTemplateSummaryCache();
+      }
+      return next;
+    });
+    updateCachedTemplateListPages(queryClient, updater);
+  }
+
+  function patchImportedTemplates(
+    importedTemplates: PartnershipCrmTemplateRecord[],
+  ) {
+    const importedById = new Map(
+      importedTemplates.map((template) => [template.id, template]),
+    );
+    const mergeImported = (templates: PartnershipCrmTemplateRecord[]) => [
+      ...templates.filter((template) => !importedById.has(template.id)),
+      ...importedTemplates,
+    ];
+
+    setTemplatesPage((current) => {
+      if (!current) {
+        return current;
+      }
+      return {
+        ...current,
+        templates: mergeImported(current.templates).filter((template) =>
+          templateMatchesAppliedFilters(template, appliedFilters),
+        ),
+      };
+    });
+
+    const cached = readTemplateSummaryCache();
+    if (cached) {
+      storeTemplateSummaryCache({
+        ...cached,
+        page: {
+          ...cached.page,
+          templates: mergeImported(cached.page.templates)
+            .filter((template) =>
+              templateMatchesAppliedFilters(template, cached.filters),
+            )
+            .map(toTemplateSummary),
+        },
+      });
+    }
+
+    setTemplateDetails((current) => {
+      const next = new Map(current);
+      for (const template of importedTemplates) {
+        next.set(template.id, template);
+      }
+      return next;
+    });
+    clearCrmTemplateComposerCache(queryClient);
+  }
+
+  function clearCachesAfterAmbiguousTemplateMutation() {
+    clearTemplateSummaryCache();
+    clearCrmTemplateComposerCache(queryClient);
+    setSummaryCacheAsOf("");
+    setTemplatesPage(null);
+    setTemplateDetails(new Map());
+    setSelectedTemplateId(null);
+    setSelectedTemplateIds(new Set());
+    setPreviewPanelOpen(false);
+  }
+
   const quickUpdateMutation = useMutation({
     mutationFn: ({
       template,
@@ -3157,20 +3775,48 @@ export function PartnershipCrmTemplateBrowser() {
     }: {
       template: PartnershipCrmTemplateRecord;
       patch: TemplateQuickPatch;
-    }) =>
-      sdkFetch<{ template: PartnershipCrmTemplateRecord }>(
+    }) => {
+      if (
+        Object.keys(patch).length === 1 &&
+        typeof patch.is_favorite === "boolean"
+      ) {
+        return request<{ template: PartnershipCrmTemplateRecord }>(
+          `/admin/partnership-crm/templates/${encodeURIComponent(
+            template.id,
+          )}/favorite`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ is_favorite: patch.is_favorite }),
+          },
+        );
+      }
+
+      const fullTemplate = templateDetails.get(template.id);
+      if (!fullTemplate) {
+        throw new PlantillasRequestNotSentError();
+      }
+
+      return request<{ template: PartnershipCrmTemplateRecord }>(
         `/admin/partnership-crm/templates/${encodeURIComponent(template.id)}`,
         {
           method: "PUT",
-          body: JSON.stringify(templateInputFromRecord(template, patch)),
+          body: JSON.stringify(templateInputFromRecord(fullTemplate, patch)),
         },
-      ),
+      );
+    },
     onSuccess: (result) => {
-      updateCachedTemplateListPages(queryClient, (templates) =>
+      patchVisibleTemplates((templates) =>
         templates.map((template) =>
-          template.id === result.template.id ? result.template : template,
+          template.id === result.template.id
+            ? result.template
+            : template,
         ),
       );
+      setTemplateDetails((current) => {
+        const next = new Map(current);
+        next.set(result.template.id, result.template);
+        return next;
+      });
       setSelectedTemplateId(result.template.id);
       setNotesDraft(result.template.notes);
       setToast({
@@ -3180,10 +3826,16 @@ export function PartnershipCrmTemplateBrowser() {
       });
     },
     onError: (error) => {
+      const notSent = isPlantillasRequestKnownNotExecuted(error);
+      if (!notSent) {
+        clearCachesAfterAmbiguousTemplateMutation();
+      }
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to save template."),
+        message: notSent
+          ? t("Template action was not sent.")
+          : t("Unable to save template."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
@@ -3191,7 +3843,7 @@ export function PartnershipCrmTemplateBrowser() {
 
   const deleteMutation = useMutation({
     mutationFn: (template: PartnershipCrmTemplateRecord) =>
-      sdkFetch<{ deleted: boolean; templateId: string }>(
+      request<{ deleted: boolean; templateId: string }>(
         `/admin/partnership-crm/templates/${encodeURIComponent(template.id)}`,
         { method: "DELETE" },
       ),
@@ -3201,7 +3853,9 @@ export function PartnershipCrmTemplateBrowser() {
         current === template.id ? null : current,
       );
       setPreviewPanelOpen(false);
-      queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
+      patchVisibleTemplates((templates) =>
+        templates.filter((candidate) => candidate.id !== template.id),
+      );
       setToast({
         id: Date.now(),
         tone: "success",
@@ -3209,32 +3863,65 @@ export function PartnershipCrmTemplateBrowser() {
       });
     },
     onError: (error) => {
+      const notSent = isPlantillasRequestKnownNotExecuted(error);
+      if (!notSent) {
+        clearCachesAfterAmbiguousTemplateMutation();
+      }
       setDeleteTarget(null);
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to delete template."),
+        message: notSent
+          ? t("Template action was not sent.")
+          : t("Unable to delete template."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
   });
 
   const deleteSelectedTemplatesMutation = useMutation({
-    mutationFn: (templateIds: string[]) =>
-      Promise.all(
-        templateIds.map((templateId) =>
-          sdkFetch<{ deleted: boolean; templateId: string }>(
-            `/admin/partnership-crm/templates/${encodeURIComponent(
-              templateId,
-            )}`,
-            { method: "DELETE" },
-          ),
-        ),
-      ),
-    onSuccess: (_result, templateIds) => {
-      const deletedIds = new Set(templateIds);
+    mutationFn: async (
+      templateIds: string[],
+    ): Promise<
+      SequentialBulkResult<{ deleted: boolean; templateId: string }>
+    > => {
+      const completed: Array<{ deleted: boolean; templateId: string }> = [];
+      for (const templateId of templateIds.slice(0, 10)) {
+        try {
+          completed.push(
+            await request<{ deleted: boolean; templateId: string }>(
+              `/admin/partnership-crm/templates/${encodeURIComponent(
+                templateId,
+              )}`,
+              { method: "DELETE" },
+            ),
+          );
+        } catch (error) {
+          return {
+            completed,
+            failure: {
+              itemId: templateId,
+              error: errorMessage(error),
+              notSent: isPlantillasRequestKnownNotExecuted(error),
+            },
+          };
+        }
+      }
+      return { completed };
+    },
+    onSuccess: (outcome) => {
+      if (outcome.failure && !outcome.failure.notSent) {
+        clearCachesAfterAmbiguousTemplateMutation();
+      }
+      const deletedIds = new Set(
+        outcome.completed.map((result) => result.templateId),
+      );
       setDeleteSelectedOpen(false);
-      setSelectedTemplateIds(new Set());
+      setSelectedTemplateIds((current) =>
+        new Set(
+          Array.from(current).filter((templateId) => !deletedIds.has(templateId)),
+        ),
+      );
       setDeleteTarget((current) =>
         current && deletedIds.has(current.id) ? null : current,
       );
@@ -3244,79 +3931,144 @@ export function PartnershipCrmTemplateBrowser() {
         setPreviewPanelOpen(false);
       }
 
-      updateCachedTemplateListPages(queryClient, (templates) =>
-        templates.filter((template) => !deletedIds.has(template.id)),
+      if (deletedIds.size > 0) {
+        patchVisibleTemplates((templates) =>
+          templates.filter((template) => !deletedIds.has(template.id)),
+        );
+      }
+      setToast(
+        outcome.failure
+          ? {
+              id: Date.now(),
+              tone: "error",
+              message: t("Bulk delete stopped after a partial failure."),
+              notice: outcome.failure.notSent
+                ? t("The failing template was not sent.")
+                : t("The failing template outcome is unknown."),
+              details: `${outcome.completed.length} ${t(
+                "templates were deleted before the failure.",
+              )} ${outcome.failure.error}`,
+            }
+          : {
+              id: Date.now(),
+              tone: "success",
+              message: `${outcome.completed.length} ${
+                outcome.completed.length === 1
+                  ? t("template deleted.")
+                  : t("templates deleted.")
+              }`,
+            },
       );
-      queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message: `${templateIds.length} ${
-          templateIds.length === 1
-            ? t("template deleted.")
-            : t("templates deleted.")
-        }`,
-      });
     },
     onError: (error) => {
+      const notSent = isPlantillasRequestKnownNotExecuted(error);
+      if (!notSent) {
+        clearCachesAfterAmbiguousTemplateMutation();
+      }
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to delete selected templates."),
+        message: notSent
+          ? t("Template action was not sent.")
+          : t("Unable to delete selected templates."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
   });
 
   const updateSelectedTemplatesFavoriteMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       templates,
       isFavorite,
     }: {
       templates: PartnershipCrmTemplateRecord[];
       isFavorite: boolean;
-    }) =>
-      Promise.all(
-        templates.map((template) =>
-          sdkFetch<{ template: PartnershipCrmTemplateRecord }>(
-            `/admin/partnership-crm/templates/${encodeURIComponent(
-              template.id,
-            )}`,
-            {
-              method: "PUT",
-              body: JSON.stringify(
-                templateInputFromRecord(template, {
-                  is_favorite: isFavorite,
-                }),
-              ),
+    }): Promise<
+      SequentialBulkResult<{ template: PartnershipCrmTemplateRecord }>
+    > => {
+      const completed: Array<{ template: PartnershipCrmTemplateRecord }> = [];
+      for (const template of templates.slice(0, 10)) {
+        try {
+          completed.push(
+            await request<{ template: PartnershipCrmTemplateRecord }>(
+              `/admin/partnership-crm/templates/${encodeURIComponent(
+                template.id,
+              )}/favorite`,
+              {
+                method: "PATCH",
+                body: JSON.stringify({ is_favorite: isFavorite }),
+              },
+            ),
+          );
+        } catch (error) {
+          return {
+            completed,
+            failure: {
+              itemId: template.id,
+              error: errorMessage(error),
+              notSent: isPlantillasRequestKnownNotExecuted(error),
             },
-          ),
-        ),
-      ),
-    onSuccess: (results, { isFavorite }) => {
+          };
+        }
+      }
+      return { completed };
+    },
+    onSuccess: (outcome, { isFavorite }) => {
+      if (outcome.failure && !outcome.failure.notSent) {
+        clearCachesAfterAmbiguousTemplateMutation();
+      }
       const updatedTemplates = new Map(
-        results.map((result) => [result.template.id, result.template]),
+        outcome.completed.map((result) => [result.template.id, result.template]),
       );
 
-      updateCachedTemplateListPages(queryClient, (templates) =>
+      patchVisibleTemplates((templates) =>
         templates.map(
-          (template) => updatedTemplates.get(template.id) ?? template,
+          (template) =>
+            updatedTemplates.has(template.id)
+              ? updatedTemplates.get(template.id)!
+              : template,
         ),
       );
-      queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message: isFavorite
-          ? t("Selected templates marked as favorite.")
-          : t("Selected templates marked as not favorite."),
+      setTemplateDetails((current) => {
+        const next = new Map(current);
+        for (const result of outcome.completed) {
+          next.set(result.template.id, result.template);
+        }
+        return next;
       });
+      setToast(
+        outcome.failure
+          ? {
+              id: Date.now(),
+              tone: "error",
+              message: t("Bulk favorite update stopped after a partial failure."),
+              notice: outcome.failure.notSent
+                ? t("The failing template was not sent.")
+                : t("The failing template outcome is unknown."),
+              details: `${outcome.completed.length} ${t(
+                "templates were updated before the failure.",
+              )} ${outcome.failure.error}`,
+            }
+          : {
+              id: Date.now(),
+              tone: "success",
+              message: isFavorite
+                ? t("Selected templates marked as favorite.")
+                : t("Selected templates marked as not favorite."),
+            },
+      );
     },
     onError: (error) => {
+      const notSent = isPlantillasRequestKnownNotExecuted(error);
+      if (!notSent) {
+        clearCachesAfterAmbiguousTemplateMutation();
+      }
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to update selected templates."),
+        message: notSent
+          ? t("Template action was not sent.")
+          : t("Unable to update selected templates."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
@@ -3445,7 +4197,6 @@ export function PartnershipCrmTemplateBrowser() {
   }
 
   function resetCursorsForFilterChange(patch: Partial<TemplateFilters>) {
-    setCursorStack([]);
     setSelectedTemplateIds(new Set());
     setDeleteSelectedOpen(false);
     setFilters((current) => ({ ...current, ...patch }));
@@ -3462,6 +4213,14 @@ export function PartnershipCrmTemplateBrowser() {
   function handleTemplateSelect(templateId: string) {
     setSelectedTemplateId(templateId);
     setPreviewPanelOpen(true);
+    if (
+      canUseFresh &&
+      !templateDetails.has(templateId) &&
+      !templateDetailInFlightRef.current.has(templateId)
+    ) {
+      templateDetailInFlightRef.current.add(templateId);
+      templateDetailMutation.mutate(templateId);
+    }
   }
 
   function handleQuickUpdate(patch: TemplateQuickPatch) {
@@ -3477,7 +4236,7 @@ export function PartnershipCrmTemplateBrowser() {
       const next = new Set(current);
       if (next.has(templateId)) {
         next.delete(templateId);
-      } else {
+      } else if (next.size < 10) {
         next.add(templateId);
       }
       return next;
@@ -3489,7 +4248,9 @@ export function PartnershipCrmTemplateBrowser() {
       const next = new Set(current);
       for (const template of templates) {
         if (selected) {
-          next.add(template.id);
+          if (next.size < 10) {
+            next.add(template.id);
+          }
         } else {
           next.delete(template.id);
         }
@@ -3502,6 +4263,19 @@ export function PartnershipCrmTemplateBrowser() {
     setSelectedTemplateIds(new Set());
     setDeleteSelectedOpen(false);
   }
+
+  function loadTemplates(cursor?: string) {
+    if (!canUseFresh || templatesMutation.isPending) {
+      return;
+    }
+    templatesMutation.mutate({
+      filters: cursor ? appliedFilters : filters,
+      cursor,
+    });
+  }
+
+  const shortSearch =
+    filters.query.trim().length > 0 && filters.query.trim().length < 3;
 
   return (
     <section className="glass-panel crm-control-surface flex flex-col gap-5 px-4 py-4 md:px-5">
@@ -3517,13 +4291,13 @@ export function PartnershipCrmTemplateBrowser() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => templatesQuery.refetch()}
-            disabled={templatesQuery.isFetching}
+            onClick={() => loadTemplates()}
+            disabled={!canUseFresh || templatesMutation.isPending}
           >
             <RefreshCw
               className={cn(
                 "h-3.5 w-3.5",
-                templatesQuery.isFetching && "animate-spin",
+                templatesMutation.isPending && "animate-spin",
               )}
             />
             {t("Refresh")}
@@ -3533,6 +4307,7 @@ export function PartnershipCrmTemplateBrowser() {
             variant="outline"
             size="sm"
             onClick={() => setImportOpen(true)}
+            disabled={!canUseFresh}
           >
             <FileUp className="h-3.5 w-3.5" />
             {t("Import CSV")}
@@ -3546,8 +4321,16 @@ export function PartnershipCrmTemplateBrowser() {
             <ListChecks className="h-3.5 w-3.5" />
             {t("Import rules")}
           </Button>
-          <Button type="button" size="sm" asChild>
-            <Link href="/god-mode/plantillas/new">
+          <Button type="button" size="sm" disabled={!canUseFresh} asChild>
+            <Link
+              href="/god-mode/plantillas/new"
+              aria-disabled={!canUseFresh}
+              onClick={(event) => {
+                if (!canUseFresh) {
+                  event.preventDefault();
+                }
+              }}
+            >
               <Plus className="h-3.5 w-3.5" />
               {t("Alta de plantilla")}
             </Link>
@@ -3555,13 +4338,34 @@ export function PartnershipCrmTemplateBrowser() {
         </div>
       </div>
 
+      <PlantillasDailyUsageBar
+        usage={usage}
+        usageError={usageError}
+        hasCachedData={Boolean(templatesPage)}
+        language={language}
+        onRetryVerification={retryUsageVerification}
+        verificationPending={usageVerificationPending}
+      />
+
+      {locked ? (
+        <div className="rounded-xl border border-red-300/70 bg-red-50/80 px-3 py-2 text-sm text-red-900 dark:border-red-300/25 dark:bg-red-400/10 dark:text-red-100">
+          {templatesPage
+            ? t(
+                "Plantillas is cached and read-only because its daily limit has been reached.",
+              )
+            : t(
+                "Plantillas data and actions are unavailable because its daily limit has been reached.",
+              )}
+        </div>
+      ) : null}
+
       <CrmTargetSegmentedControl
         value={filters.audience}
         onChange={handleAudienceChange}
         language={language}
       />
 
-      <div className="grid gap-3 rounded-xl border border-border/80 bg-background/60 p-3 lg:grid-cols-[minmax(220px,1fr)_180px_220px]">
+      <div className="grid gap-3 rounded-xl border border-border/80 bg-background/60 p-3 lg:grid-cols-[minmax(220px,1fr)_180px_220px_auto]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -3571,6 +4375,12 @@ export function PartnershipCrmTemplateBrowser() {
             }
             placeholder={t("Search templates...")}
             className="pl-8"
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !shortSearch) {
+                event.preventDefault();
+                loadTemplates();
+              }
+            }}
           />
         </div>
         <Select
@@ -3602,7 +4412,39 @@ export function PartnershipCrmTemplateBrowser() {
           mode="filter"
           audience={filters.audience}
         />
+        <Button
+          type="button"
+          onClick={() => loadTemplates()}
+          disabled={!canUseFresh || templatesMutation.isPending || shortSearch}
+        >
+          <Search className="h-4 w-4" />
+          {templatesPage ? t("Apply") : t("Load templates")}
+        </Button>
       </div>
+
+      {shortSearch ? (
+        <p className="-mt-3 text-xs text-muted-foreground">
+          {t("Enter at least three characters, then apply the search.")}
+        </p>
+      ) : summaryCacheAsOf ? (
+        <p className="-mt-3 text-xs text-muted-foreground">
+          {t("Cached summaries as of")} {formatDateTime(summaryCacheAsOf, language)}. {t("Refresh only when needed.")}
+        </p>
+      ) : null}
+
+      {templatesPage?.partial ? (
+        <p
+          role="status"
+          data-testid="plantillas-bounded-result-note"
+          className="-mt-3 text-xs text-amber-700 dark:text-amber-300"
+        >
+          {t("Approximate bounded sample")}: {templatesPage.scanned ?? 0}{" "}
+          {t("records checked")}. {t("Use See 10 more to continue.")}
+          {templatesPage.asOf
+            ? ` ${t("As of")} ${formatDateTime(templatesPage.asOf, language)}.`
+            : ""}
+        </p>
+      ) : null}
 
       <div
         ref={templateSplitPaneRef}
@@ -3646,7 +4488,7 @@ export function PartnershipCrmTemplateBrowser() {
             ))}
           </div>
 
-          {templatesQuery.error ? (
+          {templatesMutation.error ? (
             <ErrorBanner>{t("Failed to load templates.")}</ErrorBanner>
           ) : null}
 
@@ -3657,17 +4499,52 @@ export function PartnershipCrmTemplateBrowser() {
                 "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-auto",
             )}
           >
-            {templatesQuery.isFetching && templates.length === 0 ? (
+            {templatesMutation.isPending && templates.length === 0 ? (
               <div className="grid gap-2 p-3">
                 {Array.from({ length: 7 }).map((_, index) => (
                   <Skeleton key={index} className="h-12 rounded-lg" />
                 ))}
               </div>
+            ) : !templatesPage ? (
+              <EmptyState>
+                <span className="block">
+                  {t("Templates load only when you ask for them.")}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => loadTemplates()}
+                  disabled={!canUseFresh || shortSearch}
+                >
+                  {t("Load 10 templates")}
+                </Button>
+              </EmptyState>
             ) : templates.length === 0 ? (
               <EmptyState>
-                <span className="block">{t("No templates found.")}</span>
-                <Button type="button" size="sm" asChild className="mt-3">
-                  <Link href="/god-mode/plantillas/new">
+                <span className="block">
+                  {t(
+                    templatesPage.partial
+                      ? "No matches in this bounded sample."
+                      : "No templates found.",
+                  )}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  asChild
+                  className="mt-3"
+                  disabled={!canUseFresh}
+                >
+                  <Link
+                    href="/god-mode/plantillas/new"
+                    aria-disabled={!canUseFresh}
+                    onClick={(event) => {
+                      if (!canUseFresh) {
+                        event.preventDefault();
+                      }
+                    }}
+                  >
                     <Plus className="h-3.5 w-3.5" />
                     {t("Alta de plantilla")}
                   </Link>
@@ -3708,7 +4585,8 @@ export function PartnershipCrmTemplateBrowser() {
                         }
                         disabled={
                           selectedTemplateActionPending ||
-                          selectedTemplates.length === 0
+                          selectedTemplates.length === 0 ||
+                          !canUseFresh
                         }
                       >
                         <Star className="h-3.5 w-3.5" />
@@ -3728,7 +4606,8 @@ export function PartnershipCrmTemplateBrowser() {
                         }
                         disabled={
                           selectedTemplateActionPending ||
-                          selectedTemplates.length === 0
+                          selectedTemplates.length === 0 ||
+                          !canUseFresh
                         }
                       >
                         <Star className="h-3.5 w-3.5" />
@@ -3741,7 +4620,7 @@ export function PartnershipCrmTemplateBrowser() {
                         variant="destructive"
                         size="sm"
                         onClick={() => setDeleteSelectedOpen(true)}
-                        disabled={selectedTemplateActionPending}
+                        disabled={selectedTemplateActionPending || !canUseFresh}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         {t("Delete selected")}
@@ -3762,7 +4641,7 @@ export function PartnershipCrmTemplateBrowser() {
                                 ? "indeterminate"
                                 : false
                           }
-                          disabled={selectedTemplateActionPending}
+                          disabled={selectedTemplateActionPending || locked}
                           onCheckedChange={(checked) =>
                             setVisibleTemplatesSelected(checked === true)
                           }
@@ -3812,7 +4691,7 @@ export function PartnershipCrmTemplateBrowser() {
                                 template.name
                               }`}
                               checked={isBatchSelected}
-                              disabled={selectedTemplateActionPending}
+                              disabled={selectedTemplateActionPending || locked}
                               onClick={(event) => event.stopPropagation()}
                               onCheckedChange={() =>
                                 toggleTemplateSelection(template.id)
@@ -3823,7 +4702,6 @@ export function PartnershipCrmTemplateBrowser() {
                             <button
                               type="button"
                               className="block max-w-[320px] text-left"
-                              onClick={() => handleTemplateSelect(template.id)}
                             >
                               <span className="block truncate font-medium text-foreground">
                                 {template.name}
@@ -3869,7 +4747,8 @@ export function PartnershipCrmTemplateBrowser() {
                           </TableCell>
                           <TableCell className="whitespace-normal">
                             <p className="line-clamp-2 max-w-[280px] text-xs text-muted-foreground">
-                              {template.notes || "-"}
+                              {templateDetails.get(template.id)?.notes ||
+                                t("Tap to see more")}
                             </p>
                           </TableCell>
                           <TableCell>
@@ -3877,13 +4756,20 @@ export function PartnershipCrmTemplateBrowser() {
                               type="button"
                               variant="outline"
                               size="xs"
+                              disabled={!canUseFresh}
                               asChild
                             >
                               <Link
                                 href={`/god-mode/plantillas/${encodeURIComponent(
                                   template.id,
                                 )}`}
-                                onClick={(event) => event.stopPropagation()}
+                                aria-disabled={!canUseFresh}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  if (!canUseFresh) {
+                                    event.preventDefault();
+                                  }
+                                }}
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                                 {t("Edit")}
@@ -3900,35 +4786,24 @@ export function PartnershipCrmTemplateBrowser() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setCursorStack((current) => current.slice(0, -1))}
-              disabled={cursorStack.length === 0 || templatesQuery.isFetching}
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              {t("Previous")}
-            </Button>
             <span className="text-xs text-muted-foreground">
-              {templates.length} {t("visible")}
+              {templates.length} {t("templates loaded")}
             </span>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() =>
-                templatesQuery.data?.nextCursor &&
-                setCursorStack((current) => [
-                  ...current,
-                  templatesQuery.data!.nextCursor!,
-                ])
+                templatesPage?.nextCursor &&
+                loadTemplates(templatesPage.nextCursor)
               }
               disabled={
-                !templatesQuery.data?.nextCursor || templatesQuery.isFetching
+                !templatesPage?.nextCursor ||
+                templatesMutation.isPending ||
+                !canUseFresh
               }
             >
-              {t("Load more")}
+              {t("See 10 more")}
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -3961,7 +4836,7 @@ export function PartnershipCrmTemplateBrowser() {
           </div>
         ) : null}
 
-        {showPreviewPanel && selectedTemplate ? (
+        {showPreviewPanel && selectedTemplate && selectedTemplateHasFullDetail ? (
           <TemplatePreviewSidePanel
             template={selectedTemplate}
             notesDraft={notesDraft}
@@ -3969,8 +4844,28 @@ export function PartnershipCrmTemplateBrowser() {
             onQuickUpdate={handleQuickUpdate}
             onDelete={() => setDeleteTarget(selectedTemplate)}
             onClose={() => setPreviewPanelOpen(false)}
-            pending={quickUpdateMutation.isPending}
-            deletePending={deleteMutation.isPending}
+            pending={
+              quickUpdateMutation.isPending ||
+              !canUseFresh ||
+              !templateDetails.has(selectedTemplate.id)
+            }
+            favoritePending={quickUpdateMutation.isPending || !canUseFresh}
+            deletePending={deleteMutation.isPending || !canUseFresh}
+            readOnly={!canUseFresh}
+            language={language}
+          />
+        ) : showPreviewPanel && selectedTemplate ? (
+          <TemplateSummaryOnlySidePanel
+            template={selectedTemplate}
+            quotaLocked={locked}
+            freshAccessAvailable={canUseFresh}
+            verificationPending={usageVerificationPending}
+            loading={templateDetailInFlightRef.current.has(
+              selectedTemplate.id,
+            )}
+            onLoad={() => handleTemplateSelect(selectedTemplate.id)}
+            onRetryVerification={() => void retryUsageVerification()}
+            onClose={() => setPreviewPanelOpen(false)}
             language={language}
           />
         ) : null}
@@ -3980,11 +4875,18 @@ export function PartnershipCrmTemplateBrowser() {
         open={importOpen}
         initialAudience={filters.audience}
         onOpenChange={setImportOpen}
-        onImported={() => {
-          queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
-          void templatesQuery.refetch();
+        onImported={(importedTemplates) => {
+          patchImportedTemplates(importedTemplates);
+          setToast({
+            id: Date.now(),
+            tone: "success",
+            message: t("Import saved. Refresh the list only when needed."),
+          });
         }}
+        onAmbiguousMutation={clearCachesAfterAmbiguousTemplateMutation}
         language={language}
+        request={request}
+        locked={!canUseFresh}
       />
       <CrmImportRulesDialog
         open={importRulesOpen}
@@ -4023,7 +4925,7 @@ export function PartnershipCrmTemplateBrowser() {
               onClick={() =>
                 deleteTarget && deleteMutation.mutate(deleteTarget)
               }
-              disabled={!deleteTarget || deleteMutation.isPending}
+              disabled={!deleteTarget || deleteMutation.isPending || !canUseFresh}
             >
               <Trash2 className="h-4 w-4" />
               {deleteMutation.isPending ? t("Deleting...") : t("Delete")}
@@ -4091,7 +4993,8 @@ export function PartnershipCrmTemplateBrowser() {
               }
               disabled={
                 deleteSelectedTemplatesMutation.isPending ||
-                selectedTemplateIdList.length === 0
+                selectedTemplateIdList.length === 0 ||
+                !canUseFresh
               }
             >
               <Trash2 className="h-4 w-4" />
@@ -4122,21 +5025,33 @@ export function PartnershipCrmTemplateWorkbench({
   const t = (text: string) => appText(language, text);
   const router = useRouter();
   const queryClient = useQueryClient();
+  const {
+    usage,
+    usageError,
+    canUseFresh,
+    request,
+    retryUsageVerification,
+    usageVerificationPending,
+  } = usePlantillasDailyUsage();
   const [form, setForm] = useState<TemplateFormState>(EMPTY_TEMPLATE_FORM);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const isEditing = mode === "edit";
 
-  const templateQuery = useQuery({
-    queryKey: [TEMPLATES_QUERY_KEY, templateId],
-    queryFn: () =>
-      sdkFetch<{ template: PartnershipCrmTemplateRecord }>(
+  function clearCachesAfterAmbiguousTemplateMutation() {
+    clearTemplateSummaryCache();
+    clearCrmTemplateComposerCache(queryClient);
+  }
+
+  const templateQuery = useMutation({
+    mutationFn: () =>
+      request<{ template: PartnershipCrmTemplateRecord }>(
         `/admin/partnership-crm/templates/${encodeURIComponent(
           templateId ?? "",
         )}`,
       ),
-    enabled: isEditing && Boolean(templateId),
+    onSuccess: ({ template }) => setForm(toFormState(template)),
   });
 
   useEffect(() => {
@@ -4145,10 +5060,7 @@ export function PartnershipCrmTemplateWorkbench({
       return;
     }
 
-    if (templateQuery.data?.template) {
-      setForm(toFormState(templateQuery.data.template));
-    }
-  }, [mode, templateQuery.data?.template]);
+  }, [mode]);
 
   function update(patch: Partial<TemplateFormState>) {
     setForm((current) => ({ ...current, ...patch }));
@@ -4184,13 +5096,14 @@ export function PartnershipCrmTemplateWorkbench({
           ? `/admin/partnership-crm/templates/${encodeURIComponent(templateId)}`
           : "/admin/partnership-crm/templates";
 
-      return sdkFetch<{ template: PartnershipCrmTemplateRecord }>(path, {
+      return request<{ template: PartnershipCrmTemplateRecord }>(path, {
         method: isEditing ? "PUT" : "POST",
         body: JSON.stringify(payload),
       });
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
+      clearTemplateSummaryCache();
+      clearCrmTemplateComposerCache(queryClient);
       setForm(toFormState(result.template));
       setToast({
         id: Date.now(),
@@ -4200,13 +5113,18 @@ export function PartnershipCrmTemplateWorkbench({
       if (!isEditing) {
         router.push(`/god-mode/plantillas/${result.template.id}`);
       }
-      router.refresh();
     },
     onError: (error) => {
+      const notSent = isPlantillasRequestKnownNotExecuted(error);
+      if (!notSent) {
+        clearCachesAfterAmbiguousTemplateMutation();
+      }
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to save template."),
+        message: notSent
+          ? t("Template action was not sent.")
+          : t("Unable to save template."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
@@ -4214,24 +5132,30 @@ export function PartnershipCrmTemplateWorkbench({
 
   const deleteMutation = useMutation({
     mutationFn: () =>
-      sdkFetch<{ deleted: boolean; templateId: string }>(
+      request<{ deleted: boolean; templateId: string }>(
         `/admin/partnership-crm/templates/${encodeURIComponent(
           templateId ?? "",
         )}`,
         { method: "DELETE" },
       ),
     onSuccess: () => {
+      clearTemplateSummaryCache();
+      clearCrmTemplateComposerCache(queryClient);
       setDeleteOpen(false);
-      queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
       router.push("/god-mode/plantillas");
-      router.refresh();
     },
     onError: (error) => {
+      const notSent = isPlantillasRequestKnownNotExecuted(error);
+      if (!notSent) {
+        clearCachesAfterAmbiguousTemplateMutation();
+      }
       setDeleteOpen(false);
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to delete template."),
+        message: notSent
+          ? t("Template action was not sent.")
+          : t("Unable to delete template."),
         details: error instanceof Error ? error.message : undefined,
       });
     },
@@ -4267,9 +5191,7 @@ export function PartnershipCrmTemplateWorkbench({
             size="sm"
             className="bg-blue-600 text-white shadow-[0_8px_18px_rgba(37,99,235,0.22)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
             onClick={() => setPreviewOpen(true)}
-            disabled={
-              templateQuery.isFetching && isEditing && !templateQuery.data
-            }
+            disabled={isEditing && !templateQuery.data}
           >
             <Eye className="h-3.5 w-3.5" />
             {t("View preview")}
@@ -4280,7 +5202,11 @@ export function PartnershipCrmTemplateWorkbench({
               variant="destructive"
               size="sm"
               onClick={() => setDeleteOpen(true)}
-              disabled={deleteMutation.isPending}
+              disabled={
+                deleteMutation.isPending ||
+                !canUseFresh ||
+                !templateQuery.data
+              }
             >
               <Trash2 className="h-3.5 w-3.5" />
               {t("Delete")}
@@ -4290,7 +5216,12 @@ export function PartnershipCrmTemplateWorkbench({
             type="submit"
             form="crm-template-form"
             size="sm"
-            disabled={!canSave || saveMutation.isPending}
+            disabled={
+              !canSave ||
+              saveMutation.isPending ||
+              !canUseFresh ||
+              (isEditing && !templateQuery.data)
+            }
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
             {saveMutation.isPending ? t("Saving...") : t("Save changes")}
@@ -4298,16 +5229,40 @@ export function PartnershipCrmTemplateWorkbench({
         </div>
       </div>
 
+      <PlantillasDailyUsageBar
+        usage={usage}
+        usageError={usageError}
+        hasCachedData={false}
+        language={language}
+        onRetryVerification={retryUsageVerification}
+        verificationPending={usageVerificationPending}
+      />
+
       {templateQuery.error ? (
         <ErrorBanner>{t("Failed to load template.")}</ErrorBanner>
       ) : null}
 
-      {templateQuery.isFetching && isEditing && !templateQuery.data ? (
+      {templateQuery.isPending && isEditing && !templateQuery.data ? (
         <div className="grid gap-3">
           {Array.from({ length: 7 }).map((_, index) => (
             <Skeleton key={index} className="h-12 rounded-lg" />
           ))}
         </div>
+      ) : isEditing && !templateQuery.data ? (
+        <EmptyState>
+          <span className="block">
+            {t("Template details load only when you ask for them.")}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            className="mt-3"
+            onClick={() => templateQuery.mutate()}
+            disabled={!canUseFresh || !templateId}
+          >
+            {t("Load template")}
+          </Button>
+        </EmptyState>
       ) : (
         <div className="grid gap-4">
           <form
@@ -4494,7 +5449,9 @@ export function PartnershipCrmTemplateWorkbench({
               type="button"
               variant="destructive"
               onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending || !templateId}
+              disabled={
+                deleteMutation.isPending || !templateId || !canUseFresh
+              }
             >
               <Trash2 className="h-4 w-4" />
               {deleteMutation.isPending ? t("Deleting...") : t("Delete")}

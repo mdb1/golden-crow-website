@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -12,7 +13,6 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   type InfiniteData,
   useInfiniteQuery,
@@ -120,6 +120,7 @@ import {
 } from "@/lib/discover-organization-fields";
 import {
   bestCrmTemplateForTarget,
+  createPartnershipCrmUsageEventId,
   CRM_STATUS_OPTIONS,
   DEFAULT_CRM_CATEGORY,
   DEFAULT_CRM_PROFESSIONAL_CATEGORY,
@@ -167,7 +168,14 @@ const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
 const SENT_EMAIL_LOG_QUERY_KEY = "god-mode-partnership-crm-sent-email-log";
 const EMAIL_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
-const CRM_TARGET_PAGE_SIZE = 50;
+const CRM_TARGET_PAGE_SIZE = 10;
+const CRM_SECONDARY_PAGE_SIZE = 10;
+const CRM_TEMPLATE_PAGE_SIZE = 5;
+const CRM_DAILY_USAGE_LIMIT = 100;
+const CRM_DAILY_USAGE_ENDPOINT = "/admin/partnership-crm/daily-usage/page-load";
+const CRM_SUMMARY_CACHE_PREFIX = "golden-crow:partnership-crm:summary:v2";
+const CRM_SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const PLANTILLAS_SUMMARY_CACHE_KEY = "golden-crow-plantillas-summary-cache-v1";
 const CRM_IMPORT_SESSION_STORAGE_KEYS = {
   organizations: "golden-crow:partnership-crm-import-session:v1",
   professionals: "golden-crow:partnership-crm-professional-import-session:v1",
@@ -262,6 +270,489 @@ type ListFilters = {
   linkedInState: "all" | "has_linkedin" | "missing_linkedin";
 };
 
+type CrmDailyUsage = {
+  surface: "crm";
+  used: number;
+  limit: number;
+  percentage: number;
+  remaining: number;
+  resetAt: string;
+  locked: boolean;
+};
+
+type CrmUsageResponse = {
+  usage?: CrmDailyUsage;
+};
+
+class CrmRequestNotSentError extends Error {
+  readonly requestNotSent = true;
+
+  readonly status?: number;
+
+  readonly method?: string;
+
+  readonly path?: string;
+
+  readonly details?: string;
+
+  constructor(message: string, source?: unknown) {
+    super(message);
+    this.name = "CrmRequestNotSentError";
+    this.status = errorNumberProperty(source, "status");
+    this.method = errorStringProperty(source, "method");
+    this.path = errorStringProperty(source, "path");
+    const sourceDetails = errorStringProperty(source, "details");
+    this.details = sourceDetails ? `${message}\n\n${sourceDetails}` : message;
+  }
+}
+
+function crmRequestWasNotSent(error: unknown) {
+  return error instanceof CrmRequestNotSentError;
+}
+
+function normalizeCrmDailyUsage(usage: CrmDailyUsage): CrmDailyUsage {
+  const used = Math.min(CRM_DAILY_USAGE_LIMIT, Math.max(0, usage.used));
+  return {
+    surface: "crm",
+    used,
+    limit: CRM_DAILY_USAGE_LIMIT,
+    percentage: Math.round((used / CRM_DAILY_USAGE_LIMIT) * 100),
+    remaining: CRM_DAILY_USAGE_LIMIT - used,
+    resetAt: usage.resetAt,
+    locked: used >= CRM_DAILY_USAGE_LIMIT,
+  };
+}
+
+function isValidCrmDailyUsage(usage: unknown): usage is CrmDailyUsage {
+  if (!usage || typeof usage !== "object") {
+    return false;
+  }
+
+  const candidate = usage as Partial<CrmDailyUsage>;
+  return (
+    candidate.surface === "crm" &&
+    typeof candidate.used === "number" &&
+    Number.isFinite(candidate.used) &&
+    Number.isInteger(candidate.used) &&
+    candidate.used >= 0 &&
+    candidate.used <= CRM_DAILY_USAGE_LIMIT &&
+    typeof candidate.limit === "number" &&
+    Number.isFinite(candidate.limit) &&
+    candidate.limit === CRM_DAILY_USAGE_LIMIT &&
+    typeof candidate.percentage === "number" &&
+    Number.isFinite(candidate.percentage) &&
+    candidate.percentage >= 0 &&
+    candidate.percentage <= 100 &&
+    typeof candidate.remaining === "number" &&
+    Number.isFinite(candidate.remaining) &&
+    candidate.remaining >= 0 &&
+    candidate.remaining <= CRM_DAILY_USAGE_LIMIT &&
+    typeof candidate.resetAt === "string" &&
+    Number.isFinite(Date.parse(candidate.resetAt)) &&
+    Date.parse(candidate.resetAt) > Date.now() &&
+    typeof candidate.locked === "boolean"
+  );
+}
+
+export function mergeCrmDailyUsage(
+  current: CrmDailyUsage | null,
+  incoming: CrmDailyUsage,
+) {
+  const next = normalizeCrmDailyUsage(incoming);
+  if (!current) {
+    return next;
+  }
+
+  const currentResetAt = Date.parse(current.resetAt);
+  const nextResetAt = Date.parse(next.resetAt);
+  if (Number.isFinite(currentResetAt) && Number.isFinite(nextResetAt)) {
+    if (nextResetAt > currentResetAt) {
+      return next;
+    }
+    if (nextResetAt < currentResetAt) {
+      return current;
+    }
+  }
+
+  const used = Math.max(current.used, next.used);
+
+  return normalizeCrmDailyUsage({
+    ...next,
+    used,
+    limit: CRM_DAILY_USAGE_LIMIT,
+    percentage: 0,
+    remaining: 0,
+    resetAt: next.resetAt,
+    locked: false,
+  });
+}
+
+type PartnershipCrmTargetDetailResponse = {
+  organization?: PartnershipCrmOrganizationRecord;
+  professional?: PartnershipCrmProfessionalRecord;
+};
+
+type CachedCrmSummaryPage = {
+  cachedAt: string;
+  expiresAt: number;
+  page: PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage;
+};
+
+function crmUsageHeaders(eventId: string, headers?: HeadersInit) {
+  const nextHeaders = new Headers(headers);
+  nextHeaders.set("X-CRM-Usage-Surface", "crm");
+  nextHeaders.set("X-CRM-Usage-Event-ID", eventId);
+  return nextHeaders;
+}
+
+function crmSummaryCacheKey(
+  targetKind: PartnershipCrmTargetKind,
+  filters: ListFilters,
+  cursor?: string,
+) {
+  return `${CRM_SUMMARY_CACHE_PREFIX}:${targetKind}:${encodeURIComponent(
+    JSON.stringify({ filters, cursor: cursor ?? "" }),
+  )}`;
+}
+
+function loadCachedCrmSummaryPage(
+  targetKind: PartnershipCrmTargetKind,
+  filters: ListFilters,
+  cursor?: string,
+) {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  const key = crmSummaryCacheKey(targetKind, filters, cursor);
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) {
+      return undefined;
+    }
+
+    const cached = JSON.parse(raw) as Partial<CachedCrmSummaryPage>;
+    const cachedAt =
+      typeof cached.cachedAt === "string" ? Date.parse(cached.cachedAt) : NaN;
+    const page = cached.page;
+    const rows =
+      page && typeof page === "object"
+        ? targetKind === "professionals" && "professionals" in page
+          ? page.professionals
+          : targetKind === "organizations" && "organizations" in page
+            ? page.organizations
+            : undefined
+        : undefined;
+    const validRows =
+      Array.isArray(rows) &&
+      rows.every(
+        (row) =>
+          row !== null &&
+          typeof row === "object" &&
+          typeof row.id === "string" &&
+          row.id.length > 0 &&
+          typeof row.name === "string",
+      );
+    const validNextCursor =
+      page &&
+      (page.nextCursor === undefined || typeof page.nextCursor === "string");
+    if (
+      typeof cached.expiresAt !== "number" ||
+      !Number.isFinite(cached.expiresAt) ||
+      cached.expiresAt <= Date.now() ||
+      !Number.isFinite(cachedAt) ||
+      cachedAt > Date.now() ||
+      cached.expiresAt - cachedAt > CRM_SUMMARY_CACHE_TTL_MS ||
+      !validRows ||
+      !validNextCursor
+    ) {
+      window.sessionStorage.removeItem(key);
+      return undefined;
+    }
+
+    return page;
+  } catch {
+    try {
+      window.sessionStorage.removeItem(key);
+    } catch {
+      // Browser storage may be unavailable; simply skip cache hydration.
+    }
+    return undefined;
+  }
+}
+
+function persistCachedCrmSummaryPage(
+  targetKind: PartnershipCrmTargetKind,
+  filters: ListFilters,
+  cursor: string | undefined,
+  page: PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage,
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const key = crmSummaryCacheKey(targetKind, filters, cursor);
+    const cachedAt = new Date().toISOString();
+    window.sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        cachedAt,
+        expiresAt: Date.now() + CRM_SUMMARY_CACHE_TTL_MS,
+        page,
+      } satisfies CachedCrmSummaryPage),
+    );
+  } catch {
+    // The CRM remains usable when browser storage is unavailable.
+  }
+}
+
+function clearCachedCrmSummaryPages() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const keysToRemove: string[] = [];
+    for (let index = 0; index < window.sessionStorage.length; index += 1) {
+      const key = window.sessionStorage.key(index);
+      if (key?.startsWith(`${CRM_SUMMARY_CACHE_PREFIX}:`)) {
+        keysToRemove.push(key);
+      }
+    }
+    for (const key of keysToRemove) {
+      window.sessionStorage.removeItem(key);
+    }
+  } catch {
+    // Browser cache cleanup must never block the deliberate CRM action.
+  }
+}
+
+function clearCachedPlantillasSummary() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem(PLANTILLAS_SUMMARY_CACHE_KEY);
+  } catch {
+    // Cross-surface cache cleanup must never hide a successful mutation.
+  }
+}
+
+function crmMutationTargetKind(
+  path: string,
+  init?: RequestInit,
+): PartnershipCrmTargetKind | null {
+  if ((init?.method ?? "GET").toUpperCase() === "GET") {
+    return null;
+  }
+
+  const pathname = path.split("?", 1)[0]?.replace(/\/+$/, "") ?? path;
+  if (pathname.endsWith("/import-preview")) {
+    return null;
+  }
+
+  if (pathname === "/admin/partnership-crm/import") {
+    return "organizations";
+  }
+
+  if (/^\/admin\/partnership-crm\/organizations(?:\/|$)/.test(pathname)) {
+    return "organizations";
+  }
+
+  if (/^\/admin\/partnership-crm\/professionals(?:\/|$)/.test(pathname)) {
+    return "professionals";
+  }
+
+  return null;
+}
+
+function crmMutationChangesTargetSummaries(path: string, init?: RequestInit) {
+  return crmMutationTargetKind(path, init) !== null;
+}
+
+function crmTargetMutationPath(path: string, init?: RequestInit) {
+  if ((init?.method ?? "GET").toUpperCase() === "GET") {
+    return null;
+  }
+
+  const pathname = path.split("?", 1)[0]?.replace(/\/+$/, "") ?? path;
+  const match = pathname.match(
+    /^\/admin\/partnership-crm\/(organizations|professionals)\/([^/]+)(?:\/([^/]+))?$/,
+  );
+  if (!match) {
+    return null;
+  }
+
+  let targetId = match[2];
+  try {
+    targetId = decodeURIComponent(targetId);
+  } catch {
+    // Keep the encoded id so an ambiguous write still invalidates conservatively.
+  }
+
+  return {
+    targetKind: match[1] as PartnershipCrmTargetKind,
+    targetId,
+    action: match[3] ?? "record",
+  };
+}
+
+function crmErrorResponseFromError(error: unknown) {
+  if (!error || typeof error !== "object" || !("details" in error)) {
+    return undefined;
+  }
+
+  const details = (error as { details?: unknown }).details;
+  if (typeof details !== "string") {
+    return undefined;
+  }
+
+  const marker = "Response JSON:\n";
+  const markerIndex = details.lastIndexOf(marker);
+  if (markerIndex === -1) {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(details.slice(markerIndex + marker.length));
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function crmUsageFromError(error: unknown) {
+  const usage = crmErrorResponseFromError(error)?.usage;
+  return isValidCrmDailyUsage(usage) ? usage : undefined;
+}
+
+function crmPreHandlerDenialFromError(error: unknown) {
+  const status = errorNumberProperty(error, "status");
+  const response = crmErrorResponseFromError(error);
+  const code = response?.code;
+
+  if (status === 429 && code === "CRM_DAILY_LIMIT_REACHED") {
+    return {
+      reason: "daily_limit" as const,
+      usage: isValidCrmDailyUsage(response?.usage) ? response.usage : undefined,
+    };
+  }
+
+  if (status === 503 && code === "CRM_USAGE_UNAVAILABLE") {
+    return {
+      reason: "usage_unavailable" as const,
+      usage: isValidCrmDailyUsage(response?.usage) ? response.usage : undefined,
+    };
+  }
+
+  return null;
+}
+
+function crmLocalText(language: AppLanguage, key: string) {
+  const spanish: Record<string, string> = {
+    "CRM daily usage": "Uso diario del CRM",
+    "Daily limit reached": "Límite diario alcanzado",
+    "Cached read-only mode": "Modo de solo lectura con caché",
+    "Fresh CRM data unavailable": "Datos nuevos del CRM no disponibles",
+    "Fresh CRM actions are disabled until the daily reset.":
+      "Las acciones nuevas del CRM están deshabilitadas hasta el reinicio diario.",
+    "CRM usage verification failed. Cached data is still available, but fresh actions remain disabled.":
+      "Falló la verificación de uso del CRM. Los datos en caché siguen disponibles, pero las acciones nuevas permanecen deshabilitadas.",
+    "CRM usage verification failed. No CRM data is loaded, and fresh actions remain disabled.":
+      "Falló la verificación de uso del CRM. No hay datos del CRM cargados y las acciones nuevas permanecen deshabilitadas.",
+    "Verifying CRM usage": "Verificando el uso del CRM",
+    "Fresh CRM actions stay disabled until verification finishes.":
+      "Las acciones nuevas del CRM permanecen deshabilitadas hasta que termine la verificación.",
+    "Retry verification": "Reintentar verificación",
+    Resets: "Se reinicia",
+    "Load CRM": "Cargar CRM",
+    "Apply filters": "Aplicar filtros",
+    "Loaded results": "Resultados cargados",
+    "No CRM data loaded. Use Load CRM when you deliberately want fresh data.":
+      "No hay datos del CRM cargados. Usá Cargar CRM cuando quieras datos nuevos deliberadamente.",
+    "Data changed. Refresh when ready.":
+      "Los datos cambiaron. Actualizá cuando quieras.",
+    "Loaded-page filters": "Filtros de la página cargada",
+    "See 10 more": "Ver 10 más",
+    "Process next 5": "Procesar las siguientes 5",
+    "View message": "Ver mensaje",
+    "Hide message": "Ocultar mensaje",
+    "Unable to load message.": "No se pudo cargar el mensaje.",
+    "Unable to load CRM detail.": "No se pudo cargar el detalle del CRM.",
+    "Retry detail": "Reintentar detalle",
+    "Unable to load email templates.":
+      "No se pudieron cargar las plantillas de email.",
+    "Retry templates": "Reintentar plantillas",
+    "Activity data changed. Use Refresh to load the current log.":
+      "Los datos de actividad cambiaron. Usá Actualizar para cargar el registro actual.",
+    "The template request outcome is unknown. Reload templates deliberately before continuing.":
+      "El resultado de la solicitud de plantilla es desconocido. Volvé a cargar las plantillas deliberadamente antes de continuar.",
+    "Approximate bounded sample": "Muestra acotada aproximada",
+    "records checked; use See 10 more to continue.":
+      "registros revisados; usá Ver 10 más para continuar.",
+    "No matches in this bounded sample. Use See 10 more to continue.":
+      "No hay coincidencias en esta muestra acotada. Usá Ver 10 más para continuar.",
+    "Processes at most five rows sequentially. Continue manually for the next batch.":
+      "Procesa como máximo cinco filas en secuencia. Continuá manualmente con el siguiente lote.",
+    "The request was not sent because the CRM daily limit was reached.":
+      "La solicitud no se envió porque se alcanzó el límite diario del CRM.",
+    "The request was not sent because CRM usage could not be verified.":
+      "La solicitud no se envió porque no se pudo verificar el uso del CRM.",
+  };
+
+  return language === "es" ? (spanish[key] ?? key) : key;
+}
+
+function crmTargetNeedsDetail(
+  target: PartnershipCrmTargetRecord | null,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  if (!target) {
+    return false;
+  }
+
+  if (target.notes) {
+    return false;
+  }
+
+  if (targetKind === "professionals") {
+    const professional = target as PartnershipCrmProfessionalRecord;
+    return !(
+      professional.researchBasis ||
+      professional.emailRoute ||
+      professional.linkedInRoute ||
+      professional.potentialPocketGenesEditorFit
+    );
+  }
+
+  return true;
+}
+
+function crmTargetSummaryRecord(
+  target: PartnershipCrmTargetRecord,
+  targetKind: PartnershipCrmTargetKind,
+): PartnershipCrmTargetRecord {
+  if (targetKind === "professionals") {
+    return {
+      ...(target as PartnershipCrmProfessionalRecord),
+      notes: "",
+      potentialPocketGenesEditorFit: "",
+      emailRoute: "",
+      linkedInRoute: "",
+      researchBasis: "",
+    };
+  }
+
+  return {
+    ...(target as PartnershipCrmOrganizationRecord),
+    notes: "",
+  };
+}
+
 function emptyListFilters(): ListFilters {
   return {
     query: "",
@@ -280,6 +771,7 @@ type CrmImportSessionMode = "setup" | "interactive" | "all";
 
 type CrmImportErrorDetail = {
   message: string;
+  requestNotSent: boolean;
   stage: CrmImportSessionStage;
   mode: CrmImportSessionMode;
   targetKind: PartnershipCrmTargetKind;
@@ -499,16 +991,20 @@ function importRequestPayloadForRow(
   options: {
     duplicateAction?: CrmDuplicateAction;
     targetOverride?: CrmTargetInput;
+    idempotencyKey?: string;
   } = {},
 ) {
+  const importRow = rowForImportDecision(
+    row,
+    targetKind,
+    options.duplicateAction ?? "import",
+    options.targetOverride,
+  );
   return {
     [targetKind]: [
-      rowForImportDecision(
-        row,
-        targetKind,
-        options.duplicateAction ?? "import",
-        options.targetOverride,
-      ),
+      options.idempotencyKey
+        ? { ...importRow, idempotencyKey: options.idempotencyKey }
+        : importRow,
     ],
   };
 }
@@ -523,7 +1019,10 @@ function importRequestPayloadForSessionRow(
 ) {
   const row = session.previewRows[rowIndex];
   return row
-    ? importRequestPayloadForRow(row, session.targetKind, options)
+    ? importRequestPayloadForRow(row, session.targetKind, {
+        ...options,
+        idempotencyKey: `${session.id}:${row.rowId}`,
+      })
     : undefined;
 }
 
@@ -564,6 +1063,7 @@ function buildCrmImportErrorDetail({
 
   return {
     message: errorMessage(error),
+    requestNotSent: crmRequestWasNotSent(error),
     stage,
     mode: session.mode,
     targetKind: session.targetKind,
@@ -596,6 +1096,7 @@ function restoreCrmImportErrorDetail(
 
   return {
     message: candidate.message,
+    requestNotSent: candidate.requestNotSent === true,
     stage:
       candidate.stage === "preview" ||
       candidate.stage === "import" ||
@@ -657,6 +1158,12 @@ function importErrorDescription(
 ) {
   const t = (text: string) => appText(language, text);
   const message = session.lastErrorDetail?.message ?? session.lastError;
+  if (session.lastErrorDetail?.requestNotSent) {
+    const rowLabel = importErrorRowLabel(session, language);
+    return language === "es"
+      ? `${rowLabel} no se envió. Las filas completadas y el punto de control guardado se conservaron. Verificá el uso del CRM o esperá el reinicio diario y luego reanudá esta fila.`
+      : `${rowLabel} was not sent. Completed rows and the saved checkpoint were kept. Verify CRM usage or wait for the daily reset, then resume this row.`;
+  }
   const stage = session.lastErrorDetail?.stage ?? session.stage;
   const stageText =
     stage === "preview" ? t("previewing the row") : t("committing the row");
@@ -677,6 +1184,7 @@ function buildCrmImportErrorLog(
   const t = (text: string) => appText(language, text);
   const detail = session.lastErrorDetail;
   const rowLabel = importErrorRowLabel(session, language);
+  const requestNotSent = detail?.requestNotSent === true;
 
   return [
     t("Import error log"),
@@ -690,6 +1198,11 @@ function buildCrmImportErrorLog(
       detail?.endpoint ?? "<not available>"
     }`,
     `${t("HTTP status")}: ${detail?.status ?? "<not available>"}`,
+    requestNotSent
+      ? language === "es"
+        ? "Estado de la solicitud: No enviada"
+        : "Request status: Not sent"
+      : null,
     `${t("Rows previewed")}: ${session.previewedRows} / ${session.totalRows}`,
     `${t("Rows already committed")}: ${session.nextImportIndex} / ${
       session.totalRows
@@ -701,7 +1214,11 @@ function buildCrmImportErrorLog(
         : "<not available>"
     }`,
     "",
-    t("What to fix"),
+    requestNotSent
+      ? language === "es"
+        ? "Próximo paso"
+        : "Next step"
+      : t("What to fix"),
     importErrorDescription(session, language),
     "",
     t("Parsed CSV row"),
@@ -713,7 +1230,11 @@ function buildCrmImportErrorLog(
     t("Request payload"),
     safeImportLogValue(detail?.requestPayload),
     "",
-    t("Backend response details"),
+    requestNotSent
+      ? language === "es"
+        ? "Detalles de la denegación de uso"
+        : "Usage denial details"
+      : t("Backend response details"),
     safeImportLogValue(detail?.responseDetails),
     "",
     t("CSV parse errors"),
@@ -1119,8 +1640,50 @@ function appendTargetFilterParams(
   }
 }
 
-function buildVisualFiltersPath(targetKind: PartnershipCrmTargetKind) {
-  return `${crmTargetBasePath(targetKind)}/visual-filters`;
+function localVisualFilters(
+  targetKind: PartnershipCrmTargetKind,
+  targets: readonly PartnershipCrmTargetRecord[],
+): PartnershipCrmVisualFilters {
+  const facet = (
+    key: PartnershipCrmVisualFilterFacetKey,
+    values: string[],
+  ): PartnershipCrmVisualFilterFacet => {
+    const counts = new Map<string, number>();
+    for (const value of values) {
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+
+    return {
+      key,
+      total: values.length,
+      buckets: Array.from(counts, ([value, count]) => ({ value, count })),
+    };
+  };
+  const categories = targets.map(
+    (target) =>
+      normalizeCrmCategory(target.category, targetKind) ||
+      CRM_MISSING_CATEGORY_FILTER_VALUE,
+  );
+  const countries = targets.map(
+    (target) =>
+      normalizeCrmCountry(target.country) || CRM_MISSING_COUNTRY_FILTER_VALUE,
+  );
+  const linkedInStates = targets.map((target) =>
+    targetLinkedIn(target, targetKind) ? "has_linkedin" : "missing_linkedin",
+  );
+
+  return {
+    targetKind,
+    facets: {
+      status: facet(
+        "status",
+        targets.map((target) => target.status),
+      ),
+      category: facet("category", categories),
+      country: facet("country", countries),
+      linkedInState: facet("linkedInState", linkedInStates),
+    },
+  };
 }
 
 function visualSelectedSegmentsForFilters(
@@ -1965,7 +2528,9 @@ function cleanCrmStructuredNoteLine(value: string) {
     .trim();
 }
 
-function parseCrmColonStructuredNotes(value: string): CrmStructuredNotes | null {
+function parseCrmColonStructuredNotes(
+  value: string,
+): CrmStructuredNotes | null {
   const cleanedLines = value
     .split(/\r?\n/)
     .map(cleanCrmStructuredNoteLine)
@@ -2012,7 +2577,9 @@ function parseCrmStructuredNotes(value: unknown): CrmStructuredNotes | null {
   return parseCrmJsonStructuredNotes(trimmed);
 }
 
-function parseCrmJsonStructuredNotes(value: unknown): CrmStructuredNotes | null {
+function parseCrmJsonStructuredNotes(
+  value: unknown,
+): CrmStructuredNotes | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -2629,6 +3196,82 @@ function EmptyState({ children }: { children: React.ReactNode }) {
   );
 }
 
+function CrmDailyUsageBar({
+  usage,
+  pending,
+  language,
+}: {
+  usage: CrmDailyUsage | null;
+  pending: boolean;
+  language: AppLanguage;
+}) {
+  const used = Math.min(
+    usage?.used ?? 0,
+    usage?.limit ?? CRM_DAILY_USAGE_LIMIT,
+  );
+  const limit = usage?.limit ?? CRM_DAILY_USAGE_LIMIT;
+  const percentage = Math.min(
+    100,
+    Math.max(0, usage?.percentage ?? Math.round((used / limit) * 100)),
+  );
+  const resetLabel = usage?.resetAt
+    ? new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en-US", {
+        dateStyle: "short",
+        timeStyle: "short",
+        timeZone: "America/Argentina/Buenos_Aires",
+      }).format(new Date(usage.resetAt))
+    : null;
+  const barTone =
+    percentage >= 100
+      ? "bg-red-600"
+      : percentage >= 90
+        ? "bg-orange-600"
+        : percentage >= 70
+          ? "bg-amber-500"
+          : "bg-cyan-500";
+
+  return (
+    <div
+      data-testid="crm-daily-usage"
+      className="min-w-[220px] rounded-xl border border-border/80 bg-background/70 px-3 py-2"
+    >
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="font-medium text-foreground">
+          {crmLocalText(language, "CRM daily usage")}
+        </span>
+        <span className="tabular-nums text-muted-foreground">
+          {pending && !usage ? "…" : `${used} / ${limit} · ${percentage}%`}
+        </span>
+      </div>
+      <div
+        role="progressbar"
+        aria-label={crmLocalText(language, "CRM daily usage")}
+        aria-valuemin={0}
+        aria-valuemax={limit}
+        aria-valuenow={used}
+        className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
+      >
+        <div
+          className={cn("h-full rounded-full transition-[width]", barTone)}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <span>
+          {usage?.locked
+            ? crmLocalText(language, "Daily limit reached")
+            : `${limit - used} ${language === "es" ? "disponibles" : "remaining"}`}
+        </span>
+        {resetLabel ? (
+          <span>
+            {crmLocalText(language, "Resets")} {resetLabel}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function StatusBadge({
   status,
   language,
@@ -2735,10 +3378,7 @@ function FavoriteCell({
   );
 }
 
-function crmSignalCellClass(
-  isFavorite: boolean,
-  status: PartnershipCrmStatus,
-) {
+function crmSignalCellClass(isFavorite: boolean, status: PartnershipCrmStatus) {
   if (isFavorite) {
     return "bg-cyan-50/75 dark:bg-cyan-400/10";
   }
@@ -3524,6 +4164,7 @@ function VisualFiltersDialog({
   error,
   language,
   targetKind,
+  disabled,
   onClearAll,
   onApply,
 }: {
@@ -3535,6 +4176,7 @@ function VisualFiltersDialog({
   error: unknown;
   language: AppLanguage;
   targetKind: PartnershipCrmTargetKind;
+  disabled: boolean;
   onClearAll: () => void;
   onApply: (targets: VisualFilterApplyTarget[]) => void;
 }) {
@@ -3625,6 +4267,7 @@ function VisualFiltersDialog({
               setAllowEmptyApply(true);
               onClearAll();
             }}
+            disabled={disabled}
           >
             {t("Clear all filters")}
           </Button>
@@ -3664,7 +4307,7 @@ function VisualFiltersDialog({
           <Button
             type="button"
             className="w-full sm:w-auto"
-            disabled={!canApplySelectedSegments}
+            disabled={disabled || !canApplySelectedSegments}
             onClick={applySelectedSegments}
           >
             {t("Apply")}
@@ -3939,6 +4582,7 @@ function ActivityCell({
 function OrganizationDialog({
   state,
   pending,
+  disabled,
   targetKind,
   onClose,
   onSubmit,
@@ -3946,6 +4590,7 @@ function OrganizationDialog({
 }: {
   state: OrganizationDialogState;
   pending: boolean;
+  disabled: boolean;
   targetKind: PartnershipCrmTargetKind;
   onClose: () => void;
   onSubmit: (
@@ -4006,7 +4651,10 @@ function OrganizationDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <fieldset
+            disabled={disabled || pending}
+            className="grid gap-4 border-0 p-0 md:grid-cols-2"
+          >
             <div className="space-y-1.5">
               <Label htmlFor="crm-org-name">
                 {isProfessionals
@@ -4251,7 +4899,7 @@ function OrganizationDialog({
                 className="min-h-28"
               />
             </div>
-          </div>
+          </fieldset>
 
           <DialogFooter>
             <Button
@@ -4262,7 +4910,10 @@ function OrganizationDialog({
             >
               {t("Cancel")}
             </Button>
-            <Button type="submit" disabled={pending || !form.name.trim()}>
+            <Button
+              type="submit"
+              disabled={disabled || pending || !form.name.trim()}
+            >
               <CheckCircle2 className="h-4 w-4" />
               {pending ? t("Saving...") : t("Save changes")}
             </Button>
@@ -4277,6 +4928,7 @@ function StatusChangeDialog({
   state,
   target,
   pending,
+  disabled,
   errorDetails,
   onClose,
   onDraftChange,
@@ -4286,6 +4938,7 @@ function StatusChangeDialog({
   state: StatusChangeDialogState;
   target: PartnershipCrmTargetRecord | null;
   pending: boolean;
+  disabled: boolean;
   errorDetails: string | null;
   onClose: () => void;
   onDraftChange: (status: PartnershipCrmStatus) => void;
@@ -4325,7 +4978,7 @@ function StatusChangeDialog({
           onValueChange={(value) =>
             onDraftChange(value as PartnershipCrmStatus)
           }
-          disabled={pending}
+          disabled={disabled || pending}
           aria-label={t("CRM status options")}
           className="flex flex-col gap-2"
         >
@@ -4389,7 +5042,7 @@ function StatusChangeDialog({
           <Button
             type="button"
             onClick={onSave}
-            disabled={pending || unchanged}
+            disabled={disabled || pending || unchanged}
             className="bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
           >
             <CheckCircle2 className="h-4 w-4" />
@@ -4737,6 +5390,7 @@ function CrmVariableEditor({
   targetKind,
   onChange,
   language,
+  disabled = false,
 }: {
   value: string;
   variables: readonly CrmTemplateVariableDefinition[];
@@ -4744,6 +5398,7 @@ function CrmVariableEditor({
   targetKind: PartnershipCrmTargetKind;
   onChange: (value: string) => void;
   language: AppLanguage;
+  disabled?: boolean;
 }) {
   const t = (text: string) => appText(language, text);
   const editorRef = useRef<HTMLDivElement | null>(null);
@@ -4838,6 +5493,9 @@ function CrmVariableEditor({
   ]);
 
   function syncFromEditor() {
+    if (disabled) {
+      return;
+    }
     const editor = editorRef.current;
     if (!editor) {
       return;
@@ -4849,6 +5507,9 @@ function CrmVariableEditor({
   }
 
   function addVariable(variable: CrmTemplateVariableDefinition) {
+    if (disabled) {
+      return;
+    }
     const editor = editorRef.current;
     if (!editor) {
       return;
@@ -4863,6 +5524,9 @@ function CrmVariableEditor({
   }
 
   function applyInlineFormat(command: "bold" | "italic") {
+    if (disabled) {
+      return;
+    }
     const editor = editorRef.current;
     if (!editor) {
       return;
@@ -4881,6 +5545,7 @@ function CrmVariableEditor({
             type="button"
             variant="ghost"
             size="xs"
+            disabled={disabled}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
               editorRef.current?.focus();
@@ -4896,6 +5561,7 @@ function CrmVariableEditor({
             size="icon-sm"
             aria-label={t("Bold")}
             title={t("Bold")}
+            disabled={disabled}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => applyInlineFormat("bold")}
           >
@@ -4907,6 +5573,7 @@ function CrmVariableEditor({
             size="icon-sm"
             aria-label={t("Italic")}
             title={t("Italic")}
+            disabled={disabled}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => applyInlineFormat("italic")}
           >
@@ -4915,7 +5582,12 @@ function CrmVariableEditor({
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="sm">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={disabled}
+            >
               <Braces className="h-3.5 w-3.5" />
               {t("Add variable")}
             </Button>
@@ -4943,7 +5615,8 @@ function CrmVariableEditor({
         ref={editorRef}
         role="textbox"
         aria-label={t("Message")}
-        contentEditable
+        aria-disabled={disabled}
+        contentEditable={!disabled}
         suppressContentEditableWarning
         className="min-h-80 overflow-y-auto whitespace-pre-wrap px-3 py-2.5 font-mono text-sm leading-6 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
         onInput={syncFromEditor}
@@ -5001,11 +5674,16 @@ function EmailComposerDialog({
   targetKind,
   open,
   pending,
+  disabled,
   templates,
   templatesLoading,
+  templatesError,
+  templatesRetrying,
+  onRetryTemplates,
   templatesHasMore,
   templatesFetchingMore,
   onLoadMoreTemplates,
+  onLoadTemplate,
   templateActionPending,
   onOverwriteTemplate,
   onSetTemplateFavorite,
@@ -5018,11 +5696,16 @@ function EmailComposerDialog({
   targetKind: PartnershipCrmTargetKind;
   open: boolean;
   pending: boolean;
+  disabled: boolean;
   templates: PartnershipCrmTemplateRecord[];
   templatesLoading: boolean;
+  templatesError: unknown;
+  templatesRetrying: boolean;
+  onRetryTemplates: () => void;
   templatesHasMore: boolean;
   templatesFetchingMore: boolean;
   onLoadMoreTemplates: () => void;
+  onLoadTemplate: (templateId: string) => Promise<PartnershipCrmTemplateRecord>;
   templateActionPending: boolean;
   onOverwriteTemplate: (
     template: PartnershipCrmTemplateRecord,
@@ -5042,6 +5725,9 @@ function EmailComposerDialog({
   const [templateToast, setTemplateToast] = useState<ActionToastState | null>(
     null,
   );
+  const [templateDetailLoading, setTemplateDetailLoading] = useState(false);
+  const [templateNeedsExplicitLoad, setTemplateNeedsExplicitLoad] =
+    useState(false);
   const emailTargetKeyRef = useRef<string | null>(null);
   const templateGroups = useMemo(
     () => crmTemplateGroupsForTarget(templates, organization, targetKind),
@@ -5058,6 +5744,7 @@ function EmailComposerDialog({
       emailTargetKeyRef.current = null;
       setEmail(null);
       setTemplateToast(null);
+      setTemplateNeedsExplicitLoad(false);
       return;
     }
 
@@ -5065,11 +5752,12 @@ function EmailComposerDialog({
     const previousTargetKey = emailTargetKeyRef.current;
     emailTargetKeyRef.current = targetKey;
     const targetEmail = crmTargetEmail(organization, targetKind);
-    const template = bestCrmTemplateForTarget(
+    const loadedTemplate = bestCrmTemplateForTarget(
       organization,
       orderedTemplates,
       targetKind,
     );
+    const template = loadedTemplate?.body ? loadedTemplate : null;
     const rendered = template
       ? renderCrmTemplate(template, organization, targetKind)
       : { subject: "", body: "" };
@@ -5115,23 +5803,39 @@ function EmailComposerDialog({
     setEmail((current) => (current ? { ...current, ...patch } : current));
   }
 
-  function applyTemplate(templateId: string) {
+  async function applyTemplate(templateId: string) {
     if (!organization) {
       return;
     }
 
-    const template = orderedTemplates.find((entry) => entry.id === templateId);
-    if (!template) {
+    if (!orderedTemplates.some((entry) => entry.id === templateId)) {
       return;
     }
 
-    const rendered = renderCrmTemplate(template, organization, targetKind);
-    update({
-      templateId,
-      subject: rendered.subject,
-      text: template.body,
-      step: "compose",
-    });
+    setTemplateDetailLoading(true);
+    try {
+      const template = await onLoadTemplate(templateId);
+      const rendered = renderCrmTemplate(template, organization, targetKind);
+      update({
+        templateId,
+        subject: rendered.subject,
+        text: template.body,
+        step: "compose",
+      });
+      setTemplateNeedsExplicitLoad(false);
+    } catch (error) {
+      setTemplateToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          language === "es"
+            ? "No se pudo cargar la plantilla de email."
+            : "Unable to load email template.",
+        details: error instanceof Error ? error.message : undefined,
+      });
+    } finally {
+      setTemplateDetailLoading(false);
+    }
   }
 
   const missingVariables =
@@ -5143,6 +5847,7 @@ function EmailComposerDialog({
       ? renderedCrmEmailState(email, organization, targetKind)
       : null;
   const canPreview = Boolean(
+    !disabled &&
     email?.to.trim() &&
     email.subject.trim() &&
     email.text.trim() &&
@@ -5156,13 +5861,16 @@ function EmailComposerDialog({
   const selectedTemplate =
     selectedTemplateIndex >= 0 ? orderedTemplates[selectedTemplateIndex] : null;
   const canChangeTemplate = Boolean(
+    !disabled &&
     email &&
     email.step === "compose" &&
     hasTemplates &&
     !templatesLoading &&
+    !templateDetailLoading &&
     organization,
   );
   const canOverwriteTemplate = Boolean(
+    !disabled &&
     email &&
     selectedTemplate &&
     organization &&
@@ -5171,10 +5879,16 @@ function EmailComposerDialog({
     !templateActionPending,
   );
   const canToggleTemplateFavorite = Boolean(
-    selectedTemplate && email?.step === "compose" && !templateActionPending,
+    !disabled &&
+    selectedTemplate &&
+    email?.step === "compose" &&
+    !templateActionPending,
   );
   const canDeleteTemplate = Boolean(
-    selectedTemplate && email?.step === "compose" && !templateActionPending,
+    !disabled &&
+    selectedTemplate &&
+    email?.step === "compose" &&
+    !templateActionPending,
   );
 
   async function handleOverwriteTemplate() {
@@ -5246,7 +5960,13 @@ function EmailComposerDialog({
     try {
       await onDeleteTemplate(selectedTemplate);
       if (nextTemplate) {
-        applyTemplate(nextTemplate.id);
+        update({
+          templateId: nextTemplate.id,
+          subject: "",
+          text: "",
+          step: "compose",
+        });
+        setTemplateNeedsExplicitLoad(true);
       } else {
         update({
           templateId: "",
@@ -5254,6 +5974,7 @@ function EmailComposerDialog({
           text: "",
           step: "compose",
         });
+        setTemplateNeedsExplicitLoad(false);
       }
       setTemplateToast({
         id: Date.now(),
@@ -5285,7 +6006,7 @@ function EmailComposerDialog({
     const nextIndex =
       (currentIndex + offset + orderedTemplates.length) %
       orderedTemplates.length;
-    applyTemplate(orderedTemplates[nextIndex].id);
+    void applyTemplate(orderedTemplates[nextIndex].id);
   }
 
   function goToPreview() {
@@ -5396,6 +6117,7 @@ function EmailComposerDialog({
                       id="crm-email-to"
                       type="email"
                       value={email.to}
+                      disabled={disabled}
                       onChange={(event) =>
                         update({ to: event.target.value, step: "compose" })
                       }
@@ -5405,14 +6127,48 @@ function EmailComposerDialog({
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,0.62fr)_minmax(0,1fr)]">
                   <div className="space-y-1.5">
                     <Label>{t("Template")}</Label>
+                    {templatesError ? (
+                      <div
+                        role="alert"
+                        className="grid gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                      >
+                        <p>
+                          {crmLocalText(
+                            language,
+                            "Unable to load email templates.",
+                          )}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          className="w-fit"
+                          onClick={onRetryTemplates}
+                          disabled={disabled || templatesRetrying}
+                        >
+                          <RefreshCw
+                            className={cn(
+                              "h-3.5 w-3.5",
+                              templatesRetrying && "animate-spin",
+                            )}
+                          />
+                          {crmLocalText(language, "Retry templates")}
+                        </Button>
+                      </div>
+                    ) : null}
                     <Select
                       value={email.templateId || "no-template"}
                       onValueChange={(value) => {
                         if (value !== "no-template") {
-                          applyTemplate(value);
+                          void applyTemplate(value);
                         }
                       }}
-                      disabled={templatesLoading || !hasTemplates}
+                      disabled={
+                        disabled ||
+                        templatesLoading ||
+                        templateDetailLoading ||
+                        !hasTemplates
+                      }
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue />
@@ -5458,12 +6214,25 @@ function EmailComposerDialog({
                         size="xs"
                         className="w-fit px-2"
                         onClick={onLoadMoreTemplates}
-                        disabled={templatesFetchingMore}
+                        disabled={disabled || templatesFetchingMore}
                       >
                         <ChevronDown className="h-3.5 w-3.5" />
                         {templatesFetchingMore
                           ? t("Loading templates...")
                           : t("Load more templates")}
+                      </Button>
+                    ) : null}
+                    {templateNeedsExplicitLoad && selectedTemplate ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        className="w-fit px-2"
+                        onClick={() => void applyTemplate(selectedTemplate.id)}
+                        disabled={disabled || templateDetailLoading}
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        {t("Load selected template")}
                       </Button>
                     ) : null}
                   </div>
@@ -5472,6 +6241,7 @@ function EmailComposerDialog({
                     <Input
                       id="crm-email-subject"
                       value={email.subject}
+                      disabled={disabled}
                       onChange={(event) =>
                         update({
                           subject: event.target.value,
@@ -5489,6 +6259,7 @@ function EmailComposerDialog({
                     target={organization}
                     targetKind={targetKind}
                     language={language}
+                    disabled={disabled}
                     onChange={(value) =>
                       update({ text: value, step: "compose" })
                     }
@@ -5621,7 +6392,7 @@ function EmailComposerDialog({
                   type="button"
                   size="lg"
                   onClick={() => renderedEmail && onSend(renderedEmail)}
-                  disabled={pending || !canPreview}
+                  disabled={disabled || pending || !canPreview}
                   className={EMAIL_CTA_CLASS}
                 >
                   <Send className="h-4 w-4" />
@@ -5722,6 +6493,7 @@ function AllSentEmailsDialog({
   hasNextPage,
   loadingNextPage,
   onLoadMore,
+  onLoadEmail,
   language,
 }: {
   open: boolean;
@@ -5732,9 +6504,56 @@ function AllSentEmailsDialog({
   hasNextPage: boolean;
   loadingNextPage: boolean;
   onLoadMore: () => void;
+  onLoadEmail: (emailId: string) => Promise<PartnershipCrmSentEmailLogRecord>;
   language: AppLanguage;
 }) {
   const t = (text: string) => appText(language, text);
+  const [expandedEmailIds, setExpandedEmailIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [emailDetails, setEmailDetails] = useState<
+    Record<string, PartnershipCrmSentEmailLogRecord>
+  >({});
+  const [loadingEmailId, setLoadingEmailId] = useState<string | null>(null);
+  const [emailErrors, setEmailErrors] = useState<Record<string, string>>({});
+
+  async function toggleEmailMessage(email: PartnershipCrmSentEmailLogRecord) {
+    if (expandedEmailIds.has(email.id)) {
+      setExpandedEmailIds((current) => {
+        const next = new Set(current);
+        next.delete(email.id);
+        return next;
+      });
+      return;
+    }
+
+    if (emailDetails[email.id]) {
+      setExpandedEmailIds((current) => new Set(current).add(email.id));
+      return;
+    }
+
+    setLoadingEmailId(email.id);
+    setEmailErrors((current) => {
+      const next = { ...current };
+      delete next[email.id];
+      return next;
+    });
+    try {
+      const detail = email.body ? email : await onLoadEmail(email.id);
+      setEmailDetails((current) => ({ ...current, [email.id]: detail }));
+      setExpandedEmailIds((current) => new Set(current).add(email.id));
+    } catch (loadError) {
+      setEmailErrors((current) => ({
+        ...current,
+        [email.id]:
+          loadError instanceof Error
+            ? loadError.message
+            : crmLocalText(language, "Unable to load message."),
+      }));
+    } finally {
+      setLoadingEmailId((current) => (current === email.id ? null : current));
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -5816,9 +6635,40 @@ function AllSentEmailsDialog({
                   </p>
                 </div>
 
-                <div className="mt-3 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/35 p-3 text-sm leading-6 text-foreground/88">
-                  {email.body || t("No message yet.")}
+                <div className="mt-3 flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-expanded={expandedEmailIds.has(email.id)}
+                    onClick={() => void toggleEmailMessage(email)}
+                    disabled={loadingEmailId !== null}
+                  >
+                    {loadingEmailId === email.id
+                      ? t("Loading...")
+                      : crmLocalText(
+                          language,
+                          expandedEmailIds.has(email.id)
+                            ? "Hide message"
+                            : "View message",
+                        )}
+                  </Button>
                 </div>
+
+                {emailErrors[email.id] ? (
+                  <div className="mt-3">
+                    <ErrorBanner>
+                      {crmLocalText(language, "Unable to load message.")}{" "}
+                      {emailErrors[email.id]}
+                    </ErrorBanner>
+                  </div>
+                ) : null}
+
+                {expandedEmailIds.has(email.id) ? (
+                  <div className="mt-3 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/35 p-3 text-sm leading-6 text-foreground/88">
+                    {emailDetails[email.id]?.body || t("No message yet.")}
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
@@ -6417,7 +7267,8 @@ function ImportRowReviewCard({
       : organization?.contactLinkedIn;
   const canAdd = Boolean(row?.valid) && !processed && !pending;
   const canSkip = Boolean(row) && !processed && !pending;
-  const canImportRemaining = Boolean(row) && !processed && !pending;
+  const canImportRemaining =
+    !processed && !pending && session.activeRowIndex < session.totalRows;
   const canMoveNext =
     processed && !pending && session.nextImportIndex < session.totalRows;
 
@@ -6643,7 +7494,7 @@ function ImportRowReviewCard({
                 className="w-full border-blue-300 text-blue-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-800 dark:border-blue-300/35 dark:text-blue-100 dark:hover:bg-blue-500/10 sm:w-auto"
               >
                 <ChevronRight className="h-4 w-4" />
-                {t("Import remaining in sequence")}
+                {crmLocalText(language, "Process next 5")}
               </Button>
             )}
             <Button
@@ -6691,7 +7542,7 @@ function ImportRowReviewCard({
                 className="w-full border-blue-300 text-blue-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-800 dark:border-blue-300/35 dark:text-blue-100 dark:hover:bg-blue-500/10 sm:w-auto"
               >
                 <ChevronRight className="h-4 w-4" />
-                {t("Import remaining in sequence")}
+                {crmLocalText(language, "Process next 5")}
               </Button>
             )}
             <Button
@@ -6872,12 +7723,15 @@ function ImportDialog({
                   className={cn(EMAIL_CTA_CLASS, "h-14 w-full")}
                 >
                   <FileUp className="h-5 w-5" />
-                  {pending ? t("Importing...") : t("Import all")}
+                  {pending
+                    ? t("Importing...")
+                    : crmLocalText(language, "Process next 5")}
                 </Button>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                {t(
-                  "Import all previews and commits one row at a time while accepting every valid row.",
+                {crmLocalText(
+                  language,
+                  "Processes at most five rows sequentially. Continue manually for the next batch.",
                 )}
               </p>
             </section>
@@ -6946,7 +7800,7 @@ function ImportDialog({
                       </h3>
                       <p className="mt-2 text-sm leading-6 text-emerald-950/72 dark:text-emerald-50/72">
                         {t(
-                          "The imported rows were committed one by one and the CRM list has been refreshed.",
+                          "The imported rows were saved one by one. Use Refresh when you deliberately want the current CRM list.",
                         )}
                       </p>
                       <p className="mt-2 truncate text-xs text-emerald-950/60 dark:text-emerald-50/60">
@@ -7056,11 +7910,23 @@ export function PartnershipCrmWorkbench() {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const queryClient = useQueryClient();
-  const router = useRouter();
   const [targetKind, setTargetKind] =
     useState<PartnershipCrmTargetKind>("organizations");
   const [filters, setFilters] = useState<ListFilters>(() => emptyListFilters());
+  const [appliedFilters, setAppliedFilters] = useState<ListFilters>(() =>
+    emptyListFilters(),
+  );
   const [cursorStack, setCursorStack] = useState<string[]>([]);
+  const [listRequestVersion, setListRequestVersion] = useState(0);
+  const [dailyUsage, setDailyUsage] = useState<CrmDailyUsage | null>(null);
+  const [dailyUsagePending, setDailyUsagePending] = useState(true);
+  const [dailyUsageVerificationFailures, setDailyUsageVerificationFailures] =
+    useState(0);
+  const [dataChanged, setDataChanged] = useState(false);
+  const pageLoadEventIdRef = useRef(createPartnershipCrmUsageEventId());
+  const dailyUsageVerificationSequenceRef = useRef(0);
+  const dailyUsageRef = useRef<CrmDailyUsage | null>(null);
+  const freshActionsBlockedRef = useRef(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedTargetIds, setSelectedTargetIds] = useState<Set<string>>(
     () => new Set(),
@@ -7084,7 +7950,9 @@ export function PartnershipCrmWorkbench() {
     useState<PartnershipCrmTargetRecord | null>(null);
   const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [templateListReadBlocked, setTemplateListReadBlocked] = useState(false);
   const [sentEmailLogOpen, setSentEmailLogOpen] = useState(false);
+  const [sentEmailLogReadBlocked, setSentEmailLogReadBlocked] = useState(false);
   const [visualFiltersOpen, setVisualFiltersOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importRulesOpen, setImportRulesOpen] = useState(false);
@@ -7101,17 +7969,236 @@ export function PartnershipCrmWorkbench() {
   const [interactiveAutoImport, setInteractiveAutoImport] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [activityLogOpen, setActivityLogOpen] = useState(false);
+  const [activityReadBlocked, setActivityReadBlocked] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const interactiveAutoImportRef = useRef(false);
+  const interactiveAutoImportRunIdRef = useRef(0);
   const importStorageWarningShownRef = useRef(false);
+  const templateDetailsRef = useRef(
+    new Map<string, PartnershipCrmTemplateRecord>(),
+  );
+  const sentEmailDetailsRef = useRef(
+    new Map<string, PartnershipCrmSentEmailLogRecord>(),
+  );
+  const sentEmailDetailRequestsRef = useRef(
+    new Map<string, Promise<PartnershipCrmSentEmailLogRecord>>(),
+  );
   const currentCursor = cursorStack[cursorStack.length - 1];
+  const freshActionsDisabled =
+    dailyUsagePending ||
+    dailyUsageVerificationFailures > 0 ||
+    !dailyUsage ||
+    dailyUsage.locked ||
+    (dailyUsage.limit > 0 && dailyUsage.used >= dailyUsage.limit) ||
+    dailyUsage.percentage >= 100;
+
+  const acceptDailyUsage = useCallback((incoming: CrmDailyUsage) => {
+    const merged = mergeCrmDailyUsage(dailyUsageRef.current, incoming);
+    dailyUsageRef.current = merged;
+    freshActionsBlockedRef.current = merged.locked;
+    setDailyUsage(merged);
+  }, []);
+
+  const verifyDailyUsage = useCallback(
+    async (eventId?: string) => {
+      const verificationSequence =
+        dailyUsageVerificationSequenceRef.current + 1;
+      dailyUsageVerificationSequenceRef.current = verificationSequence;
+      const verificationEventId = eventId ?? pageLoadEventIdRef.current;
+      freshActionsBlockedRef.current = true;
+      setDailyUsagePending(true);
+
+      try {
+        const result = await sdkFetch<CrmUsageResponse>(
+          CRM_DAILY_USAGE_ENDPOINT,
+          {
+            method: "POST",
+            headers: crmUsageHeaders(verificationEventId),
+            body: JSON.stringify({
+              surface: "crm",
+              eventId: verificationEventId,
+            }),
+          },
+        );
+        if (
+          dailyUsageVerificationSequenceRef.current !== verificationSequence
+        ) {
+          return;
+        }
+        const verifiedUsage = result.usage;
+        if (!isValidCrmDailyUsage(verifiedUsage)) {
+          freshActionsBlockedRef.current = true;
+          setDailyUsageVerificationFailures((current) => current + 1);
+          return;
+        }
+        acceptDailyUsage(verifiedUsage);
+        setDailyUsageVerificationFailures(0);
+      } catch (error) {
+        if (
+          dailyUsageVerificationSequenceRef.current !== verificationSequence
+        ) {
+          return;
+        }
+        const usage = crmUsageFromError(error);
+        if (usage) {
+          acceptDailyUsage(usage);
+          setDailyUsageVerificationFailures(0);
+        } else {
+          freshActionsBlockedRef.current = true;
+          setDailyUsageVerificationFailures((current) => current + 1);
+        }
+      } finally {
+        if (
+          dailyUsageVerificationSequenceRef.current === verificationSequence
+        ) {
+          setDailyUsagePending(false);
+        }
+      }
+    },
+    [acceptDailyUsage],
+  );
+
+  async function crmFetch<T>(path: string, init?: RequestInit): Promise<T> {
+    if (freshActionsBlockedRef.current || freshActionsDisabled) {
+      throw new CrmRequestNotSentError(
+        crmLocalText(
+          language,
+          dailyUsageVerificationFailures > 0 || !dailyUsage
+            ? hasTargetPage
+              ? "CRM usage verification failed. Cached data is still available, but fresh actions remain disabled."
+              : "CRM usage verification failed. No CRM data is loaded, and fresh actions remain disabled."
+            : "Fresh CRM actions are disabled until the daily reset.",
+        ),
+      );
+    }
+
+    const eventId = createPartnershipCrmUsageEventId();
+    try {
+      const result = await sdkFetch<T & CrmUsageResponse>(path, {
+        ...init,
+        headers: crmUsageHeaders(eventId, init?.headers),
+      });
+      if (isValidCrmDailyUsage(result?.usage)) {
+        acceptDailyUsage(result.usage);
+      } else {
+        freshActionsBlockedRef.current = true;
+        setDailyUsageVerificationFailures((current) => current + 1);
+      }
+      if (crmMutationChangesTargetSummaries(path, init)) {
+        clearCachedCrmSummaryPages();
+        setDataChanged(true);
+      }
+      return result;
+    } catch (error) {
+      const preHandlerDenial = crmPreHandlerDenialFromError(error);
+      if (preHandlerDenial) {
+        if (preHandlerDenial.usage) {
+          acceptDailyUsage(preHandlerDenial.usage);
+        } else {
+          freshActionsBlockedRef.current = true;
+          setDailyUsageVerificationFailures((current) => current + 1);
+        }
+
+        throw new CrmRequestNotSentError(
+          crmLocalText(
+            language,
+            preHandlerDenial.reason === "daily_limit"
+              ? "The request was not sent because the CRM daily limit was reached."
+              : "The request was not sent because CRM usage could not be verified.",
+          ),
+          error,
+        );
+      }
+
+      const uncertainTargetKind = crmMutationTargetKind(path, init);
+      const uncertainTarget = crmTargetMutationPath(path, init);
+      if (uncertainTargetKind) {
+        clearCachedCrmSummaryPages();
+        queryClient.removeQueries({
+          queryKey: [ORGANIZATIONS_QUERY_KEY, uncertainTargetKind],
+        });
+        setDataChanged(true);
+      }
+      if (uncertainTarget) {
+        queryClient.removeQueries({
+          queryKey: [
+            ORGANIZATIONS_QUERY_KEY,
+            "detail",
+            uncertainTarget.targetKind,
+            uncertainTarget.targetId,
+          ],
+          exact: true,
+        });
+      }
+      if (uncertainTarget?.action === "activities") {
+        setActivityReadBlocked(true);
+        queryClient.removeQueries({
+          queryKey: [
+            ACTIVITIES_QUERY_KEY,
+            uncertainTarget.targetKind,
+            uncertainTarget.targetId,
+          ],
+          exact: true,
+        });
+      }
+      if (uncertainTarget?.action === "email") {
+        setActivityReadBlocked(true);
+        setSentEmailLogReadBlocked(true);
+        queryClient.removeQueries({
+          queryKey: [
+            ACTIVITIES_QUERY_KEY,
+            uncertainTarget.targetKind,
+            uncertainTarget.targetId,
+          ],
+          exact: true,
+        });
+        queryClient.removeQueries({
+          queryKey: [SENT_EMAIL_LOG_QUERY_KEY],
+          exact: true,
+        });
+        sentEmailDetailsRef.current.clear();
+      }
+      const usage = crmUsageFromError(error);
+      if (usage) {
+        acceptDailyUsage(usage);
+      } else {
+        freshActionsBlockedRef.current = true;
+        setDailyUsageVerificationFailures((current) => current + 1);
+      }
+      throw error;
+    }
+  }
 
   const organizationQuery = useQuery({
-    queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind, filters, currentCursor],
-    queryFn: () =>
-      sdkFetch<
+    queryKey: [
+      ORGANIZATIONS_QUERY_KEY,
+      targetKind,
+      appliedFilters,
+      currentCursor,
+    ],
+    queryFn: async ({ signal }) => {
+      const page = await crmFetch<
         PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage
-      >(buildTargetListPath(targetKind, filters, currentCursor)),
+      >(buildTargetListPath(targetKind, appliedFilters, currentCursor), {
+        signal,
+      });
+      persistCachedCrmSummaryPage(
+        targetKind,
+        appliedFilters,
+        currentCursor,
+        page,
+      );
+      setDataChanged(false);
+      return page;
+    },
+    enabled: false,
+    retry: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: Number.POSITIVE_INFINITY,
+    initialData: () =>
+      loadCachedCrmSummaryPage(targetKind, appliedFilters, currentCursor),
   });
   const organizations = useMemo(
     () =>
@@ -7120,6 +8207,10 @@ export function PartnershipCrmWorkbench() {
       ),
     [organizationQuery.data, targetKind],
   );
+  const hasTargetPage = Boolean(organizationQuery.data);
+  const listPageIsPartial = organizationQuery.data?.partial === true;
+  const listPageScanned =
+    organizationQuery.data?.scanned ?? organizations.length;
   const currentListPage = cursorStack.length + 1;
   const hasNextListPage = Boolean(organizationQuery.data?.nextCursor);
   const knownListPages = currentListPage + (hasNextListPage ? 1 : 0);
@@ -7133,16 +8224,25 @@ export function PartnershipCrmWorkbench() {
       const params = new URLSearchParams({
         status: "active",
         audience: targetKind,
-        limit: "50",
+        limit: String(CRM_TEMPLATE_PAGE_SIZE),
       });
       if (cursor) {
         params.set("cursor", cursor);
       }
 
-      return sdkFetch<PartnershipCrmTemplatesPage>(
-        `/admin/partnership-crm/templates?${params.toString()}`,
+      return crmFetch<PartnershipCrmTemplatesPage>(
+        `/admin/partnership-crm/email-templates?${params.toString()}`,
       );
     },
+    // Keep this enabled state tied only to the operator's explicit open action.
+    // A quota verification recovery must not toggle the query back on and
+    // silently replay a failed template read.
+    enabled: Boolean(emailOpen && !templateListReadBlocked),
+    retry: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: Number.POSITIVE_INFINITY,
     initialPageParam: "",
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
@@ -7160,10 +8260,40 @@ export function PartnershipCrmWorkbench() {
 
     return Array.from(templatesById.values());
   }, [templatesQuery.data?.pages]);
-  const selectedOrganization = selectedId
+  const selectedSummaryTarget = selectedId
     ? (organizations.find((organization) => organization.id === selectedId) ??
       null)
     : null;
+  const selectedTargetQuery = useQuery({
+    queryKey: [ORGANIZATIONS_QUERY_KEY, "detail", targetKind, selectedId],
+    queryFn: () =>
+      crmFetch<PartnershipCrmTargetDetailResponse>(
+        `${crmTargetBasePath(targetKind)}/${encodeURIComponent(
+          selectedId ?? "",
+        )}`,
+      ),
+    // Selection is the explicit request generation. Do not include quota state
+    // here: false -> true quota recovery would replay a failed detail read.
+    enabled: Boolean(
+      selectedId && crmTargetNeedsDetail(selectedSummaryTarget, targetKind),
+    ),
+    retry: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  const selectedOrganization =
+    selectedTargetQuery.data?.professional ??
+    selectedTargetQuery.data?.organization ??
+    selectedSummaryTarget;
+  const selectedTargetNeedsDetail = crmTargetNeedsDetail(
+    selectedSummaryTarget,
+    targetKind,
+  );
+  const selectedTargetDetailUnavailable = Boolean(
+    selectedId && selectedTargetNeedsDetail && !selectedTargetQuery.data,
+  );
   const statusChangeTarget = statusChangeDialog
     ? (organizations.find(
         (organization) => organization.id === statusChangeDialog.targetId,
@@ -7256,18 +8386,29 @@ export function PartnershipCrmWorkbench() {
     queryKey: [ACTIVITIES_QUERY_KEY, targetKind, selectedOrganization?.id],
     queryFn: ({ pageParam }) => {
       const cursor = typeof pageParam === "string" ? pageParam : "";
-      const params = new URLSearchParams({ limit: "20" });
+      const params = new URLSearchParams({
+        limit: String(CRM_SECONDARY_PAGE_SIZE),
+      });
       if (cursor) {
         params.set("cursor", cursor);
       }
 
-      return sdkFetch<PartnershipCrmActivitiesPage>(
+      return crmFetch<PartnershipCrmActivitiesPage>(
         `${crmTargetBasePath(targetKind)}/${encodeURIComponent(
           selectedOrganization?.id ?? "",
         )}/activities?${params.toString()}`,
       );
     },
-    enabled: Boolean(selectedOrganization?.id && activityLogOpen),
+    // Expanding/collapsing the log is the explicit request boundary. Keeping
+    // quota state out prevents an unlock from replaying a failed read.
+    enabled: Boolean(
+      selectedOrganization?.id && activityLogOpen && !activityReadBlocked,
+    ),
+    retry: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: Number.POSITIVE_INFINITY,
     initialPageParam: "",
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
@@ -7279,16 +8420,25 @@ export function PartnershipCrmWorkbench() {
     queryKey: [SENT_EMAIL_LOG_QUERY_KEY],
     queryFn: ({ pageParam }) => {
       const cursor = typeof pageParam === "string" ? pageParam : "";
-      const params = new URLSearchParams({ limit: "20" });
+      const params = new URLSearchParams({
+        limit: String(CRM_SECONDARY_PAGE_SIZE),
+      });
       if (cursor) {
         params.set("cursor", cursor);
       }
 
-      return sdkFetch<PartnershipCrmSentEmailLogsPage>(
+      return crmFetch<PartnershipCrmSentEmailLogsPage>(
         `/admin/partnership-crm/sent-email-log?${params.toString()}`,
       );
     },
-    enabled: sentEmailLogOpen,
+    enabled: Boolean(
+      sentEmailLogOpen && !sentEmailLogReadBlocked && !freshActionsDisabled,
+    ),
+    retry: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: Number.POSITIVE_INFINITY,
     initialPageParam: "",
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
@@ -7296,12 +8446,10 @@ export function PartnershipCrmWorkbench() {
     () => sentEmailLogQuery.data?.pages.flatMap((page) => page.emails) ?? [],
     [sentEmailLogQuery.data?.pages],
   );
-  const visualFiltersQuery = useQuery({
-    queryKey: [ORGANIZATIONS_QUERY_KEY, "visual-filters", targetKind],
-    queryFn: () =>
-      sdkFetch<PartnershipCrmVisualFilters>(buildVisualFiltersPath(targetKind)),
-    enabled: visualFiltersOpen,
-  });
+  const visualFilters = useMemo(
+    () => localVisualFilters(targetKind, organizations),
+    [organizations, targetKind],
+  );
   const compatibilityTargetQuery = useQuery({
     queryKey: [
       ORGANIZATIONS_QUERY_KEY,
@@ -7314,7 +8462,7 @@ export function PartnershipCrmWorkbench() {
         throw new Error("Missing duplicate resolver state.");
       }
 
-      return sdkFetch<{
+      return crmFetch<{
         organization?: PartnershipCrmOrganizationRecord;
         professional?: PartnershipCrmProfessionalRecord;
       }>(
@@ -7323,7 +8471,12 @@ export function PartnershipCrmWorkbench() {
         )}/${encodeURIComponent(compatibilityDialog.duplicateId)}`,
       );
     },
-    enabled: Boolean(compatibilityDialog),
+    enabled: Boolean(compatibilityDialog && !freshActionsDisabled),
+    retry: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: Number.POSITIVE_INFINITY,
   });
   const compatibilityExistingTarget =
     compatibilityTargetQuery.data?.professional ??
@@ -7334,7 +8487,7 @@ export function PartnershipCrmWorkbench() {
     updatedTemplate: PartnershipCrmTemplateRecord,
   ) {
     queryClient.setQueryData<InfiniteData<PartnershipCrmTemplatesPage, string>>(
-      [TEMPLATES_QUERY_KEY, "active"],
+      [TEMPLATES_QUERY_KEY, "active", targetKind],
       (current) => {
         if (!current) {
           return current;
@@ -7355,7 +8508,7 @@ export function PartnershipCrmWorkbench() {
 
   function removeTemplateFromCachedPages(templateId: string) {
     queryClient.setQueryData<InfiniteData<PartnershipCrmTemplatesPage, string>>(
-      [TEMPLATES_QUERY_KEY, "active"],
+      [TEMPLATES_QUERY_KEY, "active", targetKind],
       (current) => {
         if (!current) {
           return current;
@@ -7373,6 +8526,110 @@ export function PartnershipCrmWorkbench() {
       },
     );
   }
+
+  function clearAmbiguousEmailTemplateMutation(
+    templateId: string,
+    error: unknown,
+  ): never {
+    clearCachedPlantillasSummary();
+    setTemplateListReadBlocked(true);
+    templateDetailsRef.current.delete(templateId);
+    queryClient.removeQueries({
+      queryKey: [TEMPLATES_QUERY_KEY, "active"],
+    });
+
+    throw new Error(
+      `${actionErrorDetails(error)} ${crmLocalText(
+        language,
+        "The template request outcome is unknown. Reload templates deliberately before continuing.",
+      )}`,
+    );
+  }
+
+  async function runEmailTemplateMutation<MutationResult>(
+    templateId: string,
+    path: string,
+    init: RequestInit,
+  ) {
+    try {
+      return await crmFetch<MutationResult>(path, init);
+    } catch (error) {
+      if (crmRequestWasNotSent(error)) {
+        throw error;
+      }
+      return clearAmbiguousEmailTemplateMutation(templateId, error);
+    }
+  }
+
+  useEffect(() => {
+    void verifyDailyUsage(pageLoadEventIdRef.current);
+  }, [verifyDailyUsage]);
+
+  useEffect(() => {
+    if (dailyUsagePending) {
+      return;
+    }
+
+    let delay: number | null = null;
+    if (dailyUsageVerificationFailures > 0 && dailyUsage?.locked) {
+      delay = Math.min(
+        60_000 * 2 ** Math.min(dailyUsageVerificationFailures - 1, 4),
+        15 * 60_000,
+      );
+    } else if (dailyUsage?.locked) {
+      const resetAt = Date.parse(dailyUsage.resetAt);
+      delay =
+        Number.isFinite(resetAt) && resetAt > Date.now()
+          ? resetAt - Date.now() + 1000
+          : 60_000;
+    }
+
+    if (delay === null) {
+      return;
+    }
+
+    const timeout = window.setTimeout(
+      () => {
+        void verifyDailyUsage();
+      },
+      Math.max(delay, 1000),
+    );
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [
+    dailyUsage?.locked,
+    dailyUsage?.resetAt,
+    dailyUsagePending,
+    dailyUsageVerificationFailures,
+    verifyDailyUsage,
+  ]);
+
+  useEffect(() => {
+    if (listRequestVersion === 0 || freshActionsDisabled) {
+      return;
+    }
+
+    void organizationQuery.refetch();
+    // The version is incremented only by a deliberate user action. The query
+    // itself stays disabled, so filter/key changes never fetch on their own.
+    // Changing quota verification state must never replay the last list action.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listRequestVersion]);
+
+  useEffect(() => {
+    if (!freshActionsDisabled) {
+      return;
+    }
+
+    setSentEmailLogOpen(false);
+    setDeleteTarget(null);
+    setDeleteSelectedOpen(false);
+    setVisualFiltersOpen(false);
+    setCompatibilityDialog(null);
+    setInteractiveAutoImportEnabled(false);
+  }, [freshActionsDisabled]);
 
   useEffect(() => {
     const restoredSession = loadCrmImportSession(targetKind);
@@ -7421,10 +8678,13 @@ export function PartnershipCrmWorkbench() {
   }, [detailPanelResizing]);
 
   useEffect(() => {
+    // Ambiguous mutations deliberately evict the active list cache. Keep the
+    // draft-bearing status dialog mounted so its error log and operator choice
+    // survive that fail-closed transition; success, cancel, and target changes
+    // close it explicitly.
     if (!organizations.length) {
       setSelectedId(null);
       setDetailPanelOpen(false);
-      setStatusChangeDialog(null);
       setSelectedTargetIds((current) =>
         current.size === 0 ? current : new Set(),
       );
@@ -7435,7 +8695,6 @@ export function PartnershipCrmWorkbench() {
       setSelectedId(null);
       setDetailPanelOpen(false);
       setActivityLogOpen(false);
-      setStatusChangeDialog(null);
     }
   }, [organizations, selectedId]);
 
@@ -7473,6 +8732,7 @@ export function PartnershipCrmWorkbench() {
         if (
           !detailPanelOpen ||
           emailOpen ||
+          freshActionsDisabled ||
           !selectedTarget ||
           !crmTargetEmail(selectedTarget, targetKind) ||
           shouldIgnoreCrmOpenEmailKeyboardTarget(
@@ -7484,7 +8744,7 @@ export function PartnershipCrmWorkbench() {
         }
 
         event.preventDefault();
-        setEmailOpen(true);
+        openEmailComposer();
         return;
       }
 
@@ -7504,13 +8764,22 @@ export function PartnershipCrmWorkbench() {
       }
 
       centerSplitPaneOnSelectionRef.current = true;
+      setActivityLogOpen(false);
+      setNoteDraft("");
       setSelectedId(nextSelection.id);
       setDetailPanelOpen(true);
     }
 
     window.addEventListener("keydown", handleCrmListKeyDown);
     return () => window.removeEventListener("keydown", handleCrmListKeyDown);
-  }, [detailPanelOpen, emailOpen, organizations, selectedId, targetKind]);
+  }, [
+    freshActionsDisabled,
+    detailPanelOpen,
+    emailOpen,
+    organizations,
+    selectedId,
+    targetKind,
+  ]);
 
   useEffect(() => {
     if (!selectedId || !showDetailPanel) {
@@ -7553,20 +8822,15 @@ export function PartnershipCrmWorkbench() {
     });
   }, [organizations, selectedTargetIds.size]);
 
-  function invalidateOrganizations() {
-    queryClient.invalidateQueries({
-      queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind],
-    });
-  }
-
-  function invalidateActivities(organizationId?: string) {
-    queryClient.invalidateQueries({
-      queryKey: [ACTIVITIES_QUERY_KEY, targetKind, organizationId],
-    });
-  }
-
   function removeTargetsFromCachedPages(targetIds: string[]) {
     const deletedIds = new Set(targetIds);
+
+    for (const targetId of targetIds) {
+      queryClient.removeQueries({
+        queryKey: [ORGANIZATIONS_QUERY_KEY, "detail", targetKind, targetId],
+        exact: true,
+      });
+    }
 
     queryClient.setQueriesData<
       PartnershipCrmOrganizationsPage | PartnershipCrmProfessionalsPage
@@ -7594,12 +8858,24 @@ export function PartnershipCrmWorkbench() {
   function replaceTargetsInCachedPages(
     updatedTargets: PartnershipCrmTargetRecord[],
   ) {
-    const targetsById = new Map(
-      updatedTargets.map((target) => [target.id, target]),
+    const summariesById = new Map(
+      updatedTargets.map((target) => [
+        target.id,
+        crmTargetSummaryRecord(target, targetKind),
+      ]),
     );
 
-    if (targetsById.size === 0) {
+    if (summariesById.size === 0) {
       return;
+    }
+
+    for (const target of updatedTargets) {
+      queryClient.setQueryData<PartnershipCrmTargetDetailResponse>(
+        [ORGANIZATIONS_QUERY_KEY, "detail", targetKind, target.id],
+        targetKind === "professionals"
+          ? { professional: target as PartnershipCrmProfessionalRecord }
+          : { organization: target as PartnershipCrmOrganizationRecord },
+      );
     }
 
     queryClient.setQueriesData<
@@ -7611,7 +8887,7 @@ export function PartnershipCrmWorkbench() {
               ...current,
               professionals: current.professionals.map(
                 (professional) =>
-                  (targetsById.get(professional.id) as
+                  (summariesById.get(professional.id) as
                     PartnershipCrmProfessionalRecord | undefined) ??
                   professional,
               ),
@@ -7622,13 +8898,33 @@ export function PartnershipCrmWorkbench() {
               ...current,
               organizations: current.organizations.map(
                 (organization) =>
-                  (targetsById.get(organization.id) as
+                  (summariesById.get(organization.id) as
                     PartnershipCrmOrganizationRecord | undefined) ??
                   organization,
               ),
             }
           : current,
     );
+  }
+
+  function markTargetActivitiesStale(
+    staleTargetKind: PartnershipCrmTargetKind,
+    targetIds: string[],
+  ) {
+    if (
+      staleTargetKind === targetKind &&
+      selectedOrganization &&
+      targetIds.includes(selectedOrganization.id)
+    ) {
+      setActivityReadBlocked(true);
+    }
+
+    for (const targetId of targetIds) {
+      queryClient.removeQueries({
+        queryKey: [ACTIVITIES_QUERY_KEY, staleTargetKind, targetId],
+        exact: true,
+      });
+    }
   }
 
   const saveOrganizationMutation = useMutation({
@@ -7648,7 +8944,7 @@ export function PartnershipCrmWorkbench() {
             )}`
           : crmTargetBasePath(targetKind);
 
-      return sdkFetch<{
+      return crmFetch<{
         organization?: PartnershipCrmOrganizationRecord;
         professional?: PartnershipCrmProfessionalRecord;
       }>(path, {
@@ -7656,17 +8952,18 @@ export function PartnershipCrmWorkbench() {
         body: JSON.stringify(payload),
       });
     },
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       const target = result.professional ?? result.organization;
       if (!target) {
         return;
       }
       setOrganizationDialog(null);
-      setSelectedId(target.id);
-      setDetailPanelOpen(true);
-      invalidateOrganizations();
-      invalidateActivities(target.id);
-      queryClient.invalidateQueries({ queryKey: [SENT_EMAIL_LOG_QUERY_KEY] });
+      replaceTargetsInCachedPages([target]);
+      if (variables.mode === "edit") {
+        markTargetActivitiesStale(targetKind, [target.id]);
+        setSelectedId(target.id);
+        setDetailPanelOpen(true);
+      }
       setToast({
         id: Date.now(),
         tone: "success",
@@ -7697,7 +8994,7 @@ export function PartnershipCrmWorkbench() {
       targetId: string;
       status: PartnershipCrmStatus;
     }) =>
-      sdkFetch<{
+      crmFetch<{
         organization?: PartnershipCrmOrganizationRecord;
         professional?: PartnershipCrmProfessionalRecord;
       }>(
@@ -7718,12 +9015,11 @@ export function PartnershipCrmWorkbench() {
       }
 
       replaceTargetsInCachedPages([target]);
+      markTargetActivitiesStale(targetKind, [target.id]);
       setStatusChangeErrorDetails(null);
       setStatusChangeDialog(null);
       setSelectedId(target.id);
       setDetailPanelOpen(true);
-      invalidateOrganizations();
-      invalidateActivities(target.id);
       setToast({
         id: Date.now(),
         tone: "success",
@@ -7752,40 +9048,88 @@ export function PartnershipCrmWorkbench() {
       template: PartnershipCrmTemplateRecord;
       body?: string;
       isFavorite?: boolean;
-    }) =>
-      sdkFetch<{ template: PartnershipCrmTemplateRecord }>(
-        `/admin/partnership-crm/templates/${encodeURIComponent(template.id)}`,
+    }) => {
+      const detailedTemplate =
+        templateDetailsRef.current.get(template.id) ||
+        (template.body ? template : null);
+      if (!detailedTemplate) {
+        throw new Error(
+          crmLocalText(
+            language,
+            "Load the full template before overwriting it.",
+          ),
+        );
+      }
+
+      return runEmailTemplateMutation<{
+        template: PartnershipCrmTemplateRecord;
+      }>(
+        template.id,
+        `/admin/partnership-crm/email-templates/${encodeURIComponent(template.id)}`,
         {
           method: "PUT",
           body: JSON.stringify(
-            templatePayload(template, {
+            templatePayload(detailedTemplate, {
               body,
               is_favorite: isFavorite,
             }),
           ),
         },
+      );
+    },
+    onSuccess: (result) => {
+      clearCachedPlantillasSummary();
+      templateDetailsRef.current.set(result.template.id, result.template);
+      replaceTemplateInCachedPages(result.template);
+    },
+  });
+
+  const updateEmailTemplateFavoriteMutation = useMutation({
+    mutationFn: ({
+      template,
+      isFavorite,
+    }: {
+      template: PartnershipCrmTemplateRecord;
+      isFavorite: boolean;
+    }) =>
+      runEmailTemplateMutation<{ template: PartnershipCrmTemplateRecord }>(
+        template.id,
+        `/admin/partnership-crm/email-templates/${encodeURIComponent(template.id)}/favorite`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ is_favorite: isFavorite }),
+        },
       ),
     onSuccess: (result) => {
+      clearCachedPlantillasSummary();
+      const currentDetail = templateDetailsRef.current.get(result.template.id);
+      if (currentDetail) {
+        templateDetailsRef.current.set(result.template.id, {
+          ...currentDetail,
+          is_favorite: result.template.is_favorite,
+        });
+      }
       replaceTemplateInCachedPages(result.template);
-      void queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
     },
   });
 
   const deleteEmailTemplateMutation = useMutation({
     mutationFn: (template: PartnershipCrmTemplateRecord) =>
-      sdkFetch<{ deleted: boolean; templateId: string }>(
-        `/admin/partnership-crm/templates/${encodeURIComponent(template.id)}`,
+      runEmailTemplateMutation<{ deleted: boolean; templateId: string }>(
+        template.id,
+        `/admin/partnership-crm/email-templates/${encodeURIComponent(template.id)}`,
         { method: "DELETE" },
       ),
     onSuccess: (_result, template) => {
+      clearCachedPlantillasSummary();
+      templateDetailsRef.current.delete(template.id);
       removeTemplateFromCachedPages(template.id);
-      void queryClient.invalidateQueries({ queryKey: [TEMPLATES_QUERY_KEY] });
     },
   });
 
   const deleteOrganizationMutation = useMutation({
     mutationFn: (organizationId: string) =>
-      sdkFetch<{
+      crmFetch<{
         deleted: boolean;
         organizationId?: string;
         professionalId?: string;
@@ -7805,19 +9149,11 @@ export function PartnershipCrmWorkbench() {
         return next;
       });
       removeTargetsFromCachedPages([organizationId]);
-      const nextSelection =
-        organizations.find((organization) => organization.id !== organizationId)
-          ?.id ?? null;
-      setSelectedId(nextSelection);
-      setDetailPanelOpen(Boolean(nextSelection));
-      void queryClient.invalidateQueries({
-        queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [ACTIVITIES_QUERY_KEY, targetKind, organizationId],
-      });
-      void organizationQuery.refetch();
-      router.refresh();
+      setSelectedId(null);
+      setDetailPanelOpen(false);
+      setActivityLogOpen(false);
+      setEmailOpen(false);
+      setNoteDraft("");
       setToast({
         id: Date.now(),
         tone: "success",
@@ -7841,53 +9177,74 @@ export function PartnershipCrmWorkbench() {
   });
 
   const deleteSelectedTargetsMutation = useMutation({
-    mutationFn: (targetIds: string[]) =>
-      Promise.all(
-        targetIds.map((targetId) =>
-          sdkFetch<{
+    mutationFn: async (targetIds: string[]) => {
+      const attemptedIds = targetIds.slice(0, CRM_TARGET_PAGE_SIZE);
+      const successfulIds: string[] = [];
+      let failure: { targetId: string; error: unknown } | undefined;
+      for (const targetId of attemptedIds) {
+        try {
+          await crmFetch<{
             deleted: boolean;
             organizationId?: string;
             professionalId?: string;
           }>(
             `${crmTargetBasePath(targetKind)}/${encodeURIComponent(targetId)}`,
             { method: "DELETE" },
-          ),
-        ),
-      ),
-    onSuccess: (_result, targetIds) => {
-      const deletedIds = new Set(targetIds);
+          );
+          successfulIds.push(targetId);
+        } catch (error) {
+          failure = { targetId, error };
+          break;
+        }
+      }
+      return { attemptedIds, successfulIds, failure };
+    },
+    onSuccess: ({ attemptedIds, successfulIds, failure }) => {
+      const deletedIds = new Set(successfulIds);
       setDeleteSelectedOpen(false);
-      setSelectedTargetIds(new Set());
+      setSelectedTargetIds((current) => {
+        const next = new Set(current);
+        for (const targetId of successfulIds) {
+          next.delete(targetId);
+        }
+        return next;
+      });
       setDeleteTarget((current) =>
         current && deletedIds.has(current.id) ? null : current,
       );
-      removeTargetsFromCachedPages(targetIds);
+      removeTargetsFromCachedPages(successfulIds);
 
       if (selectedId && deletedIds.has(selectedId)) {
-        const nextSelection =
-          organizations.find((organization) => !deletedIds.has(organization.id))
-            ?.id ?? null;
-        setSelectedId(nextSelection);
-        setDetailPanelOpen(Boolean(nextSelection));
+        setSelectedId(null);
+        setDetailPanelOpen(false);
         setActivityLogOpen(false);
         setEmailOpen(false);
         setNoteDraft("");
       }
 
-      void queryClient.invalidateQueries({
-        queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind],
-      });
-      for (const targetId of targetIds) {
-        void queryClient.invalidateQueries({
-          queryKey: [ACTIVITIES_QUERY_KEY, targetKind, targetId],
+      if (failure) {
+        const requestWasNotSent = crmRequestWasNotSent(failure.error);
+        setToast({
+          id: Date.now(),
+          tone: "error",
+          message:
+            requestWasNotSent && language === "es"
+              ? `Se eliminaron ${successfulIds.length} de ${attemptedIds.length}. La siguiente solicitud no se envió. Verificá el uso del CRM o esperá el reinicio diario antes de reanudar.`
+              : requestWasNotSent
+                ? `Deleted ${successfulIds.length} of ${attemptedIds.length}. The next request was not sent. Verify CRM usage or wait for the daily reset before resuming.`
+                : language === "es"
+                  ? `Se eliminaron ${successfulIds.length} de ${attemptedIds.length}. El resultado de la solicitud que falló es desconocido.`
+                  : `Deleted ${successfulIds.length} of ${attemptedIds.length}. The failing request outcome is unknown.`,
+          details: actionErrorDetails(failure.error),
+          durationMs: 18000,
         });
+        return;
       }
-      void organizationQuery.refetch();
-      router.refresh();
+
       setToast({
         id: Date.now(),
         tone: "success",
-        message: `${targetIds.length} ${
+        message: `${successfulIds.length} ${
           targetKind === "professionals"
             ? t("CRM professionals deleted.")
             : t("CRM organizations deleted.")
@@ -7908,45 +9265,66 @@ export function PartnershipCrmWorkbench() {
   });
 
   const updateSelectedTargetsFavoriteMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       targets,
       isFavorite,
     }: {
       targets: PartnershipCrmTargetRecord[];
       isFavorite: boolean;
-    }) =>
-      Promise.all(
-        targets.map((target) =>
-          sdkFetch<{
+    }) => {
+      const attemptedTargets = targets.slice(0, CRM_TARGET_PAGE_SIZE);
+      const updatedTargets: PartnershipCrmTargetRecord[] = [];
+      let failure: { targetId: string; error: unknown } | undefined;
+      for (const target of attemptedTargets) {
+        try {
+          const result = await crmFetch<{
             organization?: PartnershipCrmOrganizationRecord;
             professional?: PartnershipCrmProfessionalRecord;
           }>(
-            `${crmTargetBasePath(targetKind)}/${encodeURIComponent(target.id)}`,
+            `${crmTargetBasePath(targetKind)}/${encodeURIComponent(target.id)}/favorite`,
             {
-              method: "PUT",
-              body: JSON.stringify(
-                targetPayload(
-                  {
-                    ...toFormState(target, targetKind),
-                    is_favorite: isFavorite,
-                  },
-                  targetKind,
-                ),
-              ),
+              method: "PATCH",
+              body: JSON.stringify({ is_favorite: isFavorite }),
             },
-          ),
-        ),
-      ),
-    onSuccess: (results, { isFavorite }) => {
-      const updatedTargets = results
-        .map((result) => result.professional ?? result.organization ?? null)
-        .filter((target): target is PartnershipCrmTargetRecord =>
-          Boolean(target),
-        );
-
+          );
+          const updatedTarget = result.professional ?? result.organization;
+          if (updatedTarget) {
+            updatedTargets.push(updatedTarget);
+          }
+        } catch (error) {
+          failure = { targetId: target.id, error };
+          break;
+        }
+      }
+      return { attemptedTargets, updatedTargets, failure };
+    },
+    onSuccess: (
+      { attemptedTargets, updatedTargets, failure },
+      { isFavorite },
+    ) => {
       replaceTargetsInCachedPages(updatedTargets);
-      invalidateOrganizations();
-      void organizationQuery.refetch();
+      markTargetActivitiesStale(
+        targetKind,
+        updatedTargets.map((target) => target.id),
+      );
+      if (failure) {
+        const requestWasNotSent = crmRequestWasNotSent(failure.error);
+        setToast({
+          id: Date.now(),
+          tone: "error",
+          message:
+            requestWasNotSent && language === "es"
+              ? `Se actualizaron ${updatedTargets.length} de ${attemptedTargets.length}. La siguiente solicitud no se envió. Verificá el uso del CRM o esperá el reinicio diario antes de reanudar.`
+              : requestWasNotSent
+                ? `Updated ${updatedTargets.length} of ${attemptedTargets.length}. The next request was not sent. Verify CRM usage or wait for the daily reset before resuming.`
+                : language === "es"
+                  ? `Se actualizaron ${updatedTargets.length} de ${attemptedTargets.length}. El resultado de la solicitud que falló es desconocido.`
+                  : `Updated ${updatedTargets.length} of ${attemptedTargets.length}. The failing request outcome is unknown.`,
+          details: actionErrorDetails(failure.error),
+          durationMs: 18000,
+        });
+        return;
+      }
       setToast({
         id: Date.now(),
         tone: "success",
@@ -7973,6 +9351,45 @@ export function PartnershipCrmWorkbench() {
     },
   });
 
+  const updateTargetFavoriteMutation = useMutation({
+    mutationFn: ({
+      targetId,
+      isFavorite,
+    }: {
+      targetId: string;
+      isFavorite: boolean;
+    }) =>
+      crmFetch<{
+        organization?: PartnershipCrmOrganizationRecord;
+        professional?: PartnershipCrmProfessionalRecord;
+      }>(
+        `${crmTargetBasePath(targetKind)}/${encodeURIComponent(targetId)}/favorite`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ is_favorite: isFavorite }),
+        },
+      ),
+    onSuccess: (result) => {
+      const updatedTarget = result.professional ?? result.organization;
+      if (updatedTarget) {
+        replaceTargetsInCachedPages([updatedTarget]);
+        markTargetActivitiesStale(targetKind, [updatedTarget.id]);
+        queryClient.setQueryData(
+          [ORGANIZATIONS_QUERY_KEY, "detail", targetKind, updatedTarget.id],
+          result,
+        );
+      }
+    },
+    onError: (error) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to update CRM favorite."),
+        details: error instanceof Error ? error.message : undefined,
+      });
+    },
+  });
+
   const addActivityMutation = useMutation({
     mutationFn: ({
       organizationId,
@@ -7981,7 +9398,7 @@ export function PartnershipCrmWorkbench() {
       organizationId: string;
       title: string;
     }) =>
-      sdkFetch<{ activity: PartnershipCrmActivityRecord }>(
+      crmFetch<{ activity: PartnershipCrmActivityRecord }>(
         `${crmTargetBasePath(targetKind)}/${encodeURIComponent(
           organizationId,
         )}/activities`,
@@ -7990,10 +9407,27 @@ export function PartnershipCrmWorkbench() {
           body: JSON.stringify({ type: "note", title, body: title }),
         },
       ),
-    onSuccess: (_result, variables) => {
+    onSuccess: (result, variables) => {
       setNoteDraft("");
-      invalidateActivities(variables.organizationId);
-      invalidateOrganizations();
+      queryClient.setQueryData<
+        InfiniteData<PartnershipCrmActivitiesPage, string>
+      >(
+        [ACTIVITIES_QUERY_KEY, targetKind, variables.organizationId],
+        (current) =>
+          current
+            ? {
+                ...current,
+                pages: current.pages.map((page, index) =>
+                  index === 0
+                    ? {
+                        ...page,
+                        activities: [result.activity, ...page.activities],
+                      }
+                    : page,
+                ),
+              }
+            : current,
+      );
     },
     onError: (error) => {
       setToast({
@@ -8013,7 +9447,7 @@ export function PartnershipCrmWorkbench() {
       organizationId: string;
       email: EmailState;
     }) =>
-      sdkFetch<{
+      crmFetch<{
         organization?: PartnershipCrmOrganizationRecord;
         professional?: PartnershipCrmProfessionalRecord;
         activity: PartnershipCrmActivityRecord;
@@ -8038,11 +9472,58 @@ export function PartnershipCrmWorkbench() {
       if (!target) {
         return;
       }
+      sentEmailDetailsRef.current.set(
+        result.sentEmailLog.id,
+        result.sentEmailLog,
+      );
+      queryClient.setQueryData<
+        InfiniteData<PartnershipCrmActivitiesPage, string>
+      >([ACTIVITIES_QUERY_KEY, targetKind, target.id], (current) =>
+        current
+          ? {
+              ...current,
+              pages: current.pages.map((page, index) =>
+                index === 0
+                  ? {
+                      ...page,
+                      activities: [
+                        result.activity,
+                        ...page.activities.filter(
+                          (activity) => activity.id !== result.activity.id,
+                        ),
+                      ],
+                    }
+                  : page,
+              ),
+            }
+          : current,
+      );
+      queryClient.setQueryData<
+        InfiniteData<PartnershipCrmSentEmailLogsPage, string>
+      >([SENT_EMAIL_LOG_QUERY_KEY], (current) =>
+        current
+          ? {
+              ...current,
+              pages: current.pages.map((page, index) =>
+                index === 0
+                  ? {
+                      ...page,
+                      emails: [
+                        result.sentEmailLog,
+                        ...page.emails.filter(
+                          (email) => email.id !== result.sentEmailLog.id,
+                        ),
+                      ],
+                    }
+                  : page,
+              ),
+            }
+          : current,
+      );
       setEmailOpen(false);
       setSelectedId(target.id);
       setDetailPanelOpen(true);
-      invalidateOrganizations();
-      invalidateActivities(target.id);
+      replaceTargetsInCachedPages([target]);
       setToast({
         id: Date.now(),
         tone: "success",
@@ -8127,8 +9608,13 @@ export function PartnershipCrmWorkbench() {
       showReadyToast?: boolean;
     } = {},
   ) {
+    const requestedPreviewCount = Math.max(
+      options.targetPreviewCount ?? session.previewedRows + 5,
+      0,
+    );
     const targetPreviewCount = Math.min(
-      Math.max(options.targetPreviewCount ?? session.sourceRows.length, 0),
+      requestedPreviewCount,
+      session.previewedRows + 5,
       session.sourceRows.length,
     );
 
@@ -8164,7 +9650,7 @@ export function PartnershipCrmWorkbench() {
         const chunkEndIndex = startIndex + 1;
         failedPreviewIndex = startIndex;
         failedPreviewPayload = previewRequestPayloadForRow(working, startIndex);
-        const preview = await sdkFetch<PartnershipCrmImportPreview>(
+        const preview = await crmFetch<PartnershipCrmImportPreview>(
           previewEndpoint,
           {
             method: "POST",
@@ -8309,9 +9795,13 @@ export function PartnershipCrmWorkbench() {
     const requestPayload = importRequestPayloadForRow(
       row,
       importing.targetKind,
-      { ...options, duplicateAction: effectiveDuplicateAction },
+      {
+        ...options,
+        duplicateAction: effectiveDuplicateAction,
+        idempotencyKey: `${importing.id}:${row.rowId}`,
+      },
     );
-    const result = await sdkFetch<PartnershipCrmImportResult>(importEndpoint, {
+    const result = await crmFetch<PartnershipCrmImportResult>(importEndpoint, {
       method: "POST",
       body: JSON.stringify(requestPayload),
     });
@@ -8342,7 +9832,6 @@ export function PartnershipCrmWorkbench() {
       lastError: undefined,
       updatedAt: new Date().toISOString(),
     });
-    invalidateOrganizations();
     setToast({
       id: Date.now(),
       tone: "success",
@@ -8374,9 +9863,10 @@ export function PartnershipCrmWorkbench() {
     let failedImportIndex = working.activeRowIndex;
 
     try {
+      const batchEnd = Math.min(working.nextImportIndex + 5, working.totalRows);
       for (
         let rowIndex = working.nextImportIndex;
-        rowIndex < working.totalRows;
+        rowIndex < batchEnd;
         rowIndex += 1
       ) {
         failedImportIndex = rowIndex;
@@ -8394,7 +9884,24 @@ export function PartnershipCrmWorkbench() {
         working = imported;
       }
 
-      completeCrmImportSession(working);
+      if (working.nextImportIndex >= working.totalRows) {
+        completeCrmImportSession(working);
+      } else {
+        saveImportSession({
+          ...working,
+          status: "paused",
+          activeRowIndex: working.nextImportIndex,
+          updatedAt: new Date().toISOString(),
+        });
+        setToast({
+          id: Date.now(),
+          tone: "success",
+          message:
+            language === "es"
+              ? "Se procesaron 5 filas. Elegí continuar para las siguientes."
+              : "Processed 5 rows. Choose continue for the next batch.",
+        });
+      }
     } catch (error) {
       setInteractiveAutoImportEnabled(false);
       const lastErrorDetail = buildCrmImportErrorDetail({
@@ -8499,14 +10006,12 @@ export function PartnershipCrmWorkbench() {
   async function runInteractiveRemainingInSequence(
     session: CrmImportSession | null,
   ) {
-    if (
-      !session ||
-      session.status === "completed" ||
-      interactiveAutoImportRef.current
-    ) {
+    if (!session || session.status === "completed") {
       return;
     }
 
+    interactiveAutoImportRunIdRef.current += 1;
+    const runId = interactiveAutoImportRunIdRef.current;
     setInteractiveAutoImportEnabled(true);
 
     let working = saveImportSession({
@@ -8524,9 +10029,11 @@ export function PartnershipCrmWorkbench() {
     let failedImportIndex = working.activeRowIndex;
 
     try {
+      const batchEnd = Math.min(working.nextImportIndex + 5, working.totalRows);
       while (
         interactiveAutoImportRef.current &&
-        working.nextImportIndex < working.totalRows
+        interactiveAutoImportRunIdRef.current === runId &&
+        working.nextImportIndex < batchEnd
       ) {
         const rowIndex = working.nextImportIndex;
         failedImportIndex = rowIndex;
@@ -8553,13 +10060,37 @@ export function PartnershipCrmWorkbench() {
         working = imported;
       }
 
+      if (interactiveAutoImportRunIdRef.current !== runId) {
+        if (!interactiveAutoImportRef.current) {
+          saveImportSession({
+            ...working,
+            status: "paused",
+            activeRowIndex: working.nextImportIndex,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        return;
+      }
       setInteractiveAutoImportEnabled(false);
       if (working.nextImportIndex >= working.totalRows) {
         completeCrmImportSession(working);
         return;
       }
 
-      await advanceInteractiveImportSession(working);
+      saveImportSession({
+        ...working,
+        status: "paused",
+        activeRowIndex: working.nextImportIndex,
+        updatedAt: new Date().toISOString(),
+      });
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message:
+          language === "es"
+            ? "Se procesaron hasta 5 filas. Elegí continuar para el siguiente lote."
+            : "Processed up to 5 rows. Choose continue for the next batch.",
+      });
     } catch (error) {
       setInteractiveAutoImportEnabled(false);
       const lastErrorDetail = buildCrmImportErrorDetail({
@@ -8881,22 +10412,15 @@ export function PartnershipCrmWorkbench() {
   }
 
   const statusCounts = useMemo(() => {
-    const aggregateCounts = organizationQuery.data?.statusCounts;
-
     const rawCounts = Object.fromEntries(
-      CRM_STATUS_OPTIONS.map((option) => {
-        const aggregateCount = aggregateCounts?.[option.value];
-        return [
-          option.value,
-          typeof aggregateCount === "number"
-            ? aggregateCount
-            : metricCount(organizations, option.value),
-        ];
-      }),
+      CRM_STATUS_OPTIONS.map((option) => [
+        option.value,
+        metricCount(organizations, option.value),
+      ]),
     ) as PartnershipCrmStatusCounts;
 
     return funnelStatusCounts(rawCounts);
-  }, [organizationQuery.data?.statusCounts, organizations]);
+  }, [organizations]);
   const activityLogBadge = !selectedOrganization
     ? targetKind === "professionals"
       ? t("No professional selected")
@@ -8912,6 +10436,9 @@ export function PartnershipCrmWorkbench() {
     updateSelectedTargetsFavoriteMutation.isPending;
 
   function setInteractiveAutoImportEnabled(enabled: boolean) {
+    if (!enabled) {
+      interactiveAutoImportRunIdRef.current += 1;
+    }
     interactiveAutoImportRef.current = enabled;
     setInteractiveAutoImport(enabled);
   }
@@ -8924,12 +10451,32 @@ export function PartnershipCrmWorkbench() {
   function resetCursorsForFilterChange(patch: Partial<ListFilters>) {
     setSelectedTargetIds(new Set());
     setDeleteSelectedOpen(false);
-    setCursorStack([]);
     setFilters((current) => ({ ...current, ...patch }));
   }
 
+  function requestTargetPage(
+    nextFilters: ListFilters,
+    nextCursorStack: string[] = [],
+  ) {
+    if (freshActionsDisabled) {
+      return;
+    }
+
+    setSelectedTargetIds(new Set());
+    setDeleteSelectedOpen(false);
+    setAppliedFilters(nextFilters);
+    setCursorStack(nextCursorStack);
+    setListRequestVersion((current) => current + 1);
+  }
+
+  function applyDraftFilters() {
+    requestTargetPage({ ...filters });
+  }
+
   function clearAllFilters() {
-    resetCursorsForFilterChange(emptyListFilters());
+    const empty = emptyListFilters();
+    setFilters(empty);
+    requestTargetPage(empty);
   }
 
   function applyVisualFilter(targets: VisualFilterApplyTarget[]) {
@@ -8961,7 +10508,9 @@ export function PartnershipCrmWorkbench() {
       patch.linkedInState = target.value as ListFilters["linkedInState"];
     }
 
-    resetCursorsForFilterChange(patch);
+    const nextFilters = { ...filters, ...patch };
+    setFilters(nextFilters);
+    requestTargetPage(nextFilters);
   }
 
   function handleTargetKindChange(nextTargetKind: PartnershipCrmTargetKind) {
@@ -8984,9 +10533,14 @@ export function PartnershipCrmWorkbench() {
     setEmailOpen(false);
     setVisualFiltersOpen(false);
     setFilters(emptyListFilters());
+    setAppliedFilters(emptyListFilters());
   }
 
   function handleTargetSelect(targetId: string) {
+    if (targetId !== selectedId) {
+      setActivityLogOpen(false);
+      setNoteDraft("");
+    }
     setSelectedId(targetId);
     setDetailPanelOpen(true);
   }
@@ -9036,7 +10590,76 @@ export function PartnershipCrmWorkbench() {
       return;
     }
 
-    setActivityLogOpen((current) => !current);
+    if (activityLogOpen) {
+      setActivityLogOpen(false);
+      return;
+    }
+
+    setActivityReadBlocked(false);
+    setActivityLogOpen(true);
+  }
+
+  function openEmailComposer() {
+    setTemplateListReadBlocked(false);
+    setEmailOpen(true);
+  }
+
+  function openSentEmailLog() {
+    setSentEmailLogReadBlocked(false);
+    setSentEmailLogOpen(true);
+  }
+
+  async function refreshFirstActivityPage() {
+    if (!selectedOrganization) {
+      return;
+    }
+
+    const queryKey = [
+      ACTIVITIES_QUERY_KEY,
+      targetKind,
+      selectedOrganization.id,
+    ] as const;
+    queryClient.setQueryData<
+      InfiniteData<PartnershipCrmActivitiesPage, string>
+    >(queryKey, (current) =>
+      current
+        ? {
+            ...current,
+            pages: current.pages.slice(0, 1),
+            pageParams: current.pageParams.slice(0, 1),
+          }
+        : current,
+    );
+    const result = await activitiesQuery.refetch();
+    if (result.isSuccess) {
+      setActivityReadBlocked(false);
+    }
+  }
+
+  async function retryTemplatesOnce() {
+    if (templatesQuery.isFetchNextPageError) {
+      const result = await templatesQuery.fetchNextPage();
+      if (result.isSuccess) {
+        setTemplateListReadBlocked(false);
+      }
+      return;
+    }
+
+    queryClient.setQueryData<InfiniteData<PartnershipCrmTemplatesPage, string>>(
+      [TEMPLATES_QUERY_KEY, "active", targetKind],
+      (current) =>
+        current
+          ? {
+              ...current,
+              pages: current.pages.slice(0, 1),
+              pageParams: current.pageParams.slice(0, 1),
+            }
+          : current,
+    );
+    const result = await templatesQuery.refetch();
+    if (result.isSuccess) {
+      setTemplateListReadBlocked(false);
+    }
   }
 
   function handleOrganizationSubmit(
@@ -9133,16 +10756,9 @@ export function PartnershipCrmWorkbench() {
       return;
     }
 
-    saveOrganizationMutation.mutate({
-      mode: "edit",
-      organizationId: selectedOrganization.id,
-      payload: targetPayload(
-        {
-          ...toFormState(selectedOrganization, targetKind),
-          is_favorite: isFavorite,
-        },
-        targetKind,
-      ),
+    updateTargetFavoriteMutation.mutate({
+      targetId: selectedOrganization.id,
+      isFavorite,
     });
   }
 
@@ -9158,6 +10774,59 @@ export function PartnershipCrmWorkbench() {
     });
   }
 
+  async function loadEmailTemplateDetail(templateId: string) {
+    const cached = templateDetailsRef.current.get(templateId);
+    if (cached) {
+      return cached;
+    }
+
+    const loadedSummary = emailTemplates.find(
+      (template) => template.id === templateId,
+    );
+    if (loadedSummary?.body) {
+      templateDetailsRef.current.set(templateId, loadedSummary);
+      return loadedSummary;
+    }
+
+    const result = await crmFetch<{ template: PartnershipCrmTemplateRecord }>(
+      `/admin/partnership-crm/email-templates/${encodeURIComponent(templateId)}`,
+    );
+    templateDetailsRef.current.set(templateId, result.template);
+    replaceTemplateInCachedPages(result.template);
+    return result.template;
+  }
+
+  async function loadSentEmailDetail(emailId: string) {
+    const cached = sentEmailDetailsRef.current.get(emailId);
+    if (cached) {
+      return cached;
+    }
+
+    const loadedSummary = sentEmailRows.find((email) => email.id === emailId);
+    if (loadedSummary?.body) {
+      sentEmailDetailsRef.current.set(emailId, loadedSummary);
+      return loadedSummary;
+    }
+
+    const inFlight = sentEmailDetailRequestsRef.current.get(emailId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const request = crmFetch<{ email: PartnershipCrmSentEmailLogRecord }>(
+      `/admin/partnership-crm/sent-email-log/${encodeURIComponent(emailId)}`,
+    ).then((result) => {
+      sentEmailDetailsRef.current.set(emailId, result.email);
+      return result.email;
+    });
+    sentEmailDetailRequestsRef.current.set(emailId, request);
+    try {
+      return await request;
+    } finally {
+      sentEmailDetailRequestsRef.current.delete(emailId);
+    }
+  }
+
   return (
     <section className="glass-panel crm-control-surface flex flex-col gap-5 px-4 py-4 md:px-5">
       <CrmTargetSegmentedControl
@@ -9168,10 +10837,15 @@ export function PartnershipCrmWorkbench() {
       />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h2 className="font-heading text-xl font-semibold text-foreground">
             CRM
           </h2>
+          <CrmDailyUsageBar
+            usage={dailyUsage}
+            pending={dailyUsagePending}
+            language={language}
+          />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <HeaderUnclutterButton />
@@ -9179,20 +10853,17 @@ export function PartnershipCrmWorkbench() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => {
-              void organizationQuery.refetch();
-              void templatesQuery.refetch();
-            }}
-            disabled={organizationQuery.isFetching || templatesQuery.isFetching}
+            data-testid="crm-explicit-load"
+            onClick={() => requestTargetPage(appliedFilters, cursorStack)}
+            disabled={organizationQuery.isFetching || freshActionsDisabled}
           >
             <RefreshCw
               className={cn(
                 "h-3.5 w-3.5",
-                (organizationQuery.isFetching || templatesQuery.isFetching) &&
-                  "animate-spin",
+                organizationQuery.isFetching && "animate-spin",
               )}
             />
-            {t("Refresh")}
+            {hasTargetPage ? t("Refresh") : crmLocalText(language, "Load CRM")}
           </Button>
           <Button
             type="button"
@@ -9208,6 +10879,7 @@ export function PartnershipCrmWorkbench() {
             variant="outline"
             size="sm"
             onClick={() => setImportOpen(true)}
+            disabled={freshActionsDisabled}
           >
             <FileUp className="h-3.5 w-3.5" />
             {t("Import CSV")}
@@ -9225,7 +10897,8 @@ export function PartnershipCrmWorkbench() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setSentEmailLogOpen(true)}
+            onClick={openSentEmailLog}
+            disabled={freshActionsDisabled}
           >
             <Mail className="h-3.5 w-3.5" />
             {t("All emails sent")}
@@ -9234,6 +10907,7 @@ export function PartnershipCrmWorkbench() {
             type="button"
             size="sm"
             onClick={() => setOrganizationDialog({ mode: "create" })}
+            disabled={freshActionsDisabled}
           >
             <Plus className="h-3.5 w-3.5" />
             {targetKind === "professionals"
@@ -9242,6 +10916,65 @@ export function PartnershipCrmWorkbench() {
           </Button>
         </div>
       </div>
+
+      {freshActionsDisabled ? (
+        <div className="flex flex-col gap-3 rounded-xl border border-red-300/70 bg-red-50 px-4 py-3 text-sm text-red-950 dark:border-red-300/25 dark:bg-red-500/10 dark:text-red-100 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold">
+              {dailyUsagePending && !dailyUsage
+                ? crmLocalText(language, "Verifying CRM usage")
+                : crmLocalText(
+                    language,
+                    hasTargetPage
+                      ? "Cached read-only mode"
+                      : "Fresh CRM data unavailable",
+                  )}
+            </p>
+            <p className="mt-1 opacity-80">
+              {dailyUsagePending && !dailyUsage
+                ? crmLocalText(
+                    language,
+                    "Fresh CRM actions stay disabled until verification finishes.",
+                  )
+                : dailyUsageVerificationFailures > 0 || !dailyUsage
+                  ? crmLocalText(
+                      language,
+                      hasTargetPage
+                        ? "CRM usage verification failed. Cached data is still available, but fresh actions remain disabled."
+                        : "CRM usage verification failed. No CRM data is loaded, and fresh actions remain disabled.",
+                    )
+                  : crmLocalText(
+                      language,
+                      "Fresh CRM actions are disabled until the daily reset.",
+                    )}
+            </p>
+          </div>
+          {dailyUsageVerificationFailures > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void verifyDailyUsage()}
+              disabled={dailyUsagePending}
+              className="shrink-0"
+            >
+              <RefreshCw
+                className={cn(
+                  "h-3.5 w-3.5",
+                  dailyUsagePending && "animate-spin",
+                )}
+              />
+              {crmLocalText(language, "Retry verification")}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {dataChanged ? (
+        <div className="rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-2 text-sm text-amber-950 dark:border-amber-300/25 dark:bg-amber-500/10 dark:text-amber-100">
+          {crmLocalText(language, "Data changed. Refresh when ready.")}
+        </div>
+      ) : null}
 
       {importSession && importSession.status !== "completed" ? (
         <ImportCheckpointBanner
@@ -9252,7 +10985,13 @@ export function PartnershipCrmWorkbench() {
         />
       ) : null}
 
-      <div className="grid gap-3 rounded-xl border border-border/80 bg-background/60 p-3 lg:grid-cols-[minmax(220px,1fr)_180px_180px_160px_160px]">
+      <form
+        className="grid gap-3 rounded-xl border border-border/80 bg-background/60 p-3 lg:grid-cols-[minmax(220px,1fr)_180px_180px_160px_160px_auto]"
+        onSubmit={(event) => {
+          event.preventDefault();
+          applyDraftFilters();
+        }}
+      >
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -9323,7 +11062,14 @@ export function PartnershipCrmWorkbench() {
             </SelectItem>
           </SelectContent>
         </Select>
-      </div>
+        <Button
+          type="submit"
+          disabled={organizationQuery.isFetching || freshActionsDisabled}
+        >
+          <Search className="h-3.5 w-3.5" />
+          {crmLocalText(language, "Apply filters")}
+        </Button>
+      </form>
 
       <div
         ref={splitPaneRef}
@@ -9354,7 +11100,12 @@ export function PartnershipCrmWorkbench() {
                 <button
                   key={status}
                   type="button"
-                  onClick={() => resetCursorsForFilterChange({ status })}
+                  onClick={() => {
+                    const nextFilters = { ...filters, status };
+                    setFilters(nextFilters);
+                    requestTargetPage(nextFilters);
+                  }}
+                  disabled={freshActionsDisabled}
                   className={cn(
                     "h-16 self-start rounded-xl border px-3 py-2 text-left transition-colors",
                     tone.card,
@@ -9370,6 +11121,23 @@ export function PartnershipCrmWorkbench() {
               );
             })}
           </div>
+          <p className="text-xs text-muted-foreground">
+            {crmLocalText(language, "Loaded results")}: {organizations.length}
+          </p>
+          {listPageIsPartial ? (
+            <p
+              data-testid="crm-bounded-sample-note"
+              className="text-xs text-amber-700 dark:text-amber-300"
+              title={organizationQuery.data?.asOf}
+            >
+              {crmLocalText(language, "Approximate bounded sample")} ·{" "}
+              {listPageScanned}{" "}
+              {crmLocalText(
+                language,
+                "records checked; use See 10 more to continue.",
+              )}
+            </p>
+          ) : null}
 
           {organizationQuery.error ? (
             <ErrorBanner>
@@ -9395,9 +11163,19 @@ export function PartnershipCrmWorkbench() {
               </div>
             ) : organizations.length === 0 ? (
               <EmptyState>
-                {targetKind === "professionals"
-                  ? t("No CRM professionals found.")
-                  : t("No CRM organizations found.")}
+                {!hasTargetPage
+                  ? crmLocalText(
+                      language,
+                      "No CRM data loaded. Use Load CRM when you deliberately want fresh data.",
+                    )
+                  : listPageIsPartial
+                    ? crmLocalText(
+                        language,
+                        "No matches in this bounded sample. Use See 10 more to continue.",
+                      )
+                    : targetKind === "professionals"
+                      ? t("No CRM professionals found.")
+                      : t("No CRM organizations found.")}
               </EmptyState>
             ) : (
               <>
@@ -9440,7 +11218,8 @@ export function PartnershipCrmWorkbench() {
                         }
                         disabled={
                           selectedTargetActionPending ||
-                          selectedTargets.length === 0
+                          selectedTargets.length === 0 ||
+                          freshActionsDisabled
                         }
                       >
                         <Star className="h-3.5 w-3.5" />
@@ -9460,7 +11239,8 @@ export function PartnershipCrmWorkbench() {
                         }
                         disabled={
                           selectedTargetActionPending ||
-                          selectedTargets.length === 0
+                          selectedTargets.length === 0 ||
+                          freshActionsDisabled
                         }
                       >
                         <Star className="h-3.5 w-3.5" />
@@ -9473,7 +11253,9 @@ export function PartnershipCrmWorkbench() {
                         variant="destructive"
                         size="sm"
                         onClick={() => setDeleteSelectedOpen(true)}
-                        disabled={selectedTargetActionPending}
+                        disabled={
+                          selectedTargetActionPending || freshActionsDisabled
+                        }
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         {t("Delete selected")}
@@ -9670,14 +11452,12 @@ export function PartnershipCrmWorkbench() {
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  setCursorStack((current) => {
-                    setSelectedTargetIds(new Set());
-                    setDeleteSelectedOpen(false);
-                    return current.slice(0, -1);
-                  })
+                  requestTargetPage(appliedFilters, cursorStack.slice(0, -1))
                 }
                 disabled={
-                  cursorStack.length === 0 || organizationQuery.isFetching
+                  cursorStack.length === 0 ||
+                  organizationQuery.isFetching ||
+                  freshActionsDisabled
                 }
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -9691,16 +11471,18 @@ export function PartnershipCrmWorkbench() {
                   if (!organizationQuery.data?.nextCursor) {
                     return;
                   }
-                  setSelectedTargetIds(new Set());
-                  setDeleteSelectedOpen(false);
-                  setCursorStack((current) => [
-                    ...current,
-                    organizationQuery.data!.nextCursor!,
+                  requestTargetPage(appliedFilters, [
+                    ...cursorStack,
+                    organizationQuery.data.nextCursor!,
                   ]);
                 }}
-                disabled={!hasNextListPage || organizationQuery.isFetching}
+                disabled={
+                  !hasNextListPage ||
+                  organizationQuery.isFetching ||
+                  freshActionsDisabled
+                }
               >
-                {t("Next page")}
+                {crmLocalText(language, "See 10 more")}
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -9772,7 +11554,10 @@ export function PartnershipCrmWorkbench() {
                     onClick={() =>
                       updateSelectedFavorite(!selectedOrganization.is_favorite)
                     }
-                    disabled={saveOrganizationMutation.isPending}
+                    disabled={
+                      updateTargetFavoriteMutation.isPending ||
+                      freshActionsDisabled
+                    }
                   >
                     <Star
                       className={cn(
@@ -9796,6 +11581,9 @@ export function PartnershipCrmWorkbench() {
                         organization: selectedOrganization,
                       })
                     }
+                    disabled={
+                      freshActionsDisabled || selectedTargetDetailUnavailable
+                    }
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -9807,6 +11595,7 @@ export function PartnershipCrmWorkbench() {
                     aria-label={t("Delete")}
                     title={t("Delete")}
                     onClick={() => setDeleteTarget(selectedOrganization)}
+                    disabled={freshActionsDisabled}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -9823,6 +11612,33 @@ export function PartnershipCrmWorkbench() {
                   </Button>
                 </div>
               </div>
+
+              {selectedTargetQuery.error ? (
+                <div
+                  role="alert"
+                  className="mt-4 grid gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                >
+                  <p>{crmLocalText(language, "Unable to load CRM detail.")}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => void selectedTargetQuery.refetch()}
+                    disabled={
+                      freshActionsDisabled || selectedTargetQuery.isFetching
+                    }
+                  >
+                    <RefreshCw
+                      className={cn(
+                        "h-3.5 w-3.5",
+                        selectedTargetQuery.isFetching && "animate-spin",
+                      )}
+                    />
+                    {crmLocalText(language, "Retry detail")}
+                  </Button>
+                </div>
+              ) : null}
 
               <div
                 data-testid="crm-detail-panel-tags"
@@ -9859,7 +11675,9 @@ export function PartnershipCrmWorkbench() {
                       draft: selectedOrganization.status,
                     });
                   }}
-                  disabled={updateStatusMutation.isPending}
+                  disabled={
+                    updateStatusMutation.isPending || freshActionsDisabled
+                  }
                   className="shrink-0 bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
                 >
                   {t("Change status")}
@@ -9877,8 +11695,12 @@ export function PartnershipCrmWorkbench() {
               <Button
                 type="button"
                 size="lg"
-                onClick={() => setEmailOpen(true)}
-                disabled={!crmTargetEmail(selectedOrganization, targetKind)}
+                onClick={openEmailComposer}
+                disabled={
+                  !crmTargetEmail(selectedOrganization, targetKind) ||
+                  freshActionsDisabled ||
+                  selectedTargetDetailUnavailable
+                }
                 className={cn(EMAIL_CTA_CLASS, "mt-4 w-full justify-center")}
               >
                 <Mail className="h-4 w-4" />
@@ -9902,7 +11724,7 @@ export function PartnershipCrmWorkbench() {
             className="flex min-w-0 items-start gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
             onClick={toggleActivityLog}
             aria-expanded={activityLogOpen}
-            disabled={!selectedOrganization}
+            disabled={!selectedOrganization || freshActionsDisabled}
           >
             <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="min-w-0">
@@ -9939,8 +11761,8 @@ export function PartnershipCrmWorkbench() {
                 size="icon-sm"
                 aria-label={t("Refresh")}
                 title={t("Refresh")}
-                onClick={() => activitiesQuery.refetch()}
-                disabled={activitiesQuery.isFetching}
+                onClick={() => void refreshFirstActivityPage()}
+                disabled={activitiesQuery.isFetching || freshActionsDisabled}
               >
                 <RefreshCw
                   className={cn(
@@ -9968,7 +11790,11 @@ export function PartnershipCrmWorkbench() {
                 <Button
                   type="submit"
                   variant="outline"
-                  disabled={!noteDraft.trim() || addActivityMutation.isPending}
+                  disabled={
+                    !noteDraft.trim() ||
+                    addActivityMutation.isPending ||
+                    freshActionsDisabled
+                  }
                 >
                   <Plus className="h-3.5 w-3.5" />
                   {t("Add")}
@@ -9976,7 +11802,14 @@ export function PartnershipCrmWorkbench() {
               </form>
 
               <div className="mt-4">
-                {activitiesQuery.error ? (
+                {activityReadBlocked ? (
+                  <ErrorBanner>
+                    {crmLocalText(
+                      language,
+                      "Activity data changed. Use Refresh to load the current log.",
+                    )}
+                  </ErrorBanner>
+                ) : activitiesQuery.error ? (
                   <ErrorBanner>{t("Failed to load activity log.")}</ErrorBanner>
                 ) : activitiesQuery.isFetching && !activityRows.length ? (
                   <div className="space-y-3">
@@ -10005,7 +11838,9 @@ export function PartnershipCrmWorkbench() {
                   variant="outline"
                   className="mt-4"
                   onClick={() => activitiesQuery.fetchNextPage()}
-                  disabled={activitiesQuery.isFetchingNextPage}
+                  disabled={
+                    activitiesQuery.isFetchingNextPage || freshActionsDisabled
+                  }
                 >
                   {activitiesQuery.isFetchingNextPage
                     ? t("Loading...")
@@ -10026,6 +11861,7 @@ export function PartnershipCrmWorkbench() {
       <OrganizationDialog
         state={organizationDialog}
         pending={saveOrganizationMutation.isPending}
+        disabled={freshActionsDisabled}
         targetKind={targetKind}
         onClose={() => setOrganizationDialog(null)}
         onSubmit={handleOrganizationSubmit}
@@ -10036,6 +11872,7 @@ export function PartnershipCrmWorkbench() {
         state={statusChangeDialog}
         target={statusChangeTarget}
         pending={updateStatusMutation.isPending}
+        disabled={freshActionsDisabled}
         errorDetails={statusChangeErrorDetails}
         onClose={() => {
           setStatusChangeErrorDetails(null);
@@ -10057,15 +11894,21 @@ export function PartnershipCrmWorkbench() {
         targetKind={targetKind}
         open={emailOpen}
         pending={sendEmailMutation.isPending}
+        disabled={freshActionsDisabled}
         templates={emailTemplates}
         templatesLoading={templatesQuery.isLoading}
+        templatesError={templatesQuery.error || templateListReadBlocked}
+        templatesRetrying={templatesQuery.isFetching}
+        onRetryTemplates={() => void retryTemplatesOnce()}
         templatesHasMore={Boolean(templatesQuery.hasNextPage)}
         templatesFetchingMore={templatesQuery.isFetchingNextPage}
         onLoadMoreTemplates={() => {
           void templatesQuery.fetchNextPage();
         }}
+        onLoadTemplate={loadEmailTemplateDetail}
         templateActionPending={
           updateEmailTemplateMutation.isPending ||
+          updateEmailTemplateFavoriteMutation.isPending ||
           deleteEmailTemplateMutation.isPending
         }
         onOverwriteTemplate={(template, body) => {
@@ -10074,7 +11917,7 @@ export function PartnershipCrmWorkbench() {
             .then((result) => result.template);
         }}
         onSetTemplateFavorite={(template, isFavorite) => {
-          return updateEmailTemplateMutation
+          return updateEmailTemplateFavoriteMutation
             .mutateAsync({ template, isFavorite })
             .then((result) => result.template);
         }}
@@ -10106,25 +11949,27 @@ export function PartnershipCrmWorkbench() {
         onLoadMore={() => {
           void sentEmailLogQuery.fetchNextPage();
         }}
+        onLoadEmail={loadSentEmailDetail}
         language={language}
       />
 
       <VisualFiltersDialog
         open={visualFiltersOpen}
         onOpenChange={setVisualFiltersOpen}
-        filters={visualFiltersQuery.data}
+        filters={visualFilters}
         activeListFilters={filters}
-        loading={visualFiltersQuery.isFetching}
-        error={visualFiltersQuery.error}
+        loading={false}
+        error={null}
         language={language}
         targetKind={targetKind}
+        disabled={freshActionsDisabled}
         onClearAll={clearAllFilters}
         onApply={applyVisualFilter}
       />
 
       <ImportDialog
         open={importOpen}
-        pending={importPending}
+        pending={importPending || freshActionsDisabled}
         targetKind={targetKind}
         session={importSession}
         preview={importPreview}

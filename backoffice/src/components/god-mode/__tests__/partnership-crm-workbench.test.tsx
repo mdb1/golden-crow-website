@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -10,7 +11,10 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
-import { PartnershipCrmWorkbench } from "@/components/god-mode/partnership-crm-workbench";
+import {
+  mergeCrmDailyUsage,
+  PartnershipCrmWorkbench,
+} from "@/components/god-mode/partnership-crm-workbench";
 import { sdkFetch } from "@/lib/sdk-client";
 import type {
   PartnershipCrmOrganizationRecord,
@@ -166,7 +170,88 @@ const crossAudienceEmailTemplate: PartnershipCrmTemplateRecord = {
   normalizedName: "universal professional",
 };
 
-function renderWorkbench(language: "en" | "es" = "en") {
+function crmSummaryCacheKey(
+  filters = {
+    query: "",
+    status: "all",
+    category: "",
+    country: "",
+    linkedInState: "all",
+  },
+) {
+  return `golden-crow:partnership-crm:summary:v2:organizations:${encodeURIComponent(
+    JSON.stringify({ filters, cursor: "" }),
+  )}`;
+}
+
+function renderWorkbench(
+  language: "en" | "es" = "en",
+  options: {
+    autoLoad?: boolean;
+    authoritativeUsageMock?: boolean;
+    injectActionUsage?: boolean;
+  } = {},
+) {
+  const currentImplementation = jest.mocked(sdkFetch).getMockImplementation();
+  jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (
+      path === "/admin/partnership-crm/daily-usage/page-load" &&
+      !options.authoritativeUsageMock
+    ) {
+      return {
+        usage: {
+          surface: "crm",
+          used: 1,
+          limit: 100,
+          percentage: 1,
+          remaining: 99,
+          resetAt: "2026-10-16T07:00:00.000Z",
+          locked: false,
+        },
+      };
+    }
+    const result = currentImplementation
+      ? await currentImplementation(path, init)
+      : undefined;
+    if (
+      path === "/admin/partnership-crm/daily-usage/page-load" &&
+      (!result || typeof result !== "object" || !("usage" in result))
+    ) {
+      return {
+        usage: {
+          surface: "crm",
+          used: 1,
+          limit: 100,
+          percentage: 1,
+          remaining: 99,
+          resetAt: "2026-10-16T07:00:00.000Z",
+          locked: false,
+        },
+      };
+    }
+    if (
+      options.injectActionUsage !== false &&
+      String(path).startsWith("/admin/partnership-crm/") &&
+      result &&
+      typeof result === "object" &&
+      !("usage" in result)
+    ) {
+      return {
+        ...result,
+        usage: {
+          surface: "crm",
+          used: 2,
+          limit: 100,
+          percentage: 2,
+          remaining: 98,
+          resetAt: "2026-10-16T07:00:00.000Z",
+          locked: false,
+        },
+      };
+    }
+    return result;
+  });
+
   const client = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -181,6 +266,22 @@ function renderWorkbench(language: "en" | "es" = "en") {
       </AppLanguageProvider>
     </QueryClientProvider>,
   );
+
+  if (options.autoLoad !== false) {
+    let attempts = 0;
+    const clickWhenVerified = () => {
+      const button = screen.getByTestId("crm-explicit-load");
+      if ((button as HTMLButtonElement).disabled && attempts < 50) {
+        attempts += 1;
+        window.setTimeout(clickWhenVerified, 1);
+        return;
+      }
+      if (!(button as HTMLButtonElement).disabled) {
+        fireEvent.click(button);
+      }
+    };
+    window.setTimeout(clickWhenVerified, 0);
+  }
 
   return { ...view, client };
 }
@@ -217,6 +318,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     routerRefresh.mockClear();
     jest.mocked(sdkFetch).mockReset();
     window.localStorage.clear();
+    window.sessionStorage.clear();
     let deleted = false;
 
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
@@ -240,7 +342,942 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
   });
 
-  it("closes the confirmation dialog, removes the row, and refreshes after delete", async () => {
+  it("loads no CRM data until the operator explicitly applies or loads", async () => {
+    const user = userEvent.setup();
+    renderWorkbench("en", { autoLoad: false });
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledTimes(1);
+    });
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/daily-usage/page-load",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.any(Headers),
+      }),
+    );
+
+    await user.type(
+      screen.getByPlaceholderText("Search organizations..."),
+      "genome",
+    );
+    expect(sdkFetch).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("button", { name: "Apply filters" }));
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/organizations?limit=10&query=genome",
+        expect.objectContaining({ headers: expect.any(Headers) }),
+      );
+    });
+  });
+
+  it("preserves hydrated cache expiry until a deliberate fresh load", async () => {
+    const user = userEvent.setup();
+    const cacheKey = crmSummaryCacheKey();
+    const originalExpiry = Date.now() + 60_000;
+    window.sessionStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        cachedAt: new Date().toISOString(),
+        expiresAt: originalExpiry,
+        page: { organizations: [organization], nextCursor: undefined },
+      }),
+    );
+
+    renderWorkbench("en", { autoLoad: false });
+    await screen.findByText("Delete Me Genomics");
+    await waitFor(() => {
+      expect(
+        JSON.parse(window.sessionStorage.getItem(cacheKey) ?? "{}").expiresAt,
+      ).toBe(originalExpiry);
+    });
+
+    await user.click(screen.getByTestId("crm-explicit-load"));
+    await waitFor(() => {
+      expect(
+        JSON.parse(window.sessionStorage.getItem(cacheKey) ?? "{}").expiresAt,
+      ).toBeGreaterThan(originalExpiry);
+    });
+  });
+
+  it.each([
+    [
+      "missing expiry",
+      () =>
+        JSON.stringify({
+          cachedAt: new Date().toISOString(),
+          page: { organizations: [organization] },
+        }),
+    ],
+    [
+      "non-number expiry",
+      () =>
+        JSON.stringify({
+          cachedAt: new Date().toISOString(),
+          expiresAt: "tomorrow",
+          page: { organizations: [organization] },
+        }),
+    ],
+    [
+      "non-finite expiry",
+      () =>
+        `{"cachedAt":${JSON.stringify(new Date().toISOString())},"expiresAt":1e999,"page":${JSON.stringify(
+          { organizations: [organization] },
+        )}}`,
+    ],
+    [
+      "expired entry",
+      () =>
+        JSON.stringify({
+          cachedAt: new Date().toISOString(),
+          expiresAt: Date.now() - 1,
+          page: { organizations: [organization] },
+        }),
+    ],
+    [
+      "future cache origin",
+      () =>
+        JSON.stringify({
+          cachedAt: new Date(Date.now() + 60_000).toISOString(),
+          expiresAt: Date.now() + 120_000,
+          page: { organizations: [organization] },
+        }),
+    ],
+    [
+      "expiry beyond the configured TTL",
+      () => {
+        const cachedAt = Date.now();
+        return JSON.stringify({
+          cachedAt: new Date(cachedAt).toISOString(),
+          expiresAt: cachedAt + 24 * 60 * 60_000 + 1,
+          page: { organizations: [organization] },
+        });
+      },
+    ],
+    [
+      "malformed page",
+      () =>
+        JSON.stringify({
+          cachedAt: new Date().toISOString(),
+          expiresAt: Date.now() + 60_000,
+          page: { organizations: "not-an-array" },
+        }),
+    ],
+  ])("evicts a CRM summary cache with %s", async (_label, buildRaw) => {
+    const cacheKey = crmSummaryCacheKey();
+    window.sessionStorage.setItem(cacheKey, buildRaw());
+
+    renderWorkbench("en", { autoLoad: false });
+    await screen.findByRole("progressbar", { name: "CRM daily usage" });
+
+    expect(screen.queryByText("Delete Me Genomics")).toBeNull();
+    expect(window.sessionStorage.getItem(cacheKey)).toBeNull();
+  });
+
+  it("keeps created full records in detail cache without growing the loaded page", async () => {
+    const user = userEvent.setup();
+    const createdOrganization = {
+      ...organization,
+      id: "org-created",
+      name: "Created Genetics",
+      notes: "Long private creation notes",
+    };
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (
+        path === "/admin/partnership-crm/organizations" &&
+        init?.method === "POST"
+      ) {
+        return { organization: createdOrganization };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    const { client } = renderWorkbench();
+    await screen.findByText("Delete Me Genomics");
+    await user.click(screen.getByRole("button", { name: "Add Organization" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Add CRM organization",
+    });
+    await user.type(
+      within(dialog).getByLabelText("Organization name"),
+      "Created Genetics",
+    );
+    await user.type(
+      within(dialog).getByLabelText("Notes"),
+      "Long private creation notes",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save changes" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Add CRM organization" }),
+      ).toBeNull();
+    });
+    const currentPage = client.getQueryData<{
+      organizations: PartnershipCrmOrganizationRecord[];
+    }>([
+      "god-mode-partnership-crm-organizations",
+      "organizations",
+      {
+        query: "",
+        status: "all",
+        category: "",
+        country: "",
+        linkedInState: "all",
+      },
+      undefined,
+    ]);
+    expect(
+      currentPage?.organizations.find((entry) => entry.id === "org-created")
+        ?.notes,
+    ).toBeUndefined();
+    expect(currentPage?.organizations.map((entry) => entry.id)).toEqual([
+      "org-1",
+    ]);
+    expect(
+      client.getQueryData<{ organization: PartnershipCrmOrganizationRecord }>([
+        "god-mode-partnership-crm-organizations",
+        "detail",
+        "organizations",
+        "org-created",
+      ])?.organization.notes,
+    ).toBe("Long private creation notes");
+  });
+
+  it("locks fresh CRM actions when the daily counter reaches 100", async () => {
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      usage: {
+        surface: "crm",
+        used: 100,
+        limit: 100,
+        percentage: 100,
+        remaining: 0,
+        resetAt: "2026-10-16T07:00:00.000Z",
+        locked: true,
+      },
+    });
+
+    renderWorkbench("en", {
+      autoLoad: false,
+      authoritativeUsageMock: true,
+    });
+
+    const progress = await screen.findByRole("progressbar", {
+      name: "CRM daily usage",
+    });
+    await waitFor(() => {
+      expect(progress.getAttribute("aria-valuenow")).toBe("100");
+    });
+    expect(screen.getByText("Daily limit reached")).toBeTruthy();
+    expect(screen.getByText("Fresh CRM data unavailable")).toBeTruthy();
+    expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(
+      screen.getByRole("button", { name: "Add Organization" }),
+    ).toHaveProperty("disabled", true);
+  });
+
+  it("hard-locks at 100 percent even when response metadata says unlocked", async () => {
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      usage: {
+        surface: "crm",
+        used: 100,
+        limit: 100,
+        percentage: 100,
+        remaining: 0,
+        resetAt: "2026-10-16T07:00:00.000Z",
+        locked: false,
+      },
+    });
+
+    renderWorkbench("en", {
+      autoLoad: false,
+      authoritativeUsageMock: true,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Daily limit reached")).toBeTruthy();
+      expect(
+        screen
+          .getByRole("progressbar", { name: "CRM daily usage" })
+          .getAttribute("aria-valuenow"),
+      ).toBe("100");
+      expect(screen.getByText("100 / 100 · 100%")).toBeTruthy();
+      expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+        "disabled",
+        true,
+      );
+    });
+  });
+
+  it("fails closed when quota usage is fractional", async () => {
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      usage: {
+        surface: "crm",
+        used: 1.5,
+        limit: 100,
+        percentage: 1.5,
+        remaining: 98.5,
+        resetAt: "2026-10-16T07:00:00.000Z",
+        locked: false,
+      },
+    });
+
+    renderWorkbench("en", {
+      autoLoad: false,
+      authoritativeUsageMock: true,
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Retry verification" }),
+    ).toBeTruthy();
+    expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
+  it("does not let a late lower usage response unlock the same quota window", () => {
+    const lockedUsage = mergeCrmDailyUsage(null, {
+      surface: "crm",
+      used: 100,
+      limit: 100,
+      percentage: 100,
+      remaining: 0,
+      resetAt: "2026-10-16T07:00:00.000Z",
+      locked: true,
+    });
+
+    expect(
+      mergeCrmDailyUsage(lockedUsage, {
+        surface: "crm",
+        used: 99,
+        limit: 100,
+        percentage: 99,
+        remaining: 1,
+        resetAt: "2026-10-16T07:00:00.000Z",
+        locked: false,
+      }),
+    ).toEqual(expect.objectContaining({ used: 100, locked: true }));
+    expect(
+      mergeCrmDailyUsage(lockedUsage, {
+        surface: "crm",
+        used: 1,
+        limit: 100,
+        percentage: 1,
+        remaining: 99,
+        resetAt: "2026-10-17T07:00:00.000Z",
+        locked: false,
+      }),
+    ).toEqual(expect.objectContaining({ used: 1, locked: false }));
+  });
+
+  it("fails closed after an ambiguous mutation error without discarding the draft", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (
+        path === "/admin/partnership-crm/organizations" &&
+        init?.method === "POST"
+      ) {
+        throw new Error("Network response was ambiguous");
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    const { client } = renderWorkbench();
+    await screen.findByText("Delete Me Genomics");
+    const staleSummaryKey =
+      "golden-crow:partnership-crm:summary:v2:ambiguous-create";
+    window.sessionStorage.setItem(staleSummaryKey, "stale");
+    await user.click(screen.getByRole("button", { name: "Add Organization" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Add CRM organization",
+    });
+    const nameInput = within(dialog).getByLabelText("Organization name");
+    await user.type(nameInput, "Unsent Genetics");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save changes" }),
+    );
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/organizations",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    await waitFor(() => {
+      expect(nameInput.closest("fieldset")).toHaveProperty("disabled", true);
+    });
+    expect(
+      screen.getByRole("button", {
+        name: "Retry verification",
+        hidden: true,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("dialog", { name: "Add CRM organization" }),
+    ).toBeTruthy();
+    expect((nameInput as HTMLInputElement).value).toBe("Unsent Genetics");
+    expect(nameInput.closest("fieldset")).toHaveProperty("disabled", true);
+    expect(
+      within(dialog).getByRole("button", { name: "Save changes" }),
+    ).toHaveProperty("disabled", true);
+    expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(window.sessionStorage.getItem(staleSummaryKey)).toBeNull();
+    expect(
+      client.getQueryData([
+        "god-mode-partnership-crm-organizations",
+        "organizations",
+        {
+          query: "",
+          status: "all",
+          category: "",
+          country: "",
+          linkedInState: "all",
+        },
+        undefined,
+      ]),
+    ).toBeUndefined();
+    expect(screen.getByText("Data changed. Refresh when ready.")).toBeTruthy();
+  });
+
+  it("clears exact detail after an ambiguous target mutation", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (String(path).endsWith("/favorite") && init?.method === "PATCH") {
+        throw new Error("Favorite response was lost");
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    const { client } = renderWorkbench();
+    const detailKey = [
+      "god-mode-partnership-crm-organizations",
+      "detail",
+      "organizations",
+      "org-1",
+    ];
+    client.setQueryData(detailKey, { organization });
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(
+      within(screen.getByTestId("crm-detail-panel")).getByRole("button", {
+        name: "Mark as favorite",
+      }),
+    );
+
+    expect(
+      await screen.findByText("Unable to update CRM favorite."),
+    ).toBeTruthy();
+    expect(client.getQueryData(detailKey)).toBeUndefined();
+    expect(screen.getByText("Data changed. Refresh when ready.")).toBeTruthy();
+  });
+
+  it("does not replay a failed template read after quota verification recovers", async () => {
+    const user = userEvent.setup();
+    let templateReads = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
+        templateReads += 1;
+        if (templateReads === 1) {
+          throw new Error("Template read failed ambiguously");
+        }
+        return {
+          templates: [recommendedEmailTemplate],
+          nextCursor: undefined,
+        };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+    await waitFor(() => {
+      expect(templateReads).toBe(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Retry verification",
+        hidden: true,
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+        "disabled",
+        false,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(templateReads).toBe(1);
+    expect(screen.getByRole("dialog", { name: "Send CRM email" })).toBe(dialog);
+    expect(
+      within(dialog).getByText("Unable to load email templates."),
+    ).toBeTruthy();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Retry templates" }),
+    );
+    await waitFor(() => {
+      expect(templateReads).toBe(2);
+      expect(
+        within(dialog).queryByText("Unable to load email templates."),
+      ).toBeNull();
+    });
+  });
+
+  it("retries only the failed next template page", async () => {
+    const user = userEvent.setup();
+    const templatePaths: string[] = [];
+    let nextPageAttempts = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
+        templatePaths.push(stringPath);
+        if (stringPath.includes("cursor=template-cursor-2")) {
+          nextPageAttempts += 1;
+          if (nextPageAttempts === 1) {
+            throw new Error("Next template page failed ambiguously");
+          }
+          return {
+            templates: [otherCategoryEmailTemplate],
+            nextCursor: undefined,
+          };
+        }
+        return {
+          templates: [recommendedEmailTemplate],
+          nextCursor: "template-cursor-2",
+        };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+    await user.click(
+      await within(dialog).findByRole("button", {
+        name: "Load more templates",
+      }),
+    );
+    expect(
+      await within(dialog).findByText("Unable to load email templates."),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Retry verification",
+        hidden: true,
+      }),
+    );
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Retry templates" }),
+      ).toHaveProperty("disabled", false);
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Retry templates" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        within(dialog).queryByText("Unable to load email templates."),
+      ).toBeNull();
+    });
+    expect(
+      templatePaths.filter((path) => !path.includes("cursor=")),
+    ).toHaveLength(1);
+    expect(
+      templatePaths.filter((path) => path.includes("cursor=template-cursor-2")),
+    ).toHaveLength(2);
+  });
+
+  it("shows a failed lazy detail read and retries it only after explicit clicks", async () => {
+    const user = userEvent.setup();
+    let detailReads = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/organizations/org-1") {
+        detailReads += 1;
+        if (detailReads === 1) {
+          throw new Error("Detail read failed ambiguously");
+        }
+        return { organization };
+      }
+      return {
+        organizations: [{ ...organization, notes: "" }],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+
+    const detailPanel = await screen.findByTestId("crm-detail-panel");
+    expect(
+      await within(detailPanel).findByText("Unable to load CRM detail."),
+    ).toBeTruthy();
+    expect(detailReads).toBe(1);
+    expect(
+      within(detailPanel).getByRole("button", { name: "Retry detail" }),
+    ).toHaveProperty("disabled", true);
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Retry verification",
+        hidden: true,
+      }),
+    );
+    await waitFor(() => {
+      expect(
+        within(detailPanel).getByRole("button", { name: "Retry detail" }),
+      ).toHaveProperty("disabled", false);
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(detailReads).toBe(1);
+
+    await user.click(
+      within(detailPanel).getByRole("button", { name: "Retry detail" }),
+    );
+    await waitFor(() => {
+      expect(detailReads).toBe(2);
+      expect(
+        within(detailPanel).queryByText("Unable to load CRM detail."),
+      ).toBeNull();
+    });
+  });
+
+  it("fails closed until daily usage can be authoritatively verified", async () => {
+    const user = userEvent.setup();
+    let verificationAttempts = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/daily-usage/page-load") {
+        verificationAttempts += 1;
+        if (verificationAttempts === 1) {
+          throw new Error("Usage service unavailable");
+        }
+        return {
+          usage: {
+            surface: "crm",
+            used: 2,
+            limit: 100,
+            percentage: 2,
+            remaining: 98,
+            resetAt: "2026-10-16T07:00:00.000Z",
+            locked: false,
+          },
+        };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench("en", {
+      autoLoad: false,
+      authoritativeUsageMock: true,
+    });
+
+    const retry = await screen.findByRole("button", {
+      name: "Retry verification",
+    });
+    expect(screen.getByText("Fresh CRM data unavailable")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "CRM usage verification failed. No CRM data is loaded, and fresh actions remain disabled.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(
+      screen.getByRole("button", { name: "Add Organization" }),
+    ).toHaveProperty("disabled", true);
+
+    fireEvent.click(screen.getByTestId("crm-explicit-load"));
+    expect(verificationAttempts).toBe(1);
+
+    await user.click(retry);
+    await waitFor(() => {
+      expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+        "disabled",
+        false,
+      );
+    });
+    expect(verificationAttempts).toBe(2);
+  });
+
+  it("honestly identifies cached read-only data when verification fails", async () => {
+    const cacheKey = crmSummaryCacheKey();
+    window.sessionStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        cachedAt: new Date().toISOString(),
+        expiresAt: Date.now() + 60_000,
+        page: {
+          organizations: [{ ...organization, notes: "" }],
+          nextCursor: undefined,
+        },
+      }),
+    );
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/daily-usage/page-load") {
+        throw new Error("Usage service unavailable");
+      }
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench("en", {
+      autoLoad: false,
+      authoritativeUsageMock: true,
+    });
+
+    expect(await screen.findByText("Delete Me Genomics")).toBeTruthy();
+    expect(await screen.findByText("Cached read-only mode")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "CRM usage verification failed. Cached data is still available, but fresh actions remain disabled.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
+  it("fails closed when page-load verification returns invalid usage", async () => {
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      usage: {
+        surface: "crm",
+        used: 1,
+        limit: 100,
+        percentage: 1,
+        remaining: 99,
+        resetAt: "not-a-date",
+        locked: false,
+      },
+    });
+
+    renderWorkbench("en", {
+      autoLoad: false,
+      authoritativeUsageMock: true,
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Retry verification" }),
+    ).toBeTruthy();
+    expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
+  it("does not auto-retry an initial usage verification failure", async () => {
+    jest.useFakeTimers();
+    let verificationAttempts = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/daily-usage/page-load") {
+        verificationAttempts += 1;
+        throw new Error("Usage service unavailable");
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    try {
+      renderWorkbench("en", {
+        autoLoad: false,
+        authoritativeUsageMock: true,
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(verificationAttempts).toBe(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(30 * 60_000);
+        await Promise.resolve();
+      });
+      expect(verificationAttempts).toBe(1);
+      expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+        "disabled",
+        true,
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("reverifies the locked counter after reset with the same idempotent event", async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-10-15T12:00:00.000Z"));
+    let pageLoads = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/daily-usage/page-load") {
+        pageLoads += 1;
+        return {
+          usage:
+            pageLoads === 1
+              ? {
+                  surface: "crm",
+                  used: 100,
+                  limit: 100,
+                  percentage: 100,
+                  remaining: 0,
+                  resetAt: "2026-10-15T12:00:01.000Z",
+                  locked: true,
+                }
+              : {
+                  surface: "crm",
+                  used: 1,
+                  limit: 100,
+                  percentage: 1,
+                  remaining: 99,
+                  resetAt: "2026-10-16T07:00:00.000Z",
+                  locked: false,
+                },
+        };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    try {
+      renderWorkbench("en", {
+        autoLoad: false,
+        authoritativeUsageMock: true,
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(pageLoads).toBe(1);
+      expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+        "disabled",
+        true,
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(2001);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(pageLoads).toBe(2);
+      expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+        "disabled",
+        false,
+      );
+      const eventIds = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path]) => path === "/admin/partnership-crm/daily-usage/page-load",
+        )
+        .map(([, init]) => JSON.parse(String(init?.body)).eventId);
+      expect(eventIds[0]).toBe(eventIds[1]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("retries reset verification conservatively after a transient failure", async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-10-15T12:00:00.000Z"));
+    let pageLoads = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/daily-usage/page-load") {
+        pageLoads += 1;
+        if (pageLoads === 1) {
+          return {
+            usage: {
+              surface: "crm",
+              used: 100,
+              limit: 100,
+              percentage: 100,
+              remaining: 0,
+              resetAt: "2026-10-15T12:00:01.000Z",
+              locked: true,
+            },
+          };
+        }
+        if (pageLoads === 2) {
+          throw new Error("Temporary verification failure");
+        }
+        return {
+          usage: {
+            surface: "crm",
+            used: 1,
+            limit: 100,
+            percentage: 1,
+            remaining: 99,
+            resetAt: "2026-10-16T07:00:00.000Z",
+            locked: false,
+          },
+        };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    try {
+      renderWorkbench("en", {
+        autoLoad: false,
+        authoritativeUsageMock: true,
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(2001);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(pageLoads).toBe(2);
+      expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+        "disabled",
+        true,
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(59_999);
+        await Promise.resolve();
+      });
+      expect(pageLoads).toBe(2);
+
+      await act(async () => {
+        jest.advanceTimersByTime(1);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(pageLoads).toBe(3);
+      expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+        "disabled",
+        false,
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("closes the confirmation dialog and removes the row without refreshing", async () => {
     const user = userEvent.setup();
     renderWorkbench();
 
@@ -264,11 +1301,63 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await waitFor(() => {
       expect(screen.queryAllByText("Delete Me Genomics")).toHaveLength(0);
     });
-    expect(routerRefresh).toHaveBeenCalledTimes(1);
+    expect(routerRefresh).not.toHaveBeenCalled();
     expect(sdkFetch).toHaveBeenCalledWith(
       "/admin/partnership-crm/organizations/org-1",
-      { method: "DELETE" },
+      expect.objectContaining({
+        method: "DELETE",
+        headers: expect.any(Headers),
+      }),
     );
+  });
+
+  it("does not auto-select or detail-read another target after deletion", async () => {
+    const user = userEvent.setup();
+    const remainingSummary = {
+      ...organization,
+      id: "org-2",
+      name: "Remaining Summary",
+      contactEmail: "remaining@example.org",
+      notes: "",
+    };
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (init?.method === "DELETE") {
+        return { deleted: true, organizationId: organization.id };
+      }
+      if (path === "/admin/partnership-crm/organizations/org-2") {
+        return {
+          organization: {
+            ...remainingSummary,
+            notes: "Full remaining detail",
+          },
+        };
+      }
+      return {
+        organizations: [organization, remainingSummary],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByText("Delete Me Genomics")).toBeNull();
+    });
+    expect(screen.getByText("Remaining Summary")).toBeTruthy();
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path, init]) =>
+            path === "/admin/partnership-crm/organizations/org-2" &&
+            !init?.method,
+        ),
+    ).toHaveLength(0);
   });
 
   it("shows favorite CRM organizations first with a cyan star cell", async () => {
@@ -344,7 +1433,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         return { activities: [] };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
 
@@ -488,14 +1577,20 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       expect(screen.queryByText("Batch Delete Genetics")).toBeNull();
       expect(screen.getByText("Keep Me Genetics")).toBeTruthy();
     });
-    expect(routerRefresh).toHaveBeenCalledTimes(1);
+    expect(routerRefresh).not.toHaveBeenCalled();
     expect(sdkFetch).toHaveBeenCalledWith(
       "/admin/partnership-crm/organizations/org-1",
-      { method: "DELETE" },
+      expect.objectContaining({
+        method: "DELETE",
+        headers: expect.any(Headers),
+      }),
     );
     expect(sdkFetch).toHaveBeenCalledWith(
       "/admin/partnership-crm/organizations/org-2",
-      { method: "DELETE" },
+      expect.objectContaining({
+        method: "DELETE",
+        headers: expect.any(Headers),
+      }),
     );
   });
 
@@ -514,8 +1609,11 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
       const stringPath = String(path);
-      if (init?.method === "PUT") {
-        const targetId = decodeURIComponent(stringPath.split("/").pop() ?? "");
+      if (init?.method === "PATCH" && stringPath.endsWith("/favorite")) {
+        const pathParts = stringPath.split("/");
+        const targetId = decodeURIComponent(
+          pathParts[pathParts.length - 2] ?? "",
+        );
         const body = JSON.parse(String(init.body));
         const updated = batchOrganizations.find(
           (entry) => entry.id === targetId,
@@ -546,7 +1644,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       };
     });
 
-    renderWorkbench();
+    const { client } = renderWorkbench();
 
     await waitFor(() => {
       expect(screen.getByText("Batch Favorite Genetics")).toBeTruthy();
@@ -560,32 +1658,324 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
 
     await waitFor(() => {
-      const putCalls = jest
+      const favoriteCalls = jest
         .mocked(sdkFetch)
-        .mock.calls.filter(([, init]) => init?.method === "PUT");
-      expect(putCalls).toHaveLength(2);
-      for (const [, init] of putCalls) {
+        .mock.calls.filter(
+          ([path, init]) =>
+            init?.method === "PATCH" && String(path).endsWith("/favorite"),
+        );
+      expect(favoriteCalls).toHaveLength(2);
+      for (const [, init] of favoriteCalls) {
         expect(JSON.parse(String(init?.body))).toEqual(
           expect.objectContaining({ is_favorite: true }),
         );
       }
     });
 
+    const unrelatedFilters = {
+      query: "unrelated",
+      status: "all",
+      category: "",
+      country: "",
+      linkedInState: "all",
+    };
+    const unrelatedOrganization = {
+      ...organization,
+      id: "org-unrelated",
+      name: "Unrelated cached page",
+    };
+    client.setQueryData(
+      [
+        "god-mode-partnership-crm-organizations",
+        "organizations",
+        unrelatedFilters,
+        undefined,
+      ],
+      { organizations: [unrelatedOrganization], nextCursor: undefined },
+    );
+
     await user.click(
       screen.getByRole("button", { name: "Mark selected as not favorite" }),
     );
 
     await waitFor(() => {
-      const putCalls = jest
+      const favoriteCalls = jest
         .mocked(sdkFetch)
-        .mock.calls.filter(([, init]) => init?.method === "PUT");
-      expect(putCalls).toHaveLength(4);
-      for (const [, init] of putCalls.slice(-2)) {
+        .mock.calls.filter(
+          ([path, init]) =>
+            init?.method === "PATCH" && String(path).endsWith("/favorite"),
+        );
+      expect(favoriteCalls).toHaveLength(4);
+      for (const [, init] of favoriteCalls.slice(-2)) {
         expect(JSON.parse(String(init?.body))).toEqual(
           expect.objectContaining({ is_favorite: false }),
         );
       }
     });
+    expect(
+      client.getQueryData<{
+        organizations: PartnershipCrmOrganizationRecord[];
+      }>([
+        "god-mode-partnership-crm-organizations",
+        "organizations",
+        unrelatedFilters,
+        undefined,
+      ])?.organizations,
+    ).toEqual([unrelatedOrganization]);
+  });
+
+  it("keeps the successful prefix when a sequential bulk delete later fails", async () => {
+    const user = userEvent.setup();
+    const batchOrganizations = [
+      organization,
+      {
+        ...organization,
+        id: "org-2",
+        name: "Second delete target",
+        contactEmail: "second@example.org",
+      },
+    ];
+    let deleteAttempts = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (init?.method === "DELETE") {
+        deleteAttempts += 1;
+        if (deleteAttempts === 2) {
+          throw new Error("Second delete failed");
+        }
+        return { deleted: true, organizationId: "org-1" };
+      }
+      return { organizations: batchOrganizations, nextCursor: undefined };
+    });
+
+    renderWorkbench();
+    await screen.findByText("Second delete target");
+    await user.click(screen.getByLabelText("Select Delete Me Genomics"));
+    await user.click(screen.getByLabelText("Select Second delete target"));
+    await user.click(screen.getByRole("button", { name: "Delete selected" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Delete selected CRM organizations",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Delete selected" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Deleted 1 of 2. The failing request outcome is unknown.",
+        ),
+      ).toBeTruthy();
+    });
+    expect(deleteAttempts).toBe(2);
+    expect(screen.queryByText("Delete Me Genomics")).toBeNull();
+    expect(screen.queryByText("Second delete target")).toBeNull();
+    expect(
+      screen.getByText(
+        "No CRM data loaded. Use Load CRM when you deliberately want fresh data.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Data changed. Refresh when ready.")).toBeTruthy();
+  });
+
+  it("stops a sequential mutation after a successful response omits usage", async () => {
+    const user = userEvent.setup();
+    const secondOrganization = {
+      ...organization,
+      id: "org-2",
+      name: "Second quota target",
+      contactEmail: "second-quota@example.org",
+    };
+    let deleteAttempts = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (_path, init) => {
+      if (init?.method === "DELETE") {
+        deleteAttempts += 1;
+        return { deleted: true, organizationId: organization.id };
+      }
+      return {
+        organizations: [organization, secondOrganization],
+        nextCursor: undefined,
+        usage: {
+          surface: "crm",
+          used: 2,
+          limit: 100,
+          percentage: 2,
+          remaining: 98,
+          resetAt: "2026-10-16T07:00:00.000Z",
+          locked: false,
+        },
+      };
+    });
+
+    renderWorkbench("en", { injectActionUsage: false });
+    await screen.findByText("Second quota target");
+    await user.click(screen.getByLabelText("Select Delete Me Genomics"));
+    await user.click(screen.getByLabelText("Select Second quota target"));
+    await user.click(screen.getByRole("button", { name: "Delete selected" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Delete selected CRM organizations",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Delete selected" }),
+    );
+
+    await waitFor(() => {
+      expect(deleteAttempts).toBe(1);
+      expect(
+        screen.getByText(
+          "Deleted 1 of 2. The next request was not sent. Verify CRM usage or wait for the daily reset before resuming.",
+        ),
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText("Delete Me Genomics")).toBeNull();
+    expect(screen.getByText("Second quota target")).toBeTruthy();
+    expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
+  it("preserves loaded and durable caches when quota middleware denies a mutation", async () => {
+    const user = userEvent.setup();
+    const quotaUsage = {
+      surface: "crm",
+      used: 100,
+      limit: 100,
+      percentage: 100,
+      remaining: 0,
+      resetAt: "2026-10-16T07:00:00.000Z",
+      locked: true,
+    } as const;
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (init?.method === "DELETE") {
+        throw Object.assign(
+          new Error("The CRM daily usage limit has been reached."),
+          {
+            status: 429,
+            method: "DELETE",
+            path: String(path),
+            details: [
+              `Request: DELETE ${String(path)}`,
+              "Status: 429 Too Many Requests",
+              `Response JSON:\n${JSON.stringify({
+                error: "The CRM daily usage limit has been reached.",
+                code: "CRM_DAILY_LIMIT_REACHED",
+                usage: quotaUsage,
+              })}`,
+            ].join("\n\n"),
+          },
+        );
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+    await screen.findByText("Delete Me Genomics");
+    const cacheKey = crmSummaryCacheKey();
+    expect(window.sessionStorage.getItem(cacheKey)).not.toBeNull();
+
+    await user.click(screen.getByLabelText("Select Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Delete selected" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Delete selected CRM organizations",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Delete selected" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Deleted 0 of 1. The next request was not sent. Verify CRM usage or wait for the daily reset before resuming.",
+        ),
+      ).toBeTruthy();
+    });
+    expect(screen.getByText("Delete Me Genomics")).toBeTruthy();
+    expect(window.sessionStorage.getItem(cacheKey)).not.toBeNull();
+    expect(screen.queryByText("Data changed. Refresh when ready.")).toBeNull();
+    expect(screen.getByText("Daily limit reached")).toBeTruthy();
+  });
+
+  it("keeps exact successful favorite detail while clearing ambiguous summary pages", async () => {
+    const user = userEvent.setup();
+    const secondOrganization = {
+      ...organization,
+      id: "org-2",
+      name: "Second favorite target",
+      contactEmail: "favorite-second@example.org",
+    };
+    let favoriteAttempts = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (init?.method === "PATCH" && String(path).endsWith("/favorite")) {
+        favoriteAttempts += 1;
+        if (favoriteAttempts === 2) {
+          throw new Error("Second favorite failed");
+        }
+        return { organization: { ...organization, is_favorite: true } };
+      }
+      return {
+        organizations: [organization, secondOrganization],
+        nextCursor: undefined,
+      };
+    });
+
+    const { client } = renderWorkbench();
+    await screen.findByText("Second favorite target");
+    window.sessionStorage.setItem(
+      "golden-crow:partnership-crm:summary:v2:stale-filter-a",
+      "stale-a",
+    );
+    window.sessionStorage.setItem(
+      "golden-crow:partnership-crm:summary:v2:stale-cursor-b",
+      "stale-b",
+    );
+    await user.click(screen.getByLabelText("Select Delete Me Genomics"));
+    await user.click(screen.getByLabelText("Select Second favorite target"));
+    await user.click(
+      screen.getByRole("button", { name: "Mark selected as favorite" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Updated 1 of 2. The failing request outcome is unknown.",
+        ),
+      ).toBeTruthy();
+    });
+    expect(favoriteAttempts).toBe(2);
+    expect(
+      window.sessionStorage.getItem(
+        "golden-crow:partnership-crm:summary:v2:stale-filter-a",
+      ),
+    ).toBeNull();
+    expect(
+      window.sessionStorage.getItem(
+        "golden-crow:partnership-crm:summary:v2:stale-cursor-b",
+      ),
+    ).toBeNull();
+    const currentPage = client.getQueryData<{
+      organizations: PartnershipCrmOrganizationRecord[];
+    }>([
+      "god-mode-partnership-crm-organizations",
+      "organizations",
+      {
+        query: "",
+        status: "all",
+        category: "",
+        country: "",
+        linkedInState: "all",
+      },
+      undefined,
+    ]);
+    expect(currentPage).toBeUndefined();
+    expect(screen.getByText("Data changed. Refresh when ready.")).toBeTruthy();
+    expect(
+      client.getQueryData<{ organization: PartnershipCrmOrganizationRecord }>([
+        "god-mode-partnership-crm-organizations",
+        "detail",
+        "organizations",
+        "org-1",
+      ])?.organization.notes,
+    ).toBe("Temporary CRM row.");
   });
 
   it("keeps contact name, email, and last-contact metadata in separate fact cards", async () => {
@@ -598,13 +1988,14 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByText("Delete Me Genomics"));
 
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/organizations?limit=50",
+      "/admin/partnership-crm/organizations?limit=10",
+      expect.objectContaining({ headers: expect.any(Headers) }),
     );
-    expect(screen.getByText("All categories")).toBeTruthy();
+    expect(screen.getAllByText("All categories").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Genomics Laboratory").length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByText("All countries")).toBeTruthy();
+    expect(screen.getAllByText("All countries").length).toBeGreaterThan(0);
     expect(screen.queryByPlaceholderText("Category")).toBeNull();
     expect(screen.queryByPlaceholderText("Country")).toBeNull();
 
@@ -700,7 +2091,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         return { activities: [] };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
 
@@ -889,9 +2280,11 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         ?.contains(within(dialog).getByTestId("crm-selected-status-check")),
     ).toBe(true);
     expect(
-      (within(dialog).getByRole("button", {
-        name: "Save",
-      }) as HTMLButtonElement).disabled,
+      (
+        within(dialog).getByRole("button", {
+          name: "Save",
+        }) as HTMLButtonElement
+      ).disabled,
     ).toBe(true);
     expect(currentStatusRadio.getAttribute("tabindex")).toBe("0");
     const contactedStatusRadio = within(dialog).getByRole("radio", {
@@ -955,13 +2348,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       status: "contacted",
       contactEmail: "contacted@example.org",
     };
-    const refreshedContactedOrganization: PartnershipCrmOrganizationRecord = {
-      ...contactedOrganization,
-      name: "Contacted Genetics Updated",
-      normalizedName: "contacted genetics updated",
-      contactEmail: "fresh-contacted@example.org",
-      notes: "x".repeat(2501),
-    };
     let organizations = [organization, contactedOrganization];
 
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
@@ -988,14 +2374,14 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         return { emails: [], nextCursor: undefined };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: emailTemplates, nextCursor: undefined };
       }
 
       return { organizations, nextCursor: undefined };
     });
 
-    const { client } = renderWorkbench();
+    renderWorkbench();
 
     await waitFor(() => {
       expect(screen.getByText(contactedOrganization.name)).toBeTruthy();
@@ -1015,16 +2401,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         .getByRole("radio", { name: "CRM Contacted" })
         .getAttribute("aria-checked"),
     ).toBe("true");
-
-    organizations = [organization, refreshedContactedOrganization];
-    await client.refetchQueries({
-      queryKey: ["god-mode-partnership-crm-organizations"],
-    });
-    await waitFor(() => {
-      expect(
-        within(dialog).getByText(refreshedContactedOrganization.name),
-      ).toBeTruthy();
-    });
 
     await user.click(
       within(dialog).getByRole("radio", { name: "CRM Meeting" }),
@@ -1106,7 +2482,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         return { emails: [], nextCursor: undefined };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: emailTemplates, nextCursor: undefined };
       }
 
@@ -1127,7 +2503,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(
       within(statusDialog).getByRole("radio", { name: "CRM Meeting" }),
     );
-    await user.click(within(statusDialog).getByRole("button", { name: "Save" }));
+    await user.click(
+      within(statusDialog).getByRole("button", { name: "Save" }),
+    );
 
     expect(
       await within(statusDialog).findByText("Unable to update CRM status."),
@@ -1150,8 +2528,8 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       const stringPath = String(path);
 
       if (
-        stringPath === "/admin/partnership-crm/organizations/org-1" &&
-        init?.method === "PUT"
+        stringPath === "/admin/partnership-crm/organizations/org-1/favorite" &&
+        init?.method === "PATCH"
       ) {
         const body = JSON.parse(String(init.body));
 
@@ -1172,7 +2550,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         return { emails: [], nextCursor: undefined };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: emailTemplates, nextCursor: undefined };
       }
 
@@ -1196,8 +2574,8 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(
-        "/admin/partnership-crm/organizations/org-1",
-        expect.objectContaining({ method: "PUT" }),
+        "/admin/partnership-crm/organizations/org-1/favorite",
+        expect.objectContaining({ method: "PATCH" }),
       );
     });
 
@@ -1205,16 +2583,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       .mocked(sdkFetch)
       .mock.calls.find(
         ([path, requestInit]) =>
-          path === "/admin/partnership-crm/organizations/org-1" &&
-          requestInit?.method === "PUT",
+          path === "/admin/partnership-crm/organizations/org-1/favorite" &&
+          requestInit?.method === "PATCH",
       )!;
-    expect(JSON.parse(String(init?.body))).toEqual(
-      expect.objectContaining({
-        name: organization.name,
-        status: organization.status,
-        is_favorite: true,
-      }),
-    );
+    expect(JSON.parse(String(init?.body))).toEqual({ is_favorite: true });
   });
 
   it("shows a keyboard-adjustable CRM detail panel separator", async () => {
@@ -1318,7 +2690,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       if (stringPath.includes("/activities")) {
         return { activities: [] };
       }
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
       if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
@@ -1388,7 +2760,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       if (stringPath.includes("/activities")) {
         return { activities: [] };
       }
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
       if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
@@ -1408,13 +2780,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
     await user.click(screen.getByText("Delete Me Genomics"));
 
-    expect(
-      screen.queryByTestId("crm-structured-notes-document"),
-    ).toBeNull();
+    expect(screen.queryByTestId("crm-structured-notes-document")).toBeNull();
     const plainNotesDocument = screen.getByTestId("crm-plain-notes-document");
-    expect(plainNotesDocument.textContent).toContain(
-      "Reviewed: 2026-09-12.",
-    );
+    expect(plainNotesDocument.textContent).toContain("Reviewed: 2026-09-12.");
     expect(plainNotesDocument.textContent).toContain(
       "Services: NIPT/fetal DNA screening; carrier screening.",
     );
@@ -1429,9 +2797,32 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
   it("opens a global modal with sent CRM emails and plantilla metadata", async () => {
     const user = userEvent.setup();
+    let releaseEmailDetail: (() => void) | undefined;
+    const emailDetailPending = new Promise<void>((resolve) => {
+      releaseEmailDetail = resolve;
+    });
 
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       const stringPath = String(path);
+      if (stringPath === "/admin/partnership-crm/sent-email-log/email-1") {
+        await emailDetailPending;
+        return {
+          email: {
+            id: "email-1",
+            targetKind: "organizations",
+            targetId: "org-1",
+            targetName: "Genome Lab",
+            from: "federico@goldencrowvs.com",
+            to: "ada@genomelab.example",
+            subject: "Pocket Genes + Genome Lab",
+            body: "Hola Ada,\n\nTe escribo sobre Pocket Genes.",
+            sentAt: "2026-09-01T12:00:00.000Z",
+            createdByEmail: "owner@example.org",
+            templateId: "tpl-1",
+            templateName: "Lab outreach",
+          },
+        };
+      }
       if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
         return {
           emails: [
@@ -1443,7 +2834,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
               from: "federico@goldencrowvs.com",
               to: "ada@genomelab.example",
               subject: "Pocket Genes + Genome Lab",
-              body: "Hola Ada,\n\nTe escribo sobre Pocket Genes.",
+              body: "",
               sentAt: "2026-09-01T12:00:00.000Z",
               createdByEmail: "owner@example.org",
               templateId: "tpl-1",
@@ -1458,7 +2849,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         return { activities: [] };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
 
@@ -1479,14 +2870,63 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
 
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/sent-email-log?limit=20",
+      "/admin/partnership-crm/sent-email-log?limit=10",
+      expect.objectContaining({ headers: expect.any(Headers) }),
     );
     expect(within(dialog).getByText("Lab outreach")).toBeTruthy();
     expect(within(dialog).getByText("Genome Lab")).toBeTruthy();
     expect(within(dialog).getByText("ada@genomelab.example")).toBeTruthy();
     expect(
-      within(dialog).getByText(/Te escribo sobre Pocket Genes/),
+      within(dialog).queryByText(/Te escribo sobre Pocket Genes/),
+    ).toBeNull();
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path]) => path === "/admin/partnership-crm/sent-email-log/email-1",
+        ),
+    ).toHaveLength(0);
+
+    const viewMessageButton = within(dialog).getByRole("button", {
+      name: "View message",
+    });
+    fireEvent.click(viewMessageButton);
+    fireEvent.click(viewMessageButton);
+    await waitFor(() => {
+      expect(
+        jest
+          .mocked(sdkFetch)
+          .mock.calls.filter(
+            ([path]) =>
+              path === "/admin/partnership-crm/sent-email-log/email-1",
+          ),
+      ).toHaveLength(1);
+    });
+    releaseEmailDetail?.();
+    expect(
+      await within(dialog).findByText(/Te escribo sobre Pocket Genes/),
     ).toBeTruthy();
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path]) => path === "/admin/partnership-crm/sent-email-log/email-1",
+        ),
+    ).toHaveLength(1);
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Hide message" }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "View message" }),
+    );
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path]) => path === "/admin/partnership-crm/sent-email-log/email-1",
+        ),
+    ).toHaveLength(1);
   });
 
   it("shows the email preview as a locked full-width review step", async () => {
@@ -1589,7 +3029,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
       const stringPath = String(path);
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [recommendedEmailTemplate], nextCursor: undefined };
       }
 
@@ -1633,7 +3073,46 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       };
     });
 
-    renderWorkbench();
+    const { client } = renderWorkbench();
+    client.setQueryData(
+      ["god-mode-partnership-crm-activities", "organizations", "org-1"],
+      {
+        pages: [
+          {
+            activities: [
+              {
+                id: "activity-old",
+                type: "note",
+                title: "Previously loaded activity",
+                body: "Previously loaded activity",
+              },
+            ],
+            nextCursor: undefined,
+          },
+        ],
+        pageParams: [""],
+      },
+    );
+    client.setQueryData(["god-mode-partnership-crm-sent-email-log"], {
+      pages: [
+        {
+          emails: [
+            {
+              id: "email-old",
+              targetKind: "organizations",
+              targetId: "org-1",
+              targetName: organization.name,
+              from: "federico@goldencrowvs.com",
+              to: organization.contactEmail,
+              subject: "Previously loaded email",
+              body: "",
+            },
+          ],
+          nextCursor: undefined,
+        },
+      ],
+      pageParams: [""],
+    });
 
     await waitFor(() => {
       expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
@@ -1683,13 +3162,27 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         ),
       }),
     );
+    expect(
+      client
+        .getQueryData<{
+          pages: Array<{ activities: Array<{ id: string }> }>;
+        }>(["god-mode-partnership-crm-activities", "organizations", "org-1"])
+        ?.pages[0]?.activities.map((activity) => activity.id),
+    ).toEqual(["activity-1", "activity-old"]);
+    expect(
+      client
+        .getQueryData<{
+          pages: Array<{ emails: Array<{ id: string }> }>;
+        }>(["god-mode-partnership-crm-sent-email-log"])
+        ?.pages[0]?.emails.map((email) => email.id),
+    ).toEqual(["email-1", "email-old"]);
   });
 
   it("cycles CRM email templates with footer arrows and keyboard arrows", async () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       const stringPath = String(path);
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return {
           templates: emailTemplates.map((template) => ({
             ...template,
@@ -1785,7 +3278,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const user = userEvent.setup();
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       const stringPath = String(path);
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         if (stringPath.includes("cursor=")) {
           return {
             templates: [crossAudienceEmailTemplate],
@@ -1831,7 +3324,8 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ).toBe("Recommended Delete Me Genomics");
     });
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/templates?status=active&audience=organizations&limit=50",
+      "/admin/partnership-crm/email-templates?status=active&audience=organizations&limit=5",
+      expect.objectContaining({ headers: expect.any(Headers) }),
     );
 
     await user.click(
@@ -1840,6 +3334,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(
         expect.stringContaining("cursor=2026-09-01T12%3A00%3A00.000Z"),
+        expect.objectContaining({ headers: expect.any(Headers) }),
       );
     });
 
@@ -1908,7 +3403,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       if (stringPath.startsWith("/admin/partnership-crm/professionals")) {
         return { professionals: [professional], nextCursor: undefined };
       }
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return stringPath.includes("audience=professionals")
           ? { templates: [fitTemplate], nextCursor: undefined }
           : { templates: [recommendedEmailTemplate], nextCursor: undefined };
@@ -1925,6 +3420,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     renderWorkbench();
 
     await user.click(screen.getByRole("tab", { name: /Professionals/ }));
+    await user.click(screen.getByTestId("crm-explicit-load"));
     await waitFor(() => {
       expect(screen.getAllByText("Dra. Ada Genome")).toHaveLength(1);
     });
@@ -2022,7 +3518,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       if (stringPath.startsWith("/admin/partnership-crm/professionals")) {
         return { professionals: [longFitProfessional], nextCursor: undefined };
       }
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [fitTemplate], nextCursor: undefined };
       }
       if (stringPath.includes("/activities")) {
@@ -2037,6 +3533,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     renderWorkbench();
 
     await user.click(screen.getByRole("tab", { name: /Professionals/ }));
+    await user.click(screen.getByTestId("crm-explicit-load"));
     await waitFor(() => {
       expect(screen.getAllByText("Dra. Ada Genome")).toHaveLength(1);
     });
@@ -2099,7 +3596,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
           nextCursor: undefined,
         };
       }
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [fitTemplate], nextCursor: undefined };
       }
       if (stringPath.includes("/activities")) {
@@ -2114,6 +3611,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     renderWorkbench();
 
     await user.click(screen.getByRole("tab", { name: /Professionals/ }));
+    await user.click(screen.getByTestId("crm-explicit-load"));
     await waitFor(() => {
       expect(screen.getAllByText("Dra. Ada Genome")).toHaveLength(1);
     });
@@ -2144,11 +3642,12 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       emailTemplates[1],
     ];
     const updatePayloads: unknown[] = [];
+    const favoritePayloads: unknown[] = [];
 
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
       const stringPath = String(path);
       if (
-        stringPath.startsWith("/admin/partnership-crm/templates/") &&
+        stringPath.startsWith("/admin/partnership-crm/email-templates/") &&
         init?.method === "DELETE"
       ) {
         const templateId = decodeURIComponent(
@@ -2162,7 +3661,29 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       }
 
       if (
-        stringPath.startsWith("/admin/partnership-crm/templates/") &&
+        stringPath.startsWith("/admin/partnership-crm/email-templates/") &&
+        stringPath.endsWith("/favorite") &&
+        init?.method === "PATCH"
+      ) {
+        const payload = JSON.parse(String(init.body));
+        favoritePayloads.push(payload);
+        const pathParts = stringPath.split("/");
+        const templateId = decodeURIComponent(pathParts.at(-2) ?? "");
+        savedTemplates = savedTemplates.map((template) =>
+          template.id === templateId
+            ? { ...template, is_favorite: Boolean(payload.is_favorite) }
+            : template,
+        );
+
+        return {
+          template:
+            savedTemplates.find((template) => template.id === templateId) ??
+            savedTemplates[0],
+        };
+      }
+
+      if (
+        stringPath.startsWith("/admin/partnership-crm/email-templates/") &&
         init?.method === "PUT"
       ) {
         const payload = JSON.parse(String(init.body));
@@ -2188,7 +3709,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: savedTemplates, nextCursor: undefined };
       }
 
@@ -2207,6 +3728,11 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
 
     renderWorkbench();
+    const preservedSummaryCacheKey =
+      "golden-crow:partnership-crm:summary:v2:template-safe";
+    const plantillasSummaryCacheKey = "golden-crow-plantillas-summary-cache-v1";
+    window.sessionStorage.setItem(preservedSummaryCacheKey, "preserve-me");
+    window.sessionStorage.setItem(plantillasSummaryCacheKey, "stale-template");
 
     await waitFor(() => {
       expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
@@ -2240,21 +3766,19 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         is_favorite: false,
       }),
     );
+    expect(window.sessionStorage.getItem(plantillasSummaryCacheKey)).toBeNull();
     expect(routerRefresh).not.toHaveBeenCalled();
 
+    window.sessionStorage.setItem(plantillasSummaryCacheKey, "stale-template");
     await user.click(
       within(dialog).getByRole("button", { name: "Mark as favorite" }),
     );
 
     await waitFor(() => {
-      expect(updatePayloads).toHaveLength(2);
+      expect(favoritePayloads).toHaveLength(1);
     });
-    expect(updatePayloads[1]).toEqual(
-      expect.objectContaining({
-        body: "Reusable edited template body for {{organization_name}}.",
-        is_favorite: true,
-      }),
-    );
+    expect(favoritePayloads[0]).toEqual({ is_favorite: true });
+    expect(window.sessionStorage.getItem(plantillasSummaryCacheKey)).toBeNull();
 
     await waitFor(() => {
       expect(
@@ -2271,14 +3795,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
 
     await waitFor(() => {
-      expect(updatePayloads).toHaveLength(3);
+      expect(favoritePayloads).toHaveLength(2);
     });
-    expect(updatePayloads[2]).toEqual(
-      expect.objectContaining({
-        body: "Reusable edited template body for {{organization_name}}.",
-        is_favorite: false,
-      }),
-    );
+    expect(favoritePayloads[1]).toEqual({ is_favorite: false });
 
     await waitFor(() => {
       expect(
@@ -2298,6 +3817,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ).toBe("Second Delete Me Genomics");
     });
 
+    window.sessionStorage.setItem(plantillasSummaryCacheKey, "stale-template");
     await user.click(
       within(dialog).getByRole("button", { name: "Delete template" }),
     );
@@ -2306,12 +3826,168 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       expect(within(dialog).getByText("Template deleted.")).toBeTruthy();
       expect(
         (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+      ).toBe("");
+    });
+    expect(window.sessionStorage.getItem(plantillasSummaryCacheKey)).toBeNull();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Load selected template" }),
+    );
+    await waitFor(() => {
+      expect(
+        (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
       ).toBe("Recommended Delete Me Genomics");
     });
     expect(savedTemplates.map((template) => template.id)).toEqual([
       "tpl-recommended",
     ]);
+    expect(window.sessionStorage.getItem(preservedSummaryCacheKey)).toBe(
+      "preserve-me",
+    );
+    expect(screen.queryByText("Data changed. Refresh when ready.")).toBeNull();
     expect(routerRefresh).not.toHaveBeenCalled();
+  });
+
+  it("does not load the next template body automatically after deleting one", async () => {
+    const user = userEvent.setup();
+    let summaries = emailTemplates.map((template) => ({
+      ...template,
+      body: "",
+      notes: "",
+    }));
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (
+        stringPath.startsWith("/admin/partnership-crm/email-templates/") &&
+        init?.method === "DELETE"
+      ) {
+        const templateId = decodeURIComponent(
+          stringPath.split("/").at(-1) ?? "",
+        );
+        summaries = summaries.filter((template) => template.id !== templateId);
+        return { deleted: true, templateId };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates/")) {
+        const templateId = decodeURIComponent(
+          stringPath.split("/").at(-1) ?? "",
+        );
+        return {
+          template: emailTemplates.find(
+            (template) => template.id === templateId,
+          ),
+        };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
+        return { templates: summaries, nextCursor: undefined };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+    await user.click(within(dialog).getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "Lab intro" }));
+    await waitFor(() => {
+      expect(
+        (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+      ).toBe("First Delete Me Genomics");
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Delete template" }),
+    );
+    await within(dialog).findByText("Template deleted.");
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path, init]) =>
+            path === "/admin/partnership-crm/email-templates/tpl-2" &&
+            !init?.method,
+        ),
+    ).toHaveLength(0);
+    expect(
+      (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
+    ).toBe("");
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Load selected template" }),
+    );
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/email-templates/tpl-2",
+        expect.objectContaining({ headers: expect.any(Headers) }),
+      );
+    });
+  });
+
+  it("clears template caches after an ambiguous composer mutation without refetching", async () => {
+    const user = userEvent.setup();
+    let templateListReads = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (
+        stringPath ===
+          "/admin/partnership-crm/email-templates/tpl-recommended" &&
+        init?.method === "DELETE"
+      ) {
+        throw new Error("Template deletion response was lost");
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
+        templateListReads += 1;
+        return {
+          templates: [recommendedEmailTemplate],
+          nextCursor: undefined,
+        };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    const { client } = renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+    await waitFor(() => {
+      expect(templateListReads).toBe(1);
+    });
+    window.sessionStorage.setItem(
+      "golden-crow-plantillas-summary-cache-v1",
+      "stale-template",
+    );
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Delete template" }),
+    );
+
+    expect(
+      await within(dialog).findByText("Unable to delete template."),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        /The template request outcome is unknown\. Reload templates deliberately before continuing\./,
+      ),
+    ).toBeTruthy();
+    expect(
+      window.sessionStorage.getItem("golden-crow-plantillas-summary-cache-v1"),
+    ).toBeNull();
+    expect(
+      client
+        .getQueriesData({
+          queryKey: ["god-mode-partnership-crm-templates", "active"],
+        })
+        .every(([, data]) => data === undefined),
+    ).toBe(true);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(templateListReads).toBe(1);
   });
 
   it("switches to the professionals CRM collection and professional fields", async () => {
@@ -2324,7 +4000,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       if (stringPath.startsWith("/admin/partnership-crm/professionals")) {
         return { professionals: [professional], nextCursor: undefined };
       }
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
       return { organizations: [organization], nextCursor: undefined };
@@ -2333,6 +4009,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     renderWorkbench();
 
     await user.click(screen.getByRole("tab", { name: /Professionals/ }));
+    await user.click(screen.getByTestId("crm-explicit-load"));
 
     await waitFor(() => {
       expect(screen.getAllByText("Dra. Ada Genome")).toHaveLength(1);
@@ -2340,9 +4017,12 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByText("Dra. Ada Genome"));
 
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/professionals?limit=50",
+      "/admin/partnership-crm/professionals?limit=10",
+      expect.objectContaining({ headers: expect.any(Headers) }),
     );
-    expect(screen.getByText("Clinical Geneticist")).toBeTruthy();
+    expect(screen.getAllByText("Clinical Geneticist").length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getByText("Role / specialty")).toBeTruthy();
     expect(screen.getAllByText("Genetista clinica").length).toBeGreaterThan(0);
     expect(screen.getByText("Primary affiliation")).toBeTruthy();
@@ -2449,6 +4129,300 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ),
     ).toBe(false);
   });
+
+  it("clears the target activity cache after an ambiguous note write without refetching", async () => {
+    const user = userEvent.setup();
+    let activityReads = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities") && init?.method === "POST") {
+        throw new Error("Activity response was lost");
+      }
+      if (stringPath.includes("/activities")) {
+        activityReads += 1;
+        return {
+          activities: [
+            {
+              id: "activity-old",
+              type: "note",
+              title: "Previously loaded note",
+              body: "Previously loaded note",
+            },
+          ],
+          nextCursor: undefined,
+        };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    const { client } = renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: /Activity log/ }));
+    expect(await screen.findAllByText("Previously loaded note")).toHaveLength(
+      2,
+    );
+    expect(activityReads).toBe(1);
+
+    await user.type(
+      screen.getByPlaceholderText("Add an activity note..."),
+      "New ambiguous note",
+    );
+    await user.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(await screen.findByText("Unable to add activity.")).toBeTruthy();
+    expect(
+      client.getQueryData([
+        "god-mode-partnership-crm-activities",
+        "organizations",
+        "org-1",
+      ]),
+    ).toBeUndefined();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(activityReads).toBe(1);
+  });
+
+  it("refreshes only the first activity page after more pages were loaded", async () => {
+    const user = userEvent.setup();
+    const activityPaths: string[] = [];
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        activityPaths.push(stringPath);
+        if (stringPath.includes("cursor=activity-cursor-2")) {
+          return {
+            activities: [
+              {
+                id: "activity-page-2",
+                type: "note",
+                title: "Second activity page",
+                body: "Second activity page",
+              },
+            ],
+            nextCursor: undefined,
+          };
+        }
+        return {
+          activities: [
+            {
+              id: "activity-page-1",
+              type: "note",
+              title: "First activity page",
+              body: "First activity page",
+            },
+          ],
+          nextCursor: "activity-cursor-2",
+        };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: /Activity log/ }));
+    await screen.findAllByText("First activity page");
+    await user.click(screen.getByRole("button", { name: "Load more" }));
+    await screen.findAllByText("Second activity page");
+
+    const activityRefreshButton = screen
+      .getAllByRole("button", { name: "Refresh" })
+      .find((button) => button.getAttribute("aria-label") === "Refresh");
+    expect(activityRefreshButton).toBeTruthy();
+    await user.click(activityRefreshButton as HTMLButtonElement);
+    await waitFor(() => {
+      expect(activityPaths).toEqual([
+        "/admin/partnership-crm/organizations/org-1/activities?limit=10",
+        "/admin/partnership-crm/organizations/org-1/activities?limit=10&cursor=activity-cursor-2",
+        "/admin/partnership-crm/organizations/org-1/activities?limit=10",
+      ]);
+    });
+  });
+
+  it("marks loaded activity stale after a successful favorite mutation", async () => {
+    const user = userEvent.setup();
+    let activityReads = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (stringPath.includes("/activities")) {
+        activityReads += 1;
+        return { activities: [], nextCursor: undefined };
+      }
+      if (stringPath.endsWith("/favorite") && init?.method === "PATCH") {
+        return { organization: { ...organization, is_favorite: true } };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    const { client } = renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: /Activity log/ }));
+    await waitFor(() => expect(activityReads).toBe(1));
+
+    const detailPanel = screen.getByTestId("crm-detail-panel");
+    await user.click(
+      within(detailPanel).getByRole("button", { name: "Mark as favorite" }),
+    );
+    await waitFor(() => {
+      expect(
+        within(detailPanel).getByRole("button", {
+          name: "Unmark as favorite",
+        }),
+      ).toBeTruthy();
+    });
+    expect(
+      client.getQueryData([
+        "god-mode-partnership-crm-activities",
+        "organizations",
+        "org-1",
+      ]),
+    ).toBeUndefined();
+    expect(activityReads).toBe(1);
+    expect(
+      screen.getByText(
+        "Activity data changed. Use Refresh to load the current log.",
+      ),
+    ).toBeTruthy();
+
+    const activityRefreshButton = screen
+      .getAllByRole("button", { name: "Refresh" })
+      .find((button) => button.getAttribute("aria-label") === "Refresh");
+    expect(activityRefreshButton).toBeTruthy();
+    await user.click(activityRefreshButton as HTMLButtonElement);
+    await waitFor(() => expect(activityReads).toBe(2));
+    expect(
+      screen.queryByText(
+        "Activity data changed. Use Refresh to load the current log.",
+      ),
+    ).toBeNull();
+  });
+
+  it("clears dependent caches after an ambiguous email send without refetching", async () => {
+    const user = userEvent.setup();
+    let activityReads = 0;
+    let sentLogReads = 0;
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (
+        stringPath === "/admin/partnership-crm/organizations/org-1/email" &&
+        init?.method === "POST"
+      ) {
+        throw new Error("Email response was lost");
+      }
+      if (stringPath.includes("/activities")) {
+        activityReads += 1;
+        return { activities: [], nextCursor: undefined };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/sent-email-log")) {
+        sentLogReads += 1;
+        return { emails: [], nextCursor: undefined };
+      }
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    const { client } = renderWorkbench();
+    const activityKey = [
+      "god-mode-partnership-crm-activities",
+      "organizations",
+      "org-1",
+    ];
+    const sentLogKey = ["god-mode-partnership-crm-sent-email-log"];
+    const detailKey = [
+      "god-mode-partnership-crm-organizations",
+      "detail",
+      "organizations",
+      "org-1",
+    ];
+    client.setQueryData(activityKey, {
+      pages: [{ activities: [], nextCursor: undefined }],
+      pageParams: [""],
+    });
+    client.setQueryData(sentLogKey, {
+      pages: [{ emails: [], nextCursor: undefined }],
+      pageParams: [""],
+    });
+    client.setQueryData(detailKey, { organization });
+
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Send CRM email",
+    });
+    await user.type(within(dialog).getByLabelText("Subject"), "Ambiguous send");
+    await user.type(
+      within(dialog).getByLabelText("Message"),
+      "This request may commit before the response is lost.",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Preview email" }),
+    );
+    await user.click(
+      await within(dialog).findByRole("button", { name: "Send email" }),
+    );
+
+    expect(await screen.findByText("Unable to send CRM email.")).toBeTruthy();
+    expect(client.getQueryData(activityKey)).toBeUndefined();
+    expect(client.getQueryData(sentLogKey)).toBeUndefined();
+    expect(client.getQueryData(detailKey)).toBeUndefined();
+    expect(activityReads).toBe(0);
+    expect(sentLogReads).toBe(0);
+    expect(screen.getByRole("dialog", { name: "Send CRM email" })).toBeTruthy();
+  });
+
+  it("requires another explicit expansion before reading a newly selected target activity", async () => {
+    const user = userEvent.setup();
+    const secondOrganization = {
+      ...organization,
+      id: "org-2",
+      name: "Second Activity Target",
+      contactEmail: "activity-two@example.org",
+    };
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (String(path).includes("/activities")) {
+        return { activities: [], nextCursor: undefined };
+      }
+      return {
+        organizations: [organization, secondOrganization],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: /Activity log/ }));
+    await waitFor(() => {
+      expect(
+        jest
+          .mocked(sdkFetch)
+          .mock.calls.some(([path]) =>
+            String(path).includes("/organizations/org-1/activities"),
+          ),
+      ).toBe(true);
+    });
+
+    await user.click(screen.getByText("Second Activity Target"));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.some(([path]) =>
+          String(path).includes("/organizations/org-2/activities"),
+        ),
+    ).toBe(false);
+    expect(
+      screen
+        .getByRole("button", { name: /Activity log/ })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+  });
 });
 
 describe("PartnershipCrmWorkbench list pager", () => {
@@ -2456,6 +4430,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
     routerRefresh.mockClear();
     jest.mocked(sdkFetch).mockReset();
     window.localStorage.clear();
+    window.sessionStorage.clear();
 
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       const stringPath = String(path);
@@ -2463,22 +4438,25 @@ describe("PartnershipCrmWorkbench list pager", () => {
         return { activities: [] };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
 
-      if (stringPath === "/admin/partnership-crm/organizations?limit=50") {
+      if (stringPath === "/admin/partnership-crm/organizations?limit=10") {
         return {
           organizations: [
             { ...organization, id: "org-page-1", name: "Genome Page 1" },
           ],
           nextCursor: "cursor-2",
+          partial: true,
+          scanned: 11,
+          asOf: "2026-10-15T12:00:00.000Z",
         };
       }
 
       if (
         stringPath ===
-        "/admin/partnership-crm/organizations?limit=50&cursor=cursor-2"
+        "/admin/partnership-crm/organizations?limit=10&cursor=cursor-2"
       ) {
         return {
           organizations: [
@@ -2492,7 +4470,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
     });
   });
 
-  it("shows cumulative funnel status metrics from all records matching the filters", async () => {
+  it("shows funnel status metrics from the explicitly loaded page", async () => {
     const visibleNewRows = Array.from({ length: 50 }, (_, index) => ({
       ...organization,
       id: `org-visible-${index + 1}`,
@@ -2507,7 +4485,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
         return { activities: [] };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
 
@@ -2534,23 +4512,21 @@ describe("PartnershipCrmWorkbench list pager", () => {
     });
 
     expect(
-      within(screen.getByRole("button", { name: /New\s+248/ })).getByText(
-        "248",
+      within(screen.getByRole("button", { name: /New\s+50/ })).getByText("50"),
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole("button", { name: /Contacted\s+0/ })).getByText(
+        "0",
       ),
     ).toBeTruthy();
     expect(
-      within(screen.getByRole("button", { name: /Contacted\s+7/ })).getByText(
-        "7",
+      within(screen.getByRole("button", { name: /Replied\s+0/ })).getByText(
+        "0",
       ),
     ).toBeTruthy();
     expect(
-      within(screen.getByRole("button", { name: /Replied\s+2/ })).getByText(
-        "2",
-      ),
-    ).toBeTruthy();
-    expect(
-      within(screen.getByRole("button", { name: /Meeting\s+2/ })).getByText(
-        "2",
+      within(screen.getByRole("button", { name: /Meeting\s+0/ })).getByText(
+        "0",
       ),
     ).toBeTruthy();
     expect(
@@ -2560,837 +4536,41 @@ describe("PartnershipCrmWorkbench list pager", () => {
     ).toBeTruthy();
   });
 
-  it("opens visual filters and applies selected pie-slice filters together", async () => {
+  it("builds visual-filter summaries from the loaded page without another CRM read", async () => {
     const user = userEvent.setup();
-    const listPaths: string[] = [];
-    const visualFilterPaths: string[] = [];
 
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
-      const stringPath = String(path);
-      if (stringPath.includes("/activities")) {
+      if (String(path).includes("/activities")) {
         return { activities: [] };
       }
-
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (String(path).startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
-
-      if (
-        stringPath.startsWith(
-          "/admin/partnership-crm/organizations/visual-filters",
-        )
-      ) {
-        visualFilterPaths.push(stringPath);
-        return {
-          targetKind: "organizations",
-          facets: {
-            status: {
-              key: "status",
-              total: 16,
-              buckets: [
-                { value: "new", count: 8 },
-                { value: "partner", count: 1 },
-                { value: "meeting", count: 2 },
-                { value: "no_response", count: 1 },
-                { value: "contacted", count: 2 },
-                { value: "replied", count: 2 },
-              ],
-            },
-            category: {
-              key: "category",
-              total: 21,
-              buckets: [
-                { value: "org_genomics_laboratories", count: 7 },
-                { value: "org_genetic_testing_laboratories", count: 5 },
-                { value: "org_molecular_diagnostics_laboratories", count: 4 },
-                { value: "org_reproductive_genetics_laboratories", count: 2 },
-                { value: "__no_category__", count: 1 },
-                { value: "org_prenatal_genetics_laboratories", count: 1 },
-                { value: "org_nipt_providers", count: 1 },
-              ],
-            },
-            country: {
-              key: "country",
-              total: 10,
-              buckets: [
-                { value: "__no_country__", count: 4 },
-                { value: "AR", count: 6 },
-              ],
-            },
-            linkedInState: {
-              key: "linkedInState",
-              total: 10,
-              buckets: [
-                { value: "missing_linkedin", count: 1 },
-                { value: "has_linkedin", count: 9 },
-              ],
-            },
-          },
-        };
-      }
-
-      if (stringPath.startsWith("/admin/partnership-crm/organizations")) {
-        listPaths.push(stringPath);
-      }
-
-      return {
-        organizations: [organization],
-        nextCursor: undefined,
-        statusCounts: {
-          new: 8,
-          contacted: 2,
-          replied: 0,
-          meeting: 0,
-          partner: 0,
-          no_response: 0,
-          not_interested: 0,
-          not_a_fit: 0,
-        },
-      };
+      return { organizations: [organization], nextCursor: undefined };
     });
 
     renderWorkbench();
-
-    await waitFor(() => {
-      expect(screen.getByText("Delete Me Genomics")).toBeTruthy();
-    });
+    await screen.findByText(organization.name);
+    const callsBeforeOpen = jest.mocked(sdkFetch).mock.calls.length;
 
     await user.click(screen.getByRole("button", { name: "Visual filters" }));
 
     const dialog = await screen.findByRole("dialog", {
       name: "Visual filters",
     });
-    await waitFor(() => {
-      expect(visualFilterPaths).toEqual([
-        "/admin/partnership-crm/organizations/visual-filters",
-      ]);
-    });
-    await waitFor(() => {
-      expect(within(dialog).getByText("Status")).toBeTruthy();
-      expect(within(dialog).getByText("CRM Contacted")).toBeTruthy();
-      expect(within(dialog).getByText("Genomics Laboratory")).toBeTruthy();
-      expect(within(dialog).getByText("No country")).toBeTruthy();
-    });
     const statusSection = within(dialog).getByText("Status").closest("section");
     expect(statusSection).toBeTruthy();
     expect(
-      within(statusSection as HTMLElement).queryByText("CRM No Response"),
-    ).toBeNull();
-    const statusPieSegments = within(statusSection as HTMLElement).getAllByRole(
-      "button",
-      {
-        name: /^Select visual filter from pie: Status -/,
-      },
-    );
-    expect(statusPieSegments[0].getAttribute("fill")).toBe("var(--chart-1)");
-    expect(statusPieSegments[0].getAttribute("stroke")).toBe(
-      "var(--background)",
-    );
-    expect(statusPieSegments[0].getAttribute("vector-effect")).toBe(
-      "non-scaling-stroke",
-    );
-    expect(statusPieSegments).toHaveLength(6);
-    expect(statusPieSegments[4].getAttribute("fill")).toBe(
-      "light-dark(#4338ca, #818cf8)",
-    );
-    expect(statusPieSegments[5].getAttribute("fill")).toBe(
-      "color-mix(in srgb, var(--chart-1) 74%, var(--foreground))",
-    );
-    expect(
-      statusPieSegments.map((button) => button.getAttribute("aria-label")),
-    ).toEqual([
-      "Select visual filter from pie: Status - CRM New",
-      "Select visual filter from pie: Status - CRM Meeting",
-      "Select visual filter from pie: Status - CRM Contacted",
-      "Select visual filter from pie: Status - CRM Replied",
-      "Select visual filter from pie: Status - CRM Partner",
-      "Select visual filter from pie: Status - CRM No Response",
-    ]);
-    expect(
-      within(statusSection as HTMLElement)
-        .getAllByRole("button", {
-          name: /^Select visual filter from legend: Status -/,
-        })
-        .map((button) => button.getAttribute("aria-label")),
-    ).toEqual([
-      "Select visual filter from legend: Status - CRM New",
-      "Select visual filter from legend: Status - CRM Meeting",
-      "Select visual filter from legend: Status - CRM Contacted",
-      "Select visual filter from legend: Status - CRM Replied",
-      "Select visual filter from legend: Status - CRM Partner",
-    ]);
-    const newStatusLegendButton = within(
-      statusSection as HTMLElement,
-    ).getByRole("button", {
-      name: "Select visual filter from legend: Status - CRM New",
-    });
-    const newStatusItemCount = within(newStatusLegendButton).getByText(
-      "8 items",
-    );
-    const newStatusPercent = within(newStatusLegendButton).getByText("50%");
-    expect(newStatusItemCount.className).toContain("w-24");
-    expect(newStatusItemCount.className).toContain("text-center");
-    expect(newStatusPercent.className).toContain("w-14");
-    expect(newStatusPercent.className).toContain("text-center");
-    expect(within(newStatusLegendButton).queryByText("8 · 50%")).toBeNull();
-    expect(
-      within(statusSection as HTMLElement).queryByRole("button", {
-        name: "Select visual filter from legend: Status - CRM No Response",
-      }),
-    ).toBeNull();
-
-    const selectedStatusBlock = within(statusSection as HTMLElement).getByRole(
-      "group",
-      {
-        name: "Selected segment: Status",
-      },
-    );
-    await user.click(
       within(statusSection as HTMLElement).getByRole("button", {
-        name: "See more",
+        name: "Select visual filter from pie: Status - CRM New",
       }),
-    );
-    const noResponseOverflowItem = await screen.findByRole("menuitem", {
-      name: "Select visual filter from legend: Status - CRM No Response",
-    });
-    expect(
-      screen.getByTestId("visual-filter-overflow-menu-status").className,
-    ).toContain("w-[min(42rem,calc(100vw-2rem))]");
-    expect(
-      within(noResponseOverflowItem).getByText("1 items").className,
-    ).toContain("w-24");
-    expect(within(noResponseOverflowItem).getByText("6%").className).toContain(
-      "w-14",
-    );
-    expect(within(noResponseOverflowItem).queryByText("1 · 6%")).toBeNull();
-    await user.click(noResponseOverflowItem);
-    expect(
-      within(selectedStatusBlock).getByText("CRM No Response"),
     ).toBeTruthy();
-    expect(within(selectedStatusBlock).getByText("1 items")).toBeTruthy();
-    expect(within(selectedStatusBlock).getByText("6%")).toBeTruthy();
-    expect(within(selectedStatusBlock).queryByText("1 · 6%")).toBeNull();
-
-    const categorySection = within(dialog)
-      .getByText("Category")
-      .closest("section");
-    expect(categorySection).toBeTruthy();
-    const categoryPieSegments = within(
-      categorySection as HTMLElement,
-    ).getAllByRole("button", {
-      name: /^Select visual filter from pie: Category -/,
-    });
-    expect(categoryPieSegments).toHaveLength(7);
+    expect(jest.mocked(sdkFetch).mock.calls).toHaveLength(callsBeforeOpen);
     expect(
-      categoryPieSegments.map((button) => button.getAttribute("aria-label")),
-    ).toEqual([
-      "Select visual filter from pie: Category - Genomics Laboratory",
-      "Select visual filter from pie: Category - Genetic Testing Laboratory",
-      "Select visual filter from pie: Category - Molecular Diagnostics Laboratory",
-      "Select visual filter from pie: Category - Reproductive Genetics Laboratory",
-      "Select visual filter from pie: Category - No category",
-      "Select visual filter from pie: Category - Prenatal Genetics Laboratory",
-      "Select visual filter from pie: Category - NIPT Provider",
-    ]);
-    expect(
-      within(categorySection as HTMLElement)
-        .getAllByRole("button", {
-          name: /^Select visual filter from legend: Category -/,
-        })
-        .map((button) => button.getAttribute("aria-label")),
-    ).toEqual([
-      "Select visual filter from legend: Category - Genomics Laboratory",
-      "Select visual filter from legend: Category - Genetic Testing Laboratory",
-      "Select visual filter from legend: Category - Molecular Diagnostics Laboratory",
-      "Select visual filter from legend: Category - Reproductive Genetics Laboratory",
-      "Select visual filter from legend: Category - No category",
-    ]);
-    await user.click(
-      within(categorySection as HTMLElement).getByRole("button", {
-        name: "See more",
-      }),
-    );
-    await user.click(
-      await screen.findByRole("menuitem", {
-        name: "Select visual filter from legend: Category - Prenatal Genetics Laboratory",
-      }),
-    );
-    const selectedCategoryBlock = within(
-      categorySection as HTMLElement,
-    ).getByRole("group", {
-      name: "Selected segment: Category",
-    });
-    expect(
-      within(selectedCategoryBlock).getByText("Prenatal Genetics Laboratory"),
-    ).toBeTruthy();
-
-    const countrySection = within(dialog)
-      .getByText("Country")
-      .closest("section");
-    expect(countrySection).toBeTruthy();
-    expect(
-      within(countrySection as HTMLElement)
-        .getAllByRole("button", {
-          name: /^Select visual filter from legend: Country -/,
-        })
-        .map((button) => button.getAttribute("aria-label")),
-    ).toEqual([
-      "Select visual filter from legend: Country - Argentina (AR)",
-      "Select visual filter from legend: Country - No country",
-    ]);
-
-    const linkedInSection = within(dialog)
-      .getByText("LinkedIn availability")
-      .closest("section");
-    expect(linkedInSection).toBeTruthy();
-    expect(
-      within(linkedInSection as HTMLElement)
-        .getAllByRole("button", {
-          name: /^Select visual filter from legend: LinkedIn availability -/,
-        })
-        .map((button) => button.getAttribute("aria-label")),
-    ).toEqual([
-      "Select visual filter from legend: LinkedIn availability - Has LinkedIn",
-      "Select visual filter from legend: LinkedIn availability - Missing LinkedIn",
-    ]);
-    expect(
-      within(statusSection as HTMLElement).getByTestId(
-        "visual-filter-center-count-status",
-      ).textContent,
-    ).toBe("1");
-
-    await user.click(
-      within(dialog).getByRole("button", {
-        name: "Select visual filter from pie: Status - CRM Contacted",
-      }),
-    );
-
-    expect(within(selectedStatusBlock).getByText("CRM Contacted")).toBeTruthy();
-    expect(
-      within(statusSection as HTMLElement).getByTestId(
-        "visual-filter-center-count-status",
-      ).textContent,
-    ).toBe("2");
-    await user.click(
-      within(selectedStatusBlock).getByRole("button", {
-        name: "Clear selection",
-      }),
-    );
-    expect(
-      within(selectedStatusBlock).getByText("No segment selected"),
-    ).toBeTruthy();
-    expect(
-      within(statusSection as HTMLElement)
-        .getByRole("button", {
-          name: "Select visual filter from pie: Status - CRM Contacted",
-        })
-        .getAttribute("aria-pressed"),
-    ).toBe("false");
-    expect(
-      within(statusSection as HTMLElement).getByTestId(
-        "visual-filter-center-count-status",
-      ).textContent,
-    ).toBe("16");
-    await user.click(
-      within(dialog).getByRole("button", {
-        name: "Select visual filter from pie: Status - CRM Contacted",
-      }),
-    );
-    expect(within(selectedStatusBlock).getByText("CRM Contacted")).toBeTruthy();
-    expect(
-      within(statusSection as HTMLElement).getByTestId(
-        "visual-filter-center-count-status",
-      ).textContent,
-    ).toBe("2");
-    await user.click(
-      within(dialog).getByRole("button", {
-        name: "Select visual filter from pie: Status - CRM Contacted",
-      }),
-    );
-    expect(
-      within(selectedStatusBlock).getByText("No segment selected"),
-    ).toBeTruthy();
-    expect(
-      within(statusSection as HTMLElement).getByTestId(
-        "visual-filter-center-count-status",
-      ).textContent,
-    ).toBe("16");
-    await user.click(
-      within(dialog).getByRole("button", {
-        name: "Select visual filter from pie: Status - CRM Contacted",
-      }),
-    );
-    expect(within(selectedStatusBlock).getByText("CRM Contacted")).toBeTruthy();
-    expect(
-      within(statusSection as HTMLElement).getByTestId(
-        "visual-filter-center-count-status",
-      ).textContent,
-    ).toBe("2");
-    expect(
-      within(statusSection as HTMLElement)
-        .getByRole("button", {
-          name: "Select visual filter from pie: Status - CRM Contacted",
-        })
-        .getAttribute("stroke"),
-    ).toBe("var(--foreground)");
-    expect(statusPieSegments[0].getAttribute("class")).toContain("opacity-55");
-    expect(screen.getByRole("dialog", { name: "Visual filters" })).toBeTruthy();
-    expect(listPaths).not.toContain(
-      "/admin/partnership-crm/organizations?limit=50&status=contacted",
-    );
-
-    const clearAllFiltersButton = within(dialog).getByRole("button", {
-      name: "Clear all filters",
-    });
-    await user.click(clearAllFiltersButton);
-    expect(
-      within(selectedStatusBlock).getByText("No segment selected"),
-    ).toBeTruthy();
-    expect(
-      within(dialog).getByRole("button", { name: "Apply" }),
-    ).toHaveProperty("disabled", false);
-    expect(
-      within(statusSection as HTMLElement)
-        .getByRole("button", {
-          name: "Select visual filter from pie: Status - CRM Contacted",
-        })
-        .getAttribute("aria-pressed"),
-    ).toBe("false");
-    expect(listPaths).not.toContain(
-      "/admin/partnership-crm/organizations?limit=50&status=contacted",
-    );
-
-    await user.click(
-      within(dialog).getByRole("button", {
-        name: "Select visual filter from pie: Status - CRM Contacted",
-      }),
-    );
-    await user.click(
-      within(dialog).getByRole("button", {
-        name: "Select visual filter from legend: Category - No category",
-      }),
-    );
-    await user.click(
-      within(dialog).getByRole("button", {
-        name: "Select visual filter from legend: LinkedIn availability - Missing LinkedIn",
-      }),
-    );
-    await user.click(within(dialog).getByRole("button", { name: "Apply" }));
-
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Visual filters" }),
-      ).toBeNull();
-    });
-    await waitFor(() => {
-      expect(listPaths).toContain(
-        "/admin/partnership-crm/organizations?limit=50&status=contacted&category=__no_category__&linkedInState=missing_linkedin",
-      );
-    });
-  });
-
-  it("opens visual filters from active list filters without scoping visual totals and clears every filter", async () => {
-    const user = userEvent.setup();
-    const listPaths: string[] = [];
-    const visualFilterPaths: string[] = [];
-
-    jest.mocked(sdkFetch).mockImplementation(async (path) => {
-      const stringPath = String(path);
-      if (stringPath.includes("/activities")) {
-        return { activities: [] };
-      }
-
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
-        return { templates: [], nextCursor: undefined };
-      }
-
-      if (
-        stringPath.startsWith(
-          "/admin/partnership-crm/organizations/visual-filters",
-        )
-      ) {
-        visualFilterPaths.push(stringPath);
-        return {
-          targetKind: "organizations",
-          facets: {
-            status: {
-              key: "status",
-              total: 16,
-              buckets: [
-                { value: "new", count: 8 },
-                { value: "contacted", count: 2 },
-                { value: "replied", count: 2 },
-                { value: "meeting", count: 2 },
-                { value: "partner", count: 1 },
-                { value: "no_response", count: 1 },
-              ],
-            },
-            category: {
-              key: "category",
-              total: 10,
-              buckets: [
-                { value: "org_genomics_laboratories", count: 7 },
-                { value: "__no_category__", count: 3 },
-              ],
-            },
-            country: {
-              key: "country",
-              total: 10,
-              buckets: [
-                { value: "AR", count: 6 },
-                { value: "__no_country__", count: 4 },
-              ],
-            },
-            linkedInState: {
-              key: "linkedInState",
-              total: 10,
-              buckets: [
-                { value: "has_linkedin", count: 9 },
-                { value: "missing_linkedin", count: 1 },
-              ],
-            },
-          },
-        };
-      }
-
-      if (stringPath.startsWith("/admin/partnership-crm/organizations")) {
-        listPaths.push(stringPath);
-      }
-
-      return {
-        organizations: [organization],
-        nextCursor: undefined,
-        statusCounts: {
-          new: 8,
-          contacted: 2,
-          replied: 0,
-          meeting: 0,
-          partner: 0,
-          no_response: 0,
-          not_interested: 0,
-          not_a_fit: 0,
-        },
-      };
-    });
-
-    renderWorkbench();
-
-    await waitFor(() => {
-      expect(screen.getByText("Delete Me Genomics")).toBeTruthy();
-    });
-
-    const searchInput = screen.getByPlaceholderText(
-      "Search organizations...",
-    ) as HTMLInputElement;
-    await user.type(searchInput, "Genome");
-    await user.click(screen.getByRole("button", { name: /Contacted\s+2/ }));
-
-    await waitFor(() => {
-      expect(
-        listPaths.some(
-          (path) =>
-            path.includes("query=Genome") && path.includes("status=contacted"),
-        ),
-      ).toBe(true);
-    });
-
-    await user.click(screen.getByRole("button", { name: "Visual filters" }));
-
-    const dialog = await screen.findByRole("dialog", {
-      name: "Visual filters",
-    });
-    await waitFor(() => {
-      expect(visualFilterPaths).toEqual([
-        "/admin/partnership-crm/organizations/visual-filters",
-      ]);
-    });
-    expect(visualFilterPaths.some((path) => path.includes("?"))).toBe(false);
-
-    const statusSection = within(dialog).getByText("Status").closest("section");
-    expect(statusSection).toBeTruthy();
-    const selectedStatusBlock = within(statusSection as HTMLElement).getByRole(
-      "group",
-      {
-        name: "Selected segment: Status",
-      },
-    );
-    await waitFor(() => {
-      expect(
-        within(selectedStatusBlock).getByText("CRM Contacted"),
-      ).toBeTruthy();
-    });
-    expect(
-      within(statusSection as HTMLElement)
-        .getByRole("button", {
-          name: "Select visual filter from pie: Status - CRM Contacted",
-        })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-
-    await user.click(
-      within(dialog).getByRole("button", {
-        name: "Clear all filters",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(
-        within(selectedStatusBlock).getByText("No segment selected"),
-      ).toBeTruthy();
-    });
-    expect(
-      (
-        screen.getByPlaceholderText(
-          "Search organizations...",
-        ) as HTMLInputElement
-      ).value,
-    ).toBe("");
-    expect(
-      within(statusSection as HTMLElement)
-        .getByRole("button", {
-          name: "Select visual filter from pie: Status - CRM Contacted",
-        })
-        .getAttribute("aria-pressed"),
-    ).toBe("false");
-  });
-
-  it("clears one selected visual filter and removes it when applying", async () => {
-    const user = userEvent.setup();
-    const listPaths: string[] = [];
-
-    jest.mocked(sdkFetch).mockImplementation(async (path) => {
-      const stringPath = String(path);
-      if (stringPath.includes("/activities")) {
-        return { activities: [] };
-      }
-
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
-        return { templates: [], nextCursor: undefined };
-      }
-
-      if (
-        stringPath.startsWith(
-          "/admin/partnership-crm/organizations/visual-filters",
-        )
-      ) {
-        return {
-          targetKind: "organizations",
-          facets: {
-            status: {
-              key: "status",
-              total: 10,
-              buckets: [
-                { value: "new", count: 8 },
-                { value: "contacted", count: 2 },
-              ],
-            },
-            category: {
-              key: "category",
-              total: 10,
-              buckets: [{ value: "org_genomics_laboratories", count: 10 }],
-            },
-            country: {
-              key: "country",
-              total: 10,
-              buckets: [{ value: "AR", count: 10 }],
-            },
-            linkedInState: {
-              key: "linkedInState",
-              total: 10,
-              buckets: [{ value: "has_linkedin", count: 10 }],
-            },
-          },
-        };
-      }
-
-      if (stringPath.startsWith("/admin/partnership-crm/organizations")) {
-        listPaths.push(stringPath);
-      }
-
-      return {
-        organizations: [organization],
-        nextCursor: undefined,
-        statusCounts: {
-          new: 8,
-          contacted: 2,
-          replied: 0,
-          meeting: 0,
-          partner: 0,
-          no_response: 0,
-          not_interested: 0,
-          not_a_fit: 0,
-        },
-      };
-    });
-
-    renderWorkbench();
-
-    await waitFor(() => {
-      expect(screen.getByText("Delete Me Genomics")).toBeTruthy();
-    });
-
-    const searchInput = screen.getByPlaceholderText(
-      "Search organizations...",
-    ) as HTMLInputElement;
-    await user.type(searchInput, "Genome");
-    await user.click(screen.getByRole("button", { name: /Contacted\s+2/ }));
-
-    await waitFor(() => {
-      expect(
-        listPaths.some(
-          (path) =>
-            path.includes("query=Genome") && path.includes("status=contacted"),
-        ),
-      ).toBe(true);
-    });
-
-    await user.click(screen.getByRole("button", { name: "Visual filters" }));
-
-    const dialog = await screen.findByRole("dialog", {
-      name: "Visual filters",
-    });
-    const statusSection = within(dialog).getByText("Status").closest("section");
-    expect(statusSection).toBeTruthy();
-    const selectedStatusBlock = within(statusSection as HTMLElement).getByRole(
-      "group",
-      {
-        name: "Selected segment: Status",
-      },
-    );
-
-    await waitFor(() => {
-      expect(
-        within(selectedStatusBlock).getByText("CRM Contacted"),
-      ).toBeTruthy();
-    });
-
-    await user.click(
-      within(selectedStatusBlock).getByRole("button", {
-        name: "Clear selection",
-      }),
-    );
-
-    expect(
-      within(selectedStatusBlock).getByText("No segment selected"),
-    ).toBeTruthy();
-    expect(
-      within(dialog).getByRole("button", { name: "Apply" }),
-    ).toHaveProperty("disabled", false);
-
-    const statusPathCountBeforeApply = listPaths.filter((path) =>
-      path.includes("status=contacted"),
-    ).length;
-    await user.click(within(dialog).getByRole("button", { name: "Apply" }));
-
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Visual filters" }),
-      ).toBeNull();
-    });
-    await waitFor(() => {
-      expect(listPaths).toContain(
-        "/admin/partnership-crm/organizations?limit=50&query=Genome",
-      );
-    });
-    expect(
-      listPaths.filter((path) => path.includes("status=contacted")),
-    ).toHaveLength(statusPathCountBeforeApply);
-  });
-
-  it("can apply an empty visual filter state after clearing all filters", async () => {
-    const user = userEvent.setup();
-
-    jest.mocked(sdkFetch).mockImplementation(async (path) => {
-      const stringPath = String(path);
-      if (stringPath.includes("/activities")) {
-        return { activities: [] };
-      }
-
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
-        return { templates: [], nextCursor: undefined };
-      }
-
-      if (
-        stringPath.startsWith(
-          "/admin/partnership-crm/organizations/visual-filters",
-        )
-      ) {
-        return {
-          targetKind: "organizations",
-          facets: {
-            status: {
-              key: "status",
-              total: 10,
-              buckets: [
-                { value: "new", count: 8 },
-                { value: "contacted", count: 2 },
-              ],
-            },
-            category: {
-              key: "category",
-              total: 10,
-              buckets: [{ value: "org_genomics_laboratories", count: 10 }],
-            },
-            country: {
-              key: "country",
-              total: 10,
-              buckets: [{ value: "AR", count: 10 }],
-            },
-            linkedInState: {
-              key: "linkedInState",
-              total: 10,
-              buckets: [{ value: "has_linkedin", count: 10 }],
-            },
-          },
-        };
-      }
-
-      return {
-        organizations: [organization],
-        nextCursor: undefined,
-        statusCounts: {
-          new: 8,
-          contacted: 2,
-          replied: 0,
-          meeting: 0,
-          partner: 0,
-          no_response: 0,
-          not_interested: 0,
-          not_a_fit: 0,
-        },
-      };
-    });
-
-    renderWorkbench();
-
-    await waitFor(() => {
-      expect(screen.getByText("Delete Me Genomics")).toBeTruthy();
-    });
-
-    await user.click(screen.getByRole("button", { name: "Visual filters" }));
-    const dialog = await screen.findByRole("dialog", {
-      name: "Visual filters",
-    });
-    expect(
-      within(dialog).getByRole("button", { name: "Apply" }),
-    ).toHaveProperty("disabled", true);
-
-    await user.click(
-      within(dialog).getByRole("button", {
-        name: "Clear all filters",
-      }),
-    );
-
-    expect(
-      within(dialog).getByRole("button", { name: "Apply" }),
-    ).toHaveProperty("disabled", false);
-    await user.click(within(dialog).getByRole("button", { name: "Apply" }));
-
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Visual filters" }),
-      ).toBeNull();
-    });
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.some(([path]) => String(path).includes("/visual-filters")),
+    ).toBe(false);
   });
 
   it("shows visible count, page count, and previous/next controls as a right-aligned pager", async () => {
@@ -3404,12 +4584,15 @@ describe("PartnershipCrmWorkbench list pager", () => {
     const pager = screen.getByText("1 visible").parentElement;
     expect(pager?.className).toContain("justify-end");
     expect(screen.getByText("Page 1 of 2+")).toBeTruthy();
+    expect(screen.getByTestId("crm-bounded-sample-note").textContent).toContain(
+      "Approximate bounded sample · 11 records checked",
+    );
     expect(screen.getByRole("button", { name: "Previous" })).toHaveProperty(
       "disabled",
       true,
     );
 
-    const nextButton = screen.getByRole("button", { name: "Next page" });
+    const nextButton = screen.getByRole("button", { name: "See 10 more" });
     expect(nextButton).toHaveProperty("disabled", false);
 
     await user.click(nextButton);
@@ -3422,13 +4605,38 @@ describe("PartnershipCrmWorkbench list pager", () => {
       "disabled",
       false,
     );
-    expect(screen.getByRole("button", { name: "Next page" })).toHaveProperty(
+    expect(screen.getByRole("button", { name: "See 10 more" })).toHaveProperty(
       "disabled",
       true,
     );
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/organizations?limit=50&cursor=cursor-2",
+      "/admin/partnership-crm/organizations?limit=10&cursor=cursor-2",
+      expect.objectContaining({ headers: expect.any(Headers) }),
     );
+  });
+
+  it("describes an empty filtered page as a bounded sample", async () => {
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (String(path).startsWith("/admin/partnership-crm/email-templates")) {
+        return { templates: [], nextCursor: undefined };
+      }
+      return {
+        organizations: [],
+        nextCursor: "cursor-2",
+        partial: true,
+        scanned: 11,
+        asOf: "2026-10-15T12:00:00.000Z",
+      };
+    });
+
+    renderWorkbench();
+
+    expect(
+      await screen.findByText(
+        "No matches in this bounded sample. Use See 10 more to continue.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("No CRM organizations found.")).toBeNull();
   });
 });
 
@@ -3437,6 +4645,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     routerRefresh.mockClear();
     jest.mocked(sdkFetch).mockReset();
     window.localStorage.clear();
+    window.sessionStorage.clear();
 
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
       const stringPath = String(path);
@@ -3509,7 +4718,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
         };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
 
@@ -3567,6 +4776,9 @@ describe("PartnershipCrmWorkbench import flow", () => {
   it("loads a CSV and imports selected rows from interactive cards", async () => {
     const user = userEvent.setup();
     renderWorkbench();
+    const summaryCacheKey =
+      "golden-crow:partnership-crm:summary:v2:preview-safe";
+    window.sessionStorage.setItem(summaryCacheKey, "preserve-during-preview");
 
     await user.click(screen.getByRole("button", { name: "Import CSV" }));
     const dialog = await screen.findByRole("dialog");
@@ -3614,12 +4826,17 @@ describe("PartnershipCrmWorkbench import flow", () => {
     expect(
       JSON.parse(String(crmPreviewCalls()[0]?.[1]?.body)).organizations,
     ).toEqual([expect.objectContaining({ rowId: "row-1" })]);
+    expect(window.sessionStorage.getItem(summaryCacheKey)).toBe(
+      "preserve-during-preview",
+    );
+    expect(screen.queryByText("Data changed. Refresh when ready.")).toBeNull();
 
     await user.click(within(dialog).getByRole("button", { name: "Add" }));
     await waitFor(() => {
       expect(within(dialog).getByText("Row 2 of 3")).toBeTruthy();
     });
     expect(crmImportCalls()).toHaveLength(1);
+    expect(window.sessionStorage.getItem(summaryCacheKey)).toBeNull();
     expect(
       JSON.parse(String(crmImportCalls()[0]?.[1]?.body)).organizations,
     ).toEqual([
@@ -3759,7 +4976,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
         };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
 
@@ -3932,7 +5149,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
         };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
 
@@ -4010,9 +5227,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
         "Mobile delivery for hereditary and prenatal genetic reports. Next step: Demo one of Genos' current reports in Pocket Genes and propose a small local pilot.",
       ).length,
     ).toBeGreaterThan(0);
-    expect(
-      within(resolver).getAllByText("reviewed").length,
-    ).toBeGreaterThan(0);
+    expect(within(resolver).getAllByText("reviewed").length).toBeGreaterThan(0);
 
     await user.click(
       within(resolver).getByRole("button", { name: "Save compatibility" }),
@@ -4166,7 +5381,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
         };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
 
@@ -4203,7 +5418,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Import remaining in sequence",
+        name: "Process next 5",
       }),
     );
     await firstImportStarted;
@@ -4217,7 +5432,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     await waitFor(() => {
       expect(
         within(dialog).getByRole("button", {
-          name: "Import remaining in sequence",
+          name: "Process next 5",
         }),
       ).toBeTruthy();
     });
@@ -4231,13 +5446,13 @@ describe("PartnershipCrmWorkbench import flow", () => {
       expect.objectContaining({
         mode: "interactive",
         nextImportIndex: 1,
-        status: "ready",
+        status: "paused",
       }),
     );
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Import remaining in sequence",
+        name: "Process next 5",
       }),
     );
 
@@ -4355,7 +5570,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
         };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
 
@@ -4388,7 +5603,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Import remaining in sequence",
+        name: "Process next 5",
       }),
     );
 
@@ -4407,6 +5622,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
   it("shows a copyable row-level diagnostic log when interactive import fails", async () => {
     const user = userEvent.setup();
+    let importAttemptCount = 0;
     const requestError = Object.assign(new Error("Bad Request"), {
       status: 400,
       method: "POST",
@@ -4470,10 +5686,30 @@ describe("PartnershipCrmWorkbench import flow", () => {
       }
 
       if (stringPath === "/admin/partnership-crm/import") {
-        throw requestError;
+        importAttemptCount += 1;
+        if (importAttemptCount === 1) {
+          throw requestError;
+        }
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{ rowId: string }>;
+        };
+        return {
+          results: body.organizations.map((row) => ({
+            rowId: row.rowId,
+            action: "created",
+            organizationId: "imported-after-retry",
+          })),
+          summary: {
+            total: 1,
+            created: 1,
+            updated: 0,
+            skipped: 0,
+            invalid: 0,
+          },
+        };
       }
 
-      if (stringPath.startsWith("/admin/partnership-crm/templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
 
@@ -4538,6 +5774,166 @@ describe("PartnershipCrmWorkbench import flow", () => {
     await expect(navigator.clipboard.readText()).resolves.toContain(
       "Invalid category key",
     );
+
+    const firstImportPayload = JSON.parse(
+      String(crmImportCalls()[0]?.[1]?.body),
+    );
+    const previewPayload = JSON.parse(String(crmPreviewCalls()[0]?.[1]?.body));
+    expect(previewPayload.organizations[0]).not.toHaveProperty(
+      "idempotencyKey",
+    );
+    expect(firstImportPayload.organizations[0].idempotencyKey).toBe(
+      `${crmImportSession().id}:row-1`,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Retry verification",
+        hidden: true,
+      }),
+    );
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Add" }),
+      ).toHaveProperty("disabled", false);
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    await waitFor(() => {
+      expect(within(dialog).getByText("CRM import finished")).toBeTruthy();
+    });
+    expect(crmImportCalls()).toHaveLength(2);
+    const secondImportPayload = JSON.parse(
+      String(crmImportCalls()[1]?.[1]?.body),
+    );
+    expect(secondImportPayload.organizations[0].idempotencyKey).toBe(
+      firstImportPayload.organizations[0].idempotencyKey,
+    );
+  });
+
+  it("reports the next sequential import row as definitely not sent after fail-closed usage", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (stringPath === "/admin/partnership-crm/import-preview") {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{
+            rowId: string;
+            name?: string;
+            category?: string;
+            website?: string;
+            country?: string;
+            contactName?: string;
+            contactEmail?: string;
+            notes?: string;
+          }>;
+        };
+        return {
+          rows: body.organizations.map((row) => ({
+            rowId: row.rowId,
+            organization: {
+              name: row.name ?? "",
+              category: row.category ?? "",
+              website: row.website ?? "",
+              country: row.country ?? "",
+              status: "new",
+              contactName: row.contactName ?? "",
+              contactEmail: row.contactEmail ?? "",
+              contactLinkedIn: "",
+              lastContactAt: null,
+              notes: row.notes ?? "",
+            },
+            valid: true,
+            errors: [],
+            missingEmail: false,
+            duplicateCandidates: [],
+          })),
+          summary: {
+            total: body.organizations.length,
+            valid: body.organizations.length,
+            invalid: 0,
+            missingEmail: 0,
+            duplicates: 0,
+          },
+          usage: {
+            surface: "crm",
+            used: 2,
+            limit: 100,
+            percentage: 2,
+            remaining: 98,
+            resetAt: "2026-10-16T07:00:00.000Z",
+            locked: false,
+          },
+        };
+      }
+      if (stringPath === "/admin/partnership-crm/import") {
+        const body = JSON.parse(String(init?.body)) as {
+          organizations: Array<{ rowId: string }>;
+        };
+        return {
+          results: body.organizations.map((row) => ({
+            rowId: row.rowId,
+            action: "created",
+            organizationId: `imported-${row.rowId}`,
+          })),
+          summary: {
+            total: 1,
+            created: 1,
+            updated: 0,
+            skipped: 0,
+            invalid: 0,
+          },
+          // Deliberately omit authoritative usage. crmFetch must fail closed
+          // before the second row can make a request.
+        };
+      }
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench("en", {
+      autoLoad: false,
+      injectActionUsage: false,
+    });
+    await user.click(screen.getByRole("button", { name: "Import CSV" }));
+    const dialog = await screen.findByRole("dialog");
+    const csv = crmCsv(2);
+    const file = new File([csv], "usage-boundary-import.csv", {
+      type: "text/csv",
+    });
+    Object.defineProperty(file, "text", { value: async () => csv });
+    await user.upload(within(dialog).getByLabelText("CSV file"), file);
+    await waitFor(() => {
+      expect(within(dialog).getByText("CSV loaded")).toBeTruthy();
+    });
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Process next 5" }),
+    );
+
+    expect(
+      await within(dialog).findByText(
+        "Row 2 of 2 was not sent. Completed rows and the saved checkpoint were kept. Verify CRM usage or wait for the daily reset, then resume this row.",
+      ),
+    ).toBeTruthy();
+    expect(crmImportCalls()).toHaveLength(1);
+    expect(crmImportSession()).toEqual(
+      expect.objectContaining({
+        status: "paused",
+        nextImportIndex: 1,
+        results: [expect.objectContaining({ rowId: "row-1" })],
+        lastErrorDetail: expect.objectContaining({
+          rowNumber: 2,
+          requestNotSent: true,
+        }),
+      }),
+    );
+    expect(within(dialog).queryByText(/Fix the CSV row/)).toBeNull();
+
+    await user.click(within(dialog).getByRole("button", { name: "Show log" }));
+    const logText = dialog.querySelector("pre")?.textContent ?? "";
+    expect(logText).toContain("Request status: Not sent");
+    expect(logText).toContain("Next step");
+    expect(logText).not.toContain("What to fix");
+    expect(logText).not.toContain("Backend response details");
   });
 
   it("imports all rows sequentially while accepting every valid row", async () => {
@@ -4556,7 +5952,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     });
 
     await user.click(
-      within(dialog).getByRole("button", { name: "Import all" }),
+      within(dialog).getByRole("button", { name: "Process next 5" }),
     );
 
     await waitFor(() => {
