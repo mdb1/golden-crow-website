@@ -22,7 +22,9 @@
     "restore:gc-fitness-legacy-standard-duplicates": "node --experimental-transform-types scripts/restore-legacy-standard-duplicates.ts",
     "migrate:gc-fitness-standard-exercise-names": "node --experimental-transform-types scripts/migrate-standard-exercise-names.ts",
     "bump:version": "python3 scripts/bump-sidebar-version.py",
-    "check:no-default-app": "bash ../scripts/check-no-default-app.sh"
+    "check:no-default-app": "bash ../scripts/check-no-default-app.sh",
+    "actions:contract": "node scripts/server-actions-contract.cjs --write",
+    "check:deploy-skew": "bash scripts/check-deploy-skew.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
