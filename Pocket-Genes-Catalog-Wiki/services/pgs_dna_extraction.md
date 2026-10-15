@@ -5,6 +5,7 @@ Produce an identified DNA sample from one compatible blood, tissue or embryo-bio
 **Provider:** Atlas Precision Laboratory (`pgp_precision_lab`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_dna_extraction`<br>
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

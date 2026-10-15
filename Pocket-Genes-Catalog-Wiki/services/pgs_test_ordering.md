@@ -5,6 +5,7 @@ Combine the consent record, candidate genes and patient/request context into the
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_genetic_test_ordering`<br>
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

@@ -5,6 +5,7 @@ Turn the submitted observations into a reusable symptom bundle. A professional o
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_clinical_intake_phenotyping`<br>
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

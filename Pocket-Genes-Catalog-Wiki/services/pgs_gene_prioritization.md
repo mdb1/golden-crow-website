@@ -5,6 +5,7 @@ Use a symptom bundle to return a ranked or selected bundle of candidate genes fo
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_gene_variant_prioritization`<br>
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

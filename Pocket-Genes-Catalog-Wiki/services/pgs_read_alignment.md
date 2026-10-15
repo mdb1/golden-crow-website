@@ -5,6 +5,7 @@ Align accepted FASTQ reads to the order reference and return an aligned-read obj
 **Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_read_alignment`<br>
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

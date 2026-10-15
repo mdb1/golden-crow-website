@@ -381,6 +381,41 @@ EXPECTED_HUMAN_ADVICE_SERVICE_OFFER_TYPE_KEYS = (
 OBJECT_BY_ID = {item["id"]: item for item in OBJECTS}
 SCHEMAS = {type_id: read(f"schemas/objects/{type_id}.schema.json") for type_id in TYPE_IDS}
 VALIDATORS = {type_id: schema_validator(schema) for type_id, schema in SCHEMAS.items()}
+SERVICE_OFFER_TYPE_KEYS = [item["key"] for item in SERVICE_OFFER_TYPES]
+SERVICE_OFFER_TYPE_KEY_SET = set(SERVICE_OFFER_TYPE_KEYS)
+GENOMIC_SERVICE_OFFER_TYPE_KEYS = SERVICE_OFFER_TYPE_KEYS[:60]
+HUMAN_ADVICE_SERVICE_OFFER_TYPE_KEYS = SERVICE_OFFER_TYPE_KEYS[60:]
+CANONICAL_SERVICE_OFFER_TYPE_TOKEN = r"sot_[a-z0-9]+(?:_[a-z0-9]+)*"
+NO_DUPLICATE_SERVICE_OFFER_TYPES = (
+    rf"(?!.*(?:^|,)({CANONICAL_SERVICE_OFFER_TYPE_TOKEN})(?:,.*)?(?:^|,)\1(?:,|$))"
+)
+
+
+def service_offer_category_sequence_pattern(keys: list[str]) -> str:
+    key_pattern = "(?:" + "|".join(re.escape(key) for key in keys) + ")"
+    return rf"^{NO_DUPLICATE_SERVICE_OFFER_TYPES}{key_pattern}(?:,{key_pattern})*$"
+
+
+def service_offer_category_membership_pattern(keys: list[str]) -> str:
+    all_key_pattern = "(?:" + "|".join(re.escape(key) for key in SERVICE_OFFER_TYPE_KEYS) + ")"
+    member_pattern = "(?:" + "|".join(re.escape(key) for key in keys) + ")"
+    return rf"^(?:{all_key_pattern},)*{member_pattern}(?:,{all_key_pattern})*$"
+
+
+def canonical_service_offer_category_keys(value: object) -> list[str]:
+    if not isinstance(value, str):
+        raise ValueError("serviceCategory must remain a scalar String")
+    keys = value.split(",")
+    if not keys or any(not key or key != key.strip() for key in keys):
+        raise ValueError("serviceCategory must be a comma join with no empty or padded tokens")
+    if any(key not in SERVICE_OFFER_TYPE_KEY_SET for key in keys):
+        raise ValueError("serviceCategory contains an unregistered key")
+    if len(keys) != len(set(keys)):
+        raise ValueError("serviceCategory contains a duplicate key")
+    contains_advice = any(key in HUMAN_ADVICE_SERVICE_OFFER_TYPE_KEYS for key in keys)
+    if contains_advice and any(key in GENOMIC_SERVICE_OFFER_TYPE_KEYS for key in keys):
+        raise ValueError("serviceCategory cannot mix genomic and human-advice keys")
+    return keys
 
 
 def assert_https_url(value: str):
@@ -1158,13 +1193,36 @@ def validate_service_offer_type_registry():
         require(set(item) == canonical_fields, f"Unexpected service-offer type fields for {item['key']}")
         for field in ("nameEnglish", "nameSpanish", "descriptionEnglish", "descriptionSpanish", "systemImage"):
             require(isinstance(item.get(field), str) and item[field].strip(), f"Missing {field} for {item['key']}")
-    require(all(service.get("serviceCategory") in keys for service in SERVICES), "A catalog service uses an unknown serviceCategory")
-    service_schema = read("schemas/protocol/service-definition.schema.json")["$defs"]["service_definition"]
-    require(service_schema["properties"]["serviceCategory"]["enum"] == keys, "Schema serviceCategory enum differs from registry")
-    transaction_schema = read("schemas/protocol/service-transaction.schema.json")
+    for service in SERVICES:
+        parsed_keys = canonical_service_offer_category_keys(service.get("serviceCategory"))
+        require(parsed_keys, f"Catalog service {service['serviceId']} has no serviceCategory keys")
+    multi_fixture = next(
+        service for service in SERVICES if service["serviceId"] == "pgs_interactive_interpretation"
+    )
     require(
-        transaction_schema["$defs"]["offer_snapshot"]["properties"]["serviceCategory"]["enum"] == keys,
-        "Transaction offerSnapshot serviceCategory enum differs from registry",
+        canonical_service_offer_category_keys(multi_fixture["serviceCategory"])
+        == ["sot_genomic_interpretation", "sot_genomic_data_interoperability"],
+        "The canonical service catalog must exercise a stable multi-category scalar String",
+    )
+    expected_category_patterns = [
+        service_offer_category_sequence_pattern(GENOMIC_SERVICE_OFFER_TYPE_KEYS),
+        service_offer_category_sequence_pattern(HUMAN_ADVICE_SERVICE_OFFER_TYPE_KEYS),
+    ]
+    service_schema = read("schemas/protocol/service-definition.schema.json")["$defs"]["service_definition"]
+    offer_category_schema = service_schema["properties"]["serviceCategory"]
+    require(
+        offer_category_schema.get("type") == "string"
+        and [item.get("pattern") for item in offer_category_schema.get("oneOf", [])]
+        == expected_category_patterns,
+        "Schema serviceCategory comma-set grammar differs from the canonical registry",
+    )
+    transaction_schema = read("schemas/protocol/service-transaction.schema.json")
+    snapshot_category_schema = transaction_schema["$defs"]["offer_snapshot"]["properties"]["serviceCategory"]
+    require(
+        snapshot_category_schema.get("type") == "string"
+        and [item.get("pattern") for item in snapshot_category_schema.get("oneOf", [])]
+        == expected_category_patterns,
+        "Transaction offerSnapshot serviceCategory comma-set grammar differs from the canonical registry",
     )
     swift_source = (ROOT.parent / "mydnamap-ios/mydnamap/Tabs/ServicesHub/ServiceOfferTypeProvider.swift").read_text()
     swift_entries = re.findall(
@@ -1177,6 +1235,14 @@ def validate_service_offer_type_registry():
         for entry in swift_entries
     ]
     require(native_registry == SERVICE_OFFER_TYPES, "Native iOS service-offer type provider differs from the canonical registry")
+    for signature in (
+        "static func keys(for rawValue: String?) -> [String]",
+        "static func types(for rawValue: String?) -> [ServiceOfferType]",
+        "static func contains(key: String, in rawValue: String?) -> Bool",
+        "static func displayNames(",
+        "static func displayName(",
+    ):
+        require(signature in swift_source, f"Native iOS service-offer type provider lacks {signature}")
     kotlin_source = (ROOT.parent / "mydnamap-android/app/src/main/java/com/genetics/app/services/domain/model/ServiceOfferTypeProvider.kt").read_text()
     kotlin_entries = re.findall(
         r'''ServiceOfferType\(\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",?\s*\)''',
@@ -1188,6 +1254,14 @@ def validate_service_offer_type_registry():
         for entry in kotlin_entries
     ]
     require(android_registry == SERVICE_OFFER_TYPES, "Native Android service-offer type provider differs from the canonical registry")
+    for signature in (
+        "fun keys(rawValue: String?): List<String>",
+        "fun types(rawValue: String?): List<ServiceOfferType>",
+        "fun contains(key: String, rawValue: String?): Boolean",
+        "fun displayNames(",
+        "fun displayName(",
+    ):
+        require(signature in kotlin_source, f"Native Android service-offer type provider lacks {signature}")
 
 
 check("closed_110_value_service_offer_type_registry", validate_service_offer_type_registry)
@@ -1198,12 +1272,9 @@ def validate_service_offer_stage_contract():
     service_schema = service_schema_document["$defs"]["service_definition"]
     transaction_schema_document = read("schemas/protocol/service-transaction.schema.json")
     snapshot_schema = transaction_schema_document["$defs"]["offer_snapshot"]
-    complete_keys = [
-        item["key"] for item in SERVICE_OFFER_TYPES if item["key"].startswith("sot_complete_")
-    ]
-    advice_keys = [
-        item["key"] for item in SERVICE_OFFER_TYPES if item["key"].startswith("sot_human_advice_")
-    ]
+    atomic_keys = SERVICE_OFFER_TYPE_KEYS[:30]
+    complete_keys = SERVICE_OFFER_TYPE_KEYS[30:60]
+    advice_keys = SERVICE_OFFER_TYPE_KEYS[60:]
     complete_stages = ["test_planning", "wet_lab", "bioinformatics"]
     service_stages = [*complete_stages, "human_advice"]
 
@@ -1223,8 +1294,9 @@ def validate_service_offer_stage_contract():
         require(len(complete_rules) == 1, f"{boundary} must contain one generated complete-stage rule")
         rule = complete_rules[0]
         require(
-            rule["if"]["properties"]["serviceCategory"]["enum"] == complete_keys,
-            f"{boundary} complete-stage rule differs from the canonical complete keys",
+            rule["if"]["properties"]["serviceCategory"]["pattern"]
+            == service_offer_category_membership_pattern(complete_keys),
+            f"{boundary} complete-stage rule must use comma-token membership",
         )
         stages_rule = rule["then"]["properties"]["stages"]
         require(
@@ -1245,8 +1317,9 @@ def validate_service_offer_stage_contract():
         require(len(advice_rules) == 1, f"{boundary} must contain one generated human-advice rule")
         advice_rule = advice_rules[0]
         require(
-            advice_rule["if"]["properties"]["serviceCategory"]["enum"] == advice_keys,
-            f"{boundary} human-advice rule differs from the canonical advice keys",
+            advice_rule["if"]["properties"]["serviceCategory"]["pattern"]
+            == service_offer_category_membership_pattern(advice_keys),
+            f"{boundary} human-advice rule must use comma-token membership",
         )
         advice_stages = advice_rule["then"]["properties"]["stages"]
         require(
@@ -1261,53 +1334,83 @@ def validate_service_offer_stage_contract():
             f"{boundary} must reserve human_advice for human-advice categories",
         )
 
-    offer_validator = schema_validator(service_schema_document)
     base_offer = copy.deepcopy(SERVICES[0])
-    complete_offer = copy.deepcopy(base_offer)
-    complete_offer["serviceCategory"] = complete_keys[0]
-    complete_offer["stages"] = list(reversed(complete_stages))
-    offer_validator.validate(complete_offer)
+    offer_validator = schema_validator(service_schema_document)
 
-    for missing_stage in complete_stages:
-        incomplete_offer = copy.deepcopy(complete_offer)
-        incomplete_offer["stages"] = [
-            stage for stage in complete_stages if stage != missing_stage
-        ] + ["human_advice"]
-        reject(
-            lambda incomplete_offer=incomplete_offer: offer_validator.validate(incomplete_offer),
-            f"service_offers accepted {complete_keys[0]} with human_advice replacing {missing_stage}",
-        )
+    singleton_offer = copy.deepcopy(base_offer)
+    singleton_offer["serviceCategory"] = atomic_keys[0]
+    singleton_offer["stages"] = ["test_planning"]
+    offer_validator.validate(singleton_offer)
 
-    atomic_offer = copy.deepcopy(base_offer)
-    atomic_offer["serviceCategory"] = SERVICE_OFFER_TYPES[0]["key"]
-    atomic_offer["stages"] = ["test_planning"]
-    offer_validator.validate(atomic_offer)
+    multi_atomic_offer = copy.deepcopy(singleton_offer)
+    multi_atomic_offer["serviceCategory"] = f"{atomic_keys[0]},{atomic_keys[1]}"
+    offer_validator.validate(multi_atomic_offer)
 
-    invalid_atomic_offer = copy.deepcopy(atomic_offer)
+    complete_position_values = (
+        f"{complete_keys[0]},{atomic_keys[0]},{atomic_keys[1]}",
+        f"{atomic_keys[0]},{complete_keys[0]},{atomic_keys[1]}",
+        f"{atomic_keys[0]},{atomic_keys[1]},{complete_keys[0]}",
+    )
+    for category_value in complete_position_values:
+        complete_offer = copy.deepcopy(base_offer)
+        complete_offer["serviceCategory"] = category_value
+        complete_offer["stages"] = list(reversed(complete_stages))
+        offer_validator.validate(complete_offer)
+        for missing_stage in complete_stages:
+            incomplete_offer = copy.deepcopy(complete_offer)
+            incomplete_offer["stages"] = [
+                stage for stage in complete_stages if stage != missing_stage
+            ] + ["human_advice"]
+            reject(
+                lambda incomplete_offer=incomplete_offer: offer_validator.validate(incomplete_offer),
+                f"service_offers accepted complete membership {category_value} without {missing_stage}",
+            )
+
+    invalid_atomic_offer = copy.deepcopy(singleton_offer)
     invalid_atomic_offer["stages"] = ["human_advice"]
     reject(
         lambda: offer_validator.validate(invalid_atomic_offer),
-        "service_offers accepted human_advice for a non-advice category",
+        "service_offers accepted human_advice for a genomic-only category set",
     )
 
-    advice_offer = copy.deepcopy(base_offer)
-    advice_offer["serviceCategory"] = advice_keys[0]
-    advice_offer["stages"] = ["human_advice"]
-    offer_validator.validate(advice_offer)
-    for invalid_stages in (["test_planning"], ["human_advice", "test_planning"]):
-        invalid_advice_offer = copy.deepcopy(advice_offer)
-        invalid_advice_offer["stages"] = invalid_stages
+    for category_value in (advice_keys[0], f"{advice_keys[0]},{advice_keys[1]}"):
+        advice_offer = copy.deepcopy(base_offer)
+        advice_offer["serviceCategory"] = category_value
+        advice_offer["stages"] = ["human_advice"]
+        offer_validator.validate(advice_offer)
+        for invalid_stages in (["test_planning"], ["human_advice", "test_planning"]):
+            invalid_advice_offer = copy.deepcopy(advice_offer)
+            invalid_advice_offer["stages"] = invalid_stages
+            reject(
+                lambda invalid_advice_offer=invalid_advice_offer: offer_validator.validate(invalid_advice_offer),
+                f"service_offers accepted advice set {category_value} with stages {invalid_stages}",
+            )
+
+    invalid_category_values = (
+        "sot_complete_not_registered",
+        atomic_keys[0].upper(),
+        f",{atomic_keys[0]}",
+        f"{atomic_keys[0]},",
+        f"{atomic_keys[0]},,{atomic_keys[1]}",
+        f"{atomic_keys[0]}, {atomic_keys[1]}",
+        f" {atomic_keys[0]}",
+        f"{atomic_keys[0]} ",
+        f"{atomic_keys[0]}\n",
+        f"{atomic_keys[0]},{atomic_keys[0]}",
+        f"{atomic_keys[0]},{atomic_keys[1]},{atomic_keys[0]}",
+        f"{atomic_keys[0]},{advice_keys[0]}",
+        "",
+        None,
+        42,
+        [atomic_keys[0], atomic_keys[1]],
+    )
+    for invalid_value in invalid_category_values:
+        invalid_offer = copy.deepcopy(singleton_offer)
+        invalid_offer["serviceCategory"] = invalid_value
         reject(
-            lambda invalid_advice_offer=invalid_advice_offer: offer_validator.validate(invalid_advice_offer),
-            f"service_offers accepted {advice_keys[0]} with stages {invalid_stages}",
+            lambda invalid_offer=invalid_offer: offer_validator.validate(invalid_offer),
+            f"service_offers accepted invalid serviceCategory {invalid_value!r}",
         )
-
-    unknown_offer = copy.deepcopy(complete_offer)
-    unknown_offer["serviceCategory"] = "sot_complete_not_registered"
-    reject(
-        lambda: offer_validator.validate(unknown_offer),
-        "service_offers accepted an unregistered complete service category",
-    )
 
     standalone_snapshot_schema = copy.deepcopy(snapshot_schema)
     standalone_snapshot_schema["$schema"] = transaction_schema_document["$schema"]
@@ -1327,7 +1430,7 @@ def validate_service_offer_stage_contract():
         "serviceId": base_offer["serviceId"],
         "serviceVersion": base_offer["serviceVersion"],
         "description": base_offer["description"],
-        "serviceCategory": complete_keys[-1],
+        "serviceCategory": atomic_keys[-1],
         "stages": complete_stages,
         "availability": base_offer["availability"],
         "shortContract": "none -> none",
@@ -1335,19 +1438,30 @@ def validate_service_offer_stage_contract():
         "inputSlots": [],
         "outputSlots": [],
     }
+    snapshot["stages"] = ["bioinformatics"]
     snapshot_validator.validate(snapshot)
-    for missing_stage in complete_stages:
-        incomplete_snapshot = copy.deepcopy(snapshot)
-        incomplete_snapshot["stages"] = [
-            stage for stage in complete_stages if stage != missing_stage
-        ] + ["human_advice"]
-        reject(
-            lambda incomplete_snapshot=incomplete_snapshot: snapshot_validator.validate(incomplete_snapshot),
-            f"service_transactions.offerSnapshot accepted {complete_keys[-1]} with human_advice replacing {missing_stage}",
-        )
+
+    multi_snapshot = copy.deepcopy(snapshot)
+    multi_snapshot["serviceCategory"] = f"{atomic_keys[-2]},{atomic_keys[-1]}"
+    snapshot_validator.validate(multi_snapshot)
+
+    for category_value in complete_position_values:
+        complete_snapshot = copy.deepcopy(snapshot)
+        complete_snapshot["serviceCategory"] = category_value
+        complete_snapshot["stages"] = complete_stages
+        snapshot_validator.validate(complete_snapshot)
+        for missing_stage in complete_stages:
+            incomplete_snapshot = copy.deepcopy(complete_snapshot)
+            incomplete_snapshot["stages"] = [
+                stage for stage in complete_stages if stage != missing_stage
+            ] + ["human_advice"]
+            reject(
+                lambda incomplete_snapshot=incomplete_snapshot: snapshot_validator.validate(incomplete_snapshot),
+                f"service_transactions.offerSnapshot accepted complete membership {category_value} without {missing_stage}",
+            )
 
     advice_snapshot = copy.deepcopy(snapshot)
-    advice_snapshot["serviceCategory"] = advice_keys[-1]
+    advice_snapshot["serviceCategory"] = f"{advice_keys[-2]},{advice_keys[-1]}"
     advice_snapshot["stages"] = ["human_advice"]
     snapshot_validator.validate(advice_snapshot)
     for invalid_stages in (["bioinformatics"], ["human_advice", "bioinformatics"]):
@@ -1355,11 +1469,19 @@ def validate_service_offer_stage_contract():
         invalid_advice_snapshot["stages"] = invalid_stages
         reject(
             lambda invalid_advice_snapshot=invalid_advice_snapshot: snapshot_validator.validate(invalid_advice_snapshot),
-            f"service_transactions.offerSnapshot accepted {advice_keys[-1]} with stages {invalid_stages}",
+            f"service_transactions.offerSnapshot accepted advice set with stages {invalid_stages}",
+        )
+
+    for invalid_value in invalid_category_values:
+        invalid_snapshot = copy.deepcopy(snapshot)
+        invalid_snapshot["serviceCategory"] = invalid_value
+        reject(
+            lambda invalid_snapshot=invalid_snapshot: snapshot_validator.validate(invalid_snapshot),
+            f"service_transactions.offerSnapshot accepted invalid serviceCategory {invalid_value!r}",
         )
 
 
-check("service_offer_category_stage_contract", validate_service_offer_stage_contract)
+check("service_offer_multi_category_scalar_and_stage_contract", validate_service_offer_stage_contract)
 
 
 def validate_empty_service_slot_policy():
@@ -1430,7 +1552,20 @@ def validate_strict_service_boundary_casing():
     embedded_fixture["sampleRequest"] = read(f"examples/requests/{offer['serviceId']}.json")
     reject(lambda: offer_validator.validate(embedded_fixture), "service_offers accepted an embedded snake-case protocol fixture")
 
-    transaction_validator = schema_validator(read("schemas/protocol/service-transaction.schema.json"))
+    transaction_schema = read("schemas/protocol/service-transaction.schema.json")
+    transaction_validator = schema_validator(transaction_schema)
+    custom_transaction_name_schema = transaction_schema["properties"].get("customTransactionName")
+    require(
+        custom_transaction_name_schema is not None
+        and custom_transaction_name_schema.get("type") == "string"
+        and custom_transaction_name_schema.get("minLength") == 1
+        and custom_transaction_name_schema.get("pattern") == r"^(?!\s)(?![\s\S]*\s$)[\s\S]+$",
+        "service_transactions.customTransactionName must be a trimmed nonblank string when present",
+    )
+    require(
+        "customTransactionName" not in transaction_schema["required"],
+        "service_transactions.customTransactionName must remain fully optional",
+    )
     offer_snapshot = {
         "offerId": "offer_contract_fixture",
         "schemaVersion": 1,
@@ -1481,6 +1616,36 @@ def validate_strict_service_boundary_casing():
         "updatedAt": "2026-09-30T00:00:00Z",
     }
     transaction_validator.validate(transaction)
+
+    custom_named_transaction = copy.deepcopy(transaction)
+    custom_named_transaction["customTransactionName"] = "Seguimiento familiar"
+    transaction_validator.validate(custom_named_transaction)
+
+    for invalid_custom_name in (
+        "",
+        " \n\t ",
+        " Seguimiento familiar",
+        "Seguimiento familiar ",
+        "Seguimiento familiar\n",
+        None,
+        42,
+        ["Case title"],
+    ):
+        invalid_custom_named_transaction = copy.deepcopy(transaction)
+        invalid_custom_named_transaction["customTransactionName"] = invalid_custom_name
+        reject(
+            lambda invalid_custom_named_transaction=invalid_custom_named_transaction: transaction_validator.validate(
+                invalid_custom_named_transaction
+            ),
+            f"service_transactions accepted invalid customTransactionName {invalid_custom_name!r}",
+        )
+
+    wrong_custom_name_alias = copy.deepcopy(transaction)
+    wrong_custom_name_alias["custom_transaction_name"] = "Seguimiento familiar"
+    reject(
+        lambda: transaction_validator.validate(wrong_custom_name_alias),
+        "service_transactions accepted custom_transaction_name",
+    )
 
     output_reports_null = copy.deepcopy(transaction)
     output_reports_null["outputReports"] = None
@@ -1814,6 +1979,21 @@ def validate_provider_catalog():
     validate_content("pgo_form", referenced_form["data"])
     shared = PROVIDER_CATALOG["shared_api_contract"]
     require("requestedAt" in shared["form_metadata_location"] and "requestedByUserId" in shared["form_metadata_location"] and "requestedByUserEmail" in shared["form_metadata_location"], "Transaction metadata location is unclear")
+    custom_transaction_name = shared["custom_transaction_name"]
+    for phrase in (
+        "service_transactions.customTransactionName",
+        "optional nonblank presentation-only string",
+        "requested-service cells",
+        "transaction-detail identity titles",
+        "offer-derived fallback",
+        "community_users/{uid}.requestedServiceTransactions[]",
+        "same-spelled optional customTransactionName copy",
+        "atomically with the authoritative root transaction",
+    ):
+        require(
+            phrase in custom_transaction_name,
+            f"Shared API custom transaction-name contract omits {phrase}",
+        )
     require("input_refs" in shared["object_provenance"] and "no input_refs" in shared["object_provenance"], "Standalone provenance rule is missing")
     require("may each be empty" in shared["empty_slot_policy"], "Empty input/output slot policy is missing")
     require("none -> none" in shared["empty_slot_policy"], "Slotless short contract syntax is missing")
@@ -1877,7 +2057,7 @@ def validate_field_key_matrix():
     for key in more_information_examples:
         require(key in offer_examples, f"service_offers naming examples omit {key}")
     transaction_examples = convention_by_collection["service_transactions"]["examples"]
-    for key in ("offerSnapshot", *more_information_examples):
+    for key in ("customTransactionName", "offerSnapshot", *more_information_examples):
         require(key in transaction_examples, f"service_transactions naming examples omit {key}")
     require(FIELD_KEY_CONVENTIONS["applies_to_nested_maps"] is True, "Collection casing must cover nested maps and maps inside arrays")
     require(FIELD_KEY_CONVENTIONS["compatibility_aliases_allowed"] is False, "Compatibility aliases must remain forbidden")
@@ -2053,13 +2233,37 @@ def validate_docs_and_breaking_policy():
         ("native-services state", native_services),
     ]:
         for phrase in (
+            "`service_transactions.customTransactionName` is fully optional and presentation-only",
+            "Its authoritative value lives at the transaction root",
+            "it is not part of `offerSnapshot` or PGO content",
+            "display that trimmed custom text verbatim",
+            "requested-service cell title",
+            "transaction-detail identity title",
+            "existing offer-derived fallback",
+            "never changes the service offer",
+            "same-spelled but boundary-specific optional `customTransactionName` copy",
+            "populated and initially rendered from the denormalized",
+            "update the root and the authenticated user's reduced snapshot atomically",
+            "`deferred_service_transactions` index remains ID-only",
+        ):
+            require(
+                phrase in documentation,
+                f"{documentation_name} omits custom transaction-name contract: {phrase}",
+            )
+        for phrase in (
             "`collectionAutomatic`",
+            "`collectionManual`",
             "`currentAutomatic`",
             "`currentManual`",
+            "On iOS and Android, the four explicit intents",
             "quiet probe proves a newer version",
             "preserves the opt-out",
             "active-content rehydration",
             "no new backend collection or document field",
+            "automatic updates default on and automatic downloads default off",
+            "valid saved values for either switch remain authoritative across relaunches",
+            "Waiting, current, and newly updated states retain the ordinary active row with no tag",
+            "0.3 seconds after dismissal",
         ):
             require(
                 phrase in documentation,
@@ -2073,8 +2277,14 @@ def validate_docs_and_breaking_policy():
         "`uploaded_objects.upload_version_count`",
         "`latestVersion > currentVersion`",
         "`collectionAutomatic`",
+        "`collectionManual`",
         "`currentAutomatic`",
         "`currentManual`",
+        "Cross-platform four-run-intent experience",
+        "UserDefaults, and on Android they use SharedPreferences",
+        "`pendingValidation`, `upToDate`, `updateAvailable`, `queuedForUpdate`, and `updated`",
+        "same fixed-height slot",
+        "green **Up to date** label is reserved for the user-confirmed update modal",
         "`listOfItemsThatNeedToBeUpdated`",
         "strictly one at a time",
         "one repository-level commit",
@@ -2088,6 +2298,12 @@ def validate_docs_and_breaking_policy():
         "prior file readable",
         "must not contain payloads",
         "UserDefaults on iOS and SharedPreferences on Android",
+        "strict versioned SharedPreferences snapshot",
+        "automatic updates default on and automatic downloads default off",
+        "valid saved values for either switch remain authoritative across relaunches",
+        "exact 0.3-second handoff",
+        "every automatic inline path skip that wall-clock handoff",
+        "four-intent update model",
         "no new backend collection or document field",
         "never changes a service transaction's status",
         "iOS and Android implement the same",
@@ -2095,6 +2311,18 @@ def validate_docs_and_breaking_policy():
         require(
             phrase in downloaded_file_updates,
             f"Downloaded-file update lifecycle omits required contract: {phrase}",
+        )
+    for retired_phrase in (
+        "currently iOS-specific",
+        "Android retains its existing three update intents",
+        "Android's existing three-intent behavior",
+        "### iOS four-run-intent experience",
+    ):
+        require(
+            retired_phrase not in downloaded_file_updates
+            and retired_phrase not in aggregate
+            and retired_phrase not in package_readme,
+            f"Generated documentation retains pre-parity language: {retired_phrase}",
         )
     require("none -> none" in aggregate, "The wiki omits the slotless short contract")
     require("without producing an object" in aggregate, "The wiki omits output-free services")
@@ -2180,6 +2408,22 @@ def validate_docs_and_breaking_policy():
         "The backoffice contract omits no-content moreInformation visibility",
     )
     for phrase in (
+        "customTransactionName: nonblank string; presentation-only title override",
+        "authoritative value lives at the",
+        "service_transactions root; it is not part of offerSnapshot or PGO content",
+        "requested-service cell title",
+        "transaction-detail identity title",
+        "existing offer-derived fallback",
+        "custom_transaction_name alias are invalid",
+        "customTransactionName: nonblank string, optional denormalized title copy",
+        "authenticated user's reduced snapshot atomically",
+        "deferred_service_transactions index remains ID-only",
+    ):
+        require(
+            phrase in services_backoffice_contract,
+            f"The backoffice contract omits custom transaction-name rule: {phrase}",
+        )
+    for phrase in (
         "outputReports: object[] | null; optional",
         '{ "reportCode": "ABC123" }',
         "There is no inputReports field",
@@ -2222,6 +2466,8 @@ def validate_all_json_and_mirrors():
         json.loads(path.read_text())
     ios_root = ROOT.parent / "mydnamap-ios/mydnamap/Resources"
     require(json.loads((ios_root / "PocketGenesProvidersCatalog.json").read_text()) == PROVIDER_CATALOG, "Bundled iOS provider catalog differs")
+    android_root = ROOT.parent / "mydnamap-android/app/src/main/assets"
+    require(json.loads((android_root / "PocketGenesProvidersCatalog.json").read_text()) == PROVIDER_CATALOG, "Bundled Android provider catalog differs")
     for type_id in TYPE_IDS:
         require(json.loads((ios_root / f"FileWizardSchemas/{type_id}.schema.json").read_text()) == SCHEMAS[type_id], f"Bundled wizard schema differs for {type_id}")
 

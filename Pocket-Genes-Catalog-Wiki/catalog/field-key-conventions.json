@@ -9,6 +9,7 @@
       "field_key_convention": "lower_camel_case",
       "examples": [
         "serviceId",
+        "serviceCategory",
         "isHiddenFromSearch",
         "isHighlightedOffer",
         "isProfessionalOffer",
@@ -43,6 +44,7 @@
       "collection": "service_transactions",
       "field_key_convention": "lower_camel_case",
       "examples": [
+        "customTransactionName",
         "requestedByUserId",
         "requestedByUserEmail",
         "outputObjects",
@@ -51,6 +53,7 @@
         "objectCode",
         "reportCode",
         "offerSnapshot",
+        "serviceCategory",
         "moreInformation",
         "frequentQuestions",
         "question",

@@ -5,6 +5,7 @@ Combine the complete test order with a registered PGI payload into a final PDF f
 **Provider:** Clarity Report Studio (`pgp_report_studio`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_genomic_report_generation`<br>
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

@@ -5,6 +5,7 @@ Convert an annotated VCF into a registered Pocket Genes interactive report backe
 **Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_genomic_interpretation`, `sot_genomic_data_interoperability`<br>
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

@@ -30,6 +30,9 @@ const completeServiceOfferTypeKeys = serviceOfferTypeKeys.filter((key) =>
 const humanAdviceServiceOfferTypeKeys = serviceOfferTypeKeys.filter((key) =>
   key.startsWith("sot_human_advice_")
 );
+const genomicServiceOfferTypeKeys = serviceOfferTypeKeys.filter(
+  (key) => !key.startsWith("sot_human_advice_")
+);
 const serviceStageValues = ["test_planning", "wet_lab", "bioinformatics", "human_advice"];
 const serviceOfferTypeFields = [
   "key",
@@ -68,6 +71,33 @@ for (const item of serviceOfferTypes) {
     throw new Error(`Invalid closed service-offer registry entry: ${item.key ?? "<missing key>"}`);
   }
 }
+
+const regexAlternation = (values) => values
+  .map((value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+  .join("|");
+const canonicalServiceOfferTypeToken = "sot_[a-z0-9]+(?:_[a-z0-9]+)*";
+const noDuplicateServiceOfferTypes = `(?!.*(?:^|,)(${canonicalServiceOfferTypeToken})(?:,.*)?(?:^|,)\\1(?:,|$))`;
+const serviceOfferCategorySequencePattern = (keys) => {
+  const keyPattern = `(?:${regexAlternation(keys)})`;
+  return `^${noDuplicateServiceOfferTypes}${keyPattern}(?:,${keyPattern})*$`;
+};
+const serviceOfferCategoryMembershipPattern = (keys) => {
+  const allKeyPattern = `(?:${regexAlternation(serviceOfferTypeKeys)})`;
+  const memberPattern = `(?:${regexAlternation(keys)})`;
+  return `^(?:${allKeyPattern},)*${memberPattern}(?:,${allKeyPattern})*$`;
+};
+const serviceOfferCategoryContract = (description) => ({
+  type: "string",
+  // JSON Schema regular expressions follow ECMA-262, where `$` may match before a
+  // final line terminator in some validators. Reject every whitespace character
+  // independently so padded values cannot bypass the canonical token grammar.
+  not: { pattern: "\\s" },
+  oneOf: [
+    { pattern: serviceOfferCategorySequencePattern(genomicServiceOfferTypeKeys) },
+    { pattern: serviceOfferCategorySequencePattern(humanAdviceServiceOfferTypeKeys) }
+  ],
+  description
+});
 
 const quoted = (value) => JSON.stringify(value);
 const swiftServiceOfferTypeEntries = serviceOfferTypes.map((item) => `        .init(
@@ -108,23 +138,45 @@ ${swiftServiceOfferTypeEntries}
 
     static let uncategorizedSystemImage = "questionmark.folder.fill"
 
-    static func type(for rawValue: String?) -> ServiceOfferType? {
-        guard let key = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty else {
-            return nil
+    private static let byKey = Dictionary(uniqueKeysWithValues: all.map { ($0.key, $0) })
+
+    static func keys(for rawValue: String?) -> [String] {
+        guard let rawValue else { return [] }
+        var seen = Set<String>()
+        return rawValue.components(separatedBy: ",").compactMap { component in
+            let key = component.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard byKey[key] != nil, seen.insert(key).inserted else { return nil }
+            return key
         }
-        return all.first { $0.key == key }
     }
 
-    static func contains(_ rawValue: String?) -> Bool {
-        type(for: rawValue) != nil
+    static func types(for rawValue: String?) -> [ServiceOfferType] {
+        keys(for: rawValue).compactMap { byKey[$0] }
+    }
+
+    static func type(for rawValue: String?) -> ServiceOfferType? {
+        types(for: rawValue).first
+    }
+
+    static func contains(key: String, in rawValue: String?) -> Bool {
+        keys(for: rawValue).contains(key)
+    }
+
+    static func displayNames(
+        for rawValue: String?,
+        language: AppLanguage = AppLanguageManager.shared.selectedLanguage
+    ) -> [String] {
+        let names = types(for: rawValue).map { $0.name(for: language) }
+        return names.isEmpty
+            ? [language == .spanish ? "Sin categoría" : "Uncategorized"]
+            : names
     }
 
     static func displayName(
         for rawValue: String?,
         language: AppLanguage = AppLanguageManager.shared.selectedLanguage
     ) -> String {
-        type(for: rawValue)?.name(for: language)
-            ?? (language == .spanish ? "Sin categoría" : "Uncategorized")
+        displayNames(for: rawValue, language: language).joined(separator: ", ")
     }
 
     static func displayDescription(
@@ -198,14 +250,35 @@ ${kotlinServiceOfferTypeEntries}
 
     const val uncategorizedSystemImage = "questionmark.folder.fill"
 
-    fun type(rawValue: String?): ServiceOfferType? =
-        rawValue?.trim()?.let { key -> all.firstOrNull { it.key == key } }
+    private val byKey = all.associateBy(ServiceOfferType::key)
 
-    fun contains(rawValue: String?): Boolean = type(rawValue) != null
+    fun keys(rawValue: String?): List<String> {
+        if (rawValue == null) return emptyList()
+        val seen = mutableSetOf<String>()
+        return rawValue.split(',').mapNotNull { component ->
+            val key = component.trim()
+            key.takeIf { byKey.containsKey(it) && seen.add(it) }
+        }
+    }
+
+    fun types(rawValue: String?): List<ServiceOfferType> = keys(rawValue).mapNotNull(byKey::get)
+
+    fun type(rawValue: String?): ServiceOfferType? = types(rawValue).firstOrNull()
+
+    fun contains(key: String, rawValue: String?): Boolean = keys(rawValue).contains(key)
+
+    fun displayNames(
+        rawValue: String?,
+        language: String = java.util.Locale.getDefault().language,
+    ): List<String> {
+        val names = types(rawValue).map { it.name(language) }
+        return names.ifEmpty {
+            listOf(if (language.lowercase().startsWith("es")) "Sin categoría" else "Uncategorized")
+        }
+    }
 
     fun displayName(rawValue: String?, language: String = java.util.Locale.getDefault().language): String =
-        type(rawValue)?.name(language)
-            ?: if (language.lowercase().startsWith("es")) "Sin categoría" else "Uncategorized"
+        displayNames(rawValue, language).joinToString(", ")
 
     fun displayDescription(rawValue: String?, language: String = java.util.Locale.getDefault().language): String? =
         type(rawValue)?.description(language)
@@ -249,7 +322,7 @@ const httpsURL = (description) => ({
   type: "string",
   minLength: 1,
   format: "uri",
-  pattern: "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
+  pattern: "^https://",
   description
 });
 
@@ -372,15 +445,8 @@ const formFieldTypes = [
 ];
 
 const formOption = closedObject({
-  value: {
-    ...nonemptyString("Stable stored option value."),
-    maxLength: 128,
-    pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
-  },
-  label: {
-    ...nonemptyString("Human-readable option label frozen with the form."),
-    maxLength: 120
-  }
+  value: nonemptyString("Stable stored option value."),
+  label: nonemptyString("Human-readable option label frozen with the form.")
 }, ["value", "label"], "One enum choice.");
 
 const formFieldDefinition = {
@@ -955,7 +1021,7 @@ const serviceOfferTypeByServiceId = {
   pgs_form_to_pdf: "sot_genomic_report_generation",
   pgs_gene_prioritization: "sot_gene_variant_prioritization",
   pgs_informed_consent: "sot_informed_consent",
-  pgs_interactive_interpretation: "sot_genomic_interpretation",
+  pgs_interactive_interpretation: "sot_genomic_interpretation,sot_genomic_data_interoperability",
   pgs_karyotype_analysis: "sot_cytogenetic_analysis",
   pgs_read_alignment: "sot_read_alignment",
   pgs_sample_transport: "sot_sample_logistics",
@@ -1369,7 +1435,7 @@ const installServiceOfferStageContracts = (propertyOwner) => {
       "x-pocket-genes-rule": completeRuleName,
       if: {
         properties: {
-          serviceCategory: { enum: completeServiceOfferTypeKeys }
+          serviceCategory: { pattern: serviceOfferCategoryMembershipPattern(completeServiceOfferTypeKeys) }
         },
         required: ["serviceCategory"]
       },
@@ -1390,7 +1456,7 @@ const installServiceOfferStageContracts = (propertyOwner) => {
       "x-pocket-genes-rule": adviceRuleName,
       if: {
         properties: {
-          serviceCategory: { enum: humanAdviceServiceOfferTypeKeys }
+          serviceCategory: { pattern: serviceOfferCategoryMembershipPattern(humanAdviceServiceOfferTypeKeys) }
         },
         required: ["serviceCategory"]
       },
@@ -1460,7 +1526,13 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
   const filePath = path.join(root, "schemas/protocol", fileName);
   const rewritten = rewriteProtocolDefinitions(readJSON(filePath));
   if (fileName === "service-transaction.schema.json") {
-    rewritten.description = "Strict root service_transactions record. outputReports is an optional supplemental output-only report link and never participates in the frozen service-offer object contract or transaction completion. Exact promised-object coverage and uploaded object/report readiness require semantic backend validation.";
+    rewritten.description = "Strict root service_transactions record. customTransactionName is an optional presentation-only title override. outputReports is an optional supplemental output-only report link and never participates in the frozen service-offer object contract or transaction completion. Exact promised-object coverage and uploaded object/report readiness require semantic backend validation.";
+    rewritten.properties.customTransactionName = {
+      ...nonemptyString(
+        "Optional presentation-only transaction title. Writers trim surrounding whitespace and omit the field when no custom title exists."
+      ),
+      pattern: "^(?!\\s)(?![\\s\\S]*\\s$)[\\s\\S]+$"
+    };
     rewritten.properties.issues = {
       type: "array",
       items: { type: "string", minLength: 1 }
@@ -1494,10 +1566,9 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
     }
     installServiceMoreInformationContract(rewritten, rewritten.$defs.offer_snapshot);
     installServiceOfferStageContracts(rewritten.$defs.offer_snapshot);
-    rewritten.$defs.offer_snapshot.properties.serviceCategory = {
-      type: "string",
-      enum: serviceOfferTypeKeys
-    };
+    rewritten.$defs.offer_snapshot.properties.serviceCategory = serviceOfferCategoryContract(
+      "One or more registered service-offer type keys stored in this same scalar String field as a canonical comma-joined set in stable first-selection order. Tokens have no spaces, empty or duplicate tokens are invalid, genomic and human-advice categories cannot be mixed, and older singleton values remain valid."
+    );
     const canonicalServiceId = "^pgs_[a-z0-9]+(?:_[a-z0-9]+)*$";
     rewritten.properties.serviceId.pattern = canonicalServiceId;
     rewritten.$defs.offer_snapshot.properties.serviceId.pattern = canonicalServiceId;
@@ -1569,7 +1640,7 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
       reportCode: { type: "string", minLength: 6, maxLength: 6, pattern: "^[A-Z0-9]{6}$" }
     }, ["reportCode"], "One supplemental output-only report link. The code resolves through report_codes and uploaded_reports; no report metadata is duplicated here.");
     rewritten.required = rewritten.required.filter(
-      (key) => key !== "requestedByUserId" && key !== "outputReports"
+      (key) => !["customTransactionName", "requestedByUserId", "outputReports"].includes(key)
     );
     rewritten.properties.requestedByUserEmail = {
       type: "string",
@@ -1631,11 +1702,9 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
     const offer = rewritten.$defs.service_definition;
     installServiceMoreInformationContract(rewritten, offer);
     installServiceOfferStageContracts(offer);
-    offer.properties.serviceCategory = {
-      type: "string",
-      enum: serviceOfferTypeKeys,
-      description: "Closed service-offer type key from catalog/service-offer-types.json."
-    };
+    offer.properties.serviceCategory = serviceOfferCategoryContract(
+      "One or more registered service-offer type keys from catalog/service-offer-types.json stored in this same scalar String field as a canonical comma-joined set in stable first-selection order. Tokens have no spaces, empty or duplicate tokens are invalid, genomic and human-advice categories cannot be mixed, and older singleton values remain valid."
+    );
     for (const fixtureField of ["sampleFormObject", "sampleRequest", "sampleResult"]) {
       delete offer.properties[fixtureField];
       offer.required = offer.required.filter((key) => key !== fixtureField);
@@ -1705,6 +1774,7 @@ providersCatalog.provider_definition = "A provider publishes a service contract 
 providersCatalog.provider_field_guide.provider_id = "Stable pgp_ provider identifier used by services and transactions. It is not repeated inside PGO content.";
 providersCatalog.provider_field_guide.supported_stages = "One or more of test_planning, wet_lab, bioinformatics and human_advice. human_advice is reserved for sot_human_advice_* offers.";
 providersCatalog.shared_api_contract.form_metadata_location = "The service transaction stores requestedAt plus either requestedByUserId or requestedByUserEmail. requestedByUserId remains optional because an email-only requester may not have an account yet. A pgo_form input contains only its frozen form_shape.fields, submitted fields and optional notes; requester identity and request time are not universal form questions.";
+providersCatalog.shared_api_contract.custom_transaction_name = "service_transactions.customTransactionName is an optional nonblank presentation-only string. Native requested-service cells and transaction-detail identity titles display its trimmed text verbatim; omission retains the offer-derived fallback. It never changes the offer, PGO content, status, contract, provider, inputs, or outputs. For an authenticated requester, community_users/{uid}.requestedServiceTransactions[] carries the same-spelled optional customTransactionName copy, and trusted creation, deferred linking, rename, or clearing operations update that reduced snapshot atomically with the authoritative root transaction.";
 providersCatalog.shared_api_contract.version_binding = "Validate the pinned integer service_version against the published offer. A submitted pgo_form preserves its frozen definitions but carries no content-level form-shape ID or version.";
 providersCatalog.shared_api_contract.file_transfer = "File-bearing PGO content exposes direct absolute HTTPS download_url values, or direct component URLs for reads and images. Preserve signed query parameters. The API does not embed native bytes and does not require generic file descriptors inside PGO content.";
 providersCatalog.shared_api_contract.matching_rules = [
@@ -1753,6 +1823,7 @@ const serviceOfferConvention = fieldConventions.collections.find(
 );
 serviceOfferConvention.examples = [
   "serviceId",
+  "serviceCategory",
   "isHiddenFromSearch",
   "isHighlightedOffer",
   "isProfessionalOffer",
@@ -1786,6 +1857,7 @@ const serviceTransactionConvention = fieldConventions.collections.find(
   (entry) => entry.collection === "service_transactions"
 );
 serviceTransactionConvention.examples = [
+  "customTransactionName",
   "requestedByUserId",
   "requestedByUserEmail",
   "outputObjects",
@@ -1794,6 +1866,7 @@ serviceTransactionConvention.examples = [
   "objectCode",
   "reportCode",
   "offerSnapshot",
+  "serviceCategory",
   "moreInformation",
   "frequentQuestions",
   "question",

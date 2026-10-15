@@ -5,6 +5,7 @@ Review a compatible bundle of metaphase images and return a structured karyotype
 **Provider:** Chromosome Image Services (`pgp_cytogenetics`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_cytogenetic_analysis`<br>
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

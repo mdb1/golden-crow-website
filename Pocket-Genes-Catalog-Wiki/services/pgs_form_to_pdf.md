@@ -5,6 +5,7 @@ Create a standalone professional summary from the submitted form, demonstrating 
 **Provider:** Meridian Clinical Planning (`pgp_clinical_planning`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_genomic_report_generation`<br>
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

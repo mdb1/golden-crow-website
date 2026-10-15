@@ -1,0 +1,354 @@
+{
+  "version": "2.0",
+  "logicalUnit": "iOS point",
+  "assets": [
+    {
+      "id": "pg_service_hero_discovery_folder_magnifier_3d",
+      "file": "assets/illustrations/pg_service_hero_discovery_folder_magnifier_3d.png",
+      "xcassetName": "pg_service_hero_discovery_folder_magnifier_3d",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_hero_discovery_folder_magnifier_3d.imageset",
+      "format": "PNG",
+      "pixelSize": [
+        1254,
+        1254
+      ],
+      "hasAlpha": true,
+      "sha256": "63cf2eddb8ad8ab19add131b99929be56f6b5f4eb760578e3cff2445ea700ec1",
+      "role": "S00.hero.trailingArtwork",
+      "baselineFramePoints": [
+        128,
+        144
+      ],
+      "contentMode": "aspectFit",
+      "renderingMode": "original",
+      "accessibility": "decorative; hidden from assistive technologies",
+      "source": "fixed bundled artwork",
+      "rule": "Always use in the nonempty-screen hero. Decorative. Never derive a service type from this artwork."
+    },
+    {
+      "id": "pg_service_example_resource_card_link_3d",
+      "file": "assets/illustrations/pg_service_example_resource_card_link_3d.png",
+      "xcassetName": "pg_service_example_resource_card_link_3d",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_example_resource_card_link_3d.imageset",
+      "format": "PNG",
+      "pixelSize": [
+        1254,
+        1254
+      ],
+      "hasAlpha": true,
+      "sha256": "f8b9c47ea223fe5b54a61589d3ad4faf3c46244faa6bf519799b07b7550f0337",
+      "role": "B05.sampleLink.banner.leadingArtwork",
+      "baselineFramePoints": [
+        92,
+        124
+      ],
+      "contentMode": "aspectFit",
+      "renderingMode": "original",
+      "accessibility": "decorative; hidden from assistive technologies",
+      "source": "fixed bundled artwork",
+      "rule": "Use in every renderable example banner. Decorative; the blank card does not claim a report or result format."
+    },
+    {
+      "id": "pg_service_illustrated_segment_book_sparkles_3d",
+      "file": "assets/illustrations/pg_service_illustrated_segment_book_sparkles_3d.png",
+      "xcassetName": "pg_service_illustrated_segment_book_sparkles_3d",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_illustrated_segment_book_sparkles_3d.imageset",
+      "format": "PNG",
+      "pixelSize": [
+        1536,
+        1024
+      ],
+      "hasAlpha": true,
+      "sha256": "3f10aa158778b34d8bf35f14cf72512ff3dd55d5b0a52b4f2303e9fe0a82bf9f",
+      "role": "B06.bulletSegments.imageFallback",
+      "baselineFramePoints": [
+        318,
+        180
+      ],
+      "contentMode": "aspectFit",
+      "renderingMode": "original",
+      "accessibility": "decorative; hidden from assistive technologies",
+      "source": "fixed bundled artwork",
+      "rule": "Use when a renderable illustrated segment has no valid or successfully loaded image. The fixed image is decorative, not service content."
+    },
+    {
+      "id": "pg_service_biological_material_pouch_tag_3d",
+      "file": "assets/illustrations/pg_service_biological_material_pouch_tag_3d.png",
+      "xcassetName": "pg_service_biological_material_pouch_tag_3d",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_biological_material_pouch_tag_3d.imageset",
+      "format": "PNG",
+      "pixelSize": [
+        1254,
+        1254
+      ],
+      "hasAlpha": true,
+      "sha256": "722a45c11443e31c02e0196d4a3404ba89bd972083b5c52bbf56d0f9093b703c",
+      "role": "B08.biologicalSampleRequirements.firstSummary.trailingArtwork",
+      "baselineFramePoints": [
+        96,
+        116
+      ],
+      "contentMode": "aspectFit",
+      "renderingMode": "original",
+      "accessibility": "decorative; hidden from assistive technologies",
+      "source": "fixed bundled artwork",
+      "rule": "Use once in the first biological requirement summary that has a title or description. Decorative; do not interpret the pouch as a required collection vessel."
+    },
+    {
+      "id": "pg_service_icon_details_outline",
+      "file": "assets/icons/pg_service_icon_details_outline.svg",
+      "nativeFile": "assets/icons/pg_service_icon_details_outline.pdf",
+      "xcassetName": "pg_service_icon_details_outline",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_details_outline.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "d4cf0916577b6f624e56c1bd828ae96dd78b281b25cc870ded7136b7365b5864",
+      "role": "S00.informationShortcut; 26pt; teal",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_science_outline",
+      "file": "assets/icons/pg_service_icon_science_outline.svg",
+      "nativeFile": "assets/icons/pg_service_icon_science_outline.pdf",
+      "xcassetName": "pg_service_icon_science_outline",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_science_outline.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "dfd9aea95a6f6639ca427aaa28313b9616c676a38c1f4b60572832da55bedbfd",
+      "role": "B03.scientificFact.leadingMedallion; 24pt; teal",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_link_outline",
+      "file": "assets/icons/pg_service_icon_link_outline.svg",
+      "nativeFile": "assets/icons/pg_service_icon_link_outline.pdf",
+      "xcassetName": "pg_service_icon_link_outline",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_link_outline.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "85452ea70c33c3f072119b023ac9d8e7d6a43d6481b2499d7c3a39620fbaa996",
+      "role": "S00.resourcesShortcut and B04.usefulLink.leadingMedallion; 26pt and 22pt; violet",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_globe_outline",
+      "file": "assets/icons/pg_service_icon_globe_outline.svg",
+      "nativeFile": "assets/icons/pg_service_icon_globe_outline.pdf",
+      "xcassetName": "pg_service_icon_globe_outline",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_globe_outline.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "e07714a6e53a0788a7da4fb1aaec0f8b4d848d28f3fd8ee058c75a0d40798e33",
+      "role": "B09.website.leadingMedallion; 26pt; violet",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_info_outline",
+      "file": "assets/icons/pg_service_icon_info_outline.svg",
+      "nativeFile": "assets/icons/pg_service_icon_info_outline.pdf",
+      "xcassetName": "pg_service_icon_info_outline",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_info_outline.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "9d2b1c2d307afda8f8f2ada086c6fb3311d5dbca56074a4861a128ac0b884ab5",
+      "role": "S00.guidanceCallout.leadingMedallion; 24pt; teal",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_technical_outline",
+      "file": "assets/icons/pg_service_icon_technical_outline.svg",
+      "nativeFile": "assets/icons/pg_service_icon_technical_outline.pdf",
+      "xcassetName": "pg_service_icon_technical_outline",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_technical_outline.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "dc2e1a95a588940b9613eaa46f6dd268db51123a369d572ced34c0d3f61c98fd",
+      "role": "B07.technicalFact.header.leadingIcon; 24pt; violet",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_search_outline",
+      "file": "assets/icons/pg_service_icon_search_outline.svg",
+      "nativeFile": "assets/icons/pg_service_icon_search_outline.pdf",
+      "xcassetName": "pg_service_icon_search_outline",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_search_outline.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "d52c449b6f1976b0a9c8444b4fdd4c4f4a6279ceb46d04249be4d76db004ec2d",
+      "role": "B07.search.leadingIcon; 20pt; mutedInk",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_chevron_down",
+      "file": "assets/icons/pg_service_icon_chevron_down.svg",
+      "nativeFile": "assets/icons/pg_service_icon_chevron_down.pdf",
+      "xcassetName": "pg_service_icon_chevron_down",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_chevron_down.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "713f88a0f83ec1b29704bff632a59d19828ab22ba0c643227881f79dc1aaca91",
+      "role": "B01.collapsedFAQ, B07.collapsedGroup, PGExpandableText.collapsed; 18pt; actionPink or violet",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_chevron_up",
+      "file": "assets/icons/pg_service_icon_chevron_up.svg",
+      "nativeFile": "assets/icons/pg_service_icon_chevron_up.pdf",
+      "xcassetName": "pg_service_icon_chevron_up",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_chevron_up.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "879b686dec1e904998e16d8743fef0b242a91381b5cdbf0999370075c6f85640",
+      "role": "B01.expandedFAQ, B07.expandedGroup, PGExpandableText.expanded; 18pt; actionPink or violet",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_external_arrow",
+      "file": "assets/icons/pg_service_icon_external_arrow.svg",
+      "nativeFile": "assets/icons/pg_service_icon_external_arrow.pdf",
+      "xcassetName": "pg_service_icon_external_arrow",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_external_arrow.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "a5a82084c55b4d15e62d8ebeab96015bbed93e5efe5bfd3f80a0de6d9d56a508",
+      "role": "B04.resourceRow, B05.exampleButton, B09.websiteRow; 20pt; actionPink",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_expand_image",
+      "file": "assets/icons/pg_service_icon_expand_image.svg",
+      "nativeFile": "assets/icons/pg_service_icon_expand_image.pdf",
+      "xcassetName": "pg_service_icon_expand_image",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_expand_image.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "7095c99f215458635555a21240cc6d1a8eed17053f6a79c82f9cf283c2e28937",
+      "role": "B06.authoredImage.viewerButton; 20pt; violet; never on the bundled decorative fallback",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_close",
+      "file": "assets/icons/pg_service_icon_close.svg",
+      "nativeFile": "assets/icons/pg_service_icon_close.pdf",
+      "xcassetName": "pg_service_icon_close",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_close.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "b14834beef5e92791c1f52ce0166a0ef33d67da09fa46d494a2d0d611cd9e951",
+      "role": "ImageViewer.closeButton; 20pt; ink; sheet toolbar uses the word Cerrar",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    },
+    {
+      "id": "pg_service_icon_clear_search",
+      "file": "assets/icons/pg_service_icon_clear_search.svg",
+      "nativeFile": "assets/icons/pg_service_icon_clear_search.pdf",
+      "xcassetName": "pg_service_icon_clear_search",
+      "xcassetDirectory": "PocketGenesServiceDetail.xcassets/pg_service_icon_clear_search.imageset",
+      "format": "SVG + single-page vector PDF",
+      "viewBox": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "sha256": "f1fd575155da7c96fbb5a13e5221754e9e9cb353fdde72bfa106a4a36762a016",
+      "role": "B07.search.clearButton; 18pt; mutedInk",
+      "renderingMode": "template",
+      "source": "fixed bundled vector",
+      "accessibility": "icon hidden; owning button or row has the accessible label"
+    }
+  ],
+  "nativePrimitives": [
+    "PGServicePanel",
+    "PGServiceActionCapsule",
+    "PGServiceAnchorCapsule",
+    "PGServiceInsightDot",
+    "PGServiceDivider",
+    "PGServiceDragIndicator"
+  ],
+  "fontPolicy": "Use native SF Pro Rounded for headings and native SF Pro for body. No font file is required or redistributed."
+}

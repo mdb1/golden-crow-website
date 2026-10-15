@@ -90,7 +90,7 @@
     "pricingModel": "calculated_after_submission"
   },
   "status": "active",
-  "serviceCategory": "sot_genomic_interpretation",
+  "serviceCategory": "sot_genomic_interpretation,sot_genomic_data_interoperability",
   "providerName": "Variant Analysis Cooperative",
   "providerKind": "organization",
   "regions": [

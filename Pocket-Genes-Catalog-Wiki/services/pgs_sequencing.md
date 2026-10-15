@@ -5,6 +5,7 @@ Process an accepted DNA sample and deliver FASTQ reads supporting the contracted
 **Provider:** Atlas Precision Laboratory (`pgp_precision_lab`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_dna_sequencing`<br>
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

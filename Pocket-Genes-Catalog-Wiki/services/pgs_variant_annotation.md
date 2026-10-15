@@ -5,6 +5,7 @@ Add the agreed variant annotations while preserving input identity, native varia
 **Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_variant_annotation`<br>
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

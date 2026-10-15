@@ -1,0 +1,10 @@
+Pocket Genes service-detail design kit v2.0
+
+Start with Pocket-Genes-Service-Detail-Codex-Instructions.txt. It replaces v1.1.
+Import PocketGenesServiceDetail.xcassets into the existing iOS target. Asset names must stay unchanged.
+The assets directory contains the same original artwork and standalone SVG/PDF icons.
+The copy directory contains approved fixed Spanish interface strings.
+The previews directory contains three composition references, not app screenshots.
+The fixtures directory is demo-only and must never provide production facts or URLs.
+Asset roles, sizing, checksums and filenames are in asset-manifest.json.
+The TXT is authoritative for component states, colors, fallbacks, all nine model blocks, and accessibility.

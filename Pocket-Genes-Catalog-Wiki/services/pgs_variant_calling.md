@@ -5,6 +5,7 @@ Derive an unannotated VCF from aligned reads for the contracted genes, regions a
 **Provider:** Variant Analysis Cooperative (`pgp_variant_analysis`)<br>
 **Provider kind:** organization<br>
 **Service version:** 1<br>
+**Categories:** `sot_variant_calling`<br>
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>

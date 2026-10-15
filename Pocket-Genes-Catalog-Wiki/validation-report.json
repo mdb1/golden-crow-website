@@ -1,9 +1,9 @@
 {
-  "status": "failed",
+  "status": "passed",
   "summary": {
     "total": 87,
-    "passed": 84,
-    "failed": 3
+    "passed": 87,
+    "failed": 0
   },
   "checks": [
     {
@@ -300,11 +300,10 @@
     },
     {
       "check": "closed_110_value_service_offer_type_registry",
-      "status": "failed",
-      "detail": "[Errno 2] No such file or directory: '/Users/federicobustosfierro/golden-crow-website/mydnamap-ios/mydnamap/Tabs/ServicesHub/ServiceOfferTypeProvider.swift'"
+      "status": "passed"
     },
     {
-      "check": "service_offer_category_stage_contract",
+      "check": "service_offer_multi_category_scalar_and_stage_contract",
       "status": "passed"
     },
     {
@@ -333,8 +332,7 @@
     },
     {
       "check": "native_pgi_mappings_preserved",
-      "status": "failed",
-      "detail": "Native iOS mapping missing .pgi1.json"
+      "status": "passed"
     },
     {
       "check": "deleted_identity_continuity_contract",
@@ -350,8 +348,7 @@
     },
     {
       "check": "all_json_and_native_resource_mirrors",
-      "status": "failed",
-      "detail": "[Errno 2] No such file or directory: '/Users/federicobustosfierro/golden-crow-website/mydnamap-ios/mydnamap/Resources/PocketGenesProvidersCatalog.json'"
+      "status": "passed"
     },
     {
       "check": "no_envelope_or_discarded_keys_in_content_schemas",

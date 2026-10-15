@@ -1,0 +1,878 @@
+POCKET GENES / SERVICE DETAIL / COMPLETE CODEX IMPLEMENTATION CONTRACT
+VERSION: 2.0
+DATE: 2026-10-06
+FORMAT: UTF-8 plain text
+TARGET: Native iOS / SwiftUI / existing Pocket Genes project
+COMPANION: Pocket-Genes-Service-Detail-Design-Kit-v2.zip
+REPLACES: Version 1.1 of this file, including its optional-artwork and minimal-header defaults
+PURPOSE: Implement a rich, illustrated, readable, service-agnostic scrolling detail experience with all nine optional data blocks.
+
+00. AGENT EXECUTION AND AUTHORITY
+
+00.01 This file is an implementation contract, not a mood board. When instructed to implement it in a repository, inspect the existing sheet and model, make the relevant changes, import the supplied assets, verify behavior, and report the result. Do not stop at a proposal. Do not add unrelated functionality or change request, authentication, billing, provider, account or bottom-navigation flows.
+
+00.02 MUST means required. MUST NOT means prohibited. DEFAULT means the baseline behavior defined here. A repository limitation must be reported explicitly rather than silently replaced with a different design. All numeric geometry is in iOS logical points at the standard Large Dynamic Type size. A 1254-pixel illustration does not occupy 1254 layout points.
+
+00.03 This version deliberately restores the supplied full-screen references' illustrated hero, compact navigation tiles, pill anchors, editorial highlights, mint information callouts, white accordion rows, saturated raspberry example banner, lavender technical controls, illustrated mint requirement summary, and compact outbound-link footer. These are required visual structures where the corresponding data exists. Do not reduce the page to nine identical cards.
+
+00.04 Authority order: active user instructions and repository constraints; this TXT for layout and behavior; the fixed copy catalog for exact strings; the asset manifest for paths and names; preview images for visual composition. The screenshots are not a source of service facts, exact glyph geometry, invented fields or pixel measurements. In any discrepancy, use the TXT. Appendix C lists known visual-preview simplifications.
+
+00.05 Build native SwiftUI views. Reuse existing architecture, theme adapters, image-loading facilities, localization, URL opening, navigation and dependency injection where compatible. Do not add a web view to imitate the screen. Do not add a dependency merely for rounded corners, image loading, search or accordions if native or existing project APIs suffice. Do not write inline comments in generated or modified code.
+
+00.06 The reusable components are S00 ServiceDetailScaffold, PGServiceHero, PGServiceShortcutTile, PGServiceAnchorBar, PGServiceSectionHeading, PGServiceGuidanceCallout, B01 FAQSection, B02 KeyInsightsSection, B03 ScientificFactsSection, B04 UsefulLinksSection, B05 ExampleBanner, B06 IllustratedSegmentsSection, B07 TechnicalInformationSection, B08 BiologicalRequirementsSection, B09 ServiceWebsiteRow, PGServiceExpandableText, PGServiceExternalAction, PGServiceIcon, and PGServiceImageViewer. These names express responsibilities. Match the repository's naming convention without merging away the distinct layouts.
+
+00.07 The bundled PNG illustrations and SVG/PDF icons are production input assets. The three preview PNGs are reference images only. Never use an entire preview screenshot as screen content. Never crop an icon, glyph, text, button or illustration out of a preview when its original asset or native primitive is supplied.
+
+01. MODEL CONTRACT / NO SERVICE-SPECIFIC ASSUMPTIONS
+
+01.01 Logical input fields:
+frequentQuestions: [{ question: String, answer: String }]
+keyInsights: [{ title: String, description: String }]
+scientificFacts: [{ title: String, description: String }]
+usefulLinks: [{ title: String, url: String }]
+sampleLink: { title: String, description: String, buttonTitle: String, url: String }
+bulletSegments: [{ title: String, description: String, imageURL: String }]
+technicalInformationFacts: [{ title: String, description: String, subitems: [String] }]
+biologicalSampleRequirements: [{ title: String, description: String, instructions: String }]
+websiteUrl: String
+
+01.02 buttonTitle and imageURL are normalized names used by this document. Inspect existing serialization and adapt actual keys such as button_title or imageUrl locally. Do not rename server properties, create a migration, or add required API fields merely to satisfy the visual design.
+
+01.03 The schema does not contain a hero subtitle, hero image, fixed section helper, illustration fallback, icon, badge, metric, category, source citation, verified state, format, service type, or specimen type. Use this document's fixed interface strings and asset mappings for decoration and navigation. Do not manufacture those properties as factual service data.
+
+01.04 If the parent screen already has a real service display name, pass it into the sheet as existing context, not a new required model field. Use it as the hero title. If it is absent or blank, use pg.service.hero.fallbackTitle. Do not derive a title from a URL, biological requirement, insight, scientific fact, or a previous service. Use the fixed hero subtitle in both cases.
+
+01.05 Preserve provider-authored question, answer, title, description, instruction and subitem strings. Strip leading/trailing whitespace only for display normalization. Preserve internal paragraph breaks and meaningful punctuation. Never summarize, translate, embellish, reorder, extract numbers, infer categories or silently correct factual content in the renderer. No subject-specific terms are hardcoded anywhere in this contract's production copy. A data field chooses a component; text keywords do not choose a component.
+
+01.06 Distinguish four sources everywhere: MODEL = exact provided service content; FIXED_UI = approved catalog labels and helpers; BUNDLED_ART = supplied decorative PNG/vector files; DERIVED_UI = real counts, actual URL hosts, visibility, selection and expansion state. DEMO_FIXTURE is a fifth source permitted only in development previews. It is never a fallback for missing production fields.
+
+01.07 The fallback catalog provides short generic item headings and an example-banner helper. These labels make an already-renderable item understandable. They never create a new scientific fact, sample requirement, question, link or segment from an all-empty object. A missing authored factual description remains absent; the section helper provides visual subtext without inventing the missing description.
+
+02. NORMALIZATION AND RENDERABILITY
+
+02.01 Treat nil/missing arrays as empty at the presentation boundary if the existing model permits them. Trim strings for blank detection. Preserve the original array order within each section. Omit all-empty items. Do not deduplicate service records or subitems: repeated content may be intentional and must retain a distinct view identity.
+
+02.02 Use an existing stable item ID if available. Otherwise create a deterministic presentation identity from the section key, original source index and current service identity. Do not key rows by title, description or URL alone. Do not generate new UUIDs in body. Expansion and search state must survive recomputation and scrolling, including repeated identical titles. Reset page-local state only when the service identity changes or the sheet is genuinely reopened as a new presentation.
+
+02.03 B01 renderable item: question OR answer is nonblank. A missing question with a present answer gets the generic fallback question. A question without an answer is displayed as static text without a misleading caret. An all-blank record is omitted.
+
+02.04 B02 and B03 renderable item: title OR description is nonblank. If description exists without title, use the corresponding fallback item title. A title-only item remains compact with no fake body paragraph.
+
+02.05 B04 renderable item: title is nonblank OR URL is valid. A valid URL without title uses pg.service.links.fallbackItemTitle. A title with invalid/missing URL stays a noninteractive resource row with pg.service.link.unavailable. An invalid URL with no usable title is omitted. Never display a raw malformed URL as prose.
+
+02.06 B05 renderable banner: title OR description is nonblank OR URL is valid. A button label alone is not content. For a renderable banner, apply the fallback title if missing. Apply the fixed example description only if the URL is valid and the authored description is blank. Apply the fallback button title only for a valid action whose authored buttonTitle is blank. If URL is invalid, preserve any authored title/description but do not promise the user can open it; use a static unavailable line instead of an active button.
+
+02.07 B06 renderable item: title OR description is nonblank OR image URL is syntactically acceptable. For a text-containing item with a missing/invalid/failed image, use the bundled book artwork. Do not create illustrated items from a completely empty object. For an image-only record, reserve the image stage during loading. If its only image fails permanently and there is no authored text, omit that item after failure; a generic decorative book alone would invent an otherwise absent segment. Recompute anchors if this removes the section.
+
+02.08 B07 renderable item: title OR description OR at least one nonblank subitem. Trim blank subitems and preserve remaining order and duplicates. Missing title gets the generic technical heading only when another field makes the group renderable. A title with no description/subitems is a static header, not an empty accordion.
+
+02.09 B08 renderable item: title OR description OR instructions. Use the generic requirement heading when title is absent but another field exists. Do not invent preparation, volume, container, delivery, storage, fasting, temperature, timing or collection instructions. Instructions-only records remain visible and fully readable.
+
+02.10 B09 renderable action: websiteUrl is a syntactically valid absolute HTTPS URL with a host. A blank value omits the entire block. A nonblank but invalid value may render the fixed website title and pg.service.website.invalidDestination as static footer content; no outbound icon or clickable surface. Do not upgrade HTTP automatically, guess the host, insert https://, or use a previous service's URL.
+
+02.11 A section exists only when it has a renderable item, or the explicitly permitted unavailable website state. Fixed subtitles, illustrations and headers do not make an absent section visible. Do not render zero-item counters, blank placeholders, dummy rows or authoring instructions for missing optional fields.
+
+02.12 If every block is absent, show the regular toolbar, a centered text empty state using pg.service.empty.title and pg.service.empty.body, and the regular close action. Omit hero, shortcuts, anchors, guidance, model sections and example banner. This is a completed empty state, not a loading skeleton.
+
+03. TOKENS / TYPOGRAPHY / RESPONSIVE METRICS
+
+03.01 Color tokens (sRGB hex, explicit semantic roles):
+canvas = #FFFFFF; the main reading surface and toolbar.
+ink = #291329; all primary headings and high-emphasis labels.
+bodyInk = #4D4352; authored body text and instructions.
+mutedInk = #6F6474; fixed helpers, host names and secondary labels.
+brandPink = #F51B62; decorative bullets and nontext brand accents.
+actionPink = #D81050; actionable text, carets, external arrows, and example banner background.
+actionPinkPressed = #B40D43; pressed filled actions.
+pinkSurface = #FDECF3; close capsule and soft action backgrounds.
+mintSurface = #EAF9F7; shortcuts, guidance, scientific facts and sample summaries.
+mintMedallion = #CFF3EF; backing disc for teal line icons.
+teal = #007D78; functional teal linework and labels.
+lavenderSurface = #F2EDFC; resource shortcut, search field, technical header and illustration stage.
+lavenderBorder = #D8CDF5; technical group hairline outline.
+violet = #543CE4; functional technical, resource and image icons.
+separator = #E5DFE8; thin dividers.
+controlOutline = #938498; control boundary where surface alone is insufficient.
+white = #FFFFFF; text on the dark raspberry banner and white action pills.
+
+03.02 Never recreate the original screen's global pink wash, multiple translucent cards, large drop shadows, low-contrast gray prose or blurred text behind a transparent toolbar. Use opaque white beneath text. Do not lower the entire page's opacity. Avoid arbitrary gradients. The example banner is solid actionPink; optional visual shading must not reduce the white text contrast below the required threshold. Use actionPink, not the brighter brandPink, for normal-sized white-text surfaces.
+
+03.03 Font roles at baseline, scaled through the corresponding native text style:
+heroTitle: SF Pro Rounded, 32pt, heavy (800), leading target 36pt, tracking -0.4pt.
+sectionTitle: SF Pro Rounded, 24pt, heavy (800), leading 29pt, tracking -0.25pt.
+bannerTitle: SF Pro Rounded, 22pt, heavy (800), leading 27pt.
+itemTitle / FAQQuestion: SF Pro Rounded, 19pt, bold (700), leading 25pt.
+shortcutTitle: SF Pro Rounded, 17pt, bold (700), leading 22pt.
+toolbarTitle: SF Pro Rounded, 19pt, bold (700), leading 24pt.
+body: SF Pro, 17pt, regular (400), leading 24pt.
+helper: SF Pro, 16pt, regular (400), leading 22pt.
+metadata: SF Pro, 14pt, medium (500), leading 19pt.
+actionLabel: SF Pro Rounded, 16pt, bold (700), leading 21pt.
+eyebrow: SF Pro, 11pt, bold (700), tracking 1.4pt, leading 16pt.
+instructionsLabel: SF Pro, 12pt, bold (700), tracking 1.3pt, leading 17pt.
+
+03.04 Use Font.system(..., design: .rounded) for rounded roles and native standard system type for prose. The reference's exact font is not known; do not claim an exact identification or add an unlicensed font. No font files are part of the image bundle. Favor a strong friendly weight, not an exaggerated cartoon treatment on paragraphs. Bold actual titles, not random words extracted from supplied strings.
+
+03.05 Width model: reference screen width 390pt; safe-area-adjusted outer gutter 20pt each; usable content width 350pt. On compact 320pt screens use 16pt gutters. On widths >=600pt center the entire column with maxWidth 680pt; keep a single reading column and let text reflow. Do not turn the nine sections into a dashboard grid. Side-by-side layouts inside components follow their own fallback rules.
+
+03.06 Spacing: screen start below toolbar 24pt; major section gap 32pt; section header title-to-helper 6pt; header-to-content 16pt; within-item title-to-body 6pt; related item gap 16pt; paragraph gap 10pt; icon-to-text gap 12pt; trailing icon gap 12pt; small caption gap 4pt. Omitted fields consume no spacer. Last visible block has 32pt bottom breathing room plus actual safe-area inset.
+
+03.07 Radii: hero has no outer card; example banner 24pt continuous; illustrated stage 22pt; mint panels 20pt; shortcut tiles 18pt; technical group 16pt; search field 16pt; chip and capsule buttons use Capsule. Rounded rectangles use continuous corners. Do not round every white paragraph into a nested container.
+
+03.08 Stroke thickness: separators one physical pixel, computed using display scale; technical border 1pt; standalone vectors originate with 1.8 units in a 24-unit viewBox. Scale line icons uniformly with aspectFit. Do not put a border around every section. Decorative shape shadows are off; supplied PNG art already includes its own shading.
+
+03.09 Body text must not truncate at fixed heights. All text stacks use leading alignment, vertical intrinsic size, and flexible height. Do not force a fixed 700pt or screenshot-derived page height. Do not use minimumScaleFactor to shrink prose or long titles. At accessibility Dynamic Type, stack horizontal layouts vertically, retain full labels, and increase actual component height.
+
+03.10 Hit regions: every actionable element >=44x44pt. Visible glyphs are usually 18-26pt, centered inside a transparent 44pt interaction region. Use contentShape where needed. A 12pt gap is visual separation between frames, not permission for overlapping hit regions. Do not let a caret's invisible frame cover adjacent text links. A row with one action exposes one button, not both a row button and a competing nested caret button.
+
+04. EXACT ART AND ICON INTEGRATION
+
+04.01 Import the supplied PocketGenesServiceDetail.xcassets or merge its image sets into the existing catalog without renaming asset IDs. PNG sets are original-color, universal, scale-independent source images. Use Image(assetID).resizable().scaledToFit() with the layout frame defined here. Do not apply foregroundStyle/tint to the PNG illustrations. SVGs are editable originals; native iOS uses their supplied PDF template image sets with preserves-vector-representation enabled.
+
+04.02 Always refer to the case-sensitive asset name, not an arbitrary sfSymbol substitute, emoji, recreated illustration, unknown filename, or CDN placeholder. The standalone paths and asset IDs are all enumerated in Appendix B and asset-manifest.json. Four transparent illustrations and thirteen small vector icons are supplied. Every supplied icon has a specified placement. Use no undeclared bitmap icon.
+
+04.03 Hero: assets/illustrations/pg_service_hero_discovery_folder_magnifier_3d.png, 128x144pt frame, aspectFit, decorative, leading text remains readable, no crop. This is a generic discovery motif and contains no service claim.
+
+04.04 Example banner: assets/illustrations/pg_service_example_resource_card_link_3d.png, 92x124pt frame at baseline, aspectFit, original color, decorative. It represents a resource, not a guaranteed report or result. Do not reuse a chart-filled document from an earlier test-specific example.
+
+04.05 Illustrated segment fallback: assets/illustrations/pg_service_illustrated_segment_book_sparkles_3d.png, centered aspectFit within a 350pt-wide by 200pt-high lavender stage; inner inset 16pt makes the art frame at most 318x180pt. Only this item-level fallback substitutes for missing authored imagery. It does not replace authored description text.
+
+04.06 Biological panel: assets/illustrations/pg_service_biological_material_pouch_tag_3d.png, 96x116pt, aspectFit, decorative. Use once in the first eligible requirement summary. The pouch is a neutral illustration, not a recommended container. Do not derive sample requirements from its form, blank label or colored seal.
+
+04.07 Every functional icon: template rendering, aspectFit, explicitly tinted by its semantic role. The shape is hidden from VoiceOver when the owning row/button has a label. No icon-only action without an accessibility label. Keep all icon alignment centered on the first header line or the row's center as specified per block; do not let icons drift with multiline prose.
+
+04.08 Small-icon placement summary, normative:
+pg_service_icon_details_outline: 26pt, teal, in the information shortcut leading position.
+pg_service_icon_science_outline: 24pt, teal, centered in a 40pt mint medallion beside scientific text, aligned top.
+pg_service_icon_link_outline: 26pt violet in the resources shortcut; 22pt violet centered in a 40pt lavender medallion in each useful-link row.
+pg_service_icon_globe_outline: 26pt violet in a 44pt lavender medallion in the website footer.
+pg_service_icon_info_outline: 24pt teal in a 40pt mint medallion in the fixed guidance panel.
+pg_service_icon_technical_outline: 24pt violet at the leading edge of each technical group header.
+pg_service_icon_search_outline: 20pt mutedInk in the search field leading area, not an independent button.
+pg_service_icon_chevron_down: 18pt actionPink for a collapsed FAQ or expandable-text action; 18pt violet for a collapsed technical group.
+pg_service_icon_chevron_up: 18pt actionPink for an expanded FAQ or expanded-text action; 18pt violet for an expanded technical group.
+pg_service_icon_external_arrow: 20pt actionPink in outbound link actions; position trailing, optical center aligned with the row or action label.
+pg_service_icon_expand_image: 20pt violet in a 44pt white circle inset 8pt from the top and trailing edges of a successfully loaded authored image.
+pg_service_icon_close: 20pt ink in the image viewer's 44pt close action; the sheet toolbar itself uses Cerrar text.
+pg_service_icon_clear_search: 18pt mutedInk in a 44pt field-trailing button, only when the raw query is nonempty.
+
+04.09 Native primitives that intentionally have no asset file: circular insight dot, rounded panels, capsule backgrounds, dividers, focus outline, selected-state fill and platform sheet drag indicator. Their exact geometry and colors are defined here; draw them natively. Do not export those shapes to bitmaps or search the bundle for a nonexistent background PNG.
+
+05. S00 / ONE COHERENT SCROLLABLE PAGE
+
+05.01 Render order in a single vertical scroll container:
+opaque fixed toolbar;
+inside scroll: hero, conditional shortcut tiles, optional sticky anchor bar;
+B02 Aspectos clave;
+fixed guidance callout;
+B03 Datos científicos;
+B01 Preguntas frecuentes;
+B05 Enlace de ejemplo banner;
+B06 Segmentos ilustrados;
+B07 Información técnica;
+B08 Requisitos de muestra biológica;
+B04 Enlaces útiles;
+B09 Sitio web del servicio;
+bottom safe-area breathing room.
+
+05.02 B01-B09 labels identify model fields, not display order. Do not reorder them numerically. Optional absence removes the corresponding section and its surrounding gap, not the whole layout. There is one scroll view, not a nested scrolling list per card. Horizontal anchor overflow is the only intended secondary scroll container. The technical content expands vertically in the main page.
+
+05.03 Sheet shell: use the existing full-height sheet presentation. Prefer a large detent for reading this long page. Let the platform own the safe area, system status bar and drag indicator. Do not draw a fake status bar, clock, battery or home indicator from the preview. Do not duplicate a native drag handle with another custom one. The toolbar's text and actions remain fixed while content scrolls.
+
+05.04 Toolbar geometry: 56pt minimum height below the platform top safe area/drag handle; full-width opaque white; bottom one-physical-pixel separator. Center title Más información in the full toolbar while accounting for both side regions. Leading balancing space matches the trailing close-button width. Trailing capsule is at least 78pt wide and 44pt high, pinkSurface fill, actionPink label 16pt bold, horizontal inner inset16pt, outer trailing inset16pt. Title wraps or the toolbar grows at accessibility sizes; it must not run under Cerrar. Closing dismisses the existing sheet and restores focus to its opener.
+
+05.05 Hero geometry: HStack(top, spacing:12pt) with leading VStack(alignment:leading, spacing:8pt), flexible width and layout priority, then fixed decorative image frame128x144pt. With 350pt content width, text gets210pt. Eyebrow uses the fixed catalog string in actionPink; title uses the real parent display name or fixed generic title, 32pt heavy; subtitle16pt mutedInk full text. Allow the hero to be as tall as its copy requires. There is no card, border, shadow or generic info icon behind it.
+
+05.06 Hero responsive rule: if available width <340pt, Dynamic Type is an accessibility category, or the laid-out title exceeds four lines while competing with the image, use a VStack. Keep eyebrow and title above, subtitle next, artwork aligned trailing within a 112pt-high area or beside the subtitle only when measurements permit. Do not truncate the title to retain an illustration. Do not overlay art on glyphs.
+
+05.07 Shortcut row: 16pt after hero; HStack spacing12pt; two equal-width tiles when both destinations exist. Each tile: minHeight80pt; fill mintSurface for information or lavenderSurface for resources; radius18pt; padding14pt; HStack spacing10pt with26pt icon and flexible VStack spacing4pt. Eyebrow11pt mutedInk; title17pt rounded bold ink, up to unlimited wrapped lines. The entire tile is one button. No trailing external arrow because these are in-page jumps.
+
+05.08 Information shortcut destination: first renderable of B02, B03, B01, B06, B07, B08, in that priority order. Resources shortcut destination: first renderable actionable content of B05, B04, B09, in that priority order. Omit a shortcut without a destination. A single remaining tile uses full width. If neither destination exists, omit the row. Do not show a tile that scrolls to an absent section or use fake metric values to fill its subtitle. At accessibility sizes, stack two full-width tiles with12pt gap.
+
+05.09 Anchor bar: 16pt after shortcuts, or hero when shortcuts are absent. Show only when at least three of the five anchor groups have actual targets. Order and mapping: Resumen -> first B02/B03; Preguntas -> B01; Detalles -> first B06/B07; Muestra -> B08; Recursos -> first actionable B05/B04/B09 in visual order. A scientific-only page can use Resumen. Keep each group as one chip even if it covers two blocks. Never create an anchor solely for the fixed guidance panel.
+
+05.10 Anchor chip geometry: 44pt minimum height; horizontal padding16pt; HStack chip gap8pt; single-line16pt rounded bold; selected fill ink with white text; unselected mintSurface with ink text. Scroll horizontally with hidden decorative scroll indicator and actual touch scrolling. Content insets align the first chip to the 20pt page gutter. Width derives from text; do not shrink all five chips to fit 350pt or clip long translations. End padding20pt. Native scroll hint is the partially visible next chip, not a fake caret.
+
+05.11 Sticky behavior: once the anchor bar's top reaches the toolbar bottom, pin it there with an opaque white backing, 8pt top/bottom padding, a subtle one-pixel bottom divider and no blur. Baseline pinned height60pt. Before that point it occupies its natural content position. Use a pinned section header or equivalent native layout that does not render duplicate anchor bars. The pinned bar and toolbar never cover the active section heading during a jump.
+
+05.12 Scroll navigation: tapping a tile or chip scrolls the target heading to 12pt below the combined toolbar/anchor occlusion boundary. Use a geometry-aware top target or scroll target inset; do not hardcode a screenshot's y coordinate. Complete the jump with one 0.22-second ease-in-out animation. In Reduce Motion, jump without animation. Keep the chosen chip visible in the horizontal bar with the shortest required horizontal scroll.
+
+05.13 Active-chip logic: observe actual section-header positions in the main scroll coordinate space. The active group is the last eligible group whose leading section has crossed the content boundary plus16pt. At the top use the first visible group. While crossing between groups keep the preceding group until the next crosses. Clamp at the last group near the bottom. Manual scrolling must update the chip. During programmatic scrolling retain the tapped selection until the scroll settles; avoid feedback loops between chip selection and scroll commands. Selection changes caused by geometry must not trigger another vertical jump.
+
+05.14 In this ordering, the Recursos anchor starts at the example banner if present, although later useful links and website are also resources. Do not automatically highlight Recursos for every later screen position if Detalles or Muestra starts afterward; maintain the ordered leading-anchor rule. On arriving at the later B04/B09 footer, Recursos becomes active again by assigning these blocks the same group. A group may own multiple disjoint blocks, with each actual section boundary participating in active-group calculation; tapping the chip still targets the first valid resource section.
+
+05.15 Section headings: VStack leading, title24pt heavy ink, optional fixed helper16pt mutedInk with6pt gap, bottom16pt before content. Use exact catalog strings. No repeated circular info button, header icon, right-aligned count, top pink dash or outer pink card. A semantic section heading can exist without a decorative icon. The B05 banner and B09 footer are deliberately integrated headings and do not get redundant outer section-title rows.
+
+05.16 Fixed guidance panel: render once, after B02 when B02 exists; otherwise immediately before the first renderable B03/B01/B06/B07/B08 content block. Omit it on resources-only pages. It is fixed UI guidance, not a tenth data block. HStack top spacing12pt, padding16pt, mintSurface radius20pt;40pt icon medallion with info glyph24pt; flexible text stack title19pt bold ink and6pt below body16pt bodyInk. Exact strings: Antes de solicitarlo; Revisá los detalles y las condiciones que se muestran en esta página. Never add invented provider accreditation, scientific sources or endorsements.
+
+05.17 Loading actual service data: use existing loading/error state handling. Do not treat a request still in flight as an empty service. Once data arrives, compute renderability before assembling shortcuts and anchors. Avoid inserting headers one by one in unrelated asynchronous tasks. Image requests may load independently while text is immediately readable.
+
+05.18 Preserve scroll position on local interaction. FAQ expansion, description expansion, technical expansion, a loaded illustration, link return, and search query changes must not reset the page to its hero. Keep the initiating header/button approximately at its visible position when content above/below changes. Do not wrap the whole ScrollView in .id(UUID()) or another changing identity. Do not animate the entire page every time a remote image completes.
+
+06. B01 / FREQUENT QUESTIONS
+
+06.01 Input: frequentQuestions. Section identifier service.faq. Header uses pg.service.faq.title and subtitle. White reading surface. This section is a list of clean editorial accordion rows, not pink cards. The top rule starts at the content edge. Each subsequent row has a bottom separator across the full content width. No left icon is needed; the question and trailing caret establish hierarchy.
+
+06.02 Row header layout: HStack(top, spacing:12pt). Question text fills available width at19pt rounded bold ink. Trailing caret has a 44x44pt slot containing the18pt asset. Header padding top12pt and bottom12pt; minHeight60pt; whole header is one button with a rectangular hit region. Baseline caret is visually aligned to the first question line's center, not the midpoint of a tall answer. At350pt width, the question's width is294pt before any optional internal inset. Do not add a second independent caret button.
+
+06.03 Expanded state uses pg_service_icon_chevron_up in actionPink. Collapsed state uses pg_service_icon_chevron_down in actionPink. If an answer exists, expose the row's question as its accessible button label and expanded/collapsed state using native accessibility state or localized value. Decorative caret is hidden. If no answer exists, remove the caret slot and button semantics, keep the supplied question static and full width.
+
+06.04 Initial state: the first item with an answer is open; all other answer-bearing items are closed. Multiple FAQs may remain open. Toggling one does not close another. Expansion keys use stable IDs from normalization. Do not add a redundant global expand-all control.
+
+06.05 Expanded answer: full-width leading text below the question, not indented under an imaginary icon. Body17pt bodyInk, line-height24pt,8pt gap after header text and16pt bottom padding before the separator. Preserve all authored paragraphs. The accordion itself supplies progressive disclosure, so never put a second Read more truncation inside an answer. Do not replace an answer with a generated summary. All long answers can be read by continuing the same page scroll.
+
+06.06 For a missing question with present answer use pg.service.faq.fallbackQuestion, retain full answer, and use the normal accordion. Do not claim that the generic label was authored. A blank answer does not get filler text such as a fabricated response. No source link is added unless a distinct model resource actually contains that URL; plain prose remains plain prose.
+
+06.07 Animation: 0.18-second ease-in-out row height/opacity transition with top alignment. No spring bounce, card rotation, image motion or repeated haptics. With Reduce Motion, update instantly. Focus stays on the toggled question. On VoiceOver activation announce changed state through the accessibility control, not a second custom alert.
+
+07. B02 / KEY INSIGHTS
+
+07.01 Input: keyInsights. Section identifier service.insights. Header: Aspectos clave and its fixed helper. Composition is white editorial text with a small raspberry marker per insight. No colored card around the list. This provides visual relief between hero/chips and colored callouts.
+
+07.02 Each insight uses HStack(top, spacing12pt): a native circular dot8pt diameter in brandPink inside a16pt-wide leading column, then a flexible VStack(leading, spacing6pt) containing title19pt rounded bold ink and description17pt bodyInk. Dot center aligns to the first title line's optical center; place it at approximately9pt from the row's top at baseline and recompute with scaled line height. Do not vertically center a dot against the entire paragraph.
+
+07.03 List item gap18pt. The dot is decorative and hidden from accessibility. Combine each title and description as a logical reading group without erasing a nested Read more button. No index numbers, check marks or success labels: the schema provides insights, not an ordered process or completed requirements.
+
+07.04 Missing title with description uses pg.service.insights.fallbackItemTitle. Title-only content has no empty body/spacer. For long descriptions use the shared measured expansion behavior in Section17. Never truncate the title. Do not highlight a numerical substring or invent a summary metric from a description. The list preserves provider order.
+
+07.05 After the list leave24pt to the fixed guidance panel if it belongs here. The next major model section uses32pt spacing after the callout. The guidance text is catalog UI copy; insight text is always supplied data. Do not add an extra caption claiming the provider's approval or a scientific source.
+
+08. B03 / SCIENTIFIC FACTS
+
+08.01 Input: scientificFacts. Section identifier service.science. Header uses Datos científicos and fixed helper. Each fact is its own mint information panel with a functional visual role, not a claim of validation. Do not label these panels evidence-verified, clinical recommendation, proven, or sourced without corresponding actual structured fields; this schema provides none.
+
+08.02 Panel: mintSurface, radius20pt, padding16pt, no border/shadow. HStack(top, spacing12pt): fixed40pt medallion mintMedallion with24pt pg_service_icon_science_outline tinted teal; remaining width is text VStack6pt. At350pt outer width, inner318pt minus52pt gives266pt text. Title19pt rounded bold ink; description17pt bodyInk. Top-align icon with title. Panel height is intrinsic; minHeight96pt only as a visual floor when enough content exists.
+
+08.03 Stack panels with12pt gap. Do not collapse multiple facts into one concatenated text field. For title-only facts the panel remains compact and no description placeholder is rendered. For description-only facts use the scientific fallback heading. Body uses the shared measured expansion behavior if very long; the fact's whole title always remains visible.
+
+08.04 At accessibility sizes, the40pt icon medallion can move above the text with8pt gap to keep paragraph width. Do not enlarge decorative icons to the same scale as very large body text. Keep the maximum medallion48pt. No interactive behavior belongs to the panel background; only a real expansion action is a button.
+
+08.05 No source citation is fabricated or inferred from a sentence. If provider text already contains a citation, preserve its string; do not relabel it as a trusted source. usefulLinks remains the appropriate separate structured external-resource section. No externally fetched fact or test-specific guidance is required for this UI implementation.
+
+09. B04 / USEFUL LINKS
+
+09.01 Input: usefulLinks. Section identifier service.links. This section appears toward the bottom after biological requirements. Header uses Enlaces útiles and its fixed subtitle. Display resources as clean, separated horizontal rows; do not build a stack of large cards or make every link a solid pink button.
+
+09.02 Row layout at350pt: HStack(center, spacing12pt), vertical padding14pt, minimum72pt. Leading40pt lavenderSurface medallion contains22pt pg_service_icon_link_outline tinted violet. Flexible text VStack gap4pt contains title18pt rounded bold ink and actual URL host14pt mutedInk. Trailing44pt action slot contains20pt pg_service_icon_external_arrow actionPink. Available text width =350-40-12-44-12=242pt. The whole valid row is one external-link control. There is no nested independent arrow action.
+
+09.03 External title wraps fully. Host is derived through a real URL parser and displays the hostname, preserving meaningful subdomains; do not strip or add a provider identity. Host may wrap once before truncation if extremely long. The full URL remains the destination and accessible value, with credentials never displayed. Never visually present example.com as a default host in production.
+
+09.04 Divider: one physical pixel separator across full content width between rows. No separator after the last row if the website footer's own top divider would create a double rule. No repeated section icon or subtitle within every row. No blue browser-style underlined URL needed; actionPink external arrow and button semantics provide the affordance.
+
+09.05 For missing title with valid URL use pg.service.links.fallbackItemTitle. For a title with invalid/missing URL: retain leading medallion in mutedInk, supplied title ink, second line pg.service.link.unavailable mutedInk, omit arrow and button semantics, and use the reclaimed trailing space for text. Do not provide a tappable dead row, faux-disabled pink arrow or fake retry destination.
+
+09.06 URL behavior follows Section18. A valid external action opens exactly the stored URL through the existing app routing. It does not request a service, submit a form or share data automatically. Do not infer that a file is a PDF, show a download icon or label a resource safe/verified based on its title.
+
+10. B05 / EXAMPLE LINK BANNER
+
+10.01 Input: the single sampleLink model. Section identifier service.example. This is the visual highlight from the reference. It MUST look like a compact illustrated raspberry resource banner, not a generic white card, full-bleed marketing hero or another text-only section. It appears after FAQ and before illustrated segments. There is no separate visible outer Enlace de ejemplo heading; that catalog name is used for semantic navigation if needed.
+
+10.02 Outer frame fills the350pt content column; solid actionPink background; radius24pt; inner padding18pt; no shadow. HStack(center, spacing14pt): leading fixed92x124pt frame with pg_service_example_resource_card_link_3d, then flexible text/action VStack(alignment:leading, spacing10pt). Inner width314pt minus92-14 gives208pt text. This exact width calculation prevents the art from squeezing the action label into illegibility.
+
+10.03 Title: authored sampleLink.title if present, otherwise pg.service.example.fallbackTitle;22pt rounded heavy, white, full wrapping. Description: authored string if present; if blank and URL valid, fixed pg.service.example.fallbackDescription;16pt standard regular, white, line-height22pt. No low-opacity white text. Never force one-line title/description or replace long supplied text with the short fixture sentence.
+
+10.04 Action: after12pt from the final description line, white Capsule, minHeight44pt, horizontal inset14pt, vertical inset11pt; content HStack(center, spacing8pt) with actual buttonTitle or fixed fallback at16pt rounded bold ink and20pt pg_service_icon_external_arrow actionPink. Arrow has a20pt visual frame within the button; the button itself supplies the44pt hit height, so do not reserve an extra44pt internal slot. The pill hugs its label up to the available right-column width. Long labels wrap and grow the pill's height. The external arrow never sits outside the white capsule.
+
+10.05 If the available text column would be <190pt, a long action label would need more than two lines at the current size, or Dynamic Type is accessibility-sized, switch banner to VStack. Show art centered in a120x120pt frame, then full-width leading title/body, then full-width white button. Do not shrink the title or overflow the rounded panel. This is an adaptive layout decision, not a different data state.
+
+10.06 Every renderable banner includes the fixed resource artwork even though the schema has no image field. The user explicitly requested this authored design default. Do not ask the backend for an image field and do not omit the art merely because sampleLink has none. The artwork is decorative and hidden from VoiceOver. The interactive element is the white button only; the whole banner is not a second button.
+
+10.07 Invalid URL: keep supplied title/description when present, maintain illustration and banner composition, replace action with pg.service.link.unavailable in white metadata text; no external-arrow glyph, no enabled button and no suggested destination. Do not use the fixed open-resource helper when no valid action exists. An object containing only buttonTitle with no title, description or valid URL is omitted entirely.
+
+10.08 Long description uses the shared expansion measurement but the expansion action's text and caret are white on the banner. It is a separate text control above the external action, never a nested button inside that action. Prefer full body for descriptions up to eight measured lines. Keep the title and action visible whenever body is collapsed. The footer action never becomes sticky over later sections.
+
+11. B06 / ILLUSTRATED SEGMENTS
+
+11.01 Input: bulletSegments. Section identifier service.segments. Header uses Segmentos ilustrados and fixed helper. The name of the field does not require a bullet dot. Render an editorial image followed by text, one segment per vertical unit. Preserve authored order. Do not convert segments into carousel-only content or horizontally scrolling cards that hide explanations.
+
+11.02 Each segment's VStack has image stage,14pt gap, title19pt rounded bold ink,6pt gap, description17pt bodyInk. Stage width equals content width, baseline height200pt, fill lavenderSurface, radius22pt, clipped only at the stage boundary. Body/title are on the white page outside the image stage, not inside a second card. Intersegment gap28pt.
+
+11.03 Valid authored image URL takes precedence over all fixed art. Load through the project's existing cache/network image facility. The baseline stage reserves200pt before and after loading to avoid text jumps. Use aspectFit, not aspectFill, so informative images, diagrams and labels remain visible. Center the image; letterbox naturally with lavenderSurface. Do not crop a sample label or screenshot simply to match a marketing illustration composition.
+
+11.04 Missing/invalid/failed image for a text-containing segment: render pg_service_illustrated_segment_book_sparkles_3d centered, inner inset16pt, aspectFit, original colors. Do not show a broken-image glyph, endless spinner, remote error text, developer URL or empty pink rectangle. This is an approved fixed visual fallback. Do not retry indefinitely. Keep the text's authored title/description unchanged.
+
+11.05 Loading stage: retain the lavender stage with a small native ProgressView centered, or immediately show the bundled fallback while the request runs. Never animate a large shimmer across all text. On successful load crossfade the image in0.15 seconds without changing the stage height. With Reduce Motion swap instantly. Failure uses the fixed fallback and preserves the surrounding scroll position. Do not start a new download on every view recomputation.
+
+11.06 Authored-image expand action: only after an actual model image successfully loads, show pg_service_icon_expand_image20pt violet in a44pt white circular button, top8pt and trailing8pt inside the stage. Its hit frame is wholly inside the stage. The image container may also open the same viewer if it has consistent single-action semantics; do not expose two duplicate VoiceOver targets. Accessible label = pg.service.image.view plus the real item title if available. Avoid inventing an image description.
+
+11.07 Do NOT show an expand button on the bundled decorative book fallback. That artwork conveys no service data and is accessibility-hidden. The preview PNG may illustrate an expansion affordance near the book to show its placement; runtime eligibility is governed by this rule. All authentic model images get the viewer affordance, including image-only segments.
+
+11.08 Viewer: present the existing full-screen image viewer or a native full-screen surface with pinch zoom and panning, fit-to-screen initial state, safe-area-aware top-trailing close button. Close glyph = pg_service_icon_close20pt ink centered in44pt white/pinkSurface target; accessibility label pg.service.image.close. Screen backdrop can be canvas or existing neutral viewer backdrop. Closing restores the original segment scroll position and focus to its expand action. Do not navigate to a new service or launch the external browser for an image-view action.
+
+11.09 Image accessibility: fixed art is decorative; authored images can use the supplied item title as a generic accessible label, with pg.service.image.fallbackAccessibleTitle when title is absent. Do not claim an alt description exists in this schema or generate factual alt text from unknown imagery. Retain image access so people can zoom meaningful content. An image-only record that fails and has no text is omitted after settling as specified in02.07.
+
+11.10 If a segment has only an authored image and no title/description, render the image stage with appropriate viewer label and no fabricated visible paragraph. If text exists without title, use pg.service.segments.fallbackItemTitle. Long descriptions may use measured expansion; images are never shrunk to make long prose fit a screenshot.
+
+12. B07 / TECHNICAL INFORMATION
+
+12.01 Input: technicalInformationFacts. Section identifier service.technical. Header uses Información técnica and fixed helper. Each model element defines one expandable group. Do not create inferred scientific, food, material or method categories by parsing text. Group title comes directly from its model or the generic fallback. subitems are plain strings with no hierarchy, status, units or metadata beyond their content.
+
+12.02 Component tree: VStack(alignment:leading, spacing16pt) { sectionHeading; conditional searchField; VStack(spacing12pt) { technicalGroup for each visible group } }. The section heading's own standard bottom gap supplies the initial16pt; do not double-apply it. Search is directly BELOW the section subtitle and ABOVE the first group. It does not live inside each group header, the global toolbar, the hero, or the entire service search. It filters this section only.
+
+12.03 Search visibility: compute N as total count of nonblank subitems across all normalized technical groups before filtering. Show search if N>12. Do not display it for short lists. N is not a title-derived number and excludes blank strings; duplicate real subitems still count separately. Keep the field visible while a query is active even when results are empty. If the model updates to N<=12, clear the query and omit the field with the next stable data update, preserving visible content.
+
+12.04 Search field exact layout: minHeight52pt, width350pt, radius16pt, lavenderSurface fill. HStack center: leading inset14pt,20pt search glyph mutedInk, gap10pt, flexible single-line native TextField at17pt bodyInk; trailing clear button44x44pt if query nonempty, otherwise14pt trailing inset. When clear is visible its right frame edge is4pt inside the field, with8pt gap from text. The leading icon's visible origin is x14pt; text starts x44pt from field leading edge. At350pt total width with clear present, input width is350-14-20-10-8-44-4=250pt. Search glyph is vertically centered and not tappable.
+
+12.05 Placeholder = pg.service.technical.searchPlaceholder. Use the text keyboard, sentence auto-capitalization disabled, autocorrection disabled, clear return/search action without sending data. Focus ring while editing is a1pt violet outline around the existing rounded field; do not change the field's size. Tapping field whitespace focuses input. Clear button uses pg_service_icon_clear_search18pt centered inside44pt, accessibility label pg.service.technical.clearSearch. It appears when the raw string contains any character, including spaces, so whitespace can still be cleared.
+
+12.06 Query normalization: retain raw query for the TextField. For matching only, trim leading/trailing whitespace, collapse consecutive query whitespace to single spaces, apply locale-aware case and diacritic folding, then split into nonempty tokens. An empty normalized query means unfiltered state. Match each token as a substring. A candidate matches only if all tokens occur within the same candidate string. Do not use a remote search endpoint, machine-learning inference, fuzzy service matching or subject-specific synonyms.
+
+12.07 Filtering algorithm per group:
+If normalized query empty, show all renderable groups in original order and restore their pre-search expansion state.
+If the combined group title plus description matches all tokens, keep that group and all its subitems because the group context matched.
+Otherwise, select subitems whose individual text matches all tokens; keep the group only if one or more subitems match.
+For this second case, retain the group's title and description above the filtered subitems so context is not lost.
+If a title-only or description-only group matches, show it even though it has no list rows.
+Do not mutate the source arrays. Keep source IDs on all filtered items. Do not sort by relevance; preserve authored group/subitem order.
+
+12.08 Search execution: local filtering with a120ms debounce after edits is sufficient; synchronous filtering is acceptable if it stays responsive for realistic data. Cancel obsolete work so an older query never overwrites a newer one. Clearing is immediate and must not wait for debounce. During search, every matching group with content is visibly expanded and every matching subitem is available; do not apply the eight-row truncation while a query is active. Save pre-search expansion state separately and restore it on clear. Do not permanently open or close all groups just because the user searched.
+
+12.09 Results count, if displayed, must come from the filtered rows, never hardcoded fixture14 or a number extracted from prose. Label14pt mutedInk below the search field with8pt top gap. For title/description-only matches, do not announce zero results when a visible group matches; count visible matching groups for accessibility or omit the visual numeric line and announce the updated set. Simpler compliant baseline: no visual count line; announce changed results politely after debounce using the existing localization facilities.
+
+12.10 No-match state remains inside this section directly below the search field with24pt vertical padding: title pg.service.technical.noMatches17pt semibold ink; helper pg.service.technical.searchHint16pt mutedInk;12pt below a44pt-minimum text action pg.service.technical.clearSearch in actionPink. No error illustration, modal alert or invented empty group. All other service sections remain in their normal order below it. Search never hides FAQ, samples, useful links or the website.
+
+12.11 Keyboard/scroll behavior: use the platform keyboard avoidance and native interactive keyboard dismissal for the main scroll view. Focusing search should reveal the field and the first visible group beneath the fixed toolbar/pinned anchors, with12pt breathing room. Do not scroll to the hero. Do not pin search to the screen while the user scrolls past technical information. On keyboard Search/Return, keep current results and dismiss the keyboard; no navigation or submission occurs. Clear preserves focus by default. Leaving the sheet drops query state; returning from an image viewer or external resource in the same presentation retains it.
+
+12.12 Technical group frame: full width, radius16pt,1pt lavenderBorder stroke, white body and lavenderSurface header. Group header HStack(top, spacing12pt), padding16pt, minHeight64pt. Leading24pt pg_service_icon_technical_outline tinted violet; flexible title19pt rounded bold ink; trailing44pt hit slot containing18pt caret violet. Header uses one button across the whole surface when expandable; its icon and caret are decorative children. Title aligns to the leading icon center on the first text line. Multiline titles grow header height; caret remains first-line-aligned.
+
+12.13 Expansion eligibility: a group is expandable when it has a description or nonblank subitems. A title-only group is static with no caret/trailing slot. Initial unfiltered state: first expandable group is open, later expandable groups closed. User can keep several open. A group with description only can still expand/collapse that content. Expansion state keys are stable group IDs. During nonempty search group expansion is forced visible; caret may stay up as an inert state indicator but MUST NOT remain an enabled button that can hide matching content. Prefer remove button semantics and keep a static expanded header during active query.
+
+12.14 Group expanded content: padding leading/trailing16pt, bottom12pt. Description at17pt bodyInk full text, top12pt; never automatically shorten a technical description. If both description and subitems exist,16pt after description. Each subitem is a plain leading text row17pt bodyInk, minHeight44pt, vertical padding10pt. Multiline rows grow naturally. Separators are inset to the group's inner text edges, not under the outer border. No bullet icons, checkboxes, numbering or green completion status are added.
+
+12.15 List truncation: with no active query, a group of <=8 nonblank subitems shows all; >8 shows first8 initially. Below the last visible row, add a full-width leading action region minHeight44pt. Label uses pg.service.technical.showAll formatted with the total count, e.g. Ver lista completa (14).16pt rounded bold actionPink plus18pt downward caret8pt after label. The caret is an inline glyph within the same button, not a separate44pt button. On activation show all original subitems and replace label with pg.service.technical.showLess plus up-caret. This controls list length inside the expanded group; it is distinct from the group header's open/close action.
+
+12.16 Preserve the list's expanded-all state when collapsing and reopening that group. Searching temporarily bypasses the eight-row limit without overwriting the previous expanded-all flag. Clearing restores exactly the user's previous group and list states. The clear action must not scroll the field offscreen or collapse unrelated content above it.
+
+12.17 For large content use a LazyVStack where appropriate inside the single main scroll flow, not a fixed-height internal ScrollView. Support hundreds of subitems without freezing typing. Do not set a second vertical gesture arena that traps scrolling inside a technical card. Reading the list and continuing to biological requirements is one continuous gesture.
+
+13. B08 / BIOLOGICAL SAMPLE REQUIREMENTS
+
+13.01 Input: biologicalSampleRequirements. Section identifier service.biological. Header uses Requisitos de muestra biológica and its fixed helper. This heading is allowed to wrap naturally across two or more lines. Never shrink it to fit one line or replace it with a specific specimen name. Requirement information and instructions must remain readable and must not resemble optional promotional copy.
+
+13.02 Each requirement has a summary followed by full instructions. Summary uses mintSurface, radius20pt, padding16pt. For the first item with an authored title or description, HStack(top, spacing12pt): flexible leading text VStack6pt and trailing96x116pt pg_service_biological_material_pouch_tag_3d. At350pt panel width, inner318 minus96 minus12 leaves210pt text. Title19pt rounded bold ink; description17pt bodyInk. Never enlarge the pouch to half the panel, overlap text or stretch its proportions.
+
+13.03 Use the fixed pouch once per section, on the first eligible title/description summary. Subsequent requirement summaries are text-only mint panels at full inner width. A record with only instructions uses its generic title and instructions on white without adding a purely decorative empty panel. If all records are instructions-only, the section remains fully functional without forcing a floating specimen illustration into unrelated text.
+
+13.04 At a content width<330pt or accessibility Dynamic Type, put the artwork below the summary text aligned trailing in an88x96pt frame. Text gets the full panel width. The art is lower priority than complete requirement wording. There is no model field for an alternative specimen image, so do not infer one from title keywords or attempt to classify biological materials.
+
+13.05 Instructions: render below the mint summary on white,16pt top gap. Label pg.service.biological.instructionsLabel uses12pt bold actionPink, tracking1.3pt. Then8pt gap and exact instructions string at17pt bodyInk,24pt line-height. Preserve paragraphs, punctuation, actual list characters and uppercase words supplied by the provider. The fixed label is INSTRUCCIONES, not a test-specific timing claim. If instructions blank, omit label and body entirely.
+
+13.06 Never hide biological instructions behind Read more, a collapsed accordion or a clipped fixed height. Do not rewrite the provider's preparation or handling language to make it shorter. Allow the page to grow. Do not add inferred clinical advice, caution text, shipping conditions, icons of specific equipment, container labels or a fixed sample volume. The fixed pouch is explicitly decorative.
+
+13.07 Inter-requirement gap24pt. Use a thin full-width separator between distinct requirements only if both are lengthy and need separation; baseline can use24pt whitespace without additional rules. Do not nest a pink instruction card inside a pink outer card. Do not use green checks to imply compatibility or completion.
+
+13.08 Accessibility reading order: section title, helper, first requirement title, description, instructions label and full instructions, then next requirement. Decorative artwork is skipped. If the same fallback title appears in multiple incomplete records, retain each separate record and authored instruction text; do not merge them. No interactive action belongs to the summary unless an actual separately modeled link section supplies one.
+
+14. B09 / SERVICE WEBSITE
+
+14.01 Input: websiteUrl. Section identifier service.website. This is a restrained footer row that closes the page. It does not get a duplicated outer section heading or a large filled button. Top separator one physical pixel; padding top16pt and bottom16pt; remaining bottom safe-area space belongs to the scaffold.
+
+14.02 Valid row: HStack(center, spacing12pt), leading44pt lavenderSurface circle with26pt pg_service_icon_globe_outline violet; flexible VStack spacing4pt with title pg.service.website.title at17pt rounded bold ink and parsed actual host14pt mutedInk; trailing44pt target slot with20pt pg_service_icon_external_arrow actionPink. Entire row is one link action. The text and medallion remain in alignment with the useful-links rows above.
+
+14.03 Canonical URL validation: absolute HTTPS URL with a nonempty valid host. Store/open the original complete URL, including path/query/fragment, after outer whitespace trimming. Reject unsupported scheme, missing host, control characters and malformed input. Do not display an unverified provider badge or lock icon suggesting a security guarantee. HTTPS is a permitted destination format, not a factual trust claim.
+
+14.04 Blank websiteUrl removes the row. Nonblank invalid value can show the fixed unavailable message as metadata, muted globe and no arrow/control. This unavailable state does not qualify as a resources shortcut/anchor target by itself. Do not include an invented help URL or fallback to the Pocket Genes website unless that exact destination is actually provided.
+
+15. FIXED COPY / MODEL COPY / FALLBACK MATRIX
+
+15.01 Every fixed visible string is listed in Appendix A and copy/fixed-copy.es.json. Keys are namespaced pg.service.*. Use the existing localization system; the supplied es.lproj/Localizable.strings can be imported or transcribed to a String Catalog without altering key/value identity. Do not use authoring-panel instructions such as Agregá, Reuní, Respondé or section-count badges as requester UI.
+
+15.02 Hero eyebrow/title fallback/subtitle, toolbar title/close action, shortcut text, anchor labels, section headings/helpers, guidance panel, search placeholder/no-results text, instruction label, generic fallback titles, image viewer controls and unavailable states are FIXED_UI. They do not require backend properties. This is how the rich visual design remains complete even when the schema contains only factual strings.
+
+15.03 Missing factual body content is not filled by made-up prose. Specifically: absent FAQ answer remains absent; absent insight description remains absent; absent scientific description remains absent; absent technical description and subitems remain absent; absent biological instructions remain absent. These sections still receive their fixed heading/helper when at least one item is renderable. Do not overwrite an authored string with the shorter catalog helper.
+
+15.04 The example banner is the one intentional item-level body-copy fallback: if a real valid URL exists and its description is empty, use the generic resource-opening helper. That helper says what the action does, not what a scientific result contains. For a valid URL-only sampleLink, render the full decorated banner with fixed title, fixed description, fixed button label and fixed illustration. This is a required demonstration of schema-complete visual richness.
+
+15.05 Missing image in a renderable illustrated segment uses the fixed book. Hero, example and biological illustrations are not driven by optional model image fields at all; their exact local files are fixed design assets. Do not substitute symbol glyphs for them. Do not read the fixture to obtain art assignments or subjects.
+
+15.06 Never hardcode demo prose or example.com as production fallbacks. The fixture exists only to exercise layouts and reproduce the reference compositions. Do not derive numbers such as14 from the preview; use actual normalized subitem count. Do not display a fixed count beside any of the nine section headings.
+
+15.07 Do not automatically translate provider strings because the interface locale is Spanish. Localization applies to FIXED_UI only unless an existing explicit content-localization mechanism supplies authored translations. Service strings are user/provider data. Long translated UI labels must wrap or adapt rather than being clipped.
+
+16. ICON POSITIONING, CARETS AND INTERACTION CONTRACT
+
+16.01 Keep a single PGServiceIcon helper responsible for named asset loading, template/original rendering, visual size and tint. Keep hit-region construction in the owning control. An18pt caret should not accidentally get resized to44pt because the target is44pt. A20pt arrow in a capsule may use the capsule's existing target rather than nesting another44pt control.
+
+16.02 Caret semantic table:
+FAQ closed -> down, actionPink; FAQ open -> up, actionPink; answer missing -> absent.
+Technical group closed -> down, violet; group open -> up, violet; no collapsible content -> absent.
+Technical list abbreviated -> inline down, actionPink; full list -> inline up, actionPink.
+Long description abbreviated -> inline down, actionPink; full -> inline up, actionPink.
+Example-banner long description -> same directions but white tint on raspberry.
+Outbound action -> diagonal external arrow; never a disclosure caret.
+In-page navigation chip -> no caret.
+Decorative illustration -> no caret or button.
+
+16.03 Row-header caret slot is trailing44x44pt. Align it to the title's first line, using top alignment plus the line-center offset rather than centering against the expanded content. For short single-line headers the slot centers naturally within the minimum header height. The image itself is18x18pt. Extend the header's full content shape across its text and whitespace so tapping the question works.
+
+16.04 Inline expansion action layout is HStack(spacing8pt) { text16pt rounded bold; caret18pt }, minHeight44pt, leading alignment. It is not a full-width filled button. For long labels the text wraps while caret remains adjacent to the final allocated text column; allow the action height to grow. No decorative underline is necessary but do not rely solely on color; the explicit action wording and caret provide affordance.
+
+16.05 External arrow positions: link rows/footer use a44pt trailing slot; example button uses20pt icon plus8pt text gap inside the white capsule. Use the same supplied diagonal arrow file in all three places. Do not change one to a chevron-right, arrow-right or download glyph. Do not make invalid destinations look interactive.
+
+16.06 Focus/pressed states: buttons darken their action fill or use a subtle corresponding surface tint for0.1 seconds; do not shift layout or scale text. Keyboard/focus navigation uses a visible2pt accent outline where platform focus does not supply an equivalent. Selected anchor includes contrasting fill and native selected accessibility state. Avoid hover-dependent functionality on touch screens.
+
+16.07 Accessibility labels belong to owning controls, not decorative children. Search icon is hidden. Clear search reads Borrar búsqueda. External links read the actual title plus host and native external-link hint. Viewer expand reads Ver imagen plus item title. Viewer close reads Cerrar imagen. Generic buttons must not read only arrow, chevron, PNG filename or unknown image.
+
+17. LONG TEXT AND EXPANSION
+
+17.01 Shared description expansion applies only to B02 insight descriptions, B03 scientific descriptions, B05 example descriptions, and B06 segment descriptions. At the current width and Dynamic Type size, measure rendered lines. If <=8 lines, display full text and no expansion control. If >8 lines, initial preview is5 lines plus a leading Leer más action below8pt. On expansion show complete original text and Leer menos. Do not approximate line count using a fixed character threshold.
+
+17.02 Measurement must use the same font, line spacing, width, paragraph handling and environment as actual rendering. Cache measurements by stable item ID, text, width and content-size category. Avoid infinite layout loops or repeatedly toggling between5 and8 lines. Never include the expansion button in the text measurement. The text may end with a native truncation ellipsis in preview, but the full string remains unmodified in state.
+
+17.03 Store expansion state by stable item ID plus field role; expanding one scientific fact does not expand every identical string. Preserve state on scroll and external-link return. On collapse preserve the control's visibility rather than jumping the user to page start. For accessibility categories, the same measured rule may produce more expandable items; all full content remains reachable through a clearly labeled action.
+
+17.04 Exclusions: hero titles, item titles, FAQ answers once open, technical descriptions and biological instructions are never silently truncated by this utility. FAQ and technical groups already have explicit disclosure structures. Technical subitems grow naturally. A website host may truncate only its secondary visual display; full destination stays available to assistive technology and link behavior.
+
+18. URLS, EXTERNAL LINKS AND IMAGE SAFETY
+
+18.01 usefulLinks and sampleLink accept valid absolute HTTP or HTTPS URLs with a real host. websiteUrl requires HTTPS. Do not dispatch javascript, data, file, arbitrary app schemes or relative paths as service external links. imageURL follows the application's existing permitted HTTP(S) remote-image rules and cache. Preserve already-established authenticated image handling; never send credentials to a guessed host.
+
+18.02 Use proper URL parsing. Reject control characters and malformed destinations. Preserve legitimate percent encoding, query parameters and fragments rather than string-concatenating a new URL. Do not automatically fix a typo, append a path, infer a file type, follow screenshot text or replace an invalid destination with example.com.
+
+18.03 On link activation, route through existing platform openURL/in-app browser policy. Preserve current scroll offset, expanded groups, expanded descriptions and search text when returning to this sheet. No duplicate opening if user taps quickly twice. Show the existing lightweight error feedback, or pg.service.link.openFailure, if opening fails. Do not present a confirmation for ordinary authorized link navigation unless the project already requires it.
+
+18.04 Do not prefetch every outbound webpage to determine titles, screenshots, colors or metadata. This model already supplies link titles. The parsed host is sufficient secondary text. Never expose a full URL with embedded credentials. Do not create service facts from remote metadata. The UI is data-driven with explicit destinations, not a web-scraping feature.
+
+19. ACCESSIBILITY, MOTION AND ADAPTIVE SCROLLING
+
+19.01 Use native heading traits for section titles and meaningful accessibility grouping for each item. The visual and spoken order must follow the model sections' actual display order. Don't combine an entire page into one accessibility element. Do not make paragraph text inaccessible because the surrounding panel is decorative.
+
+19.02 Minimum tap target44pt; adequate body contrast; all interactive state conveyed by label/selected/expanded semantics as well as color. Keep bodyInk for text instead of the much lighter raster gray in reference images. Check contrast in the final app using resolved colors; do not assume a transparent layer preserves contrast over underlying content.
+
+19.03 Dynamic Type: scale through native text styles and measure layout. At accessibility sizes, stack hero, shortcut row, example banner, science icon/text and biological summary as specified. Never force the full page into the preview's apparent height. Line breaks and scroll length are legitimate adaptations. Keep a reading column680pt maximum on iPad. Native safe areas and keyboard insets remain correct in landscape and split view.
+
+19.04 Reduced Motion removes animated scroll jumps, image crossfades and accordion transitions. Normal motion is restrained:0.18-second disclosure,0.22-second anchor navigation,0.15-second image crossfade. Do not float/rotate illustrations, pulse decorative icons, animate backgrounds or add repeated confetti. This is a calm reading surface with a friendly visual personality.
+
+19.05 A link or viewer return restores scroll position and state. Opening a section lower on the page must not render the hero as a new initial position. Image decoding happens without blocking text scrolling. Search changes are local and preserve other sections. Keyboard dismissal never dismisses the entire service sheet by mistake.
+
+19.06 The visual references define a light appearance. Use explicit adaptive tokens in the existing theme system. If the project permits this sheet to use a light-only appearance, scope it to this sheet; do not change the app-wide color scheme. If dark mode is mandatory, produce readable dark equivalents for the same semantic roles while preserving geometry and artwork colors, and verify them separately. Do not allow implicit system inversion to put white text on a pale fixed panel.
+
+20. IMPLEMENTATION SEQUENCE AND STATE OWNERSHIP
+
+20.01 Inspect existing SwiftUI screen, data types, optional semantics, model coding keys, service identity, localization, URL opening and image loading. Map the nine fields without changing persisted data. Identify real sheet safe-area/toolbar behavior before applying custom insets. Import supplied assets and verify target membership.
+
+20.02 Build a normalized presentation adapter that owns renderability, trimmed display strings, parsed URLs, stable IDs and derived targets. It must not add facts. Keep raw service values available for the exact action destinations and complete text display. Do not normalize by mutating server models.
+
+20.03 The sheet owns page-local state: FAQ expanded IDs; technical group expanded IDs; technical full-list IDs; long-description expanded field IDs; raw technical query and its debounced normalized version; pre-search disclosure snapshot; selected anchor; actual section positions; viewer selection; image-load results that affect an image-only segment; and scroll restoration state as required by the existing architecture.
+
+20.04 Child components receive content plus narrowly scoped state bindings/callbacks. An individual icon does not own navigation. A model update recomputes valid targets and removes stale IDs while preserving state for surviving IDs. Switching to a different service resets local disclosure/query state once. Do not accidentally reuse another service's cached title, website, instructions or artwork override.
+
+20.05 Implement scaffold and data-less chrome, then distinct blocks, then local interactions, then adaptive/accessibility states. Do not get stuck generating more decorative assets; all required production visuals are already bundled. The screen must remain useful with remote images offline because fixed art and actual text load locally.
+
+20.06 Compare the built screen to the reference compositions while using the exact token values and asset sizes. Avoid screenshot-driven mistakes: tiny body copy, oversized specimen art, an expand icon on a decorative fallback, four technical rows instead of the specified eight, fake device chrome, or hardcoded sample counts. The appendix identifies these preview-only differences explicitly.
+
+21. REQUIRED VERIFICATION / ACCEPTANCE CASES
+
+21.01 All nine populated blocks: exactly one toolbar, one hero, conditional shortcuts/anchors, each required block in the prescribed order, each correct heading/helper, no lost strings, no nested vertical scrolling traps.
+21.02 Everything empty: toolbar and empty state only; no example banner, fake webpage, fixed biological requirement or blank header.
+21.03 Service name absent: generic hero title, fixed subtitle and supplied folder illustration; no guessed subject name.
+21.04 Very long service name: intrinsic wrapping and stacked hero when necessary; no overlap with illustration or close action.
+21.05 Only a valid sampleLink URL: decorated banner with fixed generic title/helper/button and exact bundled card/link art; action opens that real URL.
+21.06 sampleLink containing only buttonTitle: no banner, because there is no resource or content.
+21.07 sampleLink with authored content but invalid URL: preserved content and static unavailable status; no clickable white button or false open promise.
+21.08 All FAQ answers present: first answer open, others closed; independent toggles; up/down assets correct; no duplicate button semantics.
+21.09 FAQ answer without question: generic heading plus full answer. Question without answer: static row without caret.
+21.10 Long open FAQ answer: full text shown; no second nested Read more action.
+21.11 Insights/scientific items with description only: generic item heading, exact body, correct dot or mint panel; no fake data or badge.
+21.12 Body descriptions longer than eight measured lines: five-line preview and correct expansion action; short text has no dead expansion control.
+21.13 Body text at accessibility sizes: content grows or stacks, contrast remains correct, text never scales down to fit.
+21.14 Useful URL-only item: generic resource title and actual host. Invalid title-only resource: unavailable static row, no arrow.
+21.15 Remote illustrated image succeeds: aspectFit stage, real image, expand control and working viewer. Viewer close returns to same segment.
+21.16 Remote illustrated image absent or fails with text present: exact bundled book fallback, no expand control, full authored text remains available.
+21.17 Image-only record fails: remove that empty record after resolution and update anchors; never retain a fictional fixed-art segment alone.
+21.18 Technical normalized count12: no search. Count13: search present immediately under subtitle. Search not repeated in group headers.
+21.19 Technical subitems with blanks/duplicates: blanks excluded from count, real duplicates preserved with distinct identities.
+21.20 Technical group count8: all rows shown, no full-list control. Count9: first8 rows plus control showing9 total.
+21.21 Search accents/case: matching behaves consistently with diacritic/case folding; no original text is rewritten.
+21.22 Search tokens: every token must match the same candidate; unrelated tokens in different rows do not create a false row match.
+21.23 Group-title search match: group and all its rows remain visible. Subitem-only match: only matching rows shown under their original group context.
+21.24 Search no results: field stays visible, local no-results copy and clear action appear, other page sections remain visible.
+21.25 Clear search: field retains focus, query clears immediately, prior disclosure and full-list states restored, page does not reset.
+21.26 Search keyboard: field is revealed under pinned chrome, interactive dismissal works, return dismisses keyboard without a network request.
+21.27 Technical description-only group: actual description can expand; no fake list count or search result number.
+21.28 Biological instructions long: all paragraphs visible, no collapse; generic fixed heading only where actual content makes item renderable.
+21.29 Multiple biological requirements: supplied art used once on first eligible summary, other records remain distinct and full width.
+21.30 Instructions-only requirement: no empty mint art panel, full instructions and generic heading still visible.
+21.31 HTTPS website: opens exact URL; HTTP or malformed website: unavailable state without forced upgrade or guess.
+21.32 Only two anchor groups: no anchor bar. Three or more: correct order, horizontal overflow, real selection and sticky position.
+21.33 Anchor tap: target heading appears below toolbar and pinned bar; no hidden heading or second scroll loop.
+21.34 Manual scroll: chip selection follows actual sections, including late useful-link/website sections mapping back to Recursos.
+21.35 Repeated titles: expansion and search state apply to correct rows, not all text-equal items.
+21.36 Returning from browser: sheet retains offset, query and expanded content. No refresh to top without user action.
+21.37 Every small icon is the specified supplied vector with correct tint and visible size;44pt targets do not stretch glyphs to44pt.
+21.38 Decorative artwork and medallions are skipped by VoiceOver; every actual action has a meaningful accessible label.
+21.39 Wide, narrow, landscape and accessibility layouts: one readable column, no horizontal page overflow, safe-area and keyboard insets correct.
+21.40 Fixed UI copy matches Appendix A; no fixture URLs, service-specific test names, unsupported metrics, fake citations, authoring helpers or screenshot extraction in production.
+21.41 Asset catalog compiles and each Image identifier resolves. Original PNGs retain color and alpha; PDF icons render as template vectors.
+21.42 Normal and Reduce Motion behavior both work; no unnecessary background animation or layout-jumping images.
+
+22. NONNEGOTIABLE COMPLETION CRITERIA
+
+22.01 The final native page must visibly include the reference's richer design vocabulary: illustrated hero, pastel shortcuts where destinations exist, useful anchored navigation when justified, clear full-width typography, alternating editorial and information-panel treatments, a compact art-led raspberry example banner, illustrated explanatory segments, lavender searchable technical groups, mint biological summaries with full instructions, and clean resource links. Minimal placeholder rectangles are not a compliant implementation.
+
+22.02 All fixed copy, all four large illustrations, all thirteen small vector assets, search behavior, caret semantics, exact small-icon positioning, hit areas, adaptive layouts and fallback rules are part of this TXT. No unresolved assets, generic filename guesses, missing-button behaviors or fixed-copy TODOs remain. Model content remains service-agnostic and complete.
+
+22.03 The completion report should state what changed, which assets and copy were imported, what behavior was verified, and any actual unsupported repository constraint. Do not claim the app was run if only a handoff was produced. Do not claim a generated preview is an implemented screenshot. The user has authorized the UI work, not new provider claims or clinical content.
+
+
+APPENDIX A. COMPLETE FIXED COPY CATALOG / EXACT UTF-8 STRINGS
+
+Every production fixed string is enumerated below. The fixture file is a separate, nonproduction source. Do not copy fixture prose into absent model fields. Format %d using a localized integer; do not display the placeholder literally. The result-count string may require a native plural localization resource if exposed to VoiceOver. Use the numeric value and localized plural category, never an invented quantity.
+
+COPY_ID: pg.service.sheet.title
+VALUE: Más información
+
+COPY_ID: pg.service.action.close
+VALUE: Cerrar
+
+COPY_ID: pg.service.hero.eyebrow
+VALUE: DETALLE DEL SERVICIO
+
+COPY_ID: pg.service.hero.fallbackTitle
+VALUE: Conocé el servicio
+
+COPY_ID: pg.service.hero.subtitle
+VALUE: Información y recursos para conocer mejor este servicio.
+
+COPY_ID: pg.service.shortcut.information.eyebrow
+VALUE: INFORMACIÓN
+
+COPY_ID: pg.service.shortcut.information.title
+VALUE: Qué incluye
+
+COPY_ID: pg.service.shortcut.resources.eyebrow
+VALUE: RECURSOS
+
+COPY_ID: pg.service.shortcut.resources.title
+VALUE: Para consultar
+
+COPY_ID: pg.service.anchor.summary
+VALUE: Resumen
+
+COPY_ID: pg.service.anchor.questions
+VALUE: Preguntas
+
+COPY_ID: pg.service.anchor.details
+VALUE: Detalles
+
+COPY_ID: pg.service.anchor.sample
+VALUE: Muestra
+
+COPY_ID: pg.service.anchor.resources
+VALUE: Recursos
+
+COPY_ID: pg.service.guidance.title
+VALUE: Antes de solicitarlo
+
+COPY_ID: pg.service.guidance.body
+VALUE: Revisá los detalles y las condiciones que se muestran en esta página.
+
+COPY_ID: pg.service.faq.title
+VALUE: Preguntas frecuentes
+
+COPY_ID: pg.service.faq.subtitle
+VALUE: Respuestas para resolver tus dudas.
+
+COPY_ID: pg.service.faq.fallbackQuestion
+VALUE: Más información sobre el servicio
+
+COPY_ID: pg.service.insights.title
+VALUE: Aspectos clave
+
+COPY_ID: pg.service.insights.subtitle
+VALUE: Una mirada rápida a los puntos más importantes.
+
+COPY_ID: pg.service.insights.fallbackItemTitle
+VALUE: Punto importante
+
+COPY_ID: pg.service.science.title
+VALUE: Datos científicos
+
+COPY_ID: pg.service.science.subtitle
+VALUE: Contexto para comprender mejor este servicio.
+
+COPY_ID: pg.service.science.fallbackItemTitle
+VALUE: Contexto científico
+
+COPY_ID: pg.service.links.title
+VALUE: Enlaces útiles
+
+COPY_ID: pg.service.links.subtitle
+VALUE: Más información para seguir consultando.
+
+COPY_ID: pg.service.links.fallbackItemTitle
+VALUE: Abrir recurso
+
+COPY_ID: pg.service.example.sectionName
+VALUE: Enlace de ejemplo
+
+COPY_ID: pg.service.example.fallbackTitle
+VALUE: Explorá un ejemplo
+
+COPY_ID: pg.service.example.fallbackDescription
+VALUE: Abrí el recurso compartido para conocer mejor la propuesta.
+
+COPY_ID: pg.service.example.fallbackButtonTitle
+VALUE: Ver ejemplo
+
+COPY_ID: pg.service.segments.title
+VALUE: Segmentos ilustrados
+
+COPY_ID: pg.service.segments.subtitle
+VALUE: Una forma visual de conocer los detalles.
+
+COPY_ID: pg.service.segments.fallbackItemTitle
+VALUE: Más sobre el servicio
+
+COPY_ID: pg.service.technical.title
+VALUE: Información técnica
+
+COPY_ID: pg.service.technical.subtitle
+VALUE: Detalles y puntos de apoyo para tu consulta.
+
+COPY_ID: pg.service.technical.fallbackItemTitle
+VALUE: Detalles técnicos
+
+COPY_ID: pg.service.technical.searchPlaceholder
+VALUE: Buscar en los detalles
+
+COPY_ID: pg.service.technical.showAll
+VALUE: Ver lista completa (%d)
+
+COPY_ID: pg.service.technical.showLess
+VALUE: Mostrar menos
+
+COPY_ID: pg.service.technical.noMatches
+VALUE: No encontramos coincidencias.
+
+COPY_ID: pg.service.technical.searchHint
+VALUE: Probá con otro término.
+
+COPY_ID: pg.service.technical.clearSearch
+VALUE: Borrar búsqueda
+
+COPY_ID: pg.service.technical.resultCount
+VALUE: %d resultados
+
+COPY_ID: pg.service.biological.title
+VALUE: Requisitos de muestra biológica
+
+COPY_ID: pg.service.biological.subtitle
+VALUE: Materiales aceptados e indicaciones para cada uno.
+
+COPY_ID: pg.service.biological.fallbackItemTitle
+VALUE: Material indicado
+
+COPY_ID: pg.service.biological.instructionsLabel
+VALUE: INSTRUCCIONES
+
+COPY_ID: pg.service.website.title
+VALUE: Sitio web del servicio
+
+COPY_ID: pg.service.website.invalidDestination
+VALUE: El sitio web no está disponible.
+
+COPY_ID: pg.service.content.readMore
+VALUE: Leer más
+
+COPY_ID: pg.service.content.readLess
+VALUE: Leer menos
+
+COPY_ID: pg.service.link.unavailable
+VALUE: Enlace no disponible
+
+COPY_ID: pg.service.link.openFailure
+VALUE: No pudimos abrir el enlace.
+
+COPY_ID: pg.service.image.view
+VALUE: Ver imagen
+
+COPY_ID: pg.service.image.close
+VALUE: Cerrar imagen
+
+COPY_ID: pg.service.image.fallbackAccessibleTitle
+VALUE: Imagen del servicio
+
+COPY_ID: pg.service.image.loadFailure
+VALUE: No pudimos cargar la imagen.
+
+COPY_ID: pg.service.empty.title
+VALUE: Todavía no hay más información
+
+COPY_ID: pg.service.empty.body
+VALUE: Cuando haya detalles disponibles, los vas a encontrar acá.
+
+COPY_ID: pg.service.a11y.linkHint
+VALUE: Abre un recurso externo.
+
+COPY_ID: pg.service.a11y.jumpHint
+VALUE: Va a esta sección de la página.
+
+COPY_ID: pg.service.a11y.expanded
+VALUE: Expandido
+
+COPY_ID: pg.service.a11y.collapsed
+VALUE: Contraído
+
+APPENDIX B. COMPLETE ASSET REGISTRY / EXACT CASE-SENSITIVE FILENAMES
+
+ASSET_ID: pg_service_hero_discovery_folder_magnifier_3d
+FILE: assets/illustrations/pg_service_hero_discovery_folder_magnifier_3d.png
+XCASSET: pg_service_hero_discovery_folder_magnifier_3d
+ROLE: S00.hero.trailingArtwork
+RENDERING: original
+ACCESSIBILITY: decorative; hidden from assistive technologies
+BASELINE_FRAME_PT: [128, 144]
+RULE: Always use in the nonempty-screen hero. Decorative. Never derive a service type from this artwork.
+
+ASSET_ID: pg_service_example_resource_card_link_3d
+FILE: assets/illustrations/pg_service_example_resource_card_link_3d.png
+XCASSET: pg_service_example_resource_card_link_3d
+ROLE: B05.sampleLink.banner.leadingArtwork
+RENDERING: original
+ACCESSIBILITY: decorative; hidden from assistive technologies
+BASELINE_FRAME_PT: [92, 124]
+RULE: Use in every renderable example banner. Decorative; the blank card does not claim a report or result format.
+
+ASSET_ID: pg_service_illustrated_segment_book_sparkles_3d
+FILE: assets/illustrations/pg_service_illustrated_segment_book_sparkles_3d.png
+XCASSET: pg_service_illustrated_segment_book_sparkles_3d
+ROLE: B06.bulletSegments.imageFallback
+RENDERING: original
+ACCESSIBILITY: decorative; hidden from assistive technologies
+BASELINE_FRAME_PT: [318, 180]
+RULE: Use when a renderable illustrated segment has no valid or successfully loaded image. The fixed image is decorative, not service content.
+
+ASSET_ID: pg_service_biological_material_pouch_tag_3d
+FILE: assets/illustrations/pg_service_biological_material_pouch_tag_3d.png
+XCASSET: pg_service_biological_material_pouch_tag_3d
+ROLE: B08.biologicalSampleRequirements.firstSummary.trailingArtwork
+RENDERING: original
+ACCESSIBILITY: decorative; hidden from assistive technologies
+BASELINE_FRAME_PT: [96, 116]
+RULE: Use once in the first biological requirement summary that has a title or description. Decorative; do not interpret the pouch as a required collection vessel.
+
+ASSET_ID: pg_service_icon_details_outline
+FILE: assets/icons/pg_service_icon_details_outline.svg
+XCASSET: pg_service_icon_details_outline
+ROLE: S00.informationShortcut; 26pt; teal
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_details_outline.pdf
+
+ASSET_ID: pg_service_icon_science_outline
+FILE: assets/icons/pg_service_icon_science_outline.svg
+XCASSET: pg_service_icon_science_outline
+ROLE: B03.scientificFact.leadingMedallion; 24pt; teal
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_science_outline.pdf
+
+ASSET_ID: pg_service_icon_link_outline
+FILE: assets/icons/pg_service_icon_link_outline.svg
+XCASSET: pg_service_icon_link_outline
+ROLE: S00.resourcesShortcut and B04.usefulLink.leadingMedallion; 26pt and 22pt; violet
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_link_outline.pdf
+
+ASSET_ID: pg_service_icon_globe_outline
+FILE: assets/icons/pg_service_icon_globe_outline.svg
+XCASSET: pg_service_icon_globe_outline
+ROLE: B09.website.leadingMedallion; 26pt; violet
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_globe_outline.pdf
+
+ASSET_ID: pg_service_icon_info_outline
+FILE: assets/icons/pg_service_icon_info_outline.svg
+XCASSET: pg_service_icon_info_outline
+ROLE: S00.guidanceCallout.leadingMedallion; 24pt; teal
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_info_outline.pdf
+
+ASSET_ID: pg_service_icon_technical_outline
+FILE: assets/icons/pg_service_icon_technical_outline.svg
+XCASSET: pg_service_icon_technical_outline
+ROLE: B07.technicalFact.header.leadingIcon; 24pt; violet
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_technical_outline.pdf
+
+ASSET_ID: pg_service_icon_search_outline
+FILE: assets/icons/pg_service_icon_search_outline.svg
+XCASSET: pg_service_icon_search_outline
+ROLE: B07.search.leadingIcon; 20pt; mutedInk
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_search_outline.pdf
+
+ASSET_ID: pg_service_icon_chevron_down
+FILE: assets/icons/pg_service_icon_chevron_down.svg
+XCASSET: pg_service_icon_chevron_down
+ROLE: B01.collapsedFAQ, B07.collapsedGroup, PGExpandableText.collapsed; 18pt; actionPink or violet
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_chevron_down.pdf
+
+ASSET_ID: pg_service_icon_chevron_up
+FILE: assets/icons/pg_service_icon_chevron_up.svg
+XCASSET: pg_service_icon_chevron_up
+ROLE: B01.expandedFAQ, B07.expandedGroup, PGExpandableText.expanded; 18pt; actionPink or violet
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_chevron_up.pdf
+
+ASSET_ID: pg_service_icon_external_arrow
+FILE: assets/icons/pg_service_icon_external_arrow.svg
+XCASSET: pg_service_icon_external_arrow
+ROLE: B04.resourceRow, B05.exampleButton, B09.websiteRow; 20pt; actionPink
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_external_arrow.pdf
+
+ASSET_ID: pg_service_icon_expand_image
+FILE: assets/icons/pg_service_icon_expand_image.svg
+XCASSET: pg_service_icon_expand_image
+ROLE: B06.authoredImage.viewerButton; 20pt; violet; never on the bundled decorative fallback
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_expand_image.pdf
+
+ASSET_ID: pg_service_icon_close
+FILE: assets/icons/pg_service_icon_close.svg
+XCASSET: pg_service_icon_close
+ROLE: ImageViewer.closeButton; 20pt; ink; sheet toolbar uses the word Cerrar
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_close.pdf
+
+ASSET_ID: pg_service_icon_clear_search
+FILE: assets/icons/pg_service_icon_clear_search.svg
+XCASSET: pg_service_icon_clear_search
+ROLE: B07.search.clearButton; 18pt; mutedInk
+RENDERING: template
+ACCESSIBILITY: icon hidden; owning button or row has the accessible label
+NATIVE_PDF: assets/icons/pg_service_icon_clear_search.pdf
+
+APPENDIX C. PREVIEW MATCHING / NOT A PIXEL OR CONTENT AUTHORITY
+
+previews/pg_service_detail_preview_01_overview.png = S00 shell, hero, shortcuts and anchors; B02 keyInsights; fixed guidance; B03 scientificFacts.
+previews/pg_service_detail_preview_02_questions_and_resources.png = B01 frequentQuestions; B05 sampleLink banner; B06 bulletSegments.
+previews/pg_service_detail_preview_03_technical_and_sample.png = B07 technicalInformationFacts; B08 biologicalSampleRequirements; B04 usefulLinks; B09 websiteUrl.
+
+The generated previews demonstrate composition and art direction. They are not literal screenshots of an implemented app. Use the exact files from the asset catalog in production; do not crop or extract icons or text from these previews. The TXT, fixed copy catalog and asset manifest define implementation behavior. In particular: the book fallback is decorative and MUST NOT have an image-expansion button; the preview illustrates that control but actual runtime shows it only for authored, successfully loaded images. The technical preview abbreviates the visible rows to four to fit the composition; the real fixture has fourteen rows, and runtime must show eight before expansion. The title fallback has no terminal period even if the concept adds one. Body colors must follow the readable token values rather than the lighter raster appearance. The pouch must be 96 by 116 points at baseline rather than an oversized preview proportion. The shell must use a standard 56-point toolbar and real platform safe areas, not the inconsistent photographed device chrome in the concepts. All example.com URLs exist only in the fixture and are not production defaults.
+
+APPENDIX D. DELIVERY INVENTORY AND AGENT START SEQUENCE
+
+1. Read this entire TXT.
+2. Read asset-manifest.json and copy/fixed-copy.es.json.
+3. Inspect the three preview PNGs only for visual composition.
+4. Inspect the existing SwiftUI sheet, model aliases and localization system.
+5. Import or merge PocketGenesServiceDetail.xcassets preserving the exact asset names. Import the fixed copy strings into the existing localization system.
+6. Implement S00 and all nine B01-B09 blocks using the exact ordering, fallback matrix, state and interaction rules in this document.
+7. Verify populated, sparse, missing-image, invalid-URL, long-copy, Dynamic Type and search states.
+8. Report code changes, validation and any actual repository constraints. Do not claim the handoff previews are running app screenshots.
+
+END OF CONTRACT VERSION 2.0

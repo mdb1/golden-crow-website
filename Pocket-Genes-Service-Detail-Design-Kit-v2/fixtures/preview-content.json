@@ -1,0 +1,84 @@
+{
+  "fixtureOnly": true,
+  "neverUseAsProductionFallback": true,
+  "serviceDisplayName": null,
+  "frequentQuestions": [
+    {
+      "question": "¿Dónde encuentro los detalles?",
+      "answer": "En esta página podés consultar la información y los recursos que comparte el proveedor."
+    },
+    {
+      "question": "¿Cómo accedo a los recursos?",
+      "answer": "Usá los enlaces que aparecen en las secciones de recursos."
+    }
+  ],
+  "keyInsights": [
+    {
+      "title": "Información organizada",
+      "description": "Consultá los detalles y recursos reunidos en esta página."
+    },
+    {
+      "title": "Antes de solicitar",
+      "description": "Revisá las condiciones publicadas por el proveedor."
+    }
+  ],
+  "scientificFacts": [
+    {
+      "title": "Contexto del servicio",
+      "description": "La información científica compartida por el proveedor se presenta en este espacio."
+    }
+  ],
+  "usefulLinks": [
+    {
+      "title": "Guía del servicio",
+      "url": "https://example.com/guia"
+    },
+    {
+      "title": "Recursos del proveedor",
+      "url": "https://example.com/recursos"
+    }
+  ],
+  "sampleLink": {
+    "title": "",
+    "description": "",
+    "buttonTitle": "",
+    "url": "https://example.com/ejemplo"
+  },
+  "bulletSegments": [
+    {
+      "title": "Una mirada al proceso",
+      "description": "Una explicación visual acompaña los detalles compartidos por el proveedor.",
+      "imageURL": ""
+    }
+  ],
+  "technicalInformationFacts": [
+    {
+      "title": "Detalles publicados",
+      "description": "Los puntos de apoyo se muestran tal como los comparte el proveedor.",
+      "subitems": [
+        "Descripción del servicio",
+        "Alcance publicado",
+        "Condiciones de acceso",
+        "Documentación disponible",
+        "Formatos disponibles",
+        "Recursos de consulta",
+        "Modalidad de acceso",
+        "Información de contacto",
+        "Canales de asistencia",
+        "Información adicional",
+        "Condiciones publicadas",
+        "Opciones disponibles",
+        "Requisitos publicados",
+        "Detalles complementarios"
+      ]
+    }
+  ],
+  "biologicalSampleRequirements": [
+    {
+      "title": "Material indicado por el proveedor",
+      "description": "Consultá el material aceptado y su descripción antes de coordinar la entrega.",
+      "instructions": "Las indicaciones específicas de preparación y entrega se muestran completas en este espacio."
+    }
+  ],
+  "websiteUrl": "https://example.com"
+}
