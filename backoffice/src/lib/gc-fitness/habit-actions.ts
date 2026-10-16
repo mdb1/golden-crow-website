@@ -335,8 +335,13 @@ async function currentTrainerCanManageHabit(
   trainerUid: string,
   habit: { trainerId?: string; clientId?: string | null; pendingEmail?: string | null },
 ): Promise<boolean> {
-  if (habit.trainerId === trainerUid) return true;
-
+  // The habit's CLIENT decides, not its author: authorship alone used to admit
+  // a PREVIOUS coach after the client was transferred, letting them keep
+  // editing / deleting / reading habits on the new coach's client (the
+  // schedule surfaces already exclude previous-coach docs, #446). A habit on
+  // a client is manageable iff that client is CURRENTLY the caller's — which
+  // still covers the caller's own habits, client-created ones (clientOwned,
+  // trainerId === clientId) and old-coach habits on a client they now coach.
   const clientId =
     typeof habit.clientId === "string" && habit.clientId.trim().length > 0
       ? habit.clientId.trim()
@@ -361,7 +366,8 @@ async function currentTrainerCanManageHabit(
     return mirrorSnap.exists && mirrorSnap.get("coachId") === trainerUid;
   }
 
-  return false;
+  // Neither a client nor a pending mirror to check against: only the author.
+  return habit.trainerId === trainerUid;
 }
 
 /**
@@ -595,6 +601,11 @@ export async function createHabit(
   // trainerId from the session AFTER the parse so a tampered input cannot
   // surface even if a future schema rev accidentally accepts the field.
   const data = habitCreateSchema.parse(input);
+
+  // Same roster gate as assignHabitTemplate: the Admin SDK bypasses rules, so
+  // without it a coach could plant a habit (with reminders) on another coach's
+  // client. Runs before any write.
+  await assertTrainerOwnsClient(trainer.uid, data.clientId);
 
   const db = gcFitnessFirestore();
   const docId = `hab-${trainer.uid}-${randomUUID()}`;

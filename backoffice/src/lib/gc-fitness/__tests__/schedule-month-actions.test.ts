@@ -36,6 +36,20 @@ function doc(id: string, data: Record<string, unknown>) {
 function makeDb() {
   function makeQuery(collectionName: string): Record<string, unknown> {
     const q: Record<string, unknown> = {
+      // Roster gate point-read: c1 is t1's CURRENT client (the transfer
+      // already happened — only the old content still carries old-coach).
+      doc: (id: string) => ({
+        get: async () => {
+          const data: Record<string, unknown> | null =
+            collectionName === FirestoreCollections.users && id === "c1"
+              ? { coachId: "t1" }
+              : null;
+          return {
+            exists: data !== null,
+            get: (field: string) => data?.[field],
+          };
+        },
+      }),
       where: () => q,
       orderBy: () => q,
       limit: () => q,

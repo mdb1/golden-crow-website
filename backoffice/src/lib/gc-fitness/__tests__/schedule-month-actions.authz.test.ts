@@ -4,12 +4,11 @@
 // against an in-memory Firestore. Complements schedule-month-actions.test.ts
 // (transferred-client / self-assigned visibility on the trainer's OWN client).
 //
-// Key finding pinned here: `listMonthForClients` trusts the caller-supplied
-// `clientIds`. The in-code comment says they are "derived from the trainer's
-// own roster on the caller" and that "Firestore Rules enforce trainerId ==
-// auth.uid on reads" — but this is a Server Action (callable with any
-// arguments) reading through the Admin SDK (rules bypassed). Assignments are
-// filtered by trainer in memory; habits and habit logs are NOT.
+// `listMonthForClients` is a Server Action (callable with any arguments)
+// reading through the Admin SDK (rules bypassed), so it re-checks the
+// caller-supplied `clientIds` against the roster and drops foreign ids.
+// Assignments are also filtered by trainer in memory; habits and habit logs
+// are NOT — the roster gate is the only barrier for them.
 
 import {
   FakeFirestore,
@@ -127,29 +126,26 @@ describe("listMonthForClients", () => {
     expect(ids).not.toContain("b-own");
   });
 
-  // SECURITY GAP: listMonthForClients never verifies that `input.clientIds`
-  // belong to the caller (schedule-month-actions.ts:704-710 → loadMonthForClients
-  // ~L795-818 / L972). For a FOREIGN client id it returns that client's
-  // self-assigned workouts (admitted by the `trainerId === clientId` branch),
-  // EVERY habit on the client regardless of trainer (the habits query and loop
-  // have no trainer filter), and each habit's done/missed status from
-  // habit_logs. Its siblings gate the client first (getClientCalendarPeek
-  // checks `client.coachId === trainer.uid`; listMonthForClientAsAdmin runs
-  // adminCanViewClientUnderCoach).
-  it.failing("SECURITY GAP: returns nothing about a client outside the caller's roster", async () => {
+  // listMonthForClients keeps only clientIds whose users/{id}.coachId is the
+  // caller (Admin SDK bypasses rules, so this is the only gate on habits /
+  // habit logs / self-assigned workouts, which have no trainer filter).
+  // Foreign ids are DROPPED, not thrown: one transferred client must not break
+  // the whole calendar.
+  it("returns nothing about a client outside the caller's roster (and runs no calendar query)", async () => {
     const out = await listMonthForClients({ ...RANGE, clientIds: ["x1"] });
-    expect(out.workoutsByDay).toEqual({});
-    expect(out.habitsByDay).toEqual({});
+    expect(out).toEqual({ monthStart: "2026-06-14", monthEnd: "2026-06-16", workoutsByDay: {}, habitsByDay: {} });
+    expect(db.queries).toEqual([]);
   });
 
-  // Current (insecure) behavior behind the gap — remove together with the
-  // `it.failing` above when the roster check is added.
-  it("pins the current leak: another coach's client's habit names, statuses and self-run are returned", async () => {
-    const out = await listMonthForClients({ ...RANGE, clientIds: ["x1"] });
-    expect(out.workoutsByDay["2026-06-15"].map((c) => c.templateName)).toEqual(["Xenia self run"]);
-    expect(out.habitsByDay["2026-06-14"]).toEqual([
-      expect.objectContaining({ clientId: "x1", habitName: "B's private habit", status: "done" }),
-    ]);
+  it("drops foreign / unknown ids but still loads the caller's own client", async () => {
+    const out = await listMonthForClients({ ...RANGE, clientIds: ["x1", "c1", "ghost", "c1"] });
+    for (const q of db.queries) {
+      expect(q.filters[0]).toEqual({ field: "clientId", op: "in", value: ["c1"] });
+    }
+    const workoutIds = Object.values(out.workoutsByDay).flat().map((c) => c.id);
+    expect(workoutIds).toEqual(["a-own", "a-self"]);
+    const habitClientIds = Object.values(out.habitsByDay).flat().map((h) => h.clientId);
+    expect(new Set(habitClientIds)).toEqual(new Set(["c1"]));
   });
 
   it("no query is trainer-scoped (pinned so the in-memory filter stays the only gate)", async () => {
@@ -162,6 +158,7 @@ describe("listMonthForClients", () => {
 
   it("caps the IN list at 30 client ids", async () => {
     const ids = Array.from({ length: 35 }, (_, i) => `c${i}`);
+    for (const id of ids) db.seed(`users/${id}`, { coachId: "coach-a", role: "client" });
     await listMonthForClients({ ...RANGE, clientIds: ids });
     expect((db.queries[0].filters[0].value as string[]).length).toBe(30);
   });

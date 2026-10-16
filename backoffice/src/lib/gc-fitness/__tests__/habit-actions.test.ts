@@ -136,9 +136,14 @@ function fakeTokens(opts: {
   } as unknown as Awaited<ReturnType<typeof getTokens>>;
 }
 
+// mockGet serves EVERY doc read, so this snapshot also answers the ownership
+// predicate's users/{clientId} read. `coachId` (default: the habit's
+// trainerId) is the client's CURRENT coach — i.e. by default the habit's author
+// still coaches the client; pass a different coachId for a transferred client.
 function fakeHabitSnapshot(opts: {
   exists: boolean;
   trainerId?: string | null;
+  coachId?: string | null;
   type?: "binary";
   id?: string;
   startsOn?: string;
@@ -158,6 +163,7 @@ function fakeHabitSnapshot(opts: {
     get: (field: string) =>
       ({
         trainerId: opts.trainerId,
+        coachId: opts.coachId === undefined ? opts.trainerId : opts.coachId,
         type: opts.type ?? "binary",
         clientId: "uid-client-abc",
         name: { en: "Test", es: "Prueba" },
@@ -284,6 +290,8 @@ describe("createHabit", () => {
   it("T01 — creates a habit with trainerId from session (T-06-05-01)", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
     mockSet.mockResolvedValue(undefined);
+    // createHabit roster gate: the client is on the caller's roster.
+    mockGet.mockResolvedValue(fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }));
 
     const result = await createHabit(VALID_BINARY_HABIT_INPUT);
 
@@ -318,6 +326,8 @@ describe("createHabit", () => {
   it("T04 — ignores client-provided trainerId (T-06-05-01)", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
     mockSet.mockResolvedValue(undefined);
+    // createHabit roster gate: the client is on the caller's roster.
+    mockGet.mockResolvedValue(fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }));
 
     const tamperedInput = {
       ...VALID_BINARY_HABIT_INPUT,
@@ -336,6 +346,8 @@ describe("createHabit", () => {
   it("T04b — also creates a reusable template and links the assignment to it", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
     mockSet.mockResolvedValue(undefined);
+    // createHabit roster gate: the client is on the caller's roster.
+    mockGet.mockResolvedValue(fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }));
 
     await createHabit(VALID_BINARY_HABIT_INPUT);
 
@@ -362,6 +374,8 @@ describe("createHabit", () => {
   it("T04c — does not create a template when sourceTemplateId is provided", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
     mockSet.mockResolvedValue(undefined);
+    // createHabit roster gate: the client is on the caller's roster.
+    mockGet.mockResolvedValue(fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }));
 
     await createHabit({
       ...VALID_BINARY_HABIT_INPUT,
@@ -910,6 +924,8 @@ describe("#1343 — weekdayFormat marker on habit writes", () => {
   it("createHabit stamps weekdayFormat:'iso' on the habit, NOT on the spawned template", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
     mockSet.mockResolvedValue(undefined);
+    // createHabit roster gate: the client is on the caller's roster.
+    mockGet.mockResolvedValue(fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }));
 
     await createHabit({
       ...VALID_BINARY_HABIT_INPUT,

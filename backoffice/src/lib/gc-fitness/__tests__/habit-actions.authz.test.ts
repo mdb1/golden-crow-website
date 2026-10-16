@@ -5,9 +5,12 @@
 // written. Complements habit-actions.test.ts (payload / schedule shapes).
 //
 // The ownership predicate `currentTrainerCanManageHabit` admits a habit when:
-//   (a) habit.trainerId === caller, OR
-//   (b) habit.clientId is a client whose users/{id}.coachId === caller, OR
-//   (c) habit.pendingEmail is a mirror whose coachId === caller.
+//   (a) habit.clientId is a client whose users/{id}.coachId === caller, OR
+//   (b) it has no clientId and habit.pendingEmail is a mirror whose
+//       coachId === caller, OR
+//   (c) it has neither, and habit.trainerId === caller.
+// Authorship alone does NOT admit a habit on a client who moved to another
+// coach (the previous coach loses access after a transfer).
 // Each mutating habit action is driven through all three admit paths and the
 // deny paths (foreign client, foreign mirror, no client/mirror at all).
 
@@ -206,23 +209,13 @@ describe("createHabit", () => {
     expect(db.writes).toEqual([]);
   });
 
-  // SECURITY GAP: createHabit never checks that `input.clientId` is in the
-  // caller's roster (habit-actions.ts:588-704 — no assertTrainerOwnsClient
-  // call), while every sibling create path does: assignHabitTemplate runs
-  // assertTrainerOwnsClient for each clientId, createPendingHabit and
-  // assignHabitTemplateToPending check the mirror's coachId. Through the Admin
-  // SDK (rules bypassed) coach-a can create a habit — with reminders — on
-  // coach-b's client, and it shows up in that client's app.
-  it.failing("SECURITY GAP: rejects a habit for a client outside the caller's roster, writing nothing", async () => {
-    await expect(createHabit({ ...VALID_HABIT, clientId: "x1" })).rejects.toThrow();
-    expect(dataWrites()).toEqual([]);
-  });
-
-  // Current (insecure) behavior behind the gap above — remove together with the
-  // `it.failing` when the roster check is added.
-  it("pins the current behavior behind the gap: the foreign-client habit IS written", async () => {
-    const { id } = await createHabit({ ...VALID_HABIT, clientId: "x1" });
-    expect(db.doc(`habits/${id}`)).toMatchObject({ clientId: "x1", trainerId: "coach-a" });
+  // createHabit runs assertTrainerOwnsClient (like assignHabitTemplate) — the
+  // Admin SDK bypasses rules, so this is the only barrier against planting a
+  // habit (with reminders) on another coach's client.
+  it("rejects a habit for a client outside the caller's roster, writing nothing", async () => {
+    await expect(createHabit({ ...VALID_HABIT, clientId: "x1" })).rejects.toThrow("Client is not in your roster.");
+    await expect(createHabit({ ...VALID_HABIT, clientId: "ghost" })).rejects.toThrow("Client is not in your roster.");
+    expect(db.writes).toEqual([]);
   });
 
   it("re-homes a draft photo to the final habit id", async () => {
@@ -321,20 +314,35 @@ describe("currentTrainerCanManageHabit — mutating habit actions", () => {
     });
   });
 
-  // SECURITY GAP (transferred client): the predicate's FIRST branch
-  // (habit-actions.ts:338 `habit.trainerId === trainerUid → true`) admits the
-  // habit's original author even after the client moved to another coach, so
-  // the PREVIOUS coach can still edit / delete / skip habits that live on the
-  // NEW coach's client (and read them via getHabit). Schedule/assignment
-  // surfaces explicitly exclude previous-coach docs (#446); this one doesn't.
-  it.failing("SECURITY GAP: the previous coach cannot edit a habit on a client who moved to another coach", async () => {
-    await expect(updateHabit("h-stale", VALID_UPDATE)).rejects.toThrow("Not your habit.");
+  // Transferred client: authorship (habit.trainerId === caller) no longer
+  // admits the habit — the habit's CLIENT must currently be the caller's. The
+  // previous coach can't edit / delete / skip (or read, see getHabit) habits
+  // living on the new coach's client; the new coach can.
+  describe.each(mutate)("%s on a habit whose client moved to another coach", (_name, run) => {
+    it("rejects the PREVIOUS coach (the habit's author) and writes nothing", async () => {
+      const before = db.doc("habits/h-stale");
+      await expect(run("h-stale")).rejects.toThrow("Not your habit.");
+      expect(db.writes).toEqual([]);
+      expect(db.doc("habits/h-stale")).toEqual(before);
+    });
+
+    it("admits the NEW coach", async () => {
+      signInAs("coach-b", ["trainer"]);
+      await run("h-stale");
+      expect(dataWrites().map((w) => w.path)).toEqual(["habits/h-stale"]);
+    });
+  });
+
+  it("an author's pending habit whose mirror now belongs to another coach is no longer theirs", async () => {
+    db.seed("habits/h-pending-moved", { type: "binary", name: NAME, reminderEnabled: false, deleted: false, trainerId: "coach-a", clientId: null, pendingEmail: "theirs@example.com" });
+    await expect(updateHabit("h-pending-moved", VALID_UPDATE)).rejects.toThrow("Not your habit.");
     expect(db.writes).toEqual([]);
   });
 
-  it.failing("SECURITY GAP: the previous coach cannot soft-delete a habit on a transferred client", async () => {
-    await expect(softDeleteHabit("h-stale")).rejects.toThrow("Not your habit.");
-    expect(db.writes).toEqual([]);
+  it("a habit with neither client nor pending mirror stays manageable by its author only", async () => {
+    db.seed("habits/h-loose", { type: "binary", name: NAME, reminderEnabled: false, deleted: false, trainerId: "coach-a" });
+    await softDeleteHabit("h-loose");
+    expect(dataWrites().map((w) => w.path)).toEqual(["habits/h-loose"]);
   });
 
   it("updateHabit writes only whitelisted fields (no clientId / trainerId / type)", async () => {
@@ -388,6 +396,8 @@ describe("getHabit", () => {
     await expect(getHabit("h-foreign")).rejects.toThrow("Not your habit.");
     await expect(getHabit("h-foreign-pending")).rejects.toThrow("Not your habit.");
     await expect(getHabit("missing")).rejects.toThrow("Not found");
+    // previous coach of a transferred client can no longer read it
+    await expect(getHabit("h-stale")).rejects.toThrow("Not your habit.");
   });
 });
 

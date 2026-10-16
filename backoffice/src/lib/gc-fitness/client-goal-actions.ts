@@ -139,6 +139,13 @@ export async function updateClientGoal(
   if (!snap.exists || snap.get("coachId") !== trainer.uid) {
     throw new Error("Forbidden");
   }
+  // Same roster check as create/list: after a transfer the previous coach
+  // still authored the goal but must not keep editing it.
+  const goalClientId = snap.get("clientId");
+  if (typeof goalClientId !== "string" || goalClientId.length === 0) {
+    throw new Error("Forbidden");
+  }
+  await assertOwnsClient(trainer.uid, goalClientId);
 
   const patch: Record<string, unknown> = {
     updatedAt: FieldValue.serverTimestamp(),

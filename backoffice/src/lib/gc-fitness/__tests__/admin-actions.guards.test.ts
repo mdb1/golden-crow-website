@@ -361,20 +361,49 @@ describe("deleteClientCascade", () => {
     db.recursiveDelete = realRecursive;
   });
 
-  // SECURITY GAP: deleteClientCascade (admin-actions.ts:912) never reads the
-  // target's role. The coach detail page's `deleteClientAction` passes only
-  // `clientUid` (its `coachUid` is used for revalidation, never ownership), and
-  // the hygiene purge picks the coach-vs-client cascade from a FORM field. So a
-  // replayed/tampered admin POST with a COACH uid runs the CLIENT cascade on a
-  // coach: their /users doc + Auth user are deleted while their clients,
-  // templates and chats are orphaned. The sibling `deleteCoachlessUser` refuses
-  // non-client targets; this path should too. Admin-only, so not cross-tenant.
-  it.failing("refuses to run the CLIENT cascade on a coach account", async () => {
+  // deleteClientCascade refuses a target whose stored role (or Auth claims) is
+  // trainer/admin: run on a coach, the CLIENT cascade would delete their
+  // /users doc + Auth user while orphaning their clients, templates and chats.
+  // The refusal happens before the try, so not even a "failed" op log is written.
+  it.each(["execute", "dry_run"])("refuses to run the CLIENT cascade on a coach account (%s), writing nothing", async (mode) => {
     await expect(
-      deleteClientCascade({ clientUid: COACH_A, confirmation: "DELETE CLIENT", mode: "execute" }),
-    ).rejects.toThrow();
+      deleteClientCascade({ clientUid: COACH_A, confirmation: "DELETE CLIENT", mode }),
+    ).rejects.toThrow("Refusing to delete: target is a coach/admin account, not a client.");
     expect(db.doc("users", COACH_A)).toBeDefined();
-    expect(mockAuth.deleteUser).not.toHaveBeenCalled();
+    expectNoMutation();
+  });
+
+  it("refuses an admin-role user doc and a client doc whose Auth claims say trainer", async () => {
+    await db.collection("users").doc("admin-user1").set({ role: "admin", email: "ops@x.com" });
+    db.writes.length = 0; // seeding, not under test
+    await expect(
+      deleteClientCascade({ clientUid: "admin-user1", confirmation: "DELETE CLIENT", mode: "execute" }),
+    ).rejects.toThrow("Refusing to delete");
+    mockAuth.getUser.mockImplementationOnce(async (uid: string) => ({ uid, customClaims: { role: "trainer" } }));
+    await expect(
+      deleteClientCascade({ clientUid: CLIENT_A, confirmation: "DELETE CLIENT", mode: "execute" }),
+    ).rejects.toThrow("Refusing to delete");
+    expect(db.doc("users", CLIENT_A)).toBeDefined();
+    expectNoMutation();
+  });
+
+  it("with coachUid (coach detail page) refuses a client of ANOTHER coach, writing nothing", async () => {
+    await expect(
+      deleteClientCascade({ coachUid: COACH_A, clientUid: CLIENT_B, confirmation: "DELETE CLIENT", mode: "execute" }),
+    ).rejects.toThrow("Client does not belong to this coach.");
+    await expect(
+      deleteClientCascade({ coachUid: COACH_A, clientUid: "ghost-user1", confirmation: "DELETE CLIENT", mode: "execute" }),
+    ).rejects.toThrow("Client not found.");
+    expect(db.doc("users", CLIENT_B)).toBeDefined();
+    expectNoMutation();
+  });
+
+  it("with the matching coachUid runs the cascade on that coach's client", async () => {
+    await expect(
+      deleteClientCascade({ coachUid: COACH_A, clientUid: CLIENT_A, confirmation: "DELETE CLIENT", mode: "execute" }),
+    ).resolves.toEqual({ ok: true, mode: "execute", deletedDocsApprox: 8 });
+    expect(db.doc("users", CLIENT_A)).toBeUndefined();
+    expect(mockAuth.deleteUser).toHaveBeenCalledWith(CLIENT_A);
   });
 });
 

@@ -907,13 +907,63 @@ const deleteClientSchema = z.object({
   clientUid: z.string().trim().min(6).max(128),
   confirmation: z.literal("DELETE CLIENT"),
   mode: z.enum(["dry_run", "execute"]),
+  // Set by the coach detail page: the client must belong to THIS coach, the
+  // same ownership read deactivate / unlink make. Omitted by callers that are
+  // not scoped to a coach (coach-less delete, data hygiene).
+  coachUid: z.string().trim().min(6).max(128).optional(),
 });
+
+const NON_CLIENT_ROLES = new Set(["trainer", "admin"]);
+
+/**
+ * The client cascade deletes the /users doc + Auth user and every client-keyed
+ * collection; run on a COACH it would delete the account while orphaning their
+ * clients, templates and chats (that is `deleteCoachCascade`'s job). Refuse a
+ * target whose stored role — or Auth claims — say trainer/admin. The doc is the
+ * source of truth (as in transferClientToCoach / deleteCoachlessUser); the
+ * claims read is a fail-soft second opinion for a coach whose doc is missing.
+ */
+async function assertClientCascadeTarget(
+  clientUid: string,
+  coachUid: string | undefined,
+): Promise<void> {
+  const snap = await gcFitnessFirestore()
+    .collection(FirestoreCollections.users)
+    .doc(clientUid)
+    .get();
+  const docRole = snap.exists ? snap.get("role") : null;
+  if (typeof docRole === "string" && NON_CLIENT_ROLES.has(docRole.trim().toLowerCase())) {
+    throw new Error("Refusing to delete: target is a coach/admin account, not a client.");
+  }
+  if (coachUid !== undefined) {
+    if (!snap.exists) {
+      throw new Error("Client not found.");
+    }
+    if (snap.get("coachId") !== coachUid) {
+      throw new Error("Client does not belong to this coach.");
+    }
+  }
+  let claimRoles: string[] = [];
+  try {
+    const authUser = await gcFitnessAuth().getUser(clientUid);
+    claimRoles = rolesFromClaims(
+      authUser?.customClaims as Record<string, unknown> | undefined,
+    );
+  } catch {
+    // fail-soft — the Firestore doc above is the source of truth.
+  }
+  if (claimRoles.some((role) => NON_CLIENT_ROLES.has(role))) {
+    throw new Error("Refusing to delete: target is a coach/admin account, not a client.");
+  }
+}
 
 export async function deleteClientCascade(
   input: unknown,
 ): Promise<{ ok: true; mode: OperationMode; deletedDocsApprox: number }> {
   const admin = await getCurrentAdmin();
   const parsed = deleteClientSchema.parse(input);
+  // Before the try: a refusal writes nothing (not even a "failed" op log).
+  await assertClientCascadeTarget(parsed.clientUid, parsed.coachUid);
   try {
     const plan = await buildClientCascadePlan(parsed.clientUid);
     if (parsed.mode === "dry_run") {

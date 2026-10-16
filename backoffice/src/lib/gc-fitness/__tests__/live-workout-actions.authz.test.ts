@@ -421,17 +421,26 @@ describe("finalizeWorkoutSession", () => {
     expect(db.doc("workout_assignments/f-foreign")?.templateSnapshot).toEqual(base.templateSnapshot);
   });
 
-  // SECURITY GAP (defense in depth): finalize trusts the log's `assignment_id`
-  // and marks that assignment `completed` WITHOUT checking the assignment's
-  // trainerId — its sibling cancelWorkoutSession re-reads the assignment and
-  // throws "Not your assignment." (live-workout-actions.ts ~L752). A log owned
-  // by coach-a whose assignment_id names coach-b's assignment flips coach-b's
-  // assignment to completed. Not reachable through startWorkoutSession (it
-  // verifies the assignment), so it needs an inconsistent log doc.
-  it.failing("SECURITY GAP: does not complete an assignment owned by another coach", async () => {
+  // finalize re-checks the assignment named by the log's `assignment_id`
+  // (like cancelWorkoutSession) BEFORE any write: a log owned by coach-a whose
+  // assignment_id names coach-b's assignment must not flip it to completed.
+  it("does not complete an assignment owned by another coach, writing nothing", async () => {
     db.seed("workout_logs/log-a", { ...db.doc("workout_logs/log-a"), assignment_id: "asg-b" });
-    await finalizeWorkoutSession({ logId: "log-a", sets: [], mode: "session" });
+    const logBefore = db.doc("workout_logs/log-a");
+    await expect(
+      finalizeWorkoutSession({ logId: "log-a", sets: [set("s1", "ex-squat", 0, 100, 5)], mode: "session" }),
+    ).rejects.toThrow("Not your assignment.");
+    expect(db.writes).toEqual([]);
     expect(db.doc("workout_assignments/asg-b")?.status).toBe("scheduled");
+    expect(db.doc("workout_logs/log-a")).toEqual(logBefore);
+  });
+
+  it("still finalizes when the log's assignment was deleted mid-session", async () => {
+    db.seed("workout_logs/log-a", { ...db.doc("workout_logs/log-a"), assignment_id: "asg-gone" });
+    await expect(
+      finalizeWorkoutSession({ logId: "log-a", sets: [set("s1", "ex-squat", 0, 100, 5)], mode: "session" }),
+    ).resolves.toEqual({ logId: "log-a", futureUpdated: 0 });
+    expect(db.doc("workout_logs/log-a")?.status).toBe("completed");
   });
 });
 
@@ -666,16 +675,20 @@ describe("client exercise notes", () => {
     expect(db.writes[1]).toEqual({ op: "delete", path: "client_exercise_notes/coach-a_c1_ex-squat", via: "direct" });
   });
 
-  // SECURITY GAP (low): setClientExerciseNote never checks that `clientId` is
-  // in the caller's roster (live-workout-actions.ts ~L1222). The doc lands in
-  // the caller's own `${trainerUid}_…` id space, but firestore.rules
-  // (/client_exercise_notes) let the CLIENT named in `clientId` read it — so a
-  // coach can plant a note readable by another coach's client once the
-  // (deferred) iOS surface ships.
-  it.failing("SECURITY GAP: rejects a note about a client outside the caller's roster", async () => {
+  // setClientExerciseNote requires the client be on the caller's roster:
+  // firestore.rules (/client_exercise_notes) let the CLIENT named in
+  // `clientId` read the note, so a coach must not plant one on another coach's
+  // client (nor clear one — the empty-note delete path is gated too).
+  it("rejects a note about a client outside the caller's roster, writing nothing", async () => {
     await expect(
       setClientExerciseNote({ clientId: "x1", exerciseId: "ex-squat", note: "hi from coach A" }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("Client is not in your roster.");
+    await expect(
+      setClientExerciseNote({ clientId: "x1", exerciseId: "ex-squat", note: "  " }),
+    ).rejects.toThrow("Client is not in your roster.");
+    await expect(
+      setClientExerciseNote({ clientId: "ghost", exerciseId: "ex-squat", note: "hi" }),
+    ).rejects.toThrow("Client is not in your roster.");
     expect(db.writes).toEqual([]);
   });
 });
