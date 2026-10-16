@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "node scripts/check-server-deps.mjs && tsc && node scripts/smoke-boot.mjs && npm test",
+    "build": "node scripts/check-server-deps.mjs && tsc && node scripts/smoke-boot.mjs && NODE_ENV=test npm test",
     "smoke": "node scripts/smoke-boot.mjs",
     "generate:pgo-schemas": "node scripts/generate-pgo-object-schemas.mjs",
     "generate:pgi-schemas": "node scripts/generate-pgi-native-schemas.mjs",

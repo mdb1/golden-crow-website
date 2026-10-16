@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "node scripts/check-server-deps.mjs && next build && node scripts/smoke-start.mjs && jest --ci",
+    "build": "node scripts/check-server-deps.mjs && next build && node scripts/smoke-start.mjs && NODE_ENV=test jest --ci --silent",
     "build:app": "node scripts/check-server-deps.mjs && next build",
     "smoke": "node scripts/smoke-start.mjs",
     "start": "next start",

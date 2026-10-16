@@ -20,6 +20,16 @@
 // All shims are scoped to the test runtime — they NEVER bleed into the
 // production bundle.
 
+// NODE_ENV must be "test": Jest only defaults it when unset, and Vercel builds
+// run with NODE_ENV=production — React then loads its production bundle, which
+// has no act(), and every component test fails with "React.act is not a
+// function" (the 2026-10-16 deploy of #452). `npm run build` sets it.
+if (process.env.NODE_ENV !== "test") {
+  throw new Error(
+    `Jest must run with NODE_ENV=test (got ${JSON.stringify(process.env.NODE_ENV)}). Use \`NODE_ENV=test npx jest\`.`,
+  );
+}
+
 import "@testing-library/jest-dom";
 
 class ResizeObserverShim {
