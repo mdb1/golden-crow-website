@@ -123,7 +123,7 @@ describe("POST /client-bookings (public)", () => {
   // (backoffice client-bookings-workbench.tsx:529). React 19 currently blocks
   // javascript: hrefs at render time, so this is not exploitable today, but the
   // public endpoint should only accept http(s) URLs.
-  it.failing("rejects a javascript: pageUrl from the public form", async () => {
+  it("rejects a javascript: pageUrl from the public form", async () => {
     const payload = withChange(
       (b) => void (b.source.pageUrl = "javascript:alert(document.cookie)"),
     );
