@@ -298,12 +298,11 @@ describe("/gym project-access gate (whole app)", () => {
     expect(res.json().error).not.toBe("No access to pocket-gyms project");
   });
 
-  // SECURITY BUG — src/middleware/auth.ts:149 compares the RAW request.url
-  // with "/gym/", but the router percent-decodes before matching, so
-  // GET /%67ym/members skips the project gate and runs the /gym/members
-  // handler (here it reaches the inert Firestore → 500; in production it
-  // returns Pocket Gyms members to a session with no pocket-gyms access).
-  it.failing("percent-encoded /gym paths are gated too (GET /%67ym/members)", async () => {
+  // Regression (#451): the gate compared the RAW request.url with "/gym/",
+  // but the router percent-decodes before matching, so GET /%67ym/members
+  // skipped it and ran the /gym/members handler — Pocket Gyms data for a
+  // session without pocket-gyms access. The gate now uses the matched route.
+  it("percent-encoded /gym paths are gated too (GET /%67ym/members)", async () => {
     mockResolveAdminContext.mockResolvedValue(
       contextFor(["backoffice"], { projectAccess: ["mydnamap"] }),
     );
@@ -315,11 +314,11 @@ describe("/gym project-access gate (whole app)", () => {
     expect(res.statusCode).toBe(403);
   });
 
-  // Control for the bug above: the encoded path DOES route to the gym handler
-  // (if this ever turns into a 404 the bypass is gone for another reason).
-  it("control: /%67ym/members reaches the /gym/members handler today", async () => {
+  // Control for the test above: the encoded path DOES route to the gym
+  // handler, so its 403 comes from the gate — not from a 404.
+  it("control: /%67ym/members reaches the /gym/members handler with pocket-gyms access", async () => {
     mockResolveAdminContext.mockResolvedValue(
-      contextFor(["backoffice"], { projectAccess: ["mydnamap"] }),
+      contextFor(["backoffice"], { projectAccess: ["mydnamap", "pocket-gyms"] }),
     );
     const res = await app.inject({
       method: "GET",

@@ -296,15 +296,12 @@ describe("authMiddleware — /gym project-access gate", () => {
     expect((await get("/gymnasium")).statusCode).toBe(200);
   });
 
-  // SECURITY BUG — src/middleware/auth.ts:149. The /gym gate tests the RAW
-  // `request.url`, but Fastify's router (find-my-way) percent-decodes the path
-  // before matching. `/%67ym/members` (%67 = "g") is not `startsWith("/gym/")`,
-  // so the gate is skipped, yet it routes to GET /gym/members. Any backoffice
-  // session WITHOUT pocket-gyms access can read/write Pocket Gyms data this
-  // way (confirmed end-to-end in app-route-gate.test.ts). Fix: gate on the
-  // decoded/matched route (e.g. request.routeOptions.url, in a preHandler) or
-  // decode the path before comparing.
-  it.failing.each(["/%67ym/members", "/%67%79%6d/members/u1", "/g%79m/stats"])(
+  // Regression (#451): the /gym gate compared the RAW `request.url`, but the
+  // router percent-decodes before matching, so `/%67ym/members` (%67 = "g")
+  // skipped the gate and still ran GET /gym/members — Pocket Gyms data for a
+  // session without pocket-gyms access. The gate now uses the decoded path
+  // and the matched route.
+  it.each(["/%67ym/members", "/%67%79%6d/members/u1", "/g%79m/stats"])(
     "403 on percent-encoded %s without pocket-gyms access",
     async (url) => {
       asSession(contextFor(["backoffice"], { projectAccess: ["mydnamap"] }));
