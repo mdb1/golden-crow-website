@@ -171,12 +171,14 @@ export function InformedConsentsWorkbench({
             </h2>
             <HeaderUnclutterButton />
           </div>
-          <Button asChild>
-            <Link href="/patient-portal/consents/new">
-              <FileUp className="size-4" />
-              {t("Upload consent")}
-            </Link>
-          </Button>
+          {records.length > 0 ? (
+            <Button asChild>
+              <Link href="/patient-portal/consents/new">
+                <FileUp className="size-4" />
+                {t("Upload consent")}
+              </Link>
+            </Button>
+          ) : null}
         </section>
       ) : (
         <section className="flex flex-col gap-4 border-b border-border/70 pb-6 sm:flex-row sm:items-center sm:justify-between">
@@ -252,9 +254,37 @@ export function InformedConsentsWorkbench({
           </div>
         ) : null}
         {records.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            {t("No consent files have been uploaded.")}
-          </p>
+          isPatientPortal ? (
+            <div
+              data-testid="patient-consent-empty-state"
+              className="mt-4 rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-14 text-center"
+            >
+              <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-violet-100 text-violet-700 shadow-inner dark:bg-violet-500/15 dark:text-violet-100">
+                <FileCheck2 aria-hidden="true" className="size-7" />
+              </div>
+              <h3 className="mt-5 font-heading text-xl font-semibold text-foreground">
+                Todavía no subiste un consentimiento
+              </h3>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                Completá el proceso guiado para firmar y presentar tu
+                consentimiento informado.
+              </p>
+              <Button
+                size="lg"
+                className="mt-6 h-14 rounded-xl bg-violet-600 px-8 text-base font-semibold text-white shadow-[0_16px_38px_rgba(109,40,217,0.28)] hover:bg-violet-700"
+                asChild
+              >
+                <Link href="/patient-portal/consents/new">
+                  <FileUp className="size-5" />
+                  {t("Upload consent")}
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">
+              {t("No consent files have been uploaded.")}
+            </p>
+          )
         ) : !isPatientPortal && filteredRecords.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
             No hay consentimientos que coincidan con los filtros actuales.

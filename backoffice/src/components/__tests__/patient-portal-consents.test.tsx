@@ -33,7 +33,7 @@ jest.mock("@/lib/sdk-client", () => ({
 }));
 
 describe("patient portal consents", () => {
-  it("links to the dedicated patient consent upload screen", () => {
+  it("centers a large upload action in the empty state", () => {
     render(
       <InformedConsentsWorkbench
         surface="patient-portal"
@@ -44,13 +44,20 @@ describe("patient portal consents", () => {
     expect(
       screen.getByRole("heading", { name: "Consentimientos 2PQ" }),
     ).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: "Subir consentimiento" }),
-    ).toHaveAttribute("href", "/patient-portal/consents/new");
+    const emptyState = screen.getByTestId("patient-consent-empty-state");
+    const uploadLinks = screen.getAllByRole("link", {
+      name: "Subir consentimiento",
+    });
+    expect(uploadLinks).toHaveLength(1);
+    expect(uploadLinks[0]).toHaveAttribute(
+      "href",
+      "/patient-portal/consents/new",
+    );
+    expect(uploadLinks[0]).toHaveClass("h-14", "px-8", "text-base");
+    expect(emptyState).toHaveTextContent(
+      "Todavía no subiste un consentimiento",
+    );
     expect(screen.queryByText("Archivo de consentimiento")).toBeNull();
-    expect(
-      screen.getByText("No se subieron archivos de consentimiento."),
-    ).toBeTruthy();
   });
 
   it("never exposes the administrative delete action in the patient portal", () => {
@@ -64,6 +71,10 @@ describe("patient portal consents", () => {
     );
 
     expect(screen.getByRole("link", { name: "Abrir archivo" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Subir consentimiento" }),
+    ).toHaveAttribute("href", "/patient-portal/consents/new");
+    expect(screen.queryByTestId("patient-consent-empty-state")).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Eliminar consentimiento" }),
     ).toBeNull();
