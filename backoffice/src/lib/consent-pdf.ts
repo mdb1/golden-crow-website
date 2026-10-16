@@ -22,6 +22,7 @@ export type ConsentPdfSigner = {
   role: ConsentSignerRole;
   name: string;
   document?: string;
+  signatureDate?: string;
   signatureDataUrl: string;
   placement: ConsentSignaturePlacement;
 };
@@ -59,6 +60,24 @@ export const CONSENT_SIGNER_DOCUMENT_PLACEMENTS: Record<
     x: 0.5,
     baselineFromTop: 0.727,
     maxWidth: 0.14,
+  },
+};
+
+export const CONSENT_SIGNER_DATE_PLACEMENTS: Record<
+  ConsentSignerRole,
+  { pageIndex: number; x: number; baselineFromTop: number; maxWidth: number }
+> = {
+  patient: {
+    pageIndex: 1,
+    x: 0.69,
+    baselineFromTop: 0.532,
+    maxWidth: 0.16,
+  },
+  partner: {
+    pageIndex: 1,
+    x: 0.69,
+    baselineFromTop: 0.727,
+    maxWidth: 0.16,
   },
 };
 
@@ -178,6 +197,41 @@ export async function applySignaturesToConsentPdf(
         font,
         color: rgb(0.07, 0.09, 0.13),
         maxWidth: documentPageWidth * documentPlacement.maxWidth,
+      });
+    }
+
+    const signatureDate = signer.signatureDate?.trim();
+    if (signatureDate) {
+      const datePlacement = CONSENT_SIGNER_DATE_PLACEMENTS[signer.role];
+      const datePage = pages[
+        Math.round(clamp(datePlacement.pageIndex, 0, pages.length - 1))
+      ];
+      const datePageWidth = datePage.getWidth();
+      const datePageHeight = datePage.getHeight();
+      const dateFontSize = fitTextSize(
+        font,
+        signatureDate,
+        datePageWidth * datePlacement.maxWidth,
+      );
+      const dateX = datePageWidth * datePlacement.x;
+      const dateY = datePageHeight * (1 - datePlacement.baselineFromTop);
+      const dateWidth = datePageWidth * datePlacement.maxWidth;
+
+      datePage.drawRectangle({
+        x: dateX,
+        y: dateY - 2,
+        width: dateWidth,
+        height: dateFontSize + 4,
+        color: rgb(1, 1, 1),
+      });
+
+      datePage.drawText(signatureDate, {
+        x: dateX,
+        y: dateY,
+        size: dateFontSize,
+        font,
+        color: rgb(0.07, 0.09, 0.13),
+        maxWidth: dateWidth,
       });
     }
   }

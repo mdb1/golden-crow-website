@@ -60,6 +60,20 @@ describe("PatientConsentUploadWizard", () => {
       name: "Documento del paciente",
     });
     expect(patientDocument).toBeRequired();
+    const signatureDate = screen.getByLabelText("Fecha de firma");
+    const dateParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Argentina/Buenos_Aires",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const dateValues = new Map(
+      dateParts.map((part) => [part.type, part.value]),
+    );
+    expect(signatureDate).toHaveValue(
+      `${dateValues.get("year")}-${dateValues.get("month")}-${dateValues.get("day")}`,
+    );
+    expect(signatureDate).toBeRequired();
     expect(
       screen.queryByRole("textbox", {
         name: "Nombre y apellido de la pareja",
@@ -98,6 +112,7 @@ describe("PatientConsentUploadWizard", () => {
     await user.click(
       screen.getByRole("button", { name: "Continuar con los datos" }),
     );
+    await user.clear(screen.getByLabelText("Fecha de firma"));
     await user.click(
       screen.getByRole("button", { name: "Continuar para firmar" }),
     );
@@ -107,6 +122,9 @@ describe("PatientConsentUploadWizard", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText("Ingrese el documento del paciente."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Ingrese una fecha de firma válida."),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Datos de quienes firman" }),

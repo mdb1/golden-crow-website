@@ -41,6 +41,7 @@ import {
 import {
   applySignaturesToConsentPdf,
   bytesToPdfDataUrl,
+  CONSENT_SIGNER_DATE_PLACEMENTS,
   CONSENT_SIGNER_DOCUMENT_PLACEMENTS,
   CONSENT_SIGNER_NAME_PLACEMENTS,
   CONSENT_TEMPLATE_PREVIEW_URLS,
@@ -95,12 +96,39 @@ type PreviewSignature = {
   label: string;
   name: string;
   document?: string;
+  signatureDate?: string;
   dataUrl: string;
   placement: ConsentSignaturePlacement;
 };
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(Math.max(value, minimum), maximum);
+}
+
+function todayInBuenosAires() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = new Map(parts.map((part) => [part.type, part.value]));
+  return `${values.get("year")}-${values.get("month")}-${values.get("day")}`;
+}
+
+function formatSignatureDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (
+    date.getUTCFullYear() !== Number(year) ||
+    date.getUTCMonth() + 1 !== Number(month) ||
+    date.getUTCDate() !== Number(day)
+  ) {
+    return null;
+  }
+  return `${day}/${month}/${year}`;
 }
 
 function SignaturePad({
@@ -314,6 +342,7 @@ function SignaturePagePreview({
         const namePlacement = CONSENT_SIGNER_NAME_PLACEMENTS[signature.role];
         const documentPlacement =
           CONSENT_SIGNER_DOCUMENT_PLACEMENTS[signature.role];
+        const datePlacement = CONSENT_SIGNER_DATE_PLACEMENTS[signature.role];
         return (
           <div key={signature.role}>
             {namePlacement.pageIndex === pageIndex ? (
@@ -339,6 +368,19 @@ function SignaturePagePreview({
                 }}
               >
                 {signature.document}
+              </span>
+            ) : null}
+            {signature.signatureDate &&
+            datePlacement.pageIndex === pageIndex ? (
+              <span
+                className="pointer-events-none absolute overflow-hidden whitespace-nowrap bg-white font-sans text-[clamp(5px,1vw,9px)] text-slate-950"
+                style={{
+                  left: `${datePlacement.x * 100}%`,
+                  top: `${(datePlacement.baselineFromTop - 0.012) * 100}%`,
+                  width: `${datePlacement.maxWidth * 100}%`,
+                }}
+              >
+                {signature.signatureDate}
               </span>
             ) : null}
             {signature.placement.pageIndex === pageIndex ? (
@@ -475,6 +517,8 @@ export function PatientConsentUploadWizard({
   const [patientNameError, setPatientNameError] = useState("");
   const [patientDocument, setPatientDocument] = useState("");
   const [patientDocumentError, setPatientDocumentError] = useState("");
+  const [signatureDate, setSignatureDate] = useState(todayInBuenosAires);
+  const [signatureDateError, setSignatureDateError] = useState("");
   const [hasPartner, setHasPartner] = useState(false);
   const [partnerName, setPartnerName] = useState("");
   const [partnerNameError, setPartnerNameError] = useState("");
@@ -496,6 +540,7 @@ export function PatientConsentUploadWizard({
   const [preparing, setPreparing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const formattedSignatureDate = formatSignatureDate(signatureDate);
 
   function goToStep(step: number) {
     const nextStep = clamp(step, 0, steps.length - 1);
@@ -526,6 +571,7 @@ export function PatientConsentUploadWizard({
     const nextPartnerName = partnerName.trim();
     const missingPatient = !nextPatientName;
     const missingPatientDocument = !nextPatientDocument;
+    const missingSignatureDate = !formattedSignatureDate;
     const missingPartner = hasPartner && !nextPartnerName;
     setPatientNameError(
       missingPatient ? "Ingrese el nombre y apellido del paciente." : "",
@@ -533,10 +579,18 @@ export function PatientConsentUploadWizard({
     setPatientDocumentError(
       missingPatientDocument ? "Ingrese el documento del paciente." : "",
     );
+    setSignatureDateError(
+      missingSignatureDate ? "Ingrese una fecha de firma válida." : "",
+    );
     setPartnerNameError(
       missingPartner ? "Ingrese el nombre y apellido de la pareja." : "",
     );
-    if (missingPatient || missingPatientDocument || missingPartner) {
+    if (
+      missingPatient ||
+      missingPatientDocument ||
+      missingSignatureDate ||
+      missingPartner
+    ) {
       return false;
     }
     setPatientName(nextPatientName);
@@ -556,6 +610,7 @@ export function PatientConsentUploadWizard({
           label: "del paciente",
           name: patientName.trim(),
           document: patientDocument.trim(),
+          signatureDate: formattedSignatureDate ?? undefined,
           dataUrl: patientSignatureDataUrl,
           placement: patientPlacement,
         },
@@ -565,6 +620,7 @@ export function PatientConsentUploadWizard({
                 role: "partner" as const,
                 label: "de la pareja",
                 name: partnerName.trim(),
+                signatureDate: formattedSignatureDate ?? undefined,
                 dataUrl: partnerSignatureDataUrl,
                 placement: partnerPlacement,
               },
@@ -601,6 +657,7 @@ export function PatientConsentUploadWizard({
           role: signature.role,
           name: signature.name,
           document: signature.document,
+          signatureDate: signature.signatureDate,
           signatureDataUrl: signature.dataUrl,
           placement: signature.placement,
         })),
@@ -1064,6 +1121,37 @@ export function PatientConsentUploadWizard({
                   ) : null}
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="consent-signature-date">
+                    Fecha de firma
+                  </Label>
+                  <Input
+                    id="consent-signature-date"
+                    type="date"
+                    value={signatureDate}
+                    required
+                    aria-invalid={Boolean(signatureDateError)}
+                    aria-describedby={
+                      signatureDateError
+                        ? "consent-signature-date-error"
+                        : undefined
+                    }
+                    onChange={(event) => {
+                      setSignatureDate(event.target.value);
+                      setSignatureDateError("");
+                      invalidateAfter(dataStep);
+                    }}
+                  />
+                  {signatureDateError ? (
+                    <p
+                      id="consent-signature-date-error"
+                      className="text-sm font-medium text-destructive"
+                    >
+                      {signatureDateError}
+                    </p>
+                  ) : null}
+                </div>
+
                 <div className="rounded-xl border border-border/70 bg-background/60 p-4">
                   <div className="flex items-start gap-3">
                     <Checkbox
@@ -1156,6 +1244,9 @@ export function PatientConsentUploadWizard({
                       <p className="text-xs text-muted-foreground">
                         Documento: {patientDocument.trim()}
                       </p>
+                      <p className="text-xs text-muted-foreground">
+                        Fecha de firma: {formattedSignatureDate}
+                      </p>
                     </div>
                     <SignaturePad
                       signerLabel="del paciente"
@@ -1173,6 +1264,9 @@ export function PatientConsentUploadWizard({
                         <h4 className="font-semibold">Firma de la pareja</h4>
                         <p className="text-sm text-muted-foreground">
                           {partnerName.trim()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Fecha de firma: {formattedSignatureDate}
                         </p>
                       </div>
                       <SignaturePad
