@@ -502,15 +502,32 @@ describe("listClientsForRoster", () => {
       warn.mockRestore();
     });
 
-    // FINDING: thisWeekComplianceRatio divides completed days by 7 for EVERY
-    // habit, so a weekly habit scheduled Mon+Thu that the client did on both days
-    // shows 2/7 ≈ 29% "compliance" in the roster. `computeAdherence` (scheduled
-    // days as denominator) exists in habit-compliance.ts for exactly this.
-    it.failing("a weekly habit done on every scheduled day reads as 100% compliance", async () => {
+    // Regression (#451): thisWeekComplianceRatio used to divide completed days
+    // by 7 for EVERY habit, so a weekly habit scheduled Mon+Thu that the client
+    // did on both days showed 2/7 ≈ 29%. The denominator is now the scheduled
+    // days per `isHabitScheduledOn` (twin of iOS `HabitSchedule.isActive`).
+    it("a weekly habit done on every scheduled day reads as 100% compliance", async () => {
       seedClient("c1");
       seedHabit("weekly", "c1", { scheduleCadence: "weekly", scheduleWeekdays: [1, 4], weekdayFormat: "iso" });
       seedHabitLog("mon", "c1", "weekly", "2026-06-15");
       seedHabitLog("thu", "c1", "weekly", "2026-06-11");
+      expect((await rosterRow("c1")).thisWeekComplianceRatio).toBe(1);
+    });
+
+    it("a habit with no scheduled day in the window doesn't drag the average (#451)", async () => {
+      // Window 2026-06-11 … 2026-06-17; the monthly day (25) falls outside it.
+      seedClient("c1");
+      seedHabit("daily", "c1");
+      seedHabit("monthly", "c1", { scheduleCadence: "monthly", scheduleMonthDays: [25] });
+      for (const d of ["11", "12", "13", "14", "15", "16", "17"]) seedHabitLog(`d${d}`, "c1", "daily", `2026-06-${d}`);
+      expect((await rosterRow("c1")).thisWeekComplianceRatio).toBe(1);
+    });
+
+    it("days before a habit's startsOn are not in the denominator (#451)", async () => {
+      seedClient("c1");
+      seedHabit("new", "c1", { startsOn: "2026-06-16" });
+      seedHabitLog("a", "c1", "new", "2026-06-16");
+      seedHabitLog("b", "c1", "new", "2026-06-17");
       expect((await rosterRow("c1")).thisWeekComplianceRatio).toBe(1);
     });
   });

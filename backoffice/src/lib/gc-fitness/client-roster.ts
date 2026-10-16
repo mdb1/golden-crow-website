@@ -53,7 +53,7 @@ import { civilDateToday } from "./civil-date";
 import { getTrainerTimezone } from "./trainer-timezone";
 import { loadNutritionRosterSummaries } from "./nutrition-roster";
 import {
-  computeCompliance,
+  computeAdherence,
   logCountsAsCompleted,
   type HabitLogRow,
 } from "./habit-compliance";
@@ -370,8 +370,9 @@ export const listClients = cache(
  *
  * For each client in the calling trainer's roster, fan out to Firestore:
  *   - lastActivityAt: max(workoutLog.startedAt, habitLog.loggedAt, chatMessage.createdAt)
- *   - thisWeekComplianceRatio: average of `computeCompliance(habit, last7Days)`
- *     across the client's assigned habits (deleted excluded)
+ *   - thisWeekComplianceRatio: average of `computeAdherence(habit, last7Days)`
+ *     (scheduled-day denominator, #451) across the client's assigned habits
+ *     that had at least one scheduled day in the window (deleted excluded)
  *   - unreadChatCount: `chats/{clientId}.unreadCount[trainer.uid]`
  *
  * Read budget (CONTEXT decision — v1 trainers have small rosters):
@@ -731,27 +732,24 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         else windowedLogsByHabit.set(hid, [row]);
       }
 
+      // #451: the denominator is the number of SCHEDULED days in the window
+      // per `isHabitScheduledOn` (twin of iOS `HabitSchedule.isActive` /
+      // `HabitStreakCalculator.computeAdherenceRatio`, Android twin of the
+      // same name) — NOT a flat 7. A weekly Mon+Thu habit done on both days
+      // reads 100%, not 2/7. Habits with no scheduled day in the window (a
+      // monthly habit whose day fell outside it, a one-time habit, one not
+      // started yet) are not "due" this week, so they don't drag the average.
       let complianceSum = 0;
       let complianceCount = 0;
       for (const hdoc of habitDocs) {
-        const habit = hdoc.data() as {
-          type?: HabitType;
-          targetValue?: number;
-        };
-        const habitType: HabitType = (habit.type ?? "binary") as HabitType;
-        const targetValue =
-          typeof habit.targetValue === "number" ? habit.targetValue : undefined;
-
         const logs = windowedLogsByHabit.get(hdoc.id) ?? [];
-
-        const { ratio } = computeCompliance(
-          habitType,
+        const { ratio, scheduledDays } = computeAdherence(
+          hdoc.data() as Record<string, unknown>,
           logs,
           7,
           today,
-          tzForToday,
-          targetValue,
         );
+        if (scheduledDays === 0) continue;
         complianceSum += ratio;
         complianceCount += 1;
       }
