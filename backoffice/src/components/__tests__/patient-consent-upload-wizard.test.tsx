@@ -54,6 +54,12 @@ async function chooseGuidedFlow(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "Firmar en línea" }));
 }
 
+async function chooseDirectFlow(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(
+    screen.getByRole("button", { name: "Cargar archivo firmado" }),
+  );
+}
+
 describe("PatientConsentUploadWizard", () => {
   beforeEach(() => {
     jest.mocked(sdkFetch).mockReset();
@@ -301,10 +307,7 @@ describe("PatientConsentUploadWizard", () => {
           imageSetPointerCaptureDescriptor,
         );
       } else {
-        Reflect.deleteProperty(
-          HTMLImageElement.prototype,
-          "setPointerCapture",
-        );
+        Reflect.deleteProperty(HTMLImageElement.prototype, "setPointerCapture");
       }
       if (imageReleasePointerCaptureDescriptor) {
         Object.defineProperty(
@@ -526,19 +529,23 @@ describe("PatientConsentUploadWizard", () => {
     ).toBeInTheDocument();
   });
 
-  it("offers a patient direct-upload branch and lets Back return to the method", async () => {
+  it("guides patient direct uploads through download, manual signing, and scan upload", async () => {
     jest.mocked(sdkFetch).mockResolvedValueOnce({
       record: { id: "CONSENT-PATIENT" },
     });
     const user = userEvent.setup();
     render(<PatientConsentUploadWizard />);
 
-    await user.click(
-      screen.getByRole("button", { name: "Cargar archivo firmado" }),
-    );
+    await chooseDirectFlow(user);
 
-    expectActiveSidebarStep("Cargar consentimiento firmado");
-    expectSidebarSteps(["method", "direct-upload"]);
+    expectActiveSidebarStep("Descargar la plantilla");
+    expect(screen.getByText("Paso manual 1 de 3")).toBeVisible();
+    expectSidebarSteps([
+      "method",
+      "direct-download",
+      "direct-sign",
+      "direct-upload",
+    ]);
     expect(
       screen.queryByRole("button", { name: "Firmar en línea" }),
     ).not.toBeInTheDocument();
@@ -546,16 +553,75 @@ describe("PatientConsentUploadWizard", () => {
       screen.queryByRole("button", { name: "Cargar archivo firmado" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Cargar consentimiento firmado" }),
+      screen.getByRole("heading", { name: "Descargar la plantilla" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Descargue la plantilla oficial")).toBeVisible();
+    expect(
+      screen.getByRole("link", {
+        name: "Descargar plantilla de consentimiento",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/patient-portal/documents/consentimiento-informado-2pq.pdf",
+    );
+    const manualSteps = screen.getByRole("list", {
+      name: "Pasos para cargar un consentimiento firmado manualmente",
+    });
+    expect(
+      within(manualSteps).getByText("Descargar la plantilla"),
+    ).toBeVisible();
+    expect(
+      within(manualSteps).getByText("Imprimir, completar y firmar"),
+    ).toBeVisible();
+    expect(
+      within(manualSteps).getByText("Escanear y subir el archivo"),
+    ).toBeVisible();
+    expect(
+      screen.queryByText("Sin archivo seleccionado"),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Ya descargué la plantilla" }),
+    );
+    expectActiveSidebarStep("Imprimir y firmar");
+    expect(screen.getByText("Paso manual 2 de 3")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Imprimir y firmar" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Imprima todas las páginas de la plantilla descargada."),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/Escanee todas las páginas ya firmadas/),
+    ).toBeVisible();
+    expect(
+      screen.queryByText("Sin archivo seleccionado"),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Ya lo imprimí y firmé" }),
+    );
+    expectActiveSidebarStep("Subir el escaneo firmado");
+    expect(screen.getByText("Paso manual 3 de 3")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Subir el escaneo firmado" }),
+    ).toBeVisible();
     expect(screen.getByText("Consentimiento firmado")).toBeInTheDocument();
     expect(screen.getByText("Sin archivo seleccionado")).toBeInTheDocument();
     expect(
-      screen.getByText("PDF o imagen, máximo 750 KB."),
+      screen.getByText(
+        "Un único PDF con todas las páginas o una imagen completa y legible. Máximo 750 KB.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Subir consentimiento" }),
     ).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Volver" }));
+    expectActiveSidebarStep("Imprimir y firmar");
+    await user.click(
+      screen.getByRole("button", { name: "Ya lo imprimí y firmé" }),
+    );
 
     const directFile = new File(["signed consent"], "consentimiento.pdf", {
       type: "application/pdf",
@@ -592,6 +658,10 @@ describe("PatientConsentUploadWizard", () => {
     });
     expect(mockRouterPush).toHaveBeenCalledWith("/patient-portal/consents");
 
+    await user.click(screen.getByRole("button", { name: "Volver" }));
+    expectActiveSidebarStep("Imprimir y firmar");
+    await user.click(screen.getByRole("button", { name: "Volver" }));
+    expectActiveSidebarStep("Descargar la plantilla");
     await user.click(screen.getByRole("button", { name: "Volver" }));
     expectActiveSidebarStep("Elegir cómo continuar");
     expect(
@@ -682,7 +752,7 @@ describe("PatientConsentUploadWizard", () => {
     expectActiveSidebarStep("Descargar consentimiento");
   });
 
-  it("routes a backoffice direct upload through destination without showing download", async () => {
+  it("routes a backoffice direct upload through destination and the complete manual path", async () => {
     jest
       .mocked(sdkFetch)
       .mockResolvedValueOnce({
@@ -717,11 +787,16 @@ describe("PatientConsentUploadWizard", () => {
       />,
     );
 
-    await user.click(
-      screen.getByRole("button", { name: "Cargar archivo firmado" }),
-    );
+    await chooseDirectFlow(user);
     expectActiveSidebarStep("Seleccionar paciente y caso 2PQ");
-    expectSidebarSteps(["method", "destination", "direct-upload"]);
+    expect(screen.getByText("Preparación del recorrido manual")).toBeVisible();
+    expectSidebarSteps([
+      "method",
+      "destination",
+      "direct-download",
+      "direct-sign",
+      "direct-upload",
+    ]);
     expect(
       screen.queryByRole("button", { name: "Cargar archivo firmado" }),
     ).not.toBeInTheDocument();
@@ -748,16 +823,32 @@ describe("PatientConsentUploadWizard", () => {
       }),
     );
 
-    expectActiveSidebarStep("Cargar consentimiento firmado");
+    expectActiveSidebarStep("Descargar la plantilla");
+    expect(screen.getByText("Paso manual 1 de 3")).toBeVisible();
     expect(
-      screen.getByRole("heading", { name: "Cargar consentimiento firmado" }),
+      screen.getByRole("heading", { name: "Descargar la plantilla" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Consentimiento firmado")).toBeInTheDocument();
     expect(
-      screen.queryByRole("link", {
-        name: "Descargar consentimiento-informado-2pq.pdf",
+      screen.getByRole("link", {
+        name: "Descargar plantilla de consentimiento",
       }),
+    ).toHaveAttribute(
+      "href",
+      "/patient-portal/documents/consentimiento-informado-2pq.pdf",
+    );
+    expect(
+      screen.queryByText("Consentimiento firmado"),
     ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Ya descargué la plantilla" }),
+    );
+    expectActiveSidebarStep("Imprimir y firmar");
+    await user.click(
+      screen.getByRole("button", { name: "Ya lo imprimí y firmé" }),
+    );
+    expectActiveSidebarStep("Subir el escaneo firmado");
+    expect(screen.getByText("Consentimiento firmado")).toBeInTheDocument();
 
     const directFile = new File(["signed consent"], "admin-consent.pdf", {
       type: "application/pdf",

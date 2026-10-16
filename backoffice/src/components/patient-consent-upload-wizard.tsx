@@ -14,7 +14,9 @@ import {
   Link2,
   Loader2,
   PenLine,
+  Printer,
   RotateCcw,
+  ScanLine,
   Upload,
   UserRound,
 } from "lucide-react";
@@ -78,6 +80,8 @@ type ConsentStepId =
   | "signature"
   | "editor"
   | "preview"
+  | "direct-download"
+  | "direct-sign"
   | "direct-upload";
 
 type ConsentWizardStep = {
@@ -86,6 +90,12 @@ type ConsentWizardStep = {
   description: string;
   icon: typeof Download;
 };
+
+const DIRECT_MANUAL_STEP_IDS: readonly ConsentStepId[] = [
+  "direct-download",
+  "direct-sign",
+  "direct-upload",
+];
 
 const CONSENT_STEPS: Record<ConsentStepId, ConsentWizardStep> = {
   method: {
@@ -137,12 +147,26 @@ const CONSENT_STEPS: Record<ConsentStepId, ConsentWizardStep> = {
       "Revise el consentimiento completo antes de descargarlo o guardarlo definitivamente.",
     icon: CheckCircle2,
   },
+  "direct-download": {
+    id: "direct-download",
+    title: "Descargar la plantilla",
+    description:
+      "Descargue la plantilla oficial que deberá completar y firmar manualmente.",
+    icon: Download,
+  },
+  "direct-sign": {
+    id: "direct-sign",
+    title: "Imprimir y firmar",
+    description:
+      "Imprima todas las páginas, complete los datos y firme el consentimiento a mano.",
+    icon: Printer,
+  },
   "direct-upload": {
     id: "direct-upload",
-    title: "Cargar consentimiento firmado",
+    title: "Subir el escaneo firmado",
     description:
-      "Seleccione el PDF o la imagen final del consentimiento que ya fue firmado.",
-    icon: FileUp,
+      "Escanee el documento completo y cargue un único PDF o una imagen legible del consentimiento firmado.",
+    icon: ScanLine,
   },
 };
 
@@ -163,7 +187,13 @@ function consentSteps(
         CONSENT_STEPS.editor,
         CONSENT_STEPS.preview,
       ]
-    : [CONSENT_STEPS.method, ...destination, CONSENT_STEPS["direct-upload"]];
+    : [
+        CONSENT_STEPS.method,
+        ...destination,
+        CONSENT_STEPS["direct-download"],
+        CONSENT_STEPS["direct-sign"],
+        CONSENT_STEPS["direct-upload"],
+      ];
 }
 
 const INITIAL_PATIENT_PLACEMENT: ConsentSignaturePlacement = {
@@ -404,10 +434,8 @@ function SignaturePagePreview({
     event.currentTarget.setPointerCapture(event.pointerId);
     const bounds = pageRef.current.getBoundingClientRect();
     dragOffsetRef.current = {
-      x:
-        (event.clientX - bounds.left) / bounds.width - signature.placement.x,
-      y:
-        (event.clientY - bounds.top) / bounds.height - signature.placement.y,
+      x: (event.clientX - bounds.left) / bounds.width - signature.placement.x,
+      y: (event.clientY - bounds.top) / bounds.height - signature.placement.y,
     };
     draggingRoleRef.current = signature.role;
   }
@@ -542,6 +570,9 @@ function ConsentWizardSidebar({
     0,
     steps.findIndex((step) => step.id === activeStepId),
   );
+  const isDirectManualFlow = steps.some((step) =>
+    DIRECT_MANUAL_STEP_IDS.includes(step.id),
+  );
 
   return (
     <aside
@@ -564,6 +595,9 @@ function ConsentWizardSidebar({
           const Icon = step.icon;
           const active = step.id === activeStepId;
           const complete = index < activeStepIndex;
+          const directManualStepIndex = DIRECT_MANUAL_STEP_IDS.indexOf(step.id);
+          const isDirectPreparation =
+            isDirectManualFlow && directManualStepIndex < 0;
           return (
             <li
               key={step.id}
@@ -584,7 +618,15 @@ function ConsentWizardSidebar({
                   !active && !complete && "border-white/18 bg-white/5",
                 )}
               >
-                {complete ? <Check className="size-3.5" /> : index + 1}
+                {complete ? (
+                  <Check className="size-3.5" />
+                ) : directManualStepIndex >= 0 ? (
+                  directManualStepIndex + 1
+                ) : isDirectPreparation ? (
+                  <span aria-hidden="true">•</span>
+                ) : (
+                  index + 1
+                )}
               </span>
               <Icon className="size-4 shrink-0" />
               <span className="min-w-0 leading-5">{step.title}</span>
@@ -615,8 +657,7 @@ export function PatientConsentUploadWizard({
   const casesRequestRef = useRef(0);
   const isBackoffice = surface === "backoffice";
   const [mode, setMode] = useState<ConsentFlowMode | null>(null);
-  const [activeStepId, setActiveStepId] =
-    useState<ConsentStepId>("method");
+  const [activeStepId, setActiveStepId] = useState<ConsentStepId>("method");
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const previousActiveStepIdRef = useRef<ConsentStepId>(activeStepId);
   const steps = consentSteps(isBackoffice, mode);
@@ -625,6 +666,7 @@ export function PatientConsentUploadWizard({
     steps.findIndex((step) => step.id === activeStepId),
   );
   const activeStep = steps[activeStepIndex] ?? CONSENT_STEPS.method;
+  const directManualStepIndex = DIRECT_MANUAL_STEP_IDS.indexOf(activeStepId);
   const [patients, setPatients] = useState(initialPatientPage?.patients ?? []);
   const [patientCursor, setPatientCursor] = useState(
     initialPatientPage?.nextCursor,
@@ -685,7 +727,7 @@ export function PatientConsentUploadWizard({
         ? "destination"
         : nextMode === "guided"
           ? "download"
-          : "direct-upload",
+          : "direct-download",
     );
   }
 
@@ -914,7 +956,9 @@ export function PatientConsentUploadWizard({
   }
 
   function selectPatient(nextPatientId: string) {
-    const patient = patients.find((candidate) => candidate.id === nextPatientId);
+    const patient = patients.find(
+      (candidate) => candidate.id === nextPatientId,
+    );
     setPatientId(nextPatientId);
     setPatientName(patient?.fullName.trim() ?? "");
     setPatientNameError("");
@@ -936,7 +980,7 @@ export function PatientConsentUploadWizard({
       });
       return;
     }
-    goToStep(mode === "direct" ? "direct-upload" : "download");
+    goToStep(mode === "direct" ? "direct-download" : "download");
   }
 
   const selectedCase = cases.find((candidate) => candidate.id === caseId);
@@ -1018,9 +1062,7 @@ export function PatientConsentUploadWizard({
               size="sm"
               variant="ghost"
               disabled={loadingCases}
-              onClick={() =>
-                void loadCasesForPatient(patientId, caseCursor)
-              }
+              onClick={() => void loadCasesForPatient(patientId, caseCursor)}
             >
               {loadingCases ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -1040,7 +1082,6 @@ export function PatientConsentUploadWizard({
             consentimiento; el archivo anterior no se eliminará.
           </div>
         ) : null}
-
       </div>
     );
   }
@@ -1055,11 +1096,28 @@ export function PatientConsentUploadWizard({
             <div
               className="grid gap-1.5"
               style={{
-                gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${
+                  mode === "direct"
+                    ? DIRECT_MANUAL_STEP_IDS.length
+                    : steps.length
+                }, minmax(0, 1fr))`,
               }}
               aria-label="Progreso de carga del consentimiento"
             >
-              {mode ? (
+              {mode === "direct" ? (
+                DIRECT_MANUAL_STEP_IDS.map((stepId, index) => (
+                  <span
+                    key={stepId}
+                    className={cn(
+                      "h-1.5 rounded-full transition-colors",
+                      directManualStepIndex >= 0 &&
+                        index <= directManualStepIndex
+                        ? "bg-violet-600"
+                        : "bg-violet-100 dark:bg-violet-400/16",
+                    )}
+                  />
+                ))
+              ) : mode ? (
                 steps.map((step, index) => (
                   <span
                     key={step.id}
@@ -1076,9 +1134,13 @@ export function PatientConsentUploadWizard({
               )}
             </div>
             <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-200">
-              {mode
-                ? `Paso ${activeStepIndex + 1} de ${steps.length}`
-                : "Paso 1 · Elegir recorrido"}
+              {mode === "direct"
+                ? directManualStepIndex >= 0
+                  ? `Paso manual ${directManualStepIndex + 1} de ${DIRECT_MANUAL_STEP_IDS.length}`
+                  : "Preparación del recorrido manual"
+                : mode
+                  ? `Paso ${activeStepIndex + 1} de ${steps.length}`
+                  : "Paso 1 · Elegir recorrido"}
             </p>
             <h1
               ref={stepHeadingRef}
@@ -1140,8 +1202,8 @@ export function PatientConsentUploadWizard({
                     Cargar archivo firmado
                   </span>
                   <span className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Use esta opción si ya tiene el consentimiento completo y
-                    firmado en un PDF o una imagen.
+                    Descargue la plantilla, imprímala, fírmela a mano y suba un
+                    escaneo del documento completo.
                   </span>
                   <span className="mt-auto flex items-center gap-2 pt-6 text-sm font-semibold text-violet-700 dark:text-violet-200">
                     Ir a la carga directa
@@ -1167,6 +1229,100 @@ export function PatientConsentUploadWizard({
               </div>
             ) : null}
 
+            {activeStepId === "direct-download" ? (
+              <div className="max-w-3xl space-y-5">
+                <div className="rounded-xl border border-violet-200 bg-white/78 p-6 shadow-sm dark:border-violet-400/20 dark:bg-slate-950/42">
+                  <div className="flex items-start gap-4">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-base font-bold text-violet-800 dark:bg-violet-400/16 dark:text-violet-100">
+                      1
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="font-heading text-xl font-semibold text-foreground">
+                        Descargue la plantilla oficial
+                      </h2>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        Este es el documento que debe imprimir, completar y
+                        firmar. No continúe con un formulario distinto ni con
+                        una plantilla vacía creada por su cuenta.
+                      </p>
+                      <Button className="mt-5" variant="outline" asChild>
+                        <a
+                          href={CONSENT_TEMPLATE_URL}
+                          download="consentimiento-informado-2pq.pdf"
+                        >
+                          <Download className="size-4" />
+                          Descargar plantilla de consentimiento
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <ol
+                  aria-label="Pasos para cargar un consentimiento firmado manualmente"
+                  className="grid gap-3 sm:grid-cols-3"
+                >
+                  {[
+                    "Descargar la plantilla",
+                    "Imprimir, completar y firmar",
+                    "Escanear y subir el archivo",
+                  ].map((label, index) => (
+                    <li
+                      key={label}
+                      className={cn(
+                        "rounded-xl border p-4 text-sm leading-5",
+                        index === 0
+                          ? "border-violet-300 bg-violet-50 font-semibold text-violet-950 dark:border-violet-500/40 dark:bg-violet-400/10 dark:text-violet-50"
+                          : "border-border/70 bg-background/55 text-muted-foreground",
+                      )}
+                    >
+                      <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em]">
+                        Paso manual {index + 1}
+                      </span>
+                      {label}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : null}
+
+            {activeStepId === "direct-sign" ? (
+              <div className="max-w-3xl rounded-xl border border-violet-200 bg-white/78 p-6 shadow-sm dark:border-violet-400/20 dark:bg-slate-950/42">
+                <div className="flex items-start gap-4">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-base font-bold text-violet-800 dark:bg-violet-400/16 dark:text-violet-100">
+                    2
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="font-heading text-xl font-semibold text-foreground">
+                      Imprima, complete y firme la plantilla
+                    </h2>
+                    <ol className="mt-4 space-y-3 text-sm leading-6 text-foreground">
+                      <li className="flex gap-3">
+                        <Printer className="mt-1 size-4 shrink-0 text-violet-700 dark:text-violet-200" />
+                        Imprima todas las páginas de la plantilla descargada.
+                      </li>
+                      <li className="flex gap-3">
+                        <PenLine className="mt-1 size-4 shrink-0 text-violet-700 dark:text-violet-200" />
+                        Complete los datos requeridos y firme a mano donde
+                        corresponda. Si aplica, incluya también la firma de la
+                        pareja.
+                      </li>
+                      <li className="flex gap-3">
+                        <ScanLine className="mt-1 size-4 shrink-0 text-violet-700 dark:text-violet-200" />
+                        Escanee todas las páginas ya firmadas en un único PDF
+                        legible para subirlo en el próximo paso.
+                      </li>
+                    </ol>
+                    <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-100">
+                      No suba la plantilla sin completar o sin firmar. Antes de
+                      continuar, compruebe que todos los datos y firmas se lean
+                      con claridad.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {activeStepId === "data" ? (
               <div className="max-w-3xl space-y-5">
                 <div className="space-y-2">
@@ -1179,7 +1335,9 @@ export function PatientConsentUploadWizard({
                     required
                     aria-invalid={Boolean(patientNameError)}
                     aria-describedby={
-                      patientNameError ? "consent-patient-name-error" : undefined
+                      patientNameError
+                        ? "consent-patient-name-error"
+                        : undefined
                     }
                     onChange={(event) => {
                       setPatientName(event.target.value);
@@ -1230,9 +1388,7 @@ export function PatientConsentUploadWizard({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="consent-signature-date">
-                    Fecha de firma
-                  </Label>
+                  <Label htmlFor="consent-signature-date">Fecha de firma</Label>
                   <Input
                     id="consent-signature-date"
                     type="date"
@@ -1313,13 +1469,14 @@ export function PatientConsentUploadWizard({
                     </div>
                   ) : null}
                 </div>
-
               </div>
             ) : null}
 
             {activeStepId === "signature" ? (
               <div className="max-w-4xl space-y-5">
-                <div className={cn("grid gap-5", hasPartner && "lg:grid-cols-2")}>
+                <div
+                  className={cn("grid gap-5", hasPartner && "lg:grid-cols-2")}
+                >
                   <section className="space-y-3 rounded-xl border border-border/70 bg-background/60 p-4">
                     <div>
                       <h4 className="font-semibold">Firma del paciente</h4>
@@ -1365,7 +1522,6 @@ export function PatientConsentUploadWizard({
                     </section>
                   ) : null}
                 </div>
-
               </div>
             ) : null}
 
@@ -1392,8 +1548,8 @@ export function PatientConsentUploadWizard({
                   ) : null}
                 </div>
                 <p className="text-sm font-semibold text-muted-foreground">
-                  Última página · Página {CONSENT_TEMPLATE_LAST_PAGE_INDEX + 1}
-                  {" "}de {CONSENT_TEMPLATE_PREVIEW_URLS.length}
+                  Última página · Página {CONSENT_TEMPLATE_LAST_PAGE_INDEX + 1}{" "}
+                  de {CONSENT_TEMPLATE_PREVIEW_URLS.length}
                 </p>
                 <SignaturePagePreview
                   pageIndex={CONSENT_TEMPLATE_LAST_PAGE_INDEX}
@@ -1425,7 +1581,21 @@ export function PatientConsentUploadWizard({
             ) : null}
 
             {activeStepId === "direct-upload" ? (
-              <div className="max-w-3xl">
+              <div className="max-w-3xl space-y-5">
+                <div className="flex items-start gap-4 rounded-xl border border-violet-200 bg-white/78 p-6 shadow-sm dark:border-violet-400/20 dark:bg-slate-950/42">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-base font-bold text-violet-800 dark:bg-violet-400/16 dark:text-violet-100">
+                    3
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="font-heading text-xl font-semibold text-foreground">
+                      Suba el documento completo y firmado
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      El archivo debe mostrar todas las páginas, los datos
+                      completos y las firmas manuscritas con buena legibilidad.
+                    </p>
+                  </div>
+                </div>
                 <SingleFileUpload
                   id={`${surface}-direct-consent-file`}
                   label="Consentimiento firmado"
@@ -1436,13 +1606,13 @@ export function PatientConsentUploadWizard({
                   }}
                   onError={setDirectFileError}
                   error={directFileError}
-                  uploadLabel="Elegir archivo"
+                  uploadLabel="Elegir escaneo o archivo"
                   removeLabel="Quitar archivo"
                   emptyLabel="Sin archivo seleccionado"
                   invalidTypeMessage="Seleccione un PDF o una imagen compatible."
                   tooLargeMessage="El archivo seleccionado supera los 750 KB."
                   readErrorMessage="No se pudo leer el archivo seleccionado."
-                  helperText="PDF o imagen, máximo 750 KB."
+                  helperText="Un único PDF con todas las páginas o una imagen completa y legible. Máximo 750 KB."
                 />
               </div>
             ) : null}
@@ -1505,6 +1675,28 @@ export function PatientConsentUploadWizard({
                     onClick={continueFromNames}
                   >
                     Continuar para firmar
+                    <ArrowRight className="size-4" />
+                  </Button>
+                ) : null}
+
+                {activeStepId === "direct-download" ? (
+                  <Button
+                    type="button"
+                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                    onClick={() => goToStep("direct-sign")}
+                  >
+                    Ya descargué la plantilla
+                    <ArrowRight className="size-4" />
+                  </Button>
+                ) : null}
+
+                {activeStepId === "direct-sign" ? (
+                  <Button
+                    type="button"
+                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                    onClick={() => goToStep("direct-upload")}
+                  >
+                    Ya lo imprimí y firmé
                     <ArrowRight className="size-4" />
                   </Button>
                 ) : null}
