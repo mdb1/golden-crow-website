@@ -1,0 +1,31 @@
+# Dependabot configuration.
+#
+# Version-update PRs are OFF (open-pull-requests-limit: 0) — dependency bumps
+# are done by hand with the full gate. This file exists for the IGNORE rules,
+# which Dependabot SECURITY updates also honor.
+#
+# Majors we must not take until their blocker is gone:
+#   firebase-admin >= 14 — jwks-rsa 4 does require("jose") and jose 6 is
+#     ESM-only; the Vercel function runtime has no require(esm). It took login
+#     down twice on 2026-10-15 (#439 backoffice, #442 SDK via a security PR).
+#     The uuid advisory that PR chased is closed with an npm override instead.
+#     scripts/check-server-deps.mjs now fails the build if this comes back.
+#   nodemailer >= 8 — next-auth 4 (latest) still peers nodemailer ^7.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /goldencrow-sdk
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: firebase-admin
+        versions: [">=14"]
+  - package-ecosystem: npm
+    directory: /backoffice
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: firebase-admin
+        versions: [">=14"]
+      - dependency-name: nodemailer
+        versions: [">=8"]
