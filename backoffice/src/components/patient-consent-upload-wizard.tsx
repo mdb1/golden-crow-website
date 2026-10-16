@@ -73,6 +73,8 @@ import { cn } from "@/lib/utils";
 const MAX_CONSENT_BYTES = 750_000;
 const SIGNATURE_CANVAS_WIDTH = 720;
 const SIGNATURE_CANVAS_HEIGHT = 240;
+const CONSENT_REVIEW_EXPLANATION =
+  "Antes de avanzar con la firma, el paciente debe leer este consentimiento informado con detenimiento. Al firmarlo, deja constancia de que comprende y acepta las condiciones del estudio.";
 
 const CONSENT_COMPLETION_CONFETTI = [
   {
@@ -1683,7 +1685,10 @@ export function PatientConsentUploadWizard({
             {activeStepId === "destination" ? renderDestinationFields() : null}
 
             {activeStepId === "download" ? (
-              <div className="max-w-3xl rounded-xl border border-violet-100 bg-white/78 p-6 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+              <div className="max-w-3xl space-y-5 rounded-xl border border-violet-100 bg-white/78 p-6 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {CONSENT_REVIEW_EXPLANATION}
+                </p>
                 <Button variant="outline" asChild>
                   <a
                     href={CONSENT_TEMPLATE_URL}
@@ -1711,6 +1716,9 @@ export function PatientConsentUploadWizard({
                         Este es el documento que debe imprimir, completar y
                         firmar. No continúe con un formulario distinto ni con
                         una plantilla vacía creada por su cuenta.
+                      </p>
+                      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                        {CONSENT_REVIEW_EXPLANATION}
                       </p>
                       <Button className="mt-5" variant="outline" asChild>
                         <a

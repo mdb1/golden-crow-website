@@ -194,6 +194,11 @@ describe("PatientConsentUploadWizard", () => {
       "href",
       "/patient-portal/documents/consentimiento-informado-2pq.pdf",
     );
+    expect(
+      screen.getByText(
+        /antes de avanzar con la firma, el paciente debe leer este consentimiento informado con detenimiento/i,
+      ),
+    ).toBeVisible();
   });
 
   it("only offers drag placement on the last PDF page", async () => {
@@ -1069,6 +1074,11 @@ describe("PatientConsentUploadWizard", () => {
       screen.getByRole("heading", { name: "Descargar la plantilla" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Descargue la plantilla oficial")).toBeVisible();
+    expect(
+      screen.getByText(
+        /antes de avanzar con la firma, el paciente debe leer este consentimiento informado con detenimiento/i,
+      ),
+    ).toBeVisible();
     expect(
       screen.getByRole("link", {
         name: "Descargar plantilla de consentimiento",
