@@ -420,6 +420,52 @@ describe("PatientConsentUploadWizard", () => {
     ).toHaveValue("31.234.567");
   });
 
+  it("prefills the current patient's stored document in a fresh guided flow", async () => {
+    const user = userEvent.setup();
+    render(
+      <PatientConsentUploadWizard
+        initialPatientName="Ada Paciente"
+        initialPatientDocument="  31.234.567  "
+      />,
+    );
+
+    await chooseGuidedFlow(user);
+    await user.click(
+      screen.getByRole("button", { name: "Continuar con los datos" }),
+    );
+
+    expect(
+      screen.getByRole("textbox", { name: "Nombre y apellido del paciente" }),
+    ).toHaveValue("Ada Paciente");
+    expect(
+      screen.getByRole("textbox", { name: "Documento del paciente" }),
+    ).toHaveValue("31.234.567");
+  });
+
+  it.each([
+    ["DRAFT-9988", "DRAFT-9988"],
+    ["", ""],
+  ])(
+    "keeps the restored draft document %p instead of the current patient value",
+    (draftDocument, expectedDocument) => {
+      render(
+        <PatientConsentUploadWizard
+          initialPatientName="Ada Paciente"
+          initialPatientDocument="CURRENT-1122"
+          initialDraft={consentDraft({
+            activeStepId: "data",
+            visitedStepIds: ["method", "download", "data"],
+            patientDocument: draftDocument,
+          })}
+        />,
+      );
+
+      expect(
+        screen.getByRole("textbox", { name: "Documento del paciente" }),
+      ).toHaveValue(expectedDocument);
+    },
+  );
+
   it("uses the existing revision when a fresh flow deliberately replaces the single draft", async () => {
     mockPatientPortalSdk({ draftRevision: 7 });
     const user = userEvent.setup();

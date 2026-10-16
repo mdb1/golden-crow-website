@@ -76,6 +76,8 @@ export default async function PatientPortalNewConsentPage({
     account.role?.displayName?.trim() ||
     account.auth.displayName?.trim() ||
     "";
+  const initialPatientDocument =
+    account.role?.patientMedicalRecordNumber?.trim() || "";
   const restoreBlocked = shouldRestoreDraft && draftResult.restoreFailed;
 
   return (
@@ -123,6 +125,7 @@ export default async function PatientPortalNewConsentPage({
       {!restoreBlocked ? (
         <PatientConsentUploadWizard
           initialPatientName={initialPatientName}
+          initialPatientDocument={initialPatientDocument}
           initialDraft={draftResult.draft}
           initialDraftRevision={draftResult.revision}
         />

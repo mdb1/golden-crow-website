@@ -23,7 +23,10 @@ jest.mock("@/lib/sdk-server", () => ({
 const account = {
   auth: { displayName: "Nombre Auth" },
   profile: { fullName: "Ada Paciente" },
-  role: { patientName: "Ada Perfil" },
+  role: {
+    patientName: "Ada Perfil",
+    patientMedicalRecordNumber: "31.234.567",
+  },
 };
 
 const draft = {
@@ -84,8 +87,42 @@ describe("patient portal new consent page", () => {
     expect(mockPatientConsentUploadWizard).toHaveBeenCalledWith(
       expect.objectContaining({
         initialPatientName: "Ada Perfil",
+        initialPatientDocument: "31.234.567",
         initialDraft: null,
         initialDraftRevision: 8,
+      }),
+    );
+  });
+
+  it("keeps manual document entry available when the patient has no stored document", async () => {
+    jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
+      if (path === "/auth/my-account") {
+        return {
+          account: {
+            ...account,
+            role: {
+              ...account.role,
+              patientMedicalRecordNumber: "   ",
+            },
+          },
+        };
+      }
+      if (path === "/2pq/informed-consents/draft/status") {
+        return { draft: null };
+      }
+      throw new Error(`Unexpected SDK path: ${path}`);
+    });
+
+    render(
+      await PatientPortalNewConsentPage({
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    expect(mockPatientConsentUploadWizard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialPatientDocument: "",
+        initialDraft: null,
       }),
     );
   });

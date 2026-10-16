@@ -1591,6 +1591,7 @@ function toRoleManagementRecord(
     institutionName: extras?.institutionName,
     doctorName: extras?.doctorName,
     patientName: extras?.patientName,
+    patientMedicalRecordNumber: extras?.patientMedicalRecordNumber,
     bootstrap: extras?.bootstrap,
   };
 }
@@ -1658,6 +1659,12 @@ async function hydrateRoleManagementRecord(
         ? (normalizeOptionalString(
             (patientSnap.data() as Record<string, unknown>).fullName,
           ) ?? patientSnap.id)
+        : undefined,
+    patientMedicalRecordNumber:
+      patientSnap && patientSnap.exists
+        ? normalizeOptionalString(
+            (patientSnap.data() as Record<string, unknown>).medicalRecordNumber,
+          )
         : undefined,
     bootstrap: record.createdAt === BOOTSTRAP_TIMESTAMP,
   });

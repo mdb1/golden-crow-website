@@ -183,6 +183,48 @@ describe("role user deletion", () => {
     mockSendPublisherPortalInviteEmail.mockReset();
   });
 
+  it.each([
+    [" 31.234.567 ", "31.234.567"],
+    ["   ", undefined],
+  ])(
+    "hydrates the current patient's normalized medical record number from %p",
+    async (storedMedicalRecordNumber, expectedMedicalRecordNumber) => {
+      const { getOwnRoleForContext } =
+        await import("../repositories/roles.repository");
+      mockDocs.set("user_roles/patient@example.com", {
+        role: "patient",
+        firebaseUid: "patient-uid",
+        patientId: "PAT-00001",
+        isActive: true,
+        canAccessPatientPortal: true,
+        createdAt: "2026-08-31T12:00:00.000Z",
+        updatedAt: "2026-08-31T12:00:00.000Z",
+      });
+      mockDocs.set("patients/PAT-00001", {
+        fullName: "Ada Paciente",
+        medicalRecordNumber: storedMedicalRecordNumber,
+      });
+
+      const record = await getOwnRoleForContext({
+        ...godModeContext,
+        email: "patient@example.com",
+        uid: "patient-uid",
+        role: "patient",
+        patientId: "PAT-00001",
+        isBootstrap: false,
+        canAccessBackoffice: false,
+        canAccessPatientPortal: true,
+      });
+
+      expect(record).toEqual(
+        expect.objectContaining({
+          patientName: "Ada Paciente",
+          patientMedicalRecordNumber: expectedMedicalRecordNumber,
+        }),
+      );
+    },
+  );
+
   it("deletes only the role document for a full admin", async () => {
     const { deleteRoleUserForContext } =
       await import("../repositories/roles.repository");

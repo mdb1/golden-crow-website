@@ -1064,12 +1064,14 @@ function mergeById<T extends { id: string }>(current: T[], incoming: T[]) {
 
 export function PatientConsentUploadWizard({
   initialPatientName = "",
+  initialPatientDocument = "",
   surface = "patient-portal",
   initialPatientPage,
   initialDraft = null,
   initialDraftRevision = null,
 }: {
   initialPatientName?: string;
+  initialPatientDocument?: string;
   surface?: "patient-portal" | "backoffice";
   initialPatientPage?: InformedConsentPatientPage;
   initialDraft?: InformedConsentDraftRecord | null;
@@ -1137,7 +1139,9 @@ export function PatientConsentUploadWizard({
   );
   const [patientNameError, setPatientNameError] = useState("");
   const [patientDocument, setPatientDocument] = useState(
-    restoredDraft?.patientDocument ?? "",
+    restoredDraft
+      ? restoredDraft.patientDocument
+      : initialPatientDocument.trim(),
   );
   const [patientDocumentError, setPatientDocumentError] = useState("");
   const [signatureDate, setSignatureDate] = useState(

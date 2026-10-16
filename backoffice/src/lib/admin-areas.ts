@@ -153,6 +153,8 @@ export interface RoleManagementRecord {
   institutionName?: string;
   doctorName?: string;
   patientName?: string;
+  /** Hydrated from the linked patient; never persisted to user_roles. */
+  patientMedicalRecordNumber?: string;
   bootstrap?: boolean;
 }
 
