@@ -43,7 +43,7 @@ describe("PatientConsentUploadWizard", () => {
     );
   });
 
-  it("only offers the last PDF page when applying a signature", async () => {
+  it("only offers drag placement on the last PDF page", async () => {
     const context = {
       beginPath: jest.fn(),
       clearRect: jest.fn(),
@@ -64,9 +64,34 @@ describe("PatientConsentUploadWizard", () => {
       HTMLCanvasElement.prototype,
       "setPointerCapture",
     );
+    const imageSetPointerCaptureDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLImageElement.prototype,
+      "setPointerCapture",
+    );
+    const imageReleasePointerCaptureDescriptor =
+      Object.getOwnPropertyDescriptor(
+        HTMLImageElement.prototype,
+        "releasePointerCapture",
+      );
+    const pointerEventDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "PointerEvent",
+    );
     Object.defineProperty(HTMLCanvasElement.prototype, "setPointerCapture", {
       configurable: true,
       value: jest.fn(),
+    });
+    Object.defineProperty(HTMLImageElement.prototype, "setPointerCapture", {
+      configurable: true,
+      value: jest.fn(),
+    });
+    Object.defineProperty(HTMLImageElement.prototype, "releasePointerCapture", {
+      configurable: true,
+      value: jest.fn(),
+    });
+    Object.defineProperty(window, "PointerEvent", {
+      configurable: true,
+      value: MouseEvent,
     });
 
     try {
@@ -105,6 +130,9 @@ describe("PatientConsentUploadWizard", () => {
         screen.getByRole("heading", { name: "Aplicar firmas al PDF" }),
       ).toBeVisible();
       expect(
+        screen.getByText(/arrástrela directamente hasta su ubicación/),
+      ).toBeVisible();
+      expect(
         screen.getByText(
           (_, element) =>
             element?.tagName === "P" &&
@@ -120,6 +148,42 @@ describe("PatientConsentUploadWizard", () => {
       expect(
         screen.queryByRole("button", { name: "Página 1" }),
       ).not.toBeInTheDocument();
+      expect(screen.queryAllByRole("slider")).toHaveLength(0);
+      expect(screen.queryByLabelText("Posición horizontal")).toBeNull();
+      expect(screen.queryByLabelText("Posición vertical")).toBeNull();
+      expect(screen.queryByLabelText("Tamaño")).toBeNull();
+      expect(screen.getByAltText("Firma del paciente")).toHaveClass(
+        "cursor-grab",
+        "touch-none",
+      );
+      const signature = screen.getByAltText("Firma del paciente");
+      const previewPage = signature.parentElement?.parentElement;
+      expect(previewPage).toBeInstanceOf(HTMLElement);
+      jest
+        .spyOn(previewPage as HTMLElement, "getBoundingClientRect")
+        .mockReturnValue({
+          bottom: 1050,
+          height: 1000,
+          left: 100,
+          right: 1100,
+          top: 50,
+          width: 1000,
+          x: 100,
+          y: 50,
+          toJSON: () => ({}),
+        });
+      fireEvent.pointerDown(signature, {
+        pointerId: 2,
+        clientX: 820,
+        clientY: 495,
+      });
+      fireEvent.pointerMove(signature, {
+        pointerId: 2,
+        clientX: 500,
+        clientY: 350,
+      });
+      fireEvent.pointerUp(signature, { pointerId: 2 });
+      expect(signature).toHaveStyle({ left: "40%", top: "30%" });
     } finally {
       getContext.mockRestore();
       toDataUrl.mockRestore();
@@ -134,6 +198,35 @@ describe("PatientConsentUploadWizard", () => {
           HTMLCanvasElement.prototype,
           "setPointerCapture",
         );
+      }
+      if (imageSetPointerCaptureDescriptor) {
+        Object.defineProperty(
+          HTMLImageElement.prototype,
+          "setPointerCapture",
+          imageSetPointerCaptureDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(
+          HTMLImageElement.prototype,
+          "setPointerCapture",
+        );
+      }
+      if (imageReleasePointerCaptureDescriptor) {
+        Object.defineProperty(
+          HTMLImageElement.prototype,
+          "releasePointerCapture",
+          imageReleasePointerCaptureDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(
+          HTMLImageElement.prototype,
+          "releasePointerCapture",
+        );
+      }
+      if (pointerEventDescriptor) {
+        Object.defineProperty(window, "PointerEvent", pointerEventDescriptor);
+      } else {
+        Reflect.deleteProperty(window, "PointerEvent");
       }
     }
   });

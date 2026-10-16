@@ -628,18 +628,9 @@ export function PatientConsentUploadWizard({
       ]
     : [];
 
-  const selectedPlacement =
-    selectedRole === "patient" ? patientPlacement : partnerPlacement;
-
   const signaturesComplete =
     Boolean(patientSignatureDataUrl) &&
     (!hasPartner || Boolean(partnerSignatureDataUrl));
-
-  function updateSelectedPlacement(
-    nextPlacement: ConsentSignaturePlacement,
-  ) {
-    updatePlacement(selectedRole, nextPlacement);
-  }
 
   async function prepareSignedConsent() {
     if (!signaturesComplete || previewSignatures.length === 0) return;
@@ -1307,9 +1298,9 @@ export function PatientConsentUploadWizard({
                     Aplicar firmas al PDF
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Seleccione una firma y ubíquela en la última página. Las
-                    firmas nunca se aplican en la primera ni en páginas
-                    intermedias.
+                    Seleccione una firma y arrástrela directamente hasta su
+                    ubicación en la última página. Las firmas nunca se aplican
+                    en la primera ni en páginas intermedias.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1336,83 +1327,14 @@ export function PatientConsentUploadWizard({
                   Última página · Página {CONSENT_TEMPLATE_LAST_PAGE_INDEX + 1}
                   {" "}de {CONSENT_TEMPLATE_PREVIEW_URLS.length}
                 </p>
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
-                  <SignaturePagePreview
-                    pageIndex={CONSENT_TEMPLATE_LAST_PAGE_INDEX}
-                    signatures={previewSignatures}
-                    selectedRole={selectedRole}
-                    editable
-                    onPlacementChange={updatePlacement}
-                    onSelectRole={setSelectedRole}
-                  />
-                  <div className="space-y-5 rounded-xl border border-border/70 bg-background/60 p-4 xl:sticky xl:top-24 xl:self-start">
-                    <p className="text-sm font-semibold">
-                      Ajustando firma{" "}
-                      {selectedRole === "patient"
-                        ? "del paciente"
-                        : "de la pareja"}
-                    </p>
-                    <div className="space-y-2">
-                      <Label htmlFor="signature-horizontal-position">
-                        Posición horizontal
-                      </Label>
-                      <input
-                        id="signature-horizontal-position"
-                        type="range"
-                        min="0"
-                        max={Math.round((1 - selectedPlacement.width) * 100)}
-                        value={Math.round(selectedPlacement.x * 100)}
-                        onChange={(event) =>
-                          updateSelectedPlacement({
-                            ...selectedPlacement,
-                            x: Number(event.target.value) / 100,
-                          })
-                        }
-                        className="w-full accent-primary"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signature-vertical-position">
-                        Posición vertical
-                      </Label>
-                      <input
-                        id="signature-vertical-position"
-                        type="range"
-                        min="0"
-                        max="92"
-                        value={Math.round(selectedPlacement.y * 100)}
-                        onChange={(event) =>
-                          updateSelectedPlacement({
-                            ...selectedPlacement,
-                            y: Number(event.target.value) / 100,
-                          })
-                        }
-                        className="w-full accent-primary"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signature-size">Tamaño</Label>
-                      <input
-                        id="signature-size"
-                        type="range"
-                        min="8"
-                        max="40"
-                        value={Math.round(selectedPlacement.width * 100)}
-                        onChange={(event) =>
-                          updateSelectedPlacement({
-                            ...selectedPlacement,
-                            width: Number(event.target.value) / 100,
-                            x: Math.min(
-                              selectedPlacement.x,
-                              1 - Number(event.target.value) / 100,
-                            ),
-                          })
-                        }
-                        className="w-full accent-primary"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <SignaturePagePreview
+                  pageIndex={CONSENT_TEMPLATE_LAST_PAGE_INDEX}
+                  signatures={previewSignatures}
+                  selectedRole={selectedRole}
+                  editable
+                  onPlacementChange={updatePlacement}
+                  onSelectRole={setSelectedRole}
+                />
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
