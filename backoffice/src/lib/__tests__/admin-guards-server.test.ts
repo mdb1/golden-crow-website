@@ -113,13 +113,10 @@ describe("getAdminContextServer", () => {
     await expect(getAdminContextServer()).rejects.toThrow("401");
   });
 
-  // BUG: the active project comes from the next-auth session, which is set
-  // from the client-posted `project` credential at login and never verified.
-  // getAdminContextServer accepts it even when projectAccess does not list
-  // it, so downstream checks like `adminContext.project === "mydnamap"`
-  // (discover-server.ts) trust a client-chosen value. It should fall back to
-  // an allowed project (or reject) instead.
-  it.failing("does not accept an active project outside projectAccess", async () => {
+  // #451: the active project comes from the next-auth session, i.e. from the
+  // `project` the browser posted at sign-in. It is honoured only when the
+  // SDK's projectAccess lists it.
+  it("does not accept an active project outside projectAccess", async () => {
     givenContext({ projectAccess: ["pocketgyms"] });
     const ctx = await getAdminContextServer("mydnamap");
     expect(ctx.project).toBe("pocketgyms");

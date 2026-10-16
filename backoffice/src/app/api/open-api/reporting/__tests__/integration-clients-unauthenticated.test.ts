@@ -20,7 +20,7 @@ jest.mock("next/navigation", () => ({ redirect: jest.fn() }));
 import { GET } from "@/app/api/open-api/reporting/integration-clients/route";
 
 describe("GET /api/open-api/reporting/integration-clients — unauthenticated", () => {
-  it.failing("SHOULD be 401, not 500", async () => {
+  it("is 401, not 500", async () => {
     const res = await GET(
       new Request("https://backoffice.test/api/open-api/reporting/integration-clients"),
     );

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAdminContextServer } from "@/lib/admin-context-server";
+import { getAdminContextOrNull } from "@/lib/admin-context-server";
 import { isGlobalAdminRole } from "@/lib/admin-areas";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
@@ -41,7 +41,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    const context = await getAdminContextServer();
+    const context = await getAdminContextOrNull();
+    if (!context) {
+      return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+    }
     if (!isGlobalAdminRole(context.role) && !context.isBootstrap) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -81,7 +84,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const context = await getAdminContextServer();
+    const context = await getAdminContextOrNull();
+    if (!context) {
+      return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+    }
     if (!isGlobalAdminRole(context.role) && !context.isBootstrap) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

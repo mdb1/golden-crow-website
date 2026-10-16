@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminContextServer } from "@/lib/admin-context-server";
+import { getAdminContextOrNull } from "@/lib/admin-context-server";
 import { isGlobalAdminRole } from "@/lib/admin-areas";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
@@ -10,7 +10,10 @@ export async function POST(
   const { clientId } = await context.params;
 
   try {
-    const adminContext = await getAdminContextServer();
+    const adminContext = await getAdminContextOrNull();
+    if (!adminContext) {
+      return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+    }
     if (!isGlobalAdminRole(adminContext.role) && !adminContext.isBootstrap) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

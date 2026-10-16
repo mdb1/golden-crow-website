@@ -97,13 +97,11 @@ describe.each(ROUTES)("%s — authz", (_name, call) => {
     },
   );
 
-  it("unauthenticated (SDK /auth/context throws) → 500 with the SDK error, nothing forwarded", async () => {
+  it("unauthenticated (SDK /auth/context throws) → 401 without the SDK error, nothing forwarded", async () => {
     mockContext = new Error("SDK GET /auth/context failed: Unauthorized");
     const res = await call();
-    expect(res.status).toBe(500);
-    await expect(res.json()).resolves.toEqual({
-      error: "SDK GET /auth/context failed: Unauthorized",
-    });
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toEqual({ error: "Not signed in." });
     expect(mockSdkCalls).toEqual([]);
   });
 

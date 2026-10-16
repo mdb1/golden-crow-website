@@ -146,7 +146,7 @@ describe("POST /auth/login — surface × account matrix", () => {
       mockResolveAdminContext.mockResolvedValue(CONTEXT_FOR_SURFACE[holder]);
       const res = await login({ idToken: "tok", surface: requested });
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toEqual({ status: "ok" });
+      expect(res.json()).toEqual({ status: "ok", uid: DECODED.uid, email: DECODED.email });
       expect(mockCreateSessionCookie).toHaveBeenCalledWith("tok", {
         expiresIn: FIVE_DAYS_MS,
       });
