@@ -675,16 +675,20 @@ describe("client exercise notes", () => {
     expect(db.writes[1]).toEqual({ op: "delete", path: "client_exercise_notes/coach-a_c1_ex-squat", via: "direct" });
   });
 
-  // SECURITY GAP (low): setClientExerciseNote never checks that `clientId` is
-  // in the caller's roster (live-workout-actions.ts ~L1222). The doc lands in
-  // the caller's own `${trainerUid}_…` id space, but firestore.rules
-  // (/client_exercise_notes) let the CLIENT named in `clientId` read it — so a
-  // coach can plant a note readable by another coach's client once the
-  // (deferred) iOS surface ships.
-  it.failing("SECURITY GAP: rejects a note about a client outside the caller's roster", async () => {
+  // setClientExerciseNote requires the client be on the caller's roster:
+  // firestore.rules (/client_exercise_notes) let the CLIENT named in
+  // `clientId` read the note, so a coach must not plant one on another coach's
+  // client (nor clear one — the empty-note delete path is gated too).
+  it("rejects a note about a client outside the caller's roster, writing nothing", async () => {
     await expect(
       setClientExerciseNote({ clientId: "x1", exerciseId: "ex-squat", note: "hi from coach A" }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("Client is not in your roster.");
+    await expect(
+      setClientExerciseNote({ clientId: "x1", exerciseId: "ex-squat", note: "  " }),
+    ).rejects.toThrow("Client is not in your roster.");
+    await expect(
+      setClientExerciseNote({ clientId: "ghost", exerciseId: "ex-squat", note: "hi" }),
+    ).rejects.toThrow("Client is not in your roster.");
     expect(db.writes).toEqual([]);
   });
 });
