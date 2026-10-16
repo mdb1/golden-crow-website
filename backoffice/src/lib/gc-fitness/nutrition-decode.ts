@@ -56,7 +56,11 @@ export function decodeNutritionPlan(id: string, raw: unknown): NutritionPlan | n
     // `?? null` and NOT `|| null`: the key may legitimately hold null, and conflating
     // "absent" with "open-ended" is the bug class this whole feature is written around.
     endsOn: typeof data.endsOn === "string" ? data.endsOn : null,
-    targets: (data.targets ?? {}) as NutritionPlan["targets"],
+    // Same normalization the writer runs: a doc from another surface (or a legacy one)
+    // with `kcal: "2000"` must not decode as a string typed as number (#451).
+    targets: (data.targets && typeof data.targets === "object"
+      ? normalizeNutritionTargets(data.targets as Record<string, unknown>)
+      : {}) as NutritionPlan["targets"],
     meals: Array.isArray(data.meals) ? (data.meals as NutritionPlan["meals"]) : [],
     reminders: (data.reminders ?? null) as NutritionPlan["reminders"],
     deleted: data.deleted === true,

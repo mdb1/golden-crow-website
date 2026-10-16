@@ -33,6 +33,10 @@ export async function resolveExerciseDocsById(
   const uniqueIds = Array.from(new Set(ids.filter((id) => id.trim().length > 0)));
   const fetched = new Map<string, ExerciseDocData | null>();
   const queue = [...uniqueIds];
+  // Every id ever enqueued. `fetched` alone can't dedupe: a target is only in it
+  // AFTER its read lands, so N docs in one batch merging into the same canonical
+  // id would each enqueue it (45 legacy ids → 45 extra reads of one doc, #451).
+  const queued = new Set<string>(uniqueIds);
 
   while (queue.length > 0) {
     const batch = queue.splice(0, 20);
@@ -45,7 +49,10 @@ export async function resolveExerciseDocsById(
       const data = snap.exists ? ((snap.data() ?? {}) as ExerciseDocData) : null;
       fetched.set(snap.id, data);
       const target = mergedTargetId(data);
-      if (target && !fetched.has(target)) queue.push(target);
+      if (target && !queued.has(target)) {
+        queued.add(target);
+        queue.push(target);
+      }
     }
   }
 

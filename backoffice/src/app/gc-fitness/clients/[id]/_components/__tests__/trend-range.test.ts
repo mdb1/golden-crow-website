@@ -111,24 +111,20 @@ describe("malformed input", () => {
     expect(civilDiffDays("2026-10-16", "")).toBe(0);
   });
 
-  // BUG (latent, low): `civilToUtcNoon` only rejects NaN components — it never
-  // range-checks them, and `Number("")` is 0. So a calendar-invalid civil date
-  // is silently ROLLED OVER by Date.UTC instead of being treated as invalid
-  // like every other malformed input ("returned unchanged"):
-  //   "2026-02-30" → 2026-03-02, "2026-13-01" → 2027-01-01,
-  //   "2026--01" (empty month) → 2025-12-01.
-  // Today the inputs come from `civilDateFormat`, so it is not reachable from
-  // the UI, but any wire-sourced date with a typo would land on a wrong day.
-  it.failing("treats calendar-invalid dates as invalid instead of rolling them over", () => {
+  // Regression (#451): `civilToUtcNoon` only rejected NaN components and
+  // `Number("")` is 0, so calendar-invalid dates were silently ROLLED OVER by
+  // Date.UTC ("2026-02-30" → 2026-03-02, "2026-13-01" → 2027-01-01,
+  // "2026--01" → 2025-12-01). They are now malformed and returned unchanged.
+  it("treats calendar-invalid dates as invalid instead of rolling them over", () => {
     expect(addCivilDays("2026-02-30", 0)).toBe("2026-02-30");
     expect(addCivilDays("2026-13-01", 0)).toBe("2026-13-01");
     expect(addCivilDays("2026--01", 0)).toBe("2026--01");
     expect(civilDiffDays("2026-02-30", "2026-03-02")).toBe(0);
   });
 
-  // BUG (latent, low): Date.UTC maps years 0–99 to 1900–1999, so "0026-01-01"
-  // comes back as "1926-01-01". `setUTCFullYear` would keep the literal year.
-  it.failing("keeps two-digit years literal", () => {
+  // Regression (#451): Date.UTC maps years 0–99 to 1900–1999, so "0026-01-01"
+  // came back as "1926-01-01". `setUTCFullYear` keeps the literal year.
+  it("keeps two-digit years literal", () => {
     expect(addCivilDays("0026-01-01", 0)).toBe("0026-01-01");
   });
 });

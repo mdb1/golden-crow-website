@@ -151,14 +151,11 @@ describe("decodeNutritionPlan", () => {
     expect(decoded?.reminders).toBeNull();
   });
 
-  // BUG (low): the read path passes `targets` through VERBATIM (`data.targets ?? {}`
-  // cast to the type), while the write path runs `normalizeNutritionTargets` —
-  // whose own contract is "a stray string never lands as a target". A doc
-  // written by another surface (or a legacy one) with `kcal: "2000"` therefore
-  // decodes as a STRING typed as number, and any `target + x` downstream
-  // concatenates instead of adding. The forgiving decode should drop it like
-  // the writer does.
-  it.failing("drops non-numeric targets on read, like the writer does", () => {
+  // Regression (#451): the read path passed `targets` through VERBATIM while the
+  // write path ran `normalizeNutritionTargets`, so a doc with `kcal: "2000"`
+  // decoded as a STRING typed as number (`target + x` concatenated). The decode
+  // now runs the same normalization and drops non-finite-number targets.
+  it("drops non-numeric targets on read, like the writer does", () => {
     const decoded = decodeNutritionPlan(
       "p",
       plan({ targets: { kcal: "2000", proteinG: 150, carbsG: Number.NaN } }),
