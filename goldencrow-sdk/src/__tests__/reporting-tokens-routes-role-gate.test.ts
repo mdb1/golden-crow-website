@@ -162,42 +162,76 @@ describe("reporting integration clients — role gate (real repository)", () => 
     expect(response.json().client.status).toBe("revoked");
   });
 
-  // BUG (suspected, ownership): GET /reporting/integration-clients scopes a
-  // non-bootstrap admin to the clients THEY created (whereEquals createdByUid,
-  // reporting-tokens.repository.ts:1012) and creation is limited to one active
-  // client per actor — i.e. clients are owned. But rotate
-  // (reporting-tokens.repository.ts:1078) and revoke (:1130) only check the
-  // role, never `createdByUid`. A second full admin who learns another admin's
-  // client_id can mint a fresh client_secret for that integration (taking it
-  // over and breaking the owner's integration) or revoke it.
-  it.failing(
-    "refuses a full admin rotating the secret of ANOTHER admin's client",
-    async () => {
-      storeClient("gci_live_other", "other-admin-uid");
+  // Regression (#451): GET /reporting/integration-clients scopes a
+  // non-bootstrap admin to the clients THEY created (whereEquals createdByUid)
+  // — clients are owned. Rotate and revoke used to check only the role, so a
+  // second full admin who learned another admin's client_id could mint a fresh
+  // client_secret (taking the integration over) or revoke it. They now follow
+  // the listing's ownership: creator or bootstrap only, and a not-owned client
+  // answers the same 404 as a missing one so the id is never confirmed.
+  it("refuses a full admin rotating the secret of ANOTHER admin's client", async () => {
+    storeClient("gci_live_other", "other-admin-uid");
 
-      const response = await fastify.inject({
-        method: "POST",
-        url: "/reporting/integration-clients/gci_live_other/secret/rotate",
-      });
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/reporting/integration-clients/gci_live_other/secret/rotate",
+    });
 
-      expect([403, 404]).toContain(response.statusCode);
-      expect(response.body).not.toContain("gcs_live_");
-      expect(mockTransactionUpdate).not.toHaveBeenCalled();
-    },
-  );
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: "Integration client not found." });
+    expect(response.body).not.toContain("gcs_live_");
+    expect(mockTransactionUpdate).not.toHaveBeenCalled();
+    expect(mockTransactionSet).not.toHaveBeenCalled();
+  });
 
-  it.failing(
-    "refuses a full admin revoking ANOTHER admin's client",
-    async () => {
-      storeClient("gci_live_other", "other-admin-uid");
+  it("refuses a full admin revoking ANOTHER admin's client", async () => {
+    storeClient("gci_live_other", "other-admin-uid");
 
-      const response = await fastify.inject({
-        method: "POST",
-        url: "/reporting/integration-clients/gci_live_other/revoke",
-      });
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/reporting/integration-clients/gci_live_other/revoke",
+    });
 
-      expect([403, 404]).toContain(response.statusCode);
-      expect(mockTransactionUpdate).not.toHaveBeenCalled();
-    },
-  );
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: "Integration client not found." });
+    expect(mockTransactionUpdate).not.toHaveBeenCalled();
+    expect(mockTransactionSet).not.toHaveBeenCalled();
+  });
+
+  it("answers a missing client with the same 404 as another admin's client", async () => {
+    for (const url of [
+      "/reporting/integration-clients/gci_live_missing/secret/rotate",
+      "/reporting/integration-clients/gci_live_missing/revoke",
+    ]) {
+      const response = await fastify.inject({ method: "POST", url });
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({ error: "Integration client not found." });
+    }
+    expect(mockTransactionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("lets a full admin revoke a client they created", async () => {
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/reporting/integration-clients/gci_live_owned/revoke",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().client.status).toBe("revoked");
+    expect(mockTransactionUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets GOD MODE (bootstrap) rotate the secret of any admin's client", async () => {
+    storeClient("gci_live_other", "other-admin-uid");
+    currentContext = makeAdminContext({ uid: "god-uid", isBootstrap: true });
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/reporting/integration-clients/gci_live_other/secret/rotate",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().client_secret).toMatch(/^gcs_live_/);
+    expect(mockTransactionUpdate).toHaveBeenCalledTimes(1);
+  });
 });

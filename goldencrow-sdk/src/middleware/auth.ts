@@ -114,40 +114,40 @@ export async function authMiddleware(
     }
 
     const requestPath = decodedRequestPath(request);
-    if (
-      adminContext.canAccessPatientPortal &&
-      !adminContext.canAccessBackoffice &&
-      !adminContext.canAccessPGFlex &&
-      !adminContext.canAccessPublisherPortal &&
-      !isPatientPortalSdkPath(requestPath)
-    ) {
-      return reply.status(403).send({
-        error: "This patient portal session cannot access backoffice APIs",
-      });
-    }
+    // Without backoffice access, the path must belong to at least one portal
+    // the account holds — the UNION of its portals. Each restriction used to
+    // fire only when its portal was the account's ONLY surface, so two
+    // non-backoffice portals (e.g. patient + PGFlex) fell through to the
+    // whole backoffice API (#451).
+    if (!adminContext.canAccessBackoffice) {
+      const heldPortals = [
+        {
+          held: adminContext.canAccessPatientPortal,
+          allows: isPatientPortalSdkPath,
+          error: "This patient portal session cannot access backoffice APIs",
+        },
+        {
+          held: adminContext.canAccessPGFlex,
+          allows: isPGFlexSdkPath,
+          error: "This PGFlex session cannot access backoffice APIs",
+        },
+        {
+          held: adminContext.canAccessPublisherPortal,
+          allows: isPublisherPortalSdkPath,
+          error: "This publisher portal session cannot access backoffice APIs",
+        },
+      ].filter((portal) => portal.held);
 
-    if (
-      adminContext.canAccessPGFlex &&
-      !adminContext.canAccessBackoffice &&
-      !adminContext.canAccessPatientPortal &&
-      !adminContext.canAccessPublisherPortal &&
-      !isPGFlexSdkPath(requestPath)
-    ) {
-      return reply.status(403).send({
-        error: "This PGFlex session cannot access backoffice APIs",
-      });
-    }
-
-    if (
-      adminContext.canAccessPublisherPortal &&
-      !adminContext.canAccessBackoffice &&
-      !adminContext.canAccessPatientPortal &&
-      !adminContext.canAccessPGFlex &&
-      !isPublisherPortalSdkPath(requestPath)
-    ) {
-      return reply.status(403).send({
-        error: "This publisher portal session cannot access backoffice APIs",
-      });
+      if (!heldPortals.some((portal) => portal.allows(requestPath))) {
+        // A single-portal session keeps its own message.
+        const onlyPortal =
+          heldPortals.length === 1 ? heldPortals[0] : undefined;
+        return reply.status(403).send({
+          error:
+            onlyPortal?.error ??
+            "This portal session cannot access backoffice APIs",
+        });
+      }
     }
 
     // Attach decoded claims to request for downstream route handlers
