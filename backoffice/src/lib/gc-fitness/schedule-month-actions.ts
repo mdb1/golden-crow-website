@@ -705,7 +705,38 @@ export async function listMonthForClients(
   input: MonthForClientsInput,
 ): Promise<MonthCalendarPayload> {
   const trainer = await getCurrentTrainer();
-  return loadMonthForClients({ ...input, viewerUid: trainer.uid });
+  // Server Action + Admin SDK (rules bypassed): `clientIds` is caller-supplied,
+  // so keep only clients CURRENTLY on the caller's roster
+  // (`users/{id}.coachId === uid`, the same check getClientCalendarPeek and
+  // getAssignmentDetail make). Foreign / unknown ids are DROPPED rather than
+  // thrown: the page passes its roster ids, and one client that just moved to
+  // another coach must not break the whole calendar. Point reads, not getAll
+  // (getAll fails silently on Vercel). Deduped + capped at the same 30 the
+  // loader's IN query takes, so the read fan-out stays bounded.
+  const clientIds = await filterClientIdsOnRoster(trainer.uid, input.clientIds);
+  return loadMonthForClients({ ...input, clientIds, viewerUid: trainer.uid });
+}
+
+async function filterClientIdsOnRoster(
+  trainerUid: string,
+  clientIds: string[],
+): Promise<string[]> {
+  const candidates = Array.from(
+    new Set(
+      clientIds.filter(
+        (id): id is string => typeof id === "string" && id.trim().length > 0,
+      ),
+    ),
+  ).slice(0, 30);
+  if (candidates.length === 0) return [];
+  const users = gcFitnessFirestore().collection(FirestoreCollections.users);
+  const owned = await Promise.all(
+    candidates.map(async (id) => {
+      const snap = await users.doc(id).get();
+      return snap.exists && snap.get("coachId") === trainerUid;
+    }),
+  );
+  return candidates.filter((_, i) => owned[i]);
 }
 
 /**
@@ -785,9 +816,10 @@ async function loadMonthForClients(
   // Pull every assignment in the month for the requested clients.
   // Composite index used: (clientId ASC, scheduledFor ASC) — already
   // deployed. We intentionally omit a redundant trainerId equality from the
-  // query: clientIds are derived from the trainer's own roster on the caller
-  // (auth-helpers + ownership-checked roster), AND Firestore Rules from 04-02
-  // enforce trainerId == auth.uid on reads. Adding `trainerId ==` here would
+  // query: clientIds were already filtered to the viewer's roster by the
+  // gated entry points (listMonthForClients drops foreign ids;
+  // listMonthForClientAsAdmin runs adminCanViewClientUnderCoach). Rules do NOT
+  // apply here — this is the Admin SDK. Adding `trainerId ==` here would
   // require a third-axis composite (trainerId, clientId, scheduledFor) for
   // no gain.
   const [assignSnap, logSnap, habitSnap] = await Promise.all([
