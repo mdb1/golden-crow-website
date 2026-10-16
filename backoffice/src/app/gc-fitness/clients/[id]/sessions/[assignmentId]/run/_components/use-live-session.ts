@@ -243,7 +243,7 @@ export function useLiveSession(
   const [exercises, setExercises] = useState<SessionExercise[]>(
     bootstrapSession?.exercises ?? [],
   );
-  const [rowsByExercise, setRowsByExercise] = useState<Record<string, SetRowState[]>>(
+  const [rowsByExercise, setRowsByExerciseState] = useState<Record<string, SetRowState[]>>(
     () => {
       if (!bootstrapSession) return {};
       const base: Record<string, SetRowState[]> = {};
@@ -267,6 +267,37 @@ export function useLiveSession(
   const hydratedRef = useRef(false);
   const onCompletedRef = useRef<((ex: SessionExercise) => void) | null>(null);
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // #451 — the buffer is mirrored in a ref that every mutator reads and writes
+  // SYNCHRONOUSLY, so `toggleDone` knows its outcome inside the call (a setState
+  // updater runs lazily at render time) and back-to-back edits in one tick see
+  // each other. The state copy only drives rendering.
+  const rowsRef = useRef<Record<string, SetRowState[]>>(rowsByExercise);
+  const setRows = useCallback((next: Record<string, SetRowState[]>) => {
+    rowsRef.current = next;
+    setRowsByExerciseState(next);
+  }, []);
+  // #451 — set once finalize/cancel starts (or the page unmounts): no debounced
+  // sync may be SENT after that point, or it could resurrect / overwrite the
+  // finished log with the pre-finish buffer.
+  const terminalRef = useRef(false);
+  // #451 — the sync currently on the wire; finalize/cancel wait for it so it
+  // can never land AFTER the terminal write.
+  const inflightSync = useRef<Promise<unknown> | null>(null);
+
+  const clearPendingSync = useCallback(() => {
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = null;
+  }, []);
+
+  useEffect(() => {
+    // Re-armed on (re)mount so React strict mode's mount→unmount→mount probe
+    // doesn't leave the hook permanently terminal.
+    terminalRef.current = false;
+    return () => {
+      terminalRef.current = true;
+      clearPendingSync();
+    };
+  }, [clearPendingSync]);
 
   // Start (or resume) the session once on mount.
   useEffect(() => {
@@ -287,7 +318,7 @@ export function useLiveSession(
           );
         setSession(s);
         setExercises(s.exercises);
-        setRowsByExercise(hydrateLoggedSets(base, s.sets));
+        setRows(hydrateLoggedSets(base, s.sets));
         setStatus("active");
       } catch (err) {
         if (cancelled) return;
@@ -298,7 +329,7 @@ export function useLiveSession(
     return () => {
       cancelled = true;
     };
-  }, [assignmentId, bootstrapSession]);
+  }, [assignmentId, bootstrapSession, setRows]);
 
   useEffect(() => {
     if (status !== "active" || !session || hydratedRef.current) return;
@@ -356,17 +387,24 @@ export function useLiveSession(
 
   const scheduleSync = useCallback(
     (rows: Record<string, SetRowState[]>) => {
-      if (!session) return;
-      if (syncTimer.current) clearTimeout(syncTimer.current);
+      if (!session || terminalRef.current) return;
+      clearPendingSync();
       const logId = session.logId;
       const sets = deriveLoggedSets(rows);
       syncTimer.current = setTimeout(() => {
-        void syncWorkoutSession({ logId, sets }).catch(() => {
-          /* best-effort resilience; the finalize write is authoritative */
-        });
+        syncTimer.current = null;
+        if (terminalRef.current) return;
+        const p = syncWorkoutSession({ logId, sets })
+          .catch(() => {
+            /* best-effort resilience; the finalize write is authoritative */
+          })
+          .finally(() => {
+            if (inflightSync.current === p) inflightSync.current = null;
+          });
+        inflightSync.current = p;
       }, 1200);
     },
-    [session, deriveLoggedSets],
+    [session, deriveLoggedSets, clearPendingSync],
   );
 
   const mutateRow = useCallback(
@@ -376,17 +414,18 @@ export function useLiveSession(
       patch: (row: SetRowState) => SetRowState,
       sync = false,
     ) => {
-      setRowsByExercise((prev) => {
-        const rows = prev[exerciseId];
-        if (!rows || !rows[idx]) return prev;
-        const nextRows = rows.slice();
-        nextRows[idx] = patch(nextRows[idx]);
-        const next = { ...prev, [exerciseId]: nextRows };
-        if (sync) scheduleSync(next);
-        return next;
-      });
+      const prev = rowsRef.current;
+      const rows = prev[exerciseId];
+      if (!rows || !rows[idx]) return null;
+      const before = rows[idx];
+      const nextRows = rows.slice();
+      nextRows[idx] = patch(before);
+      const next = { ...prev, [exerciseId]: nextRows };
+      setRows(next);
+      if (sync) scheduleSync(next);
+      return { before, after: nextRows[idx] };
     },
-    [scheduleSync],
+    [scheduleSync, setRows],
   );
 
   const setWeight = useCallback(
@@ -437,29 +476,27 @@ export function useLiveSession(
 
   const toggleDone = useCallback(
     (exerciseId: string, idx: number) => {
-      let becameDone = false;
-      mutateRow(
+      // #451 — mutateRow applies synchronously against the ref, so the
+      // outcome is known here (it used to be read out of a lazy updater and
+      // was always false).
+      const res = mutateRow(
         exerciseId,
         idx,
-        (r) => {
-          becameDone = !r.done;
-          return {
-            ...r,
-            done: !r.done,
-            completedAt: !r.done ? new Date().toISOString() : null,
-          };
-        },
+        (r) => ({
+          ...r,
+          done: !r.done,
+          completedAt: !r.done ? new Date().toISOString() : null,
+        }),
         true,
       );
-      if (becameDone && onCompletedRef.current) {
+      const becameDone = res !== null && res.after.done;
+      if (becameDone && onCompletedRef.current && !res.after.isWarmup) {
         const ex = exercises.find((e) => e.exerciseId === exerciseId);
-        if (ex && !rowsAreWarmup(rowsByExercise[exerciseId], idx)) {
-          onCompletedRef.current(ex);
-        }
+        if (ex) onCompletedRef.current(ex);
       }
       return becameDone;
     },
-    [mutateRow, exercises, rowsByExercise],
+    [mutateRow, exercises],
   );
 
   const registerOnSetCompleted = useCallback(
@@ -471,9 +508,10 @@ export function useLiveSession(
 
   const addSet = useCallback(
     (exerciseId: string) => {
-      setRowsByExercise((prev) => {
+      {
+        const prev = rowsRef.current;
         const rows = prev[exerciseId];
-        if (!rows) return prev;
+        if (!rows) return;
         const last = rows[rows.length - 1];
         const next = {
           ...prev,
@@ -493,24 +531,23 @@ export function useLiveSession(
             },
           ],
         };
-        return next;
-      });
+        setRows(next);
+      }
     },
-    [],
+    [setRows],
   );
 
   const removeSet = useCallback(
     (exerciseId: string, idx: number) => {
-      setRowsByExercise((prev) => {
-        const rows = prev[exerciseId];
-        if (!rows || rows.length <= 1) return prev; // keep at least one row
-        const nextRows = rows.slice(0, idx).concat(rows.slice(idx + 1));
-        const next = { ...prev, [exerciseId]: nextRows };
-        scheduleSync(next);
-        return next;
-      });
+      const prev = rowsRef.current;
+      const rows = prev[exerciseId];
+      if (!rows || rows.length <= 1) return; // keep at least one row
+      const nextRows = rows.slice(0, idx).concat(rows.slice(idx + 1));
+      const next = { ...prev, [exerciseId]: nextRows };
+      setRows(next);
+      scheduleSync(next);
     },
-    [scheduleSync],
+    [scheduleSync, setRows],
   );
 
   const moveExercise = useCallback(
@@ -527,11 +564,25 @@ export function useLiveSession(
     [],
   );
 
+  // #451 — a failed finalize/cancel leaves the session live again: lift the
+  // terminal flag and re-arm the reload-resume sync that was dropped.
+  const reopen = useCallback(() => {
+    setStatus("active");
+    terminalRef.current = false;
+    scheduleSync(rowsRef.current);
+  }, [scheduleSync]);
+
   const finalize = useCallback(
     async (args: FinalizeArgs) => {
       if (!session) return null;
+      // #451 — terminal from here: drop the pending debounced sync and let any
+      // sync already on the wire land BEFORE the authoritative write.
+      terminalRef.current = true;
+      clearPendingSync();
       setStatus("finishing");
+      const rowsByExercise = rowsRef.current;
       try {
+        await inflightSync.current;
         const sets = deriveLoggedSets(rowsByExercise);
         // "Future recurrence" should MATCH what the coach just performed: the
         // future prescription is rebuilt from the performed rows (set count,
@@ -574,26 +625,29 @@ export function useLiveSession(
         return { futureUpdated: res.futureUpdated };
       } catch (err) {
         setErrorMessage(err instanceof Error ? err.message : "No se pudo finalizar.");
-        setStatus("active");
+        reopen();
         return null;
       }
     },
-    [session, rowsByExercise, exercises, deriveLoggedSets],
+    [session, exercises, deriveLoggedSets, clearPendingSync, reopen],
   );
 
   const cancel = useCallback(async () => {
     if (!session) return false;
+    terminalRef.current = true;
+    clearPendingSync();
     setStatus("finishing");
     try {
+      await inflightSync.current;
       await cancelWorkoutSession({ logId: session.logId });
       setStatus("finished");
       return true;
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "No se pudo cancelar.");
-      setStatus("active");
+      reopen();
       return false;
     }
-  }, [session]);
+  }, [session, clearPendingSync, reopen]);
 
   const { doneCount, totalPlanned } = useMemo(() => {
     let done = 0;
@@ -630,6 +684,3 @@ export function useLiveSession(
   };
 }
 
-function rowsAreWarmup(rows: SetRowState[] | undefined, idx: number): boolean {
-  return rows?.[idx]?.isWarmup === true;
-}
