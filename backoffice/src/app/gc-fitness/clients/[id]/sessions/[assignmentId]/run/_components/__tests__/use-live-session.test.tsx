@@ -407,12 +407,13 @@ describe("useLiveSession — debounced sync", () => {
     expect(result.current.errorMessage).toBeNull();
   });
 
-  // FINDING: the debounce timer is never cleared by finalize/cancel (nor on
+  // FIXED (#451) — was: the debounce timer was never cleared by finalize/cancel (nor on
   // unmount). A done-toggle inside the last 1.2 s before Finish fires a
   // `syncWorkoutSession` AFTER the log was finalized/cancelled, with the
   // pre-finish buffer. Whether that write clobbers the finished log depends on
   // the server's status guard — the client should not send it at all.
-  it.failing("sends no sync after finalize when an edit was still debouncing", async () => {
+  // Regression (#451): finalize clears the pending debounced sync and marks the hook terminal.
+  it("sends no sync after finalize when an edit was still debouncing", async () => {
     mockFinalize.mockResolvedValue({ futureUpdated: 0 });
     const { result } = await startedHook();
     jest.useFakeTimers();
@@ -428,7 +429,8 @@ describe("useLiveSession — debounced sync", () => {
     expect(mockSync).not.toHaveBeenCalled();
   });
 
-  it.failing("sends no sync after cancel when an edit was still debouncing", async () => {
+  // Regression (#451): cancel clears the pending debounced sync and marks the hook terminal.
+  it("sends no sync after cancel when an edit was still debouncing", async () => {
     mockCancel.mockResolvedValue(undefined);
     const { result } = await startedHook();
     jest.useFakeTimers();
@@ -444,7 +446,8 @@ describe("useLiveSession — debounced sync", () => {
     expect(mockSync).not.toHaveBeenCalled();
   });
 
-  it.failing("sends no sync after the page unmounts", async () => {
+  // Regression (#451): unmount clears the pending debounced sync.
+  it("sends no sync after the page unmounts", async () => {
     const { result, unmount } = await startedHook();
     jest.useFakeTimers();
     act(() => {
@@ -459,13 +462,14 @@ describe("useLiveSession — debounced sync", () => {
 });
 
 describe("useLiveSession — toggleDone + rest-timer hook", () => {
-  // FINDING (low — no live caller today): `toggleDone` reads `becameDone` out
+  // FIXED (#451) — was (low, no live caller today): `toggleDone` read `becameDone` out
   // of a setState UPDATER, which React runs lazily at render time, not inside
   // the call. So the boolean it returns is `false` and `onSetCompleted` never
   // fires. The run page derives rest starts from a rows diff instead
   // (active-workout-session.tsx), so the coach is not affected yet — but any
   // caller that trusts this API gets a silent no-op.
-  it.failing("returns true and fires onSetCompleted for a working set", async () => {
+  // Regression (#451): toggleDone applies against a synchronous ref, so its outcome is known in-call.
+  it("returns true and fires onSetCompleted for a working set", async () => {
     const { result } = await startedHook();
     const cb = jest.fn();
     act(() => result.current.registerOnSetCompleted(cb));
@@ -490,7 +494,8 @@ describe("useLiveSession — toggleDone + rest-timer hook", () => {
     expect(result.current.rowsByExercise.squat[0].done).toBe(true);
   });
 
-  it.failing("fires onSetCompleted for a working set but not when un-checking", async () => {
+  // Regression (#451): un-checking returns false and does not fire the callback.
+  it("fires onSetCompleted for a working set but not when un-checking", async () => {
     const { result } = await startedHook();
     const cb = jest.fn();
     act(() => result.current.registerOnSetCompleted(cb));
