@@ -1,19 +1,13 @@
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { InformedConsentsWorkbench } from "@/components/informed-consents-workbench";
 import { PageHero } from "@/components/page-hero";
-import type {
-  InformedConsentPage,
-  InformedConsentPatientPage,
-} from "@/lib/informed-consents";
+import type { InformedConsentPage } from "@/lib/informed-consents";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 export default async function InformedConsentsPage() {
-  const [initialPage, initialPatientPage] = await Promise.all([
-    sdkFetchServer<InformedConsentPage>("/2pq/informed-consents"),
-    sdkFetchServer<InformedConsentPatientPage>(
-      "/2pq/informed-consents/patients",
-    ),
-  ]);
+  const initialPage = await sdkFetchServer<InformedConsentPage>(
+    "/2pq/informed-consents",
+  );
 
   return (
     <HeaderUnclutterScope
@@ -28,7 +22,6 @@ export default async function InformedConsentsPage() {
       <InformedConsentsWorkbench
         surface="backoffice"
         initialPage={initialPage}
-        initialPatientPage={initialPatientPage}
       />
     </HeaderUnclutterScope>
   );

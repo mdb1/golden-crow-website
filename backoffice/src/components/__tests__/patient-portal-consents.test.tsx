@@ -89,12 +89,14 @@ describe("patient portal consents", () => {
           <InformedConsentsWorkbench
             surface="backoffice"
             initialPage={{ records: [consentRecord] }}
-            initialPatientPage={{ patients: [] }}
           />
         </AppLanguageProvider>
       </AdminContextProvider>,
     );
 
     expect(screen.getByRole("button", { name: "Delete consent" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Subir consentimiento" }),
+    ).toHaveAttribute("href", "/2pq-dashboard/consents/new");
   });
 });

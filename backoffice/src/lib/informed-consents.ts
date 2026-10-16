@@ -32,6 +32,11 @@ export interface InformedConsentCaseOption {
   updatedAt: string;
 }
 
+export interface InformedConsentCasePage {
+  cases: InformedConsentCaseOption[];
+  nextCursor?: string;
+}
+
 export interface InformedConsentDetailPayload {
   record: InformedConsentRecord;
   linkedCase: InformedConsentCaseOption | null;

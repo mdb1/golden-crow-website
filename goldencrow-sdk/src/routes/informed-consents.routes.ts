@@ -9,6 +9,7 @@ import {
   getCaseConsentTraceabilityForContext,
   getInformedConsentDetailForContext,
   getInformedConsentFileForContext,
+  listInformedConsentCasesForContext,
   listInformedConsentPatientsForContext,
   listInformedConsentsForContext,
   sendInformedConsentEmailForContext,
@@ -16,6 +17,9 @@ import {
 } from "../repositories/informed-consents.repository.js";
 
 const CursorSchema = z.object({ cursor: z.string().min(1).optional() });
+const PatientCaseCursorSchema = CursorSchema.extend({
+  patientId: z.string().min(1),
+});
 const ConsentFileSchema = z.object({
   name: z.string().min(1).max(255),
   type: z.string().min(1).max(100),
@@ -69,12 +73,32 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
     },
   );
 
+  f.get(
+    "/2pq/informed-consents/cases",
+    { schema: { querystring: PatientCaseCursorSchema } },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        return await listInformedConsentCasesForContext(
+          request.adminContext,
+          request.query.patientId,
+          request.query.cursor,
+        );
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
   f.post(
     "/2pq/informed-consents",
     {
       schema: {
         body: z.object({
           patientId: z.string().min(1).optional(),
+          caseId: z.string().min(1).optional(),
           file: ConsentFileSchema,
         }),
       },

@@ -15,12 +15,7 @@ import {
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
-import {
-  SingleFileUpload,
-  type SingleFileValue,
-} from "@/components/single-file-upload";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -40,8 +35,6 @@ import {
 } from "@/components/ui/select";
 import type {
   InformedConsentPage,
-  InformedConsentPatientOption,
-  InformedConsentPatientPage,
   InformedConsentRecord,
 } from "@/lib/informed-consents";
 import { isGlobalAdminRole } from "@/lib/admin-areas";
@@ -60,15 +53,6 @@ function formatDate(value: string, locale?: string) {
         dateStyle: "medium",
         timeStyle: "short",
       }).format(date);
-}
-
-function mergePatients(
-  current: InformedConsentPatientOption[],
-  incoming: InformedConsentPatientOption[],
-) {
-  const patients = new Map(current.map((patient) => [patient.id, patient]));
-  incoming.forEach((patient) => patients.set(patient.id, patient));
-  return [...patients.values()];
 }
 
 function BackofficeConsentDeleteAction({
@@ -94,26 +78,15 @@ function BackofficeConsentDeleteAction({
 export function InformedConsentsWorkbench({
   surface,
   initialPage,
-  initialPatientPage,
 }: {
   surface: "backoffice" | "patient-portal";
   initialPage: InformedConsentPage;
-  initialPatientPage?: InformedConsentPatientPage;
 }) {
   const isPatientPortal = surface === "patient-portal";
   const t = (text: string) => (isPatientPortal ? appText("es", text) : text);
   const [records, setRecords] = useState(initialPage.records);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
-  const [patients, setPatients] = useState(initialPatientPage?.patients ?? []);
-  const [patientCursor, setPatientCursor] = useState(
-    initialPatientPage?.nextCursor,
-  );
-  const [patientId, setPatientId] = useState("");
-  const [file, setFile] = useState<SingleFileValue | null>(null);
-  const [fileError, setFileError] = useState("");
-  const [saving, setSaving] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [loadingPatients, setLoadingPatients] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [linkFilter, setLinkFilter] = useState("all");
@@ -160,47 +133,6 @@ export function InformedConsentsWorkbench({
     });
   }
 
-  async function handleUpload() {
-    if (!file) {
-      setFileError(t("Select one PDF or image file."));
-      return;
-    }
-    if (!isPatientPortal && !patientId) {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: "Select the patient who owns this consent.",
-      });
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const { record } = await sdkFetch<{ record: InformedConsentRecord }>(
-        "/2pq/informed-consents",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            ...(isPatientPortal ? {} : { patientId }),
-            file,
-          }),
-        },
-      );
-      setRecords((current) => [record, ...current]);
-      setFile(null);
-      setFileError("");
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message: t("Consent uploaded."),
-      });
-    } catch (error) {
-      reportError(error, t("Unable to upload consent."));
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function loadMoreRecords() {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
@@ -229,22 +161,6 @@ export function InformedConsentsWorkbench({
     }
   }
 
-  async function loadMorePatients() {
-    if (!patientCursor || loadingPatients) return;
-    setLoadingPatients(true);
-    try {
-      const page = await sdkFetch<InformedConsentPatientPage>(
-        `/2pq/informed-consents/patients?cursor=${encodeURIComponent(patientCursor)}`,
-      );
-      setPatients((current) => mergePatients(current, page.patients));
-      setPatientCursor(page.nextCursor);
-    } catch (error) {
-      reportError(error, "Unable to load more patients.");
-    } finally {
-      setLoadingPatients(false);
-    }
-  }
-
   return (
     <div className="space-y-8">
       {isPatientPortal ? (
@@ -263,81 +179,25 @@ export function InformedConsentsWorkbench({
           </Button>
         </section>
       ) : (
-        <section className="border-b border-border/70 pb-8">
-          <div className="mb-5 flex items-center justify-between gap-3">
+        <section className="flex flex-col gap-4 border-b border-border/70 pb-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
             <h2 className="font-heading text-lg font-semibold">
-              {t("Upload consent")}
+              Consentimientos 2PQ
             </h2>
             <HeaderUnclutterButton />
           </div>
-          <div className="grid max-w-3xl gap-5">
-            <div className="space-y-2">
-              <Label htmlFor="consent-patient">Patient</Label>
-              <Select value={patientId} onValueChange={setPatientId}>
-                <SelectTrigger id="consent-patient" className="w-full">
-                  <SelectValue placeholder="Select patient" />
-                </SelectTrigger>
-                <SelectContent align="start">
-                  {patients.map((patient) => (
-                    <SelectItem key={patient.id} value={patient.id}>
-                      {patient.fullName} - {patient.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {patientCursor ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => void loadMorePatients()}
-                  disabled={loadingPatients}
-                >
-                  {loadingPatients ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : null}
-                  Load more patients
-                </Button>
-              ) : null}
-            </div>
-            <SingleFileUpload
-              id={`${surface}-consent-file`}
-              label={t("Consent file")}
-              value={file}
-              onChange={(nextFile) => {
-                setFile(nextFile);
-                setFileError("");
-              }}
-              onError={setFileError}
-              error={fileError}
-              uploadLabel={t("Upload file")}
-              removeLabel={t("Remove file")}
-              emptyLabel={t("No file selected")}
-              invalidTypeMessage={t("Select a PDF or supported image file.")}
-              readErrorMessage={t("Unable to read the selected file.")}
-            />
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button
-                type="button"
-                className="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-fit"
-                onClick={() => void handleUpload()}
-                disabled={saving || !file || !patientId}
-              >
-                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-                {t("Upload consent")}
-              </Button>
-            </div>
-          </div>
+          <Button asChild>
+            <Link href="/2pq-dashboard/consents/new">
+              <FileUp className="size-4" />
+              Subir consentimiento
+            </Link>
+          </Button>
         </section>
       )}
 
       <section>
         {!isPatientPortal ? (
-          <>
-            <h2 className="font-heading text-lg font-semibold">
-              Consentimientos 2PQ
-            </h2>
-            <div className="mt-4 grid gap-3 rounded-xl border border-border/70 bg-background/70 p-4 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1fr)_12rem_11rem_11rem_auto]">
+          <div className="grid gap-3 rounded-xl border border-border/70 bg-background/70 p-4 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1fr)_12rem_11rem_11rem_auto]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -389,8 +249,7 @@ export function InformedConsentsWorkbench({
               >
                 Limpiar
               </Button>
-            </div>
-          </>
+          </div>
         ) : null}
         {records.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">

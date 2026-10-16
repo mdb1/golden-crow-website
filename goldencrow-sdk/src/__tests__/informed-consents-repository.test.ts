@@ -325,10 +325,38 @@ describe("informed consent repository scoping", () => {
     expect(result.patients.map((patient) => patient.id)).toEqual(["PAT-00001"]);
   });
 
+  it("lists only the selected patient's assignable 2PQ cases", async () => {
+    const { listInformedConsentCasesForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    const result = await listInformedConsentCasesForContext(
+      { ...baseContext, role: "2pq_admin" },
+      "PAT-00001",
+    );
+
+    expect(result.cases.map((item) => item.id)).toEqual([
+      "CASE-00001",
+      "CASE-00003",
+    ]);
+    const caseQuery = queryStubs.find(
+      (query) => query.collectionName === "2pq_case",
+    );
+    expect(caseQuery?.operations).toContainEqual({
+      type: "where",
+      field: "patientId",
+      value: "PAT-00001",
+    });
+    expect(caseQuery?.operations).toContainEqual({
+      type: "limit",
+      value: 21,
+    });
+  });
+
   it("rejects organization publishers from informed consent surfaces", async () => {
     const {
       createInformedConsentForContext,
       getInformedConsentFileForContext,
+      listInformedConsentCasesForContext,
       listInformedConsentPatientsForContext,
       listInformedConsentsForContext,
       sendInformedConsentEmailForContext,
@@ -348,6 +376,9 @@ describe("informed consent repository scoping", () => {
     ).rejects.toMatchObject(expectedError);
     await expect(
       listInformedConsentPatientsForContext(blockedContext),
+    ).rejects.toMatchObject(expectedError);
+    await expect(
+      listInformedConsentCasesForContext(blockedContext, "PAT-00001"),
     ).rejects.toMatchObject(expectedError);
     await expect(
       createInformedConsentForContext(blockedContext, {
@@ -402,6 +433,50 @@ describe("informed consent repository scoping", () => {
         },
       }),
     );
+  });
+
+  it("creates and links an admin consent to its selected case atomically", async () => {
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    const record = await createInformedConsentForContext(
+      { ...baseContext, role: "2pq_admin" },
+      {
+        patientId: "PAT-00001",
+        caseId: "CASE-00001",
+        file: {
+          name: "consent.pdf",
+          type: "application/pdf",
+          size: 1,
+          content: "data:application/pdf;base64,eA==",
+        },
+      },
+    );
+
+    expect(record).toMatchObject({
+      id: "CONS-00004",
+      patientId: "PAT-00001",
+      caseId: "CASE-00001",
+    });
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collectionName: "2pq-informed-consent",
+        id: "CONS-00004",
+      }),
+      expect.objectContaining({
+        patientId: "PAT-00001",
+        caseId: "CASE-00001",
+      }),
+    );
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collectionName: "2pq_case",
+        id: "CASE-00001",
+      }),
+      expect.objectContaining({ informedConsentId: "CONS-00004" }),
+      { merge: true },
+    );
+    expect(setDocMock).not.toHaveBeenCalled();
   });
 
   it("lets global admins delete only the consent document", async () => {

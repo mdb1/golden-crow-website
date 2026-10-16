@@ -9,6 +9,7 @@ import {
   Download,
   FilePenLine,
   FileUp,
+  Link2,
   Loader2,
   PenLine,
   RotateCcw,
@@ -31,6 +32,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   applySignaturesToConsentPdf,
   bytesToPdfDataUrl,
   CONSENT_SIGNER_NAME_PLACEMENTS,
@@ -40,7 +48,13 @@ import {
   type ConsentSignaturePlacement,
   SIGNED_CONSENT_FILE_NAME,
 } from "@/lib/consent-pdf";
-import type { InformedConsentRecord } from "@/lib/informed-consents";
+import type {
+  InformedConsentCaseOption,
+  InformedConsentCasePage,
+  InformedConsentPatientOption,
+  InformedConsentPatientPage,
+  InformedConsentRecord,
+} from "@/lib/informed-consents";
 import { sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
@@ -48,12 +62,17 @@ const MAX_CONSENT_BYTES = 750_000;
 const SIGNATURE_CANVAS_WIDTH = 720;
 const SIGNATURE_CANVAS_HEIGHT = 240;
 
-const STEPS = [
+const PATIENT_STEPS = [
   { title: "Descargar", icon: Download },
   { title: "Datos", icon: UserRound },
   { title: "Firmar", icon: PenLine },
   { title: "Aplicar firma", icon: FilePenLine },
   { title: "Vista previa", icon: CheckCircle2 },
+] as const;
+
+const BACKOFFICE_STEPS = [
+  { title: "Destino", icon: Link2 },
+  ...PATIENT_STEPS,
 ] as const;
 
 const INITIAL_PATIENT_PLACEMENT: ConsentSignaturePlacement = {
@@ -339,17 +358,27 @@ function SignaturePagePreview({
 }
 
 function StepNavigation({
+  steps,
   activeStep,
   furthestStep,
   onSelect,
 }: {
+  steps: ReadonlyArray<{
+    title: string;
+    icon: typeof Download;
+  }>;
   activeStep: number;
   furthestStep: number;
   onSelect: (step: number) => void;
 }) {
   return (
-    <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-      {STEPS.map((step, index) => {
+    <ol
+      className={cn(
+        "grid gap-2 sm:grid-cols-2",
+        steps.length === 6 ? "xl:grid-cols-6" : "xl:grid-cols-5",
+      )}
+    >
+      {steps.map((step, index) => {
         const Icon = step.icon;
         const active = index === activeStep;
         const complete = index < activeStep || index < furthestStep;
@@ -386,15 +415,45 @@ function StepNavigation({
   );
 }
 
+function mergeById<T extends { id: string }>(current: T[], incoming: T[]) {
+  const records = new Map(current.map((record) => [record.id, record]));
+  incoming.forEach((record) => records.set(record.id, record));
+  return [...records.values()];
+}
+
 export function PatientConsentUploadWizard({
   initialPatientName = "",
+  surface = "patient-portal",
+  initialPatientPage,
 }: {
   initialPatientName?: string;
+  surface?: "patient-portal" | "backoffice";
+  initialPatientPage?: InformedConsentPatientPage;
 }) {
   const router = useRouter();
+  const casesRequestRef = useRef(0);
+  const isBackoffice = surface === "backoffice";
+  const steps = isBackoffice ? BACKOFFICE_STEPS : PATIENT_STEPS;
+  const stepOffset = isBackoffice ? 1 : 0;
+  const destinationStep = 0;
+  const downloadStep = stepOffset;
+  const dataStep = stepOffset + 1;
+  const signatureStep = stepOffset + 2;
+  const editorStep = stepOffset + 3;
+  const previewStep = stepOffset + 4;
   const [mode, setMode] = useState<"guided" | "direct">("guided");
   const [activeStep, setActiveStep] = useState(0);
   const [furthestStep, setFurthestStep] = useState(0);
+  const [patients, setPatients] = useState(initialPatientPage?.patients ?? []);
+  const [patientCursor, setPatientCursor] = useState(
+    initialPatientPage?.nextCursor,
+  );
+  const [patientId, setPatientId] = useState("");
+  const [cases, setCases] = useState<InformedConsentCaseOption[]>([]);
+  const [caseCursor, setCaseCursor] = useState<string | undefined>();
+  const [caseId, setCaseId] = useState("");
+  const [loadingPatients, setLoadingPatients] = useState(false);
+  const [loadingCases, setLoadingCases] = useState(false);
   const [patientName, setPatientName] = useState(initialPatientName.trim());
   const [patientNameError, setPatientNameError] = useState("");
   const [hasPartner, setHasPartner] = useState(false);
@@ -420,7 +479,7 @@ export function PatientConsentUploadWizard({
   const [toast, setToast] = useState<ActionToastState | null>(null);
 
   function goToStep(step: number) {
-    const nextStep = clamp(step, 0, STEPS.length - 1);
+    const nextStep = clamp(step, 0, steps.length - 1);
     setActiveStep(nextStep);
     setFurthestStep((current) => Math.max(current, nextStep));
   }
@@ -439,7 +498,7 @@ export function PatientConsentUploadWizard({
     } else {
       setPartnerPlacement(nextPlacement);
     }
-    invalidateAfter(3);
+    invalidateAfter(editorStep);
   }
 
   function validateNames() {
@@ -460,7 +519,7 @@ export function PatientConsentUploadWizard({
   }
 
   function continueFromNames() {
-    if (validateNames()) goToStep(2);
+    if (validateNames()) goToStep(signatureStep);
   }
 
   const previewSignatures: PreviewSignature[] = patientSignatureDataUrl
@@ -528,7 +587,7 @@ export function PatientConsentUploadWizard({
         size: bytes.byteLength,
         content: bytesToPdfDataUrl(bytes),
       });
-      goToStep(4);
+      goToStep(previewStep);
     } catch (error) {
       setToast({
         id: Date.now(),
@@ -548,14 +607,21 @@ export function PatientConsentUploadWizard({
     setSaving(true);
     setToast(null);
     try {
-      await sdkFetch<{ record: InformedConsentRecord }>(
+      const { record } = await sdkFetch<{ record: InformedConsentRecord }>(
         "/2pq/informed-consents",
         {
           method: "POST",
-          body: JSON.stringify({ file }),
+          body: JSON.stringify({
+            ...(isBackoffice ? { patientId, caseId } : {}),
+            file,
+          }),
         },
       );
-      router.push("/patient-portal/consents");
+      router.push(
+        isBackoffice
+          ? `/2pq-dashboard/consents/${encodeURIComponent(record.id)}`
+          : "/patient-portal/consents",
+      );
       router.refresh();
     } catch {
       setToast({
@@ -568,10 +634,226 @@ export function PatientConsentUploadWizard({
     }
   }
 
+  async function loadCasesForPatient(
+    selectedPatientId: string,
+    cursor?: string,
+  ) {
+    if (!selectedPatientId) return;
+    const requestId = casesRequestRef.current + 1;
+    casesRequestRef.current = requestId;
+    setLoadingCases(true);
+    setToast(null);
+    try {
+      const query = new URLSearchParams({ patientId: selectedPatientId });
+      if (cursor) query.set("cursor", cursor);
+      const page = await sdkFetch<InformedConsentCasePage>(
+        `/2pq/informed-consents/cases?${query.toString()}`,
+      );
+      if (requestId !== casesRequestRef.current) return;
+      setCases((current) =>
+        cursor ? mergeById(current, page.cases) : page.cases,
+      );
+      setCaseCursor(page.nextCursor);
+    } catch (error) {
+      if (requestId !== casesRequestRef.current) return;
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar los casos 2PQ del paciente.",
+      });
+    } finally {
+      if (requestId === casesRequestRef.current) {
+        setLoadingCases(false);
+      }
+    }
+  }
+
+  async function loadMorePatients() {
+    if (!patientCursor || loadingPatients) return;
+    setLoadingPatients(true);
+    setToast(null);
+    try {
+      const page = await sdkFetch<InformedConsentPatientPage>(
+        `/2pq/informed-consents/patients?cursor=${encodeURIComponent(patientCursor)}`,
+      );
+      setPatients((current) => mergeById(current, page.patients));
+      setPatientCursor(page.nextCursor);
+    } catch (error) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar más pacientes.",
+      });
+    } finally {
+      setLoadingPatients(false);
+    }
+  }
+
+  function selectPatient(nextPatientId: string) {
+    const patient = patients.find((candidate) => candidate.id === nextPatientId);
+    setPatientId(nextPatientId);
+    setPatientName(patient?.fullName.trim() ?? "");
+    setPatientNameError("");
+    setCaseId("");
+    setCases([]);
+    setCaseCursor(undefined);
+    invalidateAfter(destinationStep);
+    void loadCasesForPatient(nextPatientId);
+  }
+
+  function continueFromDestination() {
+    if (!patientId || !caseId) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: "Seleccione un paciente y uno de sus casos 2PQ.",
+      });
+      return;
+    }
+    goToStep(downloadStep);
+  }
+
+  const selectedCase = cases.find((candidate) => candidate.id === caseId);
+  const destinationComplete = Boolean(patientId && caseId);
+
+  function renderDestinationFields(showContinue: boolean) {
+    return (
+      <div className="max-w-3xl space-y-5">
+        <div>
+          <h3 className="font-heading text-lg font-semibold">
+            Seleccionar paciente y caso 2PQ
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            El consentimiento se guardará para el paciente elegido y quedará
+            vinculado al caso seleccionado.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="consent-owner-patient">Paciente</Label>
+          <Select value={patientId} onValueChange={selectPatient}>
+            <SelectTrigger id="consent-owner-patient" className="w-full">
+              <SelectValue placeholder="Seleccionar paciente" />
+            </SelectTrigger>
+            <SelectContent align="start">
+              {patients.map((patient) => (
+                <SelectItem key={patient.id} value={patient.id}>
+                  {patient.fullName} - {patient.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {patientCursor ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={loadingPatients}
+              onClick={() => void loadMorePatients()}
+            >
+              {loadingPatients ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : null}
+              Cargar más pacientes
+            </Button>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="consent-owner-case">Caso 2PQ</Label>
+          <Select
+            value={caseId}
+            disabled={!patientId || loadingCases}
+            onValueChange={(nextCaseId) => {
+              setCaseId(nextCaseId);
+              invalidateAfter(destinationStep);
+            }}
+          >
+            <SelectTrigger id="consent-owner-case" className="w-full">
+              <SelectValue
+                placeholder={
+                  loadingCases
+                    ? "Cargando casos..."
+                    : patientId
+                      ? "Seleccionar caso 2PQ"
+                      : "Primero seleccione un paciente"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent align="start">
+              {cases.map((caseOption) => (
+                <SelectItem key={caseOption.id} value={caseOption.id}>
+                  {caseOption.caseLabel} - {caseOption.id}
+                  {caseOption.threeLetterCode
+                    ? ` - ${caseOption.threeLetterCode}`
+                    : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {patientId && !loadingCases && cases.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Este paciente no tiene casos 2PQ disponibles.
+            </p>
+          ) : null}
+          {caseCursor ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={loadingCases}
+              onClick={() =>
+                void loadCasesForPatient(patientId, caseCursor)
+              }
+            >
+              {loadingCases ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : null}
+              Cargar más casos
+            </Button>
+          ) : null}
+        </div>
+
+        {selectedCase?.informedConsentId ? (
+          <div className="rounded-xl border border-orange-300 bg-orange-50 p-4 text-sm text-orange-950 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-100">
+            Este caso ya está vinculado al consentimiento{" "}
+            <span className="font-mono font-semibold">
+              {selectedCase.informedConsentId}
+            </span>
+            . Al completar la carga, el caso quedará vinculado al nuevo
+            consentimiento; el archivo anterior no se eliminará.
+          </div>
+        ) : null}
+
+        {showContinue ? (
+          <Button
+            type="button"
+            disabled={!destinationComplete || loadingCases}
+            onClick={continueFromDestination}
+          >
+            Continuar con el consentimiento
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Button variant="ghost" size="sm" asChild>
-        <Link href="/patient-portal/consents">
+        <Link
+          href={
+            isBackoffice
+              ? "/2pq-dashboard/consents"
+              : "/patient-portal/consents"
+          }
+        >
           <ArrowLeft className="size-4" />
           Volver a consentimientos
         </Link>
@@ -604,8 +886,9 @@ export function PatientConsentUploadWizard({
 
         {mode === "direct" ? (
           <div className="max-w-3xl space-y-4 border-t border-border/70 pt-5">
+            {isBackoffice ? renderDestinationFields(false) : null}
             <SingleFileUpload
-              id="patient-portal-direct-consent-file"
+              id={`${surface}-direct-consent-file`}
               label="Consentimiento firmado"
               value={directFile}
               onChange={(file) => {
@@ -625,7 +908,11 @@ export function PatientConsentUploadWizard({
             <Button
               type="button"
               className="bg-emerald-600 text-white hover:bg-emerald-700"
-              disabled={!directFile || saving}
+              disabled={
+                !directFile ||
+                saving ||
+                (isBackoffice && !destinationComplete)
+              }
               onClick={() => void uploadConsent(directFile)}
             >
               {saving ? (
@@ -639,12 +926,17 @@ export function PatientConsentUploadWizard({
         ) : (
           <div className="space-y-6 border-t border-border/70 pt-5">
             <StepNavigation
+              steps={steps}
               activeStep={activeStep}
               furthestStep={furthestStep}
               onSelect={goToStep}
             />
 
-            {activeStep === 0 ? (
+            {isBackoffice && activeStep === destinationStep
+              ? renderDestinationFields(true)
+              : null}
+
+            {activeStep === downloadStep ? (
               <div className="max-w-3xl space-y-5">
                 <div className="rounded-xl border border-border/70 bg-background/60 p-5">
                   <h3 className="font-heading text-lg font-semibold">
@@ -664,13 +956,13 @@ export function PatientConsentUploadWizard({
                     </a>
                   </Button>
                 </div>
-                <Button type="button" onClick={() => goToStep(1)}>
+                <Button type="button" onClick={() => goToStep(dataStep)}>
                   Continuar con los datos
                 </Button>
               </div>
             ) : null}
 
-            {activeStep === 1 ? (
+            {activeStep === dataStep ? (
               <div className="max-w-3xl space-y-5">
                 <div>
                   <h3 className="font-heading text-lg font-semibold">
@@ -696,7 +988,7 @@ export function PatientConsentUploadWizard({
                     onChange={(event) => {
                       setPatientName(event.target.value);
                       setPatientNameError("");
-                      invalidateAfter(1);
+                      invalidateAfter(dataStep);
                     }}
                   />
                   {patientNameError ? (
@@ -719,7 +1011,7 @@ export function PatientConsentUploadWizard({
                         setHasPartner(nextHasPartner);
                         setPartnerNameError("");
                         if (!nextHasPartner) setSelectedRole("patient");
-                        invalidateAfter(1);
+                        invalidateAfter(dataStep);
                       }}
                     />
                     <Label
@@ -748,7 +1040,7 @@ export function PatientConsentUploadWizard({
                         onChange={(event) => {
                           setPartnerName(event.target.value);
                           setPartnerNameError("");
-                          invalidateAfter(1);
+                          invalidateAfter(dataStep);
                         }}
                       />
                       {partnerNameError ? (
@@ -767,7 +1059,7 @@ export function PatientConsentUploadWizard({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => goToStep(0)}
+                    onClick={() => goToStep(downloadStep)}
                   >
                     <ArrowLeft className="size-4" />
                     Volver a descargar
@@ -779,7 +1071,7 @@ export function PatientConsentUploadWizard({
               </div>
             ) : null}
 
-            {activeStep === 2 ? (
+            {activeStep === signatureStep ? (
               <div className="max-w-4xl space-y-5">
                 <div>
                   <h3 className="font-heading text-lg font-semibold">
@@ -804,7 +1096,7 @@ export function PatientConsentUploadWizard({
                       value={patientSignatureDataUrl}
                       onChange={(value) => {
                         setPatientSignatureDataUrl(value);
-                        invalidateAfter(2);
+                        invalidateAfter(signatureStep);
                       }}
                     />
                   </section>
@@ -822,7 +1114,7 @@ export function PatientConsentUploadWizard({
                         value={partnerSignatureDataUrl}
                         onChange={(value) => {
                           setPartnerSignatureDataUrl(value);
-                          invalidateAfter(2);
+                          invalidateAfter(signatureStep);
                         }}
                       />
                     </section>
@@ -833,7 +1125,7 @@ export function PatientConsentUploadWizard({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => goToStep(1)}
+                    onClick={() => goToStep(dataStep)}
                   >
                     <ArrowLeft className="size-4" />
                     Volver a datos
@@ -841,7 +1133,7 @@ export function PatientConsentUploadWizard({
                   <Button
                     type="button"
                     disabled={!signaturesComplete}
-                    onClick={() => goToStep(3)}
+                    onClick={() => goToStep(editorStep)}
                   >
                     Continuar al editor
                   </Button>
@@ -849,7 +1141,7 @@ export function PatientConsentUploadWizard({
               </div>
             ) : null}
 
-            {activeStep === 3 && signaturesComplete ? (
+            {activeStep === editorStep && signaturesComplete ? (
               <div className="space-y-5">
                 <div>
                   <h3 className="font-heading text-lg font-semibold">
@@ -982,7 +1274,7 @@ export function PatientConsentUploadWizard({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => goToStep(2)}
+                    onClick={() => goToStep(signatureStep)}
                   >
                     <ArrowLeft className="size-4" />
                     Volver a firmar
@@ -1003,7 +1295,7 @@ export function PatientConsentUploadWizard({
               </div>
             ) : null}
 
-            {activeStep === 4 && signaturesComplete && signedFile ? (
+            {activeStep === previewStep && signaturesComplete && signedFile ? (
               <div className="space-y-5">
                 <div>
                   <h3 className="font-heading text-lg font-semibold">
@@ -1031,7 +1323,7 @@ export function PatientConsentUploadWizard({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => goToStep(3)}
+                    onClick={() => goToStep(editorStep)}
                   >
                     <ArrowLeft className="size-4" />
                     Volver al editor

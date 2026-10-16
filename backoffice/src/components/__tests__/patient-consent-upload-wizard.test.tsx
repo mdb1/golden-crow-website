@@ -1,9 +1,10 @@
 /** @jest-environment jsdom */
 
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PatientConsentUploadWizard } from "@/components/patient-consent-upload-wizard";
+import { sdkFetch } from "@/lib/sdk-client";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -17,6 +18,10 @@ jest.mock("@/lib/sdk-client", () => ({
 }));
 
 describe("PatientConsentUploadWizard", () => {
+  beforeEach(() => {
+    jest.mocked(sdkFetch).mockReset();
+  });
+
   it("shows the five-step signing flow and the downloadable 2PQ PDF", () => {
     render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
 
@@ -116,5 +121,68 @@ describe("PatientConsentUploadWizard", () => {
     expect(
       screen.getByRole("button", { name: "Subir consentimiento" }),
     ).toBeDisabled();
+  });
+
+  it("adds an administrative destination step and loads cases for the selected patient", async () => {
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      cases: [
+        {
+          id: "CASE-00001",
+          institutionId: "INST-00001",
+          doctorId: "DOC-00001",
+          patientId: "PAT-00001",
+          patientName: "Ada Paciente",
+          caseLabel: "Caso Ada",
+          informedConsentId: null,
+          createdAt: "2026-10-16T00:00:00.000Z",
+          updatedAt: "2026-10-16T00:00:00.000Z",
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    render(
+      <PatientConsentUploadWizard
+        surface="backoffice"
+        initialPatientPage={{
+          patients: [
+            {
+              id: "PAT-00001",
+              fullName: "Ada Paciente",
+              email: "ada@example.com",
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Destino")).toBeInTheDocument();
+    expect(screen.getByText("Descargar")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Volver a consentimientos" }),
+    ).toHaveAttribute("href", "/2pq-dashboard/consents");
+
+    await user.click(screen.getByRole("combobox", { name: "Paciente" }));
+    await user.click(
+      screen.getByRole("option", { name: "Ada Paciente - PAT-00001" }),
+    );
+
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/2pq/informed-consents/cases?patientId=PAT-00001",
+      ),
+    );
+    await user.click(screen.getByRole("combobox", { name: "Caso 2PQ" }));
+    await user.click(
+      screen.getByRole("option", { name: "Caso Ada - CASE-00001" }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Continuar con el consentimiento",
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Descargar el consentimiento 2PQ" }),
+    ).toBeInTheDocument();
   });
 });

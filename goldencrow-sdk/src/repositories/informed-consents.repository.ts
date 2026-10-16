@@ -235,6 +235,19 @@ function patientFallbackQueryForContext(
   return query;
 }
 
+function caseQueryForPatient(patientId: string): Query<DocumentData> {
+  return adminDb
+    .collection(CASES_COLLECTION)
+    .where("patientId", "==", patientId)
+    .orderBy(FieldPath.documentId(), "asc");
+}
+
+function caseFallbackQueryForPatient(patientId: string): Query<DocumentData> {
+  return adminDb
+    .collection(CASES_COLLECTION)
+    .where("patientId", "==", patientId);
+}
+
 async function getPageWithIndexFallback(
   collectionName: string,
   orderedQuery: Query<DocumentData>,
@@ -478,9 +491,64 @@ export async function listInformedConsentPatientsForContext(
   };
 }
 
+export async function listInformedConsentCasesForContext(
+  context: AdminContext,
+  patientId: string,
+  cursor?: string,
+) {
+  assertCanManageConsentTraceability(context);
+  const normalizedPatientId = patientId.trim();
+  const patient = normalizedPatientId
+    ? await getPatient(normalizedPatientId)
+    : null;
+  if (!patient) {
+    throw new AdminRepositoryError("Patient not found.", 404);
+  }
+  if (!canAccessInformedConsentPatient(context, patient)) {
+    throw new AdminRepositoryError(
+      "You cannot view 2PQ cases for this patient.",
+      403,
+    );
+  }
+
+  const snapshot = await getPageWithIndexFallback(
+    CASES_COLLECTION,
+    caseQueryForPatient(patient.id),
+    caseFallbackQueryForPatient(patient.id),
+    cursor,
+  );
+  const pageDocs = snapshot.docs.slice(0, CONSENTS_PAGE_SIZE);
+  const cases = pageDocs
+    .map((doc) =>
+      toCaseOption(
+        doc.id,
+        doc.data() as Record<string, unknown>,
+        patient.fullName,
+      ),
+    )
+    .filter(
+      (record) =>
+        record.patientId === patient.id &&
+        canWriteTraceabilityEntity(context, record),
+    )
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+
+  return {
+    cases,
+    nextCursor:
+      snapshot.docs.length > CONSENTS_PAGE_SIZE
+        ? pageDocs.at(-1)?.id
+        : undefined,
+  };
+}
+
 export async function createInformedConsentForContext(
   context: AdminContext,
-  payload: { patientId?: string; file: InformedConsentFile },
+  payload: {
+    patientId?: string;
+    caseId?: string;
+    file: InformedConsentFile;
+  },
 ) {
   assertCanUseInformedConsents(context);
 
@@ -512,6 +580,14 @@ export async function createInformedConsentForContext(
     );
   }
 
+  const caseId = payload.caseId?.trim() || null;
+  if (context.role === "patient" && caseId) {
+    throw new AdminRepositoryError(
+      "Patients cannot assign consent files to 2PQ cases.",
+      403,
+    );
+  }
+
   const file = validateFile(payload.file);
   const consentId = await nextConsentId();
   const now = new Date().toISOString();
@@ -520,13 +596,82 @@ export async function createInformedConsentForContext(
     institutionId: patient.institutionId,
     doctorId: patient.doctorId,
     patientId: patient.id,
-    caseId: null,
+    caseId,
     file,
     createdAt: now,
     updatedAt: now,
     createdByEmail: context.email,
   };
-  await adminDb.collection(CONSENTS_COLLECTION).doc(consentId).set(document);
+
+  const consentRef = adminDb.collection(CONSENTS_COLLECTION).doc(consentId);
+  if (!caseId) {
+    await consentRef.set(document);
+    return toConsentRecord(consentId, document, patient.fullName);
+  }
+
+  assertCanManageConsentTraceability(context);
+  const caseRef = adminDb.collection(CASES_COLLECTION).doc(caseId);
+  await adminDb.runTransaction(async (transaction) => {
+    const caseSnapshot = await transaction.get(caseRef);
+    if (!caseSnapshot.exists) {
+      throw new AdminRepositoryError("2PQ case not found.", 404);
+    }
+    const targetCase = toCaseOption(
+      caseId,
+      caseSnapshot.data() as Record<string, unknown>,
+      patient.fullName,
+    );
+    if (!canWriteTraceabilityEntity(context, targetCase)) {
+      throw new AdminRepositoryError(
+        "You cannot assign this 2PQ case.",
+        403,
+      );
+    }
+    if (
+      targetCase.patientId !== patient.id ||
+      targetCase.institutionId !== patient.institutionId ||
+      targetCase.doctorId !== patient.doctorId
+    ) {
+      throw new AdminRepositoryError(
+        "Consent and 2PQ case must belong to the same patient, institution, and doctor.",
+        409,
+      );
+    }
+
+    const displacedConsentRef = targetCase.informedConsentId
+      ? adminDb
+          .collection(CONSENTS_COLLECTION)
+          .doc(targetCase.informedConsentId)
+      : null;
+    const displacedConsentSnapshot = displacedConsentRef
+      ? await transaction.get(displacedConsentRef)
+      : null;
+
+    if (displacedConsentRef && displacedConsentSnapshot?.exists) {
+      const displacedConsent = parseStoredConsent(
+        displacedConsentSnapshot.data() as Record<string, unknown>,
+      );
+      if (displacedConsent.caseId === caseId) {
+        transaction.set(
+          displacedConsentRef,
+          { caseId: null, updatedAt: now },
+          { merge: true },
+        );
+      }
+    }
+
+    transaction.set(consentRef, document);
+    transaction.set(
+      caseRef,
+      {
+        informedConsentId: consentId,
+        updatedAt: now,
+        last_updated_date: now,
+        updatedByEmail: context.email,
+      },
+      { merge: true },
+    );
+  });
   return toConsentRecord(consentId, document, patient.fullName);
 }
 

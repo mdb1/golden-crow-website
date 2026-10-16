@@ -242,6 +242,11 @@ export interface InformedConsentCaseOption {
   updatedAt: string;
 }
 
+export interface InformedConsentCasePage {
+  cases: InformedConsentCaseOption[];
+  nextCursor?: string;
+}
+
 export interface InformedConsentPatientOption {
   id: string;
   fullName: string;
