@@ -286,15 +286,12 @@ describe("/gym routes — pocket-gyms project gate", () => {
     expect(mockUpdatePocketGymAppointmentStatus).not.toHaveBeenCalled();
   });
 
-  // SECURITY BUG (project-gate bypass): authMiddleware decides whether to
-  // apply the pocket-gyms check with `request.url.startsWith("/gym/")`
-  // (middleware/auth.ts:148) on the RAW url, but Fastify's router matches the
-  // percent-DECODED path. `/%67ym/...` ("%67" = "g") therefore skips the check
-  // and still reaches the /gym handler, so any backoffice user WITHOUT
-  // pocket-gyms access (e.g. an institution doctor of MyDNAMap) can read and
-  // delete Pocket Gyms members, clinical histories, etc. The gate should test
-  // the decoded/routed path (e.g. request.routeOptions.url) instead.
-  it.failing.each([
+  // Regression (#451): the gate compared the RAW url with "/gym/" while the
+  // router matches the percent-decoded path, so `/%67ym/...` ("%67" = "g")
+  // reached the /gym handlers for any backoffice user without pocket-gyms
+  // access (members, clinical histories, deletes). It now gates on the
+  // decoded path and the matched route.
+  it.each([
     ["GET /%67ym/stats", "GET" as const, "/%67ym/stats", mockGetGymStats],
     [
       "GET /%67ym/members/:uid/clinical-histories",
