@@ -26,8 +26,11 @@ import {
   UserRound,
 } from "lucide-react";
 import {
+  forwardRef,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
 } from "react";
@@ -411,16 +414,28 @@ function formatSignatureDate(value: string) {
   return `${day}/${month}/${year}`;
 }
 
-function SignaturePad({
-  onSaveAndContinue,
-  signerLabel,
-}: {
-  onSaveAndContinue: (value: string) => void;
-  signerLabel: string;
-}) {
+type SignaturePadHandle = {
+  saveAndContinue: () => void;
+};
+
+const SignaturePad = forwardRef<
+  SignaturePadHandle,
+  {
+    onInkChange: (hasInk: boolean) => void;
+    onSaveAndContinue: (value: string) => void;
+    signerLabel: string;
+  }
+>(function SignaturePad({ onInkChange, onSaveAndContinue, signerLabel }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const [hasInk, setHasInk] = useState(false);
+
+  useEffect(
+    () => () => {
+      onInkChange(false);
+    },
+    [onInkChange],
+  );
 
   function canvasPoint(event: ReactPointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
@@ -458,6 +473,7 @@ function SignaturePad({
     context.lineTo(point.x, point.y);
     context.stroke();
     setHasInk(true);
+    onInkChange(true);
   }
 
   function finishDrawing(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -469,7 +485,9 @@ function SignaturePad({
   function clearSignature() {
     const canvas = canvasRef.current;
     canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+    drawingRef.current = false;
     setHasInk(false);
+    onInkChange(false);
   }
 
   function saveSignature() {
@@ -477,6 +495,8 @@ function SignaturePad({
     if (!canvas || !hasInk) return;
     onSaveAndContinue(canvas.toDataURL("image/png"));
   }
+
+  useImperativeHandle(ref, () => ({ saveAndContinue: saveSignature }));
 
   return (
     <div className="space-y-4">
@@ -498,25 +518,18 @@ function SignaturePad({
           <RotateCcw className="size-4" />
           Borrar
         </Button>
-        <Button
-          type="button"
-          className="h-11 bg-blue-600 px-5 font-semibold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)] hover:bg-blue-700"
-          onClick={saveSignature}
-          disabled={!hasInk}
-        >
-          <Check className="size-4" />
-          Guardar firma y continuar
-        </Button>
       </div>
     </div>
   );
-}
+});
 
 function SignatureMethodField({
   signerLabel,
   value,
   method,
   savedSignature,
+  signaturePadRef,
+  onDrawInkChange,
   onMethodChange,
   onComplete,
   onDrawSaved,
@@ -526,6 +539,8 @@ function SignatureMethodField({
   value: string | null;
   method: SignatureMethod | null;
   savedSignature?: string | null;
+  signaturePadRef: RefObject<SignaturePadHandle | null>;
+  onDrawInkChange: (hasInk: boolean) => void;
   onMethodChange: (method: SignatureMethod | null) => void;
   onComplete: (value: string, method: SignatureMethod) => void;
   onDrawSaved: (value: string) => void;
@@ -734,7 +749,9 @@ function SignatureMethodField({
           className="space-y-4 rounded-2xl border border-border/70 bg-background/70 p-4 outline-none"
         >
           <SignaturePad
+            ref={signaturePadRef}
             signerLabel={signerLabel}
+            onInkChange={onDrawInkChange}
             onSaveAndContinue={(nextValue) => {
               completeMethod(nextValue, "draw");
               onDrawSaved(nextValue);
@@ -1075,6 +1092,8 @@ export function PatientConsentUploadWizard({
   const restoredHasPartner = restoredDraft?.hasPartner ?? false;
   const casesRequestRef = useRef(0);
   const savedSignatureRequestRef = useRef(0);
+  const patientSignaturePadRef = useRef<SignaturePadHandle>(null);
+  const partnerSignaturePadRef = useRef<SignaturePadHandle>(null);
   const uploadInFlightRef = useRef(false);
   const documentVersionRef = useRef(0);
   const preparationTokenRef = useRef(0);
@@ -1163,6 +1182,8 @@ export function PatientConsentUploadWizard({
         ? (restoredDraft?.partnerSignatureMethod ?? null)
         : null,
     );
+  const [patientDrawHasInk, setPatientDrawHasInk] = useState(false);
+  const [partnerDrawHasInk, setPartnerDrawHasInk] = useState(false);
   const [reusableSavedSignature, setReusableSavedSignature] = useState<
     string | null
   >(null);
@@ -1522,9 +1543,11 @@ export function PatientConsentUploadWizard({
     nextMethod: SignatureMethod | null,
   ) {
     if (role === "patient") {
+      setPatientDrawHasInk(false);
       setPatientSignatureDataUrl(null);
       setPatientSignatureMethod(nextMethod);
     } else {
+      setPartnerDrawHasInk(false);
       setPartnerSignatureDataUrl(null);
       setPartnerSignatureMethod(nextMethod);
     }
@@ -1537,9 +1560,11 @@ export function PatientConsentUploadWizard({
     nextMethod: SignatureMethod,
   ) {
     if (role === "patient") {
+      setPatientDrawHasInk(false);
       setPatientSignatureDataUrl(nextValue);
       setPatientSignatureMethod(nextMethod);
     } else {
+      setPartnerDrawHasInk(false);
       setPartnerSignatureDataUrl(nextValue);
       setPartnerSignatureMethod(nextMethod);
     }
@@ -1653,6 +1678,29 @@ export function PatientConsentUploadWizard({
   const signaturesComplete =
     Boolean(patientSignatureDataUrl) &&
     (!hasPartner || Boolean(partnerSignatureDataUrl));
+  const activeDrawRole: ConsentSignerRole | null =
+    patientSignatureMethod === "draw" && !patientSignatureDataUrl
+      ? "patient"
+      : hasPartner &&
+          Boolean(patientSignatureDataUrl) &&
+          partnerSignatureMethod === "draw" &&
+          !partnerSignatureDataUrl
+        ? "partner"
+        : null;
+  const activeDrawHasInk =
+    activeDrawRole === "patient"
+      ? patientDrawHasInk
+      : activeDrawRole === "partner"
+        ? partnerDrawHasInk
+        : false;
+
+  function saveActiveDrawnSignature() {
+    if (activeDrawRole === "patient") {
+      patientSignaturePadRef.current?.saveAndContinue();
+    } else if (activeDrawRole === "partner") {
+      partnerSignaturePadRef.current?.saveAndContinue();
+    }
+  }
 
   function continueAfterDrawnSignature(
     role: ConsentSignerRole,
@@ -1692,9 +1740,7 @@ export function PatientConsentUploadWizard({
     }
     if (!signaturesComplete || previewSignatures.length === 0) {
       navigateToStep("signature");
-      setInlineError(
-        "Prepare todas las firmas antes de generar el documento.",
-      );
+      setInlineError("Prepare todas las firmas antes de generar el documento.");
       return;
     }
     const preparationDocumentVersion = documentVersionRef.current;
@@ -2631,6 +2677,8 @@ export function PatientConsentUploadWizard({
                         value={patientSignatureDataUrl}
                         method={patientSignatureMethod}
                         savedSignature={reusableSavedSignature}
+                        signaturePadRef={patientSignaturePadRef}
+                        onDrawInkChange={setPatientDrawHasInk}
                         onMethodChange={(nextMethod) =>
                           changeSignatureMethod("patient", nextMethod)
                         }
@@ -2666,6 +2714,8 @@ export function PatientConsentUploadWizard({
                             signerLabel="de la pareja"
                             value={partnerSignatureDataUrl}
                             method={partnerSignatureMethod}
+                            signaturePadRef={partnerSignaturePadRef}
+                            onDrawInkChange={setPartnerDrawHasInk}
                             onMethodChange={(nextMethod) =>
                               changeSignatureMethod("partner", nextMethod)
                             }
@@ -2752,9 +2802,7 @@ export function PatientConsentUploadWizard({
                         : "Preparar firmas"
                     }
                     onAction={() =>
-                      navigateToStep(
-                        !signerDataComplete ? "data" : "signature",
-                      )
+                      navigateToStep(!signerDataComplete ? "data" : "signature")
                     }
                   />
                 )
@@ -3044,6 +3092,18 @@ export function PatientConsentUploadWizard({
                     >
                       Ya lo imprimí y firmé
                       <ArrowRight className="size-4" />
+                    </Button>
+                  ) : null}
+
+                  {activeStepId === "signature" && activeDrawRole ? (
+                    <Button
+                      type="button"
+                      className="h-11 rounded-full bg-blue-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(37,99,235,0.24)] hover:bg-blue-700"
+                      disabled={!activeDrawHasInk}
+                      onClick={saveActiveDrawnSignature}
+                    >
+                      <Check className="size-4" />
+                      Guardar firma y continuar
                     </Button>
                   ) : null}
 

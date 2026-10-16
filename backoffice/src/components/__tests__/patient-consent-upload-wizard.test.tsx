@@ -1056,9 +1056,10 @@ describe("PatientConsentUploadWizard", () => {
       await user.click(
         screen.getByRole("button", { name: /Dibujar una firma nueva/ }),
       );
-      expect(
-        screen.getByRole("group", { name: "Dibujar firma del paciente" }),
-      ).toHaveFocus();
+      const drawingGroup = screen.getByRole("group", {
+        name: "Dibujar firma del paciente",
+      });
+      expect(drawingGroup).toHaveFocus();
       expect(
         screen.queryByRole("button", { name: /Importar una imagen/ }),
       ).not.toBeInTheDocument();
@@ -1066,9 +1067,18 @@ describe("PatientConsentUploadWizard", () => {
       const canvas = screen.getByLabelText(
         "Área para dibujar la firma del paciente",
       );
-      const saveSignature = screen.getByRole("button", {
+      const actionFooter = screen.getByTestId("consent-wizard-action-footer");
+      const saveSignature = within(actionFooter).getByRole("button", {
         name: "Guardar firma y continuar",
       });
+      expect(
+        within(drawingGroup).queryByRole("button", {
+          name: "Guardar firma y continuar",
+        }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getAllByRole("button", { name: "Guardar firma y continuar" }),
+      ).toHaveLength(1);
       expect(saveSignature).toBeDisabled();
       expect(
         screen.queryByRole("button", { name: "Continuar al editor" }),
@@ -1081,6 +1091,22 @@ describe("PatientConsentUploadWizard", () => {
       expect(saveSignature).toBeDisabled();
       fireEvent.pointerMove(canvas, {
         pointerId: 1,
+        clientX: 20,
+        clientY: 20,
+      });
+      expect(saveSignature).toBeEnabled();
+      fireEvent.pointerUp(canvas, { pointerId: 1 });
+      await user.click(
+        within(drawingGroup).getByRole("button", { name: "Borrar" }),
+      );
+      expect(saveSignature).toBeDisabled();
+      fireEvent.pointerDown(canvas, {
+        pointerId: 2,
+        clientX: 10,
+        clientY: 10,
+      });
+      fireEvent.pointerMove(canvas, {
+        pointerId: 2,
         clientX: 20,
         clientY: 20,
       });
@@ -1697,9 +1723,12 @@ describe("PatientConsentUploadWizard", () => {
         { pointerId: 1, clientX: 20, clientY: 20 },
       );
       await user.click(
-        within(partnerSection).getByRole("button", {
-          name: "Guardar firma y continuar",
-        }),
+        within(screen.getByTestId("consent-wizard-action-footer")).getByRole(
+          "button",
+          {
+            name: "Guardar firma y continuar",
+          },
+        ),
       );
       expect(
         screen.getByRole("heading", { name: "Aplicar firmas al PDF" }),
