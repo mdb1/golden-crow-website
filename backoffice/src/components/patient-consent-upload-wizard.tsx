@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  CloudCheck,
   Download,
   FilePenLine,
   FileUp,
@@ -60,6 +61,12 @@ import {
   SIGNED_CONSENT_FILE_NAME,
 } from "@/lib/consent-pdf";
 import type {
+  InformedConsentDraftMode,
+  InformedConsentDraftMutation,
+  InformedConsentDraftRecord,
+  InformedConsentDraftSignatureMethod,
+  InformedConsentDraftStepId,
+  InformedConsentDraftSummary,
   InformedConsentCaseOption,
   InformedConsentCasePage,
   InformedConsentPatientOption,
@@ -67,7 +74,7 @@ import type {
   InformedConsentRecord,
   InformedConsentSavedSignaturePayload,
 } from "@/lib/informed-consents";
-import { sdkFetch } from "@/lib/sdk-client";
+import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
 const MAX_CONSENT_BYTES = 750_000;
@@ -135,9 +142,9 @@ const CONSENT_COMPLETION_CONFETTI = [
   },
 ] as const;
 
-type ConsentFlowMode = "guided" | "direct";
+type ConsentFlowMode = InformedConsentDraftMode;
 
-type SignatureMethod = "draw" | "import" | "saved";
+type SignatureMethod = InformedConsentDraftSignatureMethod;
 
 type SavedSignatureCacheEntry =
   | { status: "pending"; promise: Promise<string | null> }
@@ -157,6 +164,10 @@ type ConsentStepId =
   | "direct-sign"
   | "direct-upload";
 
+type PatientPortalConsentStepId = Exclude<ConsentStepId, "destination">;
+
+type DraftSaveStatus = "idle" | "saving" | "saved" | "error" | "conflict";
+
 type ConsentWizardStep = {
   id: ConsentStepId;
   title: string;
@@ -165,6 +176,22 @@ type ConsentWizardStep = {
 };
 
 const DIRECT_MANUAL_STEP_IDS: readonly ConsentStepId[] = [
+  "direct-download",
+  "direct-sign",
+  "direct-upload",
+];
+
+const PATIENT_GUIDED_STEP_IDS: readonly PatientPortalConsentStepId[] = [
+  "method",
+  "download",
+  "data",
+  "signature",
+  "editor",
+  "preview",
+];
+
+const PATIENT_DIRECT_STEP_IDS: readonly PatientPortalConsentStepId[] = [
+  "method",
   "direct-download",
   "direct-sign",
   "direct-upload",
@@ -290,6 +317,59 @@ const INITIAL_PARTNER_PLACEMENT: ConsentSignaturePlacement = {
   y: 0.64,
   width: 0.16,
 };
+
+function draftStepsForMode(mode: ConsentFlowMode) {
+  return mode === "guided" ? PATIENT_GUIDED_STEP_IDS : PATIENT_DIRECT_STEP_IDS;
+}
+
+function normalizedDraftStep(
+  draft: InformedConsentDraftRecord | null | undefined,
+): PatientPortalConsentStepId {
+  if (!draft) return "method";
+  const allowedSteps = draftStepsForMode(draft.mode);
+  if (!allowedSteps.includes(draft.activeStepId)) {
+    return draft.mode === "guided" ? "download" : "direct-download";
+  }
+  // The final PDF is deliberately not stored in a draft. Return to the editor
+  // so the patient can rebuild and review the exact document before accepting.
+  return draft.activeStepId === "preview" ? "editor" : draft.activeStepId;
+}
+
+function normalizedDraftPlacement(
+  value: InformedConsentDraftRecord["patientPlacement"] | undefined,
+  fallback: ConsentSignaturePlacement,
+): ConsentSignaturePlacement {
+  if (
+    !value ||
+    !Number.isFinite(value.x) ||
+    !Number.isFinite(value.y) ||
+    !Number.isFinite(value.width)
+  ) {
+    return fallback;
+  }
+  const width = clamp(value.width, 0.08, 0.5);
+  return {
+    x: clamp(value.x, 0, 1 - width),
+    y: clamp(value.y, 0, 0.92),
+    width,
+  };
+}
+
+function normalizedDraftVisitedSteps(
+  draft: InformedConsentDraftRecord | null | undefined,
+): PatientPortalConsentStepId[] {
+  if (!draft) return [];
+  const allowedSteps = draftStepsForMode(draft.mode);
+  return [
+    ...new Set([
+      ...(draft.visitedStepIds ?? []),
+      "method",
+      normalizedDraftStep(draft),
+    ]),
+  ].filter((stepId): stepId is PatientPortalConsentStepId =>
+    allowedSteps.includes(stepId as InformedConsentDraftStepId),
+  );
+}
 
 type PreviewSignature = {
   role: ConsentSignerRole;
@@ -832,14 +912,16 @@ function SignaturePagePreview({
 function ConsentWizardSidebar({
   steps,
   activeStepId,
+  completedStepIds,
+  onStepSelect,
+  disabled = false,
 }: {
   steps: ConsentWizardStep[];
   activeStepId: ConsentStepId;
+  completedStepIds: ReadonlySet<ConsentStepId>;
+  onStepSelect: (stepId: ConsentStepId) => void;
+  disabled?: boolean;
 }) {
-  const activeStepIndex = Math.max(
-    0,
-    steps.findIndex((step) => step.id === activeStepId),
-  );
   const isDirectManualFlow = steps.some((step) =>
     DIRECT_MANUAL_STEP_IDS.includes(step.id),
   );
@@ -860,11 +942,11 @@ function ConsentWizardSidebar({
           Subir consentimiento
         </h2>
       </div>
-      <ol className="hidden gap-1 p-3 lg:grid">
+      <ol className="grid gap-1 p-3">
         {steps.map((step, index) => {
           const Icon = step.icon;
           const active = step.id === activeStepId;
-          const complete = index < activeStepIndex;
+          const complete = completedStepIds.has(step.id);
           const directManualStepIndex = DIRECT_MANUAL_STEP_IDS.indexOf(step.id);
           const isDirectPreparation =
             isDirectManualFlow && directManualStepIndex < 0;
@@ -873,38 +955,74 @@ function ConsentWizardSidebar({
               key={step.id}
               aria-current={active ? "step" : undefined}
               data-step-id={step.id}
-              className={cn(
-                "flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                active && "bg-white text-violet-950 shadow-sm",
-                !active && "text-violet-100/76",
-              )}
             >
-              <span
+              <button
+                type="button"
+                aria-current={active ? "step" : undefined}
+                disabled={disabled}
+                onClick={() => onStepSelect(step.id)}
                 className={cn(
-                  "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold",
-                  active && "border-violet-200 bg-violet-100 text-violet-800",
-                  complete &&
-                    "border-emerald-300/40 bg-emerald-400/18 text-emerald-100",
-                  !active && !complete && "border-white/18 bg-white/5",
+                  "flex w-full min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200 focus-visible:ring-offset-2 focus-visible:ring-offset-violet-950",
+                  active && "bg-white text-violet-950 shadow-sm",
+                  !active &&
+                    "text-violet-100/76 hover:bg-white/10 hover:text-white",
                 )}
               >
-                {complete ? (
-                  <Check className="size-3.5" />
-                ) : directManualStepIndex >= 0 ? (
-                  directManualStepIndex + 1
-                ) : isDirectPreparation ? (
-                  <span aria-hidden="true">•</span>
-                ) : (
-                  index + 1
-                )}
-              </span>
-              <Icon className="size-4 shrink-0" />
-              <span className="min-w-0 leading-5">{step.title}</span>
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold",
+                    active && "border-violet-200 bg-violet-100 text-violet-800",
+                    complete &&
+                      "border-emerald-300/40 bg-emerald-400/18 text-emerald-100",
+                    !active && !complete && "border-white/18 bg-white/5",
+                  )}
+                >
+                  {complete ? (
+                    <Check className="size-3.5" />
+                  ) : directManualStepIndex >= 0 ? (
+                    directManualStepIndex + 1
+                  ) : isDirectPreparation ? (
+                    <span aria-hidden="true">•</span>
+                  ) : (
+                    index + 1
+                  )}
+                </span>
+                <Icon className="size-4 shrink-0" />
+                <span className="min-w-0 leading-5">{step.title}</span>
+              </button>
             </li>
           );
         })}
       </ol>
     </aside>
+  );
+}
+
+function ConsentStepPrerequisite({
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  description: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="max-w-3xl rounded-2xl border border-dashed border-violet-200 bg-violet-50/50 p-6 dark:border-violet-400/24 dark:bg-violet-950/16">
+      <h2 className="font-heading text-xl font-semibold text-foreground">
+        {title}
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        {description}
+      </p>
+      <Button type="button" className="mt-5" onClick={onAction}>
+        {actionLabel}
+        <ArrowRight className="size-4" />
+      </Button>
+    </div>
   );
 }
 
@@ -918,21 +1036,51 @@ export function PatientConsentUploadWizard({
   initialPatientName = "",
   surface = "patient-portal",
   initialPatientPage,
+  initialDraft = null,
+  initialDraftRevision = null,
 }: {
   initialPatientName?: string;
   surface?: "patient-portal" | "backoffice";
   initialPatientPage?: InformedConsentPatientPage;
+  initialDraft?: InformedConsentDraftRecord | null;
+  initialDraftRevision?: number | null;
 }) {
   const router = useRouter();
+  const isBackoffice = surface === "backoffice";
+  const restoredDraft = isBackoffice ? null : initialDraft;
+  const restoredMode = restoredDraft?.mode ?? null;
+  const restoredStepId = normalizedDraftStep(restoredDraft);
+  const restoredHasPartner = restoredDraft?.hasPartner ?? false;
   const casesRequestRef = useRef(0);
   const savedSignatureRequestRef = useRef(0);
   const uploadInFlightRef = useRef(false);
+  const documentVersionRef = useRef(0);
+  const preparationTokenRef = useRef(0);
+  const draftRevisionRef = useRef<number | null>(
+    restoredDraft?.revision ?? initialDraftRevision ?? null,
+  );
+  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftSnapshotSequenceRef = useRef(0);
+  const pendingDraftRef = useRef<
+    | {
+        snapshot: Omit<InformedConsentDraftMutation, "expectedRevision">;
+        sequence: number;
+      }
+    | undefined
+  >(undefined);
+  const draftSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const draftSavingStoppedRef = useRef(false);
+  const draftConflictRef = useRef(false);
+  const mountedRef = useRef(true);
   const savedSignatureCacheRef = useRef(
     new Map<string, SavedSignatureCacheEntry>(),
   );
-  const isBackoffice = surface === "backoffice";
-  const [mode, setMode] = useState<ConsentFlowMode | null>(null);
-  const [activeStepId, setActiveStepId] = useState<ConsentStepId>("method");
+  const [mode, setMode] = useState<ConsentFlowMode | null>(restoredMode);
+  const [activeStepId, setActiveStepId] =
+    useState<ConsentStepId>(restoredStepId);
+  const [visitedStepIds, setVisitedStepIds] = useState<ConsentStepId[]>(() =>
+    normalizedDraftVisitedSteps(restoredDraft),
+  );
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const previousActiveStepIdRef = useRef<ConsentStepId>(activeStepId);
   const steps = consentSteps(isBackoffice, mode);
@@ -952,34 +1100,65 @@ export function PatientConsentUploadWizard({
   const [caseId, setCaseId] = useState("");
   const [loadingPatients, setLoadingPatients] = useState(false);
   const [loadingCases, setLoadingCases] = useState(false);
-  const [patientName, setPatientName] = useState(initialPatientName.trim());
+  const [patientName, setPatientName] = useState(
+    restoredDraft ? restoredDraft.patientName : initialPatientName.trim(),
+  );
   const [patientNameError, setPatientNameError] = useState("");
-  const [patientDocument, setPatientDocument] = useState("");
+  const [patientDocument, setPatientDocument] = useState(
+    restoredDraft?.patientDocument ?? "",
+  );
   const [patientDocumentError, setPatientDocumentError] = useState("");
-  const [signatureDate, setSignatureDate] = useState(todayInBuenosAires);
+  const [signatureDate, setSignatureDate] = useState(
+    restoredDraft?.signatureDate || todayInBuenosAires,
+  );
   const [signatureDateError, setSignatureDateError] = useState("");
-  const [hasPartner, setHasPartner] = useState(false);
-  const [partnerName, setPartnerName] = useState("");
+  const [hasPartner, setHasPartner] = useState(restoredHasPartner);
+  const [partnerName, setPartnerName] = useState(
+    restoredHasPartner ? (restoredDraft?.partnerName ?? "") : "",
+  );
   const [partnerNameError, setPartnerNameError] = useState("");
   const [patientSignatureDataUrl, setPatientSignatureDataUrl] = useState<
     string | null
-  >(null);
+  >(restoredDraft?.patientSignatureDataUrl ?? null);
   const [partnerSignatureDataUrl, setPartnerSignatureDataUrl] = useState<
     string | null
-  >(null);
+  >(
+    restoredHasPartner
+      ? (restoredDraft?.partnerSignatureDataUrl ?? null)
+      : null,
+  );
   const [patientSignatureMethod, setPatientSignatureMethod] =
-    useState<SignatureMethod | null>(null);
+    useState<SignatureMethod | null>(
+      restoredDraft?.patientSignatureMethod ?? null,
+    );
   const [partnerSignatureMethod, setPartnerSignatureMethod] =
-    useState<SignatureMethod | null>(null);
+    useState<SignatureMethod | null>(
+      restoredHasPartner
+        ? (restoredDraft?.partnerSignatureMethod ?? null)
+        : null,
+    );
   const [reusableSavedSignature, setReusableSavedSignature] = useState<
     string | null
   >(null);
   const [patientPlacement, setPatientPlacement] =
-    useState<ConsentSignaturePlacement>(INITIAL_PATIENT_PLACEMENT);
+    useState<ConsentSignaturePlacement>(() =>
+      normalizedDraftPlacement(
+        restoredDraft?.patientPlacement,
+        INITIAL_PATIENT_PLACEMENT,
+      ),
+    );
   const [partnerPlacement, setPartnerPlacement] =
-    useState<ConsentSignaturePlacement>(INITIAL_PARTNER_PLACEMENT);
-  const [selectedRole, setSelectedRole] =
-    useState<ConsentSignerRole>("patient");
+    useState<ConsentSignaturePlacement>(() =>
+      normalizedDraftPlacement(
+        restoredDraft?.partnerPlacement,
+        INITIAL_PARTNER_PLACEMENT,
+      ),
+    );
+  const [selectedRole, setSelectedRole] = useState<ConsentSignerRole>(
+    restoredHasPartner && restoredDraft?.selectedRole === "partner"
+      ? "partner"
+      : "patient",
+  );
   const [signedFile, setSignedFile] = useState<SingleFileValue | null>(null);
   const [directFile, setDirectFile] = useState<SingleFileValue | null>(null);
   const [directFileError, setDirectFileError] = useState("");
@@ -990,14 +1169,249 @@ export function PatientConsentUploadWizard({
   );
   const [preparing, setPreparing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [draftSaveStatus, setDraftSaveStatus] = useState<DraftSaveStatus>(
+    restoredDraft ? "saved" : "idle",
+  );
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const formattedSignatureDate = formatSignatureDate(signatureDate);
+
+  function buildDraftSnapshot(
+    nextMode: ConsentFlowMode,
+    nextActiveStepId: ConsentStepId,
+    nextVisitedStepIds: ConsentStepId[] = visitedStepIds,
+  ): Omit<InformedConsentDraftMutation, "expectedRevision"> {
+    const allowedSteps = draftStepsForMode(nextMode);
+    const safeActiveStepId = allowedSteps.includes(
+      nextActiveStepId as PatientPortalConsentStepId,
+    )
+      ? (nextActiveStepId as PatientPortalConsentStepId)
+      : nextMode === "guided"
+        ? "download"
+        : "direct-download";
+    const safeVisitedStepIds = nextVisitedStepIds.filter(
+      (stepId): stepId is PatientPortalConsentStepId =>
+        allowedSteps.includes(stepId as PatientPortalConsentStepId),
+    );
+
+    return {
+      schemaVersion: 1,
+      mode: nextMode,
+      activeStepId: safeActiveStepId,
+      visitedStepIds: [
+        ...new Set<InformedConsentDraftStepId>([
+          "method",
+          ...safeVisitedStepIds,
+        ]),
+      ],
+      patientName,
+      patientDocument,
+      signatureDate,
+      hasPartner,
+      partnerName: hasPartner ? partnerName : "",
+      patientSignatureDataUrl,
+      partnerSignatureDataUrl: hasPartner ? partnerSignatureDataUrl : null,
+      patientSignatureMethod,
+      partnerSignatureMethod: hasPartner ? partnerSignatureMethod : null,
+      patientPlacement,
+      partnerPlacement,
+      selectedRole: hasPartner ? selectedRole : "patient",
+    };
+  }
+
+  function markDraftConflict() {
+    draftConflictRef.current = true;
+    draftSavingStoppedRef.current = true;
+    pendingDraftRef.current = undefined;
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+    if (!mountedRef.current) return;
+    setDraftSaveStatus("conflict");
+    setToast({
+      id: Date.now(),
+      tone: "error",
+      title: "El borrador cambió en otra sesión",
+      message:
+        "Volvé a Consentimientos y elegí “Continuar desde borrador” para retomar la versión más reciente.",
+    });
+  }
+
+  function enqueuePendingDraftSave() {
+    const pendingDraft = pendingDraftRef.current;
+    if (!pendingDraft || draftSavingStoppedRef.current || isBackoffice) return;
+    pendingDraftRef.current = undefined;
+    const { snapshot, sequence } = pendingDraft;
+
+    draftSaveQueueRef.current = draftSaveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (draftSavingStoppedRef.current) return;
+        try {
+          const response = await sdkFetch<{
+            draft: InformedConsentDraftSummary;
+          }>("/2pq/informed-consents/draft", {
+            method: "PUT",
+            body: JSON.stringify({
+              ...snapshot,
+              expectedRevision: draftRevisionRef.current,
+            } satisfies InformedConsentDraftMutation),
+          });
+          if (Number.isInteger(response?.draft?.revision)) {
+            draftRevisionRef.current = response.draft.revision;
+          }
+          if (
+            mountedRef.current &&
+            !pendingDraftRef.current &&
+            !draftSavingStoppedRef.current
+          ) {
+            setDraftSaveStatus("saved");
+          }
+        } catch (error) {
+          if (error instanceof SdkRequestError && error.status === 409) {
+            markDraftConflict();
+            return;
+          }
+          if (mountedRef.current && !draftSavingStoppedRef.current) {
+            if (
+              !pendingDraftRef.current &&
+              sequence === draftSnapshotSequenceRef.current
+            ) {
+              pendingDraftRef.current = pendingDraft;
+            }
+            setDraftSaveStatus("error");
+            setToast({
+              id: Date.now(),
+              tone: "error",
+              message:
+                "No se pudo guardar el borrador. Volveremos a intentarlo con el próximo cambio.",
+            });
+          }
+        }
+      });
+  }
+
+  function scheduleDraftSave(
+    snapshot: Omit<InformedConsentDraftMutation, "expectedRevision">,
+    delayMs = 400,
+  ) {
+    if (isBackoffice || draftSavingStoppedRef.current) return;
+    const sequence = draftSnapshotSequenceRef.current + 1;
+    draftSnapshotSequenceRef.current = sequence;
+    pendingDraftRef.current = { snapshot, sequence };
+    setDraftSaveStatus("saving");
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+    }
+    draftSaveTimerRef.current = setTimeout(() => {
+      draftSaveTimerRef.current = null;
+      enqueuePendingDraftSave();
+    }, delayMs);
+  }
+
+  async function flushDraftSave() {
+    if (isBackoffice) return;
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+    enqueuePendingDraftSave();
+    await draftSaveQueueRef.current;
+  }
+
+  function navigateToStep(
+    nextStepId: ConsentStepId,
+    options: {
+      nextMode?: ConsentFlowMode;
+      announce?: boolean;
+      preservePreparation?: boolean;
+    } = {},
+  ) {
+    if (uploadInFlightRef.current) return;
+    const nextMode = options.nextMode ?? mode;
+    const nextSteps = consentSteps(isBackoffice, nextMode);
+    if (!nextSteps.some((step) => step.id === nextStepId)) return;
+
+    const nextVisitedStepIds = [...new Set([...visitedStepIds, nextStepId])];
+    if (nextStepId !== activeStepId && options.preservePreparation !== true) {
+      preparationTokenRef.current += 1;
+    }
+    if (nextStepId !== activeStepId) {
+      documentVersionRef.current += 1;
+    }
+    if (options.nextMode) setMode(options.nextMode);
+    setVisitedStepIds(nextVisitedStepIds);
+    setActiveStepId(nextStepId);
+    if (nextMode === "guided" && options.announce !== false) {
+      announceGuidedStep(nextStepId);
+    }
+    if (!isBackoffice && nextMode) {
+      scheduleDraftSave(
+        buildDraftSnapshot(nextMode, nextStepId, nextVisitedStepIds),
+        0,
+      );
+    }
+  }
 
   useEffect(() => {
     if (previousActiveStepIdRef.current === activeStepId) return;
     previousActiveStepIdRef.current = activeStepId;
     stepHeadingRef.current?.focus();
   }, [activeStepId]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const enqueuePendingSave = () => {
+      if (draftSaveTimerRef.current) {
+        clearTimeout(draftSaveTimerRef.current);
+        draftSaveTimerRef.current = null;
+      }
+      enqueuePendingDraftSave();
+    };
+    const enqueuePendingSaveWhenHidden = () => {
+      if (document.visibilityState === "hidden") enqueuePendingSave();
+    };
+    window.addEventListener("pagehide", enqueuePendingSave);
+    document.addEventListener("visibilitychange", enqueuePendingSaveWhenHidden);
+    return () => {
+      mountedRef.current = false;
+      window.removeEventListener("pagehide", enqueuePendingSave);
+      document.removeEventListener(
+        "visibilitychange",
+        enqueuePendingSaveWhenHidden,
+      );
+      enqueuePendingSave();
+    };
+  }, []);
+
+  const observedDraftStateRef = useRef(false);
+  useEffect(() => {
+    if (isBackoffice || !mode || draftSavingStoppedRef.current) return;
+    if (!observedDraftStateRef.current) {
+      observedDraftStateRef.current = true;
+      return;
+    }
+    scheduleDraftSave(buildDraftSnapshot(mode, activeStepId));
+  }, [
+    hasPartner,
+    isBackoffice,
+    mode,
+    partnerName,
+    partnerPlacement.x,
+    partnerPlacement.y,
+    partnerPlacement.width,
+    partnerSignatureDataUrl,
+    partnerSignatureMethod,
+    patientDocument,
+    patientName,
+    patientPlacement.x,
+    patientPlacement.y,
+    patientPlacement.width,
+    patientSignatureDataUrl,
+    patientSignatureMethod,
+    selectedRole,
+    signatureDate,
+  ]);
 
   useEffect(() => {
     if (activeStepId !== "signature") return;
@@ -1066,12 +1480,9 @@ export function PatientConsentUploadWizard({
     });
   }
 
-  function goToStep(stepId: ConsentStepId) {
-    setActiveStepId(stepId);
-    if (mode === "guided") announceGuidedStep(stepId);
-  }
-
   function invalidateAfter() {
+    documentVersionRef.current += 1;
+    preparationTokenRef.current += 1;
     setSignedFile(null);
     setLegalAttestationAccepted(false);
   }
@@ -1106,22 +1517,19 @@ export function PatientConsentUploadWizard({
   }
 
   function selectMode(nextMode: ConsentFlowMode) {
+    if (uploadInFlightRef.current) return;
     const nextStep = isBackoffice
       ? "destination"
       : nextMode === "guided"
         ? "download"
         : "direct-download";
-    setMode(nextMode);
-    setLegalAttestationAccepted(false);
-    setActiveStepId(nextStep);
-    if (nextMode === "guided") {
-      announceGuidedStep(isBackoffice ? "download" : nextStep);
-    }
+    invalidateAfter();
+    navigateToStep(nextStep, { nextMode });
   }
 
   function returnToPreviousStep() {
     const previousStep = steps[activeStepIndex - 1];
-    if (previousStep) setActiveStepId(previousStep.id);
+    if (previousStep) navigateToStep(previousStep.id);
   }
 
   function updatePlacement(
@@ -1171,7 +1579,19 @@ export function PatientConsentUploadWizard({
   }
 
   function continueFromNames() {
-    if (validateNames()) goToStep("signature");
+    if (validateNames()) navigateToStep("signature");
+  }
+
+  function flushCurrentDraftOnBlur() {
+    if (
+      isBackoffice ||
+      !mode ||
+      uploadInFlightRef.current ||
+      draftSavingStoppedRef.current
+    ) {
+      return;
+    }
+    scheduleDraftSave(buildDraftSnapshot(mode, activeStepId), 0);
   }
 
   const previewSignatures: PreviewSignature[] = patientSignatureDataUrl
@@ -1205,7 +1625,39 @@ export function PatientConsentUploadWizard({
     (!hasPartner || Boolean(partnerSignatureDataUrl));
 
   async function prepareSignedConsent() {
-    if (!signaturesComplete || previewSignatures.length === 0) return;
+    if (isBackoffice && !destinationComplete) {
+      navigateToStep("destination", { announce: false });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: "Seleccione un paciente y uno de sus casos 2PQ.",
+      });
+      return;
+    }
+    if (!validateNames()) {
+      navigateToStep("data", { announce: false });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: "Complete los datos de quienes firman antes de continuar.",
+      });
+      return;
+    }
+    if (!signaturesComplete || previewSignatures.length === 0) {
+      navigateToStep("signature", { announce: false });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: "Prepare todas las firmas antes de generar el documento.",
+      });
+      return;
+    }
+    const preparationDocumentVersion = documentVersionRef.current;
+    const preparationToken = preparationTokenRef.current;
+    const preparationIsCurrent = () =>
+      mountedRef.current &&
+      preparationDocumentVersion === documentVersionRef.current &&
+      preparationToken === preparationTokenRef.current;
     setPreparing(true);
     setToast(null);
     try {
@@ -1224,6 +1676,17 @@ export function PatientConsentUploadWizard({
           placement: signature.placement,
         })),
       );
+      if (!preparationIsCurrent()) {
+        if (mountedRef.current) {
+          setToast({
+            id: Date.now(),
+            tone: "error",
+            message:
+              "El contenido o el paso activo cambiaron mientras se preparaba el documento. Aplicá las firmas nuevamente cuando estés listo para continuar.",
+          });
+        }
+        return;
+      }
       if (bytes.byteLength > MAX_CONSENT_BYTES) {
         throw new Error(
           "El consentimiento firmado supera el máximo permitido de 750 KB.",
@@ -1235,8 +1698,19 @@ export function PatientConsentUploadWizard({
         size: bytes.byteLength,
         content: bytesToPdfDataUrl(bytes),
       });
-      goToStep("preview");
+      navigateToStep("preview", { preservePreparation: true });
     } catch (error) {
+      if (!preparationIsCurrent()) {
+        if (mountedRef.current) {
+          setToast({
+            id: Date.now(),
+            tone: "error",
+            message:
+              "El contenido o el paso activo cambiaron mientras se preparaba el documento. Aplicá las firmas nuevamente cuando estés listo para continuar.",
+          });
+        }
+        return;
+      }
       setToast({
         id: Date.now(),
         tone: "error",
@@ -1246,7 +1720,7 @@ export function PatientConsentUploadWizard({
             : "No se pudo preparar el consentimiento firmado.",
       });
     } finally {
-      setPreparing(false);
+      if (mountedRef.current) setPreparing(false);
     }
   }
 
@@ -1255,22 +1729,77 @@ export function PatientConsentUploadWizard({
     uploadMode: ConsentFlowMode,
   ) {
     if (!file || saving || uploadInFlightRef.current) return;
-    if (
-      uploadMode === "guided" &&
-      (!patientSignatureDataUrl || !legalAttestationAccepted)
-    ) {
+    if (!isBackoffice && draftConflictRef.current) {
+      markDraftConflict();
       return;
     }
+    if (uploadMode === "guided") {
+      if (isBackoffice && !destinationComplete) {
+        navigateToStep("destination", { announce: false });
+        setToast({
+          id: Date.now(),
+          tone: "error",
+          message: "Seleccione un paciente y uno de sus casos 2PQ.",
+        });
+        return;
+      }
+      if (!validateNames()) {
+        navigateToStep("data", { announce: false });
+        setToast({
+          id: Date.now(),
+          tone: "error",
+          message: "Complete los datos de quienes firman antes de continuar.",
+        });
+        return;
+      }
+      if (!signaturesComplete || !patientSignatureDataUrl) {
+        navigateToStep("signature", { announce: false });
+        setToast({
+          id: Date.now(),
+          tone: "error",
+          message: "Prepare todas las firmas antes de continuar.",
+        });
+        return;
+      }
+      if (!legalAttestationAccepted) return;
+    }
     uploadInFlightRef.current = true;
+    const submissionDocumentVersion = documentVersionRef.current;
     setSaving(true);
     setToast(null);
+    if (!isBackoffice) {
+      await flushDraftSave();
+      if (draftConflictRef.current) {
+        uploadInFlightRef.current = false;
+        setSaving(false);
+        markDraftConflict();
+        return;
+      }
+      if (submissionDocumentVersion !== documentVersionRef.current) {
+        uploadInFlightRef.current = false;
+        setSaving(false);
+        if (mode) {
+          scheduleDraftSave(buildDraftSnapshot(mode, activeStepId), 0);
+        }
+        setToast({
+          id: Date.now(),
+          tone: "error",
+          message:
+            "El contenido o el paso activo cambiaron durante el guardado. Revisá la información actual y volvé a confirmar el envío.",
+        });
+        return;
+      }
+      draftSavingStoppedRef.current = true;
+    }
     try {
       const { record } = await sdkFetch<{ record: InformedConsentRecord }>(
         "/2pq/informed-consents",
         {
           method: "POST",
           body: JSON.stringify({
-            ...(isBackoffice ? { patientId, caseId } : {}),
+            ...(isBackoffice
+              ? { patientId, caseId }
+              : { expectedDraftRevision: draftRevisionRef.current }),
             flowMode: uploadMode,
             ...(uploadMode === "guided"
               ? {
@@ -1292,11 +1821,28 @@ export function PatientConsentUploadWizard({
           : "/patient-portal/consents",
       );
       router.refresh();
-    } catch {
+    } catch (error) {
+      if (
+        !isBackoffice &&
+        error instanceof SdkRequestError &&
+        error.status === 409
+      ) {
+        markDraftConflict();
+      } else {
+        draftSavingStoppedRef.current = false;
+        if (!isBackoffice && mode) {
+          scheduleDraftSave(buildDraftSnapshot(mode, activeStepId), 0);
+        }
+      }
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "No se pudo subir el consentimiento.",
+        message:
+          !isBackoffice &&
+          error instanceof SdkRequestError &&
+          error.status === 409
+            ? "El borrador cambió en otra sesión. Volvé a Consentimientos y retomá la versión más reciente."
+            : "No se pudo subir el consentimiento.",
       });
     } finally {
       uploadInFlightRef.current = false;
@@ -1388,7 +1934,7 @@ export function PatientConsentUploadWizard({
     setPatientPlacement(INITIAL_PATIENT_PLACEMENT);
     setPartnerPlacement(INITIAL_PARTNER_PLACEMENT);
     setSelectedRole("patient");
-    setSignedFile(null);
+    invalidateAfter();
     setDirectFile(null);
     setDirectFileError("");
     setLegalAttestationAccepted(false);
@@ -1407,11 +1953,40 @@ export function PatientConsentUploadWizard({
       });
       return;
     }
-    goToStep(mode === "direct" ? "direct-download" : "download");
+    navigateToStep(mode === "direct" ? "direct-download" : "download");
   }
 
   const selectedCase = cases.find((candidate) => candidate.id === caseId);
   const destinationComplete = Boolean(patientId && caseId);
+  const signerDataComplete = Boolean(
+    patientName.trim() &&
+    patientDocument.trim() &&
+    formattedSignatureDate &&
+    (!hasPartner || partnerName.trim()),
+  );
+  const visitedSteps = new Set(visitedStepIds);
+  const completedStepIds = new Set<ConsentStepId>();
+  if (mode) completedStepIds.add("method");
+  if (destinationComplete) completedStepIds.add("destination");
+  if (visitedSteps.has("download") && activeStepId !== "download") {
+    completedStepIds.add("download");
+  }
+  if (signerDataComplete) completedStepIds.add("data");
+  if (signaturesComplete) completedStepIds.add("signature");
+  if (signedFile) completedStepIds.add("editor");
+  if (completedConsentId || (signedFile && legalAttestationAccepted)) {
+    completedStepIds.add("preview");
+  }
+  if (
+    visitedSteps.has("direct-download") &&
+    activeStepId !== "direct-download"
+  ) {
+    completedStepIds.add("direct-download");
+  }
+  if (visitedSteps.has("direct-sign") && activeStepId !== "direct-sign") {
+    completedStepIds.add("direct-sign");
+  }
+  if (directFile) completedStepIds.add("direct-upload");
 
   function continueAfterGuidedCompletion() {
     if (!completedConsentId) return;
@@ -1525,815 +2100,964 @@ export function PatientConsentUploadWizard({
 
   return (
     <>
-      <div className="grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] xl:gap-8">
-        <ConsentWizardSidebar steps={steps} activeStepId={activeStepId} />
-
-        <div className="min-w-0">
-          <header className="mb-6 border-b border-violet-100 pb-6 dark:border-violet-400/16">
-            <div
-              className="grid gap-1.5"
-              style={{
-                gridTemplateColumns: `repeat(${
-                  mode === "direct"
-                    ? DIRECT_MANUAL_STEP_IDS.length
-                    : steps.length
-                }, minmax(0, 1fr))`,
-              }}
-              aria-label="Progreso de carga del consentimiento"
-            >
-              {mode === "direct" ? (
-                DIRECT_MANUAL_STEP_IDS.map((stepId, index) => (
-                  <span
-                    key={stepId}
-                    className={cn(
-                      "h-1.5 rounded-full transition-colors",
-                      directManualStepIndex >= 0 &&
-                        index <= directManualStepIndex
-                        ? "bg-violet-600"
-                        : "bg-violet-100 dark:bg-violet-400/16",
-                    )}
-                  />
-                ))
-              ) : mode ? (
-                steps.map((step, index) => (
-                  <span
-                    key={step.id}
-                    className={cn(
-                      "h-1.5 rounded-full transition-colors",
-                      index <= activeStepIndex
-                        ? "bg-violet-600"
-                        : "bg-violet-100 dark:bg-violet-400/16",
-                    )}
-                  />
-                ))
-              ) : (
-                <span className="h-1.5 rounded-full bg-violet-200 dark:bg-violet-400/24" />
-              )}
-            </div>
-            <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-200">
-              {mode === "direct"
-                ? directManualStepIndex >= 0
-                  ? `Paso manual ${directManualStepIndex + 1} de ${DIRECT_MANUAL_STEP_IDS.length}`
-                  : "Preparación del recorrido manual"
-                : mode
-                  ? `Paso ${activeStepIndex + 1} de ${steps.length}`
-                  : "Paso 1 · Elegir recorrido"}
-            </p>
-            <h1
-              ref={stepHeadingRef}
-              tabIndex={-1}
-              className="mt-2 scroll-mt-6 font-heading text-3xl font-semibold text-foreground outline-none"
-            >
-              {activeStep.title}
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-              {activeStep.description}
-            </p>
-            {mode === "guided" ? (
-              <div
-                data-testid="guided-signing-security-banner"
-                className="mt-5 flex max-w-3xl items-start gap-3 rounded-2xl border border-blue-200/80 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(236,254,255,0.72))] p-4 text-blue-950 shadow-[0_18px_50px_-38px_rgba(37,99,235,0.75)] dark:border-blue-400/24 dark:bg-[linear-gradient(135deg,rgba(30,58,138,0.34),rgba(8,47,73,0.28))] dark:text-blue-50"
-              >
-                <span className="relative flex size-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-white/90 text-blue-700 shadow-sm dark:border-blue-300/20 dark:bg-blue-950/70 dark:text-blue-100">
-                  <span className="absolute inset-0 animate-pulse rounded-xl bg-blue-400/10 motion-reduce:animate-none" />
-                  <ShieldCheck className="relative size-5" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
-                    Proceso de firma electrónica
-                  </p>
-                  <h2 className="mt-1 font-heading text-lg font-semibold">
-                    Está firmando un documento digital
-                  </h2>
-                  <p className="mt-1 text-sm leading-6 text-blue-900/72 dark:text-blue-50/72">
-                    La identidad declarada, la firma y el documento se revisan
-                    juntos antes del envío. Nada se guarda hasta la aceptación
-                    final.
-                  </p>
-                </div>
-              </div>
-            ) : null}
-          </header>
-
+      <div className="relative">
+        {saving ? (
           <div
-            key={activeStepId}
-            data-step-id={activeStepId}
-            className={cn(
-              "min-h-[34rem]",
-              mode === "guided" &&
-                "animate-in fade-in-0 slide-in-from-bottom-2 duration-300 motion-reduce:animate-none",
-            )}
+            data-testid="consent-final-submit-lock"
+            role="status"
+            className="absolute inset-0 z-50 flex cursor-wait items-start justify-center rounded-2xl bg-background/58 px-4 pt-24 backdrop-blur-[2px]"
           >
-            {activeStepId === "method" ? (
-              <div className="grid max-w-4xl gap-5 md:grid-cols-2">
-                <button
-                  type="button"
-                  aria-label="Firmar en línea"
-                  className={cn(
-                    "group flex min-h-64 flex-col items-start rounded-xl border bg-white/78 p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-[0_24px_60px_-40px_rgba(109,40,217,0.7)] dark:bg-slate-950/42",
-                    mode === "guided"
-                      ? "border-violet-500 ring-2 ring-violet-500/20"
-                      : "border-violet-100 dark:border-violet-400/16",
-                  )}
-                  onClick={() => selectMode("guided")}
-                >
-                  <span className="flex size-12 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-400/14 dark:text-violet-100">
-                    <PenLine className="size-6" />
-                  </span>
-                  <span className="mt-6 font-heading text-xl font-semibold text-foreground">
-                    Firmar en línea
-                  </span>
-                  <span className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Complete los datos, dibuje o importe las firmas y ubíquelas
-                    sobre el consentimiento desde este flujo.
-                  </span>
-                  <span className="mt-auto flex items-center gap-2 pt-6 text-sm font-semibold text-violet-700 dark:text-violet-200">
-                    Comenzar firma guiada
-                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-                  </span>
-                </button>
+            <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-background px-5 py-4 text-sm font-semibold text-blue-950 shadow-xl dark:border-blue-400/30 dark:text-blue-50">
+              <Loader2 className="size-5 animate-spin" />
+              Cerrando y guardando el consentimiento…
+            </div>
+          </div>
+        ) : null}
+        <div
+          data-testid="consent-wizard-interactions"
+          aria-busy={saving}
+          inert={saving}
+          className="grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] xl:gap-8"
+        >
+          <ConsentWizardSidebar
+            steps={steps}
+            activeStepId={activeStepId}
+            completedStepIds={completedStepIds}
+            onStepSelect={navigateToStep}
+            disabled={saving}
+          />
 
-                <button
-                  type="button"
-                  aria-label="Cargar archivo firmado"
-                  className={cn(
-                    "group flex min-h-64 flex-col items-start rounded-xl border bg-white/78 p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-[0_24px_60px_-40px_rgba(109,40,217,0.7)] dark:bg-slate-950/42",
+          <div className="min-w-0">
+            <header className="mb-6 border-b border-violet-100 pb-6 dark:border-violet-400/16">
+              <div
+                className="grid gap-1.5"
+                style={{
+                  gridTemplateColumns: `repeat(${
                     mode === "direct"
-                      ? "border-violet-500 ring-2 ring-violet-500/20"
-                      : "border-violet-100 dark:border-violet-400/16",
+                      ? DIRECT_MANUAL_STEP_IDS.length
+                      : steps.length
+                  }, minmax(0, 1fr))`,
+                }}
+                aria-label="Progreso de carga del consentimiento"
+              >
+                {mode === "direct" ? (
+                  DIRECT_MANUAL_STEP_IDS.map((stepId) => (
+                    <span
+                      key={stepId}
+                      className={cn(
+                        "h-1.5 rounded-full transition-colors",
+                        stepId === activeStepId || completedStepIds.has(stepId)
+                          ? "bg-violet-600"
+                          : "bg-violet-100 dark:bg-violet-400/16",
+                      )}
+                    />
+                  ))
+                ) : mode ? (
+                  steps.map((step) => (
+                    <span
+                      key={step.id}
+                      className={cn(
+                        "h-1.5 rounded-full transition-colors",
+                        step.id === activeStepId ||
+                          completedStepIds.has(step.id)
+                          ? "bg-violet-600"
+                          : "bg-violet-100 dark:bg-violet-400/16",
+                      )}
+                    />
+                  ))
+                ) : (
+                  <span className="h-1.5 rounded-full bg-violet-200 dark:bg-violet-400/24" />
+                )}
+              </div>
+              <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-200">
+                {mode === "direct"
+                  ? directManualStepIndex >= 0
+                    ? `Paso manual ${directManualStepIndex + 1} de ${DIRECT_MANUAL_STEP_IDS.length}`
+                    : "Preparación del recorrido manual"
+                  : mode
+                    ? `Paso ${activeStepIndex + 1} de ${steps.length}`
+                    : "Paso 1 · Elegir recorrido"}
+              </p>
+              <h1
+                ref={stepHeadingRef}
+                tabIndex={-1}
+                className="mt-2 scroll-mt-6 font-heading text-3xl font-semibold text-foreground outline-none"
+              >
+                {activeStep.title}
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                {activeStep.description}
+              </p>
+              {!isBackoffice && mode ? (
+                <div
+                  data-testid="consent-draft-save-status"
+                  role={
+                    draftSaveStatus === "error" ||
+                    draftSaveStatus === "conflict"
+                      ? "alert"
+                      : "status"
+                  }
+                  className={cn(
+                    "mt-3 flex w-fit flex-wrap items-center gap-2 text-xs font-medium",
+                    draftSaveStatus === "error" ||
+                      draftSaveStatus === "conflict"
+                      ? "text-destructive"
+                      : "text-muted-foreground",
                   )}
-                  onClick={() => selectMode("direct")}
                 >
-                  <span className="flex size-12 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-400/14 dark:text-violet-100">
-                    <FileUp className="size-6" />
+                  {draftSaveStatus === "saving" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <CloudCheck className="size-3.5" />
+                  )}
+                  {draftSaveStatus === "saving"
+                    ? "Guardando borrador…"
+                    : draftSaveStatus === "conflict"
+                      ? "El borrador cambió en otra sesión"
+                      : draftSaveStatus === "error"
+                        ? "No se pudo guardar el borrador"
+                        : "Borrador guardado automáticamente"}
+                  {draftSaveStatus === "conflict" ? (
+                    <Link
+                      href="/patient-portal/consents"
+                      className="inline-flex items-center gap-1 font-semibold underline underline-offset-2"
+                    >
+                      <ArrowLeft className="size-3.5" />
+                      Volver a consentimientos
+                    </Link>
+                  ) : null}
+                </div>
+              ) : null}
+              {mode === "guided" ? (
+                <div
+                  data-testid="guided-signing-security-banner"
+                  className="mt-5 flex max-w-3xl items-start gap-3 rounded-2xl border border-blue-200/80 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(236,254,255,0.72))] p-4 text-blue-950 shadow-[0_18px_50px_-38px_rgba(37,99,235,0.75)] dark:border-blue-400/24 dark:bg-[linear-gradient(135deg,rgba(30,58,138,0.34),rgba(8,47,73,0.28))] dark:text-blue-50"
+                >
+                  <span className="relative flex size-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-white/90 text-blue-700 shadow-sm dark:border-blue-300/20 dark:bg-blue-950/70 dark:text-blue-100">
+                    <span className="absolute inset-0 animate-pulse rounded-xl bg-blue-400/10 motion-reduce:animate-none" />
+                    <ShieldCheck className="relative size-5" />
                   </span>
-                  <span className="mt-6 font-heading text-xl font-semibold text-foreground">
-                    Cargar archivo firmado
-                  </span>
-                  <span className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Descargue la plantilla, imprímala, fírmela a mano y suba un
-                    escaneo del documento completo.
-                  </span>
-                  <span className="mt-auto flex items-center gap-2 pt-6 text-sm font-semibold text-violet-700 dark:text-violet-200">
-                    Ir a la carga directa
-                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-                  </span>
-                </button>
-              </div>
-            ) : null}
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
+                      Proceso de firma electrónica
+                    </p>
+                    <h2 className="mt-1 font-heading text-lg font-semibold">
+                      Está firmando un documento digital
+                    </h2>
+                    <p className="mt-1 text-sm leading-6 text-blue-900/72 dark:text-blue-50/72">
+                      La identidad declarada, la firma y el documento se revisan
+                      juntos antes del envío. El avance se guarda como borrador
+                      privado; el consentimiento solo se envía después de la
+                      aceptación final.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </header>
 
-            {activeStepId === "destination" ? renderDestinationFields() : null}
-
-            {activeStepId === "download" ? (
-              <div className="max-w-3xl space-y-5 rounded-xl border border-violet-100 bg-white/78 p-6 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-                <p className="text-sm leading-6 text-muted-foreground">
-                  {CONSENT_REVIEW_EXPLANATION}
-                </p>
-                <Button variant="outline" asChild>
-                  <a
-                    href={CONSENT_TEMPLATE_URL}
-                    download="consentimiento-informado-2pq.pdf"
+            <div
+              key={activeStepId}
+              data-step-id={activeStepId}
+              className={cn(
+                "min-h-[34rem]",
+                mode === "guided" &&
+                  "animate-in fade-in-0 slide-in-from-bottom-2 duration-300 motion-reduce:animate-none",
+              )}
+            >
+              {activeStepId === "method" ? (
+                <div className="grid max-w-4xl gap-5 md:grid-cols-2">
+                  <button
+                    type="button"
+                    aria-label="Firmar en línea"
+                    className={cn(
+                      "group flex min-h-64 flex-col items-start rounded-xl border bg-white/78 p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-[0_24px_60px_-40px_rgba(109,40,217,0.7)] dark:bg-slate-950/42",
+                      mode === "guided"
+                        ? "border-violet-500 ring-2 ring-violet-500/20"
+                        : "border-violet-100 dark:border-violet-400/16",
+                    )}
+                    onClick={() => selectMode("guided")}
                   >
-                    <Download className="size-4" />
-                    Descargar consentimiento-informado-2pq.pdf
-                  </a>
-                </Button>
-              </div>
-            ) : null}
+                    <span className="flex size-12 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-400/14 dark:text-violet-100">
+                      <PenLine className="size-6" />
+                    </span>
+                    <span className="mt-6 font-heading text-xl font-semibold text-foreground">
+                      Firmar en línea
+                    </span>
+                    <span className="mt-2 text-sm leading-6 text-muted-foreground">
+                      Complete los datos, dibuje o importe las firmas y
+                      ubíquelas sobre el consentimiento desde este flujo.
+                    </span>
+                    <span className="mt-auto flex items-center gap-2 pt-6 text-sm font-semibold text-violet-700 dark:text-violet-200">
+                      Comenzar firma guiada
+                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                    </span>
+                  </button>
 
-            {activeStepId === "direct-download" ? (
-              <div className="max-w-3xl space-y-5">
-                <div className="rounded-xl border border-violet-200 bg-white/78 p-6 shadow-sm dark:border-violet-400/20 dark:bg-slate-950/42">
+                  <button
+                    type="button"
+                    aria-label="Cargar archivo firmado"
+                    className={cn(
+                      "group flex min-h-64 flex-col items-start rounded-xl border bg-white/78 p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-[0_24px_60px_-40px_rgba(109,40,217,0.7)] dark:bg-slate-950/42",
+                      mode === "direct"
+                        ? "border-violet-500 ring-2 ring-violet-500/20"
+                        : "border-violet-100 dark:border-violet-400/16",
+                    )}
+                    onClick={() => selectMode("direct")}
+                  >
+                    <span className="flex size-12 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-400/14 dark:text-violet-100">
+                      <FileUp className="size-6" />
+                    </span>
+                    <span className="mt-6 font-heading text-xl font-semibold text-foreground">
+                      Cargar archivo firmado
+                    </span>
+                    <span className="mt-2 text-sm leading-6 text-muted-foreground">
+                      Descargue la plantilla, imprímala, fírmela a mano y suba
+                      un escaneo del documento completo.
+                    </span>
+                    <span className="mt-auto flex items-center gap-2 pt-6 text-sm font-semibold text-violet-700 dark:text-violet-200">
+                      Ir a la carga directa
+                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                    </span>
+                  </button>
+                </div>
+              ) : null}
+
+              {activeStepId === "destination"
+                ? renderDestinationFields()
+                : null}
+
+              {activeStepId === "download" ? (
+                <div className="max-w-3xl space-y-5 rounded-xl border border-violet-100 bg-white/78 p-6 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {CONSENT_REVIEW_EXPLANATION}
+                  </p>
+                  <Button variant="outline" asChild>
+                    <a
+                      href={CONSENT_TEMPLATE_URL}
+                      download="consentimiento-informado-2pq.pdf"
+                    >
+                      <Download className="size-4" />
+                      Descargar consentimiento-informado-2pq.pdf
+                    </a>
+                  </Button>
+                </div>
+              ) : null}
+
+              {activeStepId === "direct-download" ? (
+                <div className="max-w-3xl space-y-5">
+                  <div className="rounded-xl border border-violet-200 bg-white/78 p-6 shadow-sm dark:border-violet-400/20 dark:bg-slate-950/42">
+                    <div className="flex items-start gap-4">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-base font-bold text-violet-800 dark:bg-violet-400/16 dark:text-violet-100">
+                        1
+                      </span>
+                      <div className="min-w-0">
+                        <h2 className="font-heading text-xl font-semibold text-foreground">
+                          Descargue la plantilla oficial
+                        </h2>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          Este es el documento que debe imprimir, completar y
+                          firmar. No continúe con un formulario distinto ni con
+                          una plantilla vacía creada por su cuenta.
+                        </p>
+                        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                          {CONSENT_REVIEW_EXPLANATION}
+                        </p>
+                        <Button className="mt-5" variant="outline" asChild>
+                          <a
+                            href={CONSENT_TEMPLATE_URL}
+                            download="consentimiento-informado-2pq.pdf"
+                          >
+                            <Download className="size-4" />
+                            Descargar plantilla de consentimiento
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <ol
+                    aria-label="Pasos para cargar un consentimiento firmado manualmente"
+                    className="grid gap-3 sm:grid-cols-3"
+                  >
+                    {[
+                      "Descargar la plantilla",
+                      "Imprimir, completar y firmar",
+                      "Escanear y subir el archivo",
+                    ].map((label, index) => (
+                      <li
+                        key={label}
+                        className={cn(
+                          "rounded-xl border p-4 text-sm leading-5",
+                          index === 0
+                            ? "border-violet-300 bg-violet-50 font-semibold text-violet-950 dark:border-violet-500/40 dark:bg-violet-400/10 dark:text-violet-50"
+                            : "border-border/70 bg-background/55 text-muted-foreground",
+                        )}
+                      >
+                        <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em]">
+                          Paso manual {index + 1}
+                        </span>
+                        {label}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ) : null}
+
+              {activeStepId === "direct-sign" ? (
+                <div className="max-w-3xl rounded-xl border border-violet-200 bg-white/78 p-6 shadow-sm dark:border-violet-400/20 dark:bg-slate-950/42">
                   <div className="flex items-start gap-4">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-base font-bold text-violet-800 dark:bg-violet-400/16 dark:text-violet-100">
-                      1
+                      2
                     </span>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h2 className="font-heading text-xl font-semibold text-foreground">
-                        Descargue la plantilla oficial
+                        Imprima, complete y firme la plantilla
                       </h2>
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        Este es el documento que debe imprimir, completar y
-                        firmar. No continúe con un formulario distinto ni con
-                        una plantilla vacía creada por su cuenta.
+                      <ol className="mt-4 space-y-3 text-sm leading-6 text-foreground">
+                        <li className="flex gap-3">
+                          <Printer className="mt-1 size-4 shrink-0 text-violet-700 dark:text-violet-200" />
+                          Imprima todas las páginas de la plantilla descargada.
+                        </li>
+                        <li className="flex gap-3">
+                          <PenLine className="mt-1 size-4 shrink-0 text-violet-700 dark:text-violet-200" />
+                          Complete los datos requeridos y firme a mano donde
+                          corresponda. Si aplica, incluya también la firma de la
+                          pareja.
+                        </li>
+                        <li className="flex gap-3">
+                          <ScanLine className="mt-1 size-4 shrink-0 text-violet-700 dark:text-violet-200" />
+                          Escanee todas las páginas ya firmadas en un único PDF
+                          legible para subirlo en el próximo paso.
+                        </li>
+                      </ol>
+                      <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-100">
+                        No suba la plantilla sin completar o sin firmar. Antes
+                        de continuar, compruebe que todos los datos y firmas se
+                        lean con claridad.
                       </p>
-                      <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                        {CONSENT_REVIEW_EXPLANATION}
-                      </p>
-                      <Button className="mt-5" variant="outline" asChild>
-                        <a
-                          href={CONSENT_TEMPLATE_URL}
-                          download="consentimiento-informado-2pq.pdf"
-                        >
-                          <Download className="size-4" />
-                          Descargar plantilla de consentimiento
-                        </a>
-                      </Button>
                     </div>
                   </div>
                 </div>
+              ) : null}
 
-                <ol
-                  aria-label="Pasos para cargar un consentimiento firmado manualmente"
-                  className="grid gap-3 sm:grid-cols-3"
-                >
-                  {[
-                    "Descargar la plantilla",
-                    "Imprimir, completar y firmar",
-                    "Escanear y subir el archivo",
-                  ].map((label, index) => (
-                    <li
-                      key={label}
-                      className={cn(
-                        "rounded-xl border p-4 text-sm leading-5",
-                        index === 0
-                          ? "border-violet-300 bg-violet-50 font-semibold text-violet-950 dark:border-violet-500/40 dark:bg-violet-400/10 dark:text-violet-50"
-                          : "border-border/70 bg-background/55 text-muted-foreground",
-                      )}
-                    >
-                      <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em]">
-                        Paso manual {index + 1}
-                      </span>
-                      {label}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            ) : null}
-
-            {activeStepId === "direct-sign" ? (
-              <div className="max-w-3xl rounded-xl border border-violet-200 bg-white/78 p-6 shadow-sm dark:border-violet-400/20 dark:bg-slate-950/42">
-                <div className="flex items-start gap-4">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-base font-bold text-violet-800 dark:bg-violet-400/16 dark:text-violet-100">
-                    2
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="font-heading text-xl font-semibold text-foreground">
-                      Imprima, complete y firme la plantilla
-                    </h2>
-                    <ol className="mt-4 space-y-3 text-sm leading-6 text-foreground">
-                      <li className="flex gap-3">
-                        <Printer className="mt-1 size-4 shrink-0 text-violet-700 dark:text-violet-200" />
-                        Imprima todas las páginas de la plantilla descargada.
-                      </li>
-                      <li className="flex gap-3">
-                        <PenLine className="mt-1 size-4 shrink-0 text-violet-700 dark:text-violet-200" />
-                        Complete los datos requeridos y firme a mano donde
-                        corresponda. Si aplica, incluya también la firma de la
-                        pareja.
-                      </li>
-                      <li className="flex gap-3">
-                        <ScanLine className="mt-1 size-4 shrink-0 text-violet-700 dark:text-violet-200" />
-                        Escanee todas las páginas ya firmadas en un único PDF
-                        legible para subirlo en el próximo paso.
-                      </li>
-                    </ol>
-                    <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-100">
-                      No suba la plantilla sin completar o sin firmar. Antes de
-                      continuar, compruebe que todos los datos y firmas se lean
-                      con claridad.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {activeStepId === "data" ? (
-              <div className="max-w-3xl space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="consent-patient-name">
-                    Nombre y apellido del paciente
-                  </Label>
-                  <Input
-                    id="consent-patient-name"
-                    value={patientName}
-                    required
-                    aria-invalid={Boolean(patientNameError)}
-                    aria-describedby={
-                      patientNameError
-                        ? "consent-patient-name-error"
-                        : undefined
-                    }
-                    onChange={(event) => {
-                      setPatientName(event.target.value);
-                      setPatientNameError("");
-                      invalidateAfter();
-                    }}
-                  />
-                  {patientNameError ? (
-                    <p
-                      id="consent-patient-name-error"
-                      className="text-sm font-medium text-destructive"
-                    >
-                      {patientNameError}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="consent-patient-document">
-                    Documento del paciente
-                  </Label>
-                  <Input
-                    id="consent-patient-document"
-                    value={patientDocument}
-                    required
-                    maxLength={40}
-                    placeholder="DNI o pasaporte"
-                    aria-invalid={Boolean(patientDocumentError)}
-                    aria-describedby={
-                      patientDocumentError
-                        ? "consent-patient-document-error"
-                        : undefined
-                    }
-                    onChange={(event) => {
-                      setPatientDocument(event.target.value);
-                      setPatientDocumentError("");
-                      invalidateAfter();
-                    }}
-                  />
-                  {patientDocumentError ? (
-                    <p
-                      id="consent-patient-document-error"
-                      className="text-sm font-medium text-destructive"
-                    >
-                      {patientDocumentError}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="consent-signature-date">Fecha de firma</Label>
-                  <Input
-                    id="consent-signature-date"
-                    type="date"
-                    value={signatureDate}
-                    required
-                    aria-invalid={Boolean(signatureDateError)}
-                    aria-describedby={
-                      signatureDateError
-                        ? "consent-signature-date-error"
-                        : undefined
-                    }
-                    onChange={(event) => {
-                      setSignatureDate(event.target.value);
-                      setSignatureDateError("");
-                      invalidateAfter();
-                    }}
-                  />
-                  {signatureDateError ? (
-                    <p
-                      id="consent-signature-date-error"
-                      className="text-sm font-medium text-destructive"
-                    >
-                      {signatureDateError}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="rounded-xl border border-border/70 bg-background/60 p-4">
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      id="consent-has-partner"
-                      checked={hasPartner}
-                      onCheckedChange={(checked) => {
-                        const nextHasPartner = checked === true;
-                        setHasPartner(nextHasPartner);
-                        setPartnerNameError("");
-                        if (!nextHasPartner) {
-                          setPartnerName("");
-                          setPartnerSignatureDataUrl(null);
-                          setPartnerSignatureMethod(null);
-                          setPartnerPlacement(INITIAL_PARTNER_PLACEMENT);
-                          setSelectedRole("patient");
-                        }
+              {activeStepId === "data" ? (
+                <div className="max-w-3xl space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="consent-patient-name">
+                      Nombre y apellido del paciente
+                    </Label>
+                    <Input
+                      id="consent-patient-name"
+                      value={patientName}
+                      required
+                      aria-invalid={Boolean(patientNameError)}
+                      aria-describedby={
+                        patientNameError
+                          ? "consent-patient-name-error"
+                          : undefined
+                      }
+                      onChange={(event) => {
+                        setPatientName(event.target.value);
+                        setPatientNameError("");
                         invalidateAfter();
                       }}
+                      onBlur={flushCurrentDraftOnBlur}
                     />
-                    <Label
-                      htmlFor="consent-has-partner"
-                      className="cursor-pointer leading-5"
-                    >
-                      El consentimiento también será firmado por la pareja
-                    </Label>
+                    {patientNameError ? (
+                      <p
+                        id="consent-patient-name-error"
+                        className="text-sm font-medium text-destructive"
+                      >
+                        {patientNameError}
+                      </p>
+                    ) : null}
                   </div>
 
-                  {hasPartner ? (
-                    <div className="mt-4 space-y-2">
-                      <Label htmlFor="consent-partner-name">
-                        Nombre y apellido de la pareja
-                      </Label>
-                      <Input
-                        id="consent-partner-name"
-                        value={partnerName}
-                        required
-                        aria-invalid={Boolean(partnerNameError)}
-                        aria-describedby={
-                          partnerNameError
-                            ? "consent-partner-name-error"
-                            : undefined
-                        }
-                        onChange={(event) => {
-                          setPartnerName(event.target.value);
+                  <div className="space-y-2">
+                    <Label htmlFor="consent-patient-document">
+                      Documento del paciente
+                    </Label>
+                    <Input
+                      id="consent-patient-document"
+                      value={patientDocument}
+                      required
+                      maxLength={40}
+                      placeholder="DNI o pasaporte"
+                      aria-invalid={Boolean(patientDocumentError)}
+                      aria-describedby={
+                        patientDocumentError
+                          ? "consent-patient-document-error"
+                          : undefined
+                      }
+                      onChange={(event) => {
+                        setPatientDocument(event.target.value);
+                        setPatientDocumentError("");
+                        invalidateAfter();
+                      }}
+                      onBlur={flushCurrentDraftOnBlur}
+                    />
+                    {patientDocumentError ? (
+                      <p
+                        id="consent-patient-document-error"
+                        className="text-sm font-medium text-destructive"
+                      >
+                        {patientDocumentError}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="consent-signature-date">
+                      Fecha de firma
+                    </Label>
+                    <Input
+                      id="consent-signature-date"
+                      type="date"
+                      value={signatureDate}
+                      required
+                      aria-invalid={Boolean(signatureDateError)}
+                      aria-describedby={
+                        signatureDateError
+                          ? "consent-signature-date-error"
+                          : undefined
+                      }
+                      onChange={(event) => {
+                        setSignatureDate(event.target.value);
+                        setSignatureDateError("");
+                        invalidateAfter();
+                      }}
+                      onBlur={flushCurrentDraftOnBlur}
+                    />
+                    {signatureDateError ? (
+                      <p
+                        id="consent-signature-date-error"
+                        className="text-sm font-medium text-destructive"
+                      >
+                        {signatureDateError}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-xl border border-border/70 bg-background/60 p-4">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="consent-has-partner"
+                        checked={hasPartner}
+                        onCheckedChange={(checked) => {
+                          const nextHasPartner = checked === true;
+                          setHasPartner(nextHasPartner);
                           setPartnerNameError("");
-                          setPartnerSignatureDataUrl(null);
-                          setPartnerSignatureMethod(null);
-                          setPartnerPlacement(INITIAL_PARTNER_PLACEMENT);
+                          if (!nextHasPartner) {
+                            setPartnerName("");
+                            setPartnerSignatureDataUrl(null);
+                            setPartnerSignatureMethod(null);
+                            setPartnerPlacement(INITIAL_PARTNER_PLACEMENT);
+                            setSelectedRole("patient");
+                          }
                           invalidateAfter();
                         }}
                       />
-                      {partnerNameError ? (
-                        <p
-                          id="consent-partner-name-error"
-                          className="text-sm font-medium text-destructive"
-                        >
-                          {partnerNameError}
-                        </p>
-                      ) : null}
+                      <Label
+                        htmlFor="consent-has-partner"
+                        className="cursor-pointer leading-5"
+                      >
+                        El consentimiento también será firmado por la pareja
+                      </Label>
                     </div>
-                  ) : null}
+
+                    {hasPartner ? (
+                      <div className="mt-4 space-y-2">
+                        <Label htmlFor="consent-partner-name">
+                          Nombre y apellido de la pareja
+                        </Label>
+                        <Input
+                          id="consent-partner-name"
+                          value={partnerName}
+                          required
+                          aria-invalid={Boolean(partnerNameError)}
+                          aria-describedby={
+                            partnerNameError
+                              ? "consent-partner-name-error"
+                              : undefined
+                          }
+                          onChange={(event) => {
+                            setPartnerName(event.target.value);
+                            setPartnerNameError("");
+                            setPartnerSignatureDataUrl(null);
+                            setPartnerSignatureMethod(null);
+                            setPartnerPlacement(INITIAL_PARTNER_PLACEMENT);
+                            invalidateAfter();
+                          }}
+                          onBlur={flushCurrentDraftOnBlur}
+                        />
+                        {partnerNameError ? (
+                          <p
+                            id="consent-partner-name-error"
+                            className="text-sm font-medium text-destructive"
+                          >
+                            {partnerNameError}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
 
-            {activeStepId === "signature" ? (
-              <div className="max-w-4xl space-y-5">
-                <div
-                  className={cn("grid gap-5", hasPartner && "lg:grid-cols-2")}
-                >
-                  <section className="space-y-3 rounded-xl border border-border/70 bg-background/60 p-4">
-                    <div>
-                      <h4 className="font-semibold">Firma del paciente</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {patientName.trim()}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Documento: {patientDocument.trim()}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Fecha de firma: {formattedSignatureDate}
-                      </p>
-                    </div>
-                    <SignatureMethodField
-                      signerLabel="del paciente"
-                      value={patientSignatureDataUrl}
-                      method={patientSignatureMethod}
-                      savedSignature={reusableSavedSignature}
-                      onMethodChange={(nextMethod) =>
-                        changeSignatureMethod("patient", nextMethod)
-                      }
-                      onComplete={(nextValue, nextMethod) =>
-                        completeSignatureMethod(
-                          "patient",
-                          nextValue,
-                          nextMethod,
-                        )
-                      }
-                    />
-                  </section>
-
-                  {hasPartner ? (
+              {activeStepId === "signature" ? (
+                <div className="max-w-4xl space-y-5">
+                  <div
+                    className={cn("grid gap-5", hasPartner && "lg:grid-cols-2")}
+                  >
                     <section className="space-y-3 rounded-xl border border-border/70 bg-background/60 p-4">
                       <div>
-                        <h4 className="font-semibold">Firma de la pareja</h4>
+                        <h4 className="font-semibold">Firma del paciente</h4>
                         <p className="text-sm text-muted-foreground">
-                          {partnerName.trim()}
+                          {patientName.trim()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Documento: {patientDocument.trim()}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Fecha de firma: {formattedSignatureDate}
                         </p>
                       </div>
                       <SignatureMethodField
-                        signerLabel="de la pareja"
-                        value={partnerSignatureDataUrl}
-                        method={partnerSignatureMethod}
+                        signerLabel="del paciente"
+                        value={patientSignatureDataUrl}
+                        method={patientSignatureMethod}
+                        savedSignature={reusableSavedSignature}
                         onMethodChange={(nextMethod) =>
-                          changeSignatureMethod("partner", nextMethod)
+                          changeSignatureMethod("patient", nextMethod)
                         }
                         onComplete={(nextValue, nextMethod) =>
                           completeSignatureMethod(
-                            "partner",
+                            "patient",
                             nextValue,
                             nextMethod,
                           )
                         }
                       />
                     </section>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
 
-            {activeStepId === "editor" && signaturesComplete ? (
-              <div className="space-y-5">
-                <div className="flex flex-wrap gap-2">
+                    {hasPartner ? (
+                      <section className="space-y-3 rounded-xl border border-border/70 bg-background/60 p-4">
+                        <div>
+                          <h4 className="font-semibold">Firma de la pareja</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {partnerName.trim()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Fecha de firma: {formattedSignatureDate}
+                          </p>
+                        </div>
+                        <SignatureMethodField
+                          signerLabel="de la pareja"
+                          value={partnerSignatureDataUrl}
+                          method={partnerSignatureMethod}
+                          onMethodChange={(nextMethod) =>
+                            changeSignatureMethod("partner", nextMethod)
+                          }
+                          onComplete={(nextValue, nextMethod) =>
+                            completeSignatureMethod(
+                              "partner",
+                              nextValue,
+                              nextMethod,
+                            )
+                          }
+                        />
+                      </section>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeStepId === "editor" ? (
+                signaturesComplete && signerDataComplete ? (
+                  <div className="space-y-5">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant={
+                          selectedRole === "patient" ? "default" : "outline"
+                        }
+                        onClick={() => setSelectedRole("patient")}
+                      >
+                        Firma del paciente
+                      </Button>
+                      {hasPartner ? (
+                        <Button
+                          type="button"
+                          variant={
+                            selectedRole === "partner" ? "default" : "outline"
+                          }
+                          onClick={() => setSelectedRole("partner")}
+                        >
+                          Firma de la pareja
+                        </Button>
+                      ) : null}
+                    </div>
+                    <p className="text-sm font-semibold text-muted-foreground">
+                      Última página · Página{" "}
+                      {CONSENT_TEMPLATE_LAST_PAGE_INDEX + 1} de{" "}
+                      {CONSENT_TEMPLATE_PREVIEW_URLS.length}
+                    </p>
+                    <SignaturePagePreview
+                      pageIndex={CONSENT_TEMPLATE_LAST_PAGE_INDEX}
+                      signatures={previewSignatures}
+                      selectedRole={selectedRole}
+                      editable
+                      onPlacementChange={updatePlacement}
+                      onSelectRole={setSelectedRole}
+                    />
+                  </div>
+                ) : (
+                  <ConsentStepPrerequisite
+                    title="Todavía faltan datos para aplicar las firmas"
+                    description={
+                      !signerDataComplete
+                        ? "Complete los datos de quienes firman antes de preparar el documento final. Puede volver a este paso desde la barra lateral en cualquier momento."
+                        : "Prepare todas las firmas requeridas antes de ubicarlas sobre la última página del consentimiento."
+                    }
+                    actionLabel={
+                      !signerDataComplete
+                        ? "Completar datos"
+                        : "Preparar firmas"
+                    }
+                    onAction={() =>
+                      navigateToStep(
+                        !signerDataComplete ? "data" : "signature",
+                        {
+                          announce: false,
+                        },
+                      )
+                    }
+                  />
+                )
+              ) : null}
+
+              {activeStepId === "preview" ? (
+                signaturesComplete && signerDataComplete && signedFile ? (
+                  <div className="space-y-5">
+                    <div className="grid gap-6 xl:grid-cols-2">
+                      {CONSENT_TEMPLATE_PREVIEW_URLS.map((_, pageIndex) => (
+                        <div key={pageIndex} className="space-y-2">
+                          <p className="text-sm font-semibold">
+                            Página {pageIndex + 1}
+                          </p>
+                          <SignaturePagePreview
+                            pageIndex={pageIndex}
+                            signatures={previewSignatures}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <section className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-blue-200 bg-[linear-gradient(145deg,rgba(239,246,255,0.98),rgba(236,254,255,0.76))] shadow-[0_24px_70px_-48px_rgba(37,99,235,0.82)] dark:border-blue-400/24 dark:bg-[linear-gradient(145deg,rgba(30,58,138,0.34),rgba(8,47,73,0.26))]">
+                      <div className="flex items-start gap-3 border-b border-blue-200/70 px-5 py-4 dark:border-blue-300/16">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-[0_12px_30px_rgba(37,99,235,0.28)]">
+                          <LockKeyhole className="size-5" />
+                        </span>
+                        <div>
+                          <h2 className="font-heading text-xl font-semibold text-blue-950 dark:text-blue-50">
+                            Confirmación legal de identidad y firma
+                          </h2>
+                          <p className="mt-1 text-sm leading-6 text-blue-900/70 dark:text-blue-50/70">
+                            Revise el documento completo. Esta aceptación
+                            cerrará y enviará el consentimiento informado
+                            firmado.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-4 p-5">
+                        {isBackoffice ? (
+                          <div className="flex items-start gap-3 rounded-xl border border-amber-300/70 bg-amber-50/90 p-4 text-sm leading-6 text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-50">
+                            <UserRound className="mt-0.5 size-4 shrink-0" />
+                            <p>
+                              Entregue el control de este dispositivo a{" "}
+                              <strong>{patientName.trim()}</strong>. La
+                              declaración y la aceptación final deben ser
+                              realizadas personalmente por quien se realizará el
+                              estudio.
+                            </p>
+                          </div>
+                        ) : null}
+                        <div className="flex items-start gap-3 rounded-xl border border-blue-300/70 bg-white/86 p-4 dark:border-blue-300/20 dark:bg-blue-950/42">
+                          <Checkbox
+                            id="consent-legal-attestation"
+                            required
+                            aria-required="true"
+                            disabled={saving}
+                            checked={legalAttestationAccepted}
+                            onCheckedChange={(checked) =>
+                              setLegalAttestationAccepted(checked === true)
+                            }
+                            className="mt-1 size-5 border-blue-400 data-checked:border-blue-600 data-checked:bg-blue-600 dark:data-checked:bg-blue-500"
+                          />
+                          <Label
+                            htmlFor="consent-legal-attestation"
+                            className="cursor-pointer text-sm leading-6 text-blue-950 dark:text-blue-50"
+                          >
+                            Declaro, bajo mi responsabilidad, que soy la persona
+                            a quien se realizará este estudio, que la firma
+                            incorporada en el documento me pertenece y expresa
+                            mi voluntad, y que esta aceptación constituye una
+                            firma electrónica vinculante del consentimiento
+                            informado.
+                          </Label>
+                        </div>
+                        {!legalAttestationAccepted ? (
+                          <p className="flex items-center gap-2 text-xs font-medium text-blue-800 dark:text-blue-100/78">
+                            <ShieldCheck className="size-4" />
+                            Marque la declaración para habilitar el envío final.
+                          </p>
+                        ) : (
+                          <p className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
+                            <CheckCircle2 className="size-4" />
+                            Identidad y voluntad confirmadas para el cierre.
+                          </p>
+                        )}
+                      </div>
+                    </section>
+                  </div>
+                ) : (
+                  <ConsentStepPrerequisite
+                    title="Prepare el documento antes de revisarlo"
+                    description={
+                      !signerDataComplete
+                        ? "Complete los datos de quienes firman para poder generar una vista previa válida."
+                        : !signaturesComplete
+                          ? "Prepare todas las firmas antes de generar el consentimiento firmado."
+                          : "Aplique las firmas al PDF para reconstruir la vista previa final. El PDF generado no se almacena dentro del borrador."
+                    }
+                    actionLabel={
+                      !signerDataComplete
+                        ? "Completar datos"
+                        : !signaturesComplete
+                          ? "Preparar firmas"
+                          : "Aplicar firmas al PDF"
+                    }
+                    onAction={() =>
+                      navigateToStep(
+                        !signerDataComplete
+                          ? "data"
+                          : !signaturesComplete
+                            ? "signature"
+                            : "editor",
+                        { announce: false },
+                      )
+                    }
+                  />
+                )
+              ) : null}
+
+              {activeStepId === "direct-upload" ? (
+                <div className="max-w-3xl space-y-5">
+                  {restoredDraft?.mode === "direct" && !directFile ? (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm leading-6 text-amber-950 dark:border-amber-400/24 dark:bg-amber-950/20 dark:text-amber-100">
+                      Por seguridad, los archivos elegidos no se guardan dentro
+                      del borrador. Seleccione nuevamente el consentimiento
+                      firmado para continuar.
+                    </div>
+                  ) : null}
+                  <div className="flex items-start gap-4 rounded-xl border border-violet-200 bg-white/78 p-6 shadow-sm dark:border-violet-400/20 dark:bg-slate-950/42">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-base font-bold text-violet-800 dark:bg-violet-400/16 dark:text-violet-100">
+                      3
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="font-heading text-xl font-semibold text-foreground">
+                        Suba el documento completo y firmado
+                      </h2>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        El archivo debe mostrar todas las páginas, los datos
+                        completos y las firmas manuscritas con buena
+                        legibilidad.
+                      </p>
+                    </div>
+                  </div>
+                  <SingleFileUpload
+                    id={`${surface}-direct-consent-file`}
+                    label="Consentimiento firmado"
+                    value={directFile}
+                    onChange={(file) => {
+                      setDirectFile(file);
+                      setDirectFileError("");
+                      invalidateAfter();
+                    }}
+                    onError={setDirectFileError}
+                    error={directFileError}
+                    uploadLabel="Elegir escaneo o archivo"
+                    removeLabel="Quitar archivo"
+                    emptyLabel="Sin archivo seleccionado"
+                    invalidTypeMessage="Seleccione un PDF o una imagen compatible."
+                    tooLargeMessage="El archivo seleccionado supera los 750 KB."
+                    readErrorMessage="No se pudo leer el archivo seleccionado."
+                    helperText="Un único PDF con todas las páginas o una imagen completa y legible. Máximo 750 KB."
+                  />
+                </div>
+              ) : null}
+            </div>
+
+            <div className="sticky bottom-0 z-20 mt-6 border-t border-violet-100 bg-background/94 py-4 backdrop-blur dark:border-violet-400/16">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {activeStepId === "method" ? (
+                  <Button variant="outline" asChild>
+                    <Link
+                      href={
+                        isBackoffice
+                          ? "/2pq-dashboard/consents"
+                          : "/patient-portal/consents"
+                      }
+                    >
+                      <ArrowLeft className="size-4" />
+                      Volver a consentimientos
+                    </Link>
+                  </Button>
+                ) : (
                   <Button
                     type="button"
-                    variant={selectedRole === "patient" ? "default" : "outline"}
-                    onClick={() => setSelectedRole("patient")}
-                  >
-                    Firma del paciente
-                  </Button>
-                  {hasPartner ? (
-                    <Button
-                      type="button"
-                      variant={
-                        selectedRole === "partner" ? "default" : "outline"
-                      }
-                      onClick={() => setSelectedRole("partner")}
-                    >
-                      Firma de la pareja
-                    </Button>
-                  ) : null}
-                </div>
-                <p className="text-sm font-semibold text-muted-foreground">
-                  Última página · Página {CONSENT_TEMPLATE_LAST_PAGE_INDEX + 1}{" "}
-                  de {CONSENT_TEMPLATE_PREVIEW_URLS.length}
-                </p>
-                <SignaturePagePreview
-                  pageIndex={CONSENT_TEMPLATE_LAST_PAGE_INDEX}
-                  signatures={previewSignatures}
-                  selectedRole={selectedRole}
-                  editable
-                  onPlacementChange={updatePlacement}
-                  onSelectRole={setSelectedRole}
-                />
-              </div>
-            ) : null}
-
-            {activeStepId === "preview" && signaturesComplete && signedFile ? (
-              <div className="space-y-5">
-                <div className="grid gap-6 xl:grid-cols-2">
-                  {CONSENT_TEMPLATE_PREVIEW_URLS.map((_, pageIndex) => (
-                    <div key={pageIndex} className="space-y-2">
-                      <p className="text-sm font-semibold">
-                        Página {pageIndex + 1}
-                      </p>
-                      <SignaturePagePreview
-                        pageIndex={pageIndex}
-                        signatures={previewSignatures}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <section className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-blue-200 bg-[linear-gradient(145deg,rgba(239,246,255,0.98),rgba(236,254,255,0.76))] shadow-[0_24px_70px_-48px_rgba(37,99,235,0.82)] dark:border-blue-400/24 dark:bg-[linear-gradient(145deg,rgba(30,58,138,0.34),rgba(8,47,73,0.26))]">
-                  <div className="flex items-start gap-3 border-b border-blue-200/70 px-5 py-4 dark:border-blue-300/16">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-[0_12px_30px_rgba(37,99,235,0.28)]">
-                      <LockKeyhole className="size-5" />
-                    </span>
-                    <div>
-                      <h2 className="font-heading text-xl font-semibold text-blue-950 dark:text-blue-50">
-                        Confirmación legal de identidad y firma
-                      </h2>
-                      <p className="mt-1 text-sm leading-6 text-blue-900/70 dark:text-blue-50/70">
-                        Revise el documento completo. Esta aceptación cerrará y
-                        enviará el consentimiento informado firmado.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-4 p-5">
-                    {isBackoffice ? (
-                      <div className="flex items-start gap-3 rounded-xl border border-amber-300/70 bg-amber-50/90 p-4 text-sm leading-6 text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-50">
-                        <UserRound className="mt-0.5 size-4 shrink-0" />
-                        <p>
-                          Entregue el control de este dispositivo a{" "}
-                          <strong>{patientName.trim()}</strong>. La declaración
-                          y la aceptación final deben ser realizadas
-                          personalmente por quien se realizará el estudio.
-                        </p>
-                      </div>
-                    ) : null}
-                    <div className="flex items-start gap-3 rounded-xl border border-blue-300/70 bg-white/86 p-4 dark:border-blue-300/20 dark:bg-blue-950/42">
-                      <Checkbox
-                        id="consent-legal-attestation"
-                        required
-                        aria-required="true"
-                        checked={legalAttestationAccepted}
-                        onCheckedChange={(checked) =>
-                          setLegalAttestationAccepted(checked === true)
-                        }
-                        className="mt-1 size-5 border-blue-400 data-checked:border-blue-600 data-checked:bg-blue-600 dark:data-checked:bg-blue-500"
-                      />
-                      <Label
-                        htmlFor="consent-legal-attestation"
-                        className="cursor-pointer text-sm leading-6 text-blue-950 dark:text-blue-50"
-                      >
-                        Declaro, bajo mi responsabilidad, que soy la persona a
-                        quien se realizará este estudio, que la firma
-                        incorporada en el documento me pertenece y expresa mi
-                        voluntad, y que esta aceptación constituye una firma
-                        electrónica vinculante del consentimiento informado.
-                      </Label>
-                    </div>
-                    {!legalAttestationAccepted ? (
-                      <p className="flex items-center gap-2 text-xs font-medium text-blue-800 dark:text-blue-100/78">
-                        <ShieldCheck className="size-4" />
-                        Marque la declaración para habilitar el envío final.
-                      </p>
-                    ) : (
-                      <p className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
-                        <CheckCircle2 className="size-4" />
-                        Identidad y voluntad confirmadas para el cierre.
-                      </p>
-                    )}
-                  </div>
-                </section>
-              </div>
-            ) : null}
-
-            {activeStepId === "direct-upload" ? (
-              <div className="max-w-3xl space-y-5">
-                <div className="flex items-start gap-4 rounded-xl border border-violet-200 bg-white/78 p-6 shadow-sm dark:border-violet-400/20 dark:bg-slate-950/42">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-base font-bold text-violet-800 dark:bg-violet-400/16 dark:text-violet-100">
-                    3
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="font-heading text-xl font-semibold text-foreground">
-                      Suba el documento completo y firmado
-                    </h2>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      El archivo debe mostrar todas las páginas, los datos
-                      completos y las firmas manuscritas con buena legibilidad.
-                    </p>
-                  </div>
-                </div>
-                <SingleFileUpload
-                  id={`${surface}-direct-consent-file`}
-                  label="Consentimiento firmado"
-                  value={directFile}
-                  onChange={(file) => {
-                    setDirectFile(file);
-                    setDirectFileError("");
-                  }}
-                  onError={setDirectFileError}
-                  error={directFileError}
-                  uploadLabel="Elegir escaneo o archivo"
-                  removeLabel="Quitar archivo"
-                  emptyLabel="Sin archivo seleccionado"
-                  invalidTypeMessage="Seleccione un PDF o una imagen compatible."
-                  tooLargeMessage="El archivo seleccionado supera los 750 KB."
-                  readErrorMessage="No se pudo leer el archivo seleccionado."
-                  helperText="Un único PDF con todas las páginas o una imagen completa y legible. Máximo 750 KB."
-                />
-              </div>
-            ) : null}
-          </div>
-
-          <div className="sticky bottom-0 z-20 mt-6 border-t border-violet-100 bg-background/94 py-4 backdrop-blur dark:border-violet-400/16">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              {activeStepId === "method" ? (
-                <Button variant="outline" asChild>
-                  <Link
-                    href={
-                      isBackoffice
-                        ? "/2pq-dashboard/consents"
-                        : "/patient-portal/consents"
-                    }
+                    variant="outline"
+                    onClick={returnToPreviousStep}
                   >
                     <ArrowLeft className="size-4" />
-                    Volver a consentimientos
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={returnToPreviousStep}
-                >
-                  <ArrowLeft className="size-4" />
-                  Volver
-                </Button>
-              )}
-
-              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                {activeStepId === "destination" ? (
-                  <Button
-                    type="button"
-                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
-                    disabled={!destinationComplete || loadingCases}
-                    onClick={continueFromDestination}
-                  >
-                    Continuar
-                    <ArrowRight className="size-4" />
+                    Volver
                   </Button>
-                ) : null}
+                )}
 
-                {activeStepId === "download" ? (
-                  <Button
-                    type="button"
-                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
-                    onClick={() => goToStep("data")}
-                  >
-                    Continuar con los datos
-                    <ArrowRight className="size-4" />
-                  </Button>
-                ) : null}
-
-                {activeStepId === "data" ? (
-                  <Button
-                    type="button"
-                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
-                    onClick={continueFromNames}
-                  >
-                    Continuar para firmar
-                    <ArrowRight className="size-4" />
-                  </Button>
-                ) : null}
-
-                {activeStepId === "direct-download" ? (
-                  <Button
-                    type="button"
-                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
-                    onClick={() => goToStep("direct-sign")}
-                  >
-                    Ya descargué la plantilla
-                    <ArrowRight className="size-4" />
-                  </Button>
-                ) : null}
-
-                {activeStepId === "direct-sign" ? (
-                  <Button
-                    type="button"
-                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
-                    onClick={() => goToStep("direct-upload")}
-                  >
-                    Ya lo imprimí y firmé
-                    <ArrowRight className="size-4" />
-                  </Button>
-                ) : null}
-
-                {activeStepId === "signature" ? (
-                  <Button
-                    type="button"
-                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
-                    disabled={!signaturesComplete}
-                    onClick={() => goToStep("editor")}
-                  >
-                    Continuar al editor
-                    <ArrowRight className="size-4" />
-                  </Button>
-                ) : null}
-
-                {activeStepId === "editor" ? (
-                  <Button
-                    type="button"
-                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
-                    disabled={preparing || !signaturesComplete}
-                    onClick={() => void prepareSignedConsent()}
-                  >
-                    {preparing ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <FilePenLine className="size-4" />
-                    )}
-                    Aplicar firmas y continuar
-                    <ArrowRight className="size-4" />
-                  </Button>
-                ) : null}
-
-                {activeStepId === "preview" && signedFile ? (
-                  <>
-                    <Button variant="outline" asChild>
-                      <a href={signedFile.content} download={signedFile.name}>
-                        <Download className="size-4" />
-                        Descargar PDF firmado
-                      </a>
-                    </Button>
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                  {activeStepId === "destination" ? (
                     <Button
                       type="button"
-                      className="h-14 min-w-[18rem] rounded-xl bg-blue-600 px-8 text-base font-semibold text-white shadow-[0_18px_44px_rgba(37,99,235,0.3)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-[0_22px_52px_rgba(37,99,235,0.38)] disabled:translate-y-0 disabled:bg-blue-300 disabled:shadow-none dark:disabled:bg-blue-900/60"
-                      disabled={saving || !legalAttestationAccepted}
-                      onClick={() => void uploadConsent(signedFile, "guided")}
+                      className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                      disabled={!destinationComplete || loadingCases}
+                      onClick={continueFromDestination}
+                    >
+                      Continuar
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  ) : null}
+
+                  {activeStepId === "download" ? (
+                    <Button
+                      type="button"
+                      className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                      onClick={() => navigateToStep("data")}
+                    >
+                      Continuar con los datos
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  ) : null}
+
+                  {activeStepId === "data" ? (
+                    <Button
+                      type="button"
+                      className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                      onClick={continueFromNames}
+                    >
+                      Continuar para firmar
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  ) : null}
+
+                  {activeStepId === "direct-download" ? (
+                    <Button
+                      type="button"
+                      className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                      onClick={() => navigateToStep("direct-sign")}
+                    >
+                      Ya descargué la plantilla
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  ) : null}
+
+                  {activeStepId === "direct-sign" ? (
+                    <Button
+                      type="button"
+                      className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                      onClick={() => navigateToStep("direct-upload")}
+                    >
+                      Ya lo imprimí y firmé
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  ) : null}
+
+                  {activeStepId === "signature" ? (
+                    <Button
+                      type="button"
+                      className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                      disabled={!signaturesComplete}
+                      onClick={() => navigateToStep("editor")}
+                    >
+                      Continuar al editor
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  ) : null}
+
+                  {activeStepId === "editor" ? (
+                    <Button
+                      type="button"
+                      className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                      disabled={preparing || !signaturesComplete}
+                      onClick={() => void prepareSignedConsent()}
+                    >
+                      {preparing ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <FilePenLine className="size-4" />
+                      )}
+                      Aplicar firmas y continuar
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  ) : null}
+
+                  {activeStepId === "preview" && signedFile ? (
+                    <>
+                      <Button variant="outline" asChild>
+                        <a href={signedFile.content} download={signedFile.name}>
+                          <Download className="size-4" />
+                          Descargar PDF firmado
+                        </a>
+                      </Button>
+                      <Button
+                        type="button"
+                        className="h-14 min-w-[18rem] rounded-xl bg-blue-600 px-8 text-base font-semibold text-white shadow-[0_18px_44px_rgba(37,99,235,0.3)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-[0_22px_52px_rgba(37,99,235,0.38)] disabled:translate-y-0 disabled:bg-blue-300 disabled:shadow-none dark:disabled:bg-blue-900/60"
+                        disabled={
+                          saving ||
+                          !legalAttestationAccepted ||
+                          draftSaveStatus === "conflict"
+                        }
+                        onClick={() => void uploadConsent(signedFile, "guided")}
+                      >
+                        {saving ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <ShieldCheck className="size-5" />
+                        )}
+                        Acepto la realización de este estudio
+                      </Button>
+                    </>
+                  ) : null}
+
+                  {activeStepId === "direct-upload" ? (
+                    <Button
+                      type="button"
+                      className="bg-emerald-600 text-white hover:bg-emerald-700"
+                      disabled={
+                        !directFile ||
+                        saving ||
+                        draftSaveStatus === "conflict" ||
+                        (isBackoffice && !destinationComplete)
+                      }
+                      onClick={() => void uploadConsent(directFile, "direct")}
                     >
                       {saving ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
-                        <ShieldCheck className="size-5" />
+                        <Upload className="size-4" />
                       )}
-                      Acepto la realización de este estudio
+                      Subir consentimiento
                     </Button>
-                  </>
-                ) : null}
-
-                {activeStepId === "direct-upload" ? (
-                  <Button
-                    type="button"
-                    className="bg-emerald-600 text-white hover:bg-emerald-700"
-                    disabled={
-                      !directFile ||
-                      saving ||
-                      (isBackoffice && !destinationComplete)
-                    }
-                    onClick={() => void uploadConsent(directFile, "direct")}
-                  >
-                    {saving ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Upload className="size-4" />
-                    )}
-                    Subir consentimiento
-                  </Button>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>

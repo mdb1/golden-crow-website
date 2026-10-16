@@ -12,8 +12,9 @@ import {
 import userEvent from "@testing-library/user-event";
 import { PatientConsentUploadWizard } from "@/components/patient-consent-upload-wizard";
 import { applySignaturesToConsentPdf } from "@/lib/consent-pdf";
+import type { InformedConsentDraftRecord } from "@/lib/informed-consents";
 import { processSignatureImageDataUrl } from "@/lib/signature-image";
-import { sdkFetch } from "@/lib/sdk-client";
+import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 
 const mockRouterPush = jest.fn();
 const mockRouterRefresh = jest.fn();
@@ -26,6 +27,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/lib/sdk-client", () => ({
+  ...jest.requireActual("@/lib/sdk-client"),
   sdkFetch: jest.fn(),
 }));
 
@@ -41,6 +43,40 @@ jest.mock("@/lib/consent-pdf", () => ({
 
 const TRANSPARENT_SIGNATURE_DATA_URL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNgYGAAAAAEAAEnNCcKAAAAAElFTkSuQmCC";
+
+function consentDraft(
+  overrides: Partial<InformedConsentDraftRecord> = {},
+): InformedConsentDraftRecord {
+  return {
+    id: "patient-uid",
+    collectionKey: "2pq-informed-consent-drafts",
+    schemaVersion: 1,
+    revision: 4,
+    patientId: "PAT-00001",
+    mode: "guided",
+    activeStepId: "data",
+    visitedStepIds: ["method", "download", "data"],
+    patientName: "Ada Paciente",
+    patientDocument: "31.234.567",
+    signatureDate: "2026-10-16",
+    hasPartner: false,
+    partnerName: "",
+    patientSignatureDataUrl: null,
+    partnerSignatureDataUrl: null,
+    patientSignatureMethod: null,
+    partnerSignatureMethod: null,
+    patientPlacement: { x: 0.72, y: 0.445, width: 0.16 },
+    partnerPlacement: { x: 0.72, y: 0.64, width: 0.16 },
+    selectedRole: "patient",
+    createdAt: "2026-10-16T10:00:00.000Z",
+    updatedAt: "2026-10-16T10:05:00.000Z",
+    createdByEmail: "ada@example.com",
+    createdByUid: "patient-uid",
+    updatedByEmail: "ada@example.com",
+    updatedByUid: "patient-uid",
+    ...overrides,
+  };
+}
 
 function expectActiveSidebarStep(name: string) {
   const sidebar = screen.getByTestId("consent-wizard-sidebar");
@@ -101,6 +137,40 @@ function signatureSection(name: "Firma del paciente" | "Firma de la pareja") {
   const section = screen.getByRole("heading", { name }).closest("section");
   expect(section).toBeInstanceOf(HTMLElement);
   return section as HTMLElement;
+}
+
+function mockPatientPortalSdk({
+  savedSignature = null,
+  uploadedConsentId,
+  uploadError,
+  draftRevision = 0,
+}: {
+  savedSignature?: string | null;
+  uploadedConsentId?: string;
+  uploadError?: Error;
+  draftRevision?: number;
+} = {}) {
+  let revision = draftRevision;
+  jest.mocked(sdkFetch).mockImplementation(((
+    path: string,
+    options?: RequestInit,
+  ) => {
+    if (path === "/2pq/informed-consents/draft") {
+      revision += 1;
+      return Promise.resolve({ draft: { revision } });
+    }
+    if (path === "/2pq/informed-consents/saved-signature") {
+      return Promise.resolve({ savedSignature });
+    }
+    if (path === "/2pq/informed-consents" && options?.method === "POST") {
+      return uploadError
+        ? Promise.reject(uploadError)
+        : Promise.resolve({
+            record: { id: uploadedConsentId ?? "CONSENT-PATIENT" },
+          });
+    }
+    return Promise.reject(new Error(`Unexpected SDK path: ${path}`));
+  }) as typeof sdkFetch);
 }
 
 describe("PatientConsentUploadWizard", () => {
@@ -200,6 +270,587 @@ describe("PatientConsentUploadWizard", () => {
       ),
     ).toBeVisible();
   });
+
+  it("keeps every guided sidebar step clickable and autosaves ordered revisions", async () => {
+    mockPatientPortalSdk();
+    const user = userEvent.setup();
+    render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
+
+    await chooseGuidedFlow(user);
+    const sidebar = screen.getByTestId("consent-wizard-sidebar");
+    expect(within(sidebar).getAllByRole("button")).toHaveLength(6);
+    for (const label of [
+      "Elegir cómo continuar",
+      "Descargar consentimiento",
+      "Datos de quienes firman",
+      "Preparar las firmas",
+      "Aplicar firmas al PDF",
+      "Revisar y subir",
+    ]) {
+      expect(
+        within(sidebar).getByRole("button", { name: label }),
+      ).toBeVisible();
+    }
+
+    await waitFor(() =>
+      expect(
+        jest
+          .mocked(sdkFetch)
+          .mock.calls.some(
+            ([path, options]) =>
+              path === "/2pq/informed-consents/draft" &&
+              options?.method === "PUT",
+          ),
+      ).toBe(true),
+    );
+    const firstDraftCall = jest
+      .mocked(sdkFetch)
+      .mock.calls.find(
+        ([path, options]) =>
+          path === "/2pq/informed-consents/draft" && options?.method === "PUT",
+      );
+    expect(JSON.parse(String(firstDraftCall?.[1]?.body))).toMatchObject({
+      expectedRevision: null,
+      mode: "guided",
+      activeStepId: "download",
+    });
+
+    await user.click(
+      within(sidebar).getByRole("button", { name: "Aplicar firmas al PDF" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Aplicar firmas al PDF" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", {
+        name: "Todavía faltan datos para aplicar las firmas",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Completar datos" }),
+    ).toBeEnabled();
+
+    await waitFor(() => {
+      const draftCalls = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path, options]) =>
+            path === "/2pq/informed-consents/draft" &&
+            options?.method === "PUT",
+        );
+      expect(draftCalls.length).toBeGreaterThanOrEqual(2);
+      expect(JSON.parse(String(draftCalls.at(-1)?.[1]?.body))).toMatchObject({
+        expectedRevision: 1,
+        activeStepId: "editor",
+        visitedStepIds: expect.arrayContaining([
+          "method",
+          "download",
+          "editor",
+        ]),
+      });
+    });
+
+    await user.click(
+      within(sidebar).getByRole("button", { name: "Datos de quienes firman" }),
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Documento del paciente" }),
+      "31.234.567",
+    );
+    await user.click(
+      within(sidebar).getByRole("button", { name: "Revisar y subir" }),
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: "Prepare el documento antes de revisarlo",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Preparar firmas" }),
+    ).toBeEnabled();
+    expect(
+      screen.queryByRole("checkbox", {
+        name: /Declaro, bajo mi responsabilidad/,
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(sidebar).getByRole("button", { name: "Datos de quienes firman" }),
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Documento del paciente" }),
+    ).toHaveValue("31.234.567");
+  });
+
+  it("uses the existing revision when a fresh flow deliberately replaces the single draft", async () => {
+    mockPatientPortalSdk({ draftRevision: 7 });
+    const user = userEvent.setup();
+    render(
+      <PatientConsentUploadWizard
+        initialPatientName="Flujo nuevo"
+        initialDraftRevision={7}
+      />,
+    );
+
+    expectActiveSidebarStep("Elegir cómo continuar");
+    expect(screen.queryByText("Ada Paciente")).not.toBeInTheDocument();
+    await chooseDirectFlow(user);
+
+    await waitFor(() => {
+      const draftCall = jest
+        .mocked(sdkFetch)
+        .mock.calls.find(
+          ([path, options]) =>
+            path === "/2pq/informed-consents/draft" &&
+            options?.method === "PUT",
+        );
+      expect(JSON.parse(String(draftCall?.[1]?.body))).toMatchObject({
+        expectedRevision: 7,
+        mode: "direct",
+        activeStepId: "direct-download",
+      });
+    });
+  });
+
+  it("restores draft data but rebuilds the generated PDF and legal acceptance", async () => {
+    mockPatientPortalSdk({
+      savedSignature: TRANSPARENT_SIGNATURE_DATA_URL,
+    });
+    const user = userEvent.setup();
+    render(
+      <PatientConsentUploadWizard
+        initialPatientName="Nombre anterior"
+        initialDraft={consentDraft({
+          activeStepId: "preview",
+          visitedStepIds: [
+            "method",
+            "download",
+            "data",
+            "signature",
+            "editor",
+            "preview",
+          ],
+          patientSignatureDataUrl: TRANSPARENT_SIGNATURE_DATA_URL,
+          patientSignatureMethod: "saved",
+          patientPlacement: { x: 0.4, y: 0.3, width: 0.2 },
+        })}
+      />,
+    );
+
+    expectActiveSidebarStep("Aplicar firmas al PDF");
+    expect(screen.getByText("Última página · Página 2 de 2")).toBeVisible();
+    expect(
+      screen.queryByRole("checkbox", {
+        name: /Declaro, bajo mi responsabilidad/,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Acepto la realización de este estudio",
+      }),
+    ).not.toBeInTheDocument();
+
+    const sidebar = screen.getByTestId("consent-wizard-sidebar");
+    await user.click(
+      within(sidebar).getByRole("button", { name: "Datos de quienes firman" }),
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Nombre y apellido del paciente" }),
+    ).toHaveValue("Ada Paciente");
+    expect(
+      screen.getByRole("textbox", { name: "Documento del paciente" }),
+    ).toHaveValue("31.234.567");
+    expect(screen.getByLabelText("Fecha de firma")).toHaveValue("2026-10-16");
+  });
+
+  it("restores a direct-upload draft without retaining the selected file", () => {
+    render(
+      <PatientConsentUploadWizard
+        initialDraft={consentDraft({
+          mode: "direct",
+          activeStepId: "direct-upload",
+          visitedStepIds: [
+            "method",
+            "direct-download",
+            "direct-sign",
+            "direct-upload",
+          ],
+        })}
+      />,
+    );
+
+    expectActiveSidebarStep("Subir el escaneo firmado");
+    expect(
+      screen.getByText(
+        /los archivos elegidos no se guardan dentro del borrador/i,
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("Sin archivo seleccionado")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Subir consentimiento" }),
+    ).toBeDisabled();
+  });
+
+  it("discards a generated PDF when sidebar navigation changes during preparation", async () => {
+    const originalFetch = global.fetch;
+    Object.defineProperty(global, "fetch", {
+      configurable: true,
+      value: jest.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () => new Uint8Array([37, 80, 68, 70]).buffer,
+      })),
+    });
+    let resolveGeneratedPdf: ((value: Uint8Array) => void) | undefined;
+    const generatedPdf = new Promise<Uint8Array>((resolve) => {
+      resolveGeneratedPdf = resolve;
+    });
+    jest.mocked(applySignaturesToConsentPdf).mockReturnValue(generatedPdf);
+    mockPatientPortalSdk();
+
+    try {
+      const user = userEvent.setup();
+      render(
+        <PatientConsentUploadWizard
+          initialDraft={consentDraft({
+            activeStepId: "editor",
+            visitedStepIds: [
+              "method",
+              "download",
+              "data",
+              "signature",
+              "editor",
+            ],
+            patientSignatureDataUrl: TRANSPARENT_SIGNATURE_DATA_URL,
+            patientSignatureMethod: "saved",
+          })}
+        />,
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Aplicar firmas y continuar" }),
+      );
+      await waitFor(() =>
+        expect(applySignaturesToConsentPdf).toHaveBeenCalledTimes(1),
+      );
+
+      const sidebar = screen.getByTestId("consent-wizard-sidebar");
+      await user.click(
+        within(sidebar).getByRole("button", {
+          name: "Datos de quienes firman",
+        }),
+      );
+
+      await act(async () => {
+        resolveGeneratedPdf?.(new Uint8Array([37, 80, 68, 70]));
+        await generatedPdf;
+      });
+
+      expectActiveSidebarStep("Datos de quienes firman");
+      expect(
+        screen.getByRole("textbox", { name: "Documento del paciente" }),
+      ).toHaveValue("31.234.567");
+      expect(
+        await screen.findByText(
+          /el contenido o el paso activo cambiaron mientras se preparaba el documento/i,
+        ),
+      ).toBeVisible();
+      expect(
+        screen.queryByRole("checkbox", {
+          name: /Declaro, bajo mi responsabilidad/,
+        }),
+      ).not.toBeInTheDocument();
+    } finally {
+      if (originalFetch) {
+        Object.defineProperty(global, "fetch", {
+          configurable: true,
+          value: originalFetch,
+        });
+      } else {
+        Reflect.deleteProperty(global, "fetch");
+      }
+    }
+  });
+
+  it("stops autosaving and final submission when the draft revision conflicts", async () => {
+    jest.mocked(sdkFetch).mockImplementation((async (path: string) => {
+      if (path === "/2pq/informed-consents/draft") {
+        throw new SdkRequestError({
+          status: 409,
+          method: "PUT",
+          path,
+          message: "Draft revision conflict",
+          details: "expected revision did not match",
+        });
+      }
+      throw new Error(`Unexpected SDK path: ${path}`);
+    }) as typeof sdkFetch);
+    const user = userEvent.setup();
+    render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
+
+    await chooseDirectFlow(user);
+
+    const draftStatus = await screen.findByTestId("consent-draft-save-status");
+    expect(draftStatus).toHaveAttribute("role", "alert");
+    expect(
+      within(draftStatus).getByText("El borrador cambió en otra sesión"),
+    ).toBeVisible();
+    expect(
+      within(draftStatus).getByRole("link", {
+        name: "Volver a consentimientos",
+      }),
+    ).toHaveAttribute("href", "/patient-portal/consents");
+    expect(screen.getByText(/elegí “Continuar desde borrador”/i)).toBeVisible();
+
+    const sidebar = screen.getByTestId("consent-wizard-sidebar");
+    await user.click(
+      within(sidebar).getByRole("button", {
+        name: "Subir el escaneo firmado",
+      }),
+    );
+    await user.upload(
+      screen.getByLabelText("Consentimiento firmado"),
+      new File(["signed"], "consent.pdf", { type: "application/pdf" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Subir consentimiento" }),
+    ).toBeDisabled();
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path, options]) =>
+            path === "/2pq/informed-consents/draft" &&
+            options?.method === "PUT",
+        ),
+    ).toHaveLength(1);
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.some(
+          ([path, options]) =>
+            path === "/2pq/informed-consents" && options?.method === "POST",
+        ),
+    ).toBe(false);
+  });
+
+  it("keeps a failed non-conflicting draft pending for a bounded lifecycle retry", async () => {
+    let draftCallCount = 0;
+    jest.mocked(sdkFetch).mockImplementation(((
+      path: string,
+      options?: RequestInit,
+    ) => {
+      if (
+        path === "/2pq/informed-consents/draft" &&
+        options?.method === "PUT"
+      ) {
+        draftCallCount += 1;
+        return draftCallCount === 1
+          ? Promise.reject(new Error("temporary draft outage"))
+          : Promise.resolve({ draft: { revision: 1 } });
+      }
+      return Promise.reject(new Error("Unexpected SDK path: " + path));
+    }) as typeof sdkFetch);
+    const user = userEvent.setup();
+    render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
+
+    await chooseDirectFlow(user);
+    const draftStatus = await screen.findByTestId("consent-draft-save-status");
+    await waitFor(() =>
+      expect(draftStatus).toHaveTextContent("No se pudo guardar el borrador"),
+    );
+    expect(draftCallCount).toBe(1);
+    const firstDraftBody = jest
+      .mocked(sdkFetch)
+      .mock.calls.find(
+        ([path, options]) =>
+          path === "/2pq/informed-consents/draft" && options?.method === "PUT",
+      )?.[1]?.body;
+
+    act(() => window.dispatchEvent(new Event("pagehide")));
+
+    await waitFor(() => expect(draftCallCount).toBe(2));
+    const draftCalls = jest
+      .mocked(sdkFetch)
+      .mock.calls.filter(
+        ([path, options]) =>
+          path === "/2pq/informed-consents/draft" && options?.method === "PUT",
+      );
+    expect(draftCalls[1]?.[1]?.body).toBe(firstDraftBody);
+    await waitFor(() =>
+      expect(draftStatus).toHaveTextContent(
+        "Borrador guardado automáticamente",
+      ),
+    );
+  });
+
+  it("locks all wizard navigation while the final submission is in flight", async () => {
+    let draftCallCount = 0;
+    let resolvePendingDraft: (() => void) | undefined;
+    let resolvePendingPost: (() => void) | undefined;
+    const pendingDraft = new Promise<void>((resolve) => {
+      resolvePendingDraft = resolve;
+    });
+    const pendingPost = new Promise<void>((resolve) => {
+      resolvePendingPost = resolve;
+    });
+    jest.mocked(sdkFetch).mockImplementation(((
+      path: string,
+      options?: RequestInit,
+    ) => {
+      if (
+        path === "/2pq/informed-consents/draft" &&
+        options?.method === "PUT"
+      ) {
+        draftCallCount += 1;
+        const response = { draft: { revision: draftCallCount } };
+        return draftCallCount === 3
+          ? pendingDraft.then(() => response)
+          : Promise.resolve(response);
+      }
+      if (path === "/2pq/informed-consents" && options?.method === "POST") {
+        return pendingPost.then(() => ({
+          record: { id: "CONSENT-LOCKED-SUBMISSION" },
+        }));
+      }
+      return Promise.reject(new Error(`Unexpected SDK path: ${path}`));
+    }) as typeof sdkFetch);
+    const user = userEvent.setup();
+    render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
+
+    await chooseDirectFlow(user);
+    await waitFor(() => expect(draftCallCount).toBe(1));
+    const sidebar = screen.getByTestId("consent-wizard-sidebar");
+    await user.click(
+      within(sidebar).getByRole("button", { name: "Imprimir y firmar" }),
+    );
+    await waitFor(() => expect(draftCallCount).toBe(2));
+    await user.click(
+      within(sidebar).getByRole("button", {
+        name: "Subir el escaneo firmado",
+      }),
+    );
+    await user.upload(
+      screen.getByLabelText("Consentimiento firmado"),
+      new File(["signed"], "consent.pdf", { type: "application/pdf" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Subir consentimiento" }),
+    );
+    await waitFor(() => expect(draftCallCount).toBe(3));
+
+    expect(screen.getByTestId("consent-final-submit-lock")).toBeVisible();
+    expect(screen.getByTestId("consent-wizard-interactions")).toHaveAttribute(
+      "inert",
+    );
+    expect(
+      within(sidebar).getByRole("button", { name: "Imprimir y firmar" }),
+    ).toBeDisabled();
+    await act(async () => {
+      resolvePendingDraft?.();
+      await pendingDraft;
+    });
+
+    await waitFor(() =>
+      expect(
+        jest
+          .mocked(sdkFetch)
+          .mock.calls.some(
+            ([path, options]) =>
+              path === "/2pq/informed-consents" && options?.method === "POST",
+          ),
+      ).toBe(true),
+    );
+    expect(
+      within(sidebar).getByRole("button", { name: "Imprimir y firmar" }),
+    ).toBeDisabled();
+
+    await act(async () => {
+      resolvePendingPost?.();
+      await pendingPost;
+    });
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith("/patient-portal/consents"),
+    );
+    expect(screen.queryByTestId("consent-final-submit-lock")).toBeNull();
+  });
+
+  it.each(["pagehide", "visibilitychange"] as const)(
+    "flushes the pending draft on %s without storing it locally",
+    async (lifecycleEvent) => {
+      const visibilitySpy =
+        lifecycleEvent === "visibilitychange"
+          ? jest
+              .spyOn(document, "visibilityState", "get")
+              .mockReturnValue("hidden")
+          : null;
+      mockPatientPortalSdk();
+      const user = userEvent.setup();
+      try {
+        render(
+          <PatientConsentUploadWizard initialPatientName="Ada Paciente" />,
+        );
+
+        await chooseGuidedFlow(user);
+        await waitFor(() => {
+          expect(
+            jest
+              .mocked(sdkFetch)
+              .mock.calls.filter(
+                ([path, options]) =>
+                  path === "/2pq/informed-consents/draft" &&
+                  options?.method === "PUT",
+              ),
+          ).toHaveLength(1);
+        });
+        const sidebar = screen.getByTestId("consent-wizard-sidebar");
+        await user.click(
+          within(sidebar).getByRole("button", {
+            name: "Datos de quienes firman",
+          }),
+        );
+        await waitFor(() => {
+          expect(
+            jest
+              .mocked(sdkFetch)
+              .mock.calls.filter(
+                ([path, options]) =>
+                  path === "/2pq/informed-consents/draft" &&
+                  options?.method === "PUT",
+              ),
+          ).toHaveLength(2);
+        });
+
+        fireEvent.change(
+          screen.getByRole("textbox", { name: "Documento del paciente" }),
+          { target: { value: "31.234.567" } },
+        );
+        act(() => {
+          const target = lifecycleEvent === "pagehide" ? window : document;
+          target.dispatchEvent(new Event(lifecycleEvent));
+        });
+
+        await waitFor(() => {
+          const draftCalls = jest
+            .mocked(sdkFetch)
+            .mock.calls.filter(
+              ([path, options]) =>
+                path === "/2pq/informed-consents/draft" &&
+                options?.method === "PUT",
+            );
+          expect(draftCalls).toHaveLength(3);
+          expect(
+            JSON.parse(String(draftCalls.at(-1)?.[1]?.body)),
+          ).toMatchObject({
+            patientDocument: "31.234.567",
+          });
+        });
+        expect(window.localStorage).toHaveLength(0);
+      } finally {
+        visibilitySpy?.mockRestore();
+      }
+    },
+  );
 
   it("only offers drag placement on the last PDF page", async () => {
     const context = {
@@ -1048,9 +1699,7 @@ describe("PatientConsentUploadWizard", () => {
   });
 
   it("guides patient direct uploads through download, manual signing, and scan upload", async () => {
-    jest.mocked(sdkFetch).mockResolvedValueOnce({
-      record: { id: "CONSENT-PATIENT" },
-    });
+    mockPatientPortalSdk({ uploadedConsentId: "CONSENT-PATIENT" });
     const user = userEvent.setup();
     render(<PatientConsentUploadWizard />);
 
@@ -1175,6 +1824,7 @@ describe("PatientConsentUploadWizard", () => {
       .mock.calls.find(([path]) => path === "/2pq/informed-consents");
     expect(JSON.parse(String(patientUploadCall?.[1]?.body))).toEqual({
       flowMode: "direct",
+      expectedDraftRevision: expect.any(Number),
       file: expect.objectContaining({
         name: "consentimiento.pdf",
         type: "application/pdf",
@@ -1755,12 +2405,10 @@ describe("PatientConsentUploadWizard", () => {
     jest
       .mocked(applySignaturesToConsentPdf)
       .mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
-    jest
-      .mocked(sdkFetch)
-      .mockResolvedValueOnce({
-        savedSignature: TRANSPARENT_SIGNATURE_DATA_URL,
-      })
-      .mockResolvedValueOnce({ record: { id: "CONSENT-GUIDED" } });
+    mockPatientPortalSdk({
+      savedSignature: TRANSPARENT_SIGNATURE_DATA_URL,
+      uploadedConsentId: "CONSENT-GUIDED",
+    });
 
     try {
       const user = userEvent.setup();
@@ -1854,10 +2502,19 @@ describe("PatientConsentUploadWizard", () => {
       const uploadCall = jest
         .mocked(sdkFetch)
         .mock.calls.find(([path]) => path === "/2pq/informed-consents");
-      expect(JSON.parse(String(uploadCall?.[1]?.body))).toMatchObject({
+      const uploadBody = JSON.parse(String(uploadCall?.[1]?.body));
+      const savedDraftCount = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path, options]) =>
+            path === "/2pq/informed-consents/draft" &&
+            options?.method === "PUT",
+        ).length;
+      expect(uploadBody).toMatchObject({
         flowMode: "guided",
         savedSignature: TRANSPARENT_SIGNATURE_DATA_URL,
         signatureAttestationAccepted: true,
+        expectedDraftRevision: savedDraftCount,
         file: { type: "application/pdf" },
       });
       expect(String(uploadCall?.[1]?.body)).not.toContain("partnerSignature");
@@ -1900,12 +2557,10 @@ describe("PatientConsentUploadWizard", () => {
     jest
       .mocked(applySignaturesToConsentPdf)
       .mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
-    jest
-      .mocked(sdkFetch)
-      .mockResolvedValueOnce({
-        savedSignature: TRANSPARENT_SIGNATURE_DATA_URL,
-      })
-      .mockRejectedValueOnce(new Error("upload failed"));
+    mockPatientPortalSdk({
+      savedSignature: TRANSPARENT_SIGNATURE_DATA_URL,
+      uploadError: new Error("upload failed"),
+    });
 
     try {
       const user = userEvent.setup();
@@ -1938,6 +2593,18 @@ describe("PatientConsentUploadWizard", () => {
           name: /Declaro, bajo mi responsabilidad, que soy la persona/,
         }),
       );
+      await waitFor(() =>
+        expect(
+          screen.getByTestId("consent-draft-save-status"),
+        ).toHaveTextContent("Borrador guardado automáticamente"),
+      );
+      const draftSavesBeforeUpload = jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([path, options]) =>
+            path === "/2pq/informed-consents/draft" &&
+            options?.method === "PUT",
+        ).length;
       await user.click(
         screen.getByRole("button", {
           name: "Acepto la realización de este estudio",
@@ -1959,6 +2626,19 @@ describe("PatientConsentUploadWizard", () => {
       ).not.toBeInTheDocument();
       expect(mockRouterPush).not.toHaveBeenCalled();
       expect(mockRouterRefresh).not.toHaveBeenCalled();
+      await waitFor(() => {
+        const draftCalls = jest
+          .mocked(sdkFetch)
+          .mock.calls.filter(
+            ([path, options]) =>
+              path === "/2pq/informed-consents/draft" &&
+              options?.method === "PUT",
+          );
+        expect(draftCalls).toHaveLength(draftSavesBeforeUpload + 1);
+        expect(JSON.parse(String(draftCalls.at(-1)?.[1]?.body))).toMatchObject({
+          activeStepId: "preview",
+        });
+      });
     } finally {
       if (originalFetch) {
         Object.defineProperty(global, "fetch", {

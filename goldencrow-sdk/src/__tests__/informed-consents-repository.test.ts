@@ -2,6 +2,7 @@ export {};
 
 type QueryOperation =
   | { type: "where"; field: string; value: unknown }
+  | { type: "select"; fields: string[] }
   | { type: "orderBy"; field: string; direction?: string }
   | { type: "limit"; value: number }
   | { type: "startAfter"; value: unknown };
@@ -25,6 +26,8 @@ const caseDocs: MockDoc[] = [
   caseDoc("CASE-00002", "INST-00001", "DOC-00002", "PAT-00002"),
   caseDoc("CASE-00003", "INST-00001", "DOC-00001", "PAT-00001"),
 ];
+
+const draftDocs: MockDoc[] = [];
 
 function consentDoc(
   id: string,
@@ -96,15 +99,55 @@ function caseDoc(
   };
 }
 
+function draftDoc(
+  id = "patient-uid",
+  revision = 2,
+  patientId = "PAT-00001",
+): MockDoc {
+  return {
+    id,
+    data: {
+      id,
+      collectionKey: "2pq-informed-consent-drafts",
+      revision,
+      patientId,
+      schemaVersion: 1,
+      mode: "guided",
+      activeStepId: "download",
+      visitedStepIds: ["method", "download"],
+      patientName: "PAT-00001",
+      patientDocument: "",
+      signatureDate: "2026-10-16",
+      hasPartner: false,
+      partnerName: "",
+      patientSignatureDataUrl: null,
+      partnerSignatureDataUrl: null,
+      patientSignatureMethod: null,
+      partnerSignatureMethod: null,
+      patientPlacement: { x: 0.72, y: 0.445, width: 0.16 },
+      partnerPlacement: { x: 0.72, y: 0.64, width: 0.16 },
+      selectedRole: "patient",
+      createdAt: "2026-10-16T10:00:00.000Z",
+      updatedAt: "2026-10-16T11:00:00.000Z",
+      createdByEmail: "patient@example.com",
+      createdByUid: id,
+      updatedByEmail: "patient@example.com",
+      updatedByUid: id,
+    },
+  };
+}
+
 function docsForCollection(name: string) {
   if (name === "2pq-informed-consent") return consentDocs;
   if (name === "patients") return patientDocs;
   if (name === "2pq_case") return caseDocs;
+  if (name === "2pq-informed-consent-drafts") return draftDocs;
   return [];
 }
 
 const queryStubs: QueryStub[] = [];
 const documentReads: Array<{ collectionName: string; id: string }> = [];
+const transactionReads: Array<{ collectionName: string; id: string }> = [];
 const failOrderedCollections = new Set<string>();
 const setDocMock = jest.fn(async (_document: unknown) => undefined);
 const deleteDocMock = jest.fn(async () => undefined);
@@ -129,8 +172,22 @@ class QueryStub {
     private readonly docs: MockDoc[],
   ) {}
 
-  where(field: string, _operator: string, value: unknown) {
-    this.operations.push({ type: "where", field, value });
+  where(
+    field: { __fieldPath?: string } | string,
+    _operator: string,
+    value: unknown,
+  ) {
+    this.operations.push({
+      type: "where",
+      field:
+        typeof field === "string" ? field : (field.__fieldPath ?? "__name__"),
+      value,
+    });
+    return this;
+  }
+
+  select(...fields: string[]) {
+    this.operations.push({ type: "select", fields });
     return this;
   }
 
@@ -164,11 +221,32 @@ class QueryStub {
       throw error;
     }
 
+    const documentIdFilter = this.operations.find(
+      (operation): operation is Extract<QueryOperation, { type: "where" }> =>
+        operation.type === "where" && operation.field === "__name__",
+    );
+    const selectedFields = this.operations.find(
+      (operation): operation is Extract<QueryOperation, { type: "select" }> =>
+        operation.type === "select",
+    );
+    const resultDocs = documentIdFilter
+      ? this.docs.filter((doc) => doc.id === documentIdFilter.value)
+      : this.docs;
+
     return {
-      docs: this.docs.map((doc) => ({
+      docs: resultDocs.map((doc) => ({
         id: doc.id,
         exists: true,
-        data: () => doc.data,
+        data: () =>
+          selectedFields
+            ? Object.fromEntries(
+                selectedFields.fields
+                  .filter((field) =>
+                    Object.prototype.hasOwnProperty.call(doc.data, field),
+                  )
+                  .map((field) => [field, doc.data[field]]),
+              )
+            : doc.data,
       })),
     };
   }
@@ -215,6 +293,10 @@ jest.mock("../config/firebase.js", () => ({
         callback({
           get: jest.fn(
             async (reference: { collectionName?: string; id?: string }) => {
+              transactionReads.push({
+                collectionName: reference.collectionName ?? "",
+                id: reference.id ?? "",
+              });
               if (reference.collectionName === "admin_sequences") {
                 return {
                   id: reference.id,
@@ -261,10 +343,43 @@ const SAVED_SIGNATURE =
   "data:image/png;base64," +
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=";
 
+const patientContext = {
+  ...baseContext,
+  email: "patient@example.com",
+  uid: "patient-uid",
+  role: "patient" as const,
+  patientId: "PAT-00001",
+  canAccessBackoffice: false,
+  canAccessPatientPortal: true,
+};
+
+function validDraftMutation(expectedRevision: number | null = null) {
+  return {
+    expectedRevision,
+    schemaVersion: 1 as const,
+    mode: "guided" as const,
+    activeStepId: "download" as const,
+    visitedStepIds: ["method" as const, "download" as const],
+    patientName: "Patient One",
+    patientDocument: "",
+    signatureDate: "2026-10-16",
+    hasPartner: false,
+    partnerName: "stale partner",
+    patientSignatureDataUrl: null,
+    partnerSignatureDataUrl: SAVED_SIGNATURE,
+    patientSignatureMethod: null,
+    partnerSignatureMethod: "draw" as const,
+    patientPlacement: { x: 0.72, y: 0.445, width: 0.16 },
+    partnerPlacement: { x: 0.1, y: 0.1, width: 0.2 },
+    selectedRole: "partner" as const,
+  };
+}
+
 describe("informed consent repository scoping", () => {
   beforeEach(() => {
     queryStubs.length = 0;
     documentReads.length = 0;
+    transactionReads.length = 0;
     failOrderedCollections.clear();
     failOrderedCollections.add("2pq-informed-consent");
     failOrderedCollections.add("patients");
@@ -274,6 +389,7 @@ describe("informed consent repository scoping", () => {
     transactionDeleteMock.mockClear();
     sendGmailMessageMock.mockClear();
     mockTransactionPatientOverride = undefined;
+    draftDocs.length = 0;
     consentDocs.forEach((doc) => {
       doc.data.caseId = null;
     });
@@ -462,6 +578,298 @@ describe("informed consent repository scoping", () => {
     });
   });
 
+  describe("patient consent drafts", () => {
+    it("returns null without a draft and reads only the authenticated uid", async () => {
+      const {
+        getInformedConsentDraftForContext,
+        getInformedConsentDraftStatusForContext,
+      } = await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getInformedConsentDraftForContext(patientContext),
+      ).resolves.toBeNull();
+      await expect(
+        getInformedConsentDraftStatusForContext(patientContext),
+      ).resolves.toBeNull();
+      expect(documentReads).toEqual([
+        {
+          collectionName: "2pq-informed-consent-drafts",
+          id: "patient-uid",
+        },
+      ]);
+      expect(
+        queryStubs.find((query) =>
+          query.operations.some((operation) => operation.type === "select"),
+        )?.operations,
+      ).toEqual([
+        { type: "where", field: "__name__", value: "patient-uid" },
+        {
+          type: "select",
+          fields: [
+            "patientId",
+            "mode",
+            "activeStepId",
+            "updatedAt",
+            "revision",
+          ],
+        },
+        { type: "limit", value: 1 },
+      ]);
+    });
+
+    it("returns a full draft and a non-sensitive summary", async () => {
+      draftDocs.push(draftDoc());
+      const {
+        getInformedConsentDraftForContext,
+        getInformedConsentDraftStatusForContext,
+      } = await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getInformedConsentDraftForContext(patientContext),
+      ).resolves.toMatchObject({
+        id: "patient-uid",
+        patientId: "PAT-00001",
+        revision: 2,
+        patientName: "PAT-00001",
+      });
+      await expect(
+        getInformedConsentDraftStatusForContext(patientContext),
+      ).resolves.toEqual({
+        mode: "guided",
+        activeStepId: "download",
+        updatedAt: "2026-10-16T11:00:00.000Z",
+        revision: 2,
+      });
+    });
+
+    it("projects draft status fields without materializing signatures", async () => {
+      const storedDraft = draftDoc();
+      storedDraft.data.patientSignatureDataUrl = "invalid private signature";
+      storedDraft.data.partnerSignatureDataUrl = "invalid partner signature";
+      draftDocs.push(storedDraft);
+      const { getInformedConsentDraftStatusForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getInformedConsentDraftStatusForContext(patientContext),
+      ).resolves.toEqual({
+        mode: "guided",
+        activeStepId: "download",
+        updatedAt: "2026-10-16T11:00:00.000Z",
+        revision: 2,
+      });
+
+      expect(documentReads).toEqual([]);
+      expect(
+        queryStubs.find((query) =>
+          query.operations.some((operation) => operation.type === "select"),
+        )?.operations,
+      ).toEqual([
+        { type: "where", field: "__name__", value: "patient-uid" },
+        {
+          type: "select",
+          fields: [
+            "patientId",
+            "mode",
+            "activeStepId",
+            "updatedAt",
+            "revision",
+          ],
+        },
+        { type: "limit", value: 1 },
+      ]);
+    });
+
+    it("rejects projected status with a different patient owner", async () => {
+      draftDocs.push(draftDoc("patient-uid", 2, "PAT-OTHER"));
+      const { getInformedConsentDraftStatusForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getInformedConsentDraftStatusForContext(patientContext),
+      ).rejects.toMatchObject({
+        message: "Consent draft owner data is invalid.",
+        statusCode: 500,
+      });
+    });
+
+    it.each([
+      ["a non-positive revision", { revision: 0 }],
+      ["a step outside its mode", { mode: "direct", activeStepId: "download" }],
+      ["a missing update timestamp", { updatedAt: "" }],
+    ])("rejects projected status with %s", async (_, invalidFields) => {
+      const storedDraft = draftDoc();
+      Object.assign(storedDraft.data, invalidFields);
+      draftDocs.push(storedDraft);
+      const { getInformedConsentDraftStatusForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getInformedConsentDraftStatusForContext(patientContext),
+      ).rejects.toMatchObject({
+        message: "Consent draft data is invalid.",
+        statusCode: 500,
+      });
+    });
+
+    it.each([
+      { ...baseContext, role: "full_admin" as const },
+      {
+        ...patientContext,
+        patientId: undefined,
+      },
+    ])(
+      "rejects a draft context that is not a linked patient",
+      async (caller) => {
+        const {
+          getInformedConsentDraftForContext,
+          getInformedConsentDraftStatusForContext,
+          upsertInformedConsentDraftForContext,
+        } = await import("../repositories/informed-consents.repository");
+        const expected = {
+          message: "Only linked patient accounts can manage consent drafts.",
+          statusCode: 403,
+        };
+
+        await expect(
+          getInformedConsentDraftForContext(caller),
+        ).rejects.toMatchObject(expected);
+        await expect(
+          getInformedConsentDraftStatusForContext(caller),
+        ).rejects.toMatchObject(expected);
+        await expect(
+          upsertInformedConsentDraftForContext(caller, validDraftMutation()),
+        ).rejects.toMatchObject(expected);
+      },
+    );
+
+    it("creates one deterministic draft and removes disabled partner state", async () => {
+      const { upsertInformedConsentDraftForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      const record = await upsertInformedConsentDraftForContext(
+        patientContext,
+        validDraftMutation(),
+      );
+
+      expect(record).toMatchObject({
+        id: "patient-uid",
+        collectionKey: "2pq-informed-consent-drafts",
+        revision: 1,
+        patientId: "PAT-00001",
+        hasPartner: false,
+        partnerName: "",
+        partnerSignatureDataUrl: null,
+        partnerSignatureMethod: null,
+        partnerPlacement: { x: 0.72, y: 0.64, width: 0.16 },
+        selectedRole: "patient",
+        createdByEmail: "patient@example.com",
+        createdByUid: "patient-uid",
+        updatedByEmail: "patient@example.com",
+        updatedByUid: "patient-uid",
+      });
+      expect(transactionSetMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          collectionName: "2pq-informed-consent-drafts",
+          id: "patient-uid",
+        }),
+        record,
+      );
+    });
+
+    it("updates only the exact current revision and preserves creation metadata", async () => {
+      const existing = draftDoc();
+      existing.data.createdByEmail = "original@example.com";
+      existing.data.createdByUid = "original-uid";
+      draftDocs.push(existing);
+      const { upsertInformedConsentDraftForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      const record = await upsertInformedConsentDraftForContext(
+        patientContext,
+        validDraftMutation(2),
+      );
+
+      expect(record).toMatchObject({
+        revision: 3,
+        createdAt: "2026-10-16T10:00:00.000Z",
+        createdByEmail: "original@example.com",
+        createdByUid: "original-uid",
+        updatedByEmail: "patient@example.com",
+        updatedByUid: "patient-uid",
+      });
+    });
+
+    it.each([
+      ["creates over an existing draft", null],
+      ["updates a stale revision", 1],
+    ])("rejects when a caller %s", async (_, expectedRevision) => {
+      draftDocs.push(draftDoc());
+      const { upsertInformedConsentDraftForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        upsertInformedConsentDraftForContext(
+          patientContext,
+          validDraftMutation(expectedRevision),
+        ),
+      ).rejects.toMatchObject({
+        message: "Consent draft changed. Reload it before saving again.",
+        statusCode: 409,
+      });
+      expect(transactionSetMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects a late update after the draft has been deleted", async () => {
+      const { upsertInformedConsentDraftForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        upsertInformedConsentDraftForContext(
+          patientContext,
+          validDraftMutation(2),
+        ),
+      ).rejects.toMatchObject({
+        message: "Consent draft changed. Reload it before saving again.",
+        statusCode: 409,
+      });
+      expect(transactionSetMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects invalid PNG signature bytes even when called outside the route", async () => {
+      const { upsertInformedConsentDraftForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        upsertInformedConsentDraftForContext(patientContext, {
+          ...validDraftMutation(),
+          patientSignatureMethod: "draw",
+          patientSignatureDataUrl: "data:image/png;base64,aW52YWxpZA==",
+        }),
+      ).rejects.toMatchObject({
+        message: "Patient draft signature is invalid.",
+        statusCode: 400,
+      });
+      expect(transactionSetMock).not.toHaveBeenCalled();
+    });
+
+    it("validates a supplied partner PNG before normalizing disabled partner state", async () => {
+      const { upsertInformedConsentDraftForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        upsertInformedConsentDraftForContext(patientContext, {
+          ...validDraftMutation(),
+          partnerSignatureDataUrl: "data:image/png;base64,aW52YWxpZA==",
+        }),
+      ).rejects.toMatchObject({
+        message: "Partner draft signature is invalid.",
+        statusCode: 400,
+      });
+      expect(transactionSetMock).not.toHaveBeenCalled();
+    });
+  });
+
   it("lists only the selected patient's assignable 2PQ cases", async () => {
     const { listInformedConsentCasesForContext } =
       await import("../repositories/informed-consents.repository");
@@ -570,6 +978,191 @@ describe("informed consent repository scoping", () => {
         },
       }),
     );
+    expect(transactionDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("atomically stores a direct patient upload and deletes its draft", async () => {
+    draftDocs.push(draftDoc());
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await createInformedConsentForContext(patientContext, {
+      flowMode: "direct",
+      expectedDraftRevision: 2,
+      file: {
+        name: "consent.pdf",
+        type: "application/pdf",
+        size: 1,
+        content: "data:application/pdf;base64,eA==",
+      },
+    });
+
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collectionName: "2pq-informed-consent",
+        id: "CONS-00004",
+      }),
+      expect.objectContaining({ patientId: "PAT-00001" }),
+    );
+    expect(transactionDeleteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collectionName: "2pq-informed-consent-drafts",
+        id: "patient-uid",
+      }),
+    );
+    expect(setDocMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a patient upload that omits its draft revision expectation before any read or write", async () => {
+    draftDocs.push(draftDoc());
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      createInformedConsentForContext(patientContext, {
+        flowMode: "direct",
+        file: {
+          name: "consent.pdf",
+          type: "application/pdf",
+          size: 1,
+          content: "data:application/pdf;base64,eA==",
+        },
+      }),
+    ).rejects.toMatchObject({
+      message: "Patient consent uploads require a draft revision expectation.",
+      statusCode: 400,
+    });
+
+    expect(transactionReads).toEqual([]);
+    expectNoEntityTransactionWrites();
+    expect(setDocMock).not.toHaveBeenCalled();
+    expect(transactionDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a new draft appeared after the caller observed none", null, 2],
+    ["another tab saved a newer revision", 1, 2],
+  ] as const)(
+    "rejects finalization when %s",
+    async (_, expectedDraftRevision, storedRevision) => {
+      if (storedRevision !== null) {
+        draftDocs.push(draftDoc("patient-uid", storedRevision));
+      }
+      const { createInformedConsentForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        createInformedConsentForContext(patientContext, {
+          flowMode: "direct",
+          expectedDraftRevision,
+          file: {
+            name: "consent.pdf",
+            type: "application/pdf",
+            size: 1,
+            content: "data:application/pdf;base64,eA==",
+          },
+        }),
+      ).rejects.toMatchObject({
+        message: "Consent draft changed. Reload it before submitting again.",
+        statusCode: 409,
+      });
+
+      expectNoEntityTransactionWrites();
+      expect(transactionDeleteMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it("allows one final for a draft revision and rejects a concurrent retry after deletion", async () => {
+    draftDocs.push(draftDoc("patient-uid", 2));
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+    const payload = {
+      flowMode: "direct" as const,
+      expectedDraftRevision: 2,
+      file: {
+        name: "consent.pdf",
+        type: "application/pdf",
+        size: 1,
+        content: "data:application/pdf;base64,eA==",
+      },
+    };
+
+    await expect(
+      createInformedConsentForContext(patientContext, payload),
+    ).resolves.toMatchObject({ patientId: "PAT-00001" });
+    expect(transactionDeleteMock).toHaveBeenCalledTimes(1);
+
+    draftDocs.length = 0;
+    transactionSetMock.mockClear();
+    transactionDeleteMock.mockClear();
+    await expect(
+      createInformedConsentForContext(patientContext, payload),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expectNoEntityTransactionWrites();
+    expect(transactionDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects draft revision assertions from backoffice uploads before allocating or writing", async () => {
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      createInformedConsentForContext(
+        { ...baseContext, role: "full_admin" },
+        {
+          patientId: "PAT-00001",
+          flowMode: "direct",
+          expectedDraftRevision: null,
+          file: {
+            name: "consent.pdf",
+            type: "application/pdf",
+            size: 1,
+            content: "data:application/pdf;base64,eA==",
+          },
+        },
+      ),
+    ).rejects.toMatchObject({
+      message: "Only patient uploads may include a consent draft revision.",
+      statusCode: 400,
+    });
+
+    expect(transactionReads).toEqual([]);
+    expect(transactionSetMock).not.toHaveBeenCalled();
+    expect(setDocMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the draft when patient identity changes during final upload", async () => {
+    draftDocs.push(draftDoc());
+    mockTransactionPatientOverride = patientDoc(
+      "PAT-00001",
+      "INST-CHANGED",
+      "DOC-00001",
+    );
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      createInformedConsentForContext(patientContext, {
+        flowMode: "direct",
+        expectedDraftRevision: 2,
+        file: {
+          name: "consent.pdf",
+          type: "application/pdf",
+          size: 1,
+          content: "data:application/pdf;base64,eA==",
+        },
+      }),
+    ).rejects.toMatchObject({
+      message:
+        "The patient identity or assignment changed while the consent was being saved.",
+      statusCode: 409,
+    });
+    expect(
+      transactionSetMock.mock.calls.some(
+        ([reference]) => reference.collectionName === "2pq-informed-consent",
+      ),
+    ).toBe(false);
+    expect(transactionDeleteMock).not.toHaveBeenCalled();
   });
 
   it("atomically stores a guided consent and the exact patient saved_signature field", async () => {
@@ -615,6 +1208,7 @@ describe("informed consent repository scoping", () => {
     )?.[1] as Record<string, unknown>;
     expect(consentWrite).not.toHaveProperty("signatureAttestation");
     expect(setDocMock).not.toHaveBeenCalled();
+    expect(transactionDeleteMock).not.toHaveBeenCalled();
   });
 
   it("persists server-authored signature attestation evidence for a guided backoffice upload", async () => {
@@ -676,6 +1270,7 @@ describe("informed consent repository scoping", () => {
       },
       {
         flowMode: "guided",
+        expectedDraftRevision: null,
         signatureAttestationAccepted: true,
         savedSignature: SAVED_SIGNATURE,
         file: {
@@ -699,6 +1294,12 @@ describe("informed consent repository scoping", () => {
         surface: "patient_portal",
       },
     });
+    expect(transactionDeleteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collectionName: "2pq-informed-consent-drafts",
+        id: baseContext.uid,
+      }),
+    );
   });
 
   it.each([
@@ -931,6 +1532,7 @@ describe("informed consent repository scoping", () => {
         {
           patientId: "PAT-00002",
           flowMode: "guided",
+          expectedDraftRevision: null,
           savedSignature: SAVED_SIGNATURE,
           file: {
             name: "consent.pdf",

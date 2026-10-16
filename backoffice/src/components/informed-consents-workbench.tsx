@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   CalendarDays,
   ExternalLink,
   Eye,
   FileCheck2,
+  FileClock,
   FileUp,
   Link2,
   Loader2,
+  RotateCcw,
   Search,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -34,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type {
+  InformedConsentDraftSummary,
   InformedConsentPage,
   InformedConsentRecord,
 } from "@/lib/informed-consents";
@@ -78,10 +82,15 @@ function BackofficeConsentDeleteAction({
 export function InformedConsentsWorkbench({
   surface,
   initialPage,
+  initialDraftSummary = null,
+  draftLookupFailed = false,
 }: {
   surface: "backoffice" | "patient-portal";
   initialPage: InformedConsentPage;
+  initialDraftSummary?: InformedConsentDraftSummary | null;
+  draftLookupFailed?: boolean;
 }) {
+  const router = useRouter();
   const isPatientPortal = surface === "patient-portal";
   const t = (text: string) => (isPatientPortal ? appText("es", text) : text);
   const [records, setRecords] = useState(initialPage.records);
@@ -172,12 +181,22 @@ export function InformedConsentsWorkbench({
             <HeaderUnclutterButton />
           </div>
           {records.length > 0 ? (
-            <Button asChild>
-              <Link href="/patient-portal/consents/new">
-                <FileUp className="size-4" />
-                {t("Upload consent")}
-              </Link>
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {initialDraftSummary ? (
+                <Button variant="outline" asChild>
+                  <Link href="/patient-portal/consents/new?draft=1">
+                    <FileClock className="size-4" />
+                    Continuar desde borrador
+                  </Link>
+                </Button>
+              ) : null}
+              <Button asChild>
+                <Link href="/patient-portal/consents/new">
+                  <FileUp className="size-4" />
+                  {t("Upload consent")}
+                </Link>
+              </Button>
+            </div>
           ) : null}
         </section>
       ) : (
@@ -197,60 +216,78 @@ export function InformedConsentsWorkbench({
         </section>
       )}
 
+      {isPatientPortal && draftLookupFailed ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100"
+        >
+          <p>No se pudo verificar si existe un borrador guardado.</p>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => router.refresh()}
+          >
+            <RotateCcw className="size-4" />
+            Recargar
+          </Button>
+        </div>
+      ) : null}
+
       <section>
         {!isPatientPortal ? (
           <div className="grid gap-3 rounded-xl border border-border/70 bg-background/70 p-4 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1fr)_12rem_11rem_11rem_auto]">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Buscar archivo, paciente, caso o ID"
-                  className="pl-9"
-                />
-              </div>
-              <Select value={linkFilter} onValueChange={setLinkFilter}>
-                <SelectTrigger aria-label="Filtrar por vínculo">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los vínculos</SelectItem>
-                  <SelectItem value="linked">Con caso vinculado</SelectItem>
-                  <SelectItem value="unlinked">Sin caso vinculado</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="relative">
-                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="date"
-                  aria-label="Fecha desde"
-                  value={dateFrom}
-                  onChange={(event) => setDateFrom(event.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <div className="relative">
-                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="date"
-                  aria-label="Fecha hasta"
-                  value={dateTo}
-                  onChange={(event) => setDateTo(event.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  setSearchQuery("");
-                  setLinkFilter("all");
-                  setDateFrom("");
-                  setDateTo("");
-                }}
-              >
-                Limpiar
-              </Button>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Buscar archivo, paciente, caso o ID"
+                className="pl-9"
+              />
+            </div>
+            <Select value={linkFilter} onValueChange={setLinkFilter}>
+              <SelectTrigger aria-label="Filtrar por vínculo">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los vínculos</SelectItem>
+                <SelectItem value="linked">Con caso vinculado</SelectItem>
+                <SelectItem value="unlinked">Sin caso vinculado</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="relative">
+              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="date"
+                aria-label="Fecha desde"
+                value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="relative">
+              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="date"
+                aria-label="Fecha hasta"
+                value={dateTo}
+                onChange={(event) => setDateTo(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setSearchQuery("");
+                setLinkFilter("all");
+                setDateFrom("");
+                setDateTo("");
+              }}
+            >
+              Limpiar
+            </Button>
           </div>
         ) : null}
         {records.length === 0 ? (
@@ -269,16 +306,31 @@ export function InformedConsentsWorkbench({
                 Completá el proceso guiado para firmar y presentar tu
                 consentimiento informado.
               </p>
-              <Button
-                size="lg"
-                className="mt-6 h-14 rounded-xl bg-violet-600 px-8 text-base font-semibold text-white shadow-[0_16px_38px_rgba(109,40,217,0.28)] hover:bg-violet-700"
-                asChild
-              >
-                <Link href="/patient-portal/consents/new">
-                  <FileUp className="size-5" />
-                  {t("Upload consent")}
-                </Link>
-              </Button>
+              <div className="mt-6 flex flex-wrap justify-center gap-3">
+                {initialDraftSummary ? (
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="h-14 rounded-xl px-8 text-base font-semibold"
+                    asChild
+                  >
+                    <Link href="/patient-portal/consents/new?draft=1">
+                      <FileClock className="size-5" />
+                      Continuar desde borrador
+                    </Link>
+                  </Button>
+                ) : null}
+                <Button
+                  size="lg"
+                  className="h-14 rounded-xl bg-violet-600 px-8 text-base font-semibold text-white shadow-[0_16px_38px_rgba(109,40,217,0.28)] hover:bg-violet-700"
+                  asChild
+                >
+                  <Link href="/patient-portal/consents/new">
+                    <FileUp className="size-5" />
+                    {t("Upload consent")}
+                  </Link>
+                </Button>
+              </div>
             </div>
           ) : (
             <p className="mt-4 text-sm text-muted-foreground">
@@ -319,7 +371,9 @@ export function InformedConsentsWorkbench({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <p className="text-sm font-medium">{record.patientName}</p>
+                      <p className="text-sm font-medium">
+                        {record.patientName}
+                      </p>
                       <p className="mt-1 font-mono text-xs text-muted-foreground">
                         {record.patientId}
                       </p>

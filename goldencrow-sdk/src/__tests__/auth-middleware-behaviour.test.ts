@@ -85,8 +85,18 @@ describe("authMiddleware — session verification", () => {
   });
 
   it.each([
-    ["revoked", Object.assign(new Error("revoked"), { code: "auth/session-cookie-revoked" })],
-    ["expired", Object.assign(new Error("expired"), { code: "auth/session-cookie-expired" })],
+    [
+      "revoked",
+      Object.assign(new Error("revoked"), {
+        code: "auth/session-cookie-revoked",
+      }),
+    ],
+    [
+      "expired",
+      Object.assign(new Error("expired"), {
+        code: "auth/session-cookie-expired",
+      }),
+    ],
     ["malformed", new Error("Decoding Firebase session cookie failed")],
   ])("401 when verifySessionCookie rejects (%s)", async (_label, error) => {
     mockVerifySessionCookie.mockRejectedValue(error);
@@ -136,10 +146,20 @@ describe("authMiddleware — account authorization", () => {
 
   it("a backoffice session passes and gets user + adminContext attached", async () => {
     asSession(contextFor(["backoffice"]));
-    for (const url of ["/roles", "/users", "/areas/patients", "/auth/context", "/discover/organizations"]) {
+    for (const url of [
+      "/roles",
+      "/users",
+      "/areas/patients",
+      "/auth/context",
+      "/discover/organizations",
+    ]) {
       const res = await get(url);
       expect({ url, status: res.statusCode }).toEqual({ url, status: 200 });
-      expect(res.json()).toEqual({ passed: true, uid: "user-uid", role: "full_admin" });
+      expect(res.json()).toEqual({
+        passed: true,
+        uid: "user-uid",
+        role: "full_admin",
+      });
     }
   });
 });
@@ -167,6 +187,8 @@ describe.each([
       "/auth/profile-setup",
       "/auth/profile-setup/patient",
       "/2pq/informed-consents",
+      "/2pq/informed-consents/draft",
+      "/2pq/informed-consents/draft/status",
       "/2pq/informed-consents/c1/file",
       "/auth/context?x=1",
     ],
@@ -223,21 +245,24 @@ describe.each([
       "/discover/individuals/ind-1/submission-evaluation",
     ],
   },
-])("authMiddleware — $surface-only session", ({ surface, error, allowed, denied }) => {
-  beforeEach(() => asSession(contextFor([surface])));
+])(
+  "authMiddleware — $surface-only session",
+  ({ surface, error, allowed, denied }) => {
+    beforeEach(() => asSession(contextFor([surface])));
 
-  it.each(allowed)("passes %s", async (url) => {
-    const res = await get(url);
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ passed: true });
-  });
+    it.each(allowed)("passes %s", async (url) => {
+      const res = await get(url);
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({ passed: true });
+    });
 
-  it.each(denied)("403 on %s", async (url) => {
-    const res = await get(url);
-    expect(res.statusCode).toBe(403);
-    expect(res.json()).toEqual({ error });
-  });
-});
+    it.each(denied)("403 on %s", async (url) => {
+      const res = await get(url);
+      expect(res.statusCode).toBe(403);
+      expect(res.json()).toEqual({ error });
+    });
+  },
+);
 
 describe("authMiddleware — mixed-surface sessions", () => {
   it("backoffice + patient portal: the backoffice grant wins, backoffice paths pass", async () => {
@@ -269,14 +294,17 @@ describe("authMiddleware — mixed-surface sessions", () => {
     [["patient", "publisher"]],
     [["pgflex", "publisher"]],
     [["patient", "pgflex", "publisher"]],
-  ] as const)("non-backoffice mixed session %j is still denied backoffice paths", async (surfaces) => {
-    asSession(contextFor([...surfaces]));
-    const res = await get("/roles");
-    expect(res.statusCode).toBe(403);
-    expect(res.json()).toEqual({
-      error: "This portal session cannot access backoffice APIs",
-    });
-  });
+  ] as const)(
+    "non-backoffice mixed session %j is still denied backoffice paths",
+    async (surfaces) => {
+      asSession(contextFor([...surfaces]));
+      const res = await get("/roles");
+      expect(res.statusCode).toBe(403);
+      expect(res.json()).toEqual({
+        error: "This portal session cannot access backoffice APIs",
+      });
+    },
+  );
 
   it("patient + publisher (no backoffice): the union of both portals passes, nothing else", async () => {
     asSession(contextFor(["patient", "publisher"]));
@@ -284,7 +312,8 @@ describe("authMiddleware — mixed-surface sessions", () => {
     expect((await get("/discover/organizations/org-1")).statusCode).toBe(200);
     expect((await get("/pgflex/logistics")).statusCode).toBe(403);
     expect(
-      (await get("/discover/organizations/org-1/submission-evaluation")).statusCode,
+      (await get("/discover/organizations/org-1/submission-evaluation"))
+        .statusCode,
     ).toBe(403);
   });
 });
@@ -292,7 +321,12 @@ describe("authMiddleware — mixed-surface sessions", () => {
 describe("authMiddleware — /gym project-access gate", () => {
   it("403 on /gym/* without pocket-gyms project access", async () => {
     asSession(contextFor(["backoffice"], { projectAccess: ["mydnamap"] }));
-    for (const url of ["/gym/members", "/gym/members/u1/evaluations", "/gym/stats?range=7d", "/gym"]) {
+    for (const url of [
+      "/gym/members",
+      "/gym/members/u1/evaluations",
+      "/gym/stats?range=7d",
+      "/gym",
+    ]) {
       const res = await get(url);
       expect({ url, status: res.statusCode }).toEqual({ url, status: 403 });
       expect(res.json()).toEqual({ error: "No access to pocket-gyms project" });
@@ -300,7 +334,11 @@ describe("authMiddleware — /gym project-access gate", () => {
   });
 
   it("passes /gym/* with pocket-gyms project access", async () => {
-    asSession(contextFor(["backoffice"], { projectAccess: ["mydnamap", "pocket-gyms"] }));
+    asSession(
+      contextFor(["backoffice"], {
+        projectAccess: ["mydnamap", "pocket-gyms"],
+      }),
+    );
     expect((await get("/gym/members")).statusCode).toBe(200);
     expect((await get("/gym/stats")).statusCode).toBe(200);
   });

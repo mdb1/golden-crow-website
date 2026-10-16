@@ -18,6 +18,9 @@ import {
 import type {
   AdminContext,
   InformedConsentCaseOption,
+  InformedConsentDraftRecord,
+  InformedConsentDraftState,
+  InformedConsentDraftSummary,
   InformedConsentFile,
   InformedConsentPatientOption,
   InformedConsentRecord,
@@ -29,6 +32,7 @@ import { normalizeRoleEmail } from "./roles.repository.js";
 
 const adminDb = adminDbFor("mydnamap");
 const CONSENTS_COLLECTION = "2pq-informed-consent";
+const CONSENT_DRAFTS_COLLECTION = "2pq-informed-consent-drafts";
 const PATIENTS_COLLECTION = "patients";
 const CASES_COLLECTION = "2pq_case";
 const SEQUENCES_COLLECTION = "admin_sequences";
@@ -81,8 +85,303 @@ type ConsentWrite = StoredConsent & {
   };
 };
 
+type InformedConsentDraftMutation = InformedConsentDraftState & {
+  expectedRevision: number | null;
+};
+
+const GUIDED_DRAFT_STEPS = new Set([
+  "method",
+  "download",
+  "data",
+  "signature",
+  "editor",
+  "preview",
+]);
+const DIRECT_DRAFT_STEPS = new Set([
+  "method",
+  "direct-download",
+  "direct-sign",
+  "direct-upload",
+]);
+const DEFAULT_PARTNER_PLACEMENT = { x: 0.72, y: 0.64, width: 0.16 };
+
 function optionalString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function informedConsentDraftIdentity(context: AdminContext) {
+  assertCanUseInformedConsents(context);
+  const uid = optionalString(context.uid);
+  const patientId = optionalString(context.patientId);
+  if (context.role !== "patient" || !uid || !patientId) {
+    throw new AdminRepositoryError(
+      "Only linked patient accounts can manage consent drafts.",
+      403,
+    );
+  }
+  return { uid, patientId };
+}
+
+function normalizeDraftPlacement(
+  value: unknown,
+  label: string,
+): InformedConsentDraftState["patientPlacement"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new AdminRepositoryError(`${label} is invalid.`, 400);
+  }
+  const placement = value as Record<string, unknown>;
+  const x = placement.x;
+  const y = placement.y;
+  const width = placement.width;
+  if (
+    typeof x !== "number" ||
+    !Number.isFinite(x) ||
+    x < 0 ||
+    x > 1 ||
+    typeof y !== "number" ||
+    !Number.isFinite(y) ||
+    y < 0 ||
+    y > 1 ||
+    typeof width !== "number" ||
+    !Number.isFinite(width) ||
+    width < 0.08 ||
+    width > 0.5
+  ) {
+    throw new AdminRepositoryError(`${label} is invalid.`, 400);
+  }
+  return { x, y, width };
+}
+
+function normalizeDraftText(value: unknown, maximum: number, label: string) {
+  if (typeof value !== "string" || value.length > maximum) {
+    throw new AdminRepositoryError(`${label} is invalid.`, 400);
+  }
+  return value;
+}
+
+function normalizeDraftSignature(value: unknown, label: string): string | null {
+  if (value === null) return null;
+  try {
+    return validateSavedSignatureDataUrl(value);
+  } catch {
+    throw new AdminRepositoryError(`${label} is invalid.`, 400);
+  }
+}
+
+function normalizeInformedConsentDraftState(
+  value: InformedConsentDraftState,
+): InformedConsentDraftState {
+  const mode = value.mode;
+  if (mode !== "guided" && mode !== "direct") {
+    throw new AdminRepositoryError("Consent draft mode is invalid.", 400);
+  }
+  if (value.schemaVersion !== 1) {
+    throw new AdminRepositoryError("Consent draft schema is invalid.", 400);
+  }
+  if (typeof value.hasPartner !== "boolean") {
+    throw new AdminRepositoryError(
+      "Consent draft partner state is invalid.",
+      400,
+    );
+  }
+  if (value.selectedRole !== "patient" && value.selectedRole !== "partner") {
+    throw new AdminRepositoryError(
+      "Consent draft selected role is invalid.",
+      400,
+    );
+  }
+
+  const allowedSteps =
+    mode === "guided" ? GUIDED_DRAFT_STEPS : DIRECT_DRAFT_STEPS;
+  if (!allowedSteps.has(value.activeStepId)) {
+    throw new AdminRepositoryError(
+      "Consent draft step does not match its mode.",
+      400,
+    );
+  }
+  if (!Array.isArray(value.visitedStepIds)) {
+    throw new AdminRepositoryError(
+      "Consent draft visited steps are invalid.",
+      400,
+    );
+  }
+  const visitedStepIds = [...new Set(value.visitedStepIds)];
+  if (
+    visitedStepIds.length < 1 ||
+    visitedStepIds.length > allowedSteps.size ||
+    visitedStepIds.length !== value.visitedStepIds.length ||
+    visitedStepIds.some((step) => !allowedSteps.has(step)) ||
+    !visitedStepIds.includes(value.activeStepId)
+  ) {
+    throw new AdminRepositoryError(
+      "Consent draft visited steps are invalid.",
+      400,
+    );
+  }
+
+  const signatureMethods = new Set(["draw", "import", "saved"]);
+  const patientSignatureMethod = value.patientSignatureMethod;
+  const partnerSignatureMethod = value.partnerSignatureMethod;
+  if (
+    patientSignatureMethod !== null &&
+    !signatureMethods.has(patientSignatureMethod)
+  ) {
+    throw new AdminRepositoryError("Patient signature method is invalid.", 400);
+  }
+  if (
+    partnerSignatureMethod !== null &&
+    !signatureMethods.has(partnerSignatureMethod)
+  ) {
+    throw new AdminRepositoryError("Partner signature method is invalid.", 400);
+  }
+
+  const patientSignatureDataUrl = normalizeDraftSignature(
+    value.patientSignatureDataUrl,
+    "Patient draft signature",
+  );
+  const suppliedPartnerSignatureDataUrl = normalizeDraftSignature(
+    value.partnerSignatureDataUrl,
+    "Partner draft signature",
+  );
+  const partnerSignatureDataUrl = value.hasPartner
+    ? suppliedPartnerSignatureDataUrl
+    : null;
+  if (patientSignatureDataUrl && !patientSignatureMethod) {
+    throw new AdminRepositoryError(
+      "Patient draft signature requires a signature method.",
+      400,
+    );
+  }
+  if (partnerSignatureDataUrl && !partnerSignatureMethod) {
+    throw new AdminRepositoryError(
+      "Partner draft signature requires a signature method.",
+      400,
+    );
+  }
+
+  return {
+    schemaVersion: 1,
+    mode,
+    activeStepId: value.activeStepId,
+    visitedStepIds,
+    patientName: normalizeDraftText(value.patientName, 200, "Patient name"),
+    patientDocument: normalizeDraftText(
+      value.patientDocument,
+      100,
+      "Patient document",
+    ),
+    signatureDate: normalizeDraftText(
+      value.signatureDate,
+      10,
+      "Signature date",
+    ),
+    hasPartner: value.hasPartner === true,
+    partnerName: value.hasPartner
+      ? normalizeDraftText(value.partnerName, 200, "Partner name")
+      : "",
+    patientSignatureDataUrl,
+    partnerSignatureDataUrl,
+    patientSignatureMethod,
+    partnerSignatureMethod: value.hasPartner ? partnerSignatureMethod : null,
+    patientPlacement: normalizeDraftPlacement(
+      value.patientPlacement,
+      "Patient signature placement",
+    ),
+    partnerPlacement: value.hasPartner
+      ? normalizeDraftPlacement(
+          value.partnerPlacement,
+          "Partner signature placement",
+        )
+      : DEFAULT_PARTNER_PLACEMENT,
+    selectedRole:
+      value.hasPartner && value.selectedRole === "partner"
+        ? "partner"
+        : "patient",
+  };
+}
+
+function parseStoredInformedConsentDraft(
+  id: string,
+  data: Record<string, unknown>,
+): InformedConsentDraftRecord {
+  const revision = data.revision;
+  const patientId = optionalString(data.patientId);
+  const createdAt = optionalString(data.createdAt);
+  const updatedAt = optionalString(data.updatedAt);
+  const createdByEmail = optionalString(data.createdByEmail);
+  const createdByUid = optionalString(data.createdByUid);
+  const updatedByEmail = optionalString(data.updatedByEmail);
+  const updatedByUid = optionalString(data.updatedByUid);
+  if (
+    data.collectionKey !== CONSENT_DRAFTS_COLLECTION ||
+    !Number.isSafeInteger(revision) ||
+    Number(revision) < 1 ||
+    !patientId ||
+    !createdAt ||
+    !updatedAt ||
+    !createdByEmail ||
+    !createdByUid ||
+    !updatedByEmail ||
+    !updatedByUid
+  ) {
+    throw new AdminRepositoryError("Consent draft data is invalid.", 500);
+  }
+
+  try {
+    return {
+      id,
+      collectionKey: CONSENT_DRAFTS_COLLECTION,
+      revision: Number(revision),
+      patientId,
+      ...normalizeInformedConsentDraftState(
+        data as unknown as InformedConsentDraftState,
+      ),
+      createdAt,
+      updatedAt,
+      createdByEmail,
+      createdByUid,
+      updatedByEmail,
+      updatedByUid,
+    };
+  } catch (error) {
+    if (error instanceof AdminRepositoryError && error.statusCode === 400) {
+      throw new AdminRepositoryError("Consent draft data is invalid.", 500);
+    }
+    throw error;
+  }
+}
+
+function parseStoredInformedConsentDraftSummary(
+  data: Record<string, unknown>,
+): InformedConsentDraftSummary & { patientId: string } {
+  const patientId = optionalString(data.patientId);
+  const updatedAt = optionalString(data.updatedAt);
+  const revision = data.revision;
+  const mode = data.mode;
+  const activeStepId = data.activeStepId;
+  if (mode !== "guided" && mode !== "direct") {
+    throw new AdminRepositoryError("Consent draft data is invalid.", 500);
+  }
+  const allowedSteps =
+    mode === "guided" ? GUIDED_DRAFT_STEPS : DIRECT_DRAFT_STEPS;
+  if (
+    !patientId ||
+    !updatedAt ||
+    !Number.isSafeInteger(revision) ||
+    Number(revision) < 1 ||
+    typeof activeStepId !== "string" ||
+    !allowedSteps.has(activeStepId)
+  ) {
+    throw new AdminRepositoryError("Consent draft data is invalid.", 500);
+  }
+
+  return {
+    patientId,
+    mode,
+    activeStepId: activeStepId as InformedConsentDraftSummary["activeStepId"],
+    updatedAt,
+    revision: Number(revision),
+  };
 }
 
 function isMissingFirestoreIndexError(error: unknown) {
@@ -605,6 +904,115 @@ export async function getSavedInformedConsentSignatureForContext(
   return { savedSignature: readSavedSignatureDataUrl(data.saved_signature) };
 }
 
+export async function getInformedConsentDraftForContext(
+  context: AdminContext,
+): Promise<InformedConsentDraftRecord | null> {
+  const { uid, patientId } = informedConsentDraftIdentity(context);
+  const snapshot = await adminDb
+    .collection(CONSENT_DRAFTS_COLLECTION)
+    .doc(uid)
+    .get();
+  if (!snapshot.exists) return null;
+
+  const draft = parseStoredInformedConsentDraft(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>,
+  );
+  if (draft.patientId !== patientId || draft.id !== uid) {
+    throw new AdminRepositoryError("Consent draft owner data is invalid.", 500);
+  }
+  return draft;
+}
+
+export async function getInformedConsentDraftStatusForContext(
+  context: AdminContext,
+): Promise<InformedConsentDraftSummary | null> {
+  const { uid, patientId } = informedConsentDraftIdentity(context);
+  const snapshot = await adminDb
+    .collection(CONSENT_DRAFTS_COLLECTION)
+    .where(FieldPath.documentId(), "==", uid)
+    .select("patientId", "mode", "activeStepId", "updatedAt", "revision")
+    .limit(1)
+    .get();
+  const draftDocument = snapshot.docs[0];
+  if (!draftDocument) return null;
+
+  const draft = parseStoredInformedConsentDraftSummary(
+    draftDocument.data() as Record<string, unknown>,
+  );
+  if (draftDocument.id !== uid || draft.patientId !== patientId) {
+    throw new AdminRepositoryError("Consent draft owner data is invalid.", 500);
+  }
+  return {
+    mode: draft.mode,
+    activeStepId: draft.activeStepId,
+    updatedAt: draft.updatedAt,
+    revision: draft.revision,
+  };
+}
+
+export async function upsertInformedConsentDraftForContext(
+  context: AdminContext,
+  payload: InformedConsentDraftMutation,
+): Promise<InformedConsentDraftRecord> {
+  const { uid, patientId } = informedConsentDraftIdentity(context);
+  if (
+    payload.expectedRevision !== null &&
+    (!Number.isSafeInteger(payload.expectedRevision) ||
+      payload.expectedRevision < 1)
+  ) {
+    throw new AdminRepositoryError(
+      "Consent draft expected revision is invalid.",
+      400,
+    );
+  }
+
+  const state = normalizeInformedConsentDraftState(payload);
+  const reference = adminDb.collection(CONSENT_DRAFTS_COLLECTION).doc(uid);
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    const current = snapshot.exists
+      ? parseStoredInformedConsentDraft(
+          snapshot.id,
+          snapshot.data() as Record<string, unknown>,
+        )
+      : null;
+    if (current && current.patientId !== patientId) {
+      throw new AdminRepositoryError(
+        "Consent draft owner data is invalid.",
+        500,
+      );
+    }
+    if (
+      (current === null && payload.expectedRevision !== null) ||
+      (current !== null && payload.expectedRevision !== current.revision)
+    ) {
+      throw new AdminRepositoryError(
+        "Consent draft changed. Reload it before saving again.",
+        409,
+      );
+    }
+
+    const now = new Date().toISOString();
+    const email = normalizeRoleEmail(context.email);
+    const document: InformedConsentDraftRecord = {
+      id: uid,
+      collectionKey: CONSENT_DRAFTS_COLLECTION,
+      revision: (current?.revision ?? 0) + 1,
+      patientId,
+      ...state,
+      createdAt: current?.createdAt ?? now,
+      updatedAt: now,
+      createdByEmail: current?.createdByEmail ?? email,
+      createdByUid: current?.createdByUid ?? uid,
+      updatedByEmail: email,
+      updatedByUid: uid,
+    };
+    transaction.set(reference, document);
+    return document;
+  });
+}
+
 export async function listInformedConsentCasesForContext(
   context: AdminContext,
   patientId: string,
@@ -662,12 +1070,43 @@ export async function createInformedConsentForContext(
     patientId?: string;
     caseId?: string;
     flowMode?: "guided" | "direct";
+    expectedDraftRevision?: number | null;
     signatureAttestationAccepted?: boolean;
     savedSignature?: string;
     file: InformedConsentFile;
   },
 ) {
   assertCanUseInformedConsents(context);
+
+  const hasExpectedDraftRevision = Object.prototype.hasOwnProperty.call(
+    payload,
+    "expectedDraftRevision",
+  );
+  if (context.role === "patient" && !hasExpectedDraftRevision) {
+    throw new AdminRepositoryError(
+      "Patient consent uploads require a draft revision expectation.",
+      400,
+    );
+  }
+  if (hasExpectedDraftRevision && context.role !== "patient") {
+    throw new AdminRepositoryError(
+      "Only patient uploads may include a consent draft revision.",
+      400,
+    );
+  }
+  const expectedDraftRevision = payload.expectedDraftRevision;
+  if (
+    hasExpectedDraftRevision &&
+    expectedDraftRevision !== null &&
+    (typeof expectedDraftRevision !== "number" ||
+      !Number.isSafeInteger(expectedDraftRevision) ||
+      expectedDraftRevision < 1)
+  ) {
+    throw new AdminRepositoryError(
+      "Consent draft expected revision is invalid.",
+      400,
+    );
+  }
 
   if (payload.flowMode === "guided" && !payload.savedSignature) {
     throw new AdminRepositoryError(
@@ -776,7 +1215,71 @@ export async function createInformedConsentForContext(
 
   const consentRef = adminDb.collection(CONSENTS_COLLECTION).doc(consentId);
   const patientRef = adminDb.collection(PATIENTS_COLLECTION).doc(patient.id);
+  const patientDraftRef =
+    context.role === "patient" && hasExpectedDraftRevision
+      ? adminDb
+          .collection(CONSENT_DRAFTS_COLLECTION)
+          .doc(informedConsentDraftIdentity(context).uid)
+      : null;
   if (!caseId) {
+    if (context.role === "patient") {
+      await adminDb.runTransaction(async (transaction) => {
+        const patientDraftSnapshot = patientDraftRef
+          ? await transaction.get(patientDraftRef)
+          : null;
+        const patientSnapshot = await transaction.get(patientRef);
+        if (patientDraftRef && patientDraftSnapshot) {
+          if (expectedDraftRevision === null) {
+            if (patientDraftSnapshot.exists) {
+              throw new AdminRepositoryError(
+                "Consent draft changed. Reload it before submitting again.",
+                409,
+              );
+            }
+          } else {
+            if (!patientDraftSnapshot.exists) {
+              throw new AdminRepositoryError(
+                "Consent draft changed. Reload it before submitting again.",
+                409,
+              );
+            }
+            const currentDraft = parseStoredInformedConsentDraft(
+              patientDraftSnapshot.id,
+              patientDraftSnapshot.data() as Record<string, unknown>,
+            );
+            if (
+              currentDraft.id !== context.uid ||
+              currentDraft.patientId !== patient.id
+            ) {
+              throw new AdminRepositoryError(
+                "Consent draft owner data is invalid.",
+                500,
+              );
+            }
+            if (currentDraft.revision !== expectedDraftRevision) {
+              throw new AdminRepositoryError(
+                "Consent draft changed. Reload it before submitting again.",
+                409,
+              );
+            }
+          }
+        }
+        revalidateGuidedSignaturePatient(context, patient, patientSnapshot);
+        transaction.set(consentRef, document);
+        if (savedSignature) {
+          transaction.set(
+            patientRef,
+            { saved_signature: savedSignature, updatedAt: now },
+            { merge: true },
+          );
+        }
+        if (patientDraftRef) {
+          transaction.delete(patientDraftRef);
+        }
+      });
+      return toConsentRecord(consentId, document, patient.fullName);
+    }
+
     if (!savedSignature) {
       await consentRef.set(document);
       return toConsentRecord(consentId, document, patient.fullName);

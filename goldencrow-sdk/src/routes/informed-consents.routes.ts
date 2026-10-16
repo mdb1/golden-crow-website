@@ -7,6 +7,8 @@ import {
   createInformedConsentForContext,
   deleteInformedConsentForContext,
   getCaseConsentTraceabilityForContext,
+  getInformedConsentDraftForContext,
+  getInformedConsentDraftStatusForContext,
   getInformedConsentDetailForContext,
   getInformedConsentFileForContext,
   getSavedInformedConsentSignatureForContext,
@@ -15,6 +17,7 @@ import {
   listInformedConsentsForContext,
   sendInformedConsentEmailForContext,
   setInformedConsentCaseForContext,
+  upsertInformedConsentDraftForContext,
 } from "../repositories/informed-consents.repository.js";
 import { SAVED_SIGNATURE_MAX_DATA_URL_LENGTH } from "../lib/saved-signature.js";
 
@@ -31,6 +34,96 @@ const ConsentFileSchema = z.object({
   size: z.number().int().min(1).max(INFORMED_CONSENT_FILE_MAX_BYTES),
   content: z.string().min(1).max(1_100_000),
 });
+const ConsentDraftStepSchema = z.enum([
+  "method",
+  "download",
+  "data",
+  "signature",
+  "editor",
+  "preview",
+  "direct-download",
+  "direct-sign",
+  "direct-upload",
+]);
+const ConsentDraftSignatureMethodSchema = z
+  .enum(["draw", "import", "saved"])
+  .nullable();
+const ConsentDraftPlacementSchema = z
+  .object({
+    x: z.number().finite().min(0).max(1),
+    y: z.number().finite().min(0).max(1),
+    width: z.number().finite().min(0.08).max(0.5),
+  })
+  .strict();
+const ConsentDraftMutationSchema = z
+  .object({
+    expectedRevision: z.number().int().min(1).nullable(),
+    schemaVersion: z.literal(1),
+    mode: z.enum(["guided", "direct"]),
+    activeStepId: ConsentDraftStepSchema,
+    visitedStepIds: z.array(ConsentDraftStepSchema).min(1).max(6),
+    patientName: z.string().max(200),
+    patientDocument: z.string().max(100),
+    signatureDate: z.string().max(10),
+    hasPartner: z.boolean(),
+    partnerName: z.string().max(200),
+    patientSignatureDataUrl: z
+      .string()
+      .min(1)
+      .max(SAVED_SIGNATURE_MAX_DATA_URL_LENGTH)
+      .nullable(),
+    partnerSignatureDataUrl: z
+      .string()
+      .min(1)
+      .max(SAVED_SIGNATURE_MAX_DATA_URL_LENGTH)
+      .nullable(),
+    patientSignatureMethod: ConsentDraftSignatureMethodSchema,
+    partnerSignatureMethod: ConsentDraftSignatureMethodSchema,
+    patientPlacement: ConsentDraftPlacementSchema,
+    partnerPlacement: ConsentDraftPlacementSchema,
+    selectedRole: z.enum(["patient", "partner"]),
+  })
+  .strict()
+  .superRefine((body, context) => {
+    const allowedSteps = new Set(
+      body.mode === "guided"
+        ? ["method", "download", "data", "signature", "editor", "preview"]
+        : ["method", "direct-download", "direct-sign", "direct-upload"],
+    );
+    if (!allowedSteps.has(body.activeStepId)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["activeStepId"],
+        message: "The active consent step does not match the draft mode.",
+      });
+    }
+    const uniqueSteps = new Set(body.visitedStepIds);
+    if (
+      uniqueSteps.size !== body.visitedStepIds.length ||
+      body.visitedStepIds.some((step) => !allowedSteps.has(step)) ||
+      !body.visitedStepIds.includes(body.activeStepId)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["visitedStepIds"],
+        message: "Visited consent steps are invalid for the draft mode.",
+      });
+    }
+    if (body.patientSignatureDataUrl && !body.patientSignatureMethod) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["patientSignatureMethod"],
+        message: "A patient signature method is required.",
+      });
+    }
+    if (body.partnerSignatureDataUrl && !body.partnerSignatureMethod) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["partnerSignatureMethod"],
+        message: "A partner signature method is required.",
+      });
+    }
+  });
 
 function sendError(reply: FastifyReply, error: unknown) {
   if (isAdminRepositoryError(error)) {
@@ -116,6 +209,62 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
     },
   );
 
+  f.get("/2pq/informed-consents/draft/status", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply.status(401).send({ error: "No authenticated context" });
+    }
+    try {
+      const draft = await getInformedConsentDraftStatusForContext(
+        request.adminContext,
+      );
+      return reply.header("Cache-Control", "private, no-store").send({ draft });
+    } catch (error) {
+      return sendError(reply, error);
+    }
+  });
+
+  f.get("/2pq/informed-consents/draft", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply.status(401).send({ error: "No authenticated context" });
+    }
+    try {
+      const draft = await getInformedConsentDraftForContext(
+        request.adminContext,
+      );
+      return reply.header("Cache-Control", "private, no-store").send({ draft });
+    } catch (error) {
+      return sendError(reply, error);
+    }
+  });
+
+  f.put(
+    "/2pq/informed-consents/draft",
+    {
+      bodyLimit: 450_000,
+      schema: { body: ConsentDraftMutationSchema },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        const savedDraft = await upsertInformedConsentDraftForContext(
+          request.adminContext,
+          request.body,
+        );
+        const draft = {
+          mode: savedDraft.mode,
+          activeStepId: savedDraft.activeStepId,
+          updatedAt: savedDraft.updatedAt,
+          revision: savedDraft.revision,
+        };
+        return reply.send({ draft });
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
   f.post(
     "/2pq/informed-consents",
     {
@@ -126,6 +275,12 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
             patientId: z.string().min(1).optional(),
             caseId: z.string().min(1).optional(),
             flowMode: z.enum(["guided", "direct"]).optional(),
+            expectedDraftRevision: z
+              .number()
+              .int()
+              .min(1)
+              .nullable()
+              .optional(),
             signatureAttestationAccepted: z.literal(true).optional(),
             savedSignature: z
               .string()
@@ -166,6 +321,18 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       if (!request.adminContext) {
         return reply.status(401).send({ error: "No authenticated context" });
+      }
+      if (
+        request.adminContext.role === "patient" &&
+        !Object.prototype.hasOwnProperty.call(
+          request.body,
+          "expectedDraftRevision",
+        )
+      ) {
+        return reply.status(400).send({
+          error:
+            "Patient consent uploads require a draft revision expectation.",
+        });
       }
       try {
         const record = await createInformedConsentForContext(
