@@ -62,6 +62,7 @@ import type {
   InformedConsentPatientOption,
   InformedConsentPatientPage,
   InformedConsentRecord,
+  InformedConsentSavedSignaturePayload,
 } from "@/lib/informed-consents";
 import { sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
@@ -71,6 +72,14 @@ const SIGNATURE_CANVAS_WIDTH = 720;
 const SIGNATURE_CANVAS_HEIGHT = 240;
 
 type ConsentFlowMode = "guided" | "direct";
+
+type SignatureMethod = "draw" | "import" | "saved";
+
+type SavedSignatureCacheEntry =
+  | { status: "pending"; promise: Promise<string | null> }
+  | { status: "resolved"; value: string | null };
+
+type SignatureFocusTarget = "chooser" | "draw" | "preview";
 
 type ConsentStepId =
   | "method"
@@ -128,9 +137,9 @@ const CONSENT_STEPS: Record<ConsentStepId, ConsentWizardStep> = {
   },
   signature: {
     id: "signature",
-    title: "Dibujar o importar firmas",
+    title: "Preparar las firmas",
     description:
-      "Dibuje cada firma o importe una imagen y convierta su fondo blanco en transparente.",
+      "Elija cómo preparar cada firma y confirme una opción antes de continuar.",
     icon: PenLine,
   },
   editor: {
@@ -249,49 +258,15 @@ function formatSignatureDate(value: string) {
 }
 
 function SignaturePad({
-  value,
-  onChange,
+  onSave,
   signerLabel,
 }: {
-  value: string | null;
-  onChange: (value: string | null) => void;
+  onSave: (value: string) => void;
   signerLabel: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const [hasInk, setHasInk] = useState(false);
-  const [imageImportOpen, setImageImportOpen] = useState(false);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context) return;
-
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    setHasInk(false);
-    if (!value) {
-      return;
-    }
-
-    let cancelled = false;
-    const image = new Image();
-    image.onload = () => {
-      if (cancelled) return;
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      setHasInk(true);
-    };
-    image.onerror = () => {
-      if (!cancelled) setHasInk(false);
-    };
-    image.src = value;
-
-    return () => {
-      cancelled = true;
-      image.onload = null;
-      image.onerror = null;
-    };
-  }, [value]);
 
   function canvasPoint(event: ReactPointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
@@ -319,7 +294,6 @@ function SignaturePad({
     context.lineCap = "round";
     context.lineJoin = "round";
     setHasInk(true);
-    if (value) onChange(null);
   }
 
   function continueDrawing(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -342,13 +316,12 @@ function SignaturePad({
     const canvas = canvasRef.current;
     canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
     setHasInk(false);
-    onChange(null);
   }
 
   function saveSignature() {
     const canvas = canvasRef.current;
     if (!canvas || !hasInk) return;
-    onChange(canvas.toDataURL("image/png"));
+    onSave(canvas.toDataURL("image/png"));
   }
 
   return (
@@ -375,28 +348,251 @@ function SignaturePad({
           <Check className="size-4" />
           Guardar firma {signerLabel}
         </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          aria-label={`Importar imagen de firma ${signerLabel}`}
-          onClick={() => setImageImportOpen(true)}
-        >
-          <ImagePlus className="size-4" />
-          Importar imagen de firma
-        </Button>
-        {value ? (
-          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700">
-            <CheckCircle2 className="size-4" />
-            Firma guardada
-          </span>
-        ) : null}
       </div>
+    </div>
+  );
+}
+
+function SignatureMethodField({
+  signerLabel,
+  value,
+  method,
+  savedSignature,
+  onMethodChange,
+  onComplete,
+}: {
+  signerLabel: string;
+  value: string | null;
+  method: SignatureMethod | null;
+  savedSignature?: string | null;
+  onMethodChange: (method: SignatureMethod | null) => void;
+  onComplete: (value: string, method: SignatureMethod) => void;
+}) {
+  const [imageImportOpen, setImageImportOpen] = useState(
+    method === "import" && !value,
+  );
+  const importAppliedRef = useRef(false);
+  const pendingFocusRef = useRef<SignatureFocusTarget | null>(null);
+  const chooserFirstOptionRef = useRef<HTMLButtonElement>(null);
+  const drawPanelRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const target = pendingFocusRef.current;
+    const element =
+      target === "chooser" && !method
+        ? chooserFirstOptionRef.current
+        : target === "draw" && method === "draw" && !value
+          ? drawPanelRef.current
+          : target === "preview" && method && value
+            ? previewRef.current
+            : null;
+    if (!element) return;
+    element.focus();
+    pendingFocusRef.current = null;
+  }, [method, value]);
+
+  const methodSuccessCopy =
+    method === "saved"
+      ? "La firma guardada del paciente está lista para reutilizarse en este consentimiento."
+      : method === "import"
+        ? "La imagen importada quedó preparada y lista para aplicarse al consentimiento."
+        : "La firma dibujada está lista para aplicarse al consentimiento.";
+
+  function chooseMethod(nextMethod: SignatureMethod) {
+    if (nextMethod === "saved") {
+      if (savedSignature) {
+        pendingFocusRef.current = "preview";
+        onComplete(savedSignature, "saved");
+      }
+      return;
+    }
+    pendingFocusRef.current = nextMethod === "draw" ? "draw" : null;
+    onMethodChange(nextMethod);
+    if (nextMethod === "import") {
+      importAppliedRef.current = false;
+      setImageImportOpen(true);
+    }
+  }
+
+  function changeMethod() {
+    setImageImportOpen(false);
+    importAppliedRef.current = false;
+    pendingFocusRef.current = "chooser";
+    onMethodChange(null);
+  }
+
+  function handleImportOpenChange(open: boolean) {
+    setImageImportOpen(open);
+    if (open) return;
+    const importWasApplied = importAppliedRef.current;
+    if (!importWasApplied) {
+      pendingFocusRef.current = "chooser";
+      onMethodChange(null);
+    }
+    window.setTimeout(() => {
+      if (importWasApplied) {
+        previewRef.current?.focus();
+      } else {
+        chooserFirstOptionRef.current?.focus();
+      }
+      pendingFocusRef.current = null;
+    }, 0);
+    importAppliedRef.current = false;
+  }
+
+  function completeMethod(nextValue: string, nextMethod: SignatureMethod) {
+    pendingFocusRef.current = "preview";
+    onComplete(nextValue, nextMethod);
+  }
+
+  if (value && method) {
+    return (
+      <div
+        ref={previewRef}
+        tabIndex={-1}
+        className="flex min-h-72 flex-col items-center justify-center gap-5 overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-violet-50 p-6 text-center shadow-sm dark:border-emerald-400/20 dark:from-emerald-950/20 dark:via-slate-950/50 dark:to-violet-950/20"
+        aria-label={`Firma ${signerLabel} lista`}
+        aria-live="polite"
+      >
+        <div className="flex w-full max-w-2xl items-center justify-center rounded-2xl border border-white/80 bg-white/90 p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.45)] dark:border-white/10 dark:bg-slate-950/70">
+          <img
+            src={value}
+            alt={`Vista previa de la firma ${signerLabel}`}
+            className="max-h-44 w-full max-w-xl object-contain"
+          />
+        </div>
+        <div className="max-w-xl space-y-2">
+          <p className="inline-flex items-center justify-center gap-2 text-base font-semibold text-emerald-800 dark:text-emerald-200">
+            <CheckCircle2 className="size-5" />
+            Firma lista
+          </p>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {methodSuccessCopy}
+          </p>
+        </div>
+        <Button type="button" variant="outline" onClick={changeMethod}>
+          <RotateCcw className="size-4" />
+          Cambiar método
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {!method ? (
+        <div
+          role="group"
+          className="space-y-3"
+          aria-label={`Métodos de firma ${signerLabel}`}
+        >
+          <button
+            ref={chooserFirstOptionRef}
+            type="button"
+            className="group flex w-full items-center gap-4 rounded-2xl border border-violet-200 bg-white/80 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-md dark:border-violet-400/20 dark:bg-slate-950/50"
+            onClick={() => chooseMethod("draw")}
+          >
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-400/15 dark:text-violet-100">
+              <PenLine className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-foreground">
+                Dibujar una firma nueva
+              </span>
+              <span className="mt-1 block text-sm leading-5 text-muted-foreground">
+                Firme con el mouse, el dedo o un lápiz digital.
+              </span>
+            </span>
+            <ArrowRight className="size-5 shrink-0 text-violet-500 transition-transform group-hover:translate-x-0.5" />
+          </button>
+
+          <button
+            type="button"
+            className="group flex w-full items-center gap-4 rounded-2xl border border-violet-200 bg-white/80 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-md dark:border-violet-400/20 dark:bg-slate-950/50"
+            onClick={() => chooseMethod("import")}
+          >
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-400/15 dark:text-violet-100">
+              <ImagePlus className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-foreground">
+                Importar una imagen
+              </span>
+              <span className="mt-1 block text-sm leading-5 text-muted-foreground">
+                Use una foto o archivo y quite el fondo antes de aplicarlo.
+              </span>
+            </span>
+            <ArrowRight className="size-5 shrink-0 text-violet-500 transition-transform group-hover:translate-x-0.5" />
+          </button>
+
+          {savedSignature ? (
+            <button
+              type="button"
+              className="group flex w-full items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md dark:border-emerald-400/20 dark:bg-emerald-950/20"
+              onClick={() => chooseMethod("saved")}
+            >
+              <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-200 bg-white p-1 dark:border-emerald-400/20">
+                <img
+                  src={savedSignature}
+                  alt=""
+                  className="max-h-full max-w-full object-contain"
+                />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold text-foreground">
+                  Reutilizar firma guardada
+                </span>
+                <span className="mt-1 block text-sm leading-5 text-muted-foreground">
+                  Este paciente ya tiene una firma guardada. Úsela sin volver a
+                  firmar.
+                </span>
+              </span>
+              <ArrowRight className="size-5 shrink-0 text-emerald-600 transition-transform group-hover:translate-x-0.5" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {method === "draw" ? (
+        <div
+          ref={drawPanelRef}
+          role="group"
+          tabIndex={-1}
+          aria-label={`Dibujar firma ${signerLabel}`}
+          className="space-y-4 rounded-2xl border border-border/70 bg-background/70 p-4 outline-none"
+        >
+          <SignaturePad
+            signerLabel={signerLabel}
+            onSave={(nextValue) => completeMethod(nextValue, "draw")}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            className="px-0"
+            onClick={changeMethod}
+          >
+            <ArrowLeft className="size-4" />
+            Elegir otro método
+          </Button>
+        </div>
+      ) : null}
+
+      {method === "import" ? (
+        <div className="flex min-h-28 items-center justify-center rounded-2xl border border-dashed border-violet-200 bg-violet-50/40 p-5 text-sm text-muted-foreground dark:border-violet-400/20 dark:bg-violet-950/10">
+          Complete la importación en la ventana abierta.
+        </div>
+      ) : null}
+
       <SignatureImageImportDialog
-        open={imageImportOpen}
+        open={method === "import" && imageImportOpen}
         signerLabel={signerLabel}
-        replacingSignature={Boolean(value)}
-        onOpenChange={setImageImportOpen}
-        onApply={onChange}
+        replacingSignature={false}
+        onOpenChange={handleImportOpenChange}
+        onApply={(nextValue) => {
+          importAppliedRef.current = true;
+          completeMethod(nextValue, "import");
+        }}
       />
     </div>
   );
@@ -655,6 +851,10 @@ export function PatientConsentUploadWizard({
 }) {
   const router = useRouter();
   const casesRequestRef = useRef(0);
+  const savedSignatureRequestRef = useRef(0);
+  const savedSignatureCacheRef = useRef(
+    new Map<string, SavedSignatureCacheEntry>(),
+  );
   const isBackoffice = surface === "backoffice";
   const [mode, setMode] = useState<ConsentFlowMode | null>(null);
   const [activeStepId, setActiveStepId] = useState<ConsentStepId>("method");
@@ -692,6 +892,13 @@ export function PatientConsentUploadWizard({
   const [partnerSignatureDataUrl, setPartnerSignatureDataUrl] = useState<
     string | null
   >(null);
+  const [patientSignatureMethod, setPatientSignatureMethod] =
+    useState<SignatureMethod | null>(null);
+  const [partnerSignatureMethod, setPartnerSignatureMethod] =
+    useState<SignatureMethod | null>(null);
+  const [reusableSavedSignature, setReusableSavedSignature] = useState<
+    string | null
+  >(null);
   const [patientPlacement, setPatientPlacement] =
     useState<ConsentSignaturePlacement>(INITIAL_PATIENT_PLACEMENT);
   const [partnerPlacement, setPartnerPlacement] =
@@ -712,12 +919,96 @@ export function PatientConsentUploadWizard({
     stepHeadingRef.current?.focus();
   }, [activeStepId]);
 
+  useEffect(() => {
+    if (activeStepId !== "signature") return;
+    const targetPatientId = isBackoffice ? patientId.trim() : "";
+    if (isBackoffice && !targetPatientId) return;
+
+    const targetKey = isBackoffice
+      ? `backoffice:${targetPatientId}`
+      : "patient-portal:self";
+    const requestId = savedSignatureRequestRef.current + 1;
+    savedSignatureRequestRef.current = requestId;
+    setReusableSavedSignature(null);
+
+    let cacheEntry = savedSignatureCacheRef.current.get(targetKey);
+    if (!cacheEntry) {
+      const path = isBackoffice
+        ? `/2pq/informed-consents/saved-signature?patientId=${encodeURIComponent(targetPatientId)}`
+        : "/2pq/informed-consents/saved-signature";
+      const promise = Promise.resolve(
+        sdkFetch<InformedConsentSavedSignaturePayload>(path),
+      )
+        .then((payload) => payload?.savedSignature ?? null)
+        .catch(() => null);
+      cacheEntry = { status: "pending", promise };
+      savedSignatureCacheRef.current.set(targetKey, cacheEntry);
+      void promise.then((value) => {
+        const currentEntry = savedSignatureCacheRef.current.get(targetKey);
+        if (
+          currentEntry?.status === "pending" &&
+          currentEntry.promise === promise
+        ) {
+          savedSignatureCacheRef.current.set(targetKey, {
+            status: "resolved",
+            value,
+          });
+        }
+      });
+    }
+
+    if (cacheEntry.status === "resolved") {
+      setReusableSavedSignature(cacheEntry.value);
+      return;
+    }
+
+    void cacheEntry.promise.then((value) => {
+      if (savedSignatureRequestRef.current !== requestId) return;
+      setReusableSavedSignature(value);
+    });
+
+    return () => {
+      if (savedSignatureRequestRef.current === requestId) {
+        savedSignatureRequestRef.current += 1;
+      }
+    };
+  }, [activeStepId, isBackoffice, patientId]);
+
   function goToStep(stepId: ConsentStepId) {
     setActiveStepId(stepId);
   }
 
   function invalidateAfter() {
     setSignedFile(null);
+  }
+
+  function changeSignatureMethod(
+    role: ConsentSignerRole,
+    nextMethod: SignatureMethod | null,
+  ) {
+    if (role === "patient") {
+      setPatientSignatureDataUrl(null);
+      setPatientSignatureMethod(nextMethod);
+    } else {
+      setPartnerSignatureDataUrl(null);
+      setPartnerSignatureMethod(nextMethod);
+    }
+    invalidateAfter();
+  }
+
+  function completeSignatureMethod(
+    role: ConsentSignerRole,
+    nextValue: string,
+    nextMethod: SignatureMethod,
+  ) {
+    if (role === "patient") {
+      setPatientSignatureDataUrl(nextValue);
+      setPatientSignatureMethod(nextMethod);
+    } else {
+      setPartnerSignatureDataUrl(nextValue);
+      setPartnerSignatureMethod(nextMethod);
+    }
+    invalidateAfter();
   }
 
   function selectMode(nextMode: ConsentFlowMode) {
@@ -979,6 +1270,10 @@ export function PatientConsentUploadWizard({
     setPartnerNameError("");
     setPatientSignatureDataUrl(null);
     setPartnerSignatureDataUrl(null);
+    setPatientSignatureMethod(null);
+    setPartnerSignatureMethod(null);
+    savedSignatureRequestRef.current += 1;
+    setReusableSavedSignature(null);
     setPatientPlacement(INITIAL_PATIENT_PLACEMENT);
     setPartnerPlacement(INITIAL_PARTNER_PLACEMENT);
     setSelectedRole("patient");
@@ -1445,7 +1740,13 @@ export function PatientConsentUploadWizard({
                         const nextHasPartner = checked === true;
                         setHasPartner(nextHasPartner);
                         setPartnerNameError("");
-                        if (!nextHasPartner) setSelectedRole("patient");
+                        if (!nextHasPartner) {
+                          setPartnerName("");
+                          setPartnerSignatureDataUrl(null);
+                          setPartnerSignatureMethod(null);
+                          setPartnerPlacement(INITIAL_PARTNER_PLACEMENT);
+                          setSelectedRole("patient");
+                        }
                         invalidateAfter();
                       }}
                     />
@@ -1475,6 +1776,9 @@ export function PatientConsentUploadWizard({
                         onChange={(event) => {
                           setPartnerName(event.target.value);
                           setPartnerNameError("");
+                          setPartnerSignatureDataUrl(null);
+                          setPartnerSignatureMethod(null);
+                          setPartnerPlacement(INITIAL_PARTNER_PLACEMENT);
                           invalidateAfter();
                         }}
                       />
@@ -1510,13 +1814,21 @@ export function PatientConsentUploadWizard({
                         Fecha de firma: {formattedSignatureDate}
                       </p>
                     </div>
-                    <SignaturePad
+                    <SignatureMethodField
                       signerLabel="del paciente"
                       value={patientSignatureDataUrl}
-                      onChange={(value) => {
-                        setPatientSignatureDataUrl(value);
-                        invalidateAfter();
-                      }}
+                      method={patientSignatureMethod}
+                      savedSignature={reusableSavedSignature}
+                      onMethodChange={(nextMethod) =>
+                        changeSignatureMethod("patient", nextMethod)
+                      }
+                      onComplete={(nextValue, nextMethod) =>
+                        completeSignatureMethod(
+                          "patient",
+                          nextValue,
+                          nextMethod,
+                        )
+                      }
                     />
                   </section>
 
@@ -1531,13 +1843,20 @@ export function PatientConsentUploadWizard({
                           Fecha de firma: {formattedSignatureDate}
                         </p>
                       </div>
-                      <SignaturePad
+                      <SignatureMethodField
                         signerLabel="de la pareja"
                         value={partnerSignatureDataUrl}
-                        onChange={(value) => {
-                          setPartnerSignatureDataUrl(value);
-                          invalidateAfter();
-                        }}
+                        method={partnerSignatureMethod}
+                        onMethodChange={(nextMethod) =>
+                          changeSignatureMethod("partner", nextMethod)
+                        }
+                        onComplete={(nextValue, nextMethod) =>
+                          completeSignatureMethod(
+                            "partner",
+                            nextValue,
+                            nextMethod,
+                          )
+                        }
                       />
                     </section>
                   ) : null}

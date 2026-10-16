@@ -104,6 +104,7 @@ function docsForCollection(name: string) {
 }
 
 const queryStubs: QueryStub[] = [];
+const documentReads: Array<{ collectionName: string; id: string }> = [];
 const failOrderedCollections = new Set<string>();
 const setDocMock = jest.fn(async (_document: unknown) => undefined);
 const deleteDocMock = jest.fn(async () => undefined);
@@ -177,11 +178,14 @@ class QueryStub {
     return {
       collectionName: this.collectionName,
       id,
-      get: jest.fn(async () => ({
-        id,
-        exists: Boolean(doc),
-        data: () => doc?.data,
-      })),
+      get: jest.fn(async () => {
+        documentReads.push({ collectionName: this.collectionName, id });
+        return {
+          id,
+          exists: Boolean(doc),
+          data: () => doc?.data,
+        };
+      }),
       set: setDocMock,
       delete: deleteDocMock,
     };
@@ -255,6 +259,7 @@ const SAVED_SIGNATURE =
 describe("informed consent repository scoping", () => {
   beforeEach(() => {
     queryStubs.length = 0;
+    documentReads.length = 0;
     failOrderedCollections.clear();
     failOrderedCollections.add("2pq-informed-consent");
     failOrderedCollections.add("patients");
@@ -269,6 +274,9 @@ describe("informed consent repository scoping", () => {
     });
     caseDocs.forEach((doc) => {
       doc.data.informedConsentId = null;
+    });
+    patientDocs.forEach((doc) => {
+      delete doc.data.saved_signature;
     });
   });
 
@@ -341,6 +349,112 @@ describe("informed consent repository scoping", () => {
     });
 
     expect(result.patients.map((patient) => patient.id)).toEqual(["PAT-00001"]);
+  });
+
+  describe("saved signature lookup", () => {
+    it("lets a patient read only their own valid saved signature", async () => {
+      patientDocs[0]!.data.saved_signature = SAVED_SIGNATURE;
+      const { getSavedInformedConsentSignatureForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getSavedInformedConsentSignatureForContext({
+          ...baseContext,
+          role: "patient",
+          patientId: "PAT-00001",
+          canAccessBackoffice: false,
+          canAccessPatientPortal: true,
+        }),
+      ).resolves.toEqual({ savedSignature: SAVED_SIGNATURE });
+      expect(documentReads).toEqual([
+        { collectionName: "patients", id: "PAT-00001" },
+      ]);
+    });
+
+    it("lets a scoped backoffice doctor read one selected patient signature", async () => {
+      patientDocs[0]!.data.saved_signature = SAVED_SIGNATURE;
+      const { getSavedInformedConsentSignatureForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getSavedInformedConsentSignatureForContext(
+          {
+            ...baseContext,
+            role: "institution_doctor",
+            institutionId: "INST-00001",
+            doctorId: "DOC-00001",
+          },
+          "PAT-00001",
+        ),
+      ).resolves.toEqual({ savedSignature: SAVED_SIGNATURE });
+      expect(documentReads).toEqual([
+        { collectionName: "patients", id: "PAT-00001" },
+      ]);
+    });
+
+    it.each([
+      ["missing", undefined],
+      ["invalid", "data:image/png;base64,aW52YWxpZA=="],
+    ])("normalizes a %s persisted signature to null", async (_, value) => {
+      patientDocs[0]!.data.saved_signature = value;
+      const { getSavedInformedConsentSignatureForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getSavedInformedConsentSignatureForContext(
+          { ...baseContext, role: "full_admin" },
+          "PAT-00001",
+        ),
+      ).resolves.toEqual({ savedSignature: null });
+      expect(documentReads).toEqual([
+        { collectionName: "patients", id: "PAT-00001" },
+      ]);
+    });
+
+    it("rejects a patient targeting another patient before any read", async () => {
+      const { getSavedInformedConsentSignatureForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getSavedInformedConsentSignatureForContext(
+          {
+            ...baseContext,
+            role: "patient",
+            patientId: "PAT-00001",
+            canAccessBackoffice: false,
+            canAccessPatientPortal: true,
+          },
+          "PAT-00002",
+        ),
+      ).rejects.toMatchObject({
+        message: "Patients can only access their own saved signature.",
+        statusCode: 403,
+      });
+      expect(documentReads).toEqual([]);
+    });
+
+    it("rejects a backoffice caller outside the selected patient's scope", async () => {
+      const { getSavedInformedConsentSignatureForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getSavedInformedConsentSignatureForContext(
+          {
+            ...baseContext,
+            role: "institution_doctor",
+            institutionId: "INST-00001",
+            doctorId: "DOC-00001",
+          },
+          "PAT-00002",
+        ),
+      ).rejects.toMatchObject({
+        message: "You cannot access this patient's saved signature.",
+        statusCode: 403,
+      });
+      expect(documentReads).toEqual([
+        { collectionName: "patients", id: "PAT-00002" },
+      ]);
+    });
   });
 
   it("lists only the selected patient's assignable 2PQ cases", async () => {

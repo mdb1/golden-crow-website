@@ -64,3 +64,7 @@ export interface InformedConsentPatientPage {
   patients: InformedConsentPatientOption[];
   nextCursor?: string;
 }
+
+export interface InformedConsentSavedSignaturePayload {
+  savedSignature: string | null;
+}

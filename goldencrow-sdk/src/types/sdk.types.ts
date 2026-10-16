@@ -253,6 +253,10 @@ export interface InformedConsentPatientOption {
   email: string;
 }
 
+export interface InformedConsentSavedSignature {
+  savedSignature: string | null;
+}
+
 export interface RoleManagementRecord extends UserRoleRecord {
   organizationName?: string;
   individualName?: string;

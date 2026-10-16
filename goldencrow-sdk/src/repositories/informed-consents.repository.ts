@@ -10,13 +10,17 @@ import {
   normalizeTemporaryPassword,
   sendInformedConsentEmail,
 } from "../lib/informed-consent-email.js";
-import { validateSavedSignatureDataUrl } from "../lib/saved-signature.js";
+import {
+  readSavedSignatureDataUrl,
+  validateSavedSignatureDataUrl,
+} from "../lib/saved-signature.js";
 import type {
   AdminContext,
   InformedConsentCaseOption,
   InformedConsentFile,
   InformedConsentPatientOption,
   InformedConsentRecord,
+  InformedConsentSavedSignature,
   PatientRecord,
 } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
@@ -528,6 +532,57 @@ export async function listInformedConsentPatientsForContext(
         ? pageDocs.at(-1)?.id
         : undefined,
   };
+}
+
+export async function getSavedInformedConsentSignatureForContext(
+  context: AdminContext,
+  requestedPatientId?: string,
+): Promise<InformedConsentSavedSignature> {
+  assertCanUseInformedConsents(context);
+
+  const normalizedRequestedPatientId = requestedPatientId?.trim();
+  if (
+    context.role === "patient" &&
+    normalizedRequestedPatientId &&
+    normalizedRequestedPatientId !== context.patientId
+  ) {
+    throw new AdminRepositoryError(
+      "Patients can only access their own saved signature.",
+      403,
+    );
+  }
+
+  const patientId =
+    context.role === "patient"
+      ? context.patientId
+      : normalizedRequestedPatientId;
+  if (!patientId) {
+    throw new AdminRepositoryError(
+      context.role === "patient"
+        ? "This patient account is not linked to a patient record."
+        : "Select a patient.",
+      context.role === "patient" ? 403 : 400,
+    );
+  }
+
+  const snapshot = await adminDb
+    .collection(PATIENTS_COLLECTION)
+    .doc(patientId)
+    .get();
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError("Patient not found.", 404);
+  }
+
+  const data = (snapshot.data() ?? {}) as Record<string, unknown>;
+  const patient = toPatientRecord(snapshot.id, data);
+  if (!canAccessInformedConsentPatient(context, patient)) {
+    throw new AdminRepositoryError(
+      "You cannot access this patient's saved signature.",
+      403,
+    );
+  }
+
+  return { savedSignature: readSavedSignatureDataUrl(data.saved_signature) };
 }
 
 export async function listInformedConsentCasesForContext(

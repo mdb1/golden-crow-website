@@ -9,6 +9,7 @@ import {
   getCaseConsentTraceabilityForContext,
   getInformedConsentDetailForContext,
   getInformedConsentFileForContext,
+  getSavedInformedConsentSignatureForContext,
   listInformedConsentCasesForContext,
   listInformedConsentPatientsForContext,
   listInformedConsentsForContext,
@@ -20,6 +21,9 @@ import { SAVED_SIGNATURE_MAX_DATA_URL_LENGTH } from "../lib/saved-signature.js";
 const CursorSchema = z.object({ cursor: z.string().min(1).optional() });
 const PatientCaseCursorSchema = CursorSchema.extend({
   patientId: z.string().min(1),
+});
+const SavedSignatureQuerySchema = z.object({
+  patientId: z.string().trim().min(1).optional(),
 });
 const ConsentFileSchema = z.object({
   name: z.string().min(1).max(255),
@@ -87,6 +91,27 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
           request.query.patientId,
           request.query.cursor,
         );
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/2pq/informed-consents/saved-signature",
+    { schema: { querystring: SavedSignatureQuerySchema } },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        const result = await getSavedInformedConsentSignatureForContext(
+          request.adminContext,
+          request.query.patientId,
+        );
+        return reply
+          .header("Cache-Control", "private, no-store")
+          .send(result);
       } catch (error) {
         return sendError(reply, error);
       }

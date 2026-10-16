@@ -12,6 +12,7 @@ const mockDeleteInformedConsentForContext = jest.fn();
 const mockGetCaseConsentTraceabilityForContext = jest.fn();
 const mockGetInformedConsentDetailForContext = jest.fn();
 const mockGetInformedConsentFileForContext = jest.fn();
+const mockGetSavedInformedConsentSignatureForContext = jest.fn();
 const mockListInformedConsentCasesForContext = jest.fn();
 const mockListInformedConsentPatientsForContext = jest.fn();
 const mockListInformedConsentsForContext = jest.fn();
@@ -26,6 +27,8 @@ jest.mock("../repositories/informed-consents.repository.js", () => ({
     mockGetCaseConsentTraceabilityForContext,
   getInformedConsentDetailForContext: mockGetInformedConsentDetailForContext,
   getInformedConsentFileForContext: mockGetInformedConsentFileForContext,
+  getSavedInformedConsentSignatureForContext:
+    mockGetSavedInformedConsentSignatureForContext,
   listInformedConsentCasesForContext: mockListInformedConsentCasesForContext,
   listInformedConsentPatientsForContext:
     mockListInformedConsentPatientsForContext,
@@ -40,6 +43,7 @@ const repositoryMocks = [
   mockGetCaseConsentTraceabilityForContext,
   mockGetInformedConsentDetailForContext,
   mockGetInformedConsentFileForContext,
+  mockGetSavedInformedConsentSignatureForContext,
   mockListInformedConsentCasesForContext,
   mockListInformedConsentPatientsForContext,
   mockListInformedConsentsForContext,
@@ -59,6 +63,7 @@ function validFile() {
 const endpoints = [
   { method: "GET" as const, url: "/2pq/informed-consents" },
   { method: "GET" as const, url: "/2pq/informed-consents/patients" },
+  { method: "GET" as const, url: "/2pq/informed-consents/saved-signature" },
   {
     method: "GET" as const,
     url: "/2pq/informed-consents/cases?patientId=PAT-1",
@@ -280,6 +285,83 @@ describe("POST /2pq/informed-consents", () => {
     });
 
     expect(response.statusCode).toBe(400);
+  });
+});
+
+describe("GET /2pq/informed-consents/saved-signature", () => {
+  const savedSignature =
+    "data:image/png;base64," +
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=";
+
+  it("resolves a patient from context without a patientId query", async () => {
+    currentContext = PATIENT;
+    mockGetSavedInformedConsentSignatureForContext.mockResolvedValue({
+      savedSignature,
+    });
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/2pq/informed-consents/saved-signature",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ savedSignature });
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(
+      mockGetSavedInformedConsentSignatureForContext,
+    ).toHaveBeenCalledWith(PATIENT, undefined);
+  });
+
+  it("forwards one selected patientId for an authorized backoffice read", async () => {
+    mockGetSavedInformedConsentSignatureForContext.mockResolvedValue({
+      savedSignature: null,
+    });
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/2pq/informed-consents/saved-signature?patientId=PAT-1",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ savedSignature: null });
+    expect(
+      mockGetSavedInformedConsentSignatureForContext,
+    ).toHaveBeenCalledWith(currentContext, "PAT-1");
+  });
+
+  it("passes through an unauthorized patient target", async () => {
+    currentContext = PATIENT;
+    mockGetSavedInformedConsentSignatureForContext.mockRejectedValue(
+      new AdminRepositoryError(
+        "Patients can only access their own saved signature.",
+        403,
+      ),
+    );
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/2pq/informed-consents/saved-signature?patientId=PAT-OTHER",
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      error: "Patients can only access their own saved signature.",
+    });
+    expect(
+      mockGetSavedInformedConsentSignatureForContext,
+    ).toHaveBeenCalledWith(PATIENT, "PAT-OTHER");
+  });
+
+  it("rejects a blank patientId before calling the repository", async () => {
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/2pq/informed-consents/saved-signature?patientId=%20",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(
+      mockGetSavedInformedConsentSignatureForContext,
+    ).not.toHaveBeenCalled();
   });
 });
 
