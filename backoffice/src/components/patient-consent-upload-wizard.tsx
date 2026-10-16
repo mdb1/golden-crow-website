@@ -44,6 +44,7 @@ import {
   CONSENT_SIGNER_DATE_PLACEMENTS,
   CONSENT_SIGNER_DOCUMENT_PLACEMENTS,
   CONSENT_SIGNER_NAME_PLACEMENTS,
+  CONSENT_TEMPLATE_LAST_PAGE_INDEX,
   CONSENT_TEMPLATE_PREVIEW_URLS,
   CONSENT_TEMPLATE_URL,
   type ConsentSignerRole,
@@ -78,14 +79,12 @@ const BACKOFFICE_STEPS = [
 ] as const;
 
 const INITIAL_PATIENT_PLACEMENT: ConsentSignaturePlacement = {
-  pageIndex: 1,
   x: 0.72,
   y: 0.445,
   width: 0.16,
 };
 
 const INITIAL_PARTNER_PLACEMENT: ConsentSignaturePlacement = {
-  pageIndex: 1,
   x: 0.72,
   y: 0.64,
   width: 0.16,
@@ -345,7 +344,7 @@ function SignaturePagePreview({
         const datePlacement = CONSENT_SIGNER_DATE_PLACEMENTS[signature.role];
         return (
           <div key={signature.role}>
-            {namePlacement.pageIndex === pageIndex ? (
+            {pageIndex === CONSENT_TEMPLATE_LAST_PAGE_INDEX ? (
               <span
                 className="pointer-events-none absolute overflow-hidden whitespace-nowrap font-sans text-[clamp(5px,1vw,9px)] text-slate-950"
                 style={{
@@ -358,7 +357,7 @@ function SignaturePagePreview({
               </span>
             ) : null}
             {signature.document &&
-            documentPlacement.pageIndex === pageIndex ? (
+            pageIndex === CONSENT_TEMPLATE_LAST_PAGE_INDEX ? (
               <span
                 className="pointer-events-none absolute overflow-hidden whitespace-nowrap font-sans text-[clamp(5px,1vw,9px)] text-slate-950"
                 style={{
@@ -371,7 +370,7 @@ function SignaturePagePreview({
               </span>
             ) : null}
             {signature.signatureDate &&
-            datePlacement.pageIndex === pageIndex ? (
+            pageIndex === CONSENT_TEMPLATE_LAST_PAGE_INDEX ? (
               <span
                 className="pointer-events-none absolute overflow-hidden whitespace-nowrap bg-white font-sans text-[clamp(5px,1vw,9px)] text-slate-950"
                 style={{
@@ -383,7 +382,7 @@ function SignaturePagePreview({
                 {signature.signatureDate}
               </span>
             ) : null}
-            {signature.placement.pageIndex === pageIndex ? (
+            {pageIndex === CONSENT_TEMPLATE_LAST_PAGE_INDEX ? (
               <img
                 src={signature.dataUrl}
                 alt={`Firma ${signature.label}`}
@@ -1308,8 +1307,9 @@ export function PatientConsentUploadWizard({
                     Aplicar firmas al PDF
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Seleccione una firma, arrástrela sobre la página o ajuste
-                    su posición y tamaño con los controles.
+                    Seleccione una firma y ubíquela en la última página. Las
+                    firmas nunca se aplican en la primera ni en páginas
+                    intermedias.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1332,30 +1332,13 @@ export function PatientConsentUploadWizard({
                     </Button>
                   ) : null}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {CONSENT_TEMPLATE_PREVIEW_URLS.map((_, pageIndex) => (
-                    <Button
-                      key={pageIndex}
-                      type="button"
-                      variant={
-                        selectedPlacement.pageIndex === pageIndex
-                          ? "default"
-                          : "outline"
-                      }
-                      onClick={() =>
-                        updateSelectedPlacement({
-                          ...selectedPlacement,
-                          pageIndex,
-                        })
-                      }
-                    >
-                      Página {pageIndex + 1}
-                    </Button>
-                  ))}
-                </div>
+                <p className="text-sm font-semibold text-muted-foreground">
+                  Última página · Página {CONSENT_TEMPLATE_LAST_PAGE_INDEX + 1}
+                  {" "}de {CONSENT_TEMPLATE_PREVIEW_URLS.length}
+                </p>
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
                   <SignaturePagePreview
-                    pageIndex={selectedPlacement.pageIndex}
+                    pageIndex={CONSENT_TEMPLATE_LAST_PAGE_INDEX}
                     signatures={previewSignatures}
                     selectedRole={selectedRole}
                     editable
@@ -1462,8 +1445,8 @@ export function PatientConsentUploadWizard({
                     Vista previa completa
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Revise las dos páginas, los nombres y la ubicación de las
-                    firmas antes de subir el consentimiento.
+                    Revise el documento completo. Los nombres y las firmas se
+                    aplican únicamente en la última página.
                   </p>
                 </div>
                 <div className="grid gap-6 xl:grid-cols-2">

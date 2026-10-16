@@ -6,11 +6,13 @@ export const CONSENT_TEMPLATE_PREVIEW_URLS = [
   "/patient-portal/documents/consentimiento-informado-2pq-pagina-2.png",
 ] as const;
 
+export const CONSENT_TEMPLATE_LAST_PAGE_INDEX =
+  CONSENT_TEMPLATE_PREVIEW_URLS.length - 1;
+
 export const SIGNED_CONSENT_FILE_NAME =
   "consentimiento-informado-2pq-firmado.pdf";
 
 export type ConsentSignaturePlacement = {
-  pageIndex: number;
   x: number;
   y: number;
   width: number;
@@ -29,16 +31,14 @@ export type ConsentPdfSigner = {
 
 export const CONSENT_SIGNER_NAME_PLACEMENTS: Record<
   ConsentSignerRole,
-  { pageIndex: number; x: number; baselineFromTop: number; maxWidth: number }
+  { x: number; baselineFromTop: number; maxWidth: number }
 > = {
   patient: {
-    pageIndex: 1,
     x: 0.5,
     baselineFromTop: 0.466,
     maxWidth: 0.18,
   },
   partner: {
-    pageIndex: 1,
     x: 0.5,
     baselineFromTop: 0.66,
     maxWidth: 0.18,
@@ -47,16 +47,14 @@ export const CONSENT_SIGNER_NAME_PLACEMENTS: Record<
 
 export const CONSENT_SIGNER_DOCUMENT_PLACEMENTS: Record<
   ConsentSignerRole,
-  { pageIndex: number; x: number; baselineFromTop: number; maxWidth: number }
+  { x: number; baselineFromTop: number; maxWidth: number }
 > = {
   patient: {
-    pageIndex: 1,
     x: 0.5,
     baselineFromTop: 0.532,
     maxWidth: 0.14,
   },
   partner: {
-    pageIndex: 1,
     x: 0.5,
     baselineFromTop: 0.727,
     maxWidth: 0.14,
@@ -65,16 +63,14 @@ export const CONSENT_SIGNER_DOCUMENT_PLACEMENTS: Record<
 
 export const CONSENT_SIGNER_DATE_PLACEMENTS: Record<
   ConsentSignerRole,
-  { pageIndex: number; x: number; baselineFromTop: number; maxWidth: number }
+  { x: number; baselineFromTop: number; maxWidth: number }
 > = {
   patient: {
-    pageIndex: 1,
     x: 0.69,
     baselineFromTop: 0.532,
     maxWidth: 0.16,
   },
   partner: {
-    pageIndex: 1,
     x: 0.69,
     baselineFromTop: 0.727,
     maxWidth: 0.16,
@@ -122,13 +118,11 @@ export async function applySignaturesToConsentPdf(
   }
 
   const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const lastPage = pages[pages.length - 1];
 
   for (const signer of signers) {
     const placement = signer.placement;
-    const pageIndex = Math.round(
-      clamp(placement.pageIndex, 0, pages.length - 1),
-    );
-    const page = pages[pageIndex];
+    const page = lastPage;
     const signature = await pdf.embedPng(signer.signatureDataUrl);
     const pageWidth = page.getWidth();
     const pageHeight = page.getHeight();
@@ -154,9 +148,7 @@ export async function applySignaturesToConsentPdf(
     });
 
     const namePlacement = CONSENT_SIGNER_NAME_PLACEMENTS[signer.role];
-    const namePage = pages[
-      Math.round(clamp(namePlacement.pageIndex, 0, pages.length - 1))
-    ];
+    const namePage = lastPage;
     const namePageWidth = namePage.getWidth();
     const namePageHeight = namePage.getHeight();
     const name = signer.name.trim();
@@ -179,9 +171,7 @@ export async function applySignaturesToConsentPdf(
     if (document) {
       const documentPlacement =
         CONSENT_SIGNER_DOCUMENT_PLACEMENTS[signer.role];
-      const documentPage = pages[
-        Math.round(clamp(documentPlacement.pageIndex, 0, pages.length - 1))
-      ];
+      const documentPage = lastPage;
       const documentPageWidth = documentPage.getWidth();
       const documentPageHeight = documentPage.getHeight();
       const documentFontSize = fitTextSize(
@@ -203,9 +193,7 @@ export async function applySignaturesToConsentPdf(
     const signatureDate = signer.signatureDate?.trim();
     if (signatureDate) {
       const datePlacement = CONSENT_SIGNER_DATE_PLACEMENTS[signer.role];
-      const datePage = pages[
-        Math.round(clamp(datePlacement.pageIndex, 0, pages.length - 1))
-      ];
+      const datePage = lastPage;
       const datePageWidth = datePage.getWidth();
       const datePageHeight = datePage.getHeight();
       const dateFontSize = fitTextSize(

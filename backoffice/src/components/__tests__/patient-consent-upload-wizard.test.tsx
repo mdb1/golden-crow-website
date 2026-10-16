@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import "@testing-library/jest-dom";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PatientConsentUploadWizard } from "@/components/patient-consent-upload-wizard";
 import { sdkFetch } from "@/lib/sdk-client";
@@ -41,6 +41,101 @@ describe("PatientConsentUploadWizard", () => {
       "href",
       "/patient-portal/documents/consentimiento-informado-2pq.pdf",
     );
+  });
+
+  it("only offers the last PDF page when applying a signature", async () => {
+    const context = {
+      beginPath: jest.fn(),
+      clearRect: jest.fn(),
+      drawImage: jest.fn(),
+      lineTo: jest.fn(),
+      moveTo: jest.fn(),
+      stroke: jest.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const getContext = jest
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockReturnValue(context);
+    const toDataUrl = jest
+      .spyOn(HTMLCanvasElement.prototype, "toDataURL")
+      .mockReturnValue(
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      );
+    const setPointerCaptureDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "setPointerCapture",
+    );
+    Object.defineProperty(HTMLCanvasElement.prototype, "setPointerCapture", {
+      configurable: true,
+      value: jest.fn(),
+    });
+
+    try {
+      const user = userEvent.setup();
+      render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
+
+      await user.click(
+        screen.getByRole("button", { name: "Continuar con los datos" }),
+      );
+      await user.type(
+        screen.getByRole("textbox", { name: "Documento del paciente" }),
+        "31.234.567",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Continuar para firmar" }),
+      );
+
+      const canvas = screen.getByLabelText(
+        "Área para dibujar la firma del paciente",
+      );
+      fireEvent.pointerDown(canvas, {
+        pointerId: 1,
+        clientX: 10,
+        clientY: 10,
+      });
+      const saveSignature = screen.getByRole("button", {
+        name: "Guardar firma del paciente",
+      });
+      expect(saveSignature).toBeEnabled();
+      await user.click(saveSignature);
+      await user.click(
+        screen.getByRole("button", { name: "Continuar al editor" }),
+      );
+
+      expect(
+        screen.getByRole("heading", { name: "Aplicar firmas al PDF" }),
+      ).toBeVisible();
+      expect(
+        screen.getByText(
+          (_, element) =>
+            element?.tagName === "P" &&
+            element.textContent === "Última página · Página 2 de 2",
+        ),
+      ).toBeVisible();
+      expect(
+        screen.getByAltText("Página 2 del consentimiento informado"),
+      ).toBeVisible();
+      expect(
+        screen.queryByAltText("Página 1 del consentimiento informado"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Página 1" }),
+      ).not.toBeInTheDocument();
+    } finally {
+      getContext.mockRestore();
+      toDataUrl.mockRestore();
+      if (setPointerCaptureDescriptor) {
+        Object.defineProperty(
+          HTMLCanvasElement.prototype,
+          "setPointerCapture",
+          setPointerCaptureDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(
+          HTMLCanvasElement.prototype,
+          "setPointerCapture",
+        );
+      }
+    }
   });
 
   it("prefills the patient name and reveals the partner name only when selected", async () => {
