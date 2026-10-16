@@ -206,23 +206,13 @@ describe("createHabit", () => {
     expect(db.writes).toEqual([]);
   });
 
-  // SECURITY GAP: createHabit never checks that `input.clientId` is in the
-  // caller's roster (habit-actions.ts:588-704 — no assertTrainerOwnsClient
-  // call), while every sibling create path does: assignHabitTemplate runs
-  // assertTrainerOwnsClient for each clientId, createPendingHabit and
-  // assignHabitTemplateToPending check the mirror's coachId. Through the Admin
-  // SDK (rules bypassed) coach-a can create a habit — with reminders — on
-  // coach-b's client, and it shows up in that client's app.
-  it.failing("SECURITY GAP: rejects a habit for a client outside the caller's roster, writing nothing", async () => {
-    await expect(createHabit({ ...VALID_HABIT, clientId: "x1" })).rejects.toThrow();
-    expect(dataWrites()).toEqual([]);
-  });
-
-  // Current (insecure) behavior behind the gap above — remove together with the
-  // `it.failing` when the roster check is added.
-  it("pins the current behavior behind the gap: the foreign-client habit IS written", async () => {
-    const { id } = await createHabit({ ...VALID_HABIT, clientId: "x1" });
-    expect(db.doc(`habits/${id}`)).toMatchObject({ clientId: "x1", trainerId: "coach-a" });
+  // createHabit runs assertTrainerOwnsClient (like assignHabitTemplate) — the
+  // Admin SDK bypasses rules, so this is the only barrier against planting a
+  // habit (with reminders) on another coach's client.
+  it("rejects a habit for a client outside the caller's roster, writing nothing", async () => {
+    await expect(createHabit({ ...VALID_HABIT, clientId: "x1" })).rejects.toThrow("Client is not in your roster.");
+    await expect(createHabit({ ...VALID_HABIT, clientId: "ghost" })).rejects.toThrow("Client is not in your roster.");
+    expect(db.writes).toEqual([]);
   });
 
   it("re-homes a draft photo to the final habit id", async () => {

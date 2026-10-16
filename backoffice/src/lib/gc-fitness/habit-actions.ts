@@ -596,6 +596,11 @@ export async function createHabit(
   // surface even if a future schema rev accidentally accepts the field.
   const data = habitCreateSchema.parse(input);
 
+  // Same roster gate as assignHabitTemplate: the Admin SDK bypasses rules, so
+  // without it a coach could plant a habit (with reminders) on another coach's
+  // client. Runs before any write.
+  await assertTrainerOwnsClient(trainer.uid, data.clientId);
+
   const db = gcFitnessFirestore();
   const docId = `hab-${trainer.uid}-${randomUUID()}`;
   const docRef = db.collection(COLLECTION).doc(docId);
