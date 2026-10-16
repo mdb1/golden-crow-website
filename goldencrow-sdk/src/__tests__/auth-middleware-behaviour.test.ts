@@ -189,6 +189,7 @@ describe.each([
       "/2pq/informed-consents",
       "/2pq/informed-consents/draft",
       "/2pq/informed-consents/draft/status",
+      "/2pq/informed-consents/home-status",
       "/2pq/informed-consents/c1/file",
       "/auth/context?x=1",
     ],

@@ -12,6 +12,7 @@ const mockDeleteInformedConsentForContext = jest.fn();
 const mockGetCaseConsentTraceabilityForContext = jest.fn();
 const mockGetInformedConsentDraftForContext = jest.fn();
 const mockGetInformedConsentDraftStatusForContext = jest.fn();
+const mockGetInformedConsentHomeStatusForContext = jest.fn();
 const mockGetInformedConsentDetailForContext = jest.fn();
 const mockGetInformedConsentFileForContext = jest.fn();
 const mockGetSavedInformedConsentSignatureForContext = jest.fn();
@@ -31,6 +32,8 @@ jest.mock("../repositories/informed-consents.repository.js", () => ({
   getInformedConsentDraftForContext: mockGetInformedConsentDraftForContext,
   getInformedConsentDraftStatusForContext:
     mockGetInformedConsentDraftStatusForContext,
+  getInformedConsentHomeStatusForContext:
+    mockGetInformedConsentHomeStatusForContext,
   getInformedConsentDetailForContext: mockGetInformedConsentDetailForContext,
   getInformedConsentFileForContext: mockGetInformedConsentFileForContext,
   getSavedInformedConsentSignatureForContext:
@@ -51,6 +54,7 @@ const repositoryMocks = [
   mockGetCaseConsentTraceabilityForContext,
   mockGetInformedConsentDraftForContext,
   mockGetInformedConsentDraftStatusForContext,
+  mockGetInformedConsentHomeStatusForContext,
   mockGetInformedConsentDetailForContext,
   mockGetInformedConsentFileForContext,
   mockGetSavedInformedConsentSignatureForContext,
@@ -99,6 +103,7 @@ const endpoints = [
   { method: "GET" as const, url: "/2pq/informed-consents/saved-signature" },
   { method: "GET" as const, url: "/2pq/informed-consents/draft" },
   { method: "GET" as const, url: "/2pq/informed-consents/draft/status" },
+  { method: "GET" as const, url: "/2pq/informed-consents/home-status" },
   {
     method: "PUT" as const,
     url: "/2pq/informed-consents/draft",
@@ -209,6 +214,45 @@ describe("informed consent routes — authentication", () => {
 });
 
 describe("patient informed consent draft routes", () => {
+  it("returns a private lightweight home status for the authenticated patient", async () => {
+    currentContext = PATIENT;
+    mockGetInformedConsentHomeStatusForContext.mockResolvedValue({
+      hasDraft: true,
+      hasSignedConsent: false,
+    });
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/2pq/informed-consents/home-status",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(response.json()).toEqual({
+      hasDraft: true,
+      hasSignedConsent: false,
+    });
+    expect(mockGetInformedConsentHomeStatusForContext).toHaveBeenCalledWith(
+      PATIENT,
+    );
+  });
+
+  it("passes through the patient-only home status restriction", async () => {
+    const error = new AdminRepositoryError(
+      "Only linked patient accounts can manage consent drafts.",
+      403,
+    );
+    mockGetInformedConsentHomeStatusForContext.mockRejectedValue(error);
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/2pq/informed-consents/home-status",
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({ error: error.message });
+  });
+
   it("returns the private full draft for the authenticated patient", async () => {
     currentContext = PATIENT;
     mockGetInformedConsentDraftForContext.mockResolvedValue({

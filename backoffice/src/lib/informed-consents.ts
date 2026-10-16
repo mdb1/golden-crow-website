@@ -69,6 +69,11 @@ export interface InformedConsentSavedSignaturePayload {
   savedSignature: string | null;
 }
 
+export interface InformedConsentPatientHomeStatus {
+  hasDraft: boolean;
+  hasSignedConsent: boolean;
+}
+
 export type InformedConsentDraftMode = "guided" | "direct";
 
 export type InformedConsentDraftStepId =

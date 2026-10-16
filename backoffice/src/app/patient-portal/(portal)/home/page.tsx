@@ -1,7 +1,11 @@
-export default function PatientPortalHomePage() {
-  return (
-    <div className="min-h-[calc(100vh-var(--app-header-height)-3rem)] bg-background px-2 py-3 text-foreground">
-      <p className="text-base">Estás en el portal de pacientes</p>
-    </div>
-  );
+import { PatientPortalHome } from "@/components/patient-portal-home";
+import type { InformedConsentPatientHomeStatus } from "@/lib/informed-consents";
+import { sdkFetchServer } from "@/lib/sdk-server";
+
+export default async function PatientPortalHomePage() {
+  const status = await sdkFetchServer<InformedConsentPatientHomeStatus>(
+    "/2pq/informed-consents/home-status",
+  ).catch(() => null);
+
+  return <PatientPortalHome status={status} />;
 }

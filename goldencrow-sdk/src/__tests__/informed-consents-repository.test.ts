@@ -221,17 +221,28 @@ class QueryStub {
       throw error;
     }
 
-    const documentIdFilter = this.operations.find(
+    const equalityFilters = this.operations.filter(
       (operation): operation is Extract<QueryOperation, { type: "where" }> =>
-        operation.type === "where" && operation.field === "__name__",
+        operation.type === "where",
     );
     const selectedFields = this.operations.find(
       (operation): operation is Extract<QueryOperation, { type: "select" }> =>
         operation.type === "select",
     );
-    const resultDocs = documentIdFilter
-      ? this.docs.filter((doc) => doc.id === documentIdFilter.value)
-      : this.docs;
+    const queryLimit = this.operations.find(
+      (operation): operation is Extract<QueryOperation, { type: "limit" }> =>
+        operation.type === "limit",
+    );
+    const matchingDocs = this.docs.filter((doc) =>
+      equalityFilters.every((filter) =>
+        filter.field === "__name__"
+          ? doc.id === filter.value
+          : doc.data[filter.field] === filter.value,
+      ),
+    );
+    const resultDocs = queryLimit
+      ? matchingDocs.slice(0, queryLimit.value)
+      : matchingDocs;
 
     return {
       docs: resultDocs.map((doc) => ({
@@ -579,6 +590,81 @@ describe("informed consent repository scoping", () => {
   });
 
   describe("patient consent drafts", () => {
+    it("returns a scoped lightweight home status in at most two projected reads", async () => {
+      const storedDraft = draftDoc();
+      storedDraft.data.patientSignatureDataUrl = "private patient signature";
+      storedDraft.data.partnerSignatureDataUrl = "private partner signature";
+      draftDocs.push(storedDraft);
+      const { getInformedConsentHomeStatusForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getInformedConsentHomeStatusForContext(patientContext),
+      ).resolves.toEqual({
+        hasDraft: true,
+        hasSignedConsent: true,
+      });
+
+      expect(documentReads).toEqual([]);
+      const statusQueries = queryStubs.filter((query) =>
+        ["2pq-informed-consent-drafts", "2pq-informed-consent"].includes(
+          query.collectionName,
+        ),
+      );
+      expect(statusQueries).toHaveLength(2);
+      expect(statusQueries[0]?.operations).toEqual([
+        { type: "where", field: "__name__", value: "patient-uid" },
+        {
+          type: "select",
+          fields: [
+            "patientId",
+            "mode",
+            "activeStepId",
+            "updatedAt",
+            "revision",
+          ],
+        },
+        { type: "limit", value: 1 },
+      ]);
+      expect(statusQueries[1]?.operations).toEqual([
+        { type: "where", field: "patientId", value: "PAT-00001" },
+        { type: "select", fields: ["patientId"] },
+        { type: "limit", value: 1 },
+      ]);
+    });
+
+    it("returns an empty home status when this patient has neither state", async () => {
+      const { getInformedConsentHomeStatusForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getInformedConsentHomeStatusForContext({
+          ...patientContext,
+          uid: "patient-without-consent-uid",
+          patientId: "PAT-WITHOUT-CONSENT",
+        }),
+      ).resolves.toEqual({
+        hasDraft: false,
+        hasSignedConsent: false,
+      });
+    });
+
+    it.each([
+      { ...baseContext, role: "full_admin" as const },
+      { ...patientContext, patientId: undefined },
+    ])("rejects a non-patient home status context", async (caller) => {
+      const { getInformedConsentHomeStatusForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        getInformedConsentHomeStatusForContext(caller),
+      ).rejects.toMatchObject({
+        message: "Only linked patient accounts can manage consent drafts.",
+        statusCode: 403,
+      });
+      expect(queryStubs).toEqual([]);
+    });
+
     it("returns null without a draft and reads only the authenticated uid", async () => {
       const {
         getInformedConsentDraftForContext,

@@ -317,6 +317,11 @@ export interface InformedConsentDraftSummary {
   revision: number;
 }
 
+export interface InformedConsentHomeStatus {
+  hasDraft: boolean;
+  hasSignedConsent: boolean;
+}
+
 export interface RoleManagementRecord extends UserRoleRecord {
   organizationName?: string;
   individualName?: string;

@@ -8,6 +8,7 @@ import {
   deleteInformedConsentForContext,
   getCaseConsentTraceabilityForContext,
   getInformedConsentDraftForContext,
+  getInformedConsentHomeStatusForContext,
   getInformedConsentDraftStatusForContext,
   getInformedConsentDetailForContext,
   getInformedConsentFileForContext,
@@ -218,6 +219,20 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
         request.adminContext,
       );
       return reply.header("Cache-Control", "private, no-store").send({ draft });
+    } catch (error) {
+      return sendError(reply, error);
+    }
+  });
+
+  f.get("/2pq/informed-consents/home-status", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply.status(401).send({ error: "No authenticated context" });
+    }
+    try {
+      const status = await getInformedConsentHomeStatusForContext(
+        request.adminContext,
+      );
+      return reply.header("Cache-Control", "private, no-store").send(status);
     } catch (error) {
       return sendError(reply, error);
     }

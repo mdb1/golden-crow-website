@@ -22,6 +22,7 @@ import type {
   InformedConsentDraftState,
   InformedConsentDraftSummary,
   InformedConsentFile,
+  InformedConsentHomeStatus,
   InformedConsentPatientOption,
   InformedConsentRecord,
   InformedConsentSavedSignature,
@@ -948,6 +949,28 @@ export async function getInformedConsentDraftStatusForContext(
     activeStepId: draft.activeStepId,
     updatedAt: draft.updatedAt,
     revision: draft.revision,
+  };
+}
+
+export async function getInformedConsentHomeStatusForContext(
+  context: AdminContext,
+): Promise<InformedConsentHomeStatus> {
+  const { patientId } = informedConsentDraftIdentity(context);
+  const [draft, consentSnapshot] = await Promise.all([
+    getInformedConsentDraftStatusForContext(context),
+    Promise.resolve().then(() =>
+      adminDb
+        .collection(CONSENTS_COLLECTION)
+        .where("patientId", "==", patientId)
+        .select("patientId")
+        .limit(1)
+        .get(),
+    ),
+  ]);
+
+  return {
+    hasDraft: draft !== null,
+    hasSignedConsent: consentSnapshot.docs.length > 0,
   };
 }
 
