@@ -1,5 +1,7 @@
 # build output
 dist/
+!test/dist/
+!test/dist/*.test.mjs
 
 # generated types
 .astro/

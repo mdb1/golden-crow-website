@@ -49,6 +49,7 @@ const initialCopy = isEnglishPage
       retryLink: 'here',
       retrySuffix: ' to open it.',
       website: 'Website',
+      openWebsite: 'Open website',
       breadcrumbLabel: 'Shared content',
       breadcrumbDiscover: 'Discover',
       breadcrumbEvent: 'Event',
@@ -85,6 +86,7 @@ const initialCopy = isEnglishPage
       retryLink: 'acá',
       retrySuffix: ' para abrirla.',
       website: 'Sitio web',
+      openWebsite: 'Abrir sitio web',
       breadcrumbLabel: 'Contenido compartido',
       breadcrumbDiscover: 'Discover',
       breadcrumbEvent: 'Evento',
@@ -227,7 +229,7 @@ const initialCopy = isEnglishPage
               <aside class="organization-profile-actions">
                 <div class="note-primary-action" data-preview-primary-action hidden>
                   <a class="shared-preview-website" data-preview-website href="#" target="_blank" rel="noopener noreferrer" hidden>
-                    {initialCopy.website}
+                    {initialCopy.openWebsite}
                   </a>
                 </div>
                 <a
@@ -435,6 +437,7 @@ const initialCopy = isEnglishPage
         verified: 'Verified',
         notVerified: 'Pending verification',
         website: 'Website',
+        openWebsite: 'Open website',
         countries: 'Countries',
         categories: 'Categories',
         geneticReports: 'Genetic reports',
@@ -765,6 +768,7 @@ const initialCopy = isEnglishPage
         verified: 'Verificada',
         notVerified: 'Pendiente de verificación',
         website: 'Sitio web',
+        openWebsite: 'Abrir sitio web',
         countries: 'Países',
         categories: 'Categorías',
         geneticReports: 'Reportes genéticos',
@@ -1681,7 +1685,7 @@ const initialCopy = isEnglishPage
         : '',
       mediaUrl: '',
       websiteUrl,
-      websiteLabel: websiteUrl ? compactUrlLabel(websiteUrl) : copy.website,
+      websiteLabel: copy.openWebsite,
       badges: [
         fields.verified === true ? copy.verified : '',
         fields.isGeneticReportProvider === true ? copy.geneticReportProvider : '',
@@ -2537,11 +2541,6 @@ const initialCopy = isEnglishPage
           : null;
       })
       .filter(Boolean);
-  }
-
-  function compactUrlLabel(value) {
-    const label = cleanText(value).replace(/^(https?:\/\/|mailto:)/i, '').replace(/\/$/, '');
-    return label.length > 32 ? `${label.slice(0, 29)}...` : label;
   }
 
   function readColor(value) {
@@ -5470,10 +5469,9 @@ const initialCopy = isEnglishPage
     grid-template-columns: minmax(0, 1fr) 320px;
     grid-template-areas:
       "banner banner"
-      "identity identity"
-      "description actions"
+      "identity actions"
       "description facts";
-    grid-template-rows: auto auto auto 1fr;
+    grid-template-rows: auto auto 1fr;
     column-gap: 46px;
     row-gap: 0;
     align-items: start;
