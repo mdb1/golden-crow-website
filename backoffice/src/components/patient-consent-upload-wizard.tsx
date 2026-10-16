@@ -1102,9 +1102,11 @@ export function PatientConsentUploadWizard({
   const draftSavingStoppedRef = useRef(false);
   const draftConflictRef = useRef(false);
   const mountedRef = useRef(true);
+  const actionFooterRef = useRef<HTMLElement>(null);
   const savedSignatureCacheRef = useRef(
     new Map<string, SavedSignatureCacheEntry>(),
   );
+  const [actionFooterHeight, setActionFooterHeight] = useState(0);
   const [mode, setMode] = useState<ConsentFlowMode | null>(restoredMode);
   const [activeStepId, setActiveStepId] =
     useState<ConsentStepId>(restoredStepId);
@@ -1396,6 +1398,30 @@ export function PatientConsentUploadWizard({
     previousActiveStepIdRef.current = activeStepId;
     stepHeadingRef.current?.focus();
   }, [activeStepId]);
+
+  useEffect(() => {
+    const footer = actionFooterRef.current;
+    if (!footer) return;
+
+    const updateFooterHeight = () => {
+      const nextHeight = Math.ceil(footer.getBoundingClientRect().height);
+      if (nextHeight <= 0) return;
+      setActionFooterHeight((currentHeight) =>
+        currentHeight === nextHeight ? currentHeight : nextHeight,
+      );
+    };
+
+    updateFooterHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateFooterHeight);
+      return () => window.removeEventListener("resize", updateFooterHeight);
+    }
+
+    const observer = new ResizeObserver(updateFooterHeight);
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -2178,7 +2204,12 @@ export function PatientConsentUploadWizard({
           data-testid="consent-wizard-interactions"
           aria-busy={saving}
           inert={saving}
-          className="grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] xl:gap-8"
+          className="grid items-start gap-6 pb-[calc(15rem+env(safe-area-inset-bottom))] lg:grid-cols-[17rem_minmax(0,1fr)] xl:gap-8 xl:pb-[calc(8rem+env(safe-area-inset-bottom))]"
+          style={
+            actionFooterHeight > 0
+              ? { paddingBottom: `calc(${actionFooterHeight}px + 1rem)` }
+              : undefined
+          }
         >
           <ConsentWizardSidebar
             steps={steps}
@@ -2982,10 +3013,20 @@ export function PatientConsentUploadWizard({
               ) : null}
             </div>
 
-            <div className="sticky bottom-0 z-20 mt-6 border-t border-violet-100 bg-background/94 py-4 backdrop-blur dark:border-violet-400/16">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <footer
+              ref={actionFooterRef}
+              data-testid="consent-wizard-action-footer"
+              aria-label="Acciones del paso"
+              className="consent-wizard-action-dock pointer-events-none fixed inset-x-0 bottom-0 z-40 grid w-auto items-end gap-6 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 transition-[left] duration-200 ease-linear lg:grid-cols-[17rem_minmax(0,1fr)] lg:px-6 xl:gap-8"
+            >
+              <span aria-hidden="true" className="hidden lg:block" />
+              <div className="pointer-events-auto flex flex-col gap-3 rounded-2xl border border-violet-100/90 bg-background/96 px-4 py-3 shadow-[0_-18px_45px_-28px_rgba(15,23,42,0.42)] backdrop-blur-xl sm:flex-row sm:flex-wrap sm:items-center sm:justify-between dark:border-violet-400/18 dark:bg-background/92">
                 {activeStepId === "method" ? (
-                  <Button variant="outline" asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    asChild
+                  >
                     <Link
                       href={
                         isBackoffice
@@ -3001,6 +3042,7 @@ export function PatientConsentUploadWizard({
                   <Button
                     type="button"
                     variant="outline"
+                    className="w-full sm:w-auto"
                     onClick={returnToPreviousStep}
                   >
                     <ArrowLeft className="size-4" />
@@ -3008,7 +3050,7 @@ export function PatientConsentUploadWizard({
                   </Button>
                 )}
 
-                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                <div className="ml-auto flex w-full flex-col items-stretch justify-end gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                   {activeStepId === "destination" ? (
                     <Button
                       type="button"
@@ -3104,7 +3146,7 @@ export function PatientConsentUploadWizard({
                       </Button>
                       <Button
                         type="button"
-                        className="h-14 min-w-[18rem] rounded-xl bg-blue-600 px-8 text-base font-semibold text-white shadow-[0_18px_44px_rgba(37,99,235,0.3)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-[0_22px_52px_rgba(37,99,235,0.38)] disabled:translate-y-0 disabled:bg-blue-300 disabled:shadow-none dark:disabled:bg-blue-900/60"
+                        className="h-auto min-h-14 w-full min-w-0 whitespace-normal rounded-xl bg-blue-600 px-4 py-3 text-center text-base font-semibold leading-snug text-white shadow-[0_18px_44px_rgba(37,99,235,0.3)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-[0_22px_52px_rgba(37,99,235,0.38)] disabled:translate-y-0 disabled:bg-blue-300 disabled:shadow-none sm:w-auto sm:min-w-[18rem] sm:px-8 dark:disabled:bg-blue-900/60"
                         disabled={
                           saving ||
                           !legalAttestationAccepted ||
@@ -3144,7 +3186,7 @@ export function PatientConsentUploadWizard({
                   ) : null}
                 </div>
               </div>
-            </div>
+            </footer>
           </div>
         </div>
       </div>

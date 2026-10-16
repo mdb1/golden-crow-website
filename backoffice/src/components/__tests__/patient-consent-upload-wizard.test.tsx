@@ -271,6 +271,44 @@ describe("PatientConsentUploadWizard", () => {
     ).toBeVisible();
   });
 
+  it("keeps the current-step actions fixed and reserves scrolling clearance", async () => {
+    const user = userEvent.setup();
+    render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
+
+    const interactions = screen.getByTestId("consent-wizard-interactions");
+    const actionFooter = screen.getByTestId("consent-wizard-action-footer");
+
+    expect(actionFooter).toHaveAttribute("aria-label", "Acciones del paso");
+    expect(actionFooter).toHaveClass(
+      "consent-wizard-action-dock",
+      "fixed",
+      "inset-x-0",
+      "bottom-0",
+      "z-40",
+    );
+    expect(actionFooter).not.toHaveClass("sticky");
+    expect(actionFooter.className).toContain("safe-area-inset-bottom");
+    expect(interactions.className).toContain(
+      "pb-[calc(15rem+env(safe-area-inset-bottom))]",
+    );
+    expect(
+      within(actionFooter).getByRole("link", {
+        name: "Volver a consentimientos",
+      }),
+    ).toBeVisible();
+
+    await chooseGuidedFlow(user);
+
+    expect(screen.getByTestId("consent-wizard-action-footer")).toBe(
+      actionFooter,
+    );
+    expect(
+      within(actionFooter).getByRole("button", {
+        name: "Continuar con los datos",
+      }),
+    ).toBeVisible();
+  });
+
   it("keeps every guided sidebar step clickable and autosaves ordered revisions", async () => {
     mockPatientPortalSdk();
     const user = userEvent.setup();
