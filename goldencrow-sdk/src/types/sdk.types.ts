@@ -495,6 +495,7 @@ export interface TwoPQFormRecord {
   patientEmail?: string;
   institutionName?: string;
   requestedTestName?: string;
+  maximumResultDeliveryAt?: string;
   linkedStudyRequestFormId?: string | null;
   studyRequestForm?: string | null;
   suggestedStudyRequestForm?: string | null;

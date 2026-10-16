@@ -33,6 +33,10 @@ import {
   canArchiveTwoPQForms,
   canCreateTwoPQFormType,
 } from "../lib/two-pq-form-access.js";
+import {
+  maximumResultDeliveryAt,
+  type RequestedStudyTestKey,
+} from "../lib/two-pq-requested-test.js";
 import type {
   AdminContext,
   DoctorRecord,
@@ -137,6 +141,9 @@ type PreviousGeneticTestsInput = {
 };
 
 type RequestedTestInput = {
+  pgtAUltraFast?: boolean | string;
+  pgtAUltraFastReportsMosaicism?: boolean | string;
+  pgtAUltraFastReportsSex?: boolean | string;
   pgtAFast?: boolean | string;
   pgtAFastReportsMosaicism?: boolean | string;
   pgtAFastReportsSex?: boolean | string;
@@ -820,6 +827,9 @@ function toTwoPQFormRecord(
     patientEmail: normalizeOptionalString(data.patientEmail),
     institutionName: normalizeOptionalString(data.institutionName),
     requestedTestName: normalizeOptionalString(data.requestedTestName),
+    maximumResultDeliveryAt: normalizeOptionalString(
+      data.maximumResultDeliveryAt,
+    ),
     linkedStudyRequestFormId:
       normalizeOptionalString(data.linkedStudyRequestFormId) ?? null,
     studyRequestForm:
@@ -1132,8 +1142,31 @@ function normalizeMedicalInformation(
 function normalizePreviousGeneticTests(
   input: PreviousGeneticTestsInput = {},
   formType: TwoPQFormType = "study_request",
+  allowKaryotype = true,
 ) {
   if (formType === "study_request") {
+    if (!allowKaryotype) {
+      const requestedKaryotype =
+        typeof input.karyotype === "undefined"
+          ? false
+          : normalizeBooleanAnswer(
+              input.karyotype,
+              "Tiene informacion de cariotipo",
+            );
+      const hasAttachedKaryotype = Boolean(
+        normalizeOptionalString(input.karyotypeFileContent) ||
+        normalizeOptionalString(input.karyotypeFileName) ||
+        normalizeOptionalString(input.karyotypeResult),
+      );
+      if (requestedKaryotype || hasAttachedKaryotype) {
+        throw new AdminRepositoryError(
+          "Karyotype information can only be attached when PGT-SR is selected.",
+          400,
+        );
+      }
+      return { karyotype: false };
+    }
+
     const hasKaryotypeInformation = normalizeBooleanAnswer(
       input.karyotype,
       "Tiene informacion de cariotipo",
@@ -1185,30 +1218,65 @@ function normalizeConditionalBooleanAnswer(
 function normalizeRequestedTest(
   input: RequestedTestInput,
   formType: TwoPQFormType = "sample",
+  requestedAt: Date = new Date(),
 ) {
-  const hasThreeWayRequestedTest =
+  const hasFourWayRequestedTest =
+    typeof input.pgtAUltraFast !== "undefined" ||
     typeof input.pgtAFast !== "undefined" ||
     typeof input.pgtAStandard !== "undefined" ||
     typeof input.pgtSr !== "undefined";
 
-  if (formType === "study_request" || hasThreeWayRequestedTest) {
+  if (formType === "study_request" || hasFourWayRequestedTest) {
+    const pgtAUltraFast =
+      typeof input.pgtAUltraFast === "undefined"
+        ? false
+        : normalizeBooleanAnswer(input.pgtAUltraFast, "Ultra-fast PGT");
     const pgtAFast = normalizeBooleanAnswer(input.pgtAFast, "PGT-A FAST");
     const pgtAStandard = normalizeBooleanAnswer(
       input.pgtAStandard,
       "PGT-A STANDARD",
     );
     const pgtSr = normalizeBooleanAnswer(input.pgtSr, "PGT-SR");
-    if (!pgtAFast && !pgtAStandard && !pgtSr) {
+    if (!pgtAUltraFast && !pgtAFast && !pgtAStandard && !pgtSr) {
       throw new AdminRepositoryError(
         "At least one requested test must be SI.",
         400,
       );
     }
-    if ([pgtAFast, pgtAStandard, pgtSr].filter(Boolean).length > 1) {
+    if (
+      [pgtAUltraFast, pgtAFast, pgtAStandard, pgtSr].filter(Boolean).length > 1
+    ) {
       throw new AdminRepositoryError("Only one requested test can be SI.", 400);
     }
 
+    const selectedKey: RequestedStudyTestKey = pgtAUltraFast
+      ? "pgtAUltraFast"
+      : pgtAFast
+        ? "pgtAFast"
+        : pgtAStandard
+          ? "pgtAStandard"
+          : "pgtSr";
+    const selectedName =
+      selectedKey === "pgtAUltraFast"
+        ? "Ultra-fast PGT (<8hs)"
+        : selectedKey === "pgtAFast"
+          ? "Fast PGT (24-72hs)"
+          : selectedKey === "pgtAStandard"
+            ? "Standard PGT (>15 días)"
+            : "PGT SR (>15 días)";
+
     return compactRecord({
+      pgtAUltraFast,
+      pgtAUltraFastReportsMosaicism: normalizeConditionalBooleanAnswer(
+        input.pgtAUltraFastReportsMosaicism,
+        pgtAUltraFast,
+        "Ultra-fast PGT informa mosaicismos",
+      ),
+      pgtAUltraFastReportsSex: normalizeConditionalBooleanAnswer(
+        input.pgtAUltraFastReportsSex,
+        pgtAUltraFast,
+        "Ultra-fast PGT informa sexo",
+      ),
       pgtAFast,
       pgtAFastReportsMosaicism: normalizeConditionalBooleanAnswer(
         input.pgtAFastReportsMosaicism,
@@ -1242,6 +1310,12 @@ function normalizeRequestedTest(
         pgtSr,
         "PGT-SR informa sexo",
       ),
+      testName: selectedName,
+      requestDate: requestedAt.toISOString(),
+      maximumResultDeliveryAt: maximumResultDeliveryAt(
+        selectedKey,
+        requestedAt,
+      ).toISOString(),
     });
   }
 
@@ -1278,13 +1352,19 @@ function getRequestedTestName(
 ) {
   if (
     formType === "study_request" ||
+    "pgtAUltraFast" in requestedTest ||
     "pgtAFast" in requestedTest ||
     "pgtAStandard" in requestedTest
   ) {
     const selectedTests = [
-      requestedTest.pgtAFast === true ? "PGT-A FAST" : null,
-      requestedTest.pgtAStandard === true ? "PGT-A STANDARD" : null,
-      requestedTest.pgtSr === true ? "PGT-SR" : null,
+      requestedTest.pgtAUltraFast === true
+        ? "Ultra-fast PGT (<8hs)"
+        : null,
+      requestedTest.pgtAFast === true ? "Fast PGT (24-72hs)" : null,
+      requestedTest.pgtAStandard === true
+        ? "Standard PGT (>15 días)"
+        : null,
+      requestedTest.pgtSr === true ? "PGT SR (>15 días)" : null,
     ].filter((value): value is string => Boolean(value));
 
     return selectedTests.length > 0
@@ -4442,7 +4522,7 @@ export async function upsertTwoPQFormDraftForContext(
 ): Promise<TwoPQFormDraftRecord> {
   if (!canCreateTwoPQFormType(context.role, payload.formType)) {
     throw new AdminRepositoryError(
-      "Institution operators cannot create sample forms.",
+      "This profile cannot create the selected form type.",
       403,
     );
   }
@@ -4656,7 +4736,7 @@ export async function createTwoPQFormForContext(
 ): Promise<TwoPQFormRecord> {
   if (!canCreateTwoPQFormType(context.role, payload.formType)) {
     throw new AdminRepositoryError(
-      "Institution operators cannot create sample forms.",
+      "This profile cannot create the selected form type.",
       403,
     );
   }
@@ -5144,10 +5224,33 @@ export async function createTwoPQFormForContext(
     );
   }
 
-  const requestedTest = normalizeRequestedTest(
+  const linkedRequestedTest = toPlainRecord(
+    linkedStudyRequestForm?.requestedTest,
+  );
+  const linkedMaximumResultDeliveryAt =
+    payload.formType === "sample"
+      ? normalizeOptionalString(
+          linkedStudyRequestForm?.maximumResultDeliveryAt,
+        ) ??
+        normalizeOptionalString(
+          linkedRequestedTest.maximumResultDeliveryAt,
+        )
+      : undefined;
+  const normalizedRequestedTest = normalizeRequestedTest(
     payload.requestedTest ?? {},
     payload.formType,
   );
+  const requestedTest =
+    payload.formType === "sample" && linkedMaximumResultDeliveryAt
+      ? {
+          ...normalizedRequestedTest,
+          requestDate:
+            normalizeOptionalString(linkedRequestedTest.requestDate) ??
+            (normalizedRequestedTest as Record<string, unknown>).requestDate,
+          maximumResultDeliveryAt: linkedMaximumResultDeliveryAt,
+        }
+      : normalizedRequestedTest;
+  const requestedTestRecord = requestedTest as Record<string, unknown>;
   const formId = await getNextFormId();
   let claimedStudyRequestFormId: string | null = null;
   if (payload.formType === "sample") {
@@ -5241,9 +5344,12 @@ export async function createTwoPQFormForContext(
           linkedCaseLabel,
         );
       } else {
-        const normalizedCaseInformation = normalizeCaseInformation(
-          payload.caseInformation,
-        );
+        const normalizedCaseInformation = normalizeCaseInformation({
+          ...payload.caseInformation,
+          ...(linkedMaximumResultDeliveryAt
+            ? { dueAt: linkedMaximumResultDeliveryAt.slice(0, 10) }
+            : {}),
+        });
         linkedCaseLabel = normalizedCaseInformation.caseLabel;
         normalizedSamplingInformation = normalizeSamplingInformationList(
           payload.samplingInformation,
@@ -5302,6 +5408,10 @@ export async function createTwoPQFormForContext(
       patientEmail: patientInformation.email,
       institutionName: selectedInstitution?.name ?? null,
       requestedTestName: getRequestedTestName(requestedTest, payload.formType),
+      maximumResultDeliveryAt:
+        normalizeOptionalString(
+          requestedTestRecord.maximumResultDeliveryAt,
+        ) ?? null,
       linkedStudyRequestFormId: linkedStudyRequestFormId ?? null,
       selectedCaseId: selectedCaseId ?? null,
       linkedCaseId: linkedCaseId ?? null,
@@ -5337,6 +5447,7 @@ export async function createTwoPQFormForContext(
             previousGeneticTests: normalizePreviousGeneticTests(
               payload.previousGeneticTests,
               payload.formType,
+              requestedTestRecord.pgtSr === true,
             ),
             institutionInformation: normalizeInstitutionInformation(
               payload.institutionInformation ?? {

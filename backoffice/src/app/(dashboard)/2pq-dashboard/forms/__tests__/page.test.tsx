@@ -65,21 +65,63 @@ describe("2PQ forms page actions", () => {
     });
   });
 
-  it("shows the new study-request action in the top-right workbench controls", async () => {
+  it("shows the ordered creation workflow above the stored forms", async () => {
     render(
       await TwoPQFormsPage({
         searchParams: Promise.resolve({}),
       }),
     );
 
-    const workbench = screen
-      .getByRole("heading", { name: "Formularios guardados existentes" })
-      .closest("section");
-    expect(workbench).not.toBeNull();
     expect(
-      within(workbench as HTMLElement).getByRole("link", {
-        name: "Nueva solicitud de estudio",
+      screen.getByRole("heading", {
+        name: "Completá los formularios en este orden",
+      }),
+    ).toBeInTheDocument();
+
+    const workflow = screen
+      .getByRole("heading", { name: "Completá los formularios en este orden" })
+      .closest("section");
+    expect(workflow).not.toBeNull();
+    expect(
+      within(workflow as HTMLElement).getByRole("link", {
+        name: "Completar formulario de solicitud de estudio",
       }),
     ).toHaveAttribute("href", "/2pq-dashboard/forms/study-request/new");
+    expect(
+      within(workflow as HTMLElement).getByRole("link", {
+        name: "Completar formulario de muestras (biopsias)",
+      }),
+    ).toHaveAttribute("href", "/2pq-dashboard/forms/sample/new");
+    expect(
+      within(workflow as HTMLElement).getByRole("link", {
+        name: "Completar formulario de solicitud de retiro",
+      }),
+    ).toHaveAttribute("href", "/2pq-dashboard/forms/withdrawal-request/new");
+  });
+
+  it("keeps unavailable actions visible and gray for laboratory staff", async () => {
+    jest.mocked(getAdminContextServer).mockResolvedValue({
+      ...adminContext,
+      role: "institution_laboratory_staff",
+      institutionId: "institution-1",
+    });
+
+    render(await TwoPQFormsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(
+      screen.getByRole("button", {
+        name: "Completar formulario de solicitud de estudio",
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("link", {
+        name: "Completar formulario de muestras (biopsias)",
+      }),
+    ).toHaveAttribute("href", "/2pq-dashboard/forms/sample/new");
+    expect(
+      screen.getByRole("button", {
+        name: "Completar formulario de solicitud de retiro",
+      }),
+    ).toBeDisabled();
   });
 });

@@ -97,6 +97,9 @@ export type RequestedTestFormState = {
   priority: string;
   reason: string;
   notes: string;
+  pgtAUltraFast: string;
+  pgtAUltraFastReportsMosaicism: string;
+  pgtAUltraFastReportsSex: string;
   pgtAFast: string;
   pgtAFastReportsMosaicism: string;
   pgtAFastReportsSex: string;
@@ -111,6 +114,7 @@ export type RequestedTestFormState = {
   reportsSex: string;
   requestReason: string;
   requestDate: string;
+  maximumResultDeliveryAt: string;
 };
 
 export type SampleInformationFormState = {
@@ -200,6 +204,7 @@ export interface TwoPQFormRecord {
   patientEmail?: string;
   institutionName?: string;
   requestedTestName?: string;
+  maximumResultDeliveryAt?: string;
   linkedStudyRequestFormId?: string | null;
   studyRequestForm?: string | null;
   suggestedStudyRequestForm?: string | null;
@@ -281,6 +286,10 @@ export function canCreateTwoPQFormType(
   role: AdminRole,
   formType: TwoPQFormType,
 ) {
+  if (role === "institution_laboratory_staff") {
+    return formType === "sample";
+  }
+
   return !(role === "institution_operator" && formType === "sample");
 }
 

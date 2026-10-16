@@ -2731,6 +2731,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Select PGT-A FAST reports mosaicism.":
     "Seleccioná informa mosaicismo para PGT-A FAST.",
   "Select PGT-A FAST reports sex.": "Seleccioná informa sexo para PGT-A FAST.",
+  "Select Ultra-fast PGT reports mosaicism.":
+    "Seleccioná si desea recibir información sobre mosaicismos para Ultra-fast PGT.",
+  "Select Ultra-fast PGT reports sex.":
+    "Seleccioná si desea recibir información sobre el sexo de los embriones para Ultra-fast PGT.",
   "Select PGT-A STANDARD reports mosaicism.":
     "Seleccioná informa mosaicismo para PGT-A STANDARD.",
   "Select PGT-A STANDARD reports sex.":
@@ -3118,8 +3122,21 @@ const SPANISH_TEXT: Record<string, string> = {
   "Study request form": "Formulario de solicitud",
   "Patient reference email": "Mail del paciente",
   "Patient email": "Mail del paciente",
-  "IMPORTANT: THIS MUST BE CORRECT BECAUSE THE CREDENTIALS TO UPLOAD THE INFORMED CONSENT WILL BE SENT TO THIS EMAIL ADDRESS":
-    "IMPORTANTE: DEBE SER EL CORRECTO YA QUE A ESTA DIRECCION DE CORREO ELECTRONICO SE ENVIARÁN LAS CREDENCIALES PARA SUBIR EL CONSENTIMIENTO INFORMADO",
+  "Important: credentials to upload the informed consent will be sent to this email address. Verify that it is entered correctly.":
+    "Importante: a esta dirección de correo se enviarán las credenciales para subir consentimiento informado, verifique que esté correctamente escrito.",
+  "Complete the forms in this order":
+    "Completá los formularios en este orden",
+  "Each step stays visible; unavailable actions are disabled for the current profile.":
+    "Cada paso permanece visible; las acciones no habilitadas para este perfil se muestran en gris.",
+  "Complete study request form":
+    "Completar formulario de solicitud de estudio",
+  "Complete sample form (biopsies)":
+    "Completar formulario de muestras (biopsias)",
+  "Complete withdrawal request form":
+    "Completar formulario de solicitud de retiro",
+  "All enabled profiles": "Todos los perfiles habilitados",
+  "Laboratory staff only": "Solo personal de laboratorio habilitado",
+  "Not enabled for this profile": "No habilitado para este perfil",
   "Patient first name": "Nombre del paciente",
   "Patient last name": "Apellido del paciente",
   "Patient DNI": "DNI del paciente",
@@ -3178,6 +3195,25 @@ const SPANISH_TEXT: Record<string, string> = {
   "Maximum file size: 750 KB.": "Tamaño máximo del archivo: 750 KB.",
   "Reports mosaicism": "Informa mosaicismos",
   "Reports sex": "Informa sexo",
+  "Would you like to receive information about mosaicism?":
+    "¿Desea recibir información sobre mosaicismos?",
+  "Would you like to receive information about the sex of the embryo(s)?":
+    "¿Desea recibir información sobre el sexo del/los embriones?",
+  "Ultra-fast PGT (<8hs)": "Ultra-fast PGT (<8hs)",
+  "Fast PGT (24-72hs)": "Fast PGT (24-72hs)",
+  "Standard PGT (>15 days)": "Standard PGT (>15 días)",
+  "PGT SR (>15 days)": "PGT SR (>15 días)",
+  "Maximum result delivery date":
+    "Fecha máxima para envío de resultados",
+  "Automatically calculated from the request creation time using a maximum window of":
+    "Calculada automáticamente desde la creación de la solicitud con un plazo máximo de",
+  "8 hours": "8 horas",
+  "72 hours": "72 horas",
+  "16 calendar days": "16 días corridos",
+  "Karyotype attachment is available only for PGT SR.":
+    "La opción de adjuntar cariotipo está disponible únicamente para PGT SR.",
+  "Do you want to attach a karyotype?":
+    "¿Desea adjuntar un cariotipo?",
   "Request reason": "Motivo de solicitud",
   Date: "Fecha",
   "Pick existing institution": "Elegir institución existente",

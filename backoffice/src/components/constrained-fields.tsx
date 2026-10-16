@@ -65,6 +65,7 @@ function hexToRgba(hex: string, alpha: number) {
 }
 
 export function OptionSelectField({
+  id,
   options,
   value,
   onChange,
@@ -72,6 +73,7 @@ export function OptionSelectField({
   emptyLabel = "Not set",
   disabled = false,
 }: {
+  id?: string;
   options: PickerOption[];
   value: string;
   onChange: (value: string) => void;
@@ -95,7 +97,7 @@ export function OptionSelectField({
       }
       disabled={disabled}
     >
-      <SelectTrigger className="w-full" disabled={disabled}>
+      <SelectTrigger id={id} className="w-full" disabled={disabled}>
         <SelectValue placeholder={placeholder}>{selectedLabel}</SelectValue>
       </SelectTrigger>
       <SelectContent>

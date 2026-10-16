@@ -1,7 +1,7 @@
 import { appText } from "@/lib/language";
 
 const WARNING_KEY =
-  "IMPORTANT: THIS MUST BE CORRECT BECAUSE THE CREDENTIALS TO UPLOAD THE INFORMED CONSENT WILL BE SENT TO THIS EMAIL ADDRESS";
+  "Important: credentials to upload the informed consent will be sent to this email address. Verify that it is entered correctly.";
 
 describe("study request patient email wording", () => {
   it("uses the patient email label and exact Spanish consent warning", () => {
@@ -10,7 +10,7 @@ describe("study request patient email wording", () => {
     );
     expect(appText("es", "Patient email")).toBe("Mail del paciente");
     expect(appText("es", WARNING_KEY)).toBe(
-      "IMPORTANTE: DEBE SER EL CORRECTO YA QUE A ESTA DIRECCION DE CORREO ELECTRONICO SE ENVIARÁN LAS CREDENCIALES PARA SUBIR EL CONSENTIMIENTO INFORMADO",
+      "Importante: a esta dirección de correo se enviarán las credenciales para subir consentimiento informado, verifique que esté correctamente escrito.",
     );
   });
 });

@@ -51,7 +51,7 @@ function renderDashboard(
 }
 
 describe("2PQ dashboard form access", () => {
-  it("does not offer sample forms or sample drafts to institution operators", () => {
+  it("shows the sample action disabled and suppresses sample drafts for institution operators", () => {
     renderDashboard(
       "institution_operator",
       { formType: "sample" } as TwoPQFormDraftRecord,
@@ -60,6 +60,11 @@ describe("2PQ dashboard form access", () => {
     expect(
       screen.queryByRole("link", { name: "Completar formulario de muestra" }),
     ).toBeNull();
+    expect(
+      screen.getByRole("button", {
+        name: "Completar formulario de muestras (biopsias)",
+      }),
+    ).toBeDisabled();
     expect(
       screen.queryByRole("link", { name: /Continuar desde borrador/i }),
     ).toBeNull();
@@ -79,7 +84,19 @@ describe("2PQ dashboard form access", () => {
     renderDashboard("institution_laboratory_staff");
 
     expect(
-      screen.getByRole("link", { name: "Completar formulario de muestra" }),
-    ).toBeTruthy();
+      screen.getByRole("link", {
+        name: "Completar formulario de muestras (biopsias)",
+      }),
+    ).toHaveAttribute("href", "/2pq-dashboard/forms/sample/new");
+    expect(
+      screen.getByRole("button", {
+        name: "Completar formulario de solicitud de estudio",
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Completar formulario de solicitud de retiro",
+      }),
+    ).toBeDisabled();
   });
 });

@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { ArrowLeft, FileClock, Plus } from "lucide-react";
+import { ArrowLeft, FileClock } from "lucide-react";
 import {
   HeaderUnclutterButton,
   HeaderUnclutterScope,
 } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQFormCompletionDialog } from "@/components/two-pq-form-completion-dialog";
+import { TwoPQFormWorkflowActions } from "@/components/two-pq-form-workflow-actions";
 import { TwoPQFormsList } from "@/components/two-pq-forms-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -118,14 +119,6 @@ export default async function TwoPQFormsPage({
       : null;
   const renderPageActions = () => (
     <>
-      {canCreateTwoPQFormType(adminContext.role, "study_request") ? (
-        <Button variant="default" size="sm" asChild>
-          <Link href={TWO_PQ_FORM_ROUTES.study_request}>
-            <Plus className="size-3.5" />
-            {t("New study request")}
-          </Link>
-        </Button>
-      ) : null}
       {formDraft && draftHref ? (
         <Button variant="default" size="sm" asChild>
           <Link href={draftHref}>
@@ -165,7 +158,12 @@ export default async function TwoPQFormsPage({
           />
         }
       >
-        <section className="glass-panel flex flex-col gap-4 px-5 py-5">
+        <section className="glass-panel flex flex-col gap-5 border-indigo-100 px-5 py-5 dark:border-indigo-400/24">
+          <TwoPQFormWorkflowActions
+            role={adminContext.role}
+            language={language}
+          />
+          <div className="border-t border-border/70" />
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">

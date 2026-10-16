@@ -87,6 +87,13 @@ import {
   type TwoPQFormRecord,
   type TwoPQFormType,
 } from "@/lib/two-pq-forms";
+import {
+  isRequestedStudyTestKey,
+  maximumResultDeliveryAt,
+  maximumResultDeliveryWindowLabel,
+  REQUESTED_STUDY_TEST_OPTIONS,
+  type RequestedStudyTestKey,
+} from "@/lib/two-pq-requested-test";
 
 type StepKey = TwoPQFormDraftStepKey;
 type FlowState = TwoPQFormDraftState;
@@ -201,6 +208,10 @@ const VALIDATION_FIELD_LABELS: Record<string, string> = {
   "previousGeneticTests.karyotypeResult": "Karyotype result",
   "previousGeneticTests.karyotypeFileContent": "Karyotype file",
   requestedTest: "Requested test",
+  "requestedTest.pgtAUltraFast": "Ultra-fast PGT (<8hs)",
+  "requestedTest.pgtAUltraFastReportsMosaicism":
+    "Ultra-fast PGT reports mosaicism",
+  "requestedTest.pgtAUltraFastReportsSex": "Ultra-fast PGT reports sex",
   "requestedTest.pgtAFast": "PGT-A FAST",
   "requestedTest.pgtAFastReportsMosaicism": "PGT-A FAST reports mosaicism",
   "requestedTest.pgtAFastReportsSex": "PGT-A FAST reports sex",
@@ -285,13 +296,8 @@ const SAMPLE_CASE_TYPE_OPTIONS = [
   { value: "PGT A STANDARD", label: "PGT A STANDARD" },
 ];
 
-const REQUESTED_STUDY_TEST_OPTIONS = [
-  { value: "pgtSr", label: "PGT SR" },
-  { value: "pgtAStandard", label: "PGT A standard" },
-  { value: "pgtAFast", label: "PGT A fast" },
-];
-
 const REQUESTED_TEST_TO_CASE_TYPE: Record<string, string> = {
+  pgtAUltraFast: "PGT FAST",
   pgtSr: "PGT SR",
   pgtAStandard: "PGT A STANDARD",
   pgtAFast: "PGT FAST",
@@ -983,6 +989,9 @@ function answerToFormValue(value: unknown) {
 }
 
 function selectedRequestedTestKey(requestedTest: RequestedTestFormState) {
+  if (answerToFormValue(requestedTest.pgtAUltraFast) === "si") {
+    return "pgtAUltraFast";
+  }
   if (answerToFormValue(requestedTest.pgtSr) === "si") return "pgtSr";
   if (answerToFormValue(requestedTest.pgtAStandard) === "si") {
     return "pgtAStandard";
@@ -1006,10 +1015,14 @@ function requestedTestKeyFromRecord(
   record: Record<string, unknown> | undefined,
 ) {
   if (!record) return "";
+  if (answerToFormValue(record.pgtAUltraFast) === "si") {
+    return "pgtAUltraFast";
+  }
   if (answerToFormValue(record.pgtSr) === "si") return "pgtSr";
   if (answerToFormValue(record.pgtAStandard) === "si") return "pgtAStandard";
   if (answerToFormValue(record.pgtAFast) === "si") return "pgtAFast";
   const testName = stringField(record, "testName").toUpperCase();
+  if (testName.includes("ULTRA")) return "pgtAUltraFast";
   if (testName.includes("PGT SR")) return "pgtSr";
   if (testName.includes("STANDARD")) return "pgtAStandard";
   if (testName.includes("FAST")) return "pgtAFast";
@@ -1026,6 +1039,13 @@ function requestedTestToFormState(
 
   return {
     ...fallback,
+    pgtAUltraFast: answerToFormValue(record.pgtAUltraFast),
+    pgtAUltraFastReportsMosaicism: answerToFormValue(
+      record.pgtAUltraFastReportsMosaicism,
+    ),
+    pgtAUltraFastReportsSex: answerToFormValue(
+      record.pgtAUltraFastReportsSex,
+    ),
     pgtAFast: answerToFormValue(record.pgtAFast),
     pgtAFastReportsMosaicism: answerToFormValue(
       record.pgtAFastReportsMosaicism,
@@ -1044,6 +1064,10 @@ function requestedTestToFormState(
     priority: stringField(record, "priority") || fallback.priority,
     reason: stringField(record, "reason") || fallback.reason,
     notes: stringField(record, "notes") || fallback.notes,
+    requestDate: stringField(record, "requestDate") || fallback.requestDate,
+    maximumResultDeliveryAt:
+      stringField(record, "maximumResultDeliveryAt") ||
+      fallback.maximumResultDeliveryAt,
   };
 }
 
@@ -1051,6 +1075,7 @@ function withRequestedStudyTestSelection(
   current: RequestedTestFormState,
   selectedKey: string,
 ): RequestedTestFormState {
+  const pgtAUltraFastSelected = selectedKey === "pgtAUltraFast";
   const pgtAFastSelected = selectedKey === "pgtAFast";
   const pgtAStandardSelected = selectedKey === "pgtAStandard";
   const pgtSrSelected = selectedKey === "pgtSr";
@@ -1058,6 +1083,17 @@ function withRequestedStudyTestSelection(
   return {
     ...current,
     testName: requestedTestKeyLabel(selectedKey),
+    pgtAUltraFast: selectedKey
+      ? pgtAUltraFastSelected
+        ? "si"
+        : "no"
+      : "",
+    pgtAUltraFastReportsMosaicism: pgtAUltraFastSelected
+      ? current.pgtAUltraFastReportsMosaicism
+      : "",
+    pgtAUltraFastReportsSex: pgtAUltraFastSelected
+      ? current.pgtAUltraFastReportsSex
+      : "",
     pgtAFast: selectedKey ? (pgtAFastSelected ? "si" : "no") : "",
     pgtAFastReportsMosaicism: pgtAFastSelected
       ? current.pgtAFastReportsMosaicism
@@ -1073,7 +1109,72 @@ function withRequestedStudyTestSelection(
     pgtSr: selectedKey ? (pgtSrSelected ? "si" : "no") : "",
     pgtSrReportsMosaicism: pgtSrSelected ? current.pgtSrReportsMosaicism : "",
     pgtSrReportsSex: pgtSrSelected ? current.pgtSrReportsSex : "",
+    maximumResultDeliveryAt: "",
   };
+}
+
+function requestedTestReportValue(
+  requestedTest: RequestedTestFormState,
+  selectedKey: string,
+  report: "mosaicism" | "sex",
+) {
+  if (selectedKey === "pgtAUltraFast") {
+    return report === "mosaicism"
+      ? requestedTest.pgtAUltraFastReportsMosaicism
+      : requestedTest.pgtAUltraFastReportsSex;
+  }
+  if (selectedKey === "pgtAFast") {
+    return report === "mosaicism"
+      ? requestedTest.pgtAFastReportsMosaicism
+      : requestedTest.pgtAFastReportsSex;
+  }
+  if (selectedKey === "pgtAStandard") {
+    return report === "mosaicism"
+      ? requestedTest.pgtAStandardReportsMosaicism
+      : requestedTest.pgtAStandardReportsSex;
+  }
+  if (selectedKey === "pgtSr") {
+    return report === "mosaicism"
+      ? requestedTest.pgtSrReportsMosaicism
+      : requestedTest.pgtSrReportsSex;
+  }
+  return "";
+}
+
+function requestedTestReportPatch(
+  selectedKey: string,
+  report: "mosaicism" | "sex",
+  value: string,
+): Partial<RequestedTestFormState> {
+  if (selectedKey === "pgtAUltraFast") {
+    return report === "mosaicism"
+      ? { pgtAUltraFastReportsMosaicism: value }
+      : { pgtAUltraFastReportsSex: value };
+  }
+  if (selectedKey === "pgtAFast") {
+    return report === "mosaicism"
+      ? { pgtAFastReportsMosaicism: value }
+      : { pgtAFastReportsSex: value };
+  }
+  if (selectedKey === "pgtAStandard") {
+    return report === "mosaicism"
+      ? { pgtAStandardReportsMosaicism: value }
+      : { pgtAStandardReportsSex: value };
+  }
+  if (selectedKey === "pgtSr") {
+    return report === "mosaicism"
+      ? { pgtSrReportsMosaicism: value }
+      : { pgtSrReportsSex: value };
+  }
+  return {};
+}
+
+function requestedTestReportErrorKey(
+  selectedKey: string,
+  report: "mosaicism" | "sex",
+) {
+  const suffix = report === "mosaicism" ? "ReportsMosaicism" : "ReportsSex";
+  return `requestedTest.${selectedKey}${suffix}`;
 }
 
 function withGeneratedSamplingTable(flowState: FlowState): FlowState {
@@ -1168,6 +1269,9 @@ export function buildInitialState(
       priority: "",
       reason: "",
       notes: "",
+      pgtAUltraFast: "",
+      pgtAUltraFastReportsMosaicism: "",
+      pgtAUltraFastReportsSex: "",
       pgtAFast: "",
       pgtAFastReportsMosaicism: "",
       pgtAFastReportsSex: "",
@@ -1181,7 +1285,8 @@ export function buildInitialState(
       reportsMosaicism: "",
       reportsSex: "",
       requestReason: "",
-      requestDate: "",
+      requestDate: todayDateInputValue(),
+      maximumResultDeliveryAt: "",
     },
     institutionInformation: emptyInstitution(),
     sampleInformation: {
@@ -1617,6 +1722,16 @@ function validateStepFields(
   if (step === "requestedTest") {
     const requestedStudyTests = [
       {
+        key: "pgtAUltraFast",
+        value: flowState.requestedTest.pgtAUltraFast,
+        label: "Ultra-fast PGT",
+        mosaicismKey: "pgtAUltraFastReportsMosaicism",
+        mosaicismValue:
+          flowState.requestedTest.pgtAUltraFastReportsMosaicism,
+        sexKey: "pgtAUltraFastReportsSex",
+        sexValue: flowState.requestedTest.pgtAUltraFastReportsSex,
+      },
+      {
         key: "pgtAFast",
         value: flowState.requestedTest.pgtAFast,
         label: "PGT-A FAST",
@@ -1670,18 +1785,20 @@ function validateStepFields(
     }
 
     if (formType === "study_request") {
-      if (!flowState.previousGeneticTests.karyotype) {
-        errors["previousGeneticTests.karyotype"] = t(
-          "Select whether there is karyotype information.",
-        );
-      }
-      if (
-        flowState.previousGeneticTests.karyotype === "si" &&
-        !flowState.previousGeneticTests.karyotypeFileContent.trim()
-      ) {
-        errors["previousGeneticTests.karyotypeFileContent"] = t(
-          "Attach the karyotype file.",
-        );
+      if (selectedTestKey === "pgtSr") {
+        if (!flowState.previousGeneticTests.karyotype) {
+          errors["previousGeneticTests.karyotype"] = t(
+            "Select whether there is karyotype information.",
+          );
+        }
+        if (
+          flowState.previousGeneticTests.karyotype === "si" &&
+          !flowState.previousGeneticTests.karyotypeFileContent.trim()
+        ) {
+          errors["previousGeneticTests.karyotypeFileContent"] = t(
+            "Attach the karyotype file.",
+          );
+        }
       }
 
       return errors;
@@ -2396,6 +2513,9 @@ function withLinkedStudyRequestSelection(
       }).caseInformation,
       caseType: linkedCaseType,
       priority: priorityForSampleCaseType(linkedCaseType),
+      dueAt: toDateInputValue(
+        linkedRequestedTest.maximumResultDeliveryAt || "",
+      ),
     },
   };
 }
@@ -3575,7 +3695,7 @@ export function TwoPQFormFlow({
   const requestedStudyTestOptions = REQUESTED_STUDY_TEST_OPTIONS.map(
     (option) => ({
       value: option.value,
-      label: option.label,
+      label: t(option.label),
     }),
   );
   const biopsyCountOptions = BIOPSY_COUNT_OPTIONS.map((option) => ({
@@ -3599,6 +3719,23 @@ export function TwoPQFormFlow({
     label: t(option.label),
   }));
   const selectedRequestedTest = selectedRequestedTestKey(state.requestedTest);
+  const maximumDeliveryAt = useMemo(() => {
+    if (state.requestedTest.maximumResultDeliveryAt) {
+      const persisted = new Date(state.requestedTest.maximumResultDeliveryAt);
+      if (!Number.isNaN(persisted.getTime())) {
+        return persisted;
+      }
+    }
+    return isRequestedStudyTestKey(selectedRequestedTest)
+      ? maximumResultDeliveryAt(selectedRequestedTest, new Date())
+      : null;
+  }, [selectedRequestedTest, state.requestedTest.maximumResultDeliveryAt]);
+  const formattedMaximumDeliveryAt = maximumDeliveryAt
+    ? new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en-US", {
+        dateStyle: "long",
+        timeStyle: "short",
+      }).format(maximumDeliveryAt)
+    : "";
   const selectedStudyRequestOriginalTest = requestedTestKeyFromRecord(
     selectedStudyRequestForm?.requestedTest,
   );
@@ -3863,52 +4000,60 @@ export function TwoPQFormFlow({
           value: previewValue(requestedTestKeyLabel(selectedRequestedTest)),
         },
         {
-          label: t("Reports mosaicism"),
+          label: t("Would you like to receive information about mosaicism?"),
           value: previewOptionValue(
             yesNoOptions,
-            selectedRequestedTest === "pgtAFast"
-              ? state.requestedTest.pgtAFastReportsMosaicism
-              : selectedRequestedTest === "pgtAStandard"
-                ? state.requestedTest.pgtAStandardReportsMosaicism
-                : selectedRequestedTest === "pgtSr"
-                  ? state.requestedTest.pgtSrReportsMosaicism
-                  : "",
+            requestedTestReportValue(
+              state.requestedTest,
+              selectedRequestedTest,
+              "mosaicism",
+            ),
           ),
         },
         {
-          label: t("Reports sex"),
+          label: t("Would you like to receive information about the sex of the embryo(s)?"),
           value: previewOptionValue(
             yesNoOptions,
-            selectedRequestedTest === "pgtAFast"
-              ? state.requestedTest.pgtAFastReportsSex
-              : selectedRequestedTest === "pgtAStandard"
-                ? state.requestedTest.pgtAStandardReportsSex
-                : selectedRequestedTest === "pgtSr"
-                  ? state.requestedTest.pgtSrReportsSex
-                  : "",
+            requestedTestReportValue(
+              state.requestedTest,
+              selectedRequestedTest,
+              "sex",
+            ),
           ),
         },
         {
-          label: t("Has karyotype information?"),
-          value: previewOptionValue(
-            yesNoOptions,
-            state.previousGeneticTests.karyotype,
-          ),
+          label: t("Maximum result delivery date"),
+          value: formattedMaximumDeliveryAt || notProvidedLabel,
         },
-        {
-          label: t("Karyotype file name"),
-          value: previewValue(state.previousGeneticTests.karyotypeFileName),
-        },
-        {
-          label: t("Karyotype file type"),
-          value: previewValue(state.previousGeneticTests.karyotypeFileType),
-        },
-        {
-          label: t("Karyotype file size"),
-          value: previewFileSizeValue(
-            state.previousGeneticTests.karyotypeFileSize,
-          ),
-        },
+        ...(selectedRequestedTest === "pgtSr"
+          ? [
+              {
+                label: t("Do you want to attach a karyotype?"),
+                value: previewOptionValue(
+                  yesNoOptions,
+                  state.previousGeneticTests.karyotype,
+                ),
+              },
+              {
+                label: t("Karyotype file name"),
+                value: previewValue(
+                  state.previousGeneticTests.karyotypeFileName,
+                ),
+              },
+              {
+                label: t("Karyotype file type"),
+                value: previewValue(
+                  state.previousGeneticTests.karyotypeFileType,
+                ),
+              },
+              {
+                label: t("Karyotype file size"),
+                value: previewFileSizeValue(
+                  state.previousGeneticTests.karyotypeFileSize,
+                ),
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -4042,29 +4187,25 @@ export function TwoPQFormFlow({
           ),
         },
         {
-          label: t("Reports mosaicism"),
+          label: t("Would you like to receive information about mosaicism?"),
           value: previewOptionValue(
             yesNoOptions,
-            selectedRequestedTest === "pgtAFast"
-              ? state.requestedTest.pgtAFastReportsMosaicism
-              : selectedRequestedTest === "pgtAStandard"
-                ? state.requestedTest.pgtAStandardReportsMosaicism
-                : selectedRequestedTest === "pgtSr"
-                  ? state.requestedTest.pgtSrReportsMosaicism
-                  : "",
+            requestedTestReportValue(
+              state.requestedTest,
+              selectedRequestedTest,
+              "mosaicism",
+            ),
           ),
         },
         {
-          label: t("Reports sex"),
+          label: t("Would you like to receive information about the sex of the embryo(s)?"),
           value: previewOptionValue(
             yesNoOptions,
-            selectedRequestedTest === "pgtAFast"
-              ? state.requestedTest.pgtAFastReportsSex
-              : selectedRequestedTest === "pgtAStandard"
-                ? state.requestedTest.pgtAStandardReportsSex
-                : selectedRequestedTest === "pgtSr"
-                  ? state.requestedTest.pgtSrReportsSex
-                  : "",
+            requestedTestReportValue(
+              state.requestedTest,
+              selectedRequestedTest,
+              "sex",
+            ),
           ),
         },
         {
@@ -4519,16 +4660,38 @@ export function TwoPQFormFlow({
         current.requestedTest,
         selectedKey,
       );
+      const maximumDeliveryAt = isRequestedStudyTestKey(selectedKey)
+        ? maximumResultDeliveryAt(selectedKey, new Date()).toISOString()
+        : "";
       const caseType = caseTypeForRequestedTestKey(selectedKey);
       return {
         ...current,
-        requestedTest,
+        requestedTest: {
+          ...requestedTest,
+          requestDate: current.requestedTest.requestDate || todayDateInputValue(),
+          maximumResultDeliveryAt: maximumDeliveryAt,
+        },
+        previousGeneticTests:
+          selectedKey === "pgtSr"
+            ? current.previousGeneticTests
+            : {
+                ...current.previousGeneticTests,
+                karyotype: "no",
+                karyotypeResult: "",
+                karyotypeFileName: "",
+                karyotypeFileType: "",
+                karyotypeFileSize: "",
+                karyotypeFileContent: "",
+              },
         caseInformation:
           formType === "sample"
             ? {
                 ...current.caseInformation,
                 caseType,
                 priority: priorityForSampleCaseType(caseType),
+                dueAt: maximumDeliveryAt
+                  ? toDateInputValue(maximumDeliveryAt)
+                  : "",
               }
             : current.caseInformation,
       };
@@ -6168,11 +6331,9 @@ export function TwoPQFormFlow({
                             <span className="flex flex-col items-start gap-1 leading-snug">
                               <span>{t("Patient email")}</span>
                               <strong className="text-xs font-bold text-amber-700 dark:text-amber-300">
-                                (
                                 {t(
-                                  "IMPORTANT: THIS MUST BE CORRECT BECAUSE THE CREDENTIALS TO UPLOAD THE INFORMED CONSENT WILL BE SENT TO THIS EMAIL ADDRESS",
+                                  "Important: credentials to upload the informed consent will be sent to this email address. Verify that it is entered correctly.",
                                 )}
-                                )
                               </strong>
                             </span>
                           ) : (
@@ -6577,8 +6738,9 @@ export function TwoPQFormFlow({
           formType === "study_request" ? (
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
-                <Label>{t("Requested test")}</Label>
+                <Label htmlFor="requested-study-test">{t("Requested test")}</Label>
                 <OptionSelectField
+                  id="requested-study-test"
                   options={requestedStudyTestOptions}
                   value={selectedRequestedTest}
                   onChange={selectRequestedStudyTest}
@@ -6590,136 +6752,152 @@ export function TwoPQFormFlow({
               {selectedRequestedTest ? (
                 <>
                   <YesNoField
-                    label={t("Reports mosaicism")}
-                    value={
-                      selectedRequestedTest === "pgtAFast"
-                        ? state.requestedTest.pgtAFastReportsMosaicism
-                        : selectedRequestedTest === "pgtAStandard"
-                          ? state.requestedTest.pgtAStandardReportsMosaicism
-                          : state.requestedTest.pgtSrReportsMosaicism
-                    }
+                    label={t("Would you like to receive information about mosaicism?")}
+                    value={requestedTestReportValue(
+                      state.requestedTest,
+                      selectedRequestedTest,
+                      "mosaicism",
+                    )}
                     onChange={(value) =>
-                      selectedRequestedTest === "pgtAFast"
-                        ? updateRequestedTest({
-                            pgtAFastReportsMosaicism: value,
-                          })
-                        : selectedRequestedTest === "pgtAStandard"
-                          ? updateRequestedTest({
-                              pgtAStandardReportsMosaicism: value,
-                            })
-                          : updateRequestedTest({
-                              pgtSrReportsMosaicism: value,
-                            })
+                      updateRequestedTest(
+                        requestedTestReportPatch(
+                          selectedRequestedTest,
+                          "mosaicism",
+                          value,
+                        ),
+                      )
                     }
-                    error={
-                      selectedRequestedTest === "pgtAFast"
-                        ? errorFor("requestedTest.pgtAFastReportsMosaicism")
-                        : selectedRequestedTest === "pgtAStandard"
-                          ? errorFor(
-                              "requestedTest.pgtAStandardReportsMosaicism",
-                            )
-                          : errorFor("requestedTest.pgtSrReportsMosaicism")
-                    }
+                    error={errorFor(
+                      requestedTestReportErrorKey(
+                        selectedRequestedTest,
+                        "mosaicism",
+                      ),
+                    )}
                     options={yesNoOptions}
                     placeholder={t("Select")}
                   />
                   <YesNoField
-                    label={t("Reports sex")}
-                    value={
-                      selectedRequestedTest === "pgtAFast"
-                        ? state.requestedTest.pgtAFastReportsSex
-                        : selectedRequestedTest === "pgtAStandard"
-                          ? state.requestedTest.pgtAStandardReportsSex
-                          : state.requestedTest.pgtSrReportsSex
-                    }
+                    label={t("Would you like to receive information about the sex of the embryo(s)?")}
+                    value={requestedTestReportValue(
+                      state.requestedTest,
+                      selectedRequestedTest,
+                      "sex",
+                    )}
                     onChange={(value) =>
-                      selectedRequestedTest === "pgtAFast"
-                        ? updateRequestedTest({
-                            pgtAFastReportsSex: value,
-                          })
-                        : selectedRequestedTest === "pgtAStandard"
-                          ? updateRequestedTest({
-                              pgtAStandardReportsSex: value,
-                            })
-                          : updateRequestedTest({
-                              pgtSrReportsSex: value,
-                            })
+                      updateRequestedTest(
+                        requestedTestReportPatch(
+                          selectedRequestedTest,
+                          "sex",
+                          value,
+                        ),
+                      )
                     }
-                    error={
-                      selectedRequestedTest === "pgtAFast"
-                        ? errorFor("requestedTest.pgtAFastReportsSex")
-                        : selectedRequestedTest === "pgtAStandard"
-                          ? errorFor("requestedTest.pgtAStandardReportsSex")
-                          : errorFor("requestedTest.pgtSrReportsSex")
-                    }
+                    error={errorFor(
+                      requestedTestReportErrorKey(
+                        selectedRequestedTest,
+                        "sex",
+                      ),
+                    )}
                     options={yesNoOptions}
                     placeholder={t("Select")}
                   />
+                  {maximumDeliveryAt &&
+                  isRequestedStudyTestKey(selectedRequestedTest) ? (
+                    <div className="md:col-span-2 rounded-xl border border-indigo-200 bg-indigo-50/80 px-4 py-3 dark:border-indigo-300/24 dark:bg-indigo-950/24">
+                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-indigo-700 dark:text-indigo-300">
+                        {t("Maximum result delivery date")}
+                      </p>
+                      <p className="mt-1 text-base font-semibold text-indigo-950 dark:text-indigo-50">
+                        {formattedMaximumDeliveryAt}
+                      </p>
+                      <p className="mt-1 text-xs text-indigo-800/75 dark:text-indigo-100/70">
+                        {t("Automatically calculated from the request creation time using a maximum window of")} {t(
+                          maximumResultDeliveryWindowLabel(
+                            selectedRequestedTest as RequestedStudyTestKey,
+                          ),
+                        )}.
+                      </p>
+                    </div>
+                  ) : null}
                 </>
               ) : null}
-              <YesNoField
-                label={t("Has karyotype information?")}
-                value={state.previousGeneticTests.karyotype}
-                onChange={(karyotype) => {
-                  updatePreviousGeneticTests({ karyotype });
-                  if (karyotype !== "si") {
-                    clearKaryotypeFile();
-                  }
-                }}
-                error={errorFor("previousGeneticTests.karyotype")}
-                options={yesNoOptions}
-                placeholder={t("Select")}
-              />
-              {state.previousGeneticTests.karyotype === "si" ? (
-                <div className="md:col-span-2">
-                  <SingleFileUpload
-                    id="form-karyotype-file"
-                    label={t("Karyotype file")}
-                    value={
-                      state.previousGeneticTests.karyotypeFileName
-                        ? {
-                            name: state.previousGeneticTests.karyotypeFileName,
-                            type: state.previousGeneticTests.karyotypeFileType,
-                            size:
-                              Number(
-                                state.previousGeneticTests.karyotypeFileSize,
-                              ) || 0,
-                            content:
-                              state.previousGeneticTests.karyotypeFileContent,
-                          }
-                        : null
-                    }
-                    onChange={(file) =>
-                      file
-                        ? updatePreviousGeneticTests({
-                            karyotypeFileName: file.name,
-                            karyotypeFileType: file.type,
-                            karyotypeFileSize: String(file.size),
-                            karyotypeFileContent: file.content,
-                          })
-                        : clearKaryotypeFile()
-                    }
-                    onError={(message) =>
-                      setToast({ id: Date.now(), tone: "error", message })
-                    }
-                    error={errorFor(
-                      "previousGeneticTests.karyotypeFileContent",
-                    )}
-                    uploadLabel={t("Upload file")}
-                    removeLabel={t("Remove file")}
-                    emptyLabel={t("No file selected")}
-                    tooLargeMessage={t("Karyotype file is too large.")}
-                    readErrorMessage={t("Unable to read karyotype file.")}
-                    helperText={t("Maximum file size: 750 KB.")}
+              {selectedRequestedTest === "pgtSr" ? (
+                <>
+                  <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950 dark:border-amber-300/24 dark:bg-amber-950/20 dark:text-amber-50">
+                    {t("Karyotype attachment is available only for PGT SR.")}
+                  </div>
+                  <YesNoField
+                    label={t("Do you want to attach a karyotype?")}
+                    value={state.previousGeneticTests.karyotype}
+                    onChange={(karyotype) => {
+                      updatePreviousGeneticTests({ karyotype });
+                      if (karyotype !== "si") {
+                        clearKaryotypeFile();
+                      }
+                    }}
+                    error={errorFor("previousGeneticTests.karyotype")}
+                    options={yesNoOptions}
+                    placeholder={t("Select")}
                   />
-                </div>
+                  {state.previousGeneticTests.karyotype === "si" ? (
+                    <div className="md:col-span-2">
+                      <SingleFileUpload
+                        id="form-karyotype-file"
+                        label={t("Karyotype file")}
+                        value={
+                          state.previousGeneticTests.karyotypeFileName
+                            ? {
+                                name:
+                                  state.previousGeneticTests.karyotypeFileName,
+                                type:
+                                  state.previousGeneticTests.karyotypeFileType,
+                                size:
+                                  Number(
+                                    state.previousGeneticTests
+                                      .karyotypeFileSize,
+                                  ) || 0,
+                                content:
+                                  state.previousGeneticTests
+                                    .karyotypeFileContent,
+                              }
+                            : null
+                        }
+                        onChange={(file) =>
+                          file
+                            ? updatePreviousGeneticTests({
+                                karyotypeFileName: file.name,
+                                karyotypeFileType: file.type,
+                                karyotypeFileSize: String(file.size),
+                                karyotypeFileContent: file.content,
+                              })
+                            : clearKaryotypeFile()
+                        }
+                        onError={(message) =>
+                          setToast({ id: Date.now(), tone: "error", message })
+                        }
+                        error={errorFor(
+                          "previousGeneticTests.karyotypeFileContent",
+                        )}
+                        uploadLabel={t("Upload file")}
+                        removeLabel={t("Remove file")}
+                        emptyLabel={t("No file selected")}
+                        tooLargeMessage={t("Karyotype file is too large.")}
+                        readErrorMessage={t(
+                          "Unable to read karyotype file.",
+                        )}
+                        helperText={t("Maximum file size: 750 KB.")}
+                      />
+                    </div>
+                  ) : null}
+                </>
               ) : null}
             </div>
           ) : (
             <div className="grid gap-4">
               <div className="space-y-2">
-                <Label>{t("Requested test")}</Label>
+                <Label htmlFor="requested-sample-test">{t("Requested test")}</Label>
                 <OptionSelectField
+                  id="requested-sample-test"
                   options={requestedStudyTestOptions}
                   value={selectedRequestedTest}
                   onChange={selectRequestedStudyTest}
@@ -6746,68 +6924,52 @@ export function TwoPQFormFlow({
                 <section className="rounded-xl border border-border/70 bg-background/50 p-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     <YesNoField
-                      label={t("Reports mosaicism")}
-                      value={
-                        selectedRequestedTest === "pgtAFast"
-                          ? state.requestedTest.pgtAFastReportsMosaicism
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? state.requestedTest.pgtAStandardReportsMosaicism
-                            : state.requestedTest.pgtSrReportsMosaicism
-                      }
+                      label={t("Would you like to receive information about mosaicism?")}
+                      value={requestedTestReportValue(
+                        state.requestedTest,
+                        selectedRequestedTest,
+                        "mosaicism",
+                      )}
                       onChange={(value) =>
-                        selectedRequestedTest === "pgtAFast"
-                          ? updateRequestedTest({
-                              pgtAFastReportsMosaicism: value,
-                            })
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? updateRequestedTest({
-                                pgtAStandardReportsMosaicism: value,
-                              })
-                            : updateRequestedTest({
-                                pgtSrReportsMosaicism: value,
-                              })
+                        updateRequestedTest(
+                          requestedTestReportPatch(
+                            selectedRequestedTest,
+                            "mosaicism",
+                            value,
+                          ),
+                        )
                       }
-                      error={
-                        selectedRequestedTest === "pgtAFast"
-                          ? errorFor("requestedTest.pgtAFastReportsMosaicism")
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? errorFor(
-                                "requestedTest.pgtAStandardReportsMosaicism",
-                              )
-                            : errorFor("requestedTest.pgtSrReportsMosaicism")
-                      }
+                      error={errorFor(
+                        requestedTestReportErrorKey(
+                          selectedRequestedTest,
+                          "mosaicism",
+                        ),
+                      )}
                       options={yesNoOptions}
                       placeholder={t("Select")}
                     />
                     <YesNoField
-                      label={t("Reports sex")}
-                      value={
-                        selectedRequestedTest === "pgtAFast"
-                          ? state.requestedTest.pgtAFastReportsSex
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? state.requestedTest.pgtAStandardReportsSex
-                            : state.requestedTest.pgtSrReportsSex
-                      }
+                      label={t("Would you like to receive information about the sex of the embryo(s)?")}
+                      value={requestedTestReportValue(
+                        state.requestedTest,
+                        selectedRequestedTest,
+                        "sex",
+                      )}
                       onChange={(value) =>
-                        selectedRequestedTest === "pgtAFast"
-                          ? updateRequestedTest({
-                              pgtAFastReportsSex: value,
-                            })
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? updateRequestedTest({
-                                pgtAStandardReportsSex: value,
-                              })
-                            : updateRequestedTest({
-                                pgtSrReportsSex: value,
-                              })
+                        updateRequestedTest(
+                          requestedTestReportPatch(
+                            selectedRequestedTest,
+                            "sex",
+                            value,
+                          ),
+                        )
                       }
-                      error={
-                        selectedRequestedTest === "pgtAFast"
-                          ? errorFor("requestedTest.pgtAFastReportsSex")
-                          : selectedRequestedTest === "pgtAStandard"
-                            ? errorFor("requestedTest.pgtAStandardReportsSex")
-                            : errorFor("requestedTest.pgtSrReportsSex")
-                      }
+                      error={errorFor(
+                        requestedTestReportErrorKey(
+                          selectedRequestedTest,
+                          "sex",
+                        ),
+                      )}
                       options={yesNoOptions}
                       placeholder={t("Select")}
                     />

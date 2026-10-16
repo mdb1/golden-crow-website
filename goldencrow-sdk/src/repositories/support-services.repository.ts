@@ -72,7 +72,7 @@ export const TWO_PQ_CASE_SERVICE_ID = "pgs_2pq_74399";
 export const TWO_PQ_CASE_SERVICE_PROVIDER_ID = "kfFtJlLuyW6deXW2Im3S";
 export const TWO_PQ_STUDY_REQUEST_FORM_SHAPE_ID = "pgfs_2pq_74399";
 
-const TWO_PQ_STUDY_REQUEST_FORM_FIELDS = [
+const TWO_PQ_STUDY_REQUEST_LEGACY_FORM_FIELDS = [
   {
     key: "source_study_request_form_id",
     label: "Formulario de solicitud de estudio",
@@ -223,11 +223,78 @@ const TWO_PQ_STUDY_REQUEST_FORM_FIELDS = [
   },
 ] as const;
 
+const TWO_PQ_STUDY_REQUEST_FORM_FIELDS =
+  TWO_PQ_STUDY_REQUEST_LEGACY_FORM_FIELDS.flatMap((field) => {
+    const labelOverrides: Record<string, string> = {
+      pgt_a_fast: "Fast PGT (24-72hs)",
+      pgt_a_fast_reports_mosaicism:
+        "Desea recibir información sobre mosaicismos",
+      pgt_a_fast_reports_sex:
+        "Desea recibir información sobre el sexo del/los embriones",
+      pgt_a_standard: "Standard PGT (>15 días)",
+      pgt_a_standard_reports_mosaicism:
+        "Desea recibir información sobre mosaicismos",
+      pgt_a_standard_reports_sex:
+        "Desea recibir información sobre el sexo del/los embriones",
+      pgt_sr: "PGT SR (>15 días)",
+      pgt_sr_reports_mosaicism:
+        "Desea recibir información sobre mosaicismos",
+      pgt_sr_reports_sex:
+        "Desea recibir información sobre el sexo del/los embriones",
+    };
+    const updatedField = {
+      ...field,
+      label: labelOverrides[field.key] ?? field.label,
+    };
+    if (field.key === "pgt_a_fast") {
+      return [
+        {
+          key: "pgt_a_ultra_fast",
+          label: "Ultra-fast PGT (<8hs)",
+          type: "boolean",
+          required: false,
+        },
+        {
+          key: "pgt_a_ultra_fast_reports_mosaicism",
+          label: "Desea recibir información sobre mosaicismos",
+          type: "boolean",
+          required: false,
+        },
+        {
+          key: "pgt_a_ultra_fast_reports_sex",
+          label: "Desea recibir información sobre el sexo del/los embriones",
+          type: "boolean",
+          required: false,
+        },
+        updatedField,
+      ];
+    }
+    if (field.key === "institution_code") {
+      return [
+        {
+          key: "maximum_result_delivery_at",
+          label: "Fecha máxima para envío de resultados",
+          type: "text",
+          required: false,
+        },
+        updatedField,
+      ];
+    }
+    return [updatedField];
+  });
+
 const TWO_PQ_STUDY_REQUEST_FORM_SHAPE = {
   id: TWO_PQ_STUDY_REQUEST_FORM_SHAPE_ID,
   version: 1,
   allowUnknownFields: false,
   fields: TWO_PQ_STUDY_REQUEST_FORM_FIELDS,
+};
+
+const TWO_PQ_STUDY_REQUEST_LEGACY_FORM_SHAPE = {
+  id: TWO_PQ_STUDY_REQUEST_FORM_SHAPE_ID,
+  version: 1,
+  allowUnknownFields: false,
+  fields: TWO_PQ_STUDY_REQUEST_LEGACY_FORM_FIELDS,
 };
 
 const TWO_PQ_STUDY_REQUEST_FORM_INPUT_SLOT = {
@@ -8172,6 +8239,26 @@ function hasCanonicalTwoPQStudyRequestFormContract(
   );
 }
 
+function hasLegacyTwoPQStudyRequestFormContract(
+  offer: SupportServiceOfferRecord,
+) {
+  const expectedShape = normalizeFormShape(
+    TWO_PQ_STUDY_REQUEST_LEGACY_FORM_SHAPE,
+  );
+  const currentShape = offer.formShape
+    ? normalizeFormShape(offer.formShape)
+    : undefined;
+  const expectedInputs = normalizeOfferInputSlots([
+    TWO_PQ_STUDY_REQUEST_FORM_INPUT_SLOT,
+  ]);
+  return (
+    Boolean(currentShape) &&
+    stableString(comparableFormShape(currentShape)) ===
+      stableString(comparableFormShape(expectedShape)) &&
+    stableString(offer.inputSlots) === stableString(expectedInputs)
+  );
+}
+
 function assertTwoPQCaseServiceOfferIdentity(
   offer: SupportServiceOfferRecord,
 ) {
@@ -8293,7 +8380,10 @@ async function ensureTwoPQStudyRequestFormContract(
   if (hasCanonicalTwoPQStudyRequestFormContract(current)) {
     return current;
   }
-  if (current.formShape || current.inputSlots.length > 0) {
+  if (
+    (current.formShape || current.inputSlots.length > 0) &&
+    !hasLegacyTwoPQStudyRequestFormContract(current)
+  ) {
     throw new AdminRepositoryError(
       "Configured 2PQ service offer has an incompatible request-form contract.",
       409,
@@ -8597,6 +8687,18 @@ function twoPQStudyRequestFormAnswerValues(
       "karyotype_file_size",
       positiveIntegerFromUnknown(previousTests.karyotypeFileSize),
     ],
+    [
+      "pgt_a_ultra_fast",
+      formSourceValue(requestedTest, "pgtAUltraFast"),
+    ],
+    [
+      "pgt_a_ultra_fast_reports_mosaicism",
+      formSourceValue(requestedTest, "pgtAUltraFastReportsMosaicism"),
+    ],
+    [
+      "pgt_a_ultra_fast_reports_sex",
+      formSourceValue(requestedTest, "pgtAUltraFastReportsSex"),
+    ],
     ["pgt_a_fast", formSourceValue(requestedTest, "pgtAFast")],
     [
       "pgt_a_fast_reports_mosaicism",
@@ -8623,6 +8725,11 @@ function twoPQStudyRequestFormAnswerValues(
     [
       "pgt_sr_reports_sex",
       formSourceValue(requestedTest, "pgtSrReportsSex"),
+    ],
+    [
+      "maximum_result_delivery_at",
+      formSourceValue(requestedTest, "maximumResultDeliveryAt") ??
+        formSourceValue(source, "maximumResultDeliveryAt"),
     ],
     ["institution_code", formSourceValue(institution, "code")],
     ["institution_name", formSourceValue(institution, "name")],

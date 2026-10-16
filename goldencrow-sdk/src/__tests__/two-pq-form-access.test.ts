@@ -21,6 +21,18 @@ describe("2PQ form creation access", () => {
     expect(canCreateTwoPQFormType("institution_admin", "sample")).toBe(true);
     expect(canCreateTwoPQFormType("full_admin", "sample")).toBe(true);
   });
+
+  it("limits laboratory staff to the biopsy step", () => {
+    expect(
+      canCreateTwoPQFormType("institution_laboratory_staff", "study_request"),
+    ).toBe(false);
+    expect(
+      canCreateTwoPQFormType(
+        "institution_laboratory_staff",
+        "withdrawal_request",
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("2PQ form archive access", () => {

@@ -2,10 +2,12 @@
 
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { AdminContextProvider } from "@/components/admin-context-provider";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import {
+  buildInitialState,
   StudyRequestSelectionTable,
   TwoPQFormFlow,
 } from "@/components/two-pq-form-flow";
@@ -15,7 +17,10 @@ import type {
   InstitutionListItem,
 } from "@/lib/admin-areas";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
-import type { TwoPQFormRecord } from "@/lib/two-pq-forms";
+import type {
+  TwoPQFormDraftRecord,
+  TwoPQFormRecord,
+} from "@/lib/two-pq-forms";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -237,5 +242,69 @@ describe("StudyRequestSelectionTable", () => {
       screen.getByRole("heading", { name: "1 box requested for pick up" }),
     ).toBeInTheDocument();
     expect(screen.getByText("ABC")).toBeInTheDocument();
+  });
+
+  it("shows the requested tests, explicit consent labels, deadline, and PGT-SR-only karyotype", async () => {
+    const user = userEvent.setup();
+    const draft = {
+      id: "admin-uid",
+      formType: "study_request",
+      collectionKey: "2pq-form-drafts",
+      currentStep: "requestedTest",
+      stepIndex: 2,
+      state: buildInitialState(institution.id, doctor.id),
+      createdAt: "2026-10-16T12:00:00.000Z",
+      updatedAt: "2026-10-16T12:00:00.000Z",
+    } as TwoPQFormDraftRecord;
+
+    renderFlow(
+      <TwoPQFormFlow
+        formType="study_request"
+        institutions={[institution]}
+        doctors={[doctor]}
+        patients={[]}
+        initialDraft={draft}
+      />,
+    );
+
+    const requestedTestPicker = screen.getByRole("combobox");
+    await user.click(requestedTestPicker);
+    expect(
+      screen.getByRole("option", { name: "Ultra-fast PGT (<8hs)" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("option", { name: "Fast PGT (24-72hs)" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("option", { name: "Standard PGT (>15 days)" }),
+    ).toBeVisible();
+    await user.click(
+      screen.getByRole("option", { name: "Fast PGT (24-72hs)" }),
+    );
+
+    expect(
+      screen.getByText(
+        "Would you like to receive information about mosaicism?",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Would you like to receive information about the sex of the embryo(s)?",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Maximum result delivery date"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Do you want to attach a karyotype?"),
+    ).not.toBeInTheDocument();
+
+    await user.click(requestedTestPicker);
+    await user.click(
+      screen.getByRole("option", { name: "PGT SR (>15 days)" }),
+    );
+    expect(
+      screen.getByText("Do you want to attach a karyotype?"),
+    ).toBeInTheDocument();
   });
 });

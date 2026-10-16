@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ClipboardList, FileClock, PlusCircle } from "lucide-react";
+import { ArrowRight, FileClock, PlusCircle } from "lucide-react";
 import {
   HeaderUnclutterButton,
   HeaderUnclutterScope,
@@ -31,6 +31,7 @@ import {
 } from "@/lib/two-pq-forms";
 import { appText, type AppLanguage } from "@/lib/language";
 import { TwoPQContactSection } from "@/components/two-pq-contact-section";
+import { TwoPQFormWorkflowActions } from "@/components/two-pq-form-workflow-actions";
 
 type ScopeCardKey =
   | "institutions"
@@ -256,37 +257,13 @@ export function TwoPQDashboardHome({
             <HeaderUnclutterButton />
           </div>
 
+          <TwoPQFormWorkflowActions
+            role={adminContext.role}
+            language={language}
+          />
+
           <div className="flex flex-wrap items-start gap-3">
             <div className="flex min-w-0 flex-1 basis-[42rem] flex-wrap gap-2">
-              <Button
-                className="min-h-11 w-full justify-center whitespace-normal rounded-xl bg-indigo-600 px-5 text-left leading-snug text-white shadow-[0_14px_32px_rgba(79,70,229,0.24)] hover:bg-indigo-700 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"
-                asChild
-              >
-                <Link href="/2pq-dashboard/forms/study-request/new">
-                  <ClipboardList className="size-4" />
-                  Completar formulario de solicitud de estudio
-                </Link>
-              </Button>
-              {canCreateTwoPQFormType(adminContext.role, "sample") ? (
-                <Button
-                  className="min-h-11 w-full justify-center whitespace-normal rounded-xl bg-indigo-600 px-5 text-left leading-snug text-white shadow-[0_14px_32px_rgba(79,70,229,0.2)] hover:bg-indigo-700 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"
-                  asChild
-                >
-                  <Link href="/2pq-dashboard/forms/sample/new">
-                    <ClipboardList className="size-4" />
-                    Completar formulario de muestra
-                  </Link>
-                </Button>
-              ) : null}
-              <Button
-                className="min-h-11 w-full justify-center whitespace-normal rounded-xl bg-indigo-600 px-5 text-left leading-snug text-white shadow-[0_14px_32px_rgba(79,70,229,0.2)] hover:bg-indigo-700 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"
-                asChild
-              >
-                <Link href="/2pq-dashboard/forms/withdrawal-request/new">
-                  <ClipboardList className="size-4" />
-                  Completar formulario de solicitud de retiro
-                </Link>
-              </Button>
               {formDraft && draftHref ? (
                 <Button
                   className="min-h-11 w-full justify-center whitespace-normal rounded-xl border border-rose-200 bg-white/76 px-5 text-left leading-snug text-rose-950 shadow-[0_14px_32px_rgba(244,63,94,0.14)] hover:bg-rose-50 dark:border-rose-300/24 dark:bg-rose-400/12 dark:text-rose-50 dark:hover:bg-rose-400/18 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"

@@ -181,6 +181,9 @@ const TwoPQPreviousGeneticTestsSchema = z.object({
 });
 
 const TwoPQRequestedTestSchema = z.object({
+  pgtAUltraFast: TwoPQBooleanAnswerSchema.optional(),
+  pgtAUltraFastReportsMosaicism: TwoPQBooleanAnswerSchema.optional(),
+  pgtAUltraFastReportsSex: TwoPQBooleanAnswerSchema.optional(),
   pgtAFast: TwoPQBooleanAnswerSchema.optional(),
   pgtAFastReportsMosaicism: TwoPQBooleanAnswerSchema.optional(),
   pgtAFastReportsSex: TwoPQBooleanAnswerSchema.optional(),

@@ -496,14 +496,110 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
 
     expect(form).toMatchObject({
       id: "FORM-00041",
+      requestedTestName: "Fast PGT (24-72hs)",
+      maximumResultDeliveryAt: "2026-09-03T15:45:00.000Z",
       linkedBiopsyForm: null,
       linkedWithdrawalRequest: null,
       "2pq_case": null,
     });
     expect(mockDocs.get("2pq_forms/FORM-00041")).toMatchObject({
+      requestedTest: {
+        pgtAFast: true,
+        testName: "Fast PGT (24-72hs)",
+        requestDate: "2026-08-31T15:45:00.000Z",
+        maximumResultDeliveryAt: "2026-09-03T15:45:00.000Z",
+      },
+      maximumResultDeliveryAt: "2026-09-03T15:45:00.000Z",
       linkedBiopsyForm: null,
       linkedWithdrawalRequest: null,
       "2pq_case": null,
+    });
+  });
+
+  it("stores the Ultra-fast deadline and keeps karyotype disabled", async () => {
+    const { createTwoPQFormForContext } =
+      await import("../repositories/two-pq-forms.repository");
+
+    const form = await createTwoPQFormForContext(fullAdminContext, {
+      formType: "study_request",
+      selectedPatientId: "patient-1",
+      selectedInstitutionId: "inst-1",
+      patientInformation: {
+        institutionId: "inst-1",
+        doctorId: "doctor-1",
+        email: "patient@example.com",
+        fullName: "Paciente Uno",
+        status: "active",
+      },
+      medicalInformation: {
+        spermGameteSource: "propio",
+        oocyteGameteSource: "propio",
+        maleFactor: false,
+        previousMiscarriagesCount: "0",
+      },
+      previousGeneticTests: { karyotype: false },
+      requestedTest: {
+        pgtAUltraFast: true,
+        pgtAUltraFastReportsMosaicism: true,
+        pgtAUltraFastReportsSex: false,
+        pgtAFast: false,
+        pgtAStandard: false,
+        pgtSr: false,
+      },
+    });
+
+    expect(form).toMatchObject({
+      requestedTestName: "Ultra-fast PGT (<8hs)",
+      maximumResultDeliveryAt: "2026-08-31T23:45:00.000Z",
+      requestedTest: {
+        pgtAUltraFast: true,
+        pgtAUltraFastReportsMosaicism: true,
+        pgtAUltraFastReportsSex: false,
+      },
+      previousGeneticTests: { karyotype: false },
+    });
+  });
+
+  it("rejects karyotype attachments unless PGT SR is selected", async () => {
+    const { createTwoPQFormForContext } =
+      await import("../repositories/two-pq-forms.repository");
+
+    await expect(
+      createTwoPQFormForContext(fullAdminContext, {
+        formType: "study_request",
+        selectedPatientId: "patient-1",
+        selectedInstitutionId: "inst-1",
+        patientInformation: {
+          institutionId: "inst-1",
+          doctorId: "doctor-1",
+          email: "patient@example.com",
+          fullName: "Paciente Uno",
+          status: "active",
+        },
+        medicalInformation: {
+          spermGameteSource: "propio",
+          oocyteGameteSource: "propio",
+          maleFactor: false,
+          previousMiscarriagesCount: "0",
+        },
+        previousGeneticTests: {
+          karyotype: true,
+          karyotypeFileName: "cariotipo.pdf",
+          karyotypeFileContent: "data:application/pdf;base64,AA==",
+        },
+        requestedTest: {
+          pgtAUltraFast: false,
+          pgtAFast: true,
+          pgtAFastReportsMosaicism: false,
+          pgtAFastReportsSex: false,
+          pgtAStandard: false,
+          pgtSr: false,
+        },
+      }),
+    ).rejects.toMatchObject({
+      message:
+        "Karyotype information can only be attached when PGT-SR is selected.",
+      statusCode: 400,
     });
   });
 
@@ -931,7 +1027,10 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
         pgtAFastReportsSex: false,
         pgtAStandard: false,
         pgtSr: false,
+        requestDate: "2026-08-30T10:00:00.000Z",
+        maximumResultDeliveryAt: "2026-09-02T10:00:00.000Z",
       },
+      maximumResultDeliveryAt: "2026-09-02T10:00:00.000Z",
       createdAt: "2026-08-30T10:00:00.000Z",
       updatedAt: "2026-08-30T10:00:00.000Z",
     });
@@ -979,6 +1078,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       caseInformation: {
         caseLabel: "ABCXXX",
         caseStatus: "entered",
+        dueAt: "2099-01-01",
       },
       samplingInformation: [
         {
@@ -1006,7 +1106,17 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       linkedStudyRequestFormId: "FORM-00040",
       studyRequestForm: "FORM-00040",
       withdrawalRequest: null,
+      maximumResultDeliveryAt: "2026-09-02T10:00:00.000Z",
+      requestedTest: expect.objectContaining({
+        maximumResultDeliveryAt: "2026-09-02T10:00:00.000Z",
+      }),
     });
+    expect(mockCreateTwoPQRecordForContext).toHaveBeenCalledWith(
+      fullAdminContext,
+      "cases",
+      expect.objectContaining({ dueAt: "2026-09-02T00:00:00.000Z" }),
+      expect.anything(),
+    );
 
     await expect(
       createTwoPQFormForContext(fullAdminContext, input),

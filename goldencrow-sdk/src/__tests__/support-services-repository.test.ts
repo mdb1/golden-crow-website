@@ -468,12 +468,17 @@ function twoPQStudyRequestForm() {
       karyotypeFileContent: "must-not-be-copied",
     },
     requestedTest: {
+      pgtAUltraFast: false,
+      pgtAUltraFastReportsMosaicism: false,
+      pgtAUltraFastReportsSex: false,
       pgtAFast: true,
       pgtAFastReportsMosaicism: true,
       pgtAFastReportsSex: false,
       pgtAStandard: false,
       pgtSr: false,
+      maximumResultDeliveryAt: "2026-10-01T20:00:00.000Z",
     },
+    maximumResultDeliveryAt: "2026-10-01T20:00:00.000Z",
     institutionInformation: {
       code: "INST",
       name: "Institution",
@@ -5242,6 +5247,79 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
+  it("upgrades the previous canonical 2PQ form contract before creating a new transaction", async () => {
+    const { offerId } = seedLegacyTwoPQOffer();
+    const { createTwoPQCaseServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+    const firstInput = {
+      caseId: "CASE-00060",
+      threeLetterCode: "OLD",
+      doctorEmail: "doctor@clinic.example",
+      patientFullName: "Previous Contract",
+      requestedAtClient: "2026-09-28T22:00:00.000Z",
+      studyRequestForm: twoPQStudyRequestForm(),
+    };
+
+    await createTwoPQCaseServiceTransaction(context, firstInput);
+    const currentOffer = collectionStore("service_offers").get(offerId)!;
+    const currentShape = currentOffer.formShape as {
+      fields: Array<Record<string, unknown>>;
+    };
+    const addedKeys = new Set([
+      "pgt_a_ultra_fast",
+      "pgt_a_ultra_fast_reports_mosaicism",
+      "pgt_a_ultra_fast_reports_sex",
+      "maximum_result_delivery_at",
+    ]);
+    const legacyLabels: Record<string, string> = {
+      pgt_a_fast: "PGT-A FAST",
+      pgt_a_fast_reports_mosaicism: "PGT-A FAST informa mosaicismos",
+      pgt_a_fast_reports_sex: "PGT-A FAST informa sexo",
+      pgt_a_standard: "PGT-A STANDARD",
+      pgt_a_standard_reports_mosaicism:
+        "PGT-A STANDARD informa mosaicismos",
+      pgt_a_standard_reports_sex: "PGT-A STANDARD informa sexo",
+      pgt_sr: "PGT-SR",
+      pgt_sr_reports_mosaicism: "PGT-SR informa mosaicismos",
+      pgt_sr_reports_sex: "PGT-SR informa sexo",
+    };
+    seedDoc("service_offers", offerId, {
+      ...currentOffer,
+      formShape: {
+        ...currentShape,
+        fields: currentShape.fields
+          .filter((field) => !addedKeys.has(String(field.key)))
+          .map((field) => ({
+            ...field,
+            label: legacyLabels[String(field.key)] ?? field.label,
+          })),
+      },
+    });
+
+    const created = await createTwoPQCaseServiceTransaction(context, {
+      ...firstInput,
+      caseId: "CASE-00061",
+      threeLetterCode: "NEW",
+    });
+    const upgradedOffer = collectionStore("service_offers").get(offerId)!;
+    const upgradedFields = (
+      upgradedOffer.formShape as { fields: Array<{ key: string }> }
+    ).fields.map((field) => field.key);
+
+    expect(created.serviceVersion).toBe(5);
+    expect(upgradedOffer.serviceVersion).toBe(5);
+    expect(upgradedFields).toEqual(
+      expect.arrayContaining([
+        "pgt_a_ultra_fast",
+        "maximum_result_delivery_at",
+      ]),
+    );
+    expect(upgradedOffer.changeLogFormShapeByVersion).toHaveProperty(
+      "v1_to_v2",
+    );
+  });
+
   it("normalizes legacy study-request answers and omits invalid optional answers from pgo_form", async () => {
     seedLegacyTwoPQOffer();
     const source = twoPQStudyRequestForm();
@@ -5301,9 +5379,13 @@ describe("support service canonical transaction creation", () => {
     expect(answerByKey.get("male_factor")).toBe(true);
     expect(answerByKey.get("previous_miscarriages_count")).toBe("3_or_more");
     expect(answerByKey.get("karyotype")).toBe(false);
+    expect(answerByKey.get("pgt_a_ultra_fast")).toBe(false);
     expect(answerByKey.get("pgt_a_fast")).toBe(true);
     expect(answerByKey.get("pgt_a_standard")).toBe(false);
     expect(answerByKey.get("pgt_sr")).toBe(false);
+    expect(answerByKey.get("maximum_result_delivery_at")).toBe(
+      "2026-10-01T20:00:00.000Z",
+    );
     expect(answerByKey.has("partner_notes")).toBe(false);
     expect(answerByKey.has("institution_contact_email")).toBe(false);
     expect(

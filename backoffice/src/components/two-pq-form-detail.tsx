@@ -209,22 +209,29 @@ const PERSON_STATUS_LABEL_BY_VALUE: Record<string, string> = {
 
 const REQUESTED_TEST_SEGMENTS = [
   {
+    key: "pgtAUltraFast",
+    title: "Ultra-fast PGT (<8hs)",
+    requestedKey: "pgtAUltraFast",
+    mosaicismKey: "pgtAUltraFastReportsMosaicism",
+    sexKey: "pgtAUltraFastReportsSex",
+  },
+  {
     key: "pgtAFast",
-    title: "PGT-A FAST",
+    title: "Fast PGT (24-72hs)",
     requestedKey: "pgtAFast",
     mosaicismKey: "pgtAFastReportsMosaicism",
     sexKey: "pgtAFastReportsSex",
   },
   {
     key: "pgtAStandard",
-    title: "PGT-A STANDARD",
+    title: "Standard PGT (>15 días)",
     requestedKey: "pgtAStandard",
     mosaicismKey: "pgtAStandardReportsMosaicism",
     sexKey: "pgtAStandardReportsSex",
   },
   {
     key: "pgtSr",
-    title: "PGT-SR",
+    title: "PGT SR (>15 días)",
     requestedKey: "pgtSr",
     mosaicismKey: "pgtSrReportsMosaicism",
     sexKey: "pgtSrReportsSex",
@@ -241,12 +248,14 @@ function selectedRequestedTestKeyFromRecord(
   data: Record<string, unknown> | undefined,
 ) {
   if (!data) return "";
+  if (isYesAnswer(data.pgtAUltraFast)) return "pgtAUltraFast";
   if (isYesAnswer(data.pgtAFast)) return "pgtAFast";
   if (isYesAnswer(data.pgtAStandard)) return "pgtAStandard";
   if (isYesAnswer(data.pgtSr)) return "pgtSr";
   if (isYesAnswer(data.pgtA)) return "pgtA";
 
   const testName = getTextValue(data, "testName")?.toUpperCase() ?? "";
+  if (testName.includes("ULTRA")) return "pgtAUltraFast";
   if (testName.includes("FAST")) return "pgtAFast";
   if (testName.includes("STANDARD")) return "pgtAStandard";
   if (testName.includes("PGT SR") || testName.includes("PGT-SR"))
@@ -432,7 +441,7 @@ function RequestedTestDetailSection({
           {t("Requested test")}
         </h2>
       </div>
-      <div className="mt-5 grid gap-6 lg:grid-cols-3">
+      <div className="mt-5 grid gap-6 lg:grid-cols-4">
         {REQUESTED_TEST_SEGMENTS.map((segment) => (
           <section
             key={segment.key}
@@ -452,7 +461,7 @@ function RequestedTestDetailSection({
                   ),
                 },
                 {
-                  label: t("Reports mosaicism"),
+                  label: t("Would you like to receive information about mosaicism?"),
                   value: requestedTestSegmentReportValue(
                     data,
                     segment,
@@ -461,7 +470,7 @@ function RequestedTestDetailSection({
                   ),
                 },
                 {
-                  label: t("Reports sex"),
+                  label: t("Would you like to receive information about the sex of the embryo(s)?"),
                   value: requestedTestSegmentReportValue(
                     data,
                     segment,
@@ -483,6 +492,20 @@ function RequestedTestDetailSection({
           </section>
         ))}
       </div>
+      {getTextValue(data, "maximumResultDeliveryAt") ? (
+        <div className="mt-5 border-t border-black/12 pt-4">
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
+            {t("Maximum result delivery date")}
+          </p>
+          <p className="mt-1 text-sm font-semibold text-black">
+            {formatDate(
+              getTextValue(data, "maximumResultDeliveryAt") ?? "",
+              language,
+              true,
+            )}
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -2928,11 +2951,13 @@ export function TwoPQFormDetail({
             fields={STUDY_MEDICAL_FIELDS}
             data={form.medicalInformation}
           />
-          <DetailSection
-            title={t("Previous genetic tests")}
-            fields={STUDY_PREVIOUS_TEST_FIELDS}
-            data={form.previousGeneticTests}
-          />
+          {selectedRequestedTestKeyFromRecord(form.requestedTest) === "pgtSr" ? (
+            <DetailSection
+              title={t("Karyotype")}
+              fields={STUDY_PREVIOUS_TEST_FIELDS}
+              data={form.previousGeneticTests}
+            />
+          ) : null}
           <RequestedTestDetailSection data={form.requestedTest} />
           <DetailSection
             title={t("Institution information")}
