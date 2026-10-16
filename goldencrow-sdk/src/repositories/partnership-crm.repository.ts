@@ -29,7 +29,10 @@ const ACTIVITIES_COLLECTION = "activities";
 const DAILY_USAGE_COLLECTION = "partnership_crm_daily_usage";
 const MAX_PAGE_SIZE = 10;
 const DEFAULT_PAGE_SIZE = MAX_PAGE_SIZE;
+const MAX_TARGET_PAGE_SIZE = 20;
+const DEFAULT_TARGET_PAGE_SIZE = MAX_TARGET_PAGE_SIZE;
 const FILTERED_BATCH_LIMIT = 20;
+const FILTERED_TARGET_SCAN_LIMIT = 100;
 const DAILY_USAGE_LIMIT = 100;
 const DAILY_USAGE_TIME_ZONE = "America/Los_Angeles";
 const ORGANIZATION_SUMMARY_FIELDS = [
@@ -687,6 +690,44 @@ export async function consumePartnershipCrmDailyUsage(
   }
 }
 
+export async function getPartnershipCrmDailyUsage(
+  context: AdminContext,
+  surface: PartnershipCrmUsageSurface,
+): Promise<PartnershipCrmDailyUsage> {
+  requireGodMode(context);
+  const window = partnershipCrmUsageWindow();
+  const reference = adminDb
+    .collection(DAILY_USAGE_COLLECTION)
+    .doc(`${window.date}__${surface}`);
+
+  try {
+    const snapshot = await reference.get();
+    if (!snapshot.exists) {
+      return partnershipCrmUsageState(surface, 0, window.resetAt);
+    }
+
+    const { used } = validatedPartnershipCrmUsageDocument(
+      snapshot.data() ?? {},
+      surface,
+      window.date,
+    );
+    return partnershipCrmUsageState(surface, used, window.resetAt);
+  } catch (error) {
+    if (
+      error instanceof PartnershipCrmUsageError ||
+      error instanceof AdminRepositoryError
+    ) {
+      throw error;
+    }
+
+    throw new PartnershipCrmUsageError(
+      "CRM usage tracking is unavailable. Fresh CRM actions are disabled.",
+      503,
+      "CRM_USAGE_UNAVAILABLE",
+    );
+  }
+}
+
 function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -1132,6 +1173,21 @@ function normalizeLimit(value: unknown) {
   return Math.min(Math.max(Math.trunc(parsed), 1), MAX_PAGE_SIZE);
 }
 
+function normalizeTargetLimit(value: unknown) {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : NaN;
+
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_TARGET_PAGE_SIZE;
+  }
+
+  return Math.min(Math.max(Math.trunc(parsed), 1), MAX_TARGET_PAGE_SIZE);
+}
+
 function timestampToIso(value: unknown): string | undefined {
   if (value instanceof Timestamp) {
     return value.toDate().toISOString();
@@ -1150,11 +1206,25 @@ function timestampToIso(value: unknown): string | undefined {
 }
 
 type PartnershipCrmCursorField =
+  | "category"
+  | "contactLinkedIn"
+  | "country"
+  | "email"
+  | "linkedIn"
+  | "normalizedName"
   | "updatedAt"
   | "occurredAt"
   | "sentAt"
-  | "normalizedName"
   | "documentId";
+const STRING_CURSOR_FIELDS = new Set<PartnershipCrmCursorField>([
+  "category",
+  "contactLinkedIn",
+  "country",
+  "email",
+  "linkedIn",
+  "normalizedName",
+  "documentId",
+]);
 
 type PartnershipCrmCursorTimestamp = {
   seconds: number;
@@ -1229,10 +1299,9 @@ function encodeCursor(
   fingerprint: string,
 ) {
   const rawValue = field === "documentId" ? doc.id : doc.data()[field];
-  const value =
-    field === "normalizedName" || field === "documentId"
-      ? cleanString(rawValue)
-      : timestampToCursorValue(rawValue);
+  const value = STRING_CURSOR_FIELDS.has(field)
+    ? cleanString(rawValue)
+    : timestampToCursorValue(rawValue);
 
   if (!value) {
     return undefined;
@@ -1284,7 +1353,7 @@ function parseCursor(
       throw new Error("Cursor metadata does not match the request.");
     }
 
-    if (field === "normalizedName" || field === "documentId") {
+    if (STRING_CURSOR_FIELDS.has(field)) {
       if (typeof candidate.value !== "string" || !candidate.value) {
         throw new Error("Cursor value is invalid.");
       }
@@ -1899,7 +1968,7 @@ function matchesFilters(
     linkedInState?: PartnershipCrmLinkedInState;
   },
 ) {
-  const query = cleanString(filters.query).toLowerCase();
+  const query = cleanString(filters.query);
   const categoryFilter = cleanString(filters.category);
   const countryFilter = cleanString(filters.country);
   const categoryKeys = crmCategoryKeys(categoryFilter);
@@ -1907,24 +1976,14 @@ function matchesFilters(
   const countryCodes = crmCountryCodes(countryFilter);
   const recordCountryCodes = crmCountryCodes(record.country);
   const status = cleanString(filters.status);
-  const searchable = [
-    record.id,
-    record.name,
-    record.category,
-    record.website,
-    record.websiteDomain,
-    record.country,
-    record.status,
-    record.contactName,
-    record.contactEmail,
-    record.contactLinkedIn,
-    record.notes,
-  ]
-    .join(" ")
-    .toLowerCase();
+  const queryMatches = !query
+    ? true
+    : query.includes("@")
+      ? record.contactEmail === normalizeEmail(query)
+      : record.normalizedName.startsWith(normalizeName(query));
 
   return (
-    (!query || searchable.includes(query)) &&
+    queryMatches &&
     (!status || status === "all" || record.status === status) &&
     (categoryFilter === MISSING_CATEGORY_FILTER_VALUE
       ? recordCategoryKeys.length === 0
@@ -1949,7 +2008,7 @@ function matchesProfessionalFilters(
     linkedInState?: PartnershipCrmLinkedInState;
   },
 ) {
-  const query = cleanString(filters.query).toLowerCase();
+  const query = cleanString(filters.query);
   const categoryFilter = cleanString(filters.category);
   const countryFilter = cleanString(filters.country);
   const categoryKeys = crmCategoryKeys(categoryFilter, "professionals");
@@ -1957,29 +2016,14 @@ function matchesProfessionalFilters(
   const countryCodes = crmCountryCodes(countryFilter);
   const recordCountryCodes = crmCountryCodes(record.country);
   const status = cleanString(filters.status);
-  const searchable = [
-    record.id,
-    record.name,
-    record.category,
-    record.title,
-    record.primaryAffiliation,
-    record.potentialPocketGenesEditorFit,
-    record.emailRoute,
-    record.linkedInRoute,
-    record.researchBasis,
-    record.website,
-    record.websiteDomain,
-    record.country,
-    record.status,
-    record.email,
-    record.linkedIn,
-    record.notes,
-  ]
-    .join(" ")
-    .toLowerCase();
+  const queryMatches = !query
+    ? true
+    : query.includes("@")
+      ? record.email === normalizeEmail(query)
+      : record.normalizedName.startsWith(normalizeName(query));
 
   return (
-    (!query || searchable.includes(query)) &&
+    queryMatches &&
     (!status || status === "all" || record.status === status) &&
     (categoryFilter === MISSING_CATEGORY_FILTER_VALUE
       ? recordCategoryKeys.length === 0
@@ -2383,9 +2427,11 @@ async function findTemplateImportCandidate(
 }
 
 type BoundedCrmQuery = {
+  baseQuery: Query;
   query: Query;
   cursorField: PartnershipCrmCursorField;
   hasFilters: boolean;
+  hasResidualFilters: boolean;
   fingerprint: string;
 };
 
@@ -2424,6 +2470,13 @@ function buildTargetListQuery(
       country ||
       options.linkedInState,
   );
+  const activeFilterCount = [
+    search,
+    status && status !== "all" ? status : "",
+    category,
+    country,
+    options.linkedInState ?? "",
+  ].filter(Boolean).length;
   const fingerprint = normalizedTargetListFingerprint(targetKind, options);
   if (search && normalizeName(search).length < 3 && !search.includes("@")) {
     throw new AdminRepositoryError(
@@ -2431,15 +2484,104 @@ function buildTargetListQuery(
       400,
     );
   }
-  const cursorField: PartnershipCrmCursorField = "updatedAt";
-  const query = collection
-    .orderBy("updatedAt", "desc")
-    .orderBy(FieldPath.documentId(), "desc");
+  const hasStatusFilter = Boolean(status && status !== "all");
+  let cursorField: PartnershipCrmCursorField = "updatedAt";
+  let query: Query;
+
+  // Firestore cannot combine arbitrary substring predicates without a
+  // dedicated search service or a large family of composite indexes. Choose
+  // one selective, single-field anchor so every document read already matches
+  // the operator's strongest filter, then apply any remaining filters inside
+  // the bounded page scan. Category and country use primary-value prefix
+  // semantics because legacy documents store comma-separated canonical keys.
+  if (search) {
+    if (search.includes("@")) {
+      const emailField =
+        targetKind === "professionals" ? "email" : "contactEmail";
+      cursorField = "documentId";
+      query = collection
+        .where(emailField, "==", normalizeEmail(search))
+        .orderBy(FieldPath.documentId(), "asc");
+    } else {
+      const normalizedSearch = normalizeName(search);
+      cursorField = "normalizedName";
+      query = collection
+        .where("normalizedName", ">=", normalizedSearch)
+        .where("normalizedName", "<", `${normalizedSearch}\uf8ff`)
+        .orderBy("normalizedName", "asc")
+        .orderBy(FieldPath.documentId(), "asc");
+    }
+  } else if (category) {
+    if (category === MISSING_CATEGORY_FILTER_VALUE) {
+      cursorField = "documentId";
+      query = collection
+        .where("category", "==", "")
+        .orderBy(FieldPath.documentId(), "asc");
+    } else {
+      const primaryCategory = normalizeCrmPrimaryCategory(
+        category,
+        targetKind,
+      );
+      if (!primaryCategory) {
+        throw new AdminRepositoryError("CRM category filter is invalid.", 400);
+      }
+      cursorField = "category";
+      query = collection
+        .where("category", ">=", primaryCategory)
+        .where("category", "<", `${primaryCategory}\uf8ff`)
+        .orderBy("category", "asc")
+        .orderBy(FieldPath.documentId(), "asc");
+    }
+  } else if (country) {
+    if (country === MISSING_COUNTRY_FILTER_VALUE) {
+      cursorField = "documentId";
+      query = collection
+        .where("country", "==", "")
+        .orderBy(FieldPath.documentId(), "asc");
+    } else {
+      const primaryCountry = crmCountryCodes(country)[0] ?? "";
+      if (!primaryCountry) {
+        throw new AdminRepositoryError("CRM country filter is invalid.", 400);
+      }
+      cursorField = "country";
+      query = collection
+        .where("country", ">=", primaryCountry)
+        .where("country", "<", `${primaryCountry}\uf8ff`)
+        .orderBy("country", "asc")
+        .orderBy(FieldPath.documentId(), "asc");
+    }
+  } else if (hasStatusFilter) {
+    cursorField = "documentId";
+    query = collection
+      .where("status", "==", status)
+      .orderBy(FieldPath.documentId(), "asc");
+  } else if (options.linkedInState) {
+    const linkedInField =
+      targetKind === "professionals" ? "linkedIn" : "contactLinkedIn";
+    if (options.linkedInState === "missing_linkedin") {
+      cursorField = "documentId";
+      query = collection
+        .where(linkedInField, "==", "")
+        .orderBy(FieldPath.documentId(), "asc");
+    } else {
+      cursorField = linkedInField;
+      query = collection
+        .where(linkedInField, ">", "")
+        .orderBy(linkedInField, "asc")
+        .orderBy(FieldPath.documentId(), "asc");
+    }
+  } else {
+    query = collection
+      .orderBy("updatedAt", "desc")
+      .orderBy(FieldPath.documentId(), "desc");
+  }
 
   return {
+    baseQuery: query,
     query: applyCursor(query, options.cursor, cursorField, fingerprint),
     cursorField,
     hasFilters,
+    hasResidualFilters: activeFilterCount > 1,
     fingerprint,
   };
 }
@@ -2489,9 +2631,11 @@ function buildTemplateListQuery(options: {
     .orderBy(FieldPath.documentId(), "desc");
 
   return {
+    baseQuery: query,
     query: applyCursor(query, options.cursor, cursorField, fingerprint),
     cursorField,
     hasFilters,
+    hasResidualFilters: hasFilters,
     fingerprint,
   };
 }
@@ -2502,6 +2646,101 @@ function pageStatusCounts(
   const counts = emptyStatusCounts();
   records.forEach((record) => incrementStatusCount(counts, record.status));
   return counts;
+}
+
+async function scanPartnershipCrmTargetPage<T>({
+  built,
+  limit,
+  summaryFields,
+  readFullDocuments,
+  toRecord,
+  matches,
+}: {
+  built: BoundedCrmQuery;
+  limit: number;
+  summaryFields: readonly string[];
+  readFullDocuments: boolean;
+  toRecord: (doc: QueryDocumentSnapshot) => T;
+  matches: (record: T) => boolean;
+}) {
+  const scanLimit = built.hasFilters
+    ? FILTERED_TARGET_SCAN_LIMIT
+    : limit + 1;
+  const projectQuery = (query: Query) =>
+    readFullDocuments ? query : query.select(...summaryFields);
+  let sourceQuery = projectQuery(built.query);
+  const records: T[] = [];
+  let scanned = 0;
+  let lastConsumedDoc: QueryDocumentSnapshot | undefined;
+  let continuationCursorDoc: QueryDocumentSnapshot | undefined;
+  let sourceMayContinue = false;
+  let truncated = false;
+  let foundLookaheadMatch = false;
+
+  while (scanned < scanLimit) {
+    const remainingScanBudget = scanLimit - scanned;
+    const batchLimit = Math.min(
+      built.hasFilters && built.hasResidualFilters
+        ? FILTERED_BATCH_LIMIT
+        : limit + 1,
+      remainingScanBudget,
+    );
+    const snapshot = await sourceQuery.limit(batchLimit).get();
+    scanned += snapshot.docs.length;
+
+    for (const doc of snapshot.docs) {
+      const previousConsumedDoc = lastConsumedDoc;
+      lastConsumedDoc = doc;
+      const record = toRecord(doc);
+      if (matches(record)) {
+        if (records.length < limit) {
+          records.push(record);
+        } else {
+          // Resume immediately before the first unreturned match. This skips
+          // only source records already proven not to match and never skips
+          // the lookahead result itself.
+          continuationCursorDoc = previousConsumedDoc;
+          foundLookaheadMatch = true;
+          break;
+        }
+      }
+    }
+
+    if (foundLookaheadMatch) {
+      sourceMayContinue = true;
+      break;
+    }
+    if (snapshot.docs.length < batchLimit) {
+      sourceMayContinue = false;
+      break;
+    }
+    if (scanned >= scanLimit) {
+      sourceMayContinue = true;
+      continuationCursorDoc = lastConsumedDoc;
+      truncated = built.hasFilters;
+      break;
+    }
+    if (!lastConsumedDoc) {
+      sourceMayContinue = false;
+      break;
+    }
+
+    sourceQuery = projectQuery(built.baseQuery.startAfter(lastConsumedDoc));
+  }
+
+  return {
+    records,
+    scanned,
+    nextCursor:
+      sourceMayContinue && continuationCursorDoc
+        ? encodeCursor(
+            continuationCursorDoc,
+            built.cursorField,
+            built.fingerprint,
+          )
+        : undefined,
+    partial: truncated,
+  };
 }
 
 function requireSingleImportRow(rows: readonly unknown[]) {
@@ -2804,41 +3043,24 @@ export async function listPartnershipCrmOrganizations(
 ): Promise<PartnershipCrmOrganizationsPage> {
   requireGodMode(context);
 
-  const limit = normalizeLimit(options.limit);
+  const limit = normalizeTargetLimit(options.limit);
   const built = buildTargetListQuery("organizations", options);
-  const scanLimit = options.deep ? FILTERED_BATCH_LIMIT : limit + 1;
-  const listQuery = options.deep
-    ? built.query
-    : built.query.select(...ORGANIZATION_SUMMARY_FIELDS);
-  const snapshot = await listQuery.limit(scanLimit).get();
-  const organizations: PartnershipCrmOrganizationRecord[] = [];
-  let lastConsumedDoc: QueryDocumentSnapshot | undefined;
-  let consumed = 0;
-  for (const doc of snapshot.docs) {
-    lastConsumedDoc = doc;
-    consumed += 1;
-    const organization = toOrganizationRecord(doc.id, doc.data());
-    if (matchesFilters(organization, options)) {
-      organizations.push(toOrganizationSummary(organization));
-      if (organizations.length >= limit) {
-        break;
-      }
-    }
-  }
-
-  const canContinue =
-    consumed < snapshot.docs.length || snapshot.docs.length === scanLimit;
-  const nextCursor =
-    canContinue && lastConsumedDoc
-      ? encodeCursor(lastConsumedDoc, built.cursorField, built.fingerprint)
-      : undefined;
+  const page = await scanPartnershipCrmTargetPage({
+    built,
+    limit,
+    summaryFields: ORGANIZATION_SUMMARY_FIELDS,
+    readFullDocuments: false,
+    toRecord: (doc) => toOrganizationRecord(doc.id, doc.data()),
+    matches: (organization) => matchesFilters(organization, options),
+  });
+  const organizations = page.records.map(toOrganizationSummary);
 
   return {
     organizations: favoriteFirstRecords(organizations),
-    nextCursor,
+    nextCursor: page.nextCursor,
     statusCounts: pageStatusCounts(organizations),
-    partial: built.hasFilters,
-    scanned: snapshot.docs.length,
+    partial: page.partial,
+    scanned: page.scanned,
     asOf: new Date().toISOString(),
   };
 }
@@ -3053,41 +3275,25 @@ export async function listPartnershipCrmProfessionals(
 ): Promise<PartnershipCrmProfessionalsPage> {
   requireGodMode(context);
 
-  const limit = normalizeLimit(options.limit);
+  const limit = normalizeTargetLimit(options.limit);
   const built = buildTargetListQuery("professionals", options);
-  const scanLimit = options.deep ? FILTERED_BATCH_LIMIT : limit + 1;
-  const listQuery = options.deep
-    ? built.query
-    : built.query.select(...PROFESSIONAL_SUMMARY_FIELDS);
-  const snapshot = await listQuery.limit(scanLimit).get();
-  const professionals: PartnershipCrmProfessionalRecord[] = [];
-  let lastConsumedDoc: QueryDocumentSnapshot | undefined;
-  let consumed = 0;
-  for (const doc of snapshot.docs) {
-    lastConsumedDoc = doc;
-    consumed += 1;
-    const professional = toProfessionalRecord(doc.id, doc.data());
-    if (matchesProfessionalFilters(professional, options)) {
-      professionals.push(toProfessionalSummary(professional));
-      if (professionals.length >= limit) {
-        break;
-      }
-    }
-  }
-
-  const canContinue =
-    consumed < snapshot.docs.length || snapshot.docs.length === scanLimit;
-  const nextCursor =
-    canContinue && lastConsumedDoc
-      ? encodeCursor(lastConsumedDoc, built.cursorField, built.fingerprint)
-      : undefined;
+  const page = await scanPartnershipCrmTargetPage({
+    built,
+    limit,
+    summaryFields: PROFESSIONAL_SUMMARY_FIELDS,
+    readFullDocuments: false,
+    toRecord: (doc) => toProfessionalRecord(doc.id, doc.data()),
+    matches: (professional) =>
+      matchesProfessionalFilters(professional, options),
+  });
+  const professionals = page.records.map(toProfessionalSummary);
 
   return {
     professionals: favoriteFirstRecords(professionals),
-    nextCursor,
+    nextCursor: page.nextCursor,
     statusCounts: pageStatusCounts(professionals),
-    partial: built.hasFilters,
-    scanned: snapshot.docs.length,
+    partial: page.partial,
+    scanned: page.scanned,
     asOf: new Date().toISOString(),
   };
 }

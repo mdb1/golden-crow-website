@@ -179,9 +179,38 @@ function crmSummaryCacheKey(
     linkedInState: "all",
   },
 ) {
-  return `golden-crow:partnership-crm:summary:v2:organizations:${encodeURIComponent(
+  return `golden-crow:partnership-crm:summary:v3:organizations:${encodeURIComponent(
     JSON.stringify({ filters, cursor: "" }),
   )}`;
+}
+
+const crmDailyUsageCacheKey =
+  "golden-crow:partnership-crm:daily-usage:crm:v2";
+
+function cacheCrmDailyUsage({
+  used,
+  resetAt,
+  confirmedAt = new Date(Date.now() - 1000).toISOString(),
+}: {
+  used: number;
+  resetAt: string;
+  confirmedAt?: string;
+}) {
+  window.localStorage.setItem(
+    crmDailyUsageCacheKey,
+    JSON.stringify({
+      usage: {
+        surface: "crm",
+        used,
+        limit: 100,
+        percentage: used,
+        remaining: 100 - used,
+        resetAt,
+        locked: used >= 100,
+      },
+      confirmedAt,
+    }),
+  );
 }
 
 function renderWorkbench(
@@ -358,15 +387,51 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
 
     await user.type(
-      screen.getByPlaceholderText("Search organizations..."),
+      screen.getByPlaceholderText("Name prefix or exact contact email"),
       "genome",
     );
     expect(sdkFetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("crm-server-filter-note").textContent).toContain(
+      "Category and country match the primary stored value by prefix",
+    );
 
     await user.click(screen.getByRole("button", { name: "Apply filters" }));
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(
-        "/admin/partnership-crm/organizations?limit=10&query=genome",
+        "/admin/partnership-crm/organizations?limit=20&query=genome",
+        expect.objectContaining({ headers: expect.any(Headers) }),
+      );
+    });
+  });
+
+  it("sends a professional email search to the server only after Apply", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (String(path).startsWith("/admin/partnership-crm/professionals?")) {
+        return { professionals: [professional], nextCursor: undefined };
+      }
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench("en", { autoLoad: false });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Apply filters" })).toHaveProperty(
+        "disabled",
+        false,
+      );
+    });
+    await user.click(screen.getByRole("tab", { name: "Professionals" }));
+    await user.type(
+      screen.getByPlaceholderText("Name prefix or exact email"),
+      "ada@genomelab.example",
+    );
+
+    expect(sdkFetch).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Apply filters" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/partnership-crm/professionals?limit=20&query=ada%40genomelab.example",
         expect.objectContaining({ headers: expect.any(Headers) }),
       );
     });
@@ -399,6 +464,28 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         JSON.parse(window.sessionStorage.getItem(cacheKey) ?? "{}").expiresAt,
       ).toBeGreaterThan(originalExpiry);
     });
+  });
+
+  it("does not hydrate obsolete ten-row summary caches", async () => {
+    const obsoleteKey = crmSummaryCacheKey().replace(
+      ":summary:v3:",
+      ":summary:v2:",
+    );
+    window.sessionStorage.setItem(
+      obsoleteKey,
+      JSON.stringify({
+        cachedAt: new Date().toISOString(),
+        expiresAt: Date.now() + 60_000,
+        page: { organizations: [organization], nextCursor: undefined },
+      }),
+    );
+
+    renderWorkbench("en", { autoLoad: false });
+    await screen.findByRole("progressbar", {
+      name: "CRM daily action budget",
+    });
+
+    expect(screen.queryByText("Delete Me Genomics")).toBeNull();
   });
 
   it.each([
@@ -469,7 +556,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     window.sessionStorage.setItem(cacheKey, buildRaw());
 
     renderWorkbench("en", { autoLoad: false });
-    await screen.findByRole("progressbar", { name: "CRM daily usage" });
+    await screen.findByRole("progressbar", {
+      name: "CRM daily action budget",
+    });
 
     expect(screen.queryByText("Delete Me Genomics")).toBeNull();
     expect(window.sessionStorage.getItem(cacheKey)).toBeNull();
@@ -566,7 +655,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
 
     const progress = await screen.findByRole("progressbar", {
-      name: "CRM daily usage",
+      name: "CRM daily action budget",
     });
     await waitFor(() => {
       expect(progress.getAttribute("aria-valuenow")).toBe("100");
@@ -604,7 +693,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       expect(screen.getByText("Daily limit reached")).toBeTruthy();
       expect(
         screen
-          .getByRole("progressbar", { name: "CRM daily usage" })
+          .getByRole("progressbar", { name: "CRM daily action budget" })
           .getAttribute("aria-valuenow"),
       ).toBe("100");
       expect(screen.getByText("100 / 100 · 100%")).toBeTruthy();
@@ -692,7 +781,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const { client } = renderWorkbench();
     await screen.findByText("Delete Me Genomics");
     const staleSummaryKey =
-      "golden-crow:partnership-crm:summary:v2:ambiguous-create";
+      "golden-crow:partnership-crm:summary:v3:ambiguous-create";
     window.sessionStorage.setItem(staleSummaryKey, "stale");
     await user.click(screen.getByRole("button", { name: "Add Organization" }));
     const dialog = await screen.findByRole("dialog", {
@@ -968,11 +1057,130 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
   });
 
+  it("keeps a cached server count visible and fail-closed when verification fails", async () => {
+    const resetAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    cacheCrmDailyUsage({ used: 17, resetAt });
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/daily-usage/page-load") {
+        throw new Error("Usage service unavailable");
+      }
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench("en", {
+      autoLoad: false,
+      authoritativeUsageMock: true,
+    });
+
+    await screen.findByRole("button", { name: "Retry verification" });
+    expect(screen.getByText("17 / 100 · 17%")).toBeTruthy();
+    expect(screen.getByText(/Last confirmed server count/)).toBeTruthy();
+    expect(
+      screen
+        .getByRole("progressbar", { name: "CRM daily action budget" })
+        .getAttribute("aria-valuenow"),
+    ).toBe("17");
+    expect(screen.queryByText("0 / 100 · 0%")).toBeNull();
+    expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
+  it("does not regress a confirmed count from an older cross-tab cache update", async () => {
+    const resetAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const confirmedAt = new Date(Date.now() - 1000).toISOString();
+    cacheCrmDailyUsage({ used: 17, resetAt, confirmedAt });
+    jest.mocked(sdkFetch).mockRejectedValueOnce(
+      new Error("Usage service unavailable"),
+    );
+
+    renderWorkbench("en", {
+      autoLoad: false,
+      authoritativeUsageMock: true,
+    });
+    await screen.findByRole("button", { name: "Retry verification" });
+
+    const olderSnapshot = JSON.stringify({
+      usage: {
+        surface: "crm",
+        used: 9,
+        limit: 100,
+        percentage: 9,
+        remaining: 91,
+        resetAt,
+        locked: false,
+      },
+      confirmedAt: new Date(Date.now() - 5000).toISOString(),
+    });
+    window.localStorage.setItem(crmDailyUsageCacheKey, olderSnapshot);
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: crmDailyUsageCacheKey,
+          newValue: olderSnapshot,
+        }),
+      );
+    });
+
+    expect(screen.getByText("17 / 100 · 17%")).toBeTruthy();
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(crmDailyUsageCacheKey) ?? "null",
+      ).usage.used,
+    ).toBe(17);
+  });
+
+  it("replaces a stale cached count when an explicit refresh returns a newer window", async () => {
+    const user = userEvent.setup();
+    const resetAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const nextResetAt = new Date(
+      Date.parse(resetAt) + 24 * 60 * 60 * 1000,
+    ).toISOString();
+    cacheCrmDailyUsage({ used: 17, resetAt });
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/daily-usage/page-load") {
+        throw new Error("Usage service unavailable");
+      }
+      if (path === "/admin/partnership-crm/daily-usage?surface=crm") {
+        return {
+          usage: {
+            surface: "crm",
+            used: 3,
+            limit: 100,
+            percentage: 3,
+            remaining: 97,
+            resetAt: nextResetAt,
+            locked: false,
+          },
+        };
+      }
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench("en", {
+      autoLoad: false,
+      authoritativeUsageMock: true,
+    });
+    await screen.findByRole("button", { name: "Retry verification" });
+    await user.click(screen.getByRole("button", { name: "Refresh counter" }));
+
+    await screen.findByText("3 / 100 · 3%");
+    expect(screen.getByText(/Server-confirmed action count/)).toBeTruthy();
+    expect(jest.mocked(sdkFetch).mock.calls.at(-1)).toEqual([
+      "/admin/partnership-crm/daily-usage?surface=crm",
+      { cache: "no-store" },
+    ]);
+  });
+
   it("fails closed until daily usage can be authoritatively verified", async () => {
     const user = userEvent.setup();
     let verificationAttempts = 0;
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
-      if (path === "/admin/partnership-crm/daily-usage/page-load") {
+      if (
+        path === "/admin/partnership-crm/daily-usage/page-load" ||
+        path === "/admin/partnership-crm/daily-usage?surface=crm"
+      ) {
         verificationAttempts += 1;
         if (verificationAttempts === 1) {
           throw new Error("Usage service unavailable");
@@ -1013,6 +1221,12 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(
       screen.getByRole("button", { name: "Add Organization" }),
     ).toHaveProperty("disabled", true);
+    const progress = screen.getByRole("progressbar", {
+      name: "CRM daily action budget",
+    });
+    expect(progress.getAttribute("aria-valuenow")).toBeNull();
+    expect(screen.getAllByText("Usage unavailable").length).toBeGreaterThan(0);
+    expect(screen.queryByText("0 / 100 · 0%")).toBeNull();
 
     fireEvent.click(screen.getByTestId("crm-explicit-load"));
     expect(verificationAttempts).toBe(1);
@@ -1025,6 +1239,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       );
     });
     expect(verificationAttempts).toBe(2);
+    expect(jest.mocked(sdkFetch).mock.calls.at(-1)).toEqual([
+      "/admin/partnership-crm/daily-usage?surface=crm",
+      { cache: "no-store" },
+    ]);
   });
 
   it("honestly identifies cached read-only data when verification fails", async () => {
@@ -1128,7 +1346,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     }
   });
 
-  it("reverifies the locked counter after reset with the same idempotent event", async () => {
+  it("refreshes the locked counter after reset without consuming an action", async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date("2026-10-15T12:00:00.000Z"));
     let pageLoads = 0;
@@ -1136,26 +1354,28 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       if (path === "/admin/partnership-crm/daily-usage/page-load") {
         pageLoads += 1;
         return {
-          usage:
-            pageLoads === 1
-              ? {
-                  surface: "crm",
-                  used: 100,
-                  limit: 100,
-                  percentage: 100,
-                  remaining: 0,
-                  resetAt: "2026-10-15T12:00:01.000Z",
-                  locked: true,
-                }
-              : {
-                  surface: "crm",
-                  used: 1,
-                  limit: 100,
-                  percentage: 1,
-                  remaining: 99,
-                  resetAt: "2026-10-16T07:00:00.000Z",
-                  locked: false,
-                },
+          usage: {
+            surface: "crm",
+            used: 100,
+            limit: 100,
+            percentage: 100,
+            remaining: 0,
+            resetAt: "2026-10-15T12:00:01.000Z",
+            locked: true,
+          },
+        };
+      }
+      if (path === "/admin/partnership-crm/daily-usage?surface=crm") {
+        return {
+          usage: {
+            surface: "crm",
+            used: 0,
+            limit: 100,
+            percentage: 0,
+            remaining: 100,
+            resetAt: "2026-10-16T07:00:00.000Z",
+            locked: false,
+          },
         };
       }
       return { organizations: [organization], nextCursor: undefined };
@@ -1181,53 +1401,52 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         await Promise.resolve();
       });
 
-      expect(pageLoads).toBe(2);
+      expect(pageLoads).toBe(1);
       expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
         "disabled",
         false,
       );
-      const eventIds = jest
-        .mocked(sdkFetch)
-        .mock.calls.filter(
-          ([path]) => path === "/admin/partnership-crm/daily-usage/page-load",
-        )
-        .map(([, init]) => JSON.parse(String(init?.body)).eventId);
-      expect(eventIds[0]).toBe(eventIds[1]);
+      expect(jest.mocked(sdkFetch).mock.calls[1]).toEqual([
+        "/admin/partnership-crm/daily-usage?surface=crm",
+        { cache: "no-store" },
+      ]);
     } finally {
       jest.useRealTimers();
     }
   });
 
-  it("retries reset verification conservatively after a transient failure", async () => {
+  it("does not poll after a reset refresh failure", async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date("2026-10-15T12:00:00.000Z"));
     let pageLoads = 0;
+    let snapshots = 0;
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       if (path === "/admin/partnership-crm/daily-usage/page-load") {
         pageLoads += 1;
-        if (pageLoads === 1) {
-          return {
-            usage: {
-              surface: "crm",
-              used: 100,
-              limit: 100,
-              percentage: 100,
-              remaining: 0,
-              resetAt: "2026-10-15T12:00:01.000Z",
-              locked: true,
-            },
-          };
-        }
-        if (pageLoads === 2) {
+        return {
+          usage: {
+            surface: "crm",
+            used: 100,
+            limit: 100,
+            percentage: 100,
+            remaining: 0,
+            resetAt: "2026-10-15T12:00:01.000Z",
+            locked: true,
+          },
+        };
+      }
+      if (path === "/admin/partnership-crm/daily-usage?surface=crm") {
+        snapshots += 1;
+        if (snapshots === 1) {
           throw new Error("Temporary verification failure");
         }
         return {
           usage: {
             surface: "crm",
-            used: 1,
+            used: 0,
             limit: 100,
-            percentage: 1,
-            remaining: 99,
+            percentage: 0,
+            remaining: 100,
             resetAt: "2026-10-16T07:00:00.000Z",
             locked: false,
           },
@@ -1250,7 +1469,8 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         await Promise.resolve();
         await Promise.resolve();
       });
-      expect(pageLoads).toBe(2);
+      expect(pageLoads).toBe(1);
+      expect(snapshots).toBe(1);
       expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
         "disabled",
         true,
@@ -1260,14 +1480,16 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         jest.advanceTimersByTime(59_999);
         await Promise.resolve();
       });
-      expect(pageLoads).toBe(2);
-
+      expect(pageLoads).toBe(1);
+      expect(snapshots).toBe(1);
+      fireEvent.click(
+        screen.getByRole("button", { name: "Retry verification" }),
+      );
       await act(async () => {
-        jest.advanceTimersByTime(1);
         await Promise.resolve();
         await Promise.resolve();
       });
-      expect(pageLoads).toBe(3);
+      expect(snapshots).toBe(2);
       expect(screen.getByTestId("crm-explicit-load")).toHaveProperty(
         "disabled",
         false,
@@ -1594,7 +1816,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
   });
 
-  it("marks multiple selected organizations as favorite and not favorite", async () => {
+  it("marks selected organizations as favorite and evicts other cached list pages", async () => {
     const user = userEvent.setup();
     let batchOrganizations: PartnershipCrmOrganizationRecord[] = [
       organization,
@@ -1720,8 +1942,8 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         "organizations",
         unrelatedFilters,
         undefined,
-      ])?.organizations,
-    ).toEqual([unrelatedOrganization]);
+      ]),
+    ).toBeUndefined();
   });
 
   it("keeps the successful prefix when a sequential bulk delete later fails", async () => {
@@ -1921,11 +2143,11 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const { client } = renderWorkbench();
     await screen.findByText("Second favorite target");
     window.sessionStorage.setItem(
-      "golden-crow:partnership-crm:summary:v2:stale-filter-a",
+      "golden-crow:partnership-crm:summary:v3:stale-filter-a",
       "stale-a",
     );
     window.sessionStorage.setItem(
-      "golden-crow:partnership-crm:summary:v2:stale-cursor-b",
+      "golden-crow:partnership-crm:summary:v3:stale-cursor-b",
       "stale-b",
     );
     await user.click(screen.getByLabelText("Select Delete Me Genomics"));
@@ -1944,12 +2166,12 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(favoriteAttempts).toBe(2);
     expect(
       window.sessionStorage.getItem(
-        "golden-crow:partnership-crm:summary:v2:stale-filter-a",
+        "golden-crow:partnership-crm:summary:v3:stale-filter-a",
       ),
     ).toBeNull();
     expect(
       window.sessionStorage.getItem(
-        "golden-crow:partnership-crm:summary:v2:stale-cursor-b",
+        "golden-crow:partnership-crm:summary:v3:stale-cursor-b",
       ),
     ).toBeNull();
     const currentPage = client.getQueryData<{
@@ -1988,7 +2210,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByText("Delete Me Genomics"));
 
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/organizations?limit=10",
+      "/admin/partnership-crm/organizations?limit=20",
       expect.objectContaining({ headers: expect.any(Headers) }),
     );
     expect(screen.getAllByText("All categories").length).toBeGreaterThan(0);
@@ -3729,7 +3951,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     renderWorkbench();
     const preservedSummaryCacheKey =
-      "golden-crow:partnership-crm:summary:v2:template-safe";
+      "golden-crow:partnership-crm:summary:v3:template-safe";
     const plantillasSummaryCacheKey = "golden-crow-plantillas-summary-cache-v1";
     window.sessionStorage.setItem(preservedSummaryCacheKey, "preserve-me");
     window.sessionStorage.setItem(plantillasSummaryCacheKey, "stale-template");
@@ -4017,7 +4239,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByText("Dra. Ada Genome"));
 
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/professionals?limit=10",
+      "/admin/partnership-crm/professionals?limit=20",
       expect.objectContaining({ headers: expect.any(Headers) }),
     );
     expect(screen.getAllByText("Clinical Geneticist").length).toBeGreaterThan(
@@ -4442,7 +4664,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
         return { templates: [], nextCursor: undefined };
       }
 
-      if (stringPath === "/admin/partnership-crm/organizations?limit=10") {
+      if (stringPath === "/admin/partnership-crm/organizations?limit=20") {
         return {
           organizations: [
             { ...organization, id: "org-page-1", name: "Genome Page 1" },
@@ -4456,7 +4678,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
 
       if (
         stringPath ===
-        "/admin/partnership-crm/organizations?limit=10&cursor=cursor-2"
+        "/admin/partnership-crm/organizations?limit=20&cursor=cursor-2"
       ) {
         return {
           organizations: [
@@ -4585,14 +4807,14 @@ describe("PartnershipCrmWorkbench list pager", () => {
     expect(pager?.className).toContain("justify-end");
     expect(screen.getByText("Page 1 of 2+")).toBeTruthy();
     expect(screen.getByTestId("crm-bounded-sample-note").textContent).toContain(
-      "Approximate bounded sample · 11 records checked",
+      "Server filtering reached its safe scan limit · 11 candidates checked",
     );
     expect(screen.getByRole("button", { name: "Previous" })).toHaveProperty(
       "disabled",
       true,
     );
 
-    const nextButton = screen.getByRole("button", { name: "See 10 more" });
+    const nextButton = screen.getByRole("button", { name: "See 20 more" });
     expect(nextButton).toHaveProperty("disabled", false);
 
     await user.click(nextButton);
@@ -4605,17 +4827,87 @@ describe("PartnershipCrmWorkbench list pager", () => {
       "disabled",
       false,
     );
-    expect(screen.getByRole("button", { name: "See 10 more" })).toHaveProperty(
+    expect(screen.getByRole("button", { name: "See 20 more" })).toHaveProperty(
       "disabled",
       true,
     );
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/organizations?limit=10&cursor=cursor-2",
+      "/admin/partnership-crm/organizations?limit=20&cursor=cursor-2",
       expect.objectContaining({ headers: expect.any(Headers) }),
     );
+
+    const listCallCount = () =>
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(([path]) =>
+          String(path).startsWith("/admin/partnership-crm/organizations?"),
+        ).length;
+    expect(listCallCount()).toBe(2);
+
+    await user.click(screen.getByRole("button", { name: "Previous" }));
+    await screen.findByText("Genome Page 1");
+    await user.click(screen.getByRole("button", { name: "See 20 more" }));
+    await screen.findByText("Genome Page 2");
+    expect(listCallCount()).toBe(2);
   });
 
-  it("describes an empty filtered page as a bounded sample", async () => {
+  it("allows cached page navigation after the action budget locks", async () => {
+    const user = userEvent.setup();
+    const resetAt = "2026-10-16T07:00:00.000Z";
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const stringPath = String(path);
+      if (stringPath === "/admin/partnership-crm/organizations?limit=20") {
+        return {
+          organizations: [
+            { ...organization, id: "org-page-1", name: "Genome Page 1" },
+          ],
+          nextCursor: "cursor-2",
+        };
+      }
+      if (
+        stringPath ===
+        "/admin/partnership-crm/organizations?limit=20&cursor=cursor-2"
+      ) {
+        return {
+          organizations: [
+            { ...organization, id: "org-page-2", name: "Genome Page 2" },
+          ],
+          usage: {
+            surface: "crm",
+            used: 100,
+            limit: 100,
+            percentage: 100,
+            remaining: 0,
+            resetAt,
+            locked: true,
+          },
+        };
+      }
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+    await screen.findByText("Genome Page 1");
+    await user.click(screen.getByRole("button", { name: "See 20 more" }));
+    await screen.findByText("Genome Page 2");
+    expect(screen.getByText("Daily limit reached")).toBeTruthy();
+
+    const listCallCount = () =>
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(([path]) =>
+          String(path).startsWith("/admin/partnership-crm/organizations?"),
+        ).length;
+    expect(listCallCount()).toBe(2);
+
+    await user.click(screen.getByRole("button", { name: "Previous" }));
+    await screen.findByText("Genome Page 1");
+    await user.click(screen.getByRole("button", { name: "See 20 more" }));
+    await screen.findByText("Genome Page 2");
+    expect(listCallCount()).toBe(2);
+  });
+
+  it("describes an empty partial page as a server-filtered segment", async () => {
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       if (String(path).startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
@@ -4633,7 +4925,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
 
     expect(
       await screen.findByText(
-        "No matches in this bounded sample. Use See 10 more to continue.",
+        "No matches were found in this server-filtered segment. Use See 20 more to continue the search.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText("No CRM organizations found.")).toBeNull();
@@ -4777,7 +5069,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     const user = userEvent.setup();
     renderWorkbench();
     const summaryCacheKey =
-      "golden-crow:partnership-crm:summary:v2:preview-safe";
+      "golden-crow:partnership-crm:summary:v3:preview-safe";
     window.sessionStorage.setItem(summaryCacheKey, "preserve-during-preview");
 
     await user.click(screen.getByRole("button", { name: "Import CSV" }));

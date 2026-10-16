@@ -559,61 +559,363 @@ describe("partnership CRM repository pagination", () => {
     mockCollection.mockClear();
   });
 
-  it("returns only matches from one bounded organization scan", async () => {
+  it("returns organization matches beyond the first ten source documents in the first filtered page", async () => {
     const { listPartnershipCrmOrganizations } =
       await import("../repositories/partnership-crm.repository");
 
-    for (let index = 0; index < 160; index += 1) {
+    for (let index = 0; index < 15; index += 1) {
       seedOrganization(`skip-${index}`, index, "org_fertility_clinics");
     }
     for (let index = 0; index < 12; index += 1) {
       seedOrganization(
         `match-${index}`,
-        160 + index,
+        15 + index,
         "org_genomics_laboratories",
       );
     }
 
     const page = await listPartnershipCrmOrganizations(godModeContext, {
       category: "org_genomics_laboratories",
-      limit: 50,
+      limit: 20,
     });
 
-    expect(page.organizations).toEqual([]);
-    expect(page.nextCursor).toEqual(expect.any(String));
-    expect(page.statusCounts.new).toBe(0);
-    expect(page.scanned).toBe(11);
-    expect(page.partial).toBe(true);
+    expect(page.organizations.map((record) => record.id)).toHaveLength(12);
+    expect(page.organizations.every((record) => record.id.startsWith("match-"))).toBe(
+      true,
+    );
+    expect(page.nextCursor).toBeUndefined();
+    expect(page.statusCounts.new).toBe(12);
+    expect(page.scanned).toBe(12);
+    expect(page.partial).toBe(false);
+    expect(mockQueryReadLog.at(-1)?.operations).toEqual(
+      expect.arrayContaining([
+        {
+          type: "where",
+          fieldPath: "category",
+          operator: ">=",
+          value: "org_genomics_laboratories",
+        },
+        {
+          type: "where",
+          fieldPath: "category",
+          operator: "<",
+          value: "org_genomics_laboratories\uf8ff",
+        },
+      ]),
+    );
   });
 
-  it("returns only matches from one bounded professional scan", async () => {
+  it("returns professional matches beyond the first ten source documents in the first filtered page", async () => {
     const { listPartnershipCrmProfessionals } =
       await import("../repositories/partnership-crm.repository");
 
-    for (let index = 0; index < 160; index += 1) {
+    for (let index = 0; index < 15; index += 1) {
       seedProfessional(`skip-${index}`, index, "pro_other");
     }
     for (let index = 0; index < 12; index += 1) {
       seedProfessional(
         `match-${index}`,
-        160 + index,
+        15 + index,
         "pro_clinical_geneticists",
       );
     }
 
     const page = await listPartnershipCrmProfessionals(godModeContext, {
       category: "pro_clinical_geneticists",
-      limit: 50,
+      limit: 20,
     });
 
-    expect(page.professionals).toEqual([]);
-    expect(page.nextCursor).toEqual(expect.any(String));
-    expect(page.statusCounts.new).toBe(0);
-    expect(page.scanned).toBe(11);
-    expect(page.partial).toBe(true);
+    expect(page.professionals.map((record) => record.id)).toHaveLength(12);
+    expect(page.professionals.every((record) => record.id.startsWith("match-"))).toBe(
+      true,
+    );
+    expect(page.nextCursor).toBeUndefined();
+    expect(page.statusCounts.new).toBe(12);
+    expect(page.scanned).toBe(12);
+    expect(page.partial).toBe(false);
+    expect(mockQueryReadLog.at(-1)?.operations).toEqual(
+      expect.arrayContaining([
+        {
+          type: "where",
+          fieldPath: "category",
+          operator: ">=",
+          value: "pro_clinical_geneticists",
+        },
+        {
+          type: "where",
+          fieldPath: "category",
+          operator: "<",
+          value: "pro_clinical_geneticists\uf8ff",
+        },
+      ]),
+    );
   });
 
-  it("limits an unfiltered page to ten records plus one lookahead", async () => {
+  it("paginates a sparse filtered result without skipping matching professionals", async () => {
+    const { listPartnershipCrmProfessionals } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 24; index += 1) {
+      seedProfessional(
+        `row-${index.toString().padStart(2, "0")}`,
+        index,
+        index % 2 === 0 ? "pro_clinical_geneticists" : "pro_other",
+      );
+    }
+
+    const matchedIds: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await listPartnershipCrmProfessionals(godModeContext, {
+        category: "pro_clinical_geneticists",
+        limit: 5,
+        cursor,
+      });
+      matchedIds.push(...page.professionals.map((record) => record.id));
+      cursor = page.nextCursor;
+    } while (cursor);
+
+    expect(matchedIds).toHaveLength(12);
+    expect(new Set(matchedIds).size).toBe(12);
+    expect(matchedIds.every((id) => Number(id.slice(-2)) % 2 === 0)).toBe(
+      true,
+    );
+  });
+
+  it("paginates residual filters without skipping the lookahead match", async () => {
+    const { listPartnershipCrmProfessionals } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 45; index += 1) {
+      const id = `combined-${index.toString().padStart(2, "0")}`;
+      seedProfessional(id, index, "pro_clinical_geneticists");
+      const key = mockDocKey("partnership_crm_professionals", id);
+      mockDocs.set(key, {
+        ...(mockDocs.get(key) ?? {}),
+        status: index % 3 === 0 ? "contacted" : "new",
+      });
+    }
+    for (let index = 0; index < 30; index += 1) {
+      seedProfessional(`unrelated-${index}`, 45 + index, "pro_other");
+    }
+
+    const matchedIds: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await listPartnershipCrmProfessionals(godModeContext, {
+        category: "pro_clinical_geneticists",
+        status: "contacted",
+        limit: 5,
+        cursor,
+      });
+      matchedIds.push(...page.professionals.map((record) => record.id));
+      cursor = page.nextCursor;
+    } while (cursor);
+
+    expect(matchedIds).toHaveLength(15);
+    expect(new Set(matchedIds).size).toBe(15);
+    expect(
+      matchedIds.every((id) => Number(id.slice(-2)) % 3 === 0),
+    ).toBe(true);
+    expect(
+      mockQueryReadLog
+        .filter(
+          (entry) =>
+            entry.collectionName === "partnership_crm_professionals",
+        )
+        .every((entry) =>
+          entry.operations.some(
+            (operation) =>
+              operation.type === "where" &&
+              operation.fieldPath === "category",
+          ),
+        ),
+    ).toBe(true);
+  });
+
+  it("continues after the one-hundred-record residual scan cap without skipping matches", async () => {
+    const { listPartnershipCrmProfessionals } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 120; index += 1) {
+      const id = `capped-${index.toString().padStart(3, "0")}`;
+      seedProfessional(id, index, "pro_clinical_geneticists");
+      const key = mockDocKey("partnership_crm_professionals", id);
+      mockDocs.set(key, {
+        ...(mockDocs.get(key) ?? {}),
+        status: index === 0 || index === 101 ? "contacted" : "new",
+      });
+    }
+
+    const firstPage = await listPartnershipCrmProfessionals(godModeContext, {
+      category: "pro_clinical_geneticists",
+      status: "contacted",
+    });
+
+    expect(firstPage.professionals.map((record) => record.id)).toEqual([
+      "capped-000",
+    ]);
+    expect(firstPage.scanned).toBe(100);
+    expect(firstPage.partial).toBe(true);
+    expect(firstPage.nextCursor).toEqual(expect.any(String));
+
+    const secondPage = await listPartnershipCrmProfessionals(godModeContext, {
+      category: "pro_clinical_geneticists",
+      status: "contacted",
+      cursor: firstPage.nextCursor,
+    });
+
+    expect(secondPage.professionals.map((record) => record.id)).toEqual([
+      "capped-101",
+    ]);
+    expect(secondPage.scanned).toBe(20);
+    expect(secondPage.partial).toBe(false);
+    expect(secondPage.nextCursor).toBeUndefined();
+  });
+
+  it("applies the country anchor before reading a page", async () => {
+    const { listPartnershipCrmOrganizations } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 20; index += 1) {
+      seedOrganization(`argentina-${index}`, index, "org_other");
+    }
+    for (let index = 0; index < 5; index += 1) {
+      const id = `usa-${index}`;
+      seedOrganization(id, 20 + index, "org_other");
+      const key = mockDocKey("partnership_crm_organizations", id);
+      mockDocs.set(key, { ...(mockDocs.get(key) ?? {}), country: "US" });
+    }
+
+    const page = await listPartnershipCrmOrganizations(godModeContext, {
+      country: "US",
+    });
+
+    expect(page.organizations.map((record) => record.id)).toEqual([
+      "usa-0",
+      "usa-1",
+      "usa-2",
+      "usa-3",
+      "usa-4",
+    ]);
+    expect(page.scanned).toBe(5);
+    expect(mockQueryReadLog.at(-1)?.operations).toEqual(
+      expect.arrayContaining([
+        {
+          type: "where",
+          fieldPath: "country",
+          operator: ">=",
+          value: "US",
+        },
+        {
+          type: "where",
+          fieldPath: "country",
+          operator: "<",
+          value: "US\uf8ff",
+        },
+      ]),
+    );
+  });
+
+  it("pushes an exact status filter into Firestore before page sizing", async () => {
+    const { listPartnershipCrmOrganizations } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 25; index += 1) {
+      const id = `status-${index.toString().padStart(2, "0")}`;
+      seedOrganization(id, index, "org_other");
+      const key = mockDocKey("partnership_crm_organizations", id);
+      mockDocs.set(key, {
+        ...(mockDocs.get(key) ?? {}),
+        status: index % 2 === 0 ? "contacted" : "new",
+      });
+    }
+
+    const page = await listPartnershipCrmOrganizations(godModeContext, {
+      status: "contacted",
+    });
+
+    expect(page.organizations).toHaveLength(13);
+    expect(page.organizations.every((record) => record.status === "contacted")).toBe(
+      true,
+    );
+    expect(mockQueryReadLog.at(-1)?.operations).toEqual(
+      expect.arrayContaining([
+        {
+          type: "where",
+          fieldPath: "status",
+          operator: "==",
+          value: "contacted",
+        },
+        { type: "orderBy", fieldPath: "__name__", direction: "asc" },
+      ]),
+    );
+  });
+
+  it("does not emit a next cursor for exactly twenty terminal anchor matches", async () => {
+    const { listPartnershipCrmOrganizations } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 20; index += 1) {
+      seedOrganization(
+        `exact-${index.toString().padStart(2, "0")}`,
+        index,
+        "org_genomics_laboratories",
+      );
+    }
+
+    const page = await listPartnershipCrmOrganizations(godModeContext, {
+      category: "org_genomics_laboratories",
+    });
+
+    expect(page.organizations).toHaveLength(20);
+    expect(page.nextCursor).toBeUndefined();
+    expect(page.partial).toBe(false);
+    expect(page.scanned).toBe(20);
+    expect(
+      mockQueryReadLog.filter(
+        (entry) =>
+          entry.collectionName === "partnership_crm_organizations",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("uses an explicitly blank LinkedIn anchor without reading unrelated records", async () => {
+    const { listPartnershipCrmProfessionals } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedProfessional("blank-link", 0, "pro_other");
+    seedProfessional("has-link", 1, "pro_other");
+    const linkedKey = mockDocKey(
+      "partnership_crm_professionals",
+      "has-link",
+    );
+    mockDocs.set(linkedKey, {
+      ...(mockDocs.get(linkedKey) ?? {}),
+      linkedIn: "https://linkedin.com/in/example",
+    });
+
+    const page = await listPartnershipCrmProfessionals(godModeContext, {
+      linkedInState: "missing_linkedin",
+    });
+
+    expect(page.professionals.map((record) => record.id)).toEqual([
+      "blank-link",
+    ]);
+    expect(page.scanned).toBe(1);
+    expect(mockQueryReadLog.at(-1)?.operations).toEqual(
+      expect.arrayContaining([
+        {
+          type: "where",
+          fieldPath: "linkedIn",
+          operator: "==",
+          value: "",
+        },
+      ]),
+    );
+  });
+
+  it("limits an unfiltered page to twenty records plus one lookahead", async () => {
     const { listPartnershipCrmOrganizations } = await import(
       "../repositories/partnership-crm.repository"
     );
@@ -623,17 +925,17 @@ describe("partnership CRM repository pagination", () => {
 
     const page = await listPartnershipCrmOrganizations(godModeContext);
 
-    expect(page.organizations).toHaveLength(10);
-    expect(page.scanned).toBe(11);
+    expect(page.organizations).toHaveLength(20);
+    expect(page.scanned).toBe(21);
     expect(page.nextCursor).toEqual(expect.any(String));
     expect(page.partial).toBe(false);
   });
 
-  it("reads exactly one twenty-document chunk for an explicit deep search", async () => {
+  it("does not scan unrelated documents for a missing name prefix", async () => {
     const { listPartnershipCrmProfessionals } = await import(
       "../repositories/partnership-crm.repository"
     );
-    for (let index = 0; index < 60; index += 1) {
+    for (let index = 0; index < 160; index += 1) {
       seedProfessional(`deep-${index}`, index, "pro_other");
     }
 
@@ -643,63 +945,92 @@ describe("partnership CRM repository pagination", () => {
     });
 
     expect(page.professionals).toEqual([]);
-    expect(page.scanned).toBe(20);
-    expect(page.nextCursor).toEqual(expect.any(String));
-    expect(page.partial).toBe(true);
+    expect(page.scanned).toBe(0);
+    expect(page.nextCursor).toBeUndefined();
+    expect(page.partial).toBe(false);
+    expect(mockQueryReadLog.at(-1)?.operations).toEqual(
+      expect.arrayContaining([
+        {
+          type: "where",
+          fieldPath: "normalizedName",
+          operator: ">=",
+          value: "not present",
+        },
+        {
+          type: "where",
+          fieldPath: "normalizedName",
+          operator: "<",
+          value: "not present\uf8ff",
+        },
+      ]),
+    );
   });
 
-  it("matches deep professional fields before projecting the response summary", async () => {
+  it("searches professionals by normalized name prefix before page sizing", async () => {
     const { listPartnershipCrmProfessionals } = await import(
       "../repositories/partnership-crm.repository"
     );
-    seedProfessional("deep-match", 0, "pro_other");
-    const professionalKey = mockDocKey(
-      "partnership_crm_professionals",
-      "deep-match",
-    );
-    mockDocs.set(professionalKey, {
-      ...(mockDocs.get(professionalKey) ?? {}),
-      researchBasis: "Rare marker only in the long research field",
-    });
+    for (let index = 0; index < 30; index += 1) {
+      seedProfessional(`ordinary-${index}`, index, "pro_other");
+    }
+    for (let index = 0; index < 12; index += 1) {
+      const id = `rare-${index}`;
+      seedProfessional(id, 30 + index, "pro_other");
+      const professionalKey = mockDocKey(
+        "partnership_crm_professionals",
+        id,
+      );
+      mockDocs.set(professionalKey, {
+        ...(mockDocs.get(professionalKey) ?? {}),
+        name: `Rare Marker ${index}`,
+        normalizedName: `rare marker ${index}`,
+      });
+    }
 
     const page = await listPartnershipCrmProfessionals(godModeContext, {
-      query: "rare marker only",
-      deep: true,
+      query: "rare marker",
     });
 
-    expect(page.professionals).toHaveLength(1);
-    expect(page.professionals[0]).toEqual(
-      expect.objectContaining({
-        id: "deep-match",
-        researchBasis: "",
-      }),
+    expect(page.professionals).toHaveLength(12);
+    expect(page.professionals.every((record) => record.name.startsWith("Rare Marker"))).toBe(
+      true,
     );
-    expect(page.scanned).toBe(1);
+    expect(page.scanned).toBe(12);
   });
 
-  it("matches organization notes before projecting the response summary", async () => {
+  it("searches organizations by exact contact email without scanning unrelated documents", async () => {
     const { listPartnershipCrmOrganizations } = await import(
       "../repositories/partnership-crm.repository"
     );
-    seedOrganization("notes-match", 0, "org_other");
+    seedOrganization("email-match", 0, "org_other");
     const organizationKey = mockDocKey(
       "partnership_crm_organizations",
-      "notes-match",
+      "email-match",
     );
     mockDocs.set(organizationKey, {
       ...(mockDocs.get(organizationKey) ?? {}),
-      notes: "Only the private notes contain the sapphire marker",
+      contactEmail: "person@example.org",
     });
+    seedOrganization("unrelated", 1, "org_other");
 
     const page = await listPartnershipCrmOrganizations(godModeContext, {
-      query: "sapphire marker",
-      deep: true,
+      query: "person@example.org",
     });
 
     expect(page.organizations).toEqual([
-      expect.objectContaining({ id: "notes-match", notes: "" }),
+      expect.objectContaining({ id: "email-match", notes: "" }),
     ]);
     expect(page.scanned).toBe(1);
+    expect(mockQueryReadLog.at(-1)?.operations).toEqual(
+      expect.arrayContaining([
+        {
+          type: "where",
+          fieldPath: "contactEmail",
+          operator: "==",
+          value: "person@example.org",
+        },
+      ]),
+    );
   });
 
   it("matches template bodies before projecting the response summary", async () => {
@@ -748,9 +1079,12 @@ describe("partnership CRM repository pagination", () => {
       });
     }
 
-    const first = await listPartnershipCrmOrganizations(godModeContext);
+    const first = await listPartnershipCrmOrganizations(godModeContext, {
+      limit: 10,
+    });
     const second = await listPartnershipCrmOrganizations(godModeContext, {
       cursor: first.nextCursor,
+      limit: 10,
     });
     const ids = [
       ...first.organizations.map((record) => record.id),
@@ -779,7 +1113,9 @@ describe("partnership CRM repository pagination", () => {
       });
     }
 
-    const first = await listPartnershipCrmOrganizations(godModeContext);
+    const first = await listPartnershipCrmOrganizations(godModeContext, {
+      limit: 10,
+    });
     expect(first.nextCursor).toEqual(expect.any(String));
     const decodedCursor = JSON.parse(
       Buffer.from(first.nextCursor ?? "", "base64url").toString("utf8"),
@@ -794,6 +1130,7 @@ describe("partnership CRM repository pagination", () => {
 
     const second = await listPartnershipCrmOrganizations(godModeContext, {
       cursor: first.nextCursor,
+      limit: 10,
     });
     const ids = [
       ...first.organizations.map((record) => record.id),
@@ -812,6 +1149,7 @@ describe("partnership CRM repository pagination", () => {
     await expect(
       listPartnershipCrmOrganizations(godModeContext, {
         cursor: legacyCursor,
+        limit: 10,
       }),
     ).rejects.toEqual(
       expect.objectContaining({
@@ -825,8 +1163,15 @@ describe("partnership CRM repository pagination", () => {
     const { listPartnershipCrmOrganizations } = await import(
       "../repositories/partnership-crm.repository"
     );
-    for (let index = 0; index < 12; index += 1) {
-      seedOrganization(`query-${index}`, index, "org_other");
+    for (let index = 0; index < 25; index += 1) {
+      const id = `query-${index}`;
+      seedOrganization(id, index, "org_other");
+      const key = mockDocKey("partnership_crm_organizations", id);
+      mockDocs.set(key, {
+        ...(mockDocs.get(key) ?? {}),
+        name: `Café ${index}`,
+        normalizedName: `cafe ${index}`,
+      });
     }
 
     const first = await listPartnershipCrmOrganizations(godModeContext, {
@@ -931,6 +1276,90 @@ describe("partnership CRM daily usage", () => {
     mockRunTransaction.mockClear();
     mockTransactionCommitError = null;
     mockTransactionRetryBeforeCommit = null;
+  });
+
+  it("returns an authoritative zero without creating or incrementing usage", async () => {
+    const { getPartnershipCrmDailyUsage } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+
+    const usage = await getPartnershipCrmDailyUsage(godModeContext, "crm");
+
+    expect(usage).toEqual(
+      expect.objectContaining({
+        surface: "crm",
+        used: 0,
+        remaining: 100,
+        percentage: 0,
+        locked: false,
+      }),
+    );
+    expect(mockPointReadLog).toEqual([
+      expect.objectContaining({
+        collectionName: "partnership_crm_daily_usage",
+      }),
+    ]);
+    expect(mockDocsIn("partnership_crm_daily_usage")).toEqual([]);
+    expect(mockRunTransaction).not.toHaveBeenCalled();
+  });
+
+  it("reads and validates the stored daily usage without mutating it", async () => {
+    const { consumePartnershipCrmDailyUsage, getPartnershipCrmDailyUsage } =
+      await import("../repositories/partnership-crm.repository");
+    await consumePartnershipCrmDailyUsage(
+      godModeContext,
+      "plantillas",
+      "existing-event",
+      "list",
+    );
+    mockPointReadLog.length = 0;
+    mockRunTransaction.mockClear();
+
+    const usage = await getPartnershipCrmDailyUsage(
+      godModeContext,
+      "plantillas",
+    );
+
+    expect(usage).toEqual(
+      expect.objectContaining({
+        surface: "plantillas",
+        used: 1,
+        remaining: 99,
+      }),
+    );
+    expect(mockPointReadLog).toHaveLength(1);
+    expect(mockRunTransaction).not.toHaveBeenCalled();
+    expect(mockDocsIn("partnership_crm_daily_usage")[0]?.data.used).toBe(1);
+  });
+
+  it("fails closed when the stored usage counter is corrupt", async () => {
+    const {
+      consumePartnershipCrmDailyUsage,
+      getPartnershipCrmDailyUsage,
+      PartnershipCrmUsageError,
+    } = await import("../repositories/partnership-crm.repository");
+    await consumePartnershipCrmDailyUsage(
+      godModeContext,
+      "crm",
+      "existing-event",
+      "list",
+    );
+    const usageDoc = mockDocsIn("partnership_crm_daily_usage")[0]!;
+    mockDocs.set(mockDocKey("partnership_crm_daily_usage", usageDoc.id), {
+      ...usageDoc.data,
+      used: 2,
+    });
+
+    await expect(
+      getPartnershipCrmDailyUsage(godModeContext, "crm"),
+    ).rejects.toEqual(
+      expect.objectContaining<
+        Partial<InstanceType<typeof PartnershipCrmUsageError>>
+      >({
+        statusCode: 503,
+        code: "CRM_USAGE_UNAVAILABLE",
+      }),
+    );
   });
 
   it("atomically increments once and recognizes the same event id", async () => {

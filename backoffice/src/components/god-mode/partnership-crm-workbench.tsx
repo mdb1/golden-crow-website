@@ -168,12 +168,15 @@ const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
 const SENT_EMAIL_LOG_QUERY_KEY = "god-mode-partnership-crm-sent-email-log";
 const EMAIL_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
-const CRM_TARGET_PAGE_SIZE = 10;
+const CRM_TARGET_PAGE_SIZE = 20;
+const CRM_BULK_ACTION_LIMIT = 10;
 const CRM_SECONDARY_PAGE_SIZE = 10;
 const CRM_TEMPLATE_PAGE_SIZE = 5;
 const CRM_DAILY_USAGE_LIMIT = 100;
 const CRM_DAILY_USAGE_ENDPOINT = "/admin/partnership-crm/daily-usage/page-load";
-const CRM_SUMMARY_CACHE_PREFIX = "golden-crow:partnership-crm:summary:v2";
+const CRM_DAILY_USAGE_STORAGE_KEY =
+  "golden-crow:partnership-crm:daily-usage:crm:v2";
+const CRM_SUMMARY_CACHE_PREFIX = "golden-crow:partnership-crm:summary:v3";
 const CRM_SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const PLANTILLAS_SUMMARY_CACHE_KEY = "golden-crow-plantillas-summary-cache-v1";
 const CRM_IMPORT_SESSION_STORAGE_KEYS = {
@@ -284,6 +287,11 @@ type CrmUsageResponse = {
   usage?: CrmDailyUsage;
 };
 
+type CachedCrmDailyUsage = {
+  usage: CrmDailyUsage;
+  confirmedAt: string;
+};
+
 class CrmRequestNotSentError extends Error {
   readonly requestNotSent = true;
 
@@ -352,6 +360,62 @@ function isValidCrmDailyUsage(usage: unknown): usage is CrmDailyUsage {
     Date.parse(candidate.resetAt) > Date.now() &&
     typeof candidate.locked === "boolean"
   );
+}
+
+function isValidCrmUsageConfirmationTime(value: unknown): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const confirmedAt = Date.parse(value);
+  return Number.isFinite(confirmedAt) && confirmedAt <= Date.now();
+}
+
+function loadCachedCrmDailyUsage(): CachedCrmDailyUsage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(CRM_DAILY_USAGE_STORAGE_KEY) ?? "null",
+    ) as Partial<CachedCrmDailyUsage> | null;
+    if (
+      !parsed ||
+      !isValidCrmDailyUsage(parsed.usage) ||
+      !isValidCrmUsageConfirmationTime(parsed.confirmedAt)
+    ) {
+      window.localStorage.removeItem(CRM_DAILY_USAGE_STORAGE_KEY);
+      return null;
+    }
+
+    return {
+      usage: normalizeCrmDailyUsage(parsed.usage),
+      confirmedAt: parsed.confirmedAt,
+    };
+  } catch {
+    try {
+      window.localStorage.removeItem(CRM_DAILY_USAGE_STORAGE_KEY);
+    } catch {
+      // Browser storage is optional; the server remains authoritative.
+    }
+    return null;
+  }
+}
+
+function storeCachedCrmDailyUsage(snapshot: CachedCrmDailyUsage) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      CRM_DAILY_USAGE_STORAGE_KEY,
+      JSON.stringify(snapshot),
+    );
+  } catch {
+    // Browser storage is optional; the server response is still displayed.
+  }
 }
 
 export function mergeCrmDailyUsage(
@@ -568,10 +632,6 @@ function crmMutationTargetKind(
   return null;
 }
 
-function crmMutationChangesTargetSummaries(path: string, init?: RequestInit) {
-  return crmMutationTargetKind(path, init) !== null;
-}
-
 function crmTargetMutationPath(path: string, init?: RequestInit) {
   if ((init?.method ?? "GET").toUpperCase() === "GET") {
     return null;
@@ -654,7 +714,7 @@ function crmPreHandlerDenialFromError(error: unknown) {
 
 function crmLocalText(language: AppLanguage, key: string) {
   const spanish: Record<string, string> = {
-    "CRM daily usage": "Uso diario del CRM",
+    "CRM daily action budget": "Presupuesto diario de acciones del CRM",
     "Daily limit reached": "Límite diario alcanzado",
     "Cached read-only mode": "Modo de solo lectura con caché",
     "Fresh CRM data unavailable": "Datos nuevos del CRM no disponibles",
@@ -671,13 +731,33 @@ function crmLocalText(language: AppLanguage, key: string) {
     Resets: "Se reinicia",
     "Load CRM": "Cargar CRM",
     "Apply filters": "Aplicar filtros",
+    "Apply sends these filters to the server before results are returned.":
+      "Aplicar envía estos filtros al servidor antes de devolver resultados.",
+    "Search uses a name prefix, or an exact email when @ is present. Category and country match the primary stored value by prefix. Empty-value filters omit legacy records where the field is absent.":
+      "La búsqueda usa un prefijo del nombre o un email exacto cuando incluye @. Categoría y país comparan por prefijo el valor principal guardado. Los filtros de valores vacíos omiten registros antiguos donde el campo no existe.",
+    "Name prefix or exact email": "Prefijo del nombre o email exacto",
+    "Name prefix or exact contact email":
+      "Prefijo del nombre o email de contacto exacto",
+    "Server-filtered results": "Resultados filtrados en el servidor",
+    "Server filtering reached its safe scan limit":
+      "El filtrado del servidor alcanzó su límite seguro de exploración",
+    "candidates checked; additional older matches may remain. Use See 20 more to continue.":
+      "candidatos revisados; pueden quedar coincidencias más antiguas. Usá Ver 20 más para continuar.",
+    "No matches were found in this server-filtered segment. Use See 20 more to continue the search.":
+      "No se encontraron coincidencias en este segmento filtrado en el servidor. Usá Ver 20 más para continuar la búsqueda.",
+    "Server-confirmed action count": "Conteo de acciones confirmado por el servidor",
+    "Cached server count": "Conteo del servidor en caché",
+    "Last confirmed server count":
+      "Último conteo confirmado por el servidor",
+    "Usage unavailable": "Uso no disponible",
+    "Last confirmed": "Última confirmación",
+    "Refresh counter": "Actualizar contador",
     "Loaded results": "Resultados cargados",
     "No CRM data loaded. Use Load CRM when you deliberately want fresh data.":
       "No hay datos del CRM cargados. Usá Cargar CRM cuando quieras datos nuevos deliberadamente.",
     "Data changed. Refresh when ready.":
       "Los datos cambiaron. Actualizá cuando quieras.",
-    "Loaded-page filters": "Filtros de la página cargada",
-    "See 10 more": "Ver 10 más",
+    "See 20 more": "Ver 20 más",
     "Process next 5": "Procesar las siguientes 5",
     "View message": "Ver mensaje",
     "Hide message": "Ocultar mensaje",
@@ -691,11 +771,6 @@ function crmLocalText(language: AppLanguage, key: string) {
       "Los datos de actividad cambiaron. Usá Actualizar para cargar el registro actual.",
     "The template request outcome is unknown. Reload templates deliberately before continuing.":
       "El resultado de la solicitud de plantilla es desconocido. Volvé a cargar las plantillas deliberadamente antes de continuar.",
-    "Approximate bounded sample": "Muestra acotada aproximada",
-    "records checked; use See 10 more to continue.":
-      "registros revisados; usá Ver 10 más para continuar.",
-    "No matches in this bounded sample. Use See 10 more to continue.":
-      "No hay coincidencias en esta muestra acotada. Usá Ver 10 más para continuar.",
     "Processes at most five rows sequentially. Continue manually for the next batch.":
       "Procesa como máximo cinco filas en secuencia. Continuá manualmente con el siguiente lote.",
     "The request was not sent because the CRM daily limit was reached.":
@@ -1638,6 +1713,19 @@ function appendTargetFilterParams(
   if (filters.linkedInState !== "all") {
     params.set("linkedInState", filters.linkedInState);
   }
+}
+
+function hasTargetFilters(
+  filters: ListFilters,
+  targetKind: PartnershipCrmTargetKind,
+) {
+  return Boolean(
+    filters.query.trim() ||
+      filters.status !== "all" ||
+      normalizedCategoryFilter(filters.category, targetKind) ||
+      normalizedCountryFilter(filters.country) ||
+      filters.linkedInState !== "all",
+  );
 }
 
 function localVisualFilters(
@@ -3199,21 +3287,25 @@ function EmptyState({ children }: { children: React.ReactNode }) {
 function CrmDailyUsageBar({
   usage,
   pending,
+  confirmedAt,
+  source,
+  onRefresh,
   language,
 }: {
   usage: CrmDailyUsage | null;
   pending: boolean;
+  confirmedAt: string | null;
+  source: "server" | "cache" | "stale" | null;
+  onRefresh: () => void;
   language: AppLanguage;
 }) {
-  const used = Math.min(
-    usage?.used ?? 0,
-    usage?.limit ?? CRM_DAILY_USAGE_LIMIT,
-  );
+  const used = usage
+    ? Math.min(usage.used, usage.limit)
+    : null;
   const limit = usage?.limit ?? CRM_DAILY_USAGE_LIMIT;
-  const percentage = Math.min(
-    100,
-    Math.max(0, usage?.percentage ?? Math.round((used / limit) * 100)),
-  );
+  const percentage = usage
+    ? Math.min(100, Math.max(0, usage.percentage))
+    : null;
   const resetLabel = usage?.resetAt
     ? new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en-US", {
         dateStyle: "short",
@@ -3221,8 +3313,17 @@ function CrmDailyUsageBar({
         timeZone: "America/Argentina/Buenos_Aires",
       }).format(new Date(usage.resetAt))
     : null;
+  const confirmedLabel = confirmedAt
+    ? new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en-US", {
+        dateStyle: "short",
+        timeStyle: "short",
+        timeZone: "America/Argentina/Buenos_Aires",
+      }).format(new Date(confirmedAt))
+    : null;
   const barTone =
-    percentage >= 100
+    percentage === null
+      ? "bg-muted-foreground/30"
+      : percentage >= 100
       ? "bg-red-600"
       : percentage >= 90
         ? "bg-orange-600"
@@ -3237,36 +3338,78 @@ function CrmDailyUsageBar({
     >
       <div className="flex items-center justify-between gap-3 text-xs">
         <span className="font-medium text-foreground">
-          {crmLocalText(language, "CRM daily usage")}
+          {crmLocalText(language, "CRM daily action budget")}
         </span>
         <span className="tabular-nums text-muted-foreground">
-          {pending && !usage ? "…" : `${used} / ${limit} · ${percentage}%`}
+          {!usage
+            ? pending
+              ? crmLocalText(language, "Verifying CRM usage")
+              : crmLocalText(language, "Usage unavailable")
+            : `${used} / ${limit} · ${percentage}%`}
         </span>
       </div>
       <div
         role="progressbar"
-        aria-label={crmLocalText(language, "CRM daily usage")}
+        aria-label={crmLocalText(language, "CRM daily action budget")}
         aria-valuemin={0}
         aria-valuemax={limit}
-        aria-valuenow={used}
+        aria-valuenow={used ?? undefined}
+        aria-valuetext={
+          usage
+            ? `${used} / ${limit}`
+            : crmLocalText(language, "Usage unavailable")
+        }
         className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
       >
         <div
           className={cn("h-full rounded-full transition-[width]", barTone)}
-          style={{ width: `${percentage}%` }}
+          style={{ width: `${percentage ?? 0}%` }}
         />
       </div>
       <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
         <span>
-          {usage?.locked
+          {!usage
+            ? crmLocalText(language, "Usage unavailable")
+            : usage.locked
             ? crmLocalText(language, "Daily limit reached")
-            : `${limit - used} ${language === "es" ? "disponibles" : "remaining"}`}
+            : `${limit - (used ?? 0)} ${language === "es" ? "disponibles" : "remaining"}`}
         </span>
         {resetLabel ? (
           <span>
             {crmLocalText(language, "Resets")} {resetLabel}
           </span>
         ) : null}
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        {usage ? (
+          <p className="text-[11px] text-muted-foreground">
+            {crmLocalText(
+              language,
+              source === "server"
+                ? "Server-confirmed action count"
+                : source === "cache"
+                  ? "Cached server count"
+                  : "Last confirmed server count",
+            )}
+            {confirmedLabel
+              ? ` · ${crmLocalText(language, "Last confirmed")} ${confirmedLabel}`
+              : null}
+          </p>
+        ) : (
+          <span />
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-6 shrink-0 px-2 text-[11px]"
+          aria-label={crmLocalText(language, "Refresh counter")}
+          onClick={onRefresh}
+          disabled={pending}
+        >
+          <RefreshCw className={cn("h-3 w-3", pending && "animate-spin")} />
+          {crmLocalText(language, "Refresh counter")}
+        </Button>
       </div>
     </div>
   );
@@ -7918,14 +8061,29 @@ export function PartnershipCrmWorkbench() {
   );
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [listRequestVersion, setListRequestVersion] = useState(0);
-  const [dailyUsage, setDailyUsage] = useState<CrmDailyUsage | null>(null);
+  const [initialDailyUsageSnapshot] = useState(loadCachedCrmDailyUsage);
+  const [dailyUsage, setDailyUsage] = useState<CrmDailyUsage | null>(
+    initialDailyUsageSnapshot?.usage ?? null,
+  );
+  const [dailyUsageConfirmedAt, setDailyUsageConfirmedAt] = useState<
+    string | null
+  >(initialDailyUsageSnapshot?.confirmedAt ?? null);
+  const [dailyUsageSource, setDailyUsageSource] = useState<
+    "server" | "cache" | "stale" | null
+  >(initialDailyUsageSnapshot ? "cache" : null);
   const [dailyUsagePending, setDailyUsagePending] = useState(true);
   const [dailyUsageVerificationFailures, setDailyUsageVerificationFailures] =
     useState(0);
   const [dataChanged, setDataChanged] = useState(false);
+  const targetListDataChangedRef = useRef(false);
   const pageLoadEventIdRef = useRef(createPartnershipCrmUsageEventId());
   const dailyUsageVerificationSequenceRef = useRef(0);
-  const dailyUsageRef = useRef<CrmDailyUsage | null>(null);
+  const dailyUsageRef = useRef<CrmDailyUsage | null>(
+    initialDailyUsageSnapshot?.usage ?? null,
+  );
+  const dailyUsageConfirmedAtRef = useRef<string | null>(
+    initialDailyUsageSnapshot?.confirmedAt ?? null,
+  );
   const freshActionsBlockedRef = useRef(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedTargetIds, setSelectedTargetIds] = useState<Set<string>>(
@@ -7993,10 +8151,95 @@ export function PartnershipCrmWorkbench() {
     dailyUsage.percentage >= 100;
 
   const acceptDailyUsage = useCallback((incoming: CrmDailyUsage) => {
-    const merged = mergeCrmDailyUsage(dailyUsageRef.current, incoming);
+    const normalized = normalizeCrmDailyUsage(incoming);
+    const current = dailyUsageRef.current;
+    if (
+      current &&
+      Date.parse(normalized.resetAt) === Date.parse(current.resetAt) &&
+      normalized.used < current.used
+    ) {
+      return;
+    }
+    const merged = mergeCrmDailyUsage(current, normalized);
+    const confirmedAt = new Date().toISOString();
     dailyUsageRef.current = merged;
+    dailyUsageConfirmedAtRef.current = confirmedAt;
     freshActionsBlockedRef.current = merged.locked;
     setDailyUsage(merged);
+    setDailyUsageConfirmedAt(confirmedAt);
+    setDailyUsageSource("server");
+    storeCachedCrmDailyUsage({ usage: merged, confirmedAt });
+  }, []);
+
+  const markDailyUsageStale = useCallback(() => {
+    if (dailyUsageRef.current) {
+      setDailyUsageSource("stale");
+    }
+  }, []);
+
+  const clearExpiredDailyUsage = useCallback(() => {
+    dailyUsageRef.current = null;
+    dailyUsageConfirmedAtRef.current = null;
+    freshActionsBlockedRef.current = true;
+    setDailyUsage(null);
+    setDailyUsageConfirmedAt(null);
+    setDailyUsageSource(null);
+    try {
+      window.localStorage.removeItem(CRM_DAILY_USAGE_STORAGE_KEY);
+    } catch {
+      // Storage cleanup is best-effort; expired values are rejected on read.
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleUsageStorage(event: StorageEvent) {
+      if (event.key !== CRM_DAILY_USAGE_STORAGE_KEY || !event.newValue) {
+        return;
+      }
+
+      const cached = loadCachedCrmDailyUsage();
+      if (!cached) {
+        return;
+      }
+
+      const current = dailyUsageRef.current;
+      const currentResetAt = current ? Date.parse(current.resetAt) : NaN;
+      const incomingResetAt = Date.parse(cached.usage.resetAt);
+      const currentConfirmedAt = dailyUsageConfirmedAtRef.current
+        ? Date.parse(dailyUsageConfirmedAtRef.current)
+        : NaN;
+      const incomingConfirmedAt = Date.parse(cached.confirmedAt);
+      const incomingIsOlder = Boolean(
+        current &&
+          (incomingResetAt < currentResetAt ||
+            (incomingResetAt === currentResetAt &&
+              (cached.usage.used < current.used ||
+                (cached.usage.used === current.used &&
+                  Number.isFinite(currentConfirmedAt) &&
+                  incomingConfirmedAt < currentConfirmedAt)))),
+      );
+
+      if (incomingIsOlder) {
+        if (current && dailyUsageConfirmedAtRef.current) {
+          storeCachedCrmDailyUsage({
+            usage: current,
+            confirmedAt: dailyUsageConfirmedAtRef.current,
+          });
+        }
+        return;
+      }
+
+      const merged = mergeCrmDailyUsage(current, cached.usage);
+      dailyUsageRef.current = merged;
+      freshActionsBlockedRef.current = merged.locked;
+      setDailyUsage(merged);
+      dailyUsageConfirmedAtRef.current = cached.confirmedAt;
+      setDailyUsageConfirmedAt(cached.confirmedAt);
+      setDailyUsageSource("cache");
+    }
+
+    window.addEventListener("storage", handleUsageStorage);
+    return () => window.removeEventListener("storage", handleUsageStorage);
   }, []);
 
   const verifyDailyUsage = useCallback(
@@ -8028,6 +8271,7 @@ export function PartnershipCrmWorkbench() {
         const verifiedUsage = result.usage;
         if (!isValidCrmDailyUsage(verifiedUsage)) {
           freshActionsBlockedRef.current = true;
+          markDailyUsageStale();
           setDailyUsageVerificationFailures((current) => current + 1);
           return;
         }
@@ -8045,6 +8289,7 @@ export function PartnershipCrmWorkbench() {
           setDailyUsageVerificationFailures(0);
         } else {
           freshActionsBlockedRef.current = true;
+          markDailyUsageStale();
           setDailyUsageVerificationFailures((current) => current + 1);
         }
       } finally {
@@ -8055,8 +8300,55 @@ export function PartnershipCrmWorkbench() {
         }
       }
     },
-    [acceptDailyUsage],
+    [acceptDailyUsage, markDailyUsageStale],
   );
+
+  const refreshDailyUsage = useCallback(async () => {
+    const verificationSequence = dailyUsageVerificationSequenceRef.current + 1;
+    dailyUsageVerificationSequenceRef.current = verificationSequence;
+    freshActionsBlockedRef.current = true;
+    setDailyUsagePending(true);
+
+    try {
+      const result = await sdkFetch<CrmUsageResponse>(
+        "/admin/partnership-crm/daily-usage?surface=crm",
+        { cache: "no-store" },
+      );
+      if (
+        dailyUsageVerificationSequenceRef.current !== verificationSequence
+      ) {
+        return;
+      }
+      if (!isValidCrmDailyUsage(result.usage)) {
+        markDailyUsageStale();
+        setDailyUsageVerificationFailures((current) => current + 1);
+        return;
+      }
+      acceptDailyUsage(result.usage);
+      setDailyUsageVerificationFailures(0);
+    } catch (error) {
+      if (
+        dailyUsageVerificationSequenceRef.current !== verificationSequence
+      ) {
+        return;
+      }
+      const usage = crmUsageFromError(error);
+      if (usage) {
+        acceptDailyUsage(usage);
+        setDailyUsageVerificationFailures(0);
+      } else {
+        freshActionsBlockedRef.current = true;
+        markDailyUsageStale();
+        setDailyUsageVerificationFailures((current) => current + 1);
+      }
+    } finally {
+      if (
+        dailyUsageVerificationSequenceRef.current === verificationSequence
+      ) {
+        setDailyUsagePending(false);
+      }
+    }
+  }, [acceptDailyUsage, markDailyUsageStale]);
 
   async function crmFetch<T>(path: string, init?: RequestInit): Promise<T> {
     if (freshActionsBlockedRef.current || freshActionsDisabled) {
@@ -8082,10 +8374,28 @@ export function PartnershipCrmWorkbench() {
         acceptDailyUsage(result.usage);
       } else {
         freshActionsBlockedRef.current = true;
+        markDailyUsageStale();
         setDailyUsageVerificationFailures((current) => current + 1);
       }
-      if (crmMutationChangesTargetSummaries(path, init)) {
+      const changedTargetKind = crmMutationTargetKind(path, init);
+      if (changedTargetKind) {
         clearCachedCrmSummaryPages();
+        queryClient.removeQueries({
+          queryKey: [ORGANIZATIONS_QUERY_KEY, changedTargetKind],
+          predicate: (query) => {
+            if (changedTargetKind !== targetKind) {
+              return true;
+            }
+
+            const queryFilters = query.queryKey[2];
+            const queryCursor = query.queryKey[3];
+            return !(
+              queryCursor === currentCursor &&
+              JSON.stringify(queryFilters) === JSON.stringify(appliedFilters)
+            );
+          },
+        });
+        targetListDataChangedRef.current = true;
         setDataChanged(true);
       }
       return result;
@@ -8096,6 +8406,7 @@ export function PartnershipCrmWorkbench() {
           acceptDailyUsage(preHandlerDenial.usage);
         } else {
           freshActionsBlockedRef.current = true;
+          markDailyUsageStale();
           setDailyUsageVerificationFailures((current) => current + 1);
         }
 
@@ -8117,6 +8428,7 @@ export function PartnershipCrmWorkbench() {
         queryClient.removeQueries({
           queryKey: [ORGANIZATIONS_QUERY_KEY, uncertainTargetKind],
         });
+        targetListDataChangedRef.current = true;
         setDataChanged(true);
       }
       if (uncertainTarget) {
@@ -8163,6 +8475,7 @@ export function PartnershipCrmWorkbench() {
         acceptDailyUsage(usage);
       } else {
         freshActionsBlockedRef.current = true;
+        markDailyUsageStale();
         setDailyUsageVerificationFailures((current) => current + 1);
       }
       throw error;
@@ -8188,6 +8501,20 @@ export function PartnershipCrmWorkbench() {
         currentCursor,
         page,
       );
+      if (targetListDataChangedRef.current) {
+        queryClient.removeQueries({
+          queryKey: [ORGANIZATIONS_QUERY_KEY, targetKind],
+          predicate: (query) => {
+            const queryFilters = query.queryKey[2];
+            const queryCursor = query.queryKey[3];
+            return !(
+              queryCursor === currentCursor &&
+              JSON.stringify(queryFilters) === JSON.stringify(appliedFilters)
+            );
+          },
+        });
+        targetListDataChangedRef.current = false;
+      }
       setDataChanged(false);
       return page;
     },
@@ -8211,6 +8538,7 @@ export function PartnershipCrmWorkbench() {
   const listPageIsPartial = organizationQuery.data?.partial === true;
   const listPageScanned =
     organizationQuery.data?.scanned ?? organizations.length;
+  const listUsesServerFilters = hasTargetFilters(appliedFilters, targetKind);
   const currentListPage = cursorStack.length + 1;
   const hasNextListPage = Boolean(organizationQuery.data?.nextCursor);
   const knownListPages = currentListPage + (hasNextListPage ? 1 : 0);
@@ -8317,6 +8645,17 @@ export function PartnershipCrmWorkbench() {
   const someVisibleTargetsSelected =
     selectedVisibleTargetCount > 0 &&
     selectedVisibleTargetCount < organizations.length;
+  const previousCursorStack = cursorStack.slice(0, -1);
+  const previousPageAvailableFromCache = Boolean(
+    cursorStack.length > 0 &&
+      cachedTargetPage(appliedFilters, previousCursorStack),
+  );
+  const nextCursorStack = organizationQuery.data?.nextCursor
+    ? [...cursorStack, organizationQuery.data.nextCursor]
+    : null;
+  const nextPageAvailableFromCache = Boolean(
+    nextCursorStack && cachedTargetPage(appliedFilters, nextCursorStack),
+  );
   const showDetailPanel = Boolean(detailPanelOpen && selectedOrganization);
   const splitPaneStyle = showDetailPanel
     ? ({
@@ -8570,40 +8909,29 @@ export function PartnershipCrmWorkbench() {
       return;
     }
 
-    let delay: number | null = null;
-    if (dailyUsageVerificationFailures > 0 && dailyUsage?.locked) {
-      delay = Math.min(
-        60_000 * 2 ** Math.min(dailyUsageVerificationFailures - 1, 4),
-        15 * 60_000,
-      );
-    } else if (dailyUsage?.locked) {
-      const resetAt = Date.parse(dailyUsage.resetAt);
-      delay =
-        Number.isFinite(resetAt) && resetAt > Date.now()
-          ? resetAt - Date.now() + 1000
-          : 60_000;
-    }
-
-    if (delay === null) {
+    const resetAt = dailyUsage?.resetAt
+      ? Date.parse(dailyUsage.resetAt)
+      : NaN;
+    if (!Number.isFinite(resetAt)) {
       return;
     }
 
     const timeout = window.setTimeout(
       () => {
-        void verifyDailyUsage();
+        clearExpiredDailyUsage();
+        void refreshDailyUsage();
       },
-      Math.max(delay, 1000),
+      Math.max(resetAt - Date.now() + 1000, 1000),
     );
 
     return () => {
       window.clearTimeout(timeout);
     };
   }, [
-    dailyUsage?.locked,
     dailyUsage?.resetAt,
     dailyUsagePending,
-    dailyUsageVerificationFailures,
-    verifyDailyUsage,
+    clearExpiredDailyUsage,
+    refreshDailyUsage,
   ]);
 
   useEffect(() => {
@@ -9178,7 +9506,7 @@ export function PartnershipCrmWorkbench() {
 
   const deleteSelectedTargetsMutation = useMutation({
     mutationFn: async (targetIds: string[]) => {
-      const attemptedIds = targetIds.slice(0, CRM_TARGET_PAGE_SIZE);
+      const attemptedIds = targetIds.slice(0, CRM_BULK_ACTION_LIMIT);
       const successfulIds: string[] = [];
       let failure: { targetId: string; error: unknown } | undefined;
       for (const targetId of attemptedIds) {
@@ -9272,7 +9600,7 @@ export function PartnershipCrmWorkbench() {
       targets: PartnershipCrmTargetRecord[];
       isFavorite: boolean;
     }) => {
-      const attemptedTargets = targets.slice(0, CRM_TARGET_PAGE_SIZE);
+      const attemptedTargets = targets.slice(0, CRM_BULK_ACTION_LIMIT);
       const updatedTargets: PartnershipCrmTargetRecord[] = [];
       let failure: { targetId: string; error: unknown } | undefined;
       for (const target of attemptedTargets) {
@@ -10454,11 +10782,31 @@ export function PartnershipCrmWorkbench() {
     setFilters((current) => ({ ...current, ...patch }));
   }
 
+  function cachedTargetPage(
+    nextFilters: ListFilters,
+    nextCursorStack: string[],
+  ) {
+    const nextCursor = nextCursorStack[nextCursorStack.length - 1];
+    return (
+      queryClient.getQueryData([
+        ORGANIZATIONS_QUERY_KEY,
+        targetKind,
+        nextFilters,
+        nextCursor,
+      ]) ?? loadCachedCrmSummaryPage(targetKind, nextFilters, nextCursor)
+    );
+  }
+
   function requestTargetPage(
     nextFilters: ListFilters,
     nextCursorStack: string[] = [],
+    options: { preferCachedPage?: boolean } = {},
   ) {
-    if (freshActionsDisabled) {
+    const cachedPage = cachedTargetPage(nextFilters, nextCursorStack);
+    if (
+      freshActionsDisabled &&
+      !(options.preferCachedPage && cachedPage)
+    ) {
       return;
     }
 
@@ -10466,6 +10814,9 @@ export function PartnershipCrmWorkbench() {
     setDeleteSelectedOpen(false);
     setAppliedFilters(nextFilters);
     setCursorStack(nextCursorStack);
+    if (options.preferCachedPage && cachedPage) {
+      return;
+    }
     setListRequestVersion((current) => current + 1);
   }
 
@@ -10844,6 +11195,9 @@ export function PartnershipCrmWorkbench() {
           <CrmDailyUsageBar
             usage={dailyUsage}
             pending={dailyUsagePending}
+            confirmedAt={dailyUsageConfirmedAt}
+            source={dailyUsageSource}
+            onRefresh={() => void refreshDailyUsage()}
             language={language}
           />
         </div>
@@ -10954,7 +11308,7 @@ export function PartnershipCrmWorkbench() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => void verifyDailyUsage()}
+              onClick={() => void refreshDailyUsage()}
               disabled={dailyUsagePending}
               className="shrink-0"
             >
@@ -11001,8 +11355,11 @@ export function PartnershipCrmWorkbench() {
             }
             placeholder={
               targetKind === "professionals"
-                ? t("Search professionals...")
-                : t("Search organizations...")
+                ? crmLocalText(language, "Name prefix or exact email")
+                : crmLocalText(
+                    language,
+                    "Name prefix or exact contact email",
+                  )
             }
             className="pl-8"
           />
@@ -11070,6 +11427,20 @@ export function PartnershipCrmWorkbench() {
           {crmLocalText(language, "Apply filters")}
         </Button>
       </form>
+      <p
+        data-testid="crm-server-filter-note"
+        className="-mt-2 text-xs text-muted-foreground"
+      >
+        {crmLocalText(
+          language,
+          "Apply sends these filters to the server before results are returned.",
+        )}
+        {" "}
+        {crmLocalText(
+          language,
+          "Search uses a name prefix, or an exact email when @ is present. Category and country match the primary stored value by prefix. Empty-value filters omit legacy records where the field is absent.",
+        )}
+      </p>
 
       <div
         ref={splitPaneRef}
@@ -11122,7 +11493,13 @@ export function PartnershipCrmWorkbench() {
             })}
           </div>
           <p className="text-xs text-muted-foreground">
-            {crmLocalText(language, "Loaded results")}: {organizations.length}
+            {crmLocalText(
+              language,
+              listUsesServerFilters
+                ? "Server-filtered results"
+                : "Loaded results",
+            )}
+            : {organizations.length}
           </p>
           {listPageIsPartial ? (
             <p
@@ -11130,11 +11507,15 @@ export function PartnershipCrmWorkbench() {
               className="text-xs text-amber-700 dark:text-amber-300"
               title={organizationQuery.data?.asOf}
             >
-              {crmLocalText(language, "Approximate bounded sample")} ·{" "}
+              {crmLocalText(
+                language,
+                "Server filtering reached its safe scan limit",
+              )}{" "}
+              ·{" "}
               {listPageScanned}{" "}
               {crmLocalText(
                 language,
-                "records checked; use See 10 more to continue.",
+                "candidates checked; additional older matches may remain. Use See 20 more to continue.",
               )}
             </p>
           ) : null}
@@ -11171,7 +11552,7 @@ export function PartnershipCrmWorkbench() {
                   : listPageIsPartial
                     ? crmLocalText(
                         language,
-                        "No matches in this bounded sample. Use See 10 more to continue.",
+                        "No matches were found in this server-filtered segment. Use See 20 more to continue the search.",
                       )
                     : targetKind === "professionals"
                       ? t("No CRM professionals found.")
@@ -11452,12 +11833,16 @@ export function PartnershipCrmWorkbench() {
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  requestTargetPage(appliedFilters, cursorStack.slice(0, -1))
+                  requestTargetPage(
+                    appliedFilters,
+                    previousCursorStack,
+                    { preferCachedPage: true },
+                  )
                 }
                 disabled={
                   cursorStack.length === 0 ||
                   organizationQuery.isFetching ||
-                  freshActionsDisabled
+                  (freshActionsDisabled && !previousPageAvailableFromCache)
                 }
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -11471,18 +11856,19 @@ export function PartnershipCrmWorkbench() {
                   if (!organizationQuery.data?.nextCursor) {
                     return;
                   }
-                  requestTargetPage(appliedFilters, [
-                    ...cursorStack,
-                    organizationQuery.data.nextCursor!,
-                  ]);
+                  requestTargetPage(
+                    appliedFilters,
+                    nextCursorStack ?? [],
+                    { preferCachedPage: true },
+                  );
                 }}
                 disabled={
                   !hasNextListPage ||
                   organizationQuery.isFetching ||
-                  freshActionsDisabled
+                  (freshActionsDisabled && !nextPageAvailableFromCache)
                 }
               >
-                {crmLocalText(language, "See 10 more")}
+                {crmLocalText(language, "See 20 more")}
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>

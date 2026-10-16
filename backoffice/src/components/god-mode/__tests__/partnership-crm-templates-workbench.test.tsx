@@ -116,6 +116,16 @@ async function renderLoadedBrowser(client = createTestQueryClient()) {
   return rendered;
 }
 
+const plantillasUsageCacheKey =
+  "golden-crow:partnership-crm:daily-usage:plantillas:v2";
+
+function cachePlantillasUsage(usage: Record<string, unknown>) {
+  window.localStorage.setItem(
+    plantillasUsageCacheKey,
+    JSON.stringify({ usage, confirmedAt: new Date().toISOString() }),
+  );
+}
+
 function duplicateTemplateFixture(): PartnershipCrmTemplateRecord {
   return {
     ...template,
@@ -245,6 +255,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     routerPush.mockClear();
     routerRefresh.mockClear();
     window.sessionStorage.clear();
+    window.localStorage.clear();
   });
 
   it("loads only daily usage on mount and waits for an explicit filter apply", async () => {
@@ -323,7 +334,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     renderWithProviders(<PartnershipCrmTemplateBrowser />);
 
     const progress = await screen.findByRole("progressbar", {
-      name: "Plantillas daily usage",
+      name: "Plantillas daily action budget",
     });
     await waitFor(() => expect(progress.getAttribute("aria-valuenow")).toBe("100"));
     expect(screen.getByRole("button", { name: "Load templates" }).hasAttribute("disabled")).toBe(true);
@@ -392,7 +403,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     renderWithProviders(<PartnershipCrmTemplateBrowser />);
 
     const progress = await screen.findByRole("progressbar", {
-      name: "Plantillas daily usage",
+      name: "Plantillas daily action budget",
     });
     await waitFor(() =>
       expect(progress.getAttribute("aria-valuenow")).toBe("100"),
@@ -404,10 +415,8 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBeTruthy();
     expect(
       JSON.parse(
-        window.sessionStorage.getItem(
-          "golden-crow-plantillas-daily-usage-v1",
-        ) ?? "null",
-      ),
+        window.localStorage.getItem(plantillasUsageCacheKey) ?? "null",
+      ).usage,
     ).toEqual(expect.objectContaining({ resetAt, locked: true }));
   });
 
@@ -459,14 +468,11 @@ describe("PartnershipCrmTemplateBrowser", () => {
     );
     await waitFor(() => expect(loadButton.hasAttribute("disabled")).toBe(false));
     expect(sdkFetch).toHaveBeenCalledTimes(3);
-    const firstHeaders = new Headers(
-      jest.mocked(sdkFetch).mock.calls[0]?.[1]?.headers,
-    );
-    const retryHeaders = new Headers(
-      jest.mocked(sdkFetch).mock.calls[2]?.[1]?.headers,
-    );
-    expect(retryHeaders.get("X-CRM-Usage-Event-ID")).toBe(
-      firstHeaders.get("X-CRM-Usage-Event-ID"),
+    expect(jest.mocked(sdkFetch).mock.calls[2]).toEqual(
+      [
+        "/admin/partnership-crm/daily-usage?surface=plantillas",
+        { cache: "no-store" },
+      ],
     );
   });
 
@@ -656,9 +662,15 @@ describe("PartnershipCrmTemplateBrowser", () => {
         .getByRole("button", { name: "Load 10 templates" })
         .hasAttribute("disabled"),
     ).toBe(true);
+    const progress = screen.getByRole("progressbar", {
+      name: "Plantillas daily action budget",
+    });
+    expect(progress.getAttribute("aria-valuenow")).toBeNull();
+    expect(screen.queryByText("100 / 100 · 100%")).toBeNull();
+    expect(screen.getAllByText("Usage unavailable").length).toBeGreaterThan(0);
   });
 
-  it("rechecks the server when a stored lock has no valid future reset", async () => {
+  it("ignores unconfirmed legacy quota snapshots instead of showing a fabricated lock", async () => {
     window.sessionStorage.setItem(
       "golden-crow-plantillas-daily-usage-v1",
       JSON.stringify({
@@ -667,10 +679,38 @@ describe("PartnershipCrmTemplateBrowser", () => {
         limit: 100,
         percentage: 100,
         remaining: 0,
-        resetAt: "",
+        resetAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         locked: true,
       }),
     );
+    jest.mocked(sdkFetch).mockRejectedValueOnce(new Error("usage unavailable"));
+
+    renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+    await screen.findByRole("button", { name: "Retry verification" });
+    expect(
+      screen
+        .getByRole("progressbar", {
+          name: "Plantillas daily action budget",
+        })
+        .getAttribute("aria-valuenow"),
+    ).toBeNull();
+    expect(screen.queryByText("100 / 100 · 100%")).toBeNull();
+    expect(
+      window.sessionStorage.getItem("golden-crow-plantillas-daily-usage-v1"),
+    ).toBeNull();
+  });
+
+  it("rechecks the server when a stored lock has no valid future reset", async () => {
+    cachePlantillasUsage({
+        surface: "plantillas",
+        used: 100,
+        limit: 100,
+        percentage: 100,
+        remaining: 0,
+        resetAt: "",
+        locked: true,
+      });
     jest.mocked(sdkFetch).mockResolvedValue({
       usage: {
         surface: "plantillas",
@@ -693,140 +733,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(screen.queryByText(/cached and read-only/i)).toBeNull();
   });
 
-  it("re-verifies a valid in-tab lock just after reset with a fresh event id", async () => {
-    jest.useFakeTimers();
-    try {
-      const now = new Date("2026-10-15T10:00:00.000Z");
-      const resetAt = new Date(now.getTime() + 1000).toISOString();
-      jest.setSystemTime(now);
-      window.sessionStorage.setItem(
-        "golden-crow-plantillas-daily-usage-v1",
-        JSON.stringify({
-          surface: "plantillas",
-          used: 100,
-          limit: 100,
-          percentage: 100,
-          remaining: 0,
-          resetAt,
-          locked: true,
-        }),
-      );
-      jest.mocked(sdkFetch).mockResolvedValue({
-        usage: {
-          surface: "plantillas",
-          used: 1,
-          limit: 100,
-          percentage: 1,
-          remaining: 99,
-          resetAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-          locked: false,
-        },
-      });
-
-      renderWithProviders(<PartnershipCrmTemplateBrowser />);
-      expect(sdkFetch).not.toHaveBeenCalled();
-
-      await act(async () => {
-        jest.advanceTimersByTime(2001);
-        await Promise.resolve();
-        await Promise.resolve();
-      });
-
-      expect(sdkFetch).toHaveBeenCalledTimes(1);
-      const [path, init] = jest.mocked(sdkFetch).mock.calls[0];
-      expect(path).toBe("/admin/partnership-crm/daily-usage/page-load");
-      const eventId = new Headers(init?.headers).get(
-        "X-CRM-Usage-Event-ID",
-      );
-      expect(eventId).toBeTruthy();
-      expect(JSON.parse(String(init?.body))).toEqual({
-        surface: "plantillas",
-        eventId,
-      });
-      expect(screen.getByText("1 / 100 · 1%")).toBeTruthy();
-      expect(
-        screen.getByRole("button", { name: "Load templates" }).hasAttribute(
-          "disabled",
-        ),
-      ).toBe(false);
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  it("stays fail-closed and retries reset verification after backoff", async () => {
-    jest.useFakeTimers();
-    try {
-      const now = new Date("2026-10-15T10:00:00.000Z");
-      jest.setSystemTime(now);
-      window.sessionStorage.setItem(
-        "golden-crow-plantillas-daily-usage-v1",
-        JSON.stringify({
-          surface: "plantillas",
-          used: 100,
-          limit: 100,
-          percentage: 100,
-          remaining: 0,
-          resetAt: new Date(now.getTime() + 1000).toISOString(),
-          locked: true,
-        }),
-      );
-      jest
-        .mocked(sdkFetch)
-        .mockRejectedValueOnce(new Error("usage unavailable"))
-        .mockResolvedValueOnce({
-          usage: {
-            surface: "plantillas",
-            used: 1,
-            limit: 100,
-            percentage: 1,
-            remaining: 99,
-            resetAt: new Date(
-              now.getTime() + 24 * 60 * 60 * 1000,
-            ).toISOString(),
-            locked: false,
-          },
-        });
-
-      renderWithProviders(<PartnershipCrmTemplateBrowser />);
-
-      await act(async () => {
-        jest.advanceTimersByTime(2001);
-        await Promise.resolve();
-        await Promise.resolve();
-      });
-
-      expect(sdkFetch).toHaveBeenCalledTimes(1);
-      expect(
-        screen.getByText(
-          "Plantillas data and actions are unavailable because its daily limit has been reached.",
-        ),
-      ).toBeTruthy();
-      expect(
-        screen.getByRole("button", { name: "Load templates" }).hasAttribute(
-          "disabled",
-        ),
-      ).toBe(true);
-
-      await act(async () => {
-        jest.advanceTimersByTime(5 * 60 * 1000);
-        await Promise.resolve();
-        await Promise.resolve();
-      });
-
-      expect(sdkFetch).toHaveBeenCalledTimes(2);
-      expect(screen.getByText("1 / 100 · 1%")).toBeTruthy();
-      expect(
-        screen.getByRole("button", { name: "Load templates" }).hasAttribute(
-          "disabled",
-        ),
-      ).toBe(false);
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  it("reuses one event id when reset verification needs a backoff retry", async () => {
+  it("refreshes an expired action budget with the non-consuming snapshot endpoint", async () => {
     jest.useFakeTimers();
     try {
       const now = new Date("2026-10-15T10:00:00.000Z");
@@ -841,10 +748,118 @@ describe("PartnershipCrmTemplateBrowser", () => {
         resetAt,
         locked: true,
       };
-      window.sessionStorage.setItem(
-        "golden-crow-plantillas-daily-usage-v1",
-        JSON.stringify(lockedUsage),
+      cachePlantillasUsage(lockedUsage);
+      jest
+        .mocked(sdkFetch)
+        .mockResolvedValueOnce({ usage: lockedUsage })
+        .mockResolvedValueOnce({
+          usage: {
+            ...lockedUsage,
+            used: 0,
+            percentage: 0,
+            remaining: 100,
+            resetAt: new Date(
+              now.getTime() + 24 * 60 * 60 * 1000,
+            ).toISOString(),
+            locked: false,
+          },
+        });
+
+      renderWithProviders(<PartnershipCrmTemplateBrowser />);
+      expect(sdkFetch).toHaveBeenCalledTimes(1);
+      expect(jest.mocked(sdkFetch).mock.calls[0]?.[0]).toBe(
+        "/admin/partnership-crm/daily-usage/page-load",
       );
+
+      await act(async () => {
+        jest.advanceTimersByTime(2001);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(sdkFetch).toHaveBeenCalledTimes(2);
+      expect(jest.mocked(sdkFetch).mock.calls[1]).toEqual([
+        "/admin/partnership-crm/daily-usage?surface=plantillas",
+        { cache: "no-store" },
+      ]);
+      expect(screen.getByText("0 / 100 · 0%")).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: "Load templates" }).hasAttribute(
+          "disabled",
+        ),
+      ).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("stays fail-closed after a reset refresh failure and never polls", async () => {
+    jest.useFakeTimers();
+    try {
+      const now = new Date("2026-10-15T10:00:00.000Z");
+      jest.setSystemTime(now);
+      const lockedUsage = {
+        surface: "plantillas" as const,
+        used: 100,
+        limit: 100,
+        percentage: 100,
+        remaining: 0,
+        resetAt: new Date(now.getTime() + 1000).toISOString(),
+        locked: true,
+      };
+      cachePlantillasUsage(lockedUsage);
+      jest
+        .mocked(sdkFetch)
+        .mockResolvedValueOnce({ usage: lockedUsage })
+        .mockRejectedValueOnce(new Error("usage unavailable"))
+        .mockResolvedValue({ usage: lockedUsage });
+
+      renderWithProviders(<PartnershipCrmTemplateBrowser />);
+
+      await act(async () => {
+        jest.advanceTimersByTime(2001);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(sdkFetch).toHaveBeenCalledTimes(2);
+      expect(screen.getAllByText("Usage unavailable").length).toBeGreaterThan(
+        0,
+      );
+      expect(
+        screen.getByRole("button", { name: "Load templates" }).hasAttribute(
+          "disabled",
+        ),
+      ).toBe(true);
+
+      await act(async () => {
+        jest.advanceTimersByTime(5 * 60 * 1000);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(sdkFetch).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("uses an explicit non-consuming refresh without quota headers", async () => {
+    jest.useFakeTimers();
+    try {
+      const now = new Date("2026-10-15T10:00:00.000Z");
+      const resetAt = new Date(now.getTime() + 1000).toISOString();
+      jest.setSystemTime(now);
+      const lockedUsage = {
+        surface: "plantillas" as const,
+        used: 100,
+        limit: 100,
+        percentage: 100,
+        remaining: 0,
+        resetAt,
+        locked: true,
+      };
+      cachePlantillasUsage(lockedUsage);
       jest
         .mocked(sdkFetch)
         .mockResolvedValueOnce({ usage: lockedUsage })
@@ -862,31 +877,17 @@ describe("PartnershipCrmTemplateBrowser", () => {
         });
 
       renderWithProviders(<PartnershipCrmTemplateBrowser />);
+      expect(sdkFetch).toHaveBeenCalledTimes(1);
       await act(async () => {
         jest.advanceTimersByTime(2001);
         await Promise.resolve();
         await Promise.resolve();
       });
-      expect(sdkFetch).toHaveBeenCalledTimes(1);
-      expect(
-        screen.getByRole("button", { name: "Load templates" }).hasAttribute(
-          "disabled",
-        ),
-      ).toBe(true);
-
-      await act(async () => {
-        jest.advanceTimersByTime(5 * 60 * 1000);
-        await Promise.resolve();
-        await Promise.resolve();
-      });
-
       expect(sdkFetch).toHaveBeenCalledTimes(2);
-      const eventIds = jest.mocked(sdkFetch).mock.calls.map(([, init]) =>
-        new Headers(init?.headers).get("X-CRM-Usage-Event-ID"),
-      );
-      expect(eventIds[0]).toBeTruthy();
-      expect(eventIds[1]).toBeTruthy();
-      expect(eventIds[1]).toBe(eventIds[0]);
+      expect(jest.mocked(sdkFetch).mock.calls[1]).toEqual([
+        "/admin/partnership-crm/daily-usage?surface=plantillas",
+        { cache: "no-store" },
+      ]);
       expect(screen.getByText("1 / 100 · 1%")).toBeTruthy();
     } finally {
       jest.useRealTimers();
@@ -896,18 +897,16 @@ describe("PartnershipCrmTemplateBrowser", () => {
   it("keeps a locked cached summary honest and does not request details", async () => {
     const user = userEvent.setup();
     const resetAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    window.sessionStorage.setItem(
-      "golden-crow-plantillas-daily-usage-v1",
-      JSON.stringify({
-        surface: "plantillas",
-        used: 100,
-        limit: 100,
-        percentage: 100,
-        remaining: 0,
-        resetAt,
-        locked: true,
-      }),
-    );
+    const lockedUsage = {
+      surface: "plantillas" as const,
+      used: 100,
+      limit: 100,
+      percentage: 100,
+      remaining: 0,
+      resetAt,
+      locked: true,
+    };
+    cachePlantillasUsage(lockedUsage);
     window.sessionStorage.setItem(
       "golden-crow-plantillas-summary-cache-v1",
       JSON.stringify({
@@ -926,6 +925,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
         },
       }),
     );
+    jest.mocked(sdkFetch).mockResolvedValueOnce({ usage: lockedUsage });
 
     renderWithProviders(<PartnershipCrmTemplateBrowser />);
 
@@ -949,7 +949,10 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBe(true);
     expect(within(panel).queryByText("No message yet.")).toBeNull();
     expect(within(panel).queryByText("Template fit")).toBeNull();
-    expect(sdkFetch).not.toHaveBeenCalled();
+    expect(sdkFetch).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(sdkFetch).mock.calls[0]?.[0]).toBe(
+      "/admin/partnership-crm/daily-usage/page-load",
+    );
   });
 
   it("labels cached details as unavailable while usage verification is pending", async () => {
@@ -2992,6 +2995,7 @@ describe("PartnershipCrmTemplateWorkbench", () => {
     routerPush.mockClear();
     routerRefresh.mockClear();
     window.sessionStorage.clear();
+    window.localStorage.clear();
   });
 
   it("opens the template preview in a modal instead of rendering it beside the editor", async () => {

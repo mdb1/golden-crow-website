@@ -107,8 +107,10 @@ import { cn } from "@/lib/utils";
 
 const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
 const PLANTILLAS_USAGE_LIMIT = 100;
-const PLANTILLAS_RESET_RETRY_MS = 5 * 60 * 1000;
-const PLANTILLAS_USAGE_STORAGE_KEY = "golden-crow-plantillas-daily-usage-v1";
+const PLANTILLAS_LEGACY_USAGE_STORAGE_KEY =
+  "golden-crow-plantillas-daily-usage-v1";
+const PLANTILLAS_USAGE_SHARED_STORAGE_KEY =
+  "golden-crow:partnership-crm:daily-usage:plantillas:v2";
 const PLANTILLAS_SUMMARY_STORAGE_KEY =
   "golden-crow-plantillas-summary-cache-v1";
 const PLANTILLAS_SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -127,6 +129,11 @@ type PlantillasUsageEnvelope = {
   usage?: PlantillasDailyUsage;
 };
 
+type CachedPlantillasDailyUsage = {
+  usage: PlantillasDailyUsage;
+  confirmedAt: string | null;
+};
+
 class PlantillasRequestNotSentError extends Error {
   constructor() {
     super("Plantillas request was not sent because usage is locked or unverified.");
@@ -139,25 +146,32 @@ type PlantillasRequest = <T>(
   init?: RequestInit,
 ) => Promise<T>;
 
-function readStoredUsage(): PlantillasDailyUsage | null {
+function readStoredUsage(): CachedPlantillasDailyUsage | null {
   if (typeof window === "undefined") {
     return null;
   }
 
   try {
-    const stored = JSON.parse(
-      window.sessionStorage.getItem(PLANTILLAS_USAGE_STORAGE_KEY) ?? "null",
-    ) as PlantillasDailyUsage | null;
-    const normalized = normalizeUsage(stored);
-    if (!normalized) {
-      return null;
+    // Pre-v2 values had no server-confirmation timestamp and may contain a
+    // client-invented lock, so they are intentionally never rendered.
+    window.sessionStorage.removeItem(PLANTILLAS_LEGACY_USAGE_STORAGE_KEY);
+    const shared = JSON.parse(
+      window.localStorage.getItem(PLANTILLAS_USAGE_SHARED_STORAGE_KEY) ??
+        "null",
+    ) as Partial<CachedPlantillasDailyUsage> | null;
+    const sharedUsage = normalizeUsage(shared?.usage);
+    const sharedConfirmedAt = shared?.confirmedAt;
+    if (
+      sharedUsage &&
+      typeof sharedConfirmedAt === "string" &&
+      Number.isFinite(Date.parse(sharedConfirmedAt)) &&
+      Date.parse(sharedConfirmedAt) <= Date.now()
+    ) {
+      return { usage: sharedUsage, confirmedAt: sharedConfirmedAt };
     }
-    const resetAt = Date.parse(normalized.resetAt);
-    if (!Number.isFinite(resetAt) || resetAt <= Date.now()) {
-      window.sessionStorage.removeItem(PLANTILLAS_USAGE_STORAGE_KEY);
-      return null;
-    }
-    return normalized;
+
+    window.localStorage.removeItem(PLANTILLAS_USAGE_SHARED_STORAGE_KEY);
+    return null;
   } catch {
     return null;
   }
@@ -231,18 +245,31 @@ function isPlantillasRequestKnownNotExecuted(error: unknown) {
   );
 }
 
-function storeUsage(usage: PlantillasDailyUsage) {
+function storeUsage(usage: PlantillasDailyUsage, confirmedAt: string) {
   if (typeof window === "undefined") {
     return;
   }
 
   try {
-    window.sessionStorage.setItem(
-      PLANTILLAS_USAGE_STORAGE_KEY,
-      JSON.stringify(usage),
+    window.localStorage.setItem(
+      PLANTILLAS_USAGE_SHARED_STORAGE_KEY,
+      JSON.stringify({ usage, confirmedAt } satisfies CachedPlantillasDailyUsage),
     );
   } catch {
     // The server remains authoritative when browser storage is unavailable.
+  }
+}
+
+function clearStoredUsage() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem(PLANTILLAS_LEGACY_USAGE_STORAGE_KEY);
+    window.localStorage.removeItem(PLANTILLAS_USAGE_SHARED_STORAGE_KEY);
+  } catch {
+    // Expired cache cleanup is best-effort.
   }
 }
 
@@ -342,6 +369,11 @@ export function mergePlantillasUsage(
 function usePlantillasDailyUsage() {
   const [usage, setUsage] = useState<PlantillasDailyUsage | null>(null);
   const usageRef = useRef<PlantillasDailyUsage | null>(null);
+  const [usageConfirmedAt, setUsageConfirmedAt] = useState<string | null>(null);
+  const usageConfirmedAtRef = useRef<string | null>(null);
+  const [usageSource, setUsageSource] = useState<
+    "server" | "cache" | "stale" | null
+  >(null);
   const [usageError, setUsageError] = useState("");
   const usageErrorRef = useRef("");
   const [usageReady, setUsageReady] = useState(false);
@@ -358,35 +390,38 @@ function usePlantillasDailyUsage() {
     if (!normalized) {
       return null;
     }
-    const merged = mergePlantillasUsage(usageRef.current, normalized);
+    const current = usageRef.current;
+    if (
+      current &&
+      Date.parse(normalized.resetAt) === Date.parse(current.resetAt) &&
+      normalized.used < current.used
+    ) {
+      return current;
+    }
+    const merged = mergePlantillasUsage(current, normalized);
+    const confirmedAt = new Date().toISOString();
     usageRef.current = merged;
+    usageConfirmedAtRef.current = confirmedAt;
     setUsage(merged);
-    storeUsage(merged);
+    setUsageConfirmedAt(confirmedAt);
+    setUsageSource("server");
+    storeUsage(merged, confirmedAt);
     return merged;
   }, []);
 
-  const lockUsage = useCallback(() => {
-    const current = usageRef.current;
-    const next: PlantillasDailyUsage = {
-      surface: "plantillas",
-      used: current?.limit ?? PLANTILLAS_USAGE_LIMIT,
-      limit: current?.limit ?? PLANTILLAS_USAGE_LIMIT,
-      percentage: 100,
-      remaining: 0,
-      resetAt: current?.resetAt ?? "",
-      locked: true,
-    };
-    usageRef.current = next;
-    setUsage(next);
-    if (
-      next.resetAt &&
-      Number.isFinite(Date.parse(next.resetAt)) &&
-      Date.parse(next.resetAt) > Date.now()
-    ) {
-      storeUsage(next);
-    } else if (typeof window !== "undefined") {
-      window.sessionStorage.removeItem(PLANTILLAS_USAGE_STORAGE_KEY);
+  const markUsageStale = useCallback(() => {
+    if (usageRef.current) {
+      setUsageSource("stale");
     }
+  }, []);
+
+  const clearExpiredUsage = useCallback(() => {
+    usageRef.current = null;
+    usageConfirmedAtRef.current = null;
+    setUsage(null);
+    setUsageConfirmedAt(null);
+    setUsageSource(null);
+    clearStoredUsage();
   }, []);
 
   const verifyPageLoad = useCallback(async (): Promise<
@@ -410,6 +445,7 @@ function usePlantillasDailyUsage() {
       );
       const accepted = acceptUsage(response.usage);
       if (!accepted) {
+        markUsageStale();
         updateUsageError(
           "Plantillas usage verification returned no valid usage.",
         );
@@ -423,17 +459,48 @@ function usePlantillasDailyUsage() {
         const accepted = acceptUsage(serverUsage);
         updateUsageError(error instanceof Error ? error.message : String(error));
         return accepted?.locked ? "locked" : "error";
-      } else if (isRateLimitError(error)) {
-        lockUsage();
-        updateUsageError(error instanceof Error ? error.message : String(error));
-        return "locked";
       }
+      markUsageStale();
       updateUsageError(error instanceof Error ? error.message : String(error));
       return "error";
     } finally {
       setUsageReady(true);
     }
-  }, [acceptUsage, lockUsage, updateUsageError]);
+  }, [acceptUsage, markUsageStale, updateUsageError]);
+
+  const refreshUsageSnapshot = useCallback(async (): Promise<
+    "unlocked" | "locked" | "error"
+  > => {
+    setUsageReady(false);
+    try {
+      const response = await sdkFetch<PlantillasUsageEnvelope>(
+        "/admin/partnership-crm/daily-usage?surface=plantillas",
+        { cache: "no-store" },
+      );
+      const accepted = acceptUsage(response.usage);
+      if (!accepted) {
+        markUsageStale();
+        updateUsageError(
+          "Plantillas usage verification returned no valid usage.",
+        );
+        return "error";
+      }
+      updateUsageError("");
+      return accepted.locked ? "locked" : "unlocked";
+    } catch (error) {
+      const serverUsage = plantillasUsageFromError(error);
+      const accepted = serverUsage ? acceptUsage(serverUsage) : null;
+      if (accepted) {
+        updateUsageError("");
+        return accepted.locked ? "locked" : "unlocked";
+      }
+      markUsageStale();
+      updateUsageError(error instanceof Error ? error.message : String(error));
+      return "error";
+    } finally {
+      setUsageReady(true);
+    }
+  }, [acceptUsage, markUsageStale, updateUsageError]);
 
   useEffect(() => {
     if (pageLoadStartedRef.current) {
@@ -442,22 +509,70 @@ function usePlantillasDailyUsage() {
     pageLoadStartedRef.current = true;
 
     const stored = readStoredUsage();
-    if (stored?.locked) {
-      usageRef.current = stored;
-      setUsage(stored);
-      setUsageReady(true);
-      return;
-    }
     if (stored) {
-      usageRef.current = stored;
-      setUsage(stored);
+      usageRef.current = stored.usage;
+      usageConfirmedAtRef.current = stored.confirmedAt;
+      setUsage(stored.usage);
+      setUsageConfirmedAt(stored.confirmedAt);
+      setUsageSource("cache");
     }
 
     void verifyPageLoad();
   }, [verifyPageLoad]);
 
   useEffect(() => {
-    if (!usage?.locked || !usage.resetAt) {
+    function handleUsageStorage(event: StorageEvent) {
+      if (
+        event.key !== PLANTILLAS_USAGE_SHARED_STORAGE_KEY ||
+        !event.newValue
+      ) {
+        return;
+      }
+      const cached = readStoredUsage();
+      if (!cached) {
+        return;
+      }
+
+      const current = usageRef.current;
+      const currentResetAt = current ? Date.parse(current.resetAt) : NaN;
+      const incomingResetAt = Date.parse(cached.usage.resetAt);
+      const currentConfirmedAt = usageConfirmedAtRef.current
+        ? Date.parse(usageConfirmedAtRef.current)
+        : NaN;
+      const incomingConfirmedAt = cached.confirmedAt
+        ? Date.parse(cached.confirmedAt)
+        : NaN;
+      const incomingIsOlder = Boolean(
+        current &&
+          (incomingResetAt < currentResetAt ||
+            (incomingResetAt === currentResetAt &&
+              (cached.usage.used < current.used ||
+                (cached.usage.used === current.used &&
+                  Number.isFinite(currentConfirmedAt) &&
+                  (!Number.isFinite(incomingConfirmedAt) ||
+                    incomingConfirmedAt < currentConfirmedAt))))),
+      );
+      if (incomingIsOlder) {
+        if (current && usageConfirmedAtRef.current) {
+          storeUsage(current, usageConfirmedAtRef.current);
+        }
+        return;
+      }
+
+      const merged = mergePlantillasUsage(current, cached.usage);
+      usageRef.current = merged;
+      usageConfirmedAtRef.current = cached.confirmedAt;
+      setUsage(merged);
+      setUsageConfirmedAt(cached.confirmedAt);
+      setUsageSource("cache");
+    }
+
+    window.addEventListener("storage", handleUsageStorage);
+    return () => window.removeEventListener("storage", handleUsageStorage);
+  }, []);
+
+  useEffect(() => {
+    if (!usage?.resetAt) {
       return;
     }
 
@@ -466,29 +581,15 @@ function usePlantillasDailyUsage() {
       return;
     }
 
-    let retryTimer: number | undefined;
-    let cancelled = false;
-    const reverifyUntilUnlocked = async () => {
-      const outcome = await verifyPageLoad();
-      if (!cancelled && outcome !== "unlocked") {
-        retryTimer = window.setTimeout(
-          reverifyUntilUnlocked,
-          PLANTILLAS_RESET_RETRY_MS,
-        );
-      }
-    };
     const timer = window.setTimeout(() => {
-      void reverifyUntilUnlocked();
+      clearExpiredUsage();
+      void refreshUsageSnapshot();
     }, Math.max(0, resetAt - Date.now() + 1000));
 
     return () => {
-      cancelled = true;
       window.clearTimeout(timer);
-      if (retryTimer !== undefined) {
-        window.clearTimeout(retryTimer);
-      }
     };
-  }, [usage?.locked, usage?.resetAt, verifyPageLoad]);
+  }, [clearExpiredUsage, refreshUsageSnapshot, usage?.resetAt]);
 
   const request = useCallback<PlantillasRequest>(
     async <T,>(path: string, init?: RequestInit) => {
@@ -507,6 +608,7 @@ function usePlantillasDailyUsage() {
           headers,
         });
         if (!acceptUsage(response?.usage)) {
+          markUsageStale();
           updateUsageError("Plantillas action returned no valid usage.");
         }
         return response;
@@ -517,27 +619,25 @@ function usePlantillasDailyUsage() {
           : null;
         if (acceptedUsage) {
           // The failed action still returned an authoritative usage snapshot.
-        } else if (isRateLimitError(error)) {
-          lockUsage();
-          updateUsageError(
-            error instanceof Error ? error.message : String(error),
-          );
         } else {
+          markUsageStale();
           updateUsageError(error instanceof Error ? error.message : String(error));
         }
         throw error;
       }
     },
-    [acceptUsage, lockUsage, updateUsageError, usageReady],
+    [acceptUsage, markUsageStale, updateUsageError, usageReady],
   );
 
   return {
     usage,
+    usageConfirmedAt,
+    usageSource,
     usageError,
     canUseFresh: usageReady && !usage?.locked && !usageError,
     locked: Boolean(usage?.locked),
     request,
-    retryUsageVerification: verifyPageLoad,
+    retryUsageVerification: refreshUsageSnapshot,
     usageVerificationPending: !usageReady,
   };
 }
@@ -1480,6 +1580,8 @@ function ErrorBanner({ children }: { children: React.ReactNode }) {
 
 function PlantillasDailyUsageBar({
   usage,
+  confirmedAt,
+  source,
   usageError,
   hasCachedData,
   language,
@@ -1487,6 +1589,8 @@ function PlantillasDailyUsageBar({
   verificationPending,
 }: {
   usage: PlantillasDailyUsage | null;
+  confirmedAt: string | null;
+  source: "server" | "cache" | "stale" | null;
   usageError: string;
   hasCachedData: boolean;
   language: AppLanguage;
@@ -1494,9 +1598,9 @@ function PlantillasDailyUsageBar({
   verificationPending: boolean;
 }) {
   const t = (text: string) => appText(language, text);
-  const used = usage?.used ?? 0;
+  const used = usage?.used ?? null;
   const limit = usage?.limit ?? PLANTILLAS_USAGE_LIMIT;
-  const percentage = usage?.percentage ?? Math.round((used / limit) * 100);
+  const percentage = usage?.percentage ?? null;
   const resetLabel = usage?.resetAt
     ? formatDateTime(usage.resetAt, language)
     : t("the next daily reset");
@@ -1505,8 +1609,24 @@ function PlantillasDailyUsageBar({
       Number.isFinite(Date.parse(usage.resetAt)) &&
       Date.parse(usage.resetAt) > Date.now(),
   );
+  const confirmedLabel = confirmedAt
+    ? formatDateTime(confirmedAt, language)
+    : null;
+  const actionBudgetLabel =
+    language === "es"
+      ? "Presupuesto diario de acciones de Plantillas"
+      : "Plantillas daily action budget";
+  const unavailableLabel =
+    language === "es" ? "Uso no disponible" : "Usage unavailable";
+  const refreshCounterLabel =
+    language === "es" ? "Actualizar contador" : "Refresh counter";
+  const counterActionLabel = usageError
+    ? t("Retry verification")
+    : refreshCounterLabel;
   const tone =
-    percentage >= 100
+    percentage === null
+      ? "bg-muted-foreground/30"
+      : percentage >= 100
       ? "bg-red-600"
       : percentage >= 90
         ? "bg-orange-600"
@@ -1521,27 +1641,34 @@ function PlantillasDailyUsageBar({
     >
       <div className="flex items-center justify-between gap-3 text-xs">
         <span className="font-medium text-foreground">
-          {t("Plantillas daily usage")}
+          {actionBudgetLabel}
         </span>
         <span className="tabular-nums text-muted-foreground">
-          {used} / {limit} · {percentage}%
+          {!usage
+            ? verificationPending
+              ? t("Verifying usage...")
+              : unavailableLabel
+            : `${used} / ${limit} · ${percentage}%`}
         </span>
       </div>
       <div
         role="progressbar"
-        aria-label={t("Plantillas daily usage")}
+        aria-label={actionBudgetLabel}
         aria-valuemin={0}
         aria-valuemax={limit}
-        aria-valuenow={used}
+        aria-valuenow={used ?? undefined}
+        aria-valuetext={usage ? `${used} / ${limit}` : unavailableLabel}
         className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
       >
         <div
           className={cn("h-full rounded-full transition-[width]", tone)}
-          style={{ width: `${Math.min(100, percentage)}%` }}
+          style={{ width: `${percentage === null ? 0 : Math.min(100, percentage)}%` }}
         />
       </div>
       <p className="mt-1.5 text-[11px] text-muted-foreground">
-        {usage?.locked
+        {!usage
+          ? unavailableLabel
+          : usage.locked
           ? hasCachedData
             ? t("Daily limit reached. Cached data remains available until reset.")
             : t(
@@ -1549,27 +1676,49 @@ function PlantillasDailyUsageBar({
               )
           : `${t("Resets at")} ${resetLabel}.`}
       </p>
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+        {usage ? (
+          <p className="text-[11px] text-muted-foreground">
+            {source === "server"
+              ? language === "es"
+                ? "Conteo de acciones confirmado por el servidor"
+                : "Server-confirmed action count"
+              : source === "cache"
+                ? language === "es"
+                  ? "Conteo del servidor en caché"
+                  : "Cached server count"
+                : language === "es"
+                  ? "Último conteo confirmado por el servidor"
+                  : "Last confirmed server count"}
+            {confirmedLabel
+              ? ` · ${language === "es" ? "Última confirmación" : "Last confirmed"} ${confirmedLabel}`
+              : null}
+          </p>
+        ) : (
+          <span />
+        )}
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-6 shrink-0 px-2 text-[11px]"
+          disabled={verificationPending}
+          aria-label={counterActionLabel}
+          onClick={() => void onRetryVerification()}
+        >
+          <RefreshCw
+            className={cn("h-3 w-3", verificationPending && "animate-spin")}
+          />
+          {counterActionLabel}
+        </Button>
+      </div>
       {usageError && (!usage?.locked || !hasKnownFutureReset) ? (
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-amber-700 dark:text-amber-300">
+        <div className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
           <p>
             {t(
               "Fresh Plantillas actions are unavailable until usage can be verified.",
             )}
           </p>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={verificationPending}
-            onClick={() => void onRetryVerification()}
-          >
-            <RefreshCw
-              className={cn("h-3.5 w-3.5", verificationPending && "animate-spin")}
-            />
-            {verificationPending
-              ? t("Verifying usage...")
-              : t("Retry verification")}
-          </Button>
         </div>
       ) : null}
     </div>
@@ -3483,6 +3632,8 @@ export function PartnershipCrmTemplateBrowser() {
   const queryClient = useQueryClient();
   const {
     usage,
+    usageConfirmedAt,
+    usageSource,
     usageError,
     locked,
     canUseFresh,
@@ -4340,6 +4491,8 @@ export function PartnershipCrmTemplateBrowser() {
 
       <PlantillasDailyUsageBar
         usage={usage}
+        confirmedAt={usageConfirmedAt}
+        source={usageSource}
         usageError={usageError}
         hasCachedData={Boolean(templatesPage)}
         language={language}
@@ -5027,6 +5180,8 @@ export function PartnershipCrmTemplateWorkbench({
   const queryClient = useQueryClient();
   const {
     usage,
+    usageConfirmedAt,
+    usageSource,
     usageError,
     canUseFresh,
     request,
@@ -5231,6 +5386,8 @@ export function PartnershipCrmTemplateWorkbench({
 
       <PlantillasDailyUsageBar
         usage={usage}
+        confirmedAt={usageConfirmedAt}
+        source={usageSource}
         usageError={usageError}
         hasCachedData={false}
         language={language}

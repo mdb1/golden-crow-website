@@ -17,6 +17,7 @@ import {
   deletePartnershipCrmOrganization,
   deletePartnershipCrmProfessional,
   deletePartnershipCrmTemplate,
+  getPartnershipCrmDailyUsage,
   getPartnershipCrmOrganization,
   getPartnershipCrmProfessional,
   getPartnershipCrmSentEmailLog,
@@ -123,7 +124,7 @@ const DeepSearchSchema = z
   .optional();
 const ListOrganizationsQuerySchema = z.object({
   cursor: z.string().trim().max(1000).optional(),
-  limit: z.coerce.number().int().positive().max(10).optional(),
+  limit: z.coerce.number().int().positive().max(20).optional(),
   query: z.string().trim().max(180).optional(),
   status: z.string().trim().max(40).optional(),
   category: CrmCategoryStringSchema,
@@ -179,6 +180,11 @@ const DailyUsagePageLoadSchema = z
     eventId: UsageEventIdSchema,
   })
   .strict();
+const DailyUsageQuerySchema = z
+  .object({
+    surface: z.enum(["crm", "plantillas"]),
+  })
+  .strict();
 const EmailBodySchema = z.object({
   to: z.string().trim().toLowerCase().email().max(180),
   subject: z.string().trim().min(1).max(180),
@@ -231,6 +237,7 @@ export async function partnershipCrmRoutes(
 ): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
   const usageByRequest = new WeakMap<object, PartnershipCrmDailyUsage>();
+  const usageLookupRoute = "/admin/partnership-crm/daily-usage";
   const pageLoadRoute = "/admin/partnership-crm/daily-usage/page-load";
 
   f.addHook("onRequest", async (request, reply) => {
@@ -245,7 +252,7 @@ export async function partnershipCrmRoutes(
     }
 
     const routeUrl = request.routeOptions.url ?? request.url.split("?")[0] ?? "";
-    if (routeUrl === pageLoadRoute) {
+    if (routeUrl === usageLookupRoute || routeUrl === pageLoadRoute) {
       return;
     }
 
@@ -343,6 +350,23 @@ export async function partnershipCrmRoutes(
           "page_load",
         );
         return reply.send({ usage: consumed.usage });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    usageLookupRoute,
+    { schema: { querystring: DailyUsageQuerySchema } },
+    async (request, reply) => {
+      reply.header("Cache-Control", "private, no-store");
+      try {
+        const usage = await getPartnershipCrmDailyUsage(
+          request.adminContext!,
+          request.query.surface,
+        );
+        return reply.send({ usage });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

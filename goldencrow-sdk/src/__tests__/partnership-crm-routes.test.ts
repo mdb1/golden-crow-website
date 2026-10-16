@@ -23,6 +23,7 @@ const mockUpdatePartnershipCrmProfessionalFavorite = jest.fn();
 const mockUpdatePartnershipCrmProfessionalStatus = jest.fn();
 const mockUpdatePartnershipCrmTemplateFavorite = jest.fn();
 const mockConsumePartnershipCrmDailyUsage = jest.fn();
+const mockGetPartnershipCrmDailyUsage = jest.fn();
 
 jest.mock("../repositories/partnership-crm.repository.js", () => ({
   PartnershipCrmUsageError: class PartnershipCrmUsageError extends Error {
@@ -65,6 +66,7 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
   deletePartnershipCrmProfessional: mockDeletePartnershipCrmProfessional,
   deletePartnershipCrmTemplate: mockDeletePartnershipCrmTemplate,
   getPartnershipCrmOrganization: jest.fn(),
+  getPartnershipCrmDailyUsage: mockGetPartnershipCrmDailyUsage,
   getPartnershipCrmProfessional: jest.fn(),
   getPartnershipCrmSentEmailLog: mockGetPartnershipCrmSentEmailLog,
   getPartnershipCrmTemplate: jest.fn(),
@@ -267,6 +269,51 @@ describe("partnership CRM routes", () => {
         locked: false,
       },
     });
+    mockGetPartnershipCrmDailyUsage.mockResolvedValue({
+      surface: "crm",
+      used: 17,
+      limit: 100,
+      percentage: 17,
+      remaining: 83,
+      resetAt: "2026-09-11T07:00:00.000Z",
+      locked: false,
+    });
+  });
+
+  it("returns authoritative usage without headers or consuming quota", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/partnership-crm/daily-usage?surface=crm",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(response.json()).toEqual({
+      usage: expect.objectContaining({ surface: "crm", used: 17 }),
+    });
+    expect(mockGetPartnershipCrmDailyUsage).toHaveBeenCalledWith(
+      bootstrapContext,
+      "crm",
+    );
+    expect(mockConsumePartnershipCrmDailyUsage).not.toHaveBeenCalled();
+  });
+
+  it("prevents caching when authoritative usage cannot be read", async () => {
+    mockGetPartnershipCrmDailyUsage.mockRejectedValueOnce(
+      new Error("usage unavailable"),
+    );
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/partnership-crm/daily-usage?surface=crm",
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(mockConsumePartnershipCrmDailyUsage).not.toHaveBeenCalled();
   });
 
   it("consumes one page-load unit and returns the daily usage state", async () => {
