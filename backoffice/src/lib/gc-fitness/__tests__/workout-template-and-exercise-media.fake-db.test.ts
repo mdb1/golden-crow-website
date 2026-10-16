@@ -18,6 +18,10 @@ import {
 
 const mockDb: { current: FakeFirestore | null } = { current: null };
 const mockSigned: Array<{ bucket: string; path: string; options: Record<string, unknown> }> = [];
+// Objects "uploaded" to the bucket, keyed `${bucket}/${path}` (#451 guard).
+const mockObjects = new Map<string, { size: number | string; contentType: string }>();
+const mockDeleted: string[] = [];
+const mockMetadataReads: string[] = [];
 
 jest.mock("next/headers", () => ({
   cookies: jest.fn(async () => ({ get: () => undefined })),
@@ -32,6 +36,17 @@ jest.mock("@/lib/firebase/gc-fitness-admin", () => ({
         getSignedUrl: async (options: Record<string, unknown>) => {
           mockSigned.push({ bucket, path, options });
           return [`https://signed.example/${bucket}/${path}`];
+        },
+        getMetadata: async () => {
+          mockMetadataReads.push(`${bucket}/${path}`);
+          const obj = mockObjects.get(`${bucket}/${path}`);
+          if (!obj) throw Object.assign(new Error("No such object"), { code: 404 });
+          return [{ size: obj.size, contentType: obj.contentType }];
+        },
+        delete: async () => {
+          mockDeleted.push(`${bucket}/${path}`);
+          mockObjects.delete(`${bucket}/${path}`);
+          return [{}];
         },
       }),
     }),
@@ -48,7 +63,11 @@ import {
   duplicateWorkoutTemplate,
   getWorkoutTemplateForAssignment,
 } from "../workout-template-actions";
-import { mintExerciseThumbnailUploadUrl } from "../exercise-server-actions";
+import {
+  createExercise,
+  mintExerciseThumbnailUploadUrl,
+  updateExercise,
+} from "../exercise-server-actions";
 
 const mockedGetTokens = getTokens as jest.MockedFunction<typeof getTokens>;
 let db: FakeFirestore;
@@ -77,6 +96,9 @@ beforeEach(() => {
   db = new FakeFirestore();
   mockDb.current = db;
   mockSigned.length = 0;
+  mockObjects.clear();
+  mockDeleted.length = 0;
+  mockMetadataReads.length = 0;
   mockedGetTokens.mockReset();
   signInAs("coach-a", ["trainer"]);
 
@@ -331,16 +353,91 @@ describe("mintExerciseThumbnailUploadUrl", () => {
       expect(mockSigned).toEqual([]);
     },
   );
+});
 
-  // BUG (cost-DoS): the 5 MB cap is only checked against the CALLER-DECLARED
-  // contentLength (exercise-server-actions.ts:538-547); the signed URL itself
-  // (:562-567) does not bind the size (no `x-goog-content-length-range`
-  // extension header), so whoever holds the URL can PUT an object of any size for
-  // the next 60 minutes after declaring `contentLength: 1`. Correct: pin the
-  // range into the signature.
-  it.failing("binds the 5 MB ceiling into the signed URL itself", async () => {
+// #451 — the caps above only check the size the CALLER DECLARES; the v4 signed
+// write URL does not bind it, so a 1-byte declaration can PUT any size for 60
+// min. The guarantee lives where the object is ATTACHED: createExercise /
+// updateExercise read the real object metadata before persisting a minted
+// `exercises/custom-*` path, and delete + refuse anything oversize or of the
+// wrong type.
+describe("uploaded media is checked against its REAL size/type before it is persisted", () => {
+  const BUCKET = "gcfitness-3476b.firebasestorage.app";
+  const THUMB = "exercises/custom-coach-a-abc-thumb.png";
+  const VIDEO = "exercises/custom-coach-a-abc.mp4";
+  const gs = (path: string) => `gs://${BUCKET}/${path}`;
+  const INPUT = {
+    id: "custom-coach-a-abc",
+    name: { en: "Goblet Squat", es: "Sentadilla Goblet" },
+    description: { en: "Squat.", es: "Sentadilla." },
+    muscleGroups: ["quadriceps"],
+    equipment: ["kettlebell"],
+    mediaURL: null,
+    thumbnailURL: null,
+  };
+  const put = (path: string, size: number | string, contentType: string) =>
+    mockObjects.set(`${BUCKET}/${path}`, { size, contentType });
+
+  it("thumbnail declared as 1 byte but uploaded at 5 MB + 1 → object deleted, save refused, nothing written", async () => {
     await mintExerciseThumbnailUploadUrl({ exerciseId: "custom-coach-a-abc", contentLength: 1, contentType: "image/png" });
-    const headers = (mockSigned[0].options.extensionHeaders ?? {}) as Record<string, string>;
-    expect(headers["x-goog-content-length-range"]).toBe(`0,${5 * 1024 * 1024}`);
+    put(THUMB, String(5 * 1024 * 1024 + 1), "image/png"); // GCS reports size as a string
+    const result = await createExercise({ ...INPUT, thumbnailURL: gs(THUMB) });
+    expect(result).toEqual({ ok: false, error: "The thumbnail is larger than 5 MB. Upload a smaller image." });
+    expect(mockDeleted).toEqual([`${BUCKET}/${THUMB}`]);
+    expect(db.writes).toEqual([]);
+  });
+
+  it("video over 50 MB on update → object deleted, refused, the doc untouched", async () => {
+    db.seed("exercises/custom-coach-a-abc", { ...INPUT, source: "trainer", ownerId: "coach-a", version: 2 });
+    put(VIDEO, 50 * 1024 * 1024 + 1, "video/mp4");
+    const result = await updateExercise("custom-coach-a-abc", { mediaURL: gs(VIDEO) });
+    expect(result).toEqual({ ok: false, error: "The video is larger than 50 MB. Upload a smaller file." });
+    expect(mockDeleted).toEqual([`${BUCKET}/${VIDEO}`]);
+    expect(db.writes).toEqual([]);
+    expect(db.doc("exercises/custom-coach-a-abc")!.mediaURL).toBeNull();
+  });
+
+  it.each([
+    ["thumbnailURL", THUMB, "image/svg+xml", "The thumbnail must be a JPEG, PNG, WebP or GIF image."],
+    ["thumbnailURL", THUMB, "text/html", "The thumbnail must be a JPEG, PNG, WebP or GIF image."],
+    ["mediaURL", VIDEO, "video/quicktime", "The video must be an MP4 file."],
+  ])("%s with content type %j → deleted + refused", async (field, path, contentType, error) => {
+    put(path, 100, contentType);
+    const result = await createExercise({ ...INPUT, [field]: gs(path) });
+    expect(result).toEqual({ ok: false, error });
+    expect(mockDeleted).toEqual([`${BUCKET}/${path}`]);
+    expect(db.writes).toEqual([]);
+  });
+
+  it("a path that was never uploaded is refused without a write", async () => {
+    const result = await createExercise({ ...INPUT, thumbnailURL: gs(THUMB) });
+    expect(result).toEqual({ ok: false, error: "The uploaded thumbnail couldn't be found. Upload it again." });
+    expect(db.writes).toEqual([]);
+  });
+
+  it("right size + type at the caps → persisted, nothing deleted", async () => {
+    put(THUMB, 5 * 1024 * 1024, "image/png");
+    put(VIDEO, 50 * 1024 * 1024, "video/mp4");
+    const result = await createExercise({ ...INPUT, thumbnailURL: gs(THUMB), mediaURL: gs(VIDEO) });
+    expect(result).toEqual({ ok: true, id: "custom-coach-a-abc" });
+    expect(db.doc("exercises/custom-coach-a-abc")).toMatchObject({ thumbnailURL: gs(THUMB), mediaURL: gs(VIDEO), ownerId: "coach-a" });
+    expect(mockMetadataReads.sort()).toEqual([`${BUCKET}/${THUMB}`, `${BUCKET}/${VIDEO}`].sort());
+    expect(mockDeleted).toEqual([]);
+  });
+
+  it("an unchanged path on update is not re-read; library / external media are never inspected", async () => {
+    db.seed("exercises/custom-coach-a-abc", { ...INPUT, source: "trainer", ownerId: "coach-a", thumbnailURL: gs(THUMB) });
+    await expect(updateExercise("custom-coach-a-abc", { thumbnailURL: gs(THUMB), mediaURL: gs("exercises/wger-123.mp4") })).resolves.toEqual({ ok: true });
+    await expect(createExercise({ ...INPUT, id: undefined, thumbnailURL: "https://g/plank.png", mediaURL: gs("exercises/std-squat.mp4") })).resolves.toMatchObject({ ok: true });
+    expect(mockMetadataReads).toEqual([]);
+    expect(mockDeleted).toEqual([]);
+  });
+
+  it("another coach's oversize object is refused but NOT deleted (not the caller's namespace)", async () => {
+    put("exercises/custom-coach-b-x-thumb.png", 6 * 1024 * 1024, "image/png");
+    const result = await createExercise({ ...INPUT, thumbnailURL: gs("exercises/custom-coach-b-x-thumb.png") });
+    expect(result.ok).toBe(false);
+    expect(mockDeleted).toEqual([]);
+    expect(db.writes).toEqual([]);
   });
 });

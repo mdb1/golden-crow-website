@@ -35,7 +35,8 @@
 //   T-03-05-CONTENT-TYPE-SPOOF mintExerciseMediaUploadUrl (server pin only;
 //                              client-side .type check lands in 03-06)
 //   T-03-05-PATH-TRAVERSAL     mintExerciseMediaUploadUrl
-//   T-03-05-COST-DOS           mintExerciseMediaUploadUrl
+//   T-03-05-COST-DOS           mintExerciseMediaUploadUrl (declared size) +
+//                              assertUploadedMediaAcceptable (real size, #451)
 
 "use server";
 
@@ -96,6 +97,95 @@ function getMediaBucketName(): string {
   return bucketName;
 }
 
+// ── Uploaded-media guard (#451) ─────────────────────────────────────────────
+//
+// The caps in `mintExercise{Media,Thumbnail}UploadUrl` only check the size the
+// CALLER DECLARES; the v4 signed write URL does not bind it, so a 1-byte
+// declaration could upload any size for 60 minutes. Binding the range into the
+// signature would need the browser to send an extra header (and break tabs
+// opened before a deploy), so the cap is enforced where the object becomes
+// REACHABLE instead: before `createExercise` / `updateExercise` persist a
+// `gs://` path that one of those URLs minted, we read the object's real
+// metadata. Oversize or wrong content type → the object is deleted (when it
+// sits in the caller's own namespace) and the save is refused with copy the
+// form already surfaces (`result.error` → toast description).
+//
+// Scope: only `exercises/custom-*` objects in our media bucket — the paths the
+// mint actions produce. Standard / library / wger media and external https
+// thumbnails are left alone. One `getMetadata` per newly attached path (an
+// unchanged value on update is not re-checked); no `getAll` (fails on Vercel).
+
+type UploadKind = "video" | "thumbnail";
+
+function mintedObjectPath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const prefix = `gs://${getMediaBucketName()}/`;
+  if (!value.startsWith(prefix)) return null;
+  const objectPath = value.slice(prefix.length);
+  return objectPath.startsWith(`${COLLECTION}/custom-`) ? objectPath : null;
+}
+
+async function assertUploadedObjectAcceptable(
+  trainerUid: string,
+  kind: UploadKind,
+  value: unknown,
+): Promise<void> {
+  const objectPath = mintedObjectPath(value);
+  if (!objectPath) return;
+
+  const file = gcFitnessStorage().bucket(getMediaBucketName()).file(objectPath);
+  let size: number;
+  let contentType: string;
+  try {
+    const [metadata] = await file.getMetadata();
+    size = Number(metadata.size);
+    contentType = typeof metadata.contentType === "string" ? metadata.contentType : "";
+  } catch (err) {
+    console.error("[exercise-server-actions] upload metadata read failed", objectPath, err);
+    throw new Error(
+      kind === "video"
+        ? "The uploaded video couldn't be found. Upload it again."
+        : "The uploaded thumbnail couldn't be found. Upload it again.",
+    );
+  }
+
+  let problem: string | null = null;
+  if (kind === "video") {
+    if (contentType !== "video/mp4") problem = "The video must be an MP4 file.";
+    else if (!Number.isFinite(size) || size > MAX_UPLOAD_BYTES)
+      problem = "The video is larger than 50 MB. Upload a smaller file.";
+  } else {
+    if (!Object.hasOwn(THUMBNAIL_CONTENT_TYPES, contentType))
+      problem = "The thumbnail must be a JPEG, PNG, WebP or GIF image.";
+    else if (!Number.isFinite(size) || size > MAX_THUMBNAIL_UPLOAD_BYTES)
+      problem = "The thumbnail is larger than 5 MB. Upload a smaller image.";
+  }
+  if (!problem) return;
+
+  // Only remove what the caller could have uploaded: their own namespace.
+  if (objectPath.startsWith(`${COLLECTION}/custom-${trainerUid}-`)) {
+    try {
+      await file.delete({ ignoreNotFound: true });
+    } catch (err) {
+      console.error("[exercise-server-actions] rejected upload delete failed", objectPath, err);
+    }
+  }
+  throw new Error(problem);
+}
+
+async function assertUploadedMediaAcceptable(
+  trainerUid: string,
+  next: { mediaURL?: unknown; thumbnailURL?: unknown },
+  previous?: { mediaURL?: unknown; thumbnailURL?: unknown },
+): Promise<void> {
+  if (next.mediaURL !== undefined && next.mediaURL !== previous?.mediaURL) {
+    await assertUploadedObjectAcceptable(trainerUid, "video", next.mediaURL);
+  }
+  if (next.thumbnailURL !== undefined && next.thumbnailURL !== previous?.thumbnailURL) {
+    await assertUploadedObjectAcceptable(trainerUid, "thumbnail", next.thumbnailURL);
+  }
+}
+
 /**
  * Creates a NEW trainer-owned exercise.
  *
@@ -151,6 +241,8 @@ async function createExerciseImpl(
     ownerId: trainer.uid,
   };
   const data = exerciseSchema.parse(normalized) as ExerciseInput;
+  // #451 — the real size / type of any uploaded media, before it is persisted.
+  await assertUploadedMediaAcceptable(trainer.uid, data);
 
   const db = gcFitnessFirestore();
   const allowedPrefix = `custom-${trainer.uid}-`;
@@ -210,6 +302,8 @@ async function updateExerciseImpl(
   const existing = snap.data() as {
     source?: string;
     ownerId?: string | null;
+    mediaURL?: unknown;
+    thumbnailURL?: unknown;
   };
   if (existing.source !== "trainer") {
     throw new Error("library exercises are read-only.");
@@ -219,6 +313,9 @@ async function updateExerciseImpl(
   }
 
   const patch = exerciseUpdateSchema.parse(input);
+  // #451 — only a NEWLY attached path is checked; an unchanged value was
+  // checked when it was first saved.
+  await assertUploadedMediaAcceptable(trainer.uid, patch, existing);
 
   // Strip source / ownerId from the patch — they are immutable after
   // creation. The Zod schema accepts them (so the partial-update form can
