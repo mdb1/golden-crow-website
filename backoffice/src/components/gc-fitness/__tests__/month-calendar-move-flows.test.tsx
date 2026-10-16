@@ -360,16 +360,25 @@ describe("MonthCalendar move — week view (per-client rows)", () => {
 });
 
 describe("MonthCalendar move — drag state hygiene", () => {
-  // FINDING: there is no onDragEnd anywhere. A drag that is CANCELLED (Esc, or
-  // released outside every day cell) leaves the chip "in hand". The next drop
-  // on a day cell — even one that carries nothing of ours, like text dragged
-  // in from another window — moves that stale workout without the coach
-  // having picked it up again.
-  it.failing("a drag released outside the grid does not arm a later drop", async () => {
+  // Regression (#451): there was no onDragEnd anywhere. A drag that was
+  // CANCELLED (Esc, or released outside every day cell) left the chip "in
+  // hand", and the next drop on a day cell — even one carrying nothing of
+  // ours — moved that stale workout. Drag end / Esc now clear the drag state.
+  it("a drag released outside the grid does not arm a later drop", async () => {
     renderCalendar([chip()]);
     const source = chipButton("Push Day");
     fireEvent.dragStart(source, { dataTransfer: dataTransfer() });
     fireEvent.dragEnd(source, { dataTransfer: dataTransfer() });
+
+    fireEvent.drop(dayCell(22), { dataTransfer: dataTransfer() });
+    await settle();
+    expect(mockMoveAssignment).not.toHaveBeenCalled();
+  });
+
+  it("Escape during a drag also drops the chip from hand", async () => {
+    renderCalendar([chip()]);
+    fireEvent.dragStart(chipButton("Push Day"), { dataTransfer: dataTransfer() });
+    fireEvent.keyDown(window, { key: "Escape" });
 
     fireEvent.drop(dayCell(22), { dataTransfer: dataTransfer() });
     await settle();
