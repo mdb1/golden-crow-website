@@ -93,6 +93,7 @@ const mockProvisionPublisherPortalRoleForContext = jest.fn();
 const mockDeletePublisherPortalRolesForPublisher = jest.fn();
 let mockGeneratedId = 0;
 let failNextFeedItemsQuery = true;
+let mockBatchCommitCount = 0;
 
 const forbiddenFeedPayloadAliasKeys = [
   "title",
@@ -309,12 +310,20 @@ jest.mock("../config/firebase.js", () => ({
     }),
     batch: jest.fn(() => {
       const deletes: MockDocumentRef[] = [];
+      const updates: Array<{ ref: MockDocumentRef; data: MockDocData }> = [];
       return {
         delete: jest.fn((ref: MockDocumentRef) => {
           deletes.push(ref);
         }),
+        update: jest.fn((ref: MockDocumentRef, data: MockDocData) => {
+          updates.push({ ref, data });
+        }),
         commit: jest.fn(async () => {
-          await Promise.all(deletes.map((ref) => ref.delete()));
+          mockBatchCommitCount += 1;
+          await Promise.all([
+            ...deletes.map((ref) => ref.delete()),
+            ...updates.map(({ ref, data }) => ref.update(data)),
+          ]);
         }),
       };
     }),
@@ -364,6 +373,7 @@ describe("discover repository", () => {
     });
     mockGeneratedId = 0;
     failNextFeedItemsQuery = true;
+    mockBatchCommitCount = 0;
   });
 
   const fullAdminContext = {
@@ -1634,6 +1644,179 @@ describe("discover repository", () => {
     expect(stored?.sourceUrl).toBe("https://example.org/events/register");
     expect(stored?.sourceButtonText).toBe("Register now");
     expect(stored?.sourceButtonText).toBe("Register now");
+    expect(feedItem.publisherSnapshot).toEqual({
+      name: "Publisher One",
+      imageUrl: "https://example.org/publisher.png",
+      imageUploadDataUrl: null,
+    });
+    expect(stored?.publisherSnapshot).toEqual(feedItem.publisherSnapshot);
+  });
+
+  it("copies and synchronizes uploaded publisher logos into feed snapshots", async () => {
+    failNextFeedItemsQuery = false;
+    const organization = mockOrganizationDocs.find((doc) => doc.id === "org-1");
+    expect(organization).toBeDefined();
+    organization!.data.imageUrl = null;
+    organization!.data.imageUploadDataUrl =
+      "data:image/webp;base64,cHVibGlzaGVyLWxvZ28=";
+
+    const {
+      createDiscoverFeedItem,
+      getDiscoverFeedItem,
+      syncDiscoverPublisherSnapshot,
+    } = await import("../repositories/discover.repository");
+    const legacyFeedItem = await getDiscoverFeedItem(
+      fullAdminContext,
+      "feed-a",
+    );
+    expect(legacyFeedItem.publisherSnapshot.imageUploadDataUrl).toBeNull();
+
+    const feedItem = await createDiscoverFeedItem(fullAdminContext, {
+      publisherOrganizationId: "org-1",
+      type: "news",
+      status: "published",
+      language: "en",
+      title: "Publisher logo snapshot",
+      subtitle: "The uploaded logo travels with the feed item.",
+      body: "Body",
+      news: { category: "Research", region: "AR" },
+    });
+
+    expect(feedItem.publisherSnapshot).toEqual({
+      name: "Publisher One",
+      imageUrl: null,
+      imageUploadDataUrl: "data:image/webp;base64,cHVibGlzaGVyLWxvZ28=",
+    });
+    expect(
+      mockFeedDocs.find((doc) => doc.id === feedItem.id)?.data.publisherSnapshot,
+    ).toEqual(feedItem.publisherSnapshot);
+
+    mockFeedDocs.push({
+      id: "feed-archived",
+      data: {
+        publisherOrganizationId: "org-1",
+        publisherSnapshot: {
+          name: "Archived Publisher Name",
+          imageUrl: null,
+          imageUploadDataUrl: null,
+        },
+        type: "news",
+        status: "archived",
+        title: "Archived item",
+        subtitle: "Archived summary",
+        body: "Archived body",
+        language: "en",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-02T00:00:00.000Z",
+      },
+    });
+
+    const result = await syncDiscoverPublisherSnapshot(
+      fullAdminContext,
+      "org-1",
+    );
+
+    expect(result).toEqual({ updated: 2 });
+    expect(
+      mockFeedDocs.find((doc) => doc.id === "feed-a")?.data.publisherSnapshot,
+    ).toEqual(feedItem.publisherSnapshot);
+    expect(
+      mockFeedDocs.find((doc) => doc.id === "feed-archived")?.data
+        .publisherSnapshot,
+    ).toEqual({
+      name: "Archived Publisher Name",
+      imageUrl: null,
+      imageUploadDataUrl: null,
+    });
+  });
+
+  it("splits publisher snapshot synchronization before a batch grows too large", async () => {
+    failNextFeedItemsQuery = false;
+    const organization = mockOrganizationDocs.find((doc) => doc.id === "org-1");
+    expect(organization).toBeDefined();
+    organization!.data.imageUrl = null;
+    organization!.data.imageUploadDataUrl = `data:image/webp;base64,${"A".repeat(500_000)}`;
+
+    for (let index = 0; index < 20; index += 1) {
+      mockFeedDocs.push({
+        id: `feed-large-snapshot-${index}`,
+        data: {
+          publisherOrganizationId: "org-1",
+          publisherSnapshot: { name: "Publisher One", imageUrl: null },
+          type: "news",
+          status: "draft",
+          title: `Draft ${index}`,
+          subtitle: "Summary",
+          body: "Body",
+          language: "en",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          updatedAt: "2026-08-02T00:00:00.000Z",
+        },
+      });
+    }
+
+    const { syncDiscoverPublisherSnapshot } =
+      await import("../repositories/discover.repository");
+    const result = await syncDiscoverPublisherSnapshot(
+      fullAdminContext,
+      "org-1",
+    );
+
+    expect(result).toEqual({ updated: 21 });
+    expect(mockBatchCommitCount).toBe(2);
+  });
+
+  it("rejects feed documents whose content and publisher artwork exceed the safe document size", async () => {
+    const organization = mockOrganizationDocs.find((doc) => doc.id === "org-1");
+    expect(organization).toBeDefined();
+    organization!.data.imageUrl = null;
+    organization!.data.imageUploadDataUrl = `data:image/webp;base64,${"A".repeat(500_000)}`;
+
+    const { createDiscoverFeedItem } =
+      await import("../repositories/discover.repository");
+
+    await expect(
+      createDiscoverFeedItem(fullAdminContext, {
+        publisherOrganizationId: "org-1",
+        type: "news",
+        status: "draft",
+        language: "en",
+        title: "Oversized combined document",
+        subtitle: "Summary",
+        body: "Body",
+        imageUploadDataUrl: `data:image/webp;base64,${"A".repeat(500_000)}`,
+        news: { category: "Research", region: "AR" },
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message:
+        "This feed entry and its publisher artwork are too large to store together. Use a hosted image URL or upload smaller images.",
+    });
+  });
+
+  it("preflights every publisher snapshot before committing a synchronization batch", async () => {
+    failNextFeedItemsQuery = false;
+    const organization = mockOrganizationDocs.find((doc) => doc.id === "org-1");
+    const existingFeedItem = mockFeedDocs.find((doc) => doc.id === "feed-a");
+    expect(organization).toBeDefined();
+    expect(existingFeedItem).toBeDefined();
+    organization!.data.imageUrl = null;
+    organization!.data.imageUploadDataUrl = `data:image/webp;base64,${"A".repeat(500_000)}`;
+    existingFeedItem!.data.imageUploadDataUrl = `data:image/webp;base64,${"B".repeat(500_000)}`;
+    const originalPublisherSnapshot = structuredClone(
+      existingFeedItem!.data.publisherSnapshot,
+    );
+
+    const { syncDiscoverPublisherSnapshot } =
+      await import("../repositories/discover.repository");
+
+    await expect(
+      syncDiscoverPublisherSnapshot(fullAdminContext, "org-1"),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(mockBatchCommitCount).toBe(0);
+    expect(existingFeedItem!.data.publisherSnapshot).toEqual(
+      originalPublisherSnapshot,
+    );
   });
 
   it("does not read, write, or preserve shared content duplicates inside type payloads", async () => {

@@ -246,6 +246,7 @@ export const DISCOVER_FEED_PAYLOAD_KEYS = {
 export interface DiscoverPublisherSnapshot {
   name: string;
   imageUrl: string | null;
+  imageUploadDataUrl: string | null;
 }
 
 export type DiscoverFeedPayloadNodes = {

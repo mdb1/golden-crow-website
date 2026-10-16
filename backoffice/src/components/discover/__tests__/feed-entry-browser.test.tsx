@@ -55,6 +55,7 @@ const feedItem: DiscoverFeedItemRecord = {
   publisherSnapshot: {
     name: "Publisher One",
     imageUrl: null,
+    imageUploadDataUrl: null,
   },
   type: "news",
   status: "draft",

@@ -30,6 +30,7 @@ import type {
   DiscoverOrganizationProductCatalogItem,
   DiscoverOrganizationRecord,
   DiscoverOrganizationStatus,
+  DiscoverPublisherSnapshot,
   DiscoverPublisherSocialLinks,
 } from "../types/sdk.types.js";
 
@@ -41,6 +42,10 @@ const FEED_ITEMS_COLLECTION = "feed_items";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 const PUBLISHER_DELETE_BATCH_SIZE = 450;
+const FIRESTORE_BATCH_MAX_WRITES = 450;
+const FIRESTORE_BATCH_SAFE_MAX_BYTES = 8_000_000;
+const FIRESTORE_DOCUMENT_SAFE_MAX_BYTES = 950_000;
+const FIRESTORE_WRITE_OVERHEAD_BYTES = 2_048;
 const MAX_PRODUCT_CATALOG_ITEMS = 200;
 
 const FEED_TYPE_VALUES = [
@@ -1851,6 +1856,21 @@ function withoutUndefined<T>(value: T): T {
   return value;
 }
 
+function estimatedFirestoreJsonBytes(value: unknown) {
+  return Buffer.byteLength(JSON.stringify(withoutUndefined(value)), "utf8");
+}
+
+function assertFeedItemDocumentFitsFirestore(document: Record<string, unknown>) {
+  if (
+    estimatedFirestoreJsonBytes(document) > FIRESTORE_DOCUMENT_SAFE_MAX_BYTES
+  ) {
+    throw new AdminRepositoryError(
+      "This feed entry and its publisher artwork are too large to store together. Use a hosted image URL or upload smaller images.",
+      400,
+    );
+  }
+}
+
 function encodeCursor(cursor: PageCursor): string {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
@@ -2044,6 +2064,18 @@ function toIndividualRecord(
   };
 }
 
+function publisherSnapshotFor(
+  publisher: DiscoverOrganizationRecord | DiscoverIndividualRecord,
+): DiscoverPublisherSnapshot {
+  return {
+    name: publisher.name,
+    imageUrl: publisher.imageUrl,
+    imageUploadDataUrl: publisher.imageUrl
+      ? null
+      : (publisher.imageUploadDataUrl ?? null),
+  };
+}
+
 function getPayloadKey(type: DiscoverFeedType) {
   return FEED_PAYLOAD_KEYS[type];
 }
@@ -2130,6 +2162,9 @@ function toFeedItemRecord(doc: QueryDocumentSnapshot): DiscoverFeedItemRecord {
       name:
         normalizeOptionalString(publisherSnapshot.name) ?? "Unknown publisher",
       imageUrl: normalizeNullableString(publisherSnapshot.imageUrl),
+      imageUploadDataUrl: normalizeNullableString(publisherSnapshot.imageUrl)
+        ? null
+        : normalizeNullableString(publisherSnapshot.imageUploadDataUrl),
     },
     type,
     publishedAt: timestampToIso(data.publishedAt),
@@ -3093,14 +3128,11 @@ async function feedItemDocument(
   const root = normalizeRootContent(input, status, existing);
   const payload = normalizeTypePayload(type, input, status);
 
-  return {
+  const document = {
     id: feedItemId,
     publisherOrganizationId: publisherOrganizationId ?? null,
     publisherIndividualId: publisherIndividualId ?? null,
-    publisherSnapshot: {
-      name: publisher.name,
-      imageUrl: publisher.imageUrl,
-    },
+    publisherSnapshot: publisherSnapshotFor(publisher),
     type,
     status,
     publishedAt,
@@ -3121,6 +3153,9 @@ async function feedItemDocument(
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
   };
+
+  assertFeedItemDocumentFitsFirestore(document);
+  return document;
 }
 
 async function deleteFeedItemsForPublisher(
@@ -3568,21 +3603,53 @@ export async function syncDiscoverPublisherSnapshot(
     SNAPSHOT_SYNC_STATUSES.has(doc.data().status as DiscoverFeedStatus),
   );
 
+  const publisherSnapshot = publisherSnapshotFor(organization);
+  const writes = recordsToSync.map((doc) => {
+    const update = {
+      publisherSnapshot,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByUserId: context.uid,
+    };
+    assertFeedItemDocumentFitsFirestore({
+      ...doc.data(),
+      ...update,
+    });
+    return {
+      doc,
+      update,
+      estimatedBytes:
+        estimatedFirestoreJsonBytes(update) + FIRESTORE_WRITE_OVERHEAD_BYTES,
+    };
+  });
+
+  const batches: (typeof writes)[] = [];
+  let pending: typeof writes = [];
+  let pendingBytes = 0;
+  for (const write of writes) {
+    if (
+      pending.length > 0 &&
+      (pending.length >= FIRESTORE_BATCH_MAX_WRITES ||
+        pendingBytes + write.estimatedBytes > FIRESTORE_BATCH_SAFE_MAX_BYTES)
+    ) {
+      batches.push(pending);
+      pending = [];
+      pendingBytes = 0;
+    }
+    pending.push(write);
+    pendingBytes += write.estimatedBytes;
+  }
+  if (pending.length > 0) {
+    batches.push(pending);
+  }
+
   let updated = 0;
-  for (let index = 0; index < recordsToSync.length; index += 450) {
+  for (const writesInBatch of batches) {
     const batch = adminDb.batch();
-    for (const doc of recordsToSync.slice(index, index + 450)) {
-      batch.update(doc.ref, {
-        publisherSnapshot: {
-          name: organization.name,
-          imageUrl: organization.imageUrl,
-        },
-        updatedAt: FieldValue.serverTimestamp(),
-        updatedByUserId: context.uid,
-      });
-      updated += 1;
+    for (const write of writesInBatch) {
+      batch.update(write.doc.ref, write.update);
     }
     await batch.commit();
+    updated += writesInBatch.length;
   }
 
   return { updated };

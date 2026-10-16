@@ -1434,7 +1434,10 @@ const initialCopy = isEnglishPage
         return;
       }
 
-      if (resource === 'feed_entries' && previewData.event && !previewData.imageUrl) {
+      // New entries carry the publisher artwork in their stored snapshot.
+      // Keep one scoped lookup for legacy entries until every historical
+      // organization and individual snapshot has been backfilled.
+      if (resource === 'feed_entries' && !previewData.imageUrl) {
         previewData.imageUrl = await fetchPublisherImage(fields);
       }
 
@@ -1734,7 +1737,7 @@ const initialCopy = isEnglishPage
       title,
       summary,
       body,
-      imageUrl: publisherImage || (eventPreview ? '' : '/pocket-genes/icon_simple.png'),
+      imageUrl: publisherImage,
       bannerUrl: '',
       mediaUrl:
         imageSource(fields.imageUrl) ||

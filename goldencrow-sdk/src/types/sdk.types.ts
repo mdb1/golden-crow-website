@@ -914,6 +914,7 @@ export type DiscoverFeedPayloadKey =
 export interface DiscoverPublisherSnapshot {
   name: string;
   imageUrl: string | null;
+  imageUploadDataUrl: string | null;
 }
 
 export type DiscoverFeedPayloadNodes = {

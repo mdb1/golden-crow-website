@@ -6,6 +6,7 @@ import {
 
 const mockCreateDiscoverPublisherApprovalRequest = jest.fn();
 const mockCreateDiscoverFeedItem = jest.fn();
+const mockSyncDiscoverPublisherSnapshot = jest.fn();
 const mockSendDiscoverPublisherRequestNotificationEmail = jest.fn();
 
 jest.mock("../repositories/discover.repository.js", () => ({
@@ -26,7 +27,7 @@ jest.mock("../repositories/discover.repository.js", () => ({
   listDiscoverFeedItems: jest.fn(),
   listDiscoverIndividuals: jest.fn(),
   listDiscoverOrganizations: jest.fn(),
-  syncDiscoverPublisherSnapshot: jest.fn(),
+  syncDiscoverPublisherSnapshot: mockSyncDiscoverPublisherSnapshot,
   updateDiscoverFeedItem: jest.fn(),
   updateDiscoverIndividual: jest.fn(),
   updateDiscoverOrganization: jest.fn(),
@@ -109,6 +110,7 @@ describe("Discover public routes", () => {
         date: "2026-10-12T00:00:00.000Z",
       },
     });
+    mockSyncDiscoverPublisherSnapshot.mockResolvedValue({ updated: 1 });
   });
 
   it("sends Federico a notification after a public organization request is saved", async () => {
@@ -253,5 +255,21 @@ describe("Discover public routes", () => {
     expect(
       mockCreateDiscoverFeedItem.mock.calls[0]?.[1],
     ).not.toHaveProperty("upcoming_event");
+  });
+
+  it("synchronizes an organization's stored publisher snapshots", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/discover/organizations/org-1/sync-publisher-snapshot",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ updated: 1 });
+    expect(mockSyncDiscoverPublisherSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "uid-1" }),
+      "org-1",
+    );
   });
 });
