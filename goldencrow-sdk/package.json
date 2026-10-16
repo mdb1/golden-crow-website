@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "node scripts/check-server-deps.mjs && tsc",
     "generate:pgo-schemas": "node scripts/generate-pgo-object-schemas.mjs",
     "generate:pgi-schemas": "node scripts/generate-pgi-native-schemas.mjs",
     "start": "node dist/server.js",
@@ -25,7 +25,7 @@
     "dotenv": "^18.0.8",
     "fastify": "^5.12.7",
     "fastify-type-provider-zod": "^7.0.0",
-    "firebase-admin": "^14.5.0",
+    "firebase-admin": "^13.10.0",
     "pino": "^10.4.0",
     "zod": "^4.6.7"
   },
@@ -38,5 +38,8 @@
     "jest": "^30.5.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }
