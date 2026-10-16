@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 
 import { gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import {
+  isAllowedMediaBucket,
+  projectMediaBuckets,
+  safeImageHeaders,
+} from "@/lib/gc-fitness/storage-image-safety";
 
 export const runtime = "nodejs";
 
@@ -21,6 +26,11 @@ export const runtime = "nodejs";
 // can't be used to read arbitrary bucket objects. The exercise library is
 // already shared across trainers, so a per-doc ownership check is not required
 // here (consistent with the existing read model).
+//
+// A `gs://<bucket>/…` path must name one of this project's own media buckets
+// — otherwise the Admin service account would read the same prefixes from ANY
+// bucket it can reach. Bytes are served with `safeImageHeaders` so a stored
+// SVG/HTML object can never execute same-origin.
 
 const ALLOWED_PREFIXES = ["habits/", "exercises/", "profile_photos/"];
 
@@ -56,30 +66,23 @@ export async function GET(request: Request) {
   if (parsed.object.includes("..") || !ALLOWED_PREFIXES.some((p) => parsed.object.startsWith(p))) {
     return NextResponse.json({ error: "Forbidden path" }, { status: 403 });
   }
+  if (parsed.bucket !== null && !isAllowedMediaBucket(parsed.bucket)) {
+    return NextResponse.json({ error: "Forbidden path" }, { status: 403 });
+  }
 
-  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
   const candidates = [
-    parsed.bucket,
-    process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET,
-    projectId ? `${projectId}.firebasestorage.app` : undefined,
-    projectId ? `${projectId}.appspot.com` : undefined,
-  ].filter((value): value is string => Boolean(value));
+    ...(parsed.bucket !== null ? [parsed.bucket] : []),
+    ...projectMediaBuckets(),
+  ];
 
   for (const bucketName of candidates) {
     try {
       const file = gcFitnessStorage().bucket(bucketName).file(parsed.object);
       const [buffer] = await file.download();
       const [metadata] = await file.getMetadata();
-      const contentType =
-        typeof metadata.contentType === "string" && metadata.contentType
-          ? metadata.contentType
-          : "application/octet-stream";
       return new NextResponse(new Uint8Array(buffer), {
         status: 200,
-        headers: {
-          "Content-Type": contentType,
-          "Cache-Control": "private, max-age=300",
-        },
+        headers: safeImageHeaders(metadata.contentType),
       });
     } catch {
       // Try the next bucket candidate.

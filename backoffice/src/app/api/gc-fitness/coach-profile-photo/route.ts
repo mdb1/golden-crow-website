@@ -4,6 +4,11 @@ import { NextResponse } from "next/server";
 
 import { gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import {
+  baseMediaType,
+  projectMediaBuckets,
+  UPLOADABLE_IMAGE_TYPES,
+} from "@/lib/gc-fitness/storage-image-safety";
 
 export const runtime = "nodejs";
 
@@ -38,8 +43,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const contentType = request.headers.get("content-type") ?? "";
-  if (!contentType.startsWith("image/")) {
+  // Raster types only: an `image/svg+xml` avatar would be served back
+  // same-origin by storage-image (profile_photos/ is a readable prefix) and
+  // from the public tokened URL — stored XSS. The form always sends JPEG.
+  const contentType = baseMediaType(request.headers.get("content-type"));
+  if (!UPLOADABLE_IMAGE_TYPES.has(contentType)) {
     return NextResponse.json({ error: "Expected an image body" }, { status: 415 });
   }
 
@@ -54,14 +62,7 @@ export async function POST(request: Request) {
   const objectPath = `profile_photos/${trainerUid}/avatar.jpg`;
   const downloadToken = randomUUID();
 
-  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
-  const candidates = [
-    process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET,
-    projectId ? `${projectId}.firebasestorage.app` : undefined,
-    projectId ? `${projectId}.appspot.com` : undefined,
-  ].filter((value): value is string => Boolean(value));
-
-  for (const bucketName of candidates) {
+  for (const bucketName of projectMediaBuckets()) {
     try {
       const file = gcFitnessStorage().bucket(bucketName).file(objectPath);
       await file.save(bytes, {
