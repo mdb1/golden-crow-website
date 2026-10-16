@@ -2703,17 +2703,21 @@ export function PatientConsentUploadWizard({
               {activeStepId === "editor" ? (
                 signaturesComplete && signerDataComplete ? (
                   <div className="space-y-5">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant={
-                          selectedRole === "patient" ? "default" : "outline"
-                        }
-                        onClick={() => setSelectedRole("patient")}
+                    {hasPartner ? (
+                      <div
+                        role="group"
+                        aria-label="Seleccionar firma para ubicar"
+                        className="flex flex-wrap gap-2"
                       >
-                        Firma del paciente
-                      </Button>
-                      {hasPartner ? (
+                        <Button
+                          type="button"
+                          variant={
+                            selectedRole === "patient" ? "default" : "outline"
+                          }
+                          onClick={() => setSelectedRole("patient")}
+                        >
+                          Firma del paciente
+                        </Button>
                         <Button
                           type="button"
                           variant={
@@ -2723,13 +2727,8 @@ export function PatientConsentUploadWizard({
                         >
                           Firma de la pareja
                         </Button>
-                      ) : null}
-                    </div>
-                    <p className="text-sm font-semibold text-muted-foreground">
-                      Última página · Página{" "}
-                      {CONSENT_TEMPLATE_LAST_PAGE_INDEX + 1} de{" "}
-                      {CONSENT_TEMPLATE_PREVIEW_URLS.length}
-                    </p>
+                      </div>
+                    ) : null}
                     <SignaturePagePreview
                       pageIndex={CONSENT_TEMPLATE_LAST_PAGE_INDEX}
                       signatures={previewSignatures}

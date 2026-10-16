@@ -533,7 +533,20 @@ describe("PatientConsentUploadWizard", () => {
     );
 
     expectActiveSidebarStep("Aplicar firmas al PDF");
-    expect(screen.getByText("Última página · Página 2 de 2")).toBeVisible();
+    expect(
+      screen.queryByText("Última página · Página 2 de 2"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Firma del paciente" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("group", {
+        name: "Seleccionar firma para ubicar",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByAltText("Página 2 del consentimiento informado"),
+    ).toBeVisible();
     expect(
       screen.queryByRole("checkbox", {
         name: /Declaro, bajo mi responsabilidad/,
@@ -621,8 +634,8 @@ describe("PatientConsentUploadWizard", () => {
         />,
       );
 
-      const editorContent = screen.getByText(
-        "Última página · Página 2 de 2",
+      const editorContent = screen.getByAltText(
+        "Página 2 del consentimiento informado",
       );
       const securityBanner = screen.getByTestId(
         "guided-signing-security-banner",
@@ -1103,12 +1116,16 @@ describe("PatientConsentUploadWizard", () => {
         screen.getByText(/arrástrela directamente hasta su ubicación/),
       ).toBeVisible();
       expect(
-        screen.getByText(
-          (_, element) =>
-            element?.tagName === "P" &&
-            element.textContent === "Última página · Página 2 de 2",
-        ),
-      ).toBeVisible();
+        screen.queryByText("Última página · Página 2 de 2"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Firma del paciente" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("group", {
+          name: "Seleccionar firma para ubicar",
+        }),
+      ).not.toBeInTheDocument();
       expect(
         screen.getByAltText("Página 2 del consentimiento informado"),
       ).toBeVisible();
@@ -1687,6 +1704,22 @@ describe("PatientConsentUploadWizard", () => {
       expect(
         screen.getByRole("heading", { name: "Aplicar firmas al PDF" }),
       ).toBeVisible();
+      const signerSelector = screen.getByRole("group", {
+        name: "Seleccionar firma para ubicar",
+      });
+      expect(
+        within(signerSelector).getByRole("button", {
+          name: "Firma del paciente",
+        }),
+      ).toBeVisible();
+      expect(
+        within(signerSelector).getByRole("button", {
+          name: "Firma de la pareja",
+        }),
+      ).toBeVisible();
+      expect(
+        screen.queryByText("Última página · Página 2 de 2"),
+      ).not.toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Volver" }));
       await user.click(screen.getByRole("button", { name: "Volver" }));
