@@ -17,6 +17,7 @@ import {
   estimateKcalFromMacros,
   macroKcalMismatch,
 } from "@/lib/gc-fitness/nutrition-macro-math";
+import { parseDecimalInput } from "@/lib/gc-fitness/decimal-input";
 
 export interface MacroDraft {
   kcal: string;
@@ -60,9 +61,8 @@ export function toMacroDraft(
  * field that silently drops what the keyboard produced reads as broken.
  */
 export function numberOrNull(raw: string): number | null {
-  const trimmed = raw.replace(",", ".").trim();
-  if (trimmed === "") return null;
-  const value = Number(trimmed);
+  if (raw.trim() === "") return null;
+  const value = parseDecimalInput(raw);
   return Number.isFinite(value) ? value : null;
 }
 

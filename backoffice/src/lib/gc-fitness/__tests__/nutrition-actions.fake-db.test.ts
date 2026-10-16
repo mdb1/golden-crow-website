@@ -183,16 +183,21 @@ describe("updateNutritionPlan", () => {
     expect(batched).toEqual(expect.arrayContaining(["nutrition_plans/plan-0", "nutrition_plans/plan-1"]));
   });
 
-  // BUG: `templateId: data.templateId ?? null` (nutrition-actions.ts:321) turns an
-  // OMITTED templateId into an explicit null. The edit form starts with
+  // Regression (#451): `templateId: data.templateId ?? null` turned an
+  // OMITTED (or null) templateId into an explicit null. The edit form starts with
   // `sourceTemplate = null` (AssignNutritionForm.tsx ~L294) and sends
   // `templateId: sourceTemplate?.id ?? null`, so every edit of a plan assigned FROM a
   // template erases its provenance — and `countNutritionLibraryUsage`'s
-  // templatesInPlans pill silently drops that plan. Correct: omitted → keep the
-  // stored templateId (only an explicit change should touch it).
-  it.failing("omitting templateId keeps the plan's template provenance", async () => {
+  // templatesInPlans pill silently dropped that plan. Now omitted/null keeps the
+  // stored templateId; only applying another template changes it.
+  it("omitting templateId keeps the plan's template provenance", async () => {
     const { templateId: _omit, ...withoutTemplate } = edit();
     await updateNutritionPlan("plan-1", withoutTemplate);
+    expect(db.doc("nutrition_plans/plan-1")!.templateId).toBe("nuttpl-coach-a-x");
+  });
+
+  it("templateId: null (what the edit form posts) keeps the provenance too", async () => {
+    await updateNutritionPlan("plan-1", edit({ templateId: null }));
     expect(db.doc("nutrition_plans/plan-1")!.templateId).toBe("nuttpl-coach-a-x");
   });
 

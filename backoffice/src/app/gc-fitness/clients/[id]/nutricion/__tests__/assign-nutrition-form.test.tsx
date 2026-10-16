@@ -127,13 +127,11 @@ describe("AssignNutritionForm", () => {
     expect(payload.targets.kcal).toBe(2000);
   });
 
-  // BUG (#451, medium): this form has its OWN private `numberOrNull`
-  // (AssignNutritionForm.tsx:173) that does NOT accept the decimal comma, unlike
-  // its twin in library/_nutrition/macro-fields.tsx. A Spanish-keyboard coach
-  // typing "12,5" g of fat gets NaN → null: the target is silently DROPPED and
-  // the plan saves with "no fat target". The library dialog saves the same
-  // keystrokes as 12.5, so the two surfaces disagree on identical input.
-  it.failing("reads a decimal-comma macro ('12,5') as 12.5, like the library dialog", async () => {
+  // Regression (#451): this form had its own `numberOrNull` without the
+  // decimal comma, so "12,5" g of fat became null and the plan saved with no
+  // fat target, while the library dialog saved 12.5. Both use
+  // parseDecimalInput now.
+  it("reads a decimal-comma macro ('12,5') as 12.5, like the library dialog", async () => {
     const user = userEvent.setup();
     renderForm();
 

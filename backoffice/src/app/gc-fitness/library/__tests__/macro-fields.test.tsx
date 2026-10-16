@@ -47,22 +47,14 @@ describe("numberOrNull — what the dialogs persist", () => {
     expect(numberOrNull("-5")).toBe(-5);
   });
 
-  // BUG (medium): `raw.replace(",", ".")` only replaces the FIRST comma, and
-  // a dot is never read as a thousands separator. An es-AR coach typing
-  // "1.234,5" (how their locale writes 1234.5) gets "1.234.5" → NaN → null,
-  // i.e. the target is SILENTLY DROPPED and the plan saves with "no target" —
-  // exactly the "a field that silently drops what the keyboard produced reads
-  // as broken" failure the helper's own comment warns about.
-  // (`macro-fields.tsx:63`.) The correct result is either 1234.5 or a visible
-  // validation error; the test pins the former.
-  it.failing("reads a Spanish-formatted '1.234,5' as 1234.5 instead of dropping it", () => {
+  // Regression (#451): `raw.replace(",", ".")` only replaced the FIRST comma,
+  // so an es-AR "1.234,5" became "1.234.5" → NaN → the target silently dropped.
+  it("reads a Spanish-formatted '1.234,5' as 1234.5 instead of dropping it", () => {
     expect(numberOrNull("1.234,5")).toBe(1234.5);
   });
 
-  // Same root cause: "1,234,5"/"1,5,0" style typos come back as null with no
-  // feedback. Documented (not marked failing): the right answer is a visible
-  // error rather than a guessed number.
-  it("a second comma currently makes the whole value null", () => {
+  // Malformed groups ("1,5,0") are NOT guessed into a number: null, not 150.
+  it("a typo with a second comma is null, not a guessed number", () => {
     expect(numberOrNull("1,5,0")).toBeNull();
   });
 });

@@ -141,15 +141,11 @@ describe("CoachProfileForm", () => {
     expect(mockRouterRefresh).not.toHaveBeenCalled();
   });
 
-  // BUG (medium, #1104 class): the server schema caps bio at 280 and
-  // displayName at 120 (user-actions.ts:353-357), but neither field has a
-  // maxLength or a client check (coach-profile-form.tsx:164-180). A coach who
-  // writes a 300-char description sends it, `updateTrainerProfile` THROWS a
-  // ZodError, and in a production build the toast shows Next's redacted
-  // "An error occurred in the Server Components render…" instead of "max 280
-  // characters" — the coach has no idea what to fix. Correct: the form never
-  // sends a payload the server schema rejects (cap the inputs or block save).
-  it.failing("never sends a bio over 280 or a name over 120 characters", async () => {
+  // Regression (#451, #1104 class): the server caps bio at 280 and displayName
+  // at 120, the inputs had no maxLength, and a longer bio made
+  // updateTrainerProfile throw — in production the coach saw Next's redacted
+  // error instead of anything actionable. The inputs are capped now.
+  it("never sends a bio over 280 or a name over 120 characters", async () => {
     const user = userEvent.setup();
     renderForm();
     await user.clear(bioInput());

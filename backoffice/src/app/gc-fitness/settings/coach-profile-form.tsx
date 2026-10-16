@@ -166,6 +166,9 @@ export function CoachProfileForm({
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
             placeholder={t("displayNamePlaceholder")}
+            // The server schema's limits (updateTrainerProfile): past them the
+            // save threw and the coach saw Next's redacted error (#451).
+            maxLength={120}
           />
         </div>
 
@@ -177,6 +180,7 @@ export function CoachProfileForm({
             onChange={(event) => setBio(event.target.value)}
             rows={4}
             placeholder={t("bioPlaceholder")}
+            maxLength={280}
           />
         </div>
 

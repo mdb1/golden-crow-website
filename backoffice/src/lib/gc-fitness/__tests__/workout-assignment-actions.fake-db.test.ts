@@ -32,7 +32,9 @@ jest.mock("firebase-admin/firestore", () =>
 import { getTokens } from "next-firebase-auth-edge";
 
 import {
+  assignTemplate,
   assignTemplateRecurring,
+  bulkAssignTemplate,
   assignTemplateRecurringToPending,
   assignTemplateToPending,
   countTemplateAssignments,
@@ -174,6 +176,7 @@ describe("assignTemplateRecurring", () => {
     expect(docs[0].data.recurrence).toEqual({ kind: "weekly_days", weekdays: [1, 3] });
 
     db.store.clear();
+    db.seed("users/client-a1", { coachId: "coach-a", displayName: "Ana", email: "ana@example.com" });
     db.seed("workout_templates/t-own", { trainerId: "coach-a", name: { en: "Legs", es: "Piernas" }, exercises: [] });
     await assignTemplateRecurring({ templateId: "t-own", clientId: "client-a1", startDate: "2026-06-15", endDate: "2026-06-30", weekdays: [0] });
     docs = assignmentDocs();
@@ -186,6 +189,7 @@ describe("assignTemplateRecurring", () => {
     expect(assignmentDocs().map((d) => d.data.scheduledFor)).toEqual(["2026-06-15", "2026-06-18", "2026-06-21", "2026-06-24"]);
 
     db.store.clear();
+    db.seed("users/client-a1", { coachId: "coach-a", displayName: "Ana", email: "ana@example.com" });
     db.seed("workout_templates/t-own", { trainerId: "coach-a", name: "Legs", exercises: [] });
     await assignTemplateRecurring({ templateId: "t-own", clientId: "client-a1", startDate: "2026-01-31", endDate: "2026-04-30", recurrence: { kind: "monthly", dayOfMonth: 31 } });
     expect(assignmentDocs().map((d) => d.data.scheduledFor)).toEqual(["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30"]);
@@ -238,19 +242,49 @@ describe("assignTemplateRecurring", () => {
     expect(db.writes).toEqual([]);
   });
 
-  // BUG (tenant isolation): assignTemplateRecurring never checks that
-  // `users/{clientId}.coachId === trainer.uid` (workout-assignment-actions.ts
-  // ~L880-960; same gap in assignTemplate ~L452 and bulkAssignTemplate). The
-  // Admin SDK bypasses firestore.rules, so any coach can schedule a whole series
-  // of workouts — with their own trainerId — onto ANOTHER coach's client, which
-  // that client's app then renders. habit-actions.ts does gate this
-  // (`clientSnap.get("coachId") === trainerUid`). Correct behaviour: refuse,
-  // write nothing.
-  it.failing("refuses to schedule a series onto another coach's client (no writes)", async () => {
+  // Regression (#451): the assign actions never checked
+  // `users/{clientId}.coachId === trainer.uid`, and the Admin SDK bypasses
+  // firestore.rules, so any coach could schedule workouts — with their own
+  // trainerId — onto ANOTHER coach's client. All three paths now refuse.
+  it("refuses to schedule a series onto another coach's client (no writes)", async () => {
     await expect(
       assignTemplateRecurring({ templateId: "t-own", clientId: "client-b1", startDate: "2026-06-15", endDate: "2026-06-29", weekday: 1 }),
     ).rejects.toThrow();
     expect(db.writesTo("workout_assignments/")).toEqual([]);
+  });
+});
+
+describe("assign actions — client ownership (#451)", () => {
+  it("assignTemplate refuses another coach's client and writes nothing", async () => {
+    await expect(
+      assignTemplate({ templateId: "t-own", clientId: "client-b1", scheduledFor: "2026-06-15" }),
+    ).rejects.toThrow("Not your client.");
+    expect(db.writesTo("workout_assignments/")).toEqual([]);
+  });
+
+  it("assignTemplate refuses a client id with no users doc", async () => {
+    await expect(
+      assignTemplate({ templateId: "t-own", clientId: "ghost", scheduledFor: "2026-06-15" }),
+    ).rejects.toThrow("Not your client.");
+    expect(db.writesTo("workout_assignments/")).toEqual([]);
+  });
+
+  it("bulkAssignTemplate refuses the whole batch when ONE client is someone else's", async () => {
+    await expect(
+      bulkAssignTemplate({ templateId: "t-own", clientIds: ["client-a1", "client-b1"], scheduledFor: "2026-06-15" }),
+    ).rejects.toThrow("Not your client.");
+    expect(db.writesTo("workout_assignments/")).toEqual([]);
+  });
+
+  it("assigning to yourself (coach-less / self-as-coach) still works", async () => {
+    await assignTemplate({ templateId: "t-own", clientId: "coach-a", scheduledFor: "2026-06-15" });
+    expect(db.writesTo("workout_assignments/").length).toBeGreaterThan(0);
+  });
+
+  it("own client: assignTemplate and bulkAssignTemplate write", async () => {
+    await assignTemplate({ templateId: "t-own", clientId: "client-a1", scheduledFor: "2026-06-15" });
+    await bulkAssignTemplate({ templateId: "t-own", clientIds: ["client-a1"], scheduledFor: "2026-06-16" });
+    expect(assignmentDocs().map((d) => d.data.clientId)).toEqual(["client-a1", "client-a1"]);
   });
 });
 
@@ -423,6 +457,7 @@ describe("read-side aggregations (today = 2026-06-15 UTC)", () => {
 
   it("listWorkoutAssignmentGroups: nothing upcoming → []", async () => {
     db.store.clear();
+    db.seed("users/client-a1", { coachId: "coach-a", displayName: "Ana", email: "ana@example.com" });
     await expect(listWorkoutAssignmentGroups()).resolves.toEqual([]);
   });
 });

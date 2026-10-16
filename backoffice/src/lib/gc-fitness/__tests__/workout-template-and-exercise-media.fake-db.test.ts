@@ -316,13 +316,13 @@ describe("mintExerciseThumbnailUploadUrl", () => {
     },
   );
 
-  // BUG: the allowlist is a plain object literal looked up with `[contentType]`
-  // (exercise-server-actions.ts:82 + :550), so inherited Object.prototype keys pass
+  // Regression (#451): the allowlist is a plain object literal and was looked
+  // up with `[contentType]`, so inherited Object.prototype keys passed
   // the "known image MIME" check: `contentType: "constructor"` yields a truthy ext
   // (the Object function) and a signed write URL is minted with
   // `contentType: "constructor"` at `exercises/<id>-thumb.function Object() {…}`.
-  // Correct: only the four own image keys are accepted.
-  it.failing.each([["constructor"], ["toString"], ["__proto__"]])(
+  // Now only the four own image keys are accepted.
+  it.each([["constructor"], ["toString"], ["__proto__"]])(
     "refuses prototype-key content type %j without minting",
     async (contentType) => {
       await expect(

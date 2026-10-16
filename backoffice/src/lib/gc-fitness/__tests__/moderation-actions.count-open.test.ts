@@ -75,7 +75,7 @@ describe("countOpenReports", () => {
   // signed out or a plain trainer/client, can read the live size of the
   // moderation queue through the Admin SDK. Correct: non-admins get 0 (or are
   // refused) WITHOUT the aggregation running.
-  it.failing.each([
+  it.each([
     ["signed out", null],
     ["a trainer", ["trainer"]],
     ["a client", ["client"]],

@@ -89,6 +89,7 @@ import {
   type NutritionMealMoment,
   type NutritionPlan,
 } from "@/lib/gc-fitness/nutrition-schema";
+import { parseDecimalInput } from "@/lib/gc-fitness/decimal-input";
 
 interface DraftOption {
   key: string;
@@ -170,10 +171,10 @@ function englishOr(english: string, fallback: string): string {
 }
 
 /** Blank → `null`, so an unset macro stays unset instead of becoming a zero target. */
+/** Same parser as the library dialog's — "12,5" is 12.5 here too (#451). */
 function numberOrNull(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (trimmed === "") return null;
-  const value = Number(trimmed);
+  if (raw.trim() === "") return null;
+  const value = parseDecimalInput(raw);
   return Number.isFinite(value) ? value : null;
 }
 
