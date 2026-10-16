@@ -2237,31 +2237,6 @@ export function PatientConsentUploadWizard({
                   ) : null}
                 </div>
               ) : null}
-              {mode === "guided" ? (
-                <div
-                  data-testid="guided-signing-security-banner"
-                  className="mt-5 flex max-w-3xl items-start gap-3 rounded-2xl border border-blue-200/80 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(236,254,255,0.72))] p-4 text-blue-950 shadow-[0_18px_50px_-38px_rgba(37,99,235,0.75)] dark:border-blue-400/24 dark:bg-[linear-gradient(135deg,rgba(30,58,138,0.34),rgba(8,47,73,0.28))] dark:text-blue-50"
-                >
-                  <span className="relative flex size-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-white/90 text-blue-700 shadow-sm dark:border-blue-300/20 dark:bg-blue-950/70 dark:text-blue-100">
-                    <span className="absolute inset-0 animate-pulse rounded-xl bg-blue-400/10 motion-reduce:animate-none" />
-                    <ShieldCheck className="relative size-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
-                      Proceso de firma electrónica
-                    </p>
-                    <h2 className="mt-1 font-heading text-lg font-semibold">
-                      Está firmando un documento digital
-                    </h2>
-                    <p className="mt-1 text-sm leading-6 text-blue-900/72 dark:text-blue-50/72">
-                      La identidad declarada, la firma y el documento se revisan
-                      juntos antes del envío. El avance se guarda como borrador
-                      privado; el consentimiento solo se envía después de la
-                      aceptación final.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
             </header>
 
             {inlineError ? (
@@ -2945,6 +2920,39 @@ export function PatientConsentUploadWizard({
                 </div>
               ) : null}
             </div>
+
+            {mode === "guided" ? (
+              <aside
+                data-testid="guided-signing-security-banner"
+                aria-labelledby="guided-signing-security-title"
+                className="mt-8 flex max-w-3xl items-start gap-3 rounded-2xl border border-blue-200/80 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(236,254,255,0.72))] p-4 text-blue-950 shadow-[0_18px_50px_-38px_rgba(37,99,235,0.75)] dark:border-blue-400/24 dark:bg-[linear-gradient(135deg,rgba(30,58,138,0.34),rgba(8,47,73,0.28))] dark:text-blue-50"
+              >
+                <span
+                  aria-hidden="true"
+                  className="relative flex size-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-white/90 text-blue-700 shadow-sm dark:border-blue-300/20 dark:bg-blue-950/70 dark:text-blue-100"
+                >
+                  <span className="absolute inset-0 animate-pulse rounded-xl bg-blue-400/10 motion-reduce:animate-none" />
+                  <ShieldCheck className="relative size-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
+                    Proceso de firma electrónica
+                  </p>
+                  <h2
+                    id="guided-signing-security-title"
+                    className="mt-1 font-heading text-lg font-semibold"
+                  >
+                    Está firmando un documento digital
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-blue-900/72 dark:text-blue-50/72">
+                    La identidad declarada, la firma y el documento se revisan
+                    juntos antes del envío. El avance se guarda como borrador
+                    privado; el consentimiento solo se envía después de la
+                    aceptación final.
+                  </p>
+                </div>
+              </aside>
+            ) : null}
 
             <footer
               ref={actionFooterRef}

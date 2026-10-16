@@ -621,6 +621,24 @@ describe("PatientConsentUploadWizard", () => {
         />,
       );
 
+      const editorContent = screen.getByText(
+        "Última página · Página 2 de 2",
+      );
+      const securityBanner = screen.getByTestId(
+        "guided-signing-security-banner",
+      );
+      const actionFooter = screen.getByTestId("consent-wizard-action-footer");
+      expect(securityBanner.closest("header")).toBeNull();
+      expect(securityBanner.closest('[data-step-id="editor"]')).toBeNull();
+      expect(
+        editorContent.compareDocumentPosition(securityBanner) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        securityBanner.compareDocumentPosition(actionFooter) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+
       await user.click(
         screen.getByRole("button", { name: "Aplicar firmas y continuar" }),
       );
