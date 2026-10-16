@@ -35,6 +35,7 @@ import type {
 const INSTITUTIONS_COLLECTION = "institutions";
 const DOCTORS_COLLECTION = "doctors";
 const PATIENTS_COLLECTION = "patients";
+const INFORMED_CONSENTS_COLLECTION = "2pq-informed-consent";
 const SEQUENCES_COLLECTION = "admin_sequences";
 
 type TwoPQMutationInput = {
@@ -715,6 +716,8 @@ function toTwoPQRecord(
   if (areaKey === "cases") {
     record.linkedStudyRequestFormId =
       normalizeOptionalString(data.linkedStudyRequestFormId) ?? null;
+    record.informedConsentId =
+      normalizeOptionalString(data.informedConsentId) ?? null;
     record.should_automatically_sync_files_and_codes =
       data.should_automatically_sync_files_and_codes !== false;
   }
@@ -961,6 +964,8 @@ function buildStoredRecordDocument(nextRecord: TwoPQRecord): Record<string, unkn
   if (nextRecord.areaKey === "cases") {
     document.linkedStudyRequestFormId =
       normalizeOptionalString(nextRecord.linkedStudyRequestFormId) ?? null;
+    document.informedConsentId =
+      normalizeOptionalString(nextRecord.informedConsentId) ?? null;
   }
 
   if (nextRecord.parent_batch) {
@@ -1860,6 +1865,7 @@ export async function createTwoPQRecordForContext(
     areaKey === "sampling" ? normalizeOptionalString(payload.parent_case) : undefined;
   const writeDocument: TwoPQRecord & { batchId?: string; caseId?: string } = {
     ...document,
+    ...(areaKey === "cases" ? { informedConsentId: null } : {}),
     ...(areaKey === "cases" && studyRequestForm
       ? { linkedStudyRequestFormId: studyRequestForm.id }
       : {}),
@@ -2642,7 +2648,11 @@ export async function deleteTwoPQRecordForContext(
     }
 
     if (options.deleteLinkedSamplings) {
-      const writeCount = ownedLinkedSamplings.length + 1 + (record.parent_batch ? 1 : 0);
+      const writeCount =
+        ownedLinkedSamplings.length +
+        1 +
+        (record.parent_batch ? 1 : 0) +
+        (record.informedConsentId ? 1 : 0);
       if (writeCount > 450) {
         throw new AdminRepositoryError(
           "This case has too many linked samplings to delete in one request.",
@@ -2679,6 +2689,16 @@ export async function deleteTwoPQRecordForContext(
         batch.delete(getTwoPQRecordRef("sampling", linkedSampling.id));
       }
 
+      if (record.informedConsentId) {
+        batch.set(
+          adminDb
+            .collection(INFORMED_CONSENTS_COLLECTION)
+            .doc(record.informedConsentId),
+          { caseId: null, updatedAt: now },
+          { merge: true },
+        );
+      }
+
       batch.delete(getTwoPQRecordRef(areaKey, recordId));
       await batch.commit();
 
@@ -2705,6 +2725,16 @@ export async function deleteTwoPQRecordForContext(
             updatedByEmail: context.email,
           },
           { merge: true }
+        );
+      }
+
+      if (record.informedConsentId) {
+        transaction.set(
+          adminDb
+            .collection(INFORMED_CONSENTS_COLLECTION)
+            .doc(record.informedConsentId),
+          { caseId: null, updatedAt: now },
+          { merge: true },
         );
       }
 

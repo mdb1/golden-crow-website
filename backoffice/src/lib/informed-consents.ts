@@ -11,10 +11,37 @@ export interface InformedConsentRecord {
   doctorId: string;
   patientId: string;
   patientName: string;
+  caseId: string | null;
   file: InformedConsentFileSummary;
   createdAt: string;
   updatedAt: string;
   createdByEmail: string;
+}
+
+export interface InformedConsentCaseOption {
+  id: string;
+  institutionId: string;
+  doctorId: string;
+  patientId: string;
+  patientName: string;
+  caseLabel: string;
+  caseStatus?: string;
+  threeLetterCode?: string;
+  informedConsentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InformedConsentDetailPayload {
+  record: InformedConsentRecord;
+  linkedCase: InformedConsentCaseOption | null;
+  caseOptions: InformedConsentCaseOption[];
+}
+
+export interface CaseConsentTraceabilityPayload {
+  case: InformedConsentCaseOption;
+  linkedConsent: InformedConsentRecord | null;
+  consentOptions: InformedConsentRecord[];
 }
 
 export interface InformedConsentPatientOption {

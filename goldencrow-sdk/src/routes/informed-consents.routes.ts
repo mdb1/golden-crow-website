@@ -6,10 +6,13 @@ import {
   INFORMED_CONSENT_FILE_MAX_BYTES,
   createInformedConsentForContext,
   deleteInformedConsentForContext,
+  getCaseConsentTraceabilityForContext,
+  getInformedConsentDetailForContext,
   getInformedConsentFileForContext,
   listInformedConsentPatientsForContext,
   listInformedConsentsForContext,
   sendInformedConsentEmailForContext,
+  setInformedConsentCaseForContext,
 } from "../repositories/informed-consents.repository.js";
 
 const CursorSchema = z.object({ cursor: z.string().min(1).optional() });
@@ -109,6 +112,74 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
         return await sendInformedConsentEmailForContext(
           request.adminContext,
           request.body,
+        );
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/2pq/cases/:caseId/informed-consent",
+    {
+      schema: {
+        params: z.object({ caseId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        return await getCaseConsentTraceabilityForContext(
+          request.adminContext,
+          request.params.caseId,
+        );
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/2pq/informed-consents/:consentId",
+    {
+      schema: {
+        params: z.object({ consentId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        return await getInformedConsentDetailForContext(
+          request.adminContext,
+          request.params.consentId,
+        );
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
+  f.patch(
+    "/2pq/informed-consents/:consentId/case",
+    {
+      schema: {
+        params: z.object({ consentId: z.string().min(1) }),
+        body: z.object({ caseId: z.string().min(1).nullable() }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        return await setInformedConsentCaseForContext(
+          request.adminContext,
+          request.params.consentId,
+          request.body.caseId,
         );
       } catch (error) {
         return sendError(reply, error);

@@ -31,6 +31,7 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { OptionSelectField } from "@/components/constrained-fields";
 import { FormRequestedWarningDialog } from "@/components/form-requested-warning-dialog";
+import { CaseConsentTraceabilityCard } from "@/components/consent-case-traceability";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { TwoPQOrphanedAssignmentWarning } from "@/components/two-pq-orphaned-assignment-warning";
 import {
@@ -88,6 +89,7 @@ import {
   translateTwoPQAreaConfig,
 } from "@/lib/two-pq-areas";
 import { appText } from "@/lib/language";
+import type { CaseConsentTraceabilityPayload } from "@/lib/informed-consents";
 import {
   TWO_PQ_REPORT_OWNER_EMAIL,
   TWO_PQ_REPORT_OWNER_ID,
@@ -974,6 +976,7 @@ export function TwoPQRecordWorkbench({
   patients,
   preloadedBatch,
   preloadedCase,
+  initialConsentTraceability,
   mode = "edit",
 }: {
   areaKey: TwoPQAreaKey;
@@ -988,6 +991,7 @@ export function TwoPQRecordWorkbench({
   }>;
   preloadedBatch?: TwoPQListItem | null;
   preloadedCase?: TwoPQListItem | null;
+  initialConsentTraceability?: CaseConsentTraceabilityPayload | null;
   mode?: "create" | "edit";
 }) {
   const rawArea = getTwoPQAreaConfig(areaKey)!;
@@ -6318,6 +6322,17 @@ export function TwoPQRecordWorkbench({
             mode === "create" ? "grid gap-4 pb-40 md:pb-44" : "grid gap-4"
           }
         >
+          {areaKey === "cases" &&
+          mode !== "create" &&
+          initialConsentTraceability ? (
+            <CaseConsentTraceabilityCard
+              initialPayload={initialConsentTraceability}
+              canManage={
+                canUseCaseAdministrativeControls &&
+                Boolean(detail?.record.canUpdate)
+              }
+            />
+          ) : null}
           {areaKey === "sequencing" ||
           areaKey === "cases" ||
           areaKey === "sampling" ? (

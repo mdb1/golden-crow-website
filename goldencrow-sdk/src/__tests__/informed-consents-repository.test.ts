@@ -20,6 +20,12 @@ const patientDocs: MockDoc[] = [
   patientDoc("PAT-00003", "INST-00002", "DOC-00001"),
 ];
 
+const caseDocs: MockDoc[] = [
+  caseDoc("CASE-00001", "INST-00001", "DOC-00001", "PAT-00001"),
+  caseDoc("CASE-00002", "INST-00001", "DOC-00002", "PAT-00002"),
+  caseDoc("CASE-00003", "INST-00001", "DOC-00001", "PAT-00001"),
+];
+
 function consentDoc(
   id: string,
   institutionId: string,
@@ -33,6 +39,7 @@ function consentDoc(
       institutionId,
       doctorId,
       patientId,
+      caseId: null,
       file: {
         name: `${id}.pdf`,
         type: "application/pdf",
@@ -66,9 +73,33 @@ function patientDoc(
   };
 }
 
+function caseDoc(
+  id: string,
+  institutionId: string,
+  doctorId: string,
+  patientId: string,
+): MockDoc {
+  return {
+    id,
+    data: {
+      collectionKey: "2pq_case",
+      areaKey: "cases",
+      institutionId,
+      doctorId,
+      patientId,
+      informedConsentId: null,
+      caseLabel: id,
+      caseStatus: "created",
+      createdAt: "2026-08-12T12:00:00.000Z",
+      updatedAt: "2026-08-12T12:00:00.000Z",
+    },
+  };
+}
+
 function docsForCollection(name: string) {
   if (name === "2pq-informed-consent") return consentDocs;
   if (name === "patients") return patientDocs;
+  if (name === "2pq_case") return caseDocs;
   return [];
 }
 
@@ -77,6 +108,7 @@ const failOrderedCollections = new Set<string>();
 const setDocMock = jest.fn(async (_document: unknown) => undefined);
 const deleteDocMock = jest.fn(async () => undefined);
 const transactionSetMock = jest.fn();
+const transactionDeleteMock = jest.fn();
 const sendGmailMessageMock = jest.fn(async (_message: unknown) => undefined);
 
 class QueryStub {
@@ -134,6 +166,7 @@ class QueryStub {
   doc(id: string) {
     const doc = this.docs.find((candidate) => candidate.id === id);
     return {
+      collectionName: this.collectionName,
       id,
       get: jest.fn(async () => ({
         id,
@@ -162,10 +195,27 @@ jest.mock("../config/firebase.js", () => ({
     runTransaction: jest.fn(
       async (callback: (transaction: unknown) => unknown) =>
         callback({
-          get: jest.fn(async () => ({
-            data: () => ({ current: 3 }),
-          })),
+          get: jest.fn(
+            async (reference: { collectionName?: string; id?: string }) => {
+              if (reference.collectionName === "admin_sequences") {
+                return {
+                  id: reference.id,
+                  exists: true,
+                  data: () => ({ current: 3 }),
+                };
+              }
+              const doc = docsForCollection(reference.collectionName ?? "").find(
+                (candidate) => candidate.id === reference.id,
+              );
+              return {
+                id: reference.id,
+                exists: Boolean(doc),
+                data: () => doc?.data,
+              };
+            },
+          ),
           set: transactionSetMock,
+          delete: transactionDeleteMock,
         }),
     ),
   })),
@@ -194,7 +244,14 @@ describe("informed consent repository scoping", () => {
     setDocMock.mockClear();
     deleteDocMock.mockClear();
     transactionSetMock.mockClear();
+    transactionDeleteMock.mockClear();
     sendGmailMessageMock.mockClear();
+    consentDocs.forEach((doc) => {
+      doc.data.caseId = null;
+    });
+    caseDocs.forEach((doc) => {
+      doc.data.informedConsentId = null;
+    });
   });
 
   it("returns global, institution, and doctor lists within their exact scope", async () => {
@@ -336,6 +393,7 @@ describe("informed consent repository scoping", () => {
     expect(record.id).toBe("CONS-00004");
     expect(setDocMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        caseId: null,
         file: {
           name: "consent.pdf",
           type: "application/pdf",
@@ -357,7 +415,7 @@ describe("informed consent repository scoping", () => {
       ),
     ).resolves.toEqual({ success: true, consentId: "CONS-00001" });
 
-    expect(deleteDocMock).toHaveBeenCalledTimes(1);
+    expect(transactionDeleteMock).toHaveBeenCalledTimes(1);
   });
 
   it("rejects consent deletion by non-global roles", async () => {
@@ -391,6 +449,87 @@ describe("informed consent repository scoping", () => {
       ),
     ).rejects.toMatchObject({ message: "Consent not found.", statusCode: 404 });
     expect(deleteDocMock).not.toHaveBeenCalled();
+  });
+
+  it("links a consent and matching 2PQ case with reciprocal transaction writes", async () => {
+    const { setInformedConsentCaseForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await setInformedConsentCaseForContext(
+      { ...baseContext, role: "2pq_admin" },
+      "CONS-00001",
+      "CASE-00001",
+    );
+
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collectionName: "2pq-informed-consent",
+        id: "CONS-00001",
+      }),
+      expect.objectContaining({ caseId: "CASE-00001" }),
+      { merge: true },
+    );
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collectionName: "2pq_case",
+        id: "CASE-00001",
+      }),
+      expect.objectContaining({ informedConsentId: "CONS-00001" }),
+      { merge: true },
+    );
+  });
+
+  it("rejects linking a consent to a case for another patient or doctor", async () => {
+    const { setInformedConsentCaseForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      setInformedConsentCaseForContext(
+        { ...baseContext, role: "2pq_admin" },
+        "CONS-00001",
+        "CASE-00002",
+      ),
+    ).rejects.toMatchObject({
+      message:
+        "Consent and 2PQ case must belong to the same patient, institution, and doctor.",
+      statusCode: 409,
+    });
+  });
+
+  it("atomically clears both displaced links when a consent changes cases", async () => {
+    consentDocs[2]!.data.caseId = "CASE-00003";
+    consentDocs[0]!.data.caseId = "CASE-00001";
+    caseDocs[0]!.data.informedConsentId = "CONS-00003";
+    caseDocs[2]!.data.informedConsentId = "CONS-00001";
+    const { setInformedConsentCaseForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await setInformedConsentCaseForContext(
+      { ...baseContext, role: "full_admin" },
+      "CONS-00001",
+      "CASE-00001",
+    );
+
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "CASE-00003" }),
+      expect.objectContaining({ informedConsentId: null }),
+      { merge: true },
+    );
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "CONS-00003" }),
+      expect.objectContaining({ caseId: null }),
+      { merge: true },
+    );
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "CONS-00001" }),
+      expect.objectContaining({ caseId: "CASE-00001" }),
+      { merge: true },
+    );
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "CASE-00001" }),
+      expect.objectContaining({ informedConsentId: "CONS-00001" }),
+      { merge: true },
+    );
   });
 
   it("sends a consent request email to a scoped patient", async () => {

@@ -5,6 +5,7 @@ import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQRecordWorkbench } from "@/components/two-pq-record-workbench";
 import { Button } from "@/components/ui/button";
+import type { CaseConsentTraceabilityPayload } from "@/lib/informed-consents";
 import { appText } from "@/lib/language";
 import type { TwoPQDetailRecord } from "@/lib/two-pq-areas";
 import {
@@ -41,6 +42,17 @@ export default async function TwoPQAreaDetailPage({
   }
 
   const lookupData = await getTwoPQLookupData();
+  let consentTraceability: CaseConsentTraceabilityPayload | null = null;
+  if (area.key === "cases") {
+    try {
+      consentTraceability =
+        await sdkFetchServer<CaseConsentTraceabilityPayload>(
+          `/2pq/cases/${encodeURIComponent(recordId)}/informed-consent`,
+        );
+    } catch {
+      consentTraceability = null;
+    }
+  }
   const subtitle = getTwoPQRecordSubtitle(area, detail.record);
 
   return (
@@ -69,6 +81,7 @@ export default async function TwoPQAreaDetailPage({
           institutions={lookupData.institutions}
           doctors={lookupData.doctors}
           patients={lookupData.patients}
+          initialConsentTraceability={consentTraceability}
         />
       </HeaderUnclutterScope>
     </div>

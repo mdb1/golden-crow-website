@@ -1,8 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ExternalLink, FileCheck2, FileUp, Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  CalendarDays,
+  ExternalLink,
+  Eye,
+  FileCheck2,
+  FileUp,
+  Link2,
+  Loader2,
+  Search,
+} from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
@@ -12,6 +21,15 @@ import {
 } from "@/components/single-file-upload";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { TwoPQRecordDeleteDialog } from "@/components/two-pq-record-delete-dialog";
 import {
   Select,
@@ -97,6 +115,37 @@ export function InformedConsentsWorkbench({
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingPatients, setLoadingPatients] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [linkFilter, setLinkFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const filteredRecords = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return records.filter((record) => {
+      const matchesSearch =
+        !query ||
+        [
+          record.id,
+          record.file.name,
+          record.patientName,
+          record.patientId,
+          record.createdByEmail,
+          record.caseId,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      const matchesLink =
+        linkFilter === "all" ||
+        (linkFilter === "linked" ? Boolean(record.caseId) : !record.caseId);
+      const createdDate = record.createdAt.slice(0, 10);
+      const matchesFrom = !dateFrom || createdDate >= dateFrom;
+      const matchesTo = !dateTo || createdDate <= dateTo;
+      return matchesSearch && matchesLink && matchesFrom && matchesTo;
+    });
+  }, [dateFrom, dateTo, linkFilter, records, searchQuery]);
 
   function reportError(error: unknown, fallback: string) {
     setToast({
@@ -284,14 +333,160 @@ export function InformedConsentsWorkbench({
 
       <section>
         {!isPatientPortal ? (
-          <h2 className="font-heading text-lg font-semibold">
-            Consentimientos 2PQ
-          </h2>
+          <>
+            <h2 className="font-heading text-lg font-semibold">
+              Consentimientos 2PQ
+            </h2>
+            <div className="mt-4 grid gap-3 rounded-xl border border-border/70 bg-background/70 p-4 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1fr)_12rem_11rem_11rem_auto]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Buscar archivo, paciente, caso o ID"
+                  className="pl-9"
+                />
+              </div>
+              <Select value={linkFilter} onValueChange={setLinkFilter}>
+                <SelectTrigger aria-label="Filtrar por vínculo">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los vínculos</SelectItem>
+                  <SelectItem value="linked">Con caso vinculado</SelectItem>
+                  <SelectItem value="unlinked">Sin caso vinculado</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="date"
+                  aria-label="Fecha desde"
+                  value={dateFrom}
+                  onChange={(event) => setDateFrom(event.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="date"
+                  aria-label="Fecha hasta"
+                  value={dateTo}
+                  onChange={(event) => setDateTo(event.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setSearchQuery("");
+                  setLinkFilter("all");
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+              >
+                Limpiar
+              </Button>
+            </div>
+          </>
         ) : null}
         {records.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
             {t("No consent files have been uploaded.")}
           </p>
+        ) : !isPatientPortal && filteredRecords.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            No hay consentimientos que coincidan con los filtros actuales.
+          </p>
+        ) : !isPatientPortal ? (
+          <div className="mt-4 overflow-x-auto rounded-lg border border-border/70 bg-background">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Consentimiento</TableHead>
+                  <TableHead>Paciente</TableHead>
+                  <TableHead>Caso 2PQ</TableHead>
+                  <TableHead>Fecha de carga</TableHead>
+                  <TableHead>Última actualización</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRecords.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell>
+                      <div className="flex min-w-[14rem] items-start gap-3">
+                        <FileCheck2 className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+                        <div className="min-w-0">
+                          <p className="max-w-[20rem] truncate text-sm font-medium">
+                            {record.file.name}
+                          </p>
+                          <p className="mt-1 font-mono text-xs text-muted-foreground">
+                            {record.id} · {formatFileSize(record.file.size)}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm font-medium">{record.patientName}</p>
+                      <p className="mt-1 font-mono text-xs text-muted-foreground">
+                        {record.patientId}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      {record.caseId ? (
+                        <Link
+                          href={`/2pq-dashboard/cases/${encodeURIComponent(record.caseId)}`}
+                          className="inline-flex items-center gap-1 text-sm font-medium text-orange-700 hover:underline dark:text-orange-300"
+                        >
+                          <Link2 className="size-4" />
+                          {record.caseId}
+                        </Link>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">
+                          Sin vincular
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {formatDate(record.createdAt, "es-AR")}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {formatDate(record.updatedAt, "es-AR")}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex min-w-max justify-end gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link
+                            href={`/2pq-dashboard/consents/${encodeURIComponent(record.id)}`}
+                          >
+                            <Eye className="size-4" />
+                            Ver detalle
+                          </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                          <a
+                            href={`/api/sdk/2pq/informed-consents/${encodeURIComponent(record.id)}/file`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <ExternalLink className="size-4" />
+                            Archivo
+                          </a>
+                        </Button>
+                        <BackofficeConsentDeleteAction
+                          record={record}
+                          onFinished={() => void reloadRecords()}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         ) : (
           <div className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background">
             <ul className="divide-y divide-border/70">

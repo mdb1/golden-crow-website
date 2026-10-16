@@ -12,6 +12,7 @@ import {
 } from "../lib/informed-consent-email.js";
 import type {
   AdminContext,
+  InformedConsentCaseOption,
   InformedConsentFile,
   InformedConsentPatientOption,
   InformedConsentRecord,
@@ -23,6 +24,7 @@ import { normalizeRoleEmail } from "./roles.repository.js";
 const adminDb = adminDbFor("mydnamap");
 const CONSENTS_COLLECTION = "2pq-informed-consent";
 const PATIENTS_COLLECTION = "patients";
+const CASES_COLLECTION = "2pq_case";
 const SEQUENCES_COLLECTION = "admin_sequences";
 const CONSENTS_PAGE_SIZE = 20;
 export const INFORMED_CONSENT_FILE_MAX_BYTES = 750_000;
@@ -47,6 +49,7 @@ type StoredConsent = {
   institutionId: string;
   doctorId: string;
   patientId: string;
+  caseId: string | null;
   file: InformedConsentFile;
   createdAt: string;
   updatedAt: string;
@@ -113,6 +116,39 @@ function assertCanUseInformedConsents(context: AdminContext) {
   ) {
     throw new AdminRepositoryError(PUBLISHER_CONSENT_ERROR, 403);
   }
+}
+
+function isInstitutionManagerRole(role: AdminContext["role"]) {
+  return (
+    role === "institution_admin" ||
+    role === "institution_operator" ||
+    role === "institution_laboratory_staff"
+  );
+}
+
+function assertCanManageConsentTraceability(context: AdminContext) {
+  assertCanUseInformedConsents(context);
+  if (!context.canAccessBackoffice || context.role === "patient") {
+    throw new AdminRepositoryError(
+      "Only backoffice users can manage consent traceability.",
+      403,
+    );
+  }
+}
+
+function canWriteTraceabilityEntity(
+  context: AdminContext,
+  entity: { institutionId: string; doctorId: string },
+) {
+  if (isGlobalAdminRole(context.role)) return true;
+  if (isInstitutionManagerRole(context.role)) {
+    return context.institutionId === entity.institutionId;
+  }
+  return (
+    context.role === "institution_doctor" &&
+    context.institutionId === entity.institutionId &&
+    context.doctorId === entity.doctorId
+  );
 }
 
 function consentQueryForContext(context: AdminContext): Query<DocumentData> {
@@ -268,6 +304,7 @@ function parseStoredConsent(data: Record<string, unknown>): StoredConsent {
     institutionId,
     doctorId,
     patientId,
+    caseId: optionalString(data.caseId) ?? null,
     file: parseStoredFile(data.file),
     createdAt,
     updatedAt,
@@ -287,6 +324,7 @@ function toConsentRecord(
     doctorId: consent.doctorId,
     patientId: consent.patientId,
     patientName,
+    caseId: consent.caseId,
     file: {
       name: consent.file.name,
       type: consent.file.type,
@@ -482,6 +520,7 @@ export async function createInformedConsentForContext(
     institutionId: patient.institutionId,
     doctorId: patient.doctorId,
     patientId: patient.id,
+    caseId: null,
     file,
     createdAt: now,
     updatedAt: now,
@@ -489,6 +528,315 @@ export async function createInformedConsentForContext(
   };
   await adminDb.collection(CONSENTS_COLLECTION).doc(consentId).set(document);
   return toConsentRecord(consentId, document, patient.fullName);
+}
+
+function toCaseOption(
+  id: string,
+  data: Record<string, unknown>,
+  patientName: string,
+): InformedConsentCaseOption {
+  const now = new Date().toISOString();
+  return {
+    id,
+    institutionId: optionalString(data.institutionId) ?? "",
+    doctorId: optionalString(data.doctorId) ?? "",
+    patientId: optionalString(data.patientId) ?? "",
+    patientName,
+    caseLabel: optionalString(data.caseLabel) ?? id,
+    caseStatus: optionalString(data.caseStatus),
+    threeLetterCode: optionalString(data.three_letter_code),
+    informedConsentId: optionalString(data.informedConsentId) ?? null,
+    createdAt: optionalString(data.createdAt) ?? now,
+    updatedAt: optionalString(data.updatedAt) ?? now,
+  };
+}
+
+async function getConsentRecordForContext(
+  context: AdminContext,
+  consentId: string,
+) {
+  const snapshot = await adminDb
+    .collection(CONSENTS_COLLECTION)
+    .doc(consentId)
+    .get();
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError("Consent not found.", 404);
+  }
+  const consent = parseStoredConsent(
+    snapshot.data() as Record<string, unknown>,
+  );
+  const patient = await getPatient(consent.patientId);
+  if (!patient || !canAccessInformedConsentPatient(context, patient)) {
+    throw new AdminRepositoryError("You cannot view this consent.", 403);
+  }
+  return {
+    stored: consent,
+    record: toConsentRecord(consentId, consent, patient.fullName),
+    patient,
+  };
+}
+
+async function getCaseOptionForContext(
+  context: AdminContext,
+  caseId: string,
+  patientName: string,
+) {
+  const snapshot = await adminDb.collection(CASES_COLLECTION).doc(caseId).get();
+  if (!snapshot.exists) return null;
+  const option = toCaseOption(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>,
+    patientName,
+  );
+  return canAccessInformedConsentPatient(context, {
+    id: option.patientId,
+    institutionId: option.institutionId,
+    doctorId: option.doctorId,
+  })
+    ? option
+    : null;
+}
+
+async function listCaseOptionsForPatient(
+  context: AdminContext,
+  patient: PatientRecord,
+) {
+  const snapshot = await adminDb
+    .collection(CASES_COLLECTION)
+    .where("patientId", "==", patient.id)
+    .limit(CONSENTS_PAGE_SIZE)
+    .get();
+  return snapshot.docs
+    .map((doc) =>
+      toCaseOption(
+        doc.id,
+        doc.data() as Record<string, unknown>,
+        patient.fullName,
+      ),
+    )
+    .filter(
+      (record) =>
+        record.patientId === patient.id &&
+        canAccessInformedConsentPatient(context, {
+          id: record.patientId,
+          institutionId: record.institutionId,
+          doctorId: record.doctorId,
+        }),
+    )
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+export async function getInformedConsentDetailForContext(
+  context: AdminContext,
+  consentId: string,
+) {
+  assertCanManageConsentTraceability(context);
+  const { record, patient } = await getConsentRecordForContext(
+    context,
+    consentId,
+  );
+  const caseOptions = await listCaseOptionsForPatient(context, patient);
+  let linkedCase = record.caseId
+    ? caseOptions.find((candidate) => candidate.id === record.caseId) ?? null
+    : null;
+  if (!linkedCase && record.caseId) {
+    linkedCase = await getCaseOptionForContext(
+      context,
+      record.caseId,
+      patient.fullName,
+    );
+  }
+  return { record, linkedCase, caseOptions };
+}
+
+export async function getCaseConsentTraceabilityForContext(
+  context: AdminContext,
+  caseId: string,
+) {
+  assertCanManageConsentTraceability(context);
+  const caseSnapshot = await adminDb
+    .collection(CASES_COLLECTION)
+    .doc(caseId)
+    .get();
+  if (!caseSnapshot.exists) {
+    throw new AdminRepositoryError("2PQ case not found.", 404);
+  }
+  const caseData = caseSnapshot.data() as Record<string, unknown>;
+  const patientId = optionalString(caseData.patientId);
+  if (!patientId) {
+    throw new AdminRepositoryError("The 2PQ case has no patient.", 409);
+  }
+  const patient = await getPatient(patientId);
+  if (!patient || !canAccessInformedConsentPatient(context, patient)) {
+    throw new AdminRepositoryError("You cannot view this 2PQ case.", 403);
+  }
+  const caseOption = toCaseOption(caseId, caseData, patient.fullName);
+
+  const consentSnapshot = await adminDb
+    .collection(CONSENTS_COLLECTION)
+    .where("patientId", "==", patient.id)
+    .limit(CONSENTS_PAGE_SIZE)
+    .get();
+  const consentOptions = consentSnapshot.docs
+    .map((doc) => ({
+      id: doc.id,
+      stored: parseStoredConsent(doc.data() as Record<string, unknown>),
+    }))
+    .filter(({ stored }) => stored.patientId === patient.id)
+    .map(({ id, stored }) =>
+      toConsentRecord(id, stored, patient.fullName),
+    )
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  let linkedConsent = caseOption.informedConsentId
+    ? consentOptions.find(
+        (candidate) => candidate.id === caseOption.informedConsentId,
+      ) ?? null
+    : null;
+  if (!linkedConsent && caseOption.informedConsentId) {
+    try {
+      linkedConsent = (
+        await getConsentRecordForContext(
+          context,
+          caseOption.informedConsentId,
+        )
+      ).record;
+    } catch (error) {
+      if (!(error instanceof AdminRepositoryError) || error.statusCode !== 404) {
+        throw error;
+      }
+    }
+  }
+  return { case: caseOption, linkedConsent, consentOptions };
+}
+
+export async function setInformedConsentCaseForContext(
+  context: AdminContext,
+  consentId: string,
+  caseId: string | null,
+) {
+  assertCanManageConsentTraceability(context);
+  const normalizedCaseId = caseId?.trim() || null;
+  const consentRef = adminDb.collection(CONSENTS_COLLECTION).doc(consentId);
+  const targetCaseRef = normalizedCaseId
+    ? adminDb.collection(CASES_COLLECTION).doc(normalizedCaseId)
+    : null;
+  const now = new Date().toISOString();
+
+  await adminDb.runTransaction(async (transaction) => {
+    const consentSnapshot = await transaction.get(consentRef);
+    if (!consentSnapshot.exists) {
+      throw new AdminRepositoryError("Consent not found.", 404);
+    }
+    const consent = parseStoredConsent(
+      consentSnapshot.data() as Record<string, unknown>,
+    );
+    if (!canWriteTraceabilityEntity(context, consent)) {
+      throw new AdminRepositoryError(
+        "You cannot change this consent link.",
+        403,
+      );
+    }
+
+    const targetCaseSnapshot = targetCaseRef
+      ? await transaction.get(targetCaseRef)
+      : null;
+    if (targetCaseRef && !targetCaseSnapshot?.exists) {
+      throw new AdminRepositoryError("2PQ case not found.", 404);
+    }
+    const targetCaseData = targetCaseSnapshot?.exists
+      ? (targetCaseSnapshot.data() as Record<string, unknown>)
+      : null;
+    const targetCase = targetCaseData
+      ? toCaseOption(normalizedCaseId!, targetCaseData, consent.patientId)
+      : null;
+    if (targetCase) {
+      if (!canWriteTraceabilityEntity(context, targetCase)) {
+        throw new AdminRepositoryError(
+          "You cannot change this 2PQ case link.",
+          403,
+        );
+      }
+      if (
+        targetCase.patientId !== consent.patientId ||
+        targetCase.institutionId !== consent.institutionId ||
+        targetCase.doctorId !== consent.doctorId
+      ) {
+        throw new AdminRepositoryError(
+          "Consent and 2PQ case must belong to the same patient, institution, and doctor.",
+          409,
+        );
+      }
+    }
+
+    const previousCaseRef =
+      consent.caseId && consent.caseId !== normalizedCaseId
+        ? adminDb.collection(CASES_COLLECTION).doc(consent.caseId)
+        : null;
+    const displacedConsentId =
+      targetCase?.informedConsentId &&
+      targetCase.informedConsentId !== consentId
+        ? targetCase.informedConsentId
+        : null;
+    const displacedConsentRef = displacedConsentId
+      ? adminDb.collection(CONSENTS_COLLECTION).doc(displacedConsentId)
+      : null;
+    const previousCaseSnapshot = previousCaseRef
+      ? await transaction.get(previousCaseRef)
+      : null;
+    const displacedConsentSnapshot = displacedConsentRef
+      ? await transaction.get(displacedConsentRef)
+      : null;
+
+    if (previousCaseRef && previousCaseSnapshot?.exists) {
+      const previousCaseData =
+        previousCaseSnapshot.data() as Record<string, unknown>;
+      if (optionalString(previousCaseData.informedConsentId) === consentId) {
+        transaction.set(
+          previousCaseRef,
+          {
+            informedConsentId: null,
+            updatedAt: now,
+            last_updated_date: now,
+            updatedByEmail: context.email,
+          },
+          { merge: true },
+        );
+      }
+    }
+
+    if (displacedConsentRef && displacedConsentSnapshot?.exists) {
+      const displacedConsent = parseStoredConsent(
+        displacedConsentSnapshot.data() as Record<string, unknown>,
+      );
+      if (displacedConsent.caseId === normalizedCaseId) {
+        transaction.set(
+          displacedConsentRef,
+          { caseId: null, updatedAt: now },
+          { merge: true },
+        );
+      }
+    }
+
+    transaction.set(
+      consentRef,
+      { caseId: normalizedCaseId, updatedAt: now },
+      { merge: true },
+    );
+    if (targetCaseRef) {
+      transaction.set(
+        targetCaseRef,
+        {
+          informedConsentId: consentId,
+          updatedAt: now,
+          last_updated_date: now,
+          updatedByEmail: context.email,
+        },
+        { merge: true },
+      );
+    }
+  });
+
+  return getInformedConsentDetailForContext(context, consentId);
 }
 
 export async function sendInformedConsentEmailForContext(
@@ -598,11 +946,38 @@ export async function deleteInformedConsentForContext(
   }
 
   const reference = adminDb.collection(CONSENTS_COLLECTION).doc(consentId);
-  const snapshot = await reference.get();
-  if (!snapshot.exists) {
-    throw new AdminRepositoryError("Consent not found.", 404);
-  }
-
-  await reference.delete();
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("Consent not found.", 404);
+    }
+    const consent = parseStoredConsent(
+      snapshot.data() as Record<string, unknown>,
+    );
+    const caseReference = consent.caseId
+      ? adminDb.collection(CASES_COLLECTION).doc(consent.caseId)
+      : null;
+    const caseSnapshot = caseReference
+      ? await transaction.get(caseReference)
+      : null;
+    if (
+      caseReference &&
+      caseSnapshot?.exists &&
+      optionalString(caseSnapshot.data()?.informedConsentId) === consentId
+    ) {
+      const now = new Date().toISOString();
+      transaction.set(
+        caseReference,
+        {
+          informedConsentId: null,
+          updatedAt: now,
+          last_updated_date: now,
+          updatedByEmail: context.email,
+        },
+        { merge: true },
+      );
+    }
+    transaction.delete(reference);
+  });
   return { success: true as const, consentId };
 }

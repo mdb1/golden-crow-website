@@ -221,10 +221,25 @@ export interface InformedConsentRecord {
   doctorId: string;
   patientId: string;
   patientName: string;
+  caseId: string | null;
   file: InformedConsentFileSummary;
   createdAt: string;
   updatedAt: string;
   createdByEmail: string;
+}
+
+export interface InformedConsentCaseOption {
+  id: string;
+  institutionId: string;
+  doctorId: string;
+  patientId: string;
+  patientName: string;
+  caseLabel: string;
+  caseStatus?: string;
+  threeLetterCode?: string;
+  informedConsentId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface InformedConsentPatientOption {
@@ -352,6 +367,7 @@ export interface TwoPQRecord {
   institutionId: string;
   doctorId: string;
   patientId?: string;
+  informedConsentId?: string | null;
   linkedStudyRequestFormId?: string | null;
   parent_batch?: string;
   parent_case?: string;

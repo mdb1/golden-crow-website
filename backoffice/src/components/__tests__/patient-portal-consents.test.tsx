@@ -12,6 +12,7 @@ const consentRecord = {
   doctorId: "DOC-00001",
   patientId: "PAT-00001",
   patientName: "Patient One",
+  caseId: null,
   file: {
     name: "consent.pdf",
     type: "application/pdf",
