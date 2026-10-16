@@ -1,5 +1,6 @@
 import {
   FieldPath,
+  FieldValue,
   type DocumentData,
   type Query,
 } from "firebase-admin/firestore";
@@ -33,6 +34,11 @@ const CASES_COLLECTION = "2pq_case";
 const SEQUENCES_COLLECTION = "admin_sequences";
 const CONSENTS_PAGE_SIZE = 20;
 export const INFORMED_CONSENT_FILE_MAX_BYTES = 750_000;
+// This version/text pair is an immutable audit snapshot. Introduce a new
+// version instead of editing it when the displayed legal statement changes.
+export const INFORMED_CONSENT_SIGNATURE_ATTESTATION_STATEMENT_VERSION = "es-v1";
+export const INFORMED_CONSENT_SIGNATURE_ATTESTATION_STATEMENT =
+  "Declaro, bajo mi responsabilidad, que soy la persona a quien se realizará este estudio, que la firma incorporada en el documento me pertenece y expresa mi voluntad, y que esta aceptación constituye una firma electrónica vinculante del consentimiento informado.";
 const CONSENT_EMAIL_SENDER_EMAIL = "dopazoh+admin@gmail.com";
 const PUBLISHER_CONSENT_ERROR =
   "Discover publishers cannot access informed consents.";
@@ -59,6 +65,20 @@ type StoredConsent = {
   createdAt: string;
   updatedAt: string;
   createdByEmail: string;
+};
+
+type ConsentWrite = StoredConsent & {
+  signatureAttestation?: {
+    accepted: true;
+    acceptedAt: FieldValue;
+    patientId: string;
+    submittedByEmail: string;
+    submittedByUid: string;
+    submittedByRole: AdminContext["role"];
+    surface: "patient_portal" | "backoffice";
+    statementVersion: string;
+    statement: string;
+  };
 };
 
 function optionalString(value: unknown) {
@@ -642,6 +662,7 @@ export async function createInformedConsentForContext(
     patientId?: string;
     caseId?: string;
     flowMode?: "guided" | "direct";
+    signatureAttestationAccepted?: boolean;
     savedSignature?: string;
     file: InformedConsentFile;
   },
@@ -657,6 +678,16 @@ export async function createInformedConsentForContext(
   if (payload.flowMode !== "guided" && payload.savedSignature) {
     throw new AdminRepositoryError(
       "Only guided consent uploads may save a patient signature.",
+      400,
+    );
+  }
+  if (
+    payload.signatureAttestationAccepted !== undefined &&
+    (payload.signatureAttestationAccepted !== true ||
+      payload.flowMode !== "guided")
+  ) {
+    throw new AdminRepositoryError(
+      "Only guided consent uploads may include an accepted signature attestation.",
       400,
     );
   }
@@ -714,7 +745,7 @@ export async function createInformedConsentForContext(
   const file = validateFile(payload.file);
   const consentId = await nextConsentId();
   const now = new Date().toISOString();
-  const document: StoredConsent = {
+  const document: ConsentWrite = {
     collectionKey: "2pq-informed-consent",
     institutionId: patient.institutionId,
     doctorId: patient.doctorId,
@@ -724,6 +755,23 @@ export async function createInformedConsentForContext(
     createdAt: now,
     updatedAt: now,
     createdByEmail: context.email,
+    ...(payload.signatureAttestationAccepted
+      ? {
+          signatureAttestation: {
+            accepted: true,
+            acceptedAt: FieldValue.serverTimestamp(),
+            patientId: patient.id,
+            submittedByEmail: normalizeRoleEmail(context.email),
+            submittedByUid: context.uid,
+            submittedByRole: context.role,
+            surface:
+              context.role === "patient" ? "patient_portal" : "backoffice",
+            statementVersion:
+              INFORMED_CONSENT_SIGNATURE_ATTESTATION_STATEMENT_VERSION,
+            statement: INFORMED_CONSENT_SIGNATURE_ATTESTATION_STATEMENT,
+          },
+        }
+      : {}),
   };
 
   const consentRef = adminDb.collection(CONSENTS_COLLECTION).doc(consentId);

@@ -109,9 +109,7 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
           request.adminContext,
           request.query.patientId,
         );
-        return reply
-          .header("Cache-Control", "private, no-store")
-          .send(result);
+        return reply.header("Cache-Control", "private, no-store").send(result);
       } catch (error) {
         return sendError(reply, error);
       }
@@ -128,6 +126,7 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
             patientId: z.string().min(1).optional(),
             caseId: z.string().min(1).optional(),
             flowMode: z.enum(["guided", "direct"]).optional(),
+            signatureAttestationAccepted: z.literal(true).optional(),
             savedSignature: z
               .string()
               .min(1)
@@ -148,6 +147,17 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
                 code: z.ZodIssueCode.custom,
                 path: ["savedSignature"],
                 message: "Only guided uploads may include a saved signature.",
+              });
+            }
+            if (
+              body.flowMode !== "guided" &&
+              body.signatureAttestationAccepted
+            ) {
+              context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["signatureAttestationAccepted"],
+                message:
+                  "Only guided uploads may include a signature attestation.",
               });
             }
           }),

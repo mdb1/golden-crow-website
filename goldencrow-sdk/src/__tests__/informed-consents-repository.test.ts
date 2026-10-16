@@ -192,9 +192,14 @@ class QueryStub {
   }
 }
 
+const mockServerTimestamp = { __type: "server_timestamp" };
+
 jest.mock("firebase-admin/firestore", () => ({
   FieldPath: {
     documentId: () => ({ __fieldPath: "__name__" }),
+  },
+  FieldValue: {
+    serverTimestamp: () => mockServerTimestamp,
   },
 }));
 
@@ -605,6 +610,148 @@ describe("informed consent repository scoping", () => {
       }),
       expect.objectContaining({ patientId: "PAT-00001" }),
     );
+    const consentWrite = transactionSetMock.mock.calls.find(
+      ([reference]) => reference.collectionName === "2pq-informed-consent",
+    )?.[1] as Record<string, unknown>;
+    expect(consentWrite).not.toHaveProperty("signatureAttestation");
+    expect(setDocMock).not.toHaveBeenCalled();
+  });
+
+  it("persists server-authored signature attestation evidence for a guided backoffice upload", async () => {
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await createInformedConsentForContext(
+      {
+        ...baseContext,
+        email: "  OPERATOR@EXAMPLE.COM ",
+        role: "full_admin",
+      },
+      {
+        patientId: "PAT-00001",
+        flowMode: "guided",
+        signatureAttestationAccepted: true,
+        savedSignature: SAVED_SIGNATURE,
+        file: {
+          name: "consent.pdf",
+          type: "application/pdf",
+          size: 1,
+          content: "data:application/pdf;base64,eA==",
+        },
+      },
+    );
+
+    const consentWrite = transactionSetMock.mock.calls.find(
+      ([reference]) => reference.collectionName === "2pq-informed-consent",
+    )?.[1] as Record<string, unknown>;
+    expect(consentWrite).toMatchObject({
+      patientId: "PAT-00001",
+      signatureAttestation: {
+        accepted: true,
+        acceptedAt: mockServerTimestamp,
+        patientId: "PAT-00001",
+        submittedByEmail: "operator@example.com",
+        submittedByUid: baseContext.uid,
+        submittedByRole: "full_admin",
+        surface: "backoffice",
+        statementVersion: "es-v1",
+        statement:
+          "Declaro, bajo mi responsabilidad, que soy la persona a quien se realizará este estudio, que la firma incorporada en el documento me pertenece y expresa mi voluntad, y que esta aceptación constituye una firma electrónica vinculante del consentimiento informado.",
+      },
+    });
+  });
+
+  it("records the patient portal as the attestation surface for a patient upload", async () => {
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await createInformedConsentForContext(
+      {
+        ...baseContext,
+        email: "PATIENT@EXAMPLE.COM",
+        role: "patient",
+        patientId: "PAT-00001",
+        canAccessBackoffice: false,
+        canAccessPatientPortal: true,
+      },
+      {
+        flowMode: "guided",
+        signatureAttestationAccepted: true,
+        savedSignature: SAVED_SIGNATURE,
+        file: {
+          name: "consent.pdf",
+          type: "application/pdf",
+          size: 1,
+          content: "data:application/pdf;base64,eA==",
+        },
+      },
+    );
+
+    const consentWrite = transactionSetMock.mock.calls.find(
+      ([reference]) => reference.collectionName === "2pq-informed-consent",
+    )?.[1] as Record<string, unknown>;
+    expect(consentWrite).toMatchObject({
+      signatureAttestation: {
+        patientId: "PAT-00001",
+        submittedByEmail: "patient@example.com",
+        submittedByUid: baseContext.uid,
+        submittedByRole: "patient",
+        surface: "patient_portal",
+      },
+    });
+  });
+
+  it.each([
+    ["a direct upload", { flowMode: "direct" as const }],
+    ["an unclassified upload", {}],
+  ])("rejects signature attestation on %s", async (_, uploadFields) => {
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      createInformedConsentForContext(
+        { ...baseContext, role: "full_admin" },
+        {
+          patientId: "PAT-00001",
+          ...uploadFields,
+          signatureAttestationAccepted: true,
+          file: {
+            name: "consent.pdf",
+            type: "application/pdf",
+            size: 1,
+            content: "data:application/pdf;base64,eA==",
+          },
+        },
+      ),
+    ).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(transactionSetMock).not.toHaveBeenCalled();
+    expect(setDocMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a false signature attestation defensively", async () => {
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      createInformedConsentForContext(
+        { ...baseContext, role: "full_admin" },
+        {
+          patientId: "PAT-00001",
+          flowMode: "guided",
+          signatureAttestationAccepted: false,
+          savedSignature: SAVED_SIGNATURE,
+          file: {
+            name: "consent.pdf",
+            type: "application/pdf",
+            size: 1,
+            content: "data:application/pdf;base64,eA==",
+          },
+        },
+      ),
+    ).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(transactionSetMock).not.toHaveBeenCalled();
     expect(setDocMock).not.toHaveBeenCalled();
   });
 

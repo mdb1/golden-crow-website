@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 export interface ActionToastState {
   id: number;
   tone: "success" | "error";
+  title?: string;
   message: string;
   notice?: string;
   details?: string;
@@ -78,6 +79,9 @@ export function ActionToast({
     <>
       <div className="pointer-events-none fixed right-4 top-[calc(var(--app-header-height)+1.5rem)] z-[80] w-[min(26rem,calc(100vw-2rem))]">
         <div
+          role={toast.tone === "error" ? "alert" : "status"}
+          aria-live={toast.tone === "error" ? "assertive" : "polite"}
+          aria-atomic="true"
           className={cn(
             "pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_48px_rgba(15,23,42,0.18)] backdrop-blur-sm",
             toast.tone === "success"
@@ -101,7 +105,8 @@ export function ActionToast({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">
-              {toast.tone === "success" ? t("Saved") : t("Action failed")}
+              {toast.title ??
+                (toast.tone === "success" ? t("Saved") : t("Action failed"))}
             </p>
             <p className="mt-0.5 text-sm opacity-90">{toast.message}</p>
             {toast.notice ? (

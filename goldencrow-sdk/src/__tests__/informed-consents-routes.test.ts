@@ -231,6 +231,7 @@ describe("POST /2pq/informed-consents", () => {
       patientId: "PAT-1",
       caseId: "CASE-1",
       flowMode: "guided",
+      signatureAttestationAccepted: true,
       savedSignature,
       file: validFile(),
     };
@@ -255,6 +256,22 @@ describe("POST /2pq/informed-consents", () => {
       { flowMode: "direct", savedSignature },
     ],
     ["an unclassified upload with a signature", { savedSignature }],
+    [
+      "a direct upload with a signature attestation",
+      { flowMode: "direct", signatureAttestationAccepted: true },
+    ],
+    [
+      "an unclassified upload with a signature attestation",
+      { signatureAttestationAccepted: true },
+    ],
+    [
+      "a guided upload with a false signature attestation",
+      {
+        flowMode: "guided",
+        savedSignature,
+        signatureAttestationAccepted: false,
+      },
+    ],
   ])("rejects %s", async (_, uploadFields) => {
     const response = await fastify.inject({
       method: "POST",
@@ -268,6 +285,44 @@ describe("POST /2pq/informed-consents", () => {
 
     expect(response.statusCode).toBe(400);
     expect(mockCreateInformedConsentForContext).not.toHaveBeenCalled();
+  });
+
+  it("drops client-authored attestation audit metadata", async () => {
+    mockCreateInformedConsentForContext.mockResolvedValue({ id: "IC-1" });
+    const payload = {
+      patientId: "PAT-1",
+      flowMode: "guided",
+      signatureAttestationAccepted: true,
+      signatureAttestation: {
+        accepted: true,
+        acceptedAt: "2000-01-01T00:00:00.000Z",
+        patientId: "PAT-OTHER",
+        submittedByEmail: "attacker@example.com",
+        surface: "patient_portal",
+        statementVersion: "attacker-version",
+        statement: "attacker statement",
+      },
+      savedSignature,
+      file: validFile(),
+    };
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/2pq/informed-consents",
+      payload,
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateInformedConsentForContext).toHaveBeenCalledWith(
+      currentContext,
+      {
+        patientId: "PAT-1",
+        flowMode: "guided",
+        signatureAttestationAccepted: true,
+        savedSignature,
+        file: validFile(),
+      },
+    );
   });
 
   it("surfaces a repository-side file type refusal as 400", async () => {
@@ -307,9 +362,10 @@ describe("GET /2pq/informed-consents/saved-signature", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ savedSignature });
     expect(response.headers["cache-control"]).toBe("private, no-store");
-    expect(
-      mockGetSavedInformedConsentSignatureForContext,
-    ).toHaveBeenCalledWith(PATIENT, undefined);
+    expect(mockGetSavedInformedConsentSignatureForContext).toHaveBeenCalledWith(
+      PATIENT,
+      undefined,
+    );
   });
 
   it("forwards one selected patientId for an authorized backoffice read", async () => {
@@ -324,9 +380,10 @@ describe("GET /2pq/informed-consents/saved-signature", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ savedSignature: null });
-    expect(
-      mockGetSavedInformedConsentSignatureForContext,
-    ).toHaveBeenCalledWith(currentContext, "PAT-1");
+    expect(mockGetSavedInformedConsentSignatureForContext).toHaveBeenCalledWith(
+      currentContext,
+      "PAT-1",
+    );
   });
 
   it("passes through an unauthorized patient target", async () => {
@@ -347,9 +404,10 @@ describe("GET /2pq/informed-consents/saved-signature", () => {
     expect(response.json()).toEqual({
       error: "Patients can only access their own saved signature.",
     });
-    expect(
-      mockGetSavedInformedConsentSignatureForContext,
-    ).toHaveBeenCalledWith(PATIENT, "PAT-OTHER");
+    expect(mockGetSavedInformedConsentSignatureForContext).toHaveBeenCalledWith(
+      PATIENT,
+      "PAT-OTHER",
+    );
   });
 
   it("rejects a blank patientId before calling the repository", async () => {

@@ -146,6 +146,15 @@ describe("PatientConsentUploadWizard", () => {
     await chooseGuidedFlow(user);
 
     expect(
+      screen.getByRole("heading", {
+        name: "Está firmando un documento digital",
+      }),
+    ).toBeVisible();
+    expect(screen.getByText("Firma electrónica")).toBeVisible();
+    expect(
+      screen.getByText("Entorno de firma electrónica iniciado."),
+    ).toBeVisible();
+    expect(
       screen.queryByRole("button", { name: "Firmar en línea" }),
     ).not.toBeInTheDocument();
     expect(
@@ -1498,8 +1507,30 @@ describe("PatientConsentUploadWizard", () => {
       await user.click(
         screen.getByRole("button", { name: "Aplicar firmas y continuar" }),
       );
+      expect(
+        screen.getByText((_, element) =>
+          Boolean(
+            element?.tagName === "P" &&
+            element.textContent?.includes(
+              "Entregue el control de este dispositivo a Bea Paciente",
+            ),
+          ),
+        ),
+      ).toBeVisible();
+      const legalAttestation = await screen.findByRole("checkbox", {
+        name: /Declaro, bajo mi responsabilidad, que soy la persona/,
+      });
+      expect(legalAttestation).toHaveAttribute("aria-required", "true");
+      expect(
+        screen.getByRole("button", {
+          name: "Acepto la realización de este estudio",
+        }),
+      ).toBeDisabled();
+      await user.click(legalAttestation);
       await user.click(
-        await screen.findByRole("button", { name: "Subir consentimiento" }),
+        screen.getByRole("button", {
+          name: "Acepto la realización de este estudio",
+        }),
       );
 
       await waitFor(() =>
@@ -1516,6 +1547,7 @@ describe("PatientConsentUploadWizard", () => {
         caseId: "CASE-BEA",
         flowMode: "guided",
         savedSignature: newPatientSignature,
+        signatureAttestationAccepted: true,
       });
       expect(String(uploadCall?.[1]?.body)).not.toContain(oldPatientSignature);
       expect(String(uploadCall?.[1]?.body)).not.toContain(oldPartnerSignature);
@@ -1593,6 +1625,10 @@ describe("PatientConsentUploadWizard", () => {
     );
 
     await chooseDirectFlow(user);
+
+    expect(
+      screen.queryByTestId("guided-signing-security-banner"),
+    ).not.toBeInTheDocument();
     expectActiveSidebarStep("Seleccionar paciente y caso 2PQ");
     expect(screen.getByText("Preparación del recorrido manual")).toBeVisible();
     expectSidebarSteps([
@@ -1654,6 +1690,11 @@ describe("PatientConsentUploadWizard", () => {
     );
     expectActiveSidebarStep("Subir el escaneo firmado");
     expect(screen.getByText("Consentimiento firmado")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", {
+        name: /Declaro, bajo mi responsabilidad, que soy la persona/,
+      }),
+    ).not.toBeInTheDocument();
 
     const directFile = new File(["signed consent"], "admin-consent.pdf", {
       type: "application/pdf",
@@ -1691,7 +1732,7 @@ describe("PatientConsentUploadWizard", () => {
     );
   });
 
-  it("sends a reused patient signature through the unchanged guided upload payload", async () => {
+  it("requires the legal attestation and celebrates before navigating after a guided upload", async () => {
     const originalFetch = global.fetch;
     const fetchTemplate = jest.fn(async () => ({
       ok: true,
@@ -1737,9 +1778,54 @@ describe("PatientConsentUploadWizard", () => {
       await user.click(
         screen.getByRole("button", { name: "Aplicar firmas y continuar" }),
       );
-      await user.click(
-        await screen.findByRole("button", { name: "Subir consentimiento" }),
+
+      const legalAttestation = await screen.findByRole("checkbox", {
+        name: /Declaro, bajo mi responsabilidad, que soy la persona/,
+      });
+      const finalAcceptance = screen.getByRole("button", {
+        name: "Acepto la realización de este estudio",
+      });
+      expect(legalAttestation).not.toBeChecked();
+      expect(legalAttestation).toHaveAttribute("aria-required", "true");
+      expect(finalAcceptance).toBeDisabled();
+      expect(
+        screen.getByText(
+          "Marque la declaración para habilitar el envío final.",
+        ),
+      ).toBeVisible();
+
+      await user.click(legalAttestation);
+      expect(finalAcceptance).toBeEnabled();
+
+      await user.click(screen.getByRole("button", { name: "Volver" }));
+      await user.click(screen.getByRole("button", { name: "Volver" }));
+      await user.click(screen.getByRole("button", { name: "Volver" }));
+      await user.type(
+        screen.getByRole("textbox", { name: "Documento del paciente" }),
+        "9",
       );
+      await user.click(
+        screen.getByRole("button", { name: "Continuar para firmar" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Continuar al editor" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Aplicar firmas y continuar" }),
+      );
+
+      const resetLegalAttestation = await screen.findByRole("checkbox", {
+        name: /Declaro, bajo mi responsabilidad, que soy la persona/,
+      });
+      expect(resetLegalAttestation).not.toBeChecked();
+      await user.click(resetLegalAttestation);
+      const resetFinalAcceptance = screen.getByRole("button", {
+        name: "Acepto la realización de este estudio",
+      });
+      act(() => {
+        resetFinalAcceptance.click();
+        resetFinalAcceptance.click();
+      });
 
       await waitFor(() =>
         expect(sdkFetch).toHaveBeenCalledWith(
@@ -1747,15 +1833,122 @@ describe("PatientConsentUploadWizard", () => {
           expect.objectContaining({ method: "POST", body: expect.any(String) }),
         ),
       );
+      expect(
+        jest
+          .mocked(sdkFetch)
+          .mock.calls.filter(
+            ([path, options]) =>
+              path === "/2pq/informed-consents" && options?.method === "POST",
+          ),
+      ).toHaveLength(1);
       const uploadCall = jest
         .mocked(sdkFetch)
         .mock.calls.find(([path]) => path === "/2pq/informed-consents");
       expect(JSON.parse(String(uploadCall?.[1]?.body))).toMatchObject({
         flowMode: "guided",
         savedSignature: TRANSPARENT_SIGNATURE_DATA_URL,
+        signatureAttestationAccepted: true,
         file: { type: "application/pdf" },
       });
       expect(String(uploadCall?.[1]?.body)).not.toContain("partnerSignature");
+      expect(
+        await screen.findByRole("heading", {
+          name: "Consentimiento firmado y enviado",
+        }),
+      ).toBeVisible();
+      expect(
+        screen.getByText(
+          /El documento se cerró y quedó almacenado correctamente/,
+        ),
+      ).toBeVisible();
+      expect(mockRouterPush).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      expect(mockRouterPush).toHaveBeenCalledWith("/patient-portal/consents");
+      expect(mockRouterRefresh).toHaveBeenCalledTimes(1);
+    } finally {
+      if (originalFetch) {
+        Object.defineProperty(global, "fetch", {
+          configurable: true,
+          value: originalFetch,
+        });
+      } else {
+        Reflect.deleteProperty(global, "fetch");
+      }
+    }
+  });
+
+  it("keeps the guided review open and reports an upload error", async () => {
+    const originalFetch = global.fetch;
+    Object.defineProperty(global, "fetch", {
+      configurable: true,
+      value: jest.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () => new Uint8Array([37, 80, 68, 70]).buffer,
+      })),
+    });
+    jest
+      .mocked(applySignaturesToConsentPdf)
+      .mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
+    jest
+      .mocked(sdkFetch)
+      .mockResolvedValueOnce({
+        savedSignature: TRANSPARENT_SIGNATURE_DATA_URL,
+      })
+      .mockRejectedValueOnce(new Error("upload failed"));
+
+    try {
+      const user = userEvent.setup();
+      render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
+
+      await chooseGuidedFlow(user);
+      await user.click(
+        screen.getByRole("button", { name: "Continuar con los datos" }),
+      );
+      await user.type(
+        screen.getByRole("textbox", { name: "Documento del paciente" }),
+        "31.234.567",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Continuar para firmar" }),
+      );
+      await user.click(
+        await screen.findByRole("button", {
+          name: /Reutilizar firma guardada/,
+        }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Continuar al editor" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Aplicar firmas y continuar" }),
+      );
+      await user.click(
+        await screen.findByRole("checkbox", {
+          name: /Declaro, bajo mi responsabilidad, que soy la persona/,
+        }),
+      );
+      await user.click(
+        screen.getByRole("button", {
+          name: "Acepto la realización de este estudio",
+        }),
+      );
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "No se pudo subir el consentimiento.",
+      );
+      expect(
+        screen.getByRole("button", {
+          name: "Acepto la realización de este estudio",
+        }),
+      ).toBeEnabled();
+      expect(
+        screen.queryByRole("heading", {
+          name: "Consentimiento firmado y enviado",
+        }),
+      ).not.toBeInTheDocument();
+      expect(mockRouterPush).not.toHaveBeenCalled();
+      expect(mockRouterRefresh).not.toHaveBeenCalled();
     } finally {
       if (originalFetch) {
         Object.defineProperty(global, "fetch", {

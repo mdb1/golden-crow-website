@@ -12,11 +12,14 @@ import {
   FileUp,
   ImagePlus,
   Link2,
+  LockKeyhole,
   Loader2,
   PenLine,
   Printer,
   RotateCcw,
   ScanLine,
+  ShieldCheck,
+  Sparkles,
   Upload,
   UserRound,
 } from "lucide-react";
@@ -71,6 +74,65 @@ const MAX_CONSENT_BYTES = 750_000;
 const SIGNATURE_CANVAS_WIDTH = 720;
 const SIGNATURE_CANVAS_HEIGHT = 240;
 
+const CONSENT_COMPLETION_CONFETTI = [
+  {
+    left: "10%",
+    top: "18%",
+    color: "var(--chart-2)",
+    delay: "0ms",
+    duration: "1080ms",
+  },
+  {
+    left: "18%",
+    top: "10%",
+    color: "var(--chart-1)",
+    delay: "60ms",
+    duration: "980ms",
+  },
+  {
+    left: "28%",
+    top: "15%",
+    color: "var(--chart-4)",
+    delay: "110ms",
+    duration: "1120ms",
+  },
+  {
+    left: "40%",
+    top: "8%",
+    color: "#93c5fd",
+    delay: "170ms",
+    duration: "1020ms",
+  },
+  {
+    left: "56%",
+    top: "12%",
+    color: "#67e8f9",
+    delay: "220ms",
+    duration: "1180ms",
+  },
+  {
+    left: "68%",
+    top: "14%",
+    color: "var(--chart-3)",
+    delay: "280ms",
+    duration: "1040ms",
+  },
+  {
+    left: "80%",
+    top: "9%",
+    color: "#bfdbfe",
+    delay: "330ms",
+    duration: "1140ms",
+  },
+  {
+    left: "88%",
+    top: "20%",
+    color: "#a5f3fc",
+    delay: "390ms",
+    duration: "990ms",
+  },
+] as const;
+
 type ConsentFlowMode = "guided" | "direct";
 
 type SignatureMethod = "draw" | "import" | "saved";
@@ -105,6 +167,16 @@ const DIRECT_MANUAL_STEP_IDS: readonly ConsentStepId[] = [
   "direct-sign",
   "direct-upload",
 ];
+
+const GUIDED_STEP_TRANSITION_MESSAGES: Partial<Record<ConsentStepId, string>> =
+  {
+    download: "Entorno de firma electrónica iniciado.",
+    data: "Documento preparado. Verifique ahora la identidad del firmante.",
+    signature: "Identidad declarada. Incorpore la firma al consentimiento.",
+    editor: "Firma preparada. Ubíquela en el documento digital.",
+    preview:
+      "Firma aplicada. Revise el documento y confirme su aceptación legal.",
+  };
 
 const CONSENT_STEPS: Record<ConsentStepId, ConsentWizardStep> = {
   method: {
@@ -852,6 +924,7 @@ export function PatientConsentUploadWizard({
   const router = useRouter();
   const casesRequestRef = useRef(0);
   const savedSignatureRequestRef = useRef(0);
+  const uploadInFlightRef = useRef(false);
   const savedSignatureCacheRef = useRef(
     new Map<string, SavedSignatureCacheEntry>(),
   );
@@ -908,6 +981,11 @@ export function PatientConsentUploadWizard({
   const [signedFile, setSignedFile] = useState<SingleFileValue | null>(null);
   const [directFile, setDirectFile] = useState<SingleFileValue | null>(null);
   const [directFileError, setDirectFileError] = useState("");
+  const [legalAttestationAccepted, setLegalAttestationAccepted] =
+    useState(false);
+  const [completedConsentId, setCompletedConsentId] = useState<string | null>(
+    null,
+  );
   const [preparing, setPreparing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
@@ -974,12 +1052,26 @@ export function PatientConsentUploadWizard({
     };
   }, [activeStepId, isBackoffice, patientId]);
 
+  function announceGuidedStep(stepId: ConsentStepId) {
+    const message = GUIDED_STEP_TRANSITION_MESSAGES[stepId];
+    if (!message) return;
+    setToast({
+      id: Date.now(),
+      tone: "success",
+      title: "Firma electrónica",
+      message,
+      durationMs: 2200,
+    });
+  }
+
   function goToStep(stepId: ConsentStepId) {
     setActiveStepId(stepId);
+    if (mode === "guided") announceGuidedStep(stepId);
   }
 
   function invalidateAfter() {
     setSignedFile(null);
+    setLegalAttestationAccepted(false);
   }
 
   function changeSignatureMethod(
@@ -1012,14 +1104,17 @@ export function PatientConsentUploadWizard({
   }
 
   function selectMode(nextMode: ConsentFlowMode) {
+    const nextStep = isBackoffice
+      ? "destination"
+      : nextMode === "guided"
+        ? "download"
+        : "direct-download";
     setMode(nextMode);
-    setActiveStepId(
-      isBackoffice
-        ? "destination"
-        : nextMode === "guided"
-          ? "download"
-          : "direct-download",
-    );
+    setLegalAttestationAccepted(false);
+    setActiveStepId(nextStep);
+    if (nextMode === "guided") {
+      announceGuidedStep(isBackoffice ? "download" : nextStep);
+    }
   }
 
   function returnToPreviousStep() {
@@ -1157,8 +1252,14 @@ export function PatientConsentUploadWizard({
     file: SingleFileValue | null,
     uploadMode: ConsentFlowMode,
   ) {
-    if (!file || saving) return;
-    if (uploadMode === "guided" && !patientSignatureDataUrl) return;
+    if (!file || saving || uploadInFlightRef.current) return;
+    if (
+      uploadMode === "guided" &&
+      (!patientSignatureDataUrl || !legalAttestationAccepted)
+    ) {
+      return;
+    }
+    uploadInFlightRef.current = true;
     setSaving(true);
     setToast(null);
     try {
@@ -1170,12 +1271,19 @@ export function PatientConsentUploadWizard({
             ...(isBackoffice ? { patientId, caseId } : {}),
             flowMode: uploadMode,
             ...(uploadMode === "guided"
-              ? { savedSignature: patientSignatureDataUrl }
+              ? {
+                  savedSignature: patientSignatureDataUrl,
+                  signatureAttestationAccepted: true,
+                }
               : {}),
             file,
           }),
         },
       );
+      if (uploadMode === "guided") {
+        setCompletedConsentId(record.id);
+        return;
+      }
       router.push(
         isBackoffice
           ? `/2pq-dashboard/consents/${encodeURIComponent(record.id)}`
@@ -1189,6 +1297,7 @@ export function PatientConsentUploadWizard({
         message: "No se pudo subir el consentimiento.",
       });
     } finally {
+      uploadInFlightRef.current = false;
       setSaving(false);
     }
   }
@@ -1280,6 +1389,7 @@ export function PatientConsentUploadWizard({
     setSignedFile(null);
     setDirectFile(null);
     setDirectFileError("");
+    setLegalAttestationAccepted(false);
     setCaseId("");
     setCases([]);
     setCaseCursor(undefined);
@@ -1300,6 +1410,16 @@ export function PatientConsentUploadWizard({
 
   const selectedCase = cases.find((candidate) => candidate.id === caseId);
   const destinationComplete = Boolean(patientId && caseId);
+
+  function continueAfterGuidedCompletion() {
+    if (!completedConsentId) return;
+    const destination = isBackoffice
+      ? `/2pq-dashboard/consents/${encodeURIComponent(completedConsentId)}`
+      : "/patient-portal/consents";
+    setCompletedConsentId(null);
+    router.push(destination);
+    router.refresh();
+  }
 
   function renderDestinationFields() {
     return (
@@ -1467,9 +1587,41 @@ export function PatientConsentUploadWizard({
             <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
               {activeStep.description}
             </p>
+            {mode === "guided" ? (
+              <div
+                data-testid="guided-signing-security-banner"
+                className="mt-5 flex max-w-3xl items-start gap-3 rounded-2xl border border-blue-200/80 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(236,254,255,0.72))] p-4 text-blue-950 shadow-[0_18px_50px_-38px_rgba(37,99,235,0.75)] dark:border-blue-400/24 dark:bg-[linear-gradient(135deg,rgba(30,58,138,0.34),rgba(8,47,73,0.28))] dark:text-blue-50"
+              >
+                <span className="relative flex size-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-white/90 text-blue-700 shadow-sm dark:border-blue-300/20 dark:bg-blue-950/70 dark:text-blue-100">
+                  <span className="absolute inset-0 animate-pulse rounded-xl bg-blue-400/10 motion-reduce:animate-none" />
+                  <ShieldCheck className="relative size-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
+                    Proceso de firma electrónica
+                  </p>
+                  <h2 className="mt-1 font-heading text-lg font-semibold">
+                    Está firmando un documento digital
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-blue-900/72 dark:text-blue-50/72">
+                    La identidad declarada, la firma y el documento se revisan
+                    juntos antes del envío. Nada se guarda hasta la aceptación
+                    final.
+                  </p>
+                </div>
+              </div>
+            ) : null}
           </header>
 
-          <div data-step-id={activeStepId} className="min-h-[34rem]">
+          <div
+            key={activeStepId}
+            data-step-id={activeStepId}
+            className={cn(
+              "min-h-[34rem]",
+              mode === "guided" &&
+                "animate-in fade-in-0 slide-in-from-bottom-2 duration-300 motion-reduce:animate-none",
+            )}
+          >
             {activeStepId === "method" ? (
               <div className="grid max-w-4xl gap-5 md:grid-cols-2">
                 <button
@@ -1916,6 +2068,68 @@ export function PatientConsentUploadWizard({
                     </div>
                   ))}
                 </div>
+                <section className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-blue-200 bg-[linear-gradient(145deg,rgba(239,246,255,0.98),rgba(236,254,255,0.76))] shadow-[0_24px_70px_-48px_rgba(37,99,235,0.82)] dark:border-blue-400/24 dark:bg-[linear-gradient(145deg,rgba(30,58,138,0.34),rgba(8,47,73,0.26))]">
+                  <div className="flex items-start gap-3 border-b border-blue-200/70 px-5 py-4 dark:border-blue-300/16">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-[0_12px_30px_rgba(37,99,235,0.28)]">
+                      <LockKeyhole className="size-5" />
+                    </span>
+                    <div>
+                      <h2 className="font-heading text-xl font-semibold text-blue-950 dark:text-blue-50">
+                        Confirmación legal de identidad y firma
+                      </h2>
+                      <p className="mt-1 text-sm leading-6 text-blue-900/70 dark:text-blue-50/70">
+                        Revise el documento completo. Esta aceptación cerrará y
+                        enviará el consentimiento informado firmado.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-4 p-5">
+                    {isBackoffice ? (
+                      <div className="flex items-start gap-3 rounded-xl border border-amber-300/70 bg-amber-50/90 p-4 text-sm leading-6 text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-50">
+                        <UserRound className="mt-0.5 size-4 shrink-0" />
+                        <p>
+                          Entregue el control de este dispositivo a{" "}
+                          <strong>{patientName.trim()}</strong>. La declaración
+                          y la aceptación final deben ser realizadas
+                          personalmente por quien se realizará el estudio.
+                        </p>
+                      </div>
+                    ) : null}
+                    <div className="flex items-start gap-3 rounded-xl border border-blue-300/70 bg-white/86 p-4 dark:border-blue-300/20 dark:bg-blue-950/42">
+                      <Checkbox
+                        id="consent-legal-attestation"
+                        required
+                        aria-required="true"
+                        checked={legalAttestationAccepted}
+                        onCheckedChange={(checked) =>
+                          setLegalAttestationAccepted(checked === true)
+                        }
+                        className="mt-1 size-5 border-blue-400 data-checked:border-blue-600 data-checked:bg-blue-600 dark:data-checked:bg-blue-500"
+                      />
+                      <Label
+                        htmlFor="consent-legal-attestation"
+                        className="cursor-pointer text-sm leading-6 text-blue-950 dark:text-blue-50"
+                      >
+                        Declaro, bajo mi responsabilidad, que soy la persona a
+                        quien se realizará este estudio, que la firma
+                        incorporada en el documento me pertenece y expresa mi
+                        voluntad, y que esta aceptación constituye una firma
+                        electrónica vinculante del consentimiento informado.
+                      </Label>
+                    </div>
+                    {!legalAttestationAccepted ? (
+                      <p className="flex items-center gap-2 text-xs font-medium text-blue-800 dark:text-blue-100/78">
+                        <ShieldCheck className="size-4" />
+                        Marque la declaración para habilitar el envío final.
+                      </p>
+                    ) : (
+                      <p className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
+                        <CheckCircle2 className="size-4" />
+                        Identidad y voluntad confirmadas para el cierre.
+                      </p>
+                    )}
+                  </div>
+                </section>
               </div>
             ) : null}
 
@@ -2079,16 +2293,16 @@ export function PatientConsentUploadWizard({
                     </Button>
                     <Button
                       type="button"
-                      className="bg-emerald-600 text-white hover:bg-emerald-700"
-                      disabled={saving}
+                      className="h-14 min-w-[18rem] rounded-xl bg-blue-600 px-8 text-base font-semibold text-white shadow-[0_18px_44px_rgba(37,99,235,0.3)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-[0_22px_52px_rgba(37,99,235,0.38)] disabled:translate-y-0 disabled:bg-blue-300 disabled:shadow-none dark:disabled:bg-blue-900/60"
+                      disabled={saving || !legalAttestationAccepted}
                       onClick={() => void uploadConsent(signedFile, "guided")}
                     >
                       {saving ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
-                        <Upload className="size-4" />
+                        <ShieldCheck className="size-5" />
                       )}
-                      Subir consentimiento
+                      Acepto la realización de este estudio
                     </Button>
                   </>
                 ) : null}
@@ -2123,6 +2337,66 @@ export function PatientConsentUploadWizard({
         onDismiss={() => setToast(null)}
         language="es"
       />
+
+      {completedConsentId ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="consent-completion-title"
+          className="fixed inset-0 z-[85] flex items-center justify-center px-4"
+        >
+          <div className="absolute inset-0 bg-background/36 backdrop-blur-[4px]" />
+          <div className="pointer-events-auto animate-in fade-in-0 zoom-in-95 relative w-full max-w-xl overflow-hidden rounded-[2rem] border border-blue-200/45 bg-[linear-gradient(155deg,rgba(125,211,252,0.36),rgba(12,74,110,0.98)_48%,rgba(37,99,235,0.96))] px-6 py-8 text-center shadow-[0_34px_130px_rgba(37,99,235,0.38)] duration-500 motion-reduce:animate-none">
+            {CONSENT_COMPLETION_CONFETTI.map((particle, index) => (
+              <span
+                key={`${particle.left}-${particle.delay}-${index}`}
+                aria-hidden="true"
+                className="two-pq-confetti absolute h-3 w-3 rounded-[5px] motion-reduce:animate-none"
+                style={{
+                  left: particle.left,
+                  top: particle.top,
+                  background: particle.color,
+                  animationDelay: particle.delay,
+                  animationDuration: particle.duration,
+                }}
+              />
+            ))}
+            <div className="relative flex flex-col items-center">
+              <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-blue-100/18 text-blue-50 shadow-[0_0_0_14px_rgba(186,230,253,0.13)]">
+                <span className="two-pq-success-ring absolute inset-0 rounded-full border border-blue-100/60 motion-reduce:animate-none" />
+                <CheckCircle2 className="h-12 w-12" />
+              </div>
+              <p className="mt-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-blue-50/88">
+                <Sparkles className="size-4" />
+                Firma electrónica completada
+              </p>
+              <h2
+                id="consent-completion-title"
+                className="mt-2 font-heading text-3xl font-semibold text-white"
+              >
+                Consentimiento firmado y enviado
+              </h2>
+              <p className="mt-3 max-w-md text-sm leading-6 text-blue-50/84">
+                El documento se cerró y quedó almacenado correctamente con el
+                identificador{" "}
+                <span className="font-mono font-semibold text-blue-50">
+                  {completedConsentId}
+                </span>
+                .
+              </p>
+              <Button
+                type="button"
+                autoFocus
+                onClick={continueAfterGuidedCompletion}
+                className="mt-6 h-12 rounded-[1.1rem] border border-blue-100/20 bg-white px-7 text-sm font-semibold text-blue-950 shadow-[0_18px_48px_rgba(186,230,253,0.24)] hover:bg-blue-50"
+              >
+                Continuar
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
