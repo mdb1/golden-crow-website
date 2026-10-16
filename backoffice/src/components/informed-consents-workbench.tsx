@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { ExternalLink, FileCheck2, Loader2 } from "lucide-react";
+import { ExternalLink, FileCheck2, FileUp, Loader2 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
@@ -82,8 +83,7 @@ export function InformedConsentsWorkbench({
   initialPatientPage?: InformedConsentPatientPage;
 }) {
   const isPatientPortal = surface === "patient-portal";
-  const t = (text: string) =>
-    isPatientPortal ? appText("es", text) : text;
+  const t = (text: string) => (isPatientPortal ? appText("es", text) : text);
   const [records, setRecords] = useState(initialPage.records);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
   const [patients, setPatients] = useState(initialPatientPage?.patients ?? []);
@@ -198,15 +198,30 @@ export function InformedConsentsWorkbench({
 
   return (
     <div className="space-y-8">
-      <section className="border-b border-border/70 pb-8">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <h2 className="font-heading text-lg font-semibold">
-            {t("Upload consent")}
-          </h2>
-          <HeaderUnclutterButton />
-        </div>
-        <div className="grid max-w-3xl gap-5">
-          {!isPatientPortal ? (
+      {isPatientPortal ? (
+        <section className="flex flex-col gap-4 border-b border-border/70 pb-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="font-heading text-lg font-semibold">
+              Consentimientos 2PQ
+            </h2>
+            <HeaderUnclutterButton />
+          </div>
+          <Button asChild>
+            <Link href="/patient-portal/consents/new">
+              <FileUp className="size-4" />
+              {t("Upload consent")}
+            </Link>
+          </Button>
+        </section>
+      ) : (
+        <section className="border-b border-border/70 pb-8">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h2 className="font-heading text-lg font-semibold">
+              {t("Upload consent")}
+            </h2>
+            <HeaderUnclutterButton />
+          </div>
+          <div className="grid max-w-3xl gap-5">
             <div className="space-y-2">
               <Label htmlFor="consent-patient">Patient</Label>
               <Select value={patientId} onValueChange={setPatientId}>
@@ -236,49 +251,43 @@ export function InformedConsentsWorkbench({
                 </Button>
               ) : null}
             </div>
-          ) : null}
-          <SingleFileUpload
-            id={`${surface}-consent-file`}
-            label={t("Consent file")}
-            value={file}
-            onChange={(nextFile) => {
-              setFile(nextFile);
-              setFileError("");
-            }}
-            onError={setFileError}
-            error={fileError}
-            uploadLabel={t("Upload file")}
-            removeLabel={t("Remove file")}
-            emptyLabel={t("No file selected")}
-            invalidTypeMessage={t("Select a PDF or supported image file.")}
-            tooLargeMessage={
-              isPatientPortal
-                ? "El archivo seleccionado supera los 750 KB."
-                : undefined
-            }
-            readErrorMessage={t("Unable to read the selected file.")}
-            helperText={
-              isPatientPortal ? "PDF o imagen, máximo 750 KB." : undefined
-            }
-          />
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button
-              type="button"
-              className="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-fit"
-              onClick={() => void handleUpload()}
-              disabled={saving || !file || (!isPatientPortal && !patientId)}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {t("Upload consent")}
-            </Button>
+            <SingleFileUpload
+              id={`${surface}-consent-file`}
+              label={t("Consent file")}
+              value={file}
+              onChange={(nextFile) => {
+                setFile(nextFile);
+                setFileError("");
+              }}
+              onError={setFileError}
+              error={fileError}
+              uploadLabel={t("Upload file")}
+              removeLabel={t("Remove file")}
+              emptyLabel={t("No file selected")}
+              invalidTypeMessage={t("Select a PDF or supported image file.")}
+              readErrorMessage={t("Unable to read the selected file.")}
+            />
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button
+                type="button"
+                className="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-fit"
+                onClick={() => void handleUpload()}
+                disabled={saving || !file || !patientId}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {t("Upload consent")}
+              </Button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section>
-        <h2 className="font-heading text-lg font-semibold">
-          Consentimientos 2PQ
-        </h2>
+        {!isPatientPortal ? (
+          <h2 className="font-heading text-lg font-semibold">
+            Consentimientos 2PQ
+          </h2>
+        ) : null}
         {records.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
             {t("No consent files have been uploaded.")}

@@ -32,7 +32,7 @@ jest.mock("@/lib/sdk-client", () => ({
 }));
 
 describe("patient portal consents", () => {
-  it("renders the patient consent workflow in Spanish", () => {
+  it("links to the dedicated patient consent upload screen", () => {
     render(
       <InformedConsentsWorkbench
         surface="patient-portal"
@@ -41,12 +41,12 @@ describe("patient portal consents", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Subir consentimiento" }),
+      screen.getByRole("heading", { name: "Consentimientos 2PQ" }),
     ).toBeTruthy();
-    expect(screen.getByText("Archivo de consentimiento")).toBeTruthy();
-    expect(screen.getByText("Sin archivo seleccionado")).toBeTruthy();
-    expect(screen.getByText("Cargar archivo")).toBeTruthy();
-    expect(screen.getByText("PDF o imagen, máximo 750 KB.")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Subir consentimiento" }),
+    ).toHaveAttribute("href", "/patient-portal/consents/new");
+    expect(screen.queryByText("Archivo de consentimiento")).toBeNull();
     expect(
       screen.getByText("No se subieron archivos de consentimiento."),
     ).toBeTruthy();

@@ -17,9 +17,11 @@ export function PatientPortalHeader() {
   const title =
     pathname === "/patient-portal/my-account"
       ? appText(language, "Patient portal data")
-      : pathname === "/patient-portal/consents"
-        ? "Consentimientos"
-        : appText(language, "Home");
+      : pathname.startsWith("/patient-portal/consents/new")
+        ? "Subir consentimiento"
+        : pathname.startsWith("/patient-portal/consents")
+          ? "Consentimientos"
+          : appText(language, "Home");
 
   async function handleSignOut() {
     setPendingSignOut(true);

@@ -84,6 +84,24 @@ describe("patient portal Spanish shell", () => {
     expect(screen.getAllByText("Mis datos").length).toBeGreaterThan(0);
     expect(screen.queryByText("Mi cuenta")).toBeNull();
   });
+
+  it("labels the dedicated consent upload screen", () => {
+    pathname = "/patient-portal/consents/new";
+
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <SidebarProvider>
+          <PatientPortalSidebar />
+          <PatientPortalHeader />
+        </SidebarProvider>
+      </AppLanguageProvider>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Subir consentimiento" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Consentimientos")).toBeTruthy();
+  });
 });
 
 describe("PGFlex portal Spanish shell", () => {
