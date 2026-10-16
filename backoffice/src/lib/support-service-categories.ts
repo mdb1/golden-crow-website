@@ -1,4 +1,5 @@
 import serviceOfferTypesCatalog from "../../../Pocket-Genes-Catalog-Wiki/catalog/service-offer-types.json";
+import type { SupportServiceStage } from "@/lib/support-services";
 
 export const SUPPORT_SERVICE_CATEGORY_KEYS = [
   "sot_genetic_counseling",
@@ -339,8 +340,7 @@ export function parseSupportServiceCategoryKeys(
   return keys;
 }
 
-export type SupportServiceCategoryValueIssue =
-  "empty" | "invalid" | "mixed_families";
+export type SupportServiceCategoryValueIssue = "empty" | "invalid";
 
 export function supportServiceCategoryValueIssue(
   value: unknown,
@@ -353,21 +353,12 @@ export function supportServiceCategoryValueIssue(
   }
 
   const seen = new Set<SupportServiceCategoryKey>();
-  let family: "genomic" | "human_advice" | null = null;
 
   for (const token of value.split(",")) {
     if (!isSupportServiceCategoryKey(token) || seen.has(token)) {
       return "invalid";
     }
 
-    const tokenFamily = token.startsWith("sot_human_advice_")
-      ? "human_advice"
-      : "genomic";
-    if (family && family !== tokenFamily) {
-      return "mixed_families";
-    }
-
-    family = tokenFamily;
     seen.add(token);
   }
 
@@ -380,6 +371,51 @@ export function isSupportServiceCategoryValue(value: unknown): value is string {
 
 export function serializeSupportServiceCategoryKeys(keys: readonly string[]) {
   return parseSupportServiceCategoryKeys(keys.join(",")).join(",");
+}
+
+const GENOMIC_SUPPORT_SERVICE_STAGES = [
+  "test_planning",
+  "wet_lab",
+  "bioinformatics",
+] as const satisfies readonly SupportServiceStage[];
+
+export function synchronizeSupportServiceStagesForCategories(
+  value: unknown,
+  stages: readonly SupportServiceStage[],
+): SupportServiceStage[] {
+  const categoryKeys = parseSupportServiceCategoryKeys(value);
+  const hasHumanAdvice = categoryKeys.some((key) =>
+    key.startsWith("sot_human_advice_"),
+  );
+  const hasCompleteService = categoryKeys.some((key) =>
+    key.startsWith("sot_complete_"),
+  );
+  const hasOnlyHumanAdvice =
+    categoryKeys.length > 0 &&
+    categoryKeys.every((key) => key.startsWith("sot_human_advice_"));
+
+  if (hasOnlyHumanAdvice) {
+    return ["human_advice"];
+  }
+
+  if (hasCompleteService) {
+    return [
+      ...GENOMIC_SUPPORT_SERVICE_STAGES,
+      ...(hasHumanAdvice ? (["human_advice"] as const) : []),
+    ];
+  }
+
+  const selectedGenomicStages = GENOMIC_SUPPORT_SERVICE_STAGES.filter((stage) =>
+    stages.includes(stage),
+  );
+
+  if (hasHumanAdvice) {
+    return [...selectedGenomicStages, "human_advice"];
+  }
+
+  return selectedGenomicStages.length
+    ? selectedGenomicStages
+    : ["test_planning"];
 }
 
 export function supportServiceCategoryByKey(value: unknown) {

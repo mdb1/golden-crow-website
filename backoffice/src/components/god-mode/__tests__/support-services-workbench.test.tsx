@@ -432,6 +432,15 @@ describe("support services workbenches", () => {
       "Describí el alcance del procesamiento y los requisitos de calidad que debe cumplir la información provista por el cliente. Si los datos, la documentación o las muestras están incompletos o no alcanzan los estándares requeridos, la viabilidad del procedimiento y la calidad, precisión o alcance de sus resultados pueden verse condicionados. Esta sección es opcional; agregá una limitación por línea cuando corresponda.",
     );
     expect(appText("es", "Wet lab")).toBe("Wet lab");
+    expect(appText("es", "Human advice and support")).toBe(
+      "Orientación y apoyo humano",
+    );
+    expect(
+      appText(
+        "es",
+        "Person-to-person consultation, counseling, education, and support.",
+      ),
+    ).toBe("Consulta, orientación, educación y apoyo entre personas.");
   });
 
   it("shows transaction list load failures instead of a false empty state", async () => {
@@ -1583,10 +1592,10 @@ describe("support services workbenches", () => {
     expect(pipelineLayout.getAttribute("data-orientation")).toBe("vertical");
     expect(
       screen.getAllByTestId("service-offer-stage-pipeline-connector"),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(
       screen.getAllByTestId("service-offer-stage-pipeline-arrow-down"),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(
       screen.queryByTestId("service-offer-stage-pipeline-arrow-right"),
     ).toBeNull();
@@ -1601,11 +1610,20 @@ describe("support services workbenches", () => {
     const bioinformaticsStage = screen.getByRole("checkbox", {
       name: "Bioinformatics",
     });
+    const humanAdviceStage = screen.getByRole("checkbox", {
+      name: "Human advice and support",
+    });
+    expect(
+      screen.getByText(
+        "Person-to-person consultation, counseling, education, and support.",
+      ),
+    ).toBeTruthy();
     expect(testPlanningStage.getAttribute("data-state")).toBe("checked");
     for (const checkbox of [
       testPlanningStage,
       wetLabStage,
       bioinformaticsStage,
+      humanAdviceStage,
     ]) {
       expect((checkbox as HTMLButtonElement).disabled).toBe(false);
       expect(checkbox.classList.contains("size-8")).toBe(true);
@@ -1924,7 +1942,7 @@ describe("support services workbenches", () => {
     );
   });
 
-  it("uses a wide multi-select registry modal and persists the current selection order", async () => {
+  it("uses a wide multi-select registry modal and persists mixed categories in selection order", async () => {
     sdkFetchMock.mockImplementation(async (path, init) => {
       if (init?.method === "PUT") {
         const payload = JSON.parse(String(init.body));
@@ -1951,6 +1969,11 @@ describe("support services workbenches", () => {
     )!;
     const reviewCategory = SUPPORT_SERVICE_CATEGORIES.find(
       (category) => category.key === "sot_genomic_report_review",
+    )!;
+    const humanAdviceCategory = SUPPORT_SERVICE_CATEGORIES.find(
+      (category) =>
+        category.key ===
+        "sot_human_advice_health_technology_usability_human_factors_accessibility",
     )!;
     const selectedDescription = supportServiceCategoryDescription(
       selectedCategory,
@@ -1987,17 +2010,14 @@ describe("support services workbenches", () => {
       },
     });
     expect(within(modal).getAllByRole("checkbox")).toHaveLength(1);
-    const incompatibleCategory = within(modal).getByRole("checkbox", {
+    const humanAdviceOption = within(modal).getByRole("checkbox", {
       name: /^Genomics technology usability and accessibility\b/,
     });
-    expect(incompatibleCategory.hasAttribute("disabled")).toBe(true);
-    expect(incompatibleCategory.getAttribute("aria-checked")).toBe("false");
-    const familyRestrictionId =
-      incompatibleCategory.getAttribute("aria-describedby");
-    expect(familyRestrictionId).toBeTruthy();
-    expect(
-      document.getElementById(String(familyRestrictionId))?.textContent,
-    ).toBe("Genomic and human-advice categories cannot be combined.");
+    expect(humanAdviceOption.hasAttribute("disabled")).toBe(false);
+    expect(humanAdviceOption.getAttribute("aria-checked")).toBe("false");
+    expect(humanAdviceOption.getAttribute("aria-describedby")).toBeNull();
+    fireEvent.click(humanAdviceOption);
+    expect(humanAdviceOption.getAttribute("aria-checked")).toBe("true");
     expect(
       within(modal).getByText(
         "Genomics technology usability and accessibility",
@@ -2033,7 +2053,11 @@ describe("support services workbenches", () => {
       within(categoryButton)
         .getAllByTestId("service-category-pill")
         .map((pill) => pill.textContent),
-    ).toEqual([selectedCategory.nameEnglish, earlierCategory.nameEnglish]);
+    ).toEqual([
+      selectedCategory.nameEnglish,
+      humanAdviceCategory.nameEnglish,
+      earlierCategory.nameEnglish,
+    ]);
 
     fireEvent.click(categoryButton);
     const reorderedModal = await screen.findByRole("dialog");
@@ -2053,7 +2077,11 @@ describe("support services workbenches", () => {
       within(categoryButton)
         .getAllByTestId("service-category-pill")
         .map((pill) => pill.textContent),
-    ).toEqual([earlierCategory.nameEnglish, selectedCategory.nameEnglish]);
+    ).toEqual([
+      humanAdviceCategory.nameEnglish,
+      earlierCategory.nameEnglish,
+      selectedCategory.nameEnglish,
+    ]);
 
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
     await acknowledgeExistingOfferContract();
@@ -2065,8 +2093,9 @@ describe("support services workbenches", () => {
       expect(putCall).toBeTruthy();
       const payload = JSON.parse(String(putCall?.[1]?.body));
       expect(payload.serviceCategory).toBe(
-        "sot_genomic_interpretation,sot_genomic_report_generation",
+        "sot_human_advice_health_technology_usability_human_factors_accessibility,sot_genomic_interpretation,sot_genomic_report_generation",
       );
+      expect(payload.stages).toEqual(["test_planning", "human_advice"]);
       expect(Array.isArray(payload.serviceCategory)).toBe(false);
       expect(payload.acknowledgesExistingTransactionContracts).toBe(true);
       expect(payload).not.toHaveProperty("changeLogHistoryByVersion");
@@ -2121,14 +2150,24 @@ describe("support services workbenches", () => {
     ).toBe("true");
   });
 
-  it("blocks a mixed historical category value until one family is removed", async () => {
+  it("submits mixed complete and human-advice categories with all four stages", async () => {
     const mixedCategoryOffer: SupportServiceOfferRecord = {
       ...hiddenOffer,
       id: "offer-mixed-category-families",
       serviceCategory:
-        "sot_genomic_report_generation,sot_human_advice_parenting_guidance",
+        "sot_complete_health_genomics_report,sot_human_advice_parenting_guidance",
+      stages: [
+        "test_planning",
+        "wet_lab",
+        "bioinformatics",
+        "human_advice",
+      ],
     };
-    sdkFetchMock.mockImplementation(async (path) => {
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        const payload = JSON.parse(String(init.body));
+        return { offer: { ...mixedCategoryOffer, ...payload } };
+      }
       if (String(path).includes("?limit=")) {
         return { offers: [], nextCursor: undefined };
       }
@@ -2150,45 +2189,83 @@ describe("support services workbenches", () => {
         .getAllByTestId("service-category-pill")
         .map((pill) => pill.textContent),
     ).toEqual([
-      "Genomic report generation",
+      "Comprehensive health genomics report",
       "Parenting support for children with genetic conditions",
     ]);
-
-    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
-    expect(
-      await screen.findByText(
-        "Genomic and human-advice categories cannot be combined.",
-      ),
-    ).toBeTruthy();
-    expect(
-      sdkFetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
-    ).toBe(false);
 
     fireEvent.click(categoryButton);
     const modal = await screen.findByRole("dialog");
     const applyButton = within(modal).getByRole("button", {
       name: "Apply categories",
     });
-    expect(applyButton.hasAttribute("disabled")).toBe(true);
+    expect(applyButton.hasAttribute("disabled")).toBe(false);
     expect(
-      within(modal).getByText(
-        "Remove categories from one family before applying.",
+      within(modal).queryByText(
+        "Genomic and human-advice categories cannot be combined.",
       ),
-    ).toBeTruthy();
+    ).toBeNull();
+    expect(
+      within(modal)
+        .getByRole("checkbox", {
+          name: /^Comprehensive health genomics report\b/,
+        })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(
+      within(modal)
+        .getByRole("checkbox", {
+          name: /^Parenting support for children with genetic conditions\b/,
+        })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
 
     fireEvent.click(
       within(modal).getByRole("checkbox", {
-        name: /^Parenting support for children with genetic conditions\b/,
+        name: /^Clinical genomic interpretation\b/,
       }),
     );
-    expect(applyButton.hasAttribute("disabled")).toBe(false);
     fireEvent.click(applyButton);
 
     expect(
       within(categoryButton)
         .getAllByTestId("service-category-pill")
         .map((pill) => pill.textContent),
-    ).toEqual(["Genomic report generation"]);
+    ).toEqual([
+      "Comprehensive health genomics report",
+      "Parenting support for children with genetic conditions",
+      "Clinical genomic interpretation",
+    ]);
+
+    for (const stage of [
+      "Test planning",
+      "Wet lab",
+      "Bioinformatics",
+      "Human advice and support",
+    ]) {
+      expect(
+        screen.getByRole("checkbox", { name: stage }).getAttribute("data-state"),
+      ).toBe("checked");
+    }
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
+    await acknowledgeExistingOfferContract();
+
+    await waitFor(() => {
+      const putCall = sdkFetchMock.mock.calls.find(
+        ([, init]) => init?.method === "PUT",
+      );
+      expect(putCall).toBeTruthy();
+      const payload = JSON.parse(String(putCall?.[1]?.body));
+      expect(payload.serviceCategory).toBe(
+        "sot_complete_health_genomics_report,sot_human_advice_parenting_guidance,sot_genomic_interpretation",
+      );
+      expect(payload.stages).toEqual([
+        "test_planning",
+        "wet_lab",
+        "bioinformatics",
+        "human_advice",
+      ]);
+    });
   });
 
   it("also guards status saves with the frozen-contract acknowledgement", async () => {
@@ -2502,7 +2579,7 @@ describe("support services workbenches", () => {
     ).toBe("horizontal");
     expect(
       screen.getAllByTestId("service-offer-stage-pipeline-arrow-right"),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(screen.getByText("Not requested")).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox", { name: "Support form input" }));
     expect(screen.getByText("Form shape ID")).toBeTruthy();

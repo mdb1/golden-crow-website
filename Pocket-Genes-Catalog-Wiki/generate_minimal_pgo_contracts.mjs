@@ -30,9 +30,6 @@ const completeServiceOfferTypeKeys = serviceOfferTypeKeys.filter((key) =>
 const humanAdviceServiceOfferTypeKeys = serviceOfferTypeKeys.filter((key) =>
   key.startsWith("sot_human_advice_")
 );
-const genomicServiceOfferTypeKeys = serviceOfferTypeKeys.filter(
-  (key) => !key.startsWith("sot_human_advice_")
-);
 const serviceStageValues = ["test_planning", "wet_lab", "bioinformatics", "human_advice"];
 const serviceOfferTypeFields = [
   "key",
@@ -92,10 +89,7 @@ const serviceOfferCategoryContract = (description) => ({
   // final line terminator in some validators. Reject every whitespace character
   // independently so padded values cannot bypass the canonical token grammar.
   not: { pattern: "\\s" },
-  oneOf: [
-    { pattern: serviceOfferCategorySequencePattern(genomicServiceOfferTypeKeys) },
-    { pattern: serviceOfferCategorySequencePattern(humanAdviceServiceOfferTypeKeys) }
-  ],
+  pattern: serviceOfferCategorySequencePattern(serviceOfferTypeKeys),
   description
 });
 
@@ -1450,11 +1444,10 @@ const installServiceOfferStageContracts = (propertyOwner) => {
         properties: {
           stages: {
             minItems: 3,
-            maxItems: 3,
             allOf: ["test_planning", "wet_lab", "bioinformatics"].map((stage) => ({
               contains: { const: stage }
             })),
-            description: "Complete sample-to-report offers must declare exactly test_planning, wet_lab, and bioinformatics."
+            description: "Complete sample-to-report offers must include test_planning, wet_lab, and bioinformatics; human_advice is additionally required when the category set also contains human-advice work."
           }
         }
       }
@@ -1470,10 +1463,23 @@ const installServiceOfferStageContracts = (propertyOwner) => {
       then: {
         properties: {
           stages: {
-            minItems: 1,
-            maxItems: 1,
             contains: { const: "human_advice" },
-            description: "Human advice and support offers must declare exactly the human_advice stage."
+            description: "Offers containing human-advice categories must include human_advice alongside any applicable genomic stages."
+          }
+        },
+        if: {
+          properties: {
+            serviceCategory: { pattern: serviceOfferCategorySequencePattern(humanAdviceServiceOfferTypeKeys) }
+          },
+          required: ["serviceCategory"]
+        },
+        then: {
+          properties: {
+            stages: {
+              minItems: 1,
+              maxItems: 1,
+              description: "Offers containing only human-advice categories must declare exactly human_advice."
+            }
           }
         }
       },
@@ -1574,7 +1580,7 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
     installServiceMoreInformationContract(rewritten, rewritten.$defs.offer_snapshot);
     installServiceOfferStageContracts(rewritten.$defs.offer_snapshot);
     rewritten.$defs.offer_snapshot.properties.serviceCategory = serviceOfferCategoryContract(
-      "One or more registered service-offer type keys stored in this same scalar String field as a canonical comma-joined set in stable first-selection order. Tokens have no spaces, empty or duplicate tokens are invalid, genomic and human-advice categories cannot be mixed, and older singleton values remain valid."
+      "One or more registered service-offer type keys stored in this same scalar String field as a canonical comma-joined set in stable first-selection order. Tokens have no spaces, empty or duplicate tokens are invalid, keys from any category group may be combined, and older singleton values remain valid."
     );
     const canonicalServiceId = "^pgs_[a-z0-9]+(?:_[a-z0-9]+)*$";
     rewritten.properties.serviceId.pattern = canonicalServiceId;
@@ -1710,7 +1716,7 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
     installServiceMoreInformationContract(rewritten, offer);
     installServiceOfferStageContracts(offer);
     offer.properties.serviceCategory = serviceOfferCategoryContract(
-      "One or more registered service-offer type keys from catalog/service-offer-types.json stored in this same scalar String field as a canonical comma-joined set in stable first-selection order. Tokens have no spaces, empty or duplicate tokens are invalid, genomic and human-advice categories cannot be mixed, and older singleton values remain valid."
+      "One or more registered service-offer type keys from catalog/service-offer-types.json stored in this same scalar String field as a canonical comma-joined set in stable first-selection order. Tokens have no spaces, empty or duplicate tokens are invalid, keys from any category group may be combined, and older singleton values remain valid."
     );
     for (const fixtureField of ["sampleFormObject", "sampleRequest", "sampleResult"]) {
       delete offer.properties[fixtureField];

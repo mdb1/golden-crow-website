@@ -5708,10 +5708,6 @@ const SPANISH_TEXT: Record<string, string> = {
     "No hay categorías de servicio que coincidan con esta búsqueda.",
   "Choose every category that describes a contracted outcome delivered by this offer. Supporting inputs, steps, and provider profession do not determine categories.":
     "Elegí todas las categorías que describen resultados contratados entregados por esta oferta. Los insumos, los pasos complementarios y la profesión del proveedor no definen las categorías.",
-  "Genomic and human-advice categories cannot be combined.":
-    "Las categorías genómicas y las de asesoramiento humano no se pueden combinar.",
-  "Remove categories from one family before applying.":
-    "Quitá las categorías de una de las familias antes de aplicar.",
   Uncategorized: "Sin categoría",
   "No service categories selected":
     "No hay categorías de servicio seleccionadas",
@@ -5818,11 +5814,14 @@ const SPANISH_TEXT: Record<string, string> = {
     "Logística de muestras, extracción, secuenciación y archivos producidos por laboratorio.",
   "Digital analysis, variant interpretation, images, PGI1, and reports.":
     "Análisis digital, interpretación de variantes, imágenes, PGI1 y reportes.",
+  "Person-to-person consultation, counseling, education, and support.":
+    "Consulta, orientación, educación y apoyo entre personas.",
   "String list": "Lista de strings",
   "Subject ID": "ID de sujeto",
   Submitted: "Enviado",
   "Support form input": "Soportar entrada de formulario",
   "Test planning": "Planificación de estudio",
+  "Human advice and support": "Orientación y apoyo humano",
   Text: "Texto",
   Transaction: "Transacción",
   Turnaround: "Tiempo de entrega",

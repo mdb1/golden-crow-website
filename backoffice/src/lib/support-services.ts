@@ -2,6 +2,7 @@ export const SUPPORT_SERVICE_STAGES = [
   { value: "test_planning", label: "Test planning" },
   { value: "wet_lab", label: "Wet lab" },
   { value: "bioinformatics", label: "Bioinformatics" },
+  { value: "human_advice", label: "Human advice and support" },
 ] as const;
 
 export const SUPPORT_SERVICE_OFFER_STATUSES = [

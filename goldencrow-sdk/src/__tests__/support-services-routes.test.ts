@@ -24,6 +24,7 @@ const mockGetSupportServiceOfferTransactionStats = jest.fn();
 
 jest.mock("../repositories/support-services.repository.js", () => ({
   SUPPORT_SERVICE_CATEGORY_KEYS: [
+    "sot_complete_health_genomics_report",
     "sot_genomic_report_generation",
     "sot_genomic_report_review",
     "sot_human_advice_medical_consultation",
@@ -34,13 +35,11 @@ jest.mock("../repositories/support-services.repository.js", () => ({
     }
     const categories = value.split(",");
     const knownCategories = new Set([
+      "sot_complete_health_genomics_report",
       "sot_genomic_report_generation",
       "sot_genomic_report_review",
       "sot_human_advice_medical_consultation",
     ]);
-    const hasHumanAdvice = categories.some((category) =>
-      category.startsWith("sot_human_advice_"),
-    );
     return (
       categories.every(
         (category) =>
@@ -48,17 +47,77 @@ jest.mock("../repositories/support-services.repository.js", () => ({
           category === category.trim() &&
           knownCategories.has(category),
       ) &&
-      new Set(categories).size === categories.length &&
-      !(
-        hasHumanAdvice &&
-        categories.some(
-          (category) => !category.startsWith("sot_human_advice_"),
-        )
-      )
+      new Set(categories).size === categories.length
     );
   },
+  supportServiceCategoryStageContractIssue: (
+    serviceCategory: unknown,
+    stagesValue: unknown,
+  ) => {
+    if (typeof serviceCategory !== "string") {
+      return null;
+    }
+    const categories = serviceCategory.split(",");
+    const stages =
+      stagesValue === undefined
+        ? ["test_planning"]
+        : Array.isArray(stagesValue)
+          ? stagesValue
+          : [];
+    const knownStages = new Set([
+      "test_planning",
+      "wet_lab",
+      "bioinformatics",
+      "human_advice",
+    ]);
+    if (
+      stages.length === 0 ||
+      stages.length > knownStages.size ||
+      stages.some((stage) => !knownStages.has(String(stage))) ||
+      new Set(stages).size !== stages.length
+    ) {
+      return "stages must be a non-empty array of at most four unique canonical stage keys.";
+    }
+    const hasHumanAdvice = categories.some((category) =>
+      category.startsWith("sot_human_advice_"),
+    );
+    const hasOnlyHumanAdvice = categories.every((category) =>
+      category.startsWith("sot_human_advice_"),
+    );
+    const hasCompleteService = categories.some((category) =>
+      category.startsWith("sot_complete_"),
+    );
+    const stageSet = new Set(stages);
+
+    if (
+      hasOnlyHumanAdvice &&
+      (stages.length !== 1 || stages[0] !== "human_advice")
+    ) {
+      return "Service offers containing only sot_human_advice_* categories must use exactly the human_advice stage.";
+    }
+    if (hasHumanAdvice && !stageSet.has("human_advice")) {
+      return "Service offers containing any sot_human_advice_* category must include the human_advice stage.";
+    }
+    if (!hasHumanAdvice && stageSet.has("human_advice")) {
+      return "Service offers without a sot_human_advice_* category cannot include the human_advice stage.";
+    }
+    if (
+      hasCompleteService &&
+      !["test_planning", "wet_lab", "bioinformatics"].every((stage) =>
+        stageSet.has(stage),
+      )
+    ) {
+      return "Service offers containing any sot_complete_* category must include the test_planning, wet_lab, and bioinformatics stages.";
+    }
+    return null;
+  },
   SUPPORT_SERVICE_PROMOTIONAL_BANNER_IMAGE_DATA_URL_MAX_LENGTH: 900_000,
-  SUPPORT_SERVICE_STAGES: ["test_planning", "wet_lab", "bioinformatics"],
+  SUPPORT_SERVICE_STAGES: [
+    "test_planning",
+    "wet_lab",
+    "bioinformatics",
+    "human_advice",
+  ],
   SUPPORT_SERVICE_OFFER_STATUSES: ["draft", "active", "inactive", "archived"],
   SUPPORT_SERVICE_OBJECT_TYPES: [
     "pgo_form",
@@ -644,10 +703,6 @@ describe("support service admin routes", () => {
       "a duplicate token",
       "sot_genomic_report_generation,sot_genomic_report_generation",
     ],
-    [
-      "mixed genomic and human-advice categories",
-      "sot_genomic_report_generation,sot_human_advice_medical_consultation",
-    ],
   ])("rejects %s before calling the offer repository", async (_label, category) => {
     const fastify = await buildTestServer();
     const payload: Record<string, unknown> = { ...validOfferPayload };
@@ -667,22 +722,111 @@ describe("support service admin routes", () => {
     expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 
-  it("accepts a canonical category set without reordering it", async () => {
+  it("accepts mixed complete and human-advice categories with all four stages", async () => {
     const fastify = await buildTestServer();
     const serviceCategory =
-      "sot_genomic_report_review,sot_genomic_report_generation";
+      "sot_complete_health_genomics_report,sot_human_advice_medical_consultation";
+    const stages = [
+      "test_planning",
+      "wet_lab",
+      "bioinformatics",
+      "human_advice",
+    ];
 
     const response = await fastify.inject({
       method: "POST",
       url: "/admin/support-services/offers",
-      payload: { ...validOfferPayload, serviceCategory },
+      payload: { ...validOfferPayload, serviceCategory, stages },
     });
 
     expect(response.statusCode).toBe(201);
     expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
       bootstrapContext,
-      expect.objectContaining({ serviceCategory }),
+      expect.objectContaining({ serviceCategory, stages }),
     );
+  });
+
+  it("accepts a human-advice-only offer with exactly its human-advice stage", async () => {
+    const fastify = await buildTestServer();
+    const serviceCategory = "sot_human_advice_medical_consultation";
+    const stages = ["human_advice"];
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: { ...validOfferPayload, serviceCategory, stages },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateSupportServiceOffer).toHaveBeenCalledWith(
+      bootstrapContext,
+      expect.objectContaining({ serviceCategory, stages }),
+    );
+  });
+
+  it.each([
+    [
+      "human advice without its required stage",
+      "sot_genomic_report_generation,sot_human_advice_medical_consultation",
+      ["bioinformatics"],
+    ],
+    [
+      "a human-advice-only offer with an additional stage",
+      "sot_human_advice_medical_consultation",
+      ["human_advice", "bioinformatics"],
+    ],
+    [
+      "human advice stage without a human-advice category",
+      "sot_genomic_report_generation",
+      ["bioinformatics", "human_advice"],
+    ],
+    [
+      "a complete category missing a required genomic stage",
+      "sot_complete_health_genomics_report",
+      ["test_planning", "bioinformatics"],
+    ],
+    [
+      "a mixed complete and human-advice offer missing human advice",
+      "sot_complete_health_genomics_report,sot_human_advice_medical_consultation",
+      ["test_planning", "wet_lab", "bioinformatics"],
+    ],
+    [
+      "a duplicate stage",
+      "sot_genomic_report_generation",
+      ["bioinformatics", "bioinformatics"],
+    ],
+  ])(
+    "rejects %s before calling the offer repository",
+    async (_label, serviceCategory, stages) => {
+      const fastify = await buildTestServer();
+
+      const response = await fastify.inject({
+        method: "POST",
+        url: "/admin/support-services/offers",
+        payload: { ...validOfferPayload, serviceCategory, stages },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
+    },
+  );
+
+  it("enforces the category-stage contract on offer updates", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "PUT",
+      url: "/admin/support-services/offers/offer-1",
+      payload: {
+        ...validOfferPayload,
+        serviceCategory: "sot_human_advice_medical_consultation",
+        stages: ["test_planning"],
+        acknowledgesExistingTransactionContracts: true,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockUpdateSupportServiceOffer).not.toHaveBeenCalled();
   });
 
   it("accepts canonical promotional banner upload data through the enlarged offer route", async () => {

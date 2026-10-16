@@ -622,7 +622,6 @@ describe("support service repository versions", () => {
     "sot_genomic_report_generation,,sot_genomic_report_review",
     "sot_genomic_report_generation,sot_genomic_report_generation",
     "sot_genomic_report_generation,sot_unknown",
-    "sot_genomic_report_generation,sot_human_advice_medical_consultation",
   ])(
     "rejects non-canonical serviceCategory value %p on write",
     async (serviceCategory) => {
@@ -660,12 +659,18 @@ describe("support service repository versions", () => {
     },
   );
 
-  it("persists canonical service categories in submitted order", async () => {
+  it("persists mixed complete and human-advice categories with all four stages", async () => {
     const { createSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
     );
     const serviceCategory =
-      "sot_genomic_report_review,sot_genomic_report_generation,sot_genomic_interpretation";
+      "sot_complete_health_genomics_report,sot_human_advice_medical_consultation";
+    const stages = [
+      "test_planning",
+      "wet_lab",
+      "bioinformatics",
+      "human_advice",
+    ] as const;
 
     const offer = await createSupportServiceOffer(context, {
       serviceId: "pgs_pocket_genes_54321",
@@ -674,7 +679,7 @@ describe("support service repository versions", () => {
       providerKind: "organization",
       providerId: "feed-org-1",
       providerName: "Pocket Genes",
-      stages: ["bioinformatics"],
+      stages: [...stages],
       status: "draft",
       isHiddenFromSearch: false,
       isHighlightedOffer: false,
@@ -686,9 +691,151 @@ describe("support service repository versions", () => {
     });
 
     expect(offer.serviceCategory).toBe(serviceCategory);
+    expect(offer.stages).toEqual(stages);
     expect(
       collectionStore("service_offers").get(offer.id)?.serviceCategory,
     ).toBe(serviceCategory);
+    expect(collectionStore("service_offers").get(offer.id)?.stages).toEqual(
+      stages,
+    );
+  });
+
+  it("persists all registered service categories in one scalar", async () => {
+    const { createSupportServiceOffer, SUPPORT_SERVICE_CATEGORY_KEYS } =
+      await import("../repositories/support-services.repository.js");
+    const serviceCategory = SUPPORT_SERVICE_CATEGORY_KEYS.join(",");
+    const stages = [
+      "test_planning",
+      "wet_lab",
+      "bioinformatics",
+      "human_advice",
+    ] as const;
+
+    const offer = await createSupportServiceOffer(context, {
+      serviceId: "pgs_pocket_genes_67890",
+      name: "Complete registered category set",
+      serviceCategory,
+      providerKind: "organization",
+      providerId: "feed-org-1",
+      providerName: "Pocket Genes",
+      stages: [...stages],
+      status: "draft",
+      isHiddenFromSearch: false,
+      isHighlightedOffer: false,
+      isProfessionalOffer: true,
+      description: "Exercise the complete registered category scalar.",
+      providerWork: "Provide the selected service work.",
+      inputSlots: [],
+      outputSlots: [],
+    });
+
+    expect(offer.serviceCategory).toBe(serviceCategory);
+    expect(offer.serviceCategory.split(",")).toHaveLength(110);
+    expect(offer.stages).toEqual(stages);
+  });
+
+  it.each([
+    [
+      "human advice without its required stage",
+      "sot_genomic_report_generation,sot_human_advice_medical_consultation",
+      ["bioinformatics"],
+      "must include the human_advice stage",
+    ],
+    [
+      "a human-advice-only offer with an additional stage",
+      "sot_human_advice_medical_consultation",
+      ["human_advice", "bioinformatics"],
+      "must use exactly the human_advice stage",
+    ],
+    [
+      "human advice stage without a human-advice category",
+      "sot_genomic_report_generation",
+      ["bioinformatics", "human_advice"],
+      "cannot include the human_advice stage",
+    ],
+    [
+      "a complete category missing a required genomic stage",
+      "sot_complete_health_genomics_report",
+      ["test_planning", "bioinformatics"],
+      "must include the test_planning, wet_lab, and bioinformatics stages",
+    ],
+    [
+      "a mixed complete and human-advice offer missing human advice",
+      "sot_complete_health_genomics_report,sot_human_advice_medical_consultation",
+      ["test_planning", "wet_lab", "bioinformatics"],
+      "must include the human_advice stage",
+    ],
+    [
+      "duplicate stages",
+      "sot_genomic_report_generation",
+      ["bioinformatics", "bioinformatics"],
+      "stages must be a non-empty array of at most four unique canonical stage keys",
+    ],
+    [
+      "a non-canonical stage",
+      "sot_genomic_report_generation",
+      ["Bioinformatics"],
+      "stages must be a non-empty array of at most four unique canonical stage keys",
+    ],
+  ])(
+    "rejects %s through the repository write boundary",
+    async (_label, serviceCategory, stages, expectedMessage) => {
+      const { createSupportServiceOffer } = await import(
+        "../repositories/support-services.repository.js"
+      );
+
+      await expect(
+        createSupportServiceOffer(context, {
+          ...baseOffer,
+          serviceId: "pgs_pocket_genes_23456",
+          serviceCategory,
+          stages,
+        }),
+      ).rejects.toThrow(expectedMessage);
+      expect(collectionStore("service_offers").size).toBe(1);
+    },
+  );
+
+  it("enforces the category-stage contract on direct offer updates", async () => {
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceOffer(context, "offer-1", {
+        ...baseOffer,
+        ...existingOfferContractAcknowledgement,
+        serviceCategory: "sot_human_advice_medical_consultation",
+        stages: ["test_planning"],
+      }),
+    ).rejects.toThrow(
+      "must use exactly the human_advice stage",
+    );
+    expect(collectionStore("service_offers").get("offer-1")).toEqual(
+      baseOffer,
+    );
+  });
+
+  it("keeps historical category-stage mismatches readable for remediation", async () => {
+    seedDoc("service_offers", "offer-historical-stage-contract", {
+      ...baseOffer,
+      serviceCategory:
+        "sot_complete_health_genomics_report,sot_human_advice_medical_consultation",
+      stages: ["bioinformatics"],
+    });
+    const { getSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const offer = await getSupportServiceOffer(
+      context,
+      "offer-historical-stage-contract",
+    );
+
+    expect(offer.serviceCategory).toBe(
+      "sot_complete_health_genomics_report,sot_human_advice_medical_consultation",
+    );
+    expect(offer.stages).toEqual(["bioinformatics"]);
   });
 
   it("shows an invalid historical category as Uncategorized with a remediation warning", async () => {
@@ -724,7 +871,7 @@ describe("support service repository versions", () => {
     seedDoc("service_offers", "offer-historical-multi", {
       ...baseOffer,
       serviceCategory:
-        " sot_genomic_report_review ,sot_unknown,sot_genomic_report_generation,sot_genomic_report_review",
+        " sot_genomic_report_review ,sot_unknown,sot_human_advice_medical_consultation,sot_genomic_report_generation,sot_genomic_report_review",
     });
     const { getSupportServiceOffer } = await import(
       "../repositories/support-services.repository.js"
@@ -736,15 +883,18 @@ describe("support service repository versions", () => {
     );
 
     expect(offer.serviceCategory).toBe(
-      "sot_genomic_report_review,sot_genomic_report_generation",
+      "sot_genomic_report_review,sot_human_advice_medical_consultation,sot_genomic_report_generation",
     );
     expect(offer.complianceWarnings).toContain(
-      "serviceCategory  sot_genomic_report_review ,sot_unknown,sot_genomic_report_generation,sot_genomic_report_review is malformed or partially unrecognized; recognized categories are shown in their stored order and must be corrected before saving.",
+      "serviceCategory  sot_genomic_report_review ,sot_unknown,sot_human_advice_medical_consultation,sot_genomic_report_generation,sot_genomic_report_review is malformed or partially unrecognized; recognized categories are shown in their stored order and must be corrected before saving.",
     );
   });
 
   it("exports the exact closed 110-key category registry", async () => {
-    const { SUPPORT_SERVICE_CATEGORY_KEYS } = await import(
+    const {
+      SUPPORT_SERVICE_CATEGORY_KEYS,
+      isCanonicalSupportServiceCategoryValue,
+    } = await import(
       "../repositories/support-services.repository.js"
     );
 
@@ -754,6 +904,11 @@ describe("support service repository versions", () => {
     expect(SUPPORT_SERVICE_CATEGORY_KEYS[109]).toBe(
       "sot_human_advice_health_technology_usability_human_factors_accessibility",
     );
+    expect(
+      isCanonicalSupportServiceCategoryValue(
+        SUPPORT_SERVICE_CATEGORY_KEYS.join(","),
+      ),
+    ).toBe(true);
     expect(SUPPORT_SERVICE_CATEGORY_KEYS).toEqual(
       expect.arrayContaining([
         "sot_human_advice_genomic_biobanking_governance",
@@ -5842,7 +5997,8 @@ describe("support service canonical transaction creation", () => {
     seedDoc("service_offers", "offer-1", {
       ...baseOffer,
       serviceCategory:
-        " sot_genomic_report_review ,sot_unknown,sot_genomic_report_generation,sot_genomic_report_review",
+        " sot_genomic_report_review ,sot_unknown,sot_human_advice_medical_consultation,sot_genomic_report_generation,sot_genomic_report_review",
+      stages: ["bioinformatics", "human_advice"],
     });
     const { createSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
@@ -5854,7 +6010,7 @@ describe("support service canonical transaction creation", () => {
     );
 
     expect(created.offerSnapshot.serviceCategory).toBe(
-      "sot_genomic_report_review,sot_genomic_report_generation",
+      "sot_genomic_report_review,sot_human_advice_medical_consultation,sot_genomic_report_generation",
     );
     expect(
       collectionStore("service_transactions").get("pgr_new_report_1")
@@ -5862,38 +6018,57 @@ describe("support service canonical transaction creation", () => {
     ).toEqual(
       expect.objectContaining({
         serviceCategory:
-          "sot_genomic_report_review,sot_genomic_report_generation",
+          "sot_genomic_report_review,sot_human_advice_medical_consultation,sot_genomic_report_generation",
+        stages: ["bioinformatics", "human_advice"],
       }),
     );
   });
 
-  it.each([
-    [
-      "mixed genomic and human-advice categories",
-      "sot_genomic_report_generation,sot_human_advice_medical_consultation",
-    ],
-    ["only unrecognized categories", "sot_unknown,sot_also_unknown"],
-  ])(
-    "rejects transaction creation from an offer with %s",
-    async (_label, serviceCategory) => {
-      seedDoc("service_offers", "offer-1", {
-        ...baseOffer,
-        serviceCategory,
-      });
-      const { createSupportServiceTransaction } = await import(
-        "../repositories/support-services.repository.js"
-      );
+  it("rejects a new transaction snapshot when a historical offer violates the category-stage contract", async () => {
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      serviceCategory:
+        "sot_complete_health_genomics_report,sot_human_advice_medical_consultation",
+      stages: ["bioinformatics"],
+    });
+    const { createSupportServiceTransaction, getSupportServiceOffer } =
+      await import("../repositories/support-services.repository.js");
 
-      await expect(
-        createSupportServiceTransaction(context, creationInput()),
-      ).rejects.toThrow(
-        "Selected service offer must define a canonical serviceCategory before it can receive new transactions.",
-      );
-      expect(
-        collectionStore("service_transactions").has("pgr_new_report_1"),
-      ).toBe(false);
-    },
-  );
+    await expect(getSupportServiceOffer(context, "offer-1")).resolves.toEqual(
+      expect.objectContaining({
+        serviceCategory:
+          "sot_complete_health_genomics_report,sot_human_advice_medical_consultation",
+        stages: ["bioinformatics"],
+      }),
+    );
+    await expect(
+      createSupportServiceTransaction(context, creationInput()),
+    ).rejects.toThrow(
+      "Selected service offer cannot receive new transactions: Service offers containing any sot_human_advice_* category must include the human_advice stage.",
+    );
+    expect(
+      collectionStore("service_transactions").has("pgr_new_report_1"),
+    ).toBe(false);
+  });
+
+  it("rejects transaction creation from an offer with only unrecognized categories", async () => {
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      serviceCategory: "sot_unknown,sot_also_unknown",
+    });
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createSupportServiceTransaction(context, creationInput()),
+    ).rejects.toThrow(
+      "Selected service offer must define a canonical serviceCategory before it can receive new transactions.",
+    );
+    expect(
+      collectionStore("service_transactions").has("pgr_new_report_1"),
+    ).toBe(false);
+  });
 
   it("rejects an aggregate oversized transaction including its frozen banner snapshot", async () => {
     const prefix = "data:image/png;base64,";
@@ -6703,6 +6878,28 @@ describe("support service canonical transaction creation", () => {
       "Service offer changed or became inactive while the request was being admitted.",
     );
     expect(collectionStore("service_transactions").size).toBe(0);
+  });
+
+  it("revalidates the category-stage contract inside transaction admission", async () => {
+    beforeNextTransaction = () => {
+      seedDoc("service_offers", "offer-1", {
+        ...baseOffer,
+        serviceCategory:
+          "sot_complete_health_genomics_report,sot_human_advice_medical_consultation",
+        stages: ["bioinformatics"],
+      });
+    };
+    const { createSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      createSupportServiceTransaction(context, creationInput()),
+    ).rejects.toThrow(
+      "Selected service offer cannot receive new transactions: Service offers containing any sot_human_advice_* category must include the human_advice stage.",
+    );
+    expect(collectionStore("service_transactions").size).toBe(0);
+    expect(collectionStore("service_transaction_idempotency").size).toBe(0);
   });
 
   it("rejects a provider that becomes inactive inside admission", async () => {

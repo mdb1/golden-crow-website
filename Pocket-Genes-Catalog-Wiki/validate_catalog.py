@@ -383,7 +383,6 @@ SCHEMAS = {type_id: read(f"schemas/objects/{type_id}.schema.json") for type_id i
 VALIDATORS = {type_id: schema_validator(schema) for type_id, schema in SCHEMAS.items()}
 SERVICE_OFFER_TYPE_KEYS = [item["key"] for item in SERVICE_OFFER_TYPES]
 SERVICE_OFFER_TYPE_KEY_SET = set(SERVICE_OFFER_TYPE_KEYS)
-GENOMIC_SERVICE_OFFER_TYPE_KEYS = SERVICE_OFFER_TYPE_KEYS[:60]
 HUMAN_ADVICE_SERVICE_OFFER_TYPE_KEYS = SERVICE_OFFER_TYPE_KEYS[60:]
 CANONICAL_SERVICE_OFFER_TYPE_TOKEN = r"sot_[a-z0-9]+(?:_[a-z0-9]+)*"
 NO_DUPLICATE_SERVICE_OFFER_TYPES = (
@@ -412,9 +411,6 @@ def canonical_service_offer_category_keys(value: object) -> list[str]:
         raise ValueError("serviceCategory contains an unregistered key")
     if len(keys) != len(set(keys)):
         raise ValueError("serviceCategory contains a duplicate key")
-    contains_advice = any(key in HUMAN_ADVICE_SERVICE_OFFER_TYPE_KEYS for key in keys)
-    if contains_advice and any(key in GENOMIC_SERVICE_OFFER_TYPE_KEYS for key in keys):
-        raise ValueError("serviceCategory cannot mix genomic and human-advice keys")
     return keys
 
 
@@ -1204,24 +1200,24 @@ def validate_service_offer_type_registry():
         == ["sot_genomic_interpretation", "sot_genomic_data_interoperability"],
         "The canonical service catalog must exercise a stable multi-category scalar String",
     )
-    expected_category_patterns = [
-        service_offer_category_sequence_pattern(GENOMIC_SERVICE_OFFER_TYPE_KEYS),
-        service_offer_category_sequence_pattern(HUMAN_ADVICE_SERVICE_OFFER_TYPE_KEYS),
-    ]
+    all_category_value = ",".join(SERVICE_OFFER_TYPE_KEYS)
+    require(
+        canonical_service_offer_category_keys(all_category_value) == SERVICE_OFFER_TYPE_KEYS,
+        "The canonical serviceCategory parser must preserve all 110 registered keys in stable order",
+    )
+    expected_category_pattern = service_offer_category_sequence_pattern(SERVICE_OFFER_TYPE_KEYS)
     service_schema = read("schemas/protocol/service-definition.schema.json")["$defs"]["service_definition"]
     offer_category_schema = service_schema["properties"]["serviceCategory"]
     require(
         offer_category_schema.get("type") == "string"
-        and [item.get("pattern") for item in offer_category_schema.get("oneOf", [])]
-        == expected_category_patterns,
+        and offer_category_schema.get("pattern") == expected_category_pattern,
         "Schema serviceCategory comma-set grammar differs from the canonical registry",
     )
     transaction_schema = read("schemas/protocol/service-transaction.schema.json")
     snapshot_category_schema = transaction_schema["$defs"]["offer_snapshot"]["properties"]["serviceCategory"]
     require(
         snapshot_category_schema.get("type") == "string"
-        and [item.get("pattern") for item in snapshot_category_schema.get("oneOf", [])]
-        == expected_category_patterns,
+        and snapshot_category_schema.get("pattern") == expected_category_pattern,
         "Transaction offerSnapshot serviceCategory comma-set grammar differs from the canonical registry",
     )
     swift_source = (ROOT.parent / "mydnamap-ios/mydnamap/Tabs/ServicesHub/ServiceOfferTypeProvider.swift").read_text()
@@ -1300,8 +1296,8 @@ def validate_service_offer_stage_contract():
         )
         stages_rule = rule["then"]["properties"]["stages"]
         require(
-            stages_rule.get("minItems") == 3 and stages_rule.get("maxItems") == 3,
-            f"{boundary} complete-stage rule must require exactly three stages",
+            stages_rule.get("minItems") == 3 and "maxItems" not in stages_rule,
+            f"{boundary} complete-stage rule must require all genomic stages without blocking mixed advice",
         )
         require(
             [condition["contains"]["const"] for condition in stages_rule.get("allOf", [])]
@@ -1323,10 +1319,21 @@ def validate_service_offer_stage_contract():
         )
         advice_stages = advice_rule["then"]["properties"]["stages"]
         require(
-            advice_stages.get("minItems") == 1
-            and advice_stages.get("maxItems") == 1
-            and advice_stages.get("contains", {}).get("const") == "human_advice",
-            f"{boundary} human-advice rule must require exactly human_advice",
+            advice_stages.get("contains", {}).get("const") == "human_advice"
+            and "minItems" not in advice_stages
+            and "maxItems" not in advice_stages,
+            f"{boundary} human-advice rule must compose with applicable genomic stages",
+        )
+        require(
+            advice_rule["then"]["if"]["properties"]["serviceCategory"]["pattern"]
+            == service_offer_category_sequence_pattern(advice_keys),
+            f"{boundary} human-advice-only stage rule must recognize pure advice sets",
+        )
+        advice_only_stages = advice_rule["then"]["then"]["properties"]["stages"]
+        require(
+            advice_only_stages.get("minItems") == 1
+            and advice_only_stages.get("maxItems") == 1,
+            f"{boundary} pure human-advice sets must still require exactly one stage",
         )
         require(
             advice_rule["else"]["properties"]["stages"]["not"]["contains"]["const"]
@@ -1345,6 +1352,11 @@ def validate_service_offer_stage_contract():
     multi_atomic_offer = copy.deepcopy(singleton_offer)
     multi_atomic_offer["serviceCategory"] = f"{atomic_keys[0]},{atomic_keys[1]}"
     offer_validator.validate(multi_atomic_offer)
+
+    mixed_family_offer = copy.deepcopy(singleton_offer)
+    mixed_family_offer["serviceCategory"] = f"{atomic_keys[0]},{advice_keys[0]}"
+    mixed_family_offer["stages"] = ["test_planning", "human_advice"]
+    offer_validator.validate(mixed_family_offer)
 
     complete_position_values = (
         f"{complete_keys[0]},{atomic_keys[0]},{atomic_keys[1]}",
@@ -1365,6 +1377,32 @@ def validate_service_offer_stage_contract():
                 lambda incomplete_offer=incomplete_offer: offer_validator.validate(incomplete_offer),
                 f"service_offers accepted complete membership {category_value} without {missing_stage}",
             )
+
+    mixed_complete_advice_values = (
+        f"{complete_keys[0]},{advice_keys[0]}",
+        f"{advice_keys[0]},{atomic_keys[0]},{complete_keys[0]}",
+    )
+    for category_value in mixed_complete_advice_values:
+        mixed_complete_advice_offer = copy.deepcopy(base_offer)
+        mixed_complete_advice_offer["serviceCategory"] = category_value
+        mixed_complete_advice_offer["stages"] = [*complete_stages, "human_advice"]
+        offer_validator.validate(mixed_complete_advice_offer)
+        for missing_stage in [*complete_stages, "human_advice"]:
+            incomplete_mixed_offer = copy.deepcopy(mixed_complete_advice_offer)
+            incomplete_mixed_offer["stages"] = [
+                stage
+                for stage in [*complete_stages, "human_advice"]
+                if stage != missing_stage
+            ]
+            reject(
+                lambda incomplete_mixed_offer=incomplete_mixed_offer: offer_validator.validate(incomplete_mixed_offer),
+                f"service_offers accepted mixed complete/advice membership without {missing_stage}",
+            )
+
+    all_categories_offer = copy.deepcopy(base_offer)
+    all_categories_offer["serviceCategory"] = ",".join(SERVICE_OFFER_TYPE_KEYS)
+    all_categories_offer["stages"] = [*complete_stages, "human_advice"]
+    offer_validator.validate(all_categories_offer)
 
     invalid_atomic_offer = copy.deepcopy(singleton_offer)
     invalid_atomic_offer["stages"] = ["human_advice"]
@@ -1398,7 +1436,6 @@ def validate_service_offer_stage_contract():
         f"{atomic_keys[0]}\n",
         f"{atomic_keys[0]},{atomic_keys[0]}",
         f"{atomic_keys[0]},{atomic_keys[1]},{atomic_keys[0]}",
-        f"{atomic_keys[0]},{advice_keys[0]}",
         "",
         None,
         42,
@@ -1445,6 +1482,11 @@ def validate_service_offer_stage_contract():
     multi_snapshot["serviceCategory"] = f"{atomic_keys[-2]},{atomic_keys[-1]}"
     snapshot_validator.validate(multi_snapshot)
 
+    mixed_family_snapshot = copy.deepcopy(snapshot)
+    mixed_family_snapshot["serviceCategory"] = f"{atomic_keys[-1]},{advice_keys[-1]}"
+    mixed_family_snapshot["stages"] = ["bioinformatics", "human_advice"]
+    snapshot_validator.validate(mixed_family_snapshot)
+
     for category_value in complete_position_values:
         complete_snapshot = copy.deepcopy(snapshot)
         complete_snapshot["serviceCategory"] = category_value
@@ -1459,6 +1501,28 @@ def validate_service_offer_stage_contract():
                 lambda incomplete_snapshot=incomplete_snapshot: snapshot_validator.validate(incomplete_snapshot),
                 f"service_transactions.offerSnapshot accepted complete membership {category_value} without {missing_stage}",
             )
+
+    for category_value in mixed_complete_advice_values:
+        mixed_complete_advice_snapshot = copy.deepcopy(snapshot)
+        mixed_complete_advice_snapshot["serviceCategory"] = category_value
+        mixed_complete_advice_snapshot["stages"] = [*complete_stages, "human_advice"]
+        snapshot_validator.validate(mixed_complete_advice_snapshot)
+        for missing_stage in [*complete_stages, "human_advice"]:
+            incomplete_mixed_snapshot = copy.deepcopy(mixed_complete_advice_snapshot)
+            incomplete_mixed_snapshot["stages"] = [
+                stage
+                for stage in [*complete_stages, "human_advice"]
+                if stage != missing_stage
+            ]
+            reject(
+                lambda incomplete_mixed_snapshot=incomplete_mixed_snapshot: snapshot_validator.validate(incomplete_mixed_snapshot),
+                f"service_transactions.offerSnapshot accepted mixed complete/advice membership without {missing_stage}",
+            )
+
+    all_categories_snapshot = copy.deepcopy(snapshot)
+    all_categories_snapshot["serviceCategory"] = ",".join(SERVICE_OFFER_TYPE_KEYS)
+    all_categories_snapshot["stages"] = [*complete_stages, "human_advice"]
+    snapshot_validator.validate(all_categories_snapshot)
 
     advice_snapshot = copy.deepcopy(snapshot)
     advice_snapshot["serviceCategory"] = f"{advice_keys[-2]},{advice_keys[-1]}"

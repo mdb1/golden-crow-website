@@ -25,6 +25,7 @@ import {
   listSupportServiceOffers,
   listSupportServiceTransactions,
   removeSupportServiceTransactionOutputReport,
+  supportServiceCategoryStageContractIssue,
   updateSupportServiceOffer,
   updateSupportServiceTransaction,
 } from "../repositories/support-services.repository.js";
@@ -494,7 +495,7 @@ const OfferBodySchema = z.object({
   providerKind: ProviderKindSchema,
   providerId: ProviderIdSchema,
   providerName: z.string().trim().max(180).optional(),
-  stages: z.array(ServiceStageSchema).min(1).max(3).optional(),
+  stages: z.array(ServiceStageSchema).min(1).max(4).optional(),
   status: OfferStatusSchema.optional(),
   isHiddenFromSearch: z.boolean(),
   isHighlightedOffer: z.boolean(),
@@ -519,12 +520,24 @@ const OfferBodySchema = z.object({
   commercialTerms: CommercialTermsSchema.optional(),
   moreInformation: MoreInformationSchema.nullable().optional(),
 }).strict();
+function refineOfferCategoryStages(
+  offer: { serviceCategory: string; stages?: string[] },
+  ctx: z.RefinementCtx,
+) {
+  const issue = supportServiceCategoryStageContractIssue(
+    offer.serviceCategory,
+    offer.stages,
+  );
+  if (issue) {
+    ctx.addIssue({ code: "custom", message: issue, path: ["stages"] });
+  }
+}
 const CreateOfferBodySchema = OfferBodySchema.extend({
   serviceId: GeneratedServiceIdSchema,
-});
+}).superRefine(refineOfferCategoryStages);
 const UpdateOfferBodySchema = OfferBodySchema.extend({
   acknowledgesExistingTransactionContracts: z.literal(true),
-});
+}).superRefine(refineOfferCategoryStages);
 const TransactionBodySchema = z.object({
   customTransactionName: z.string().trim().min(1).nullable().optional(),
   requestId: RequestIdSchema,

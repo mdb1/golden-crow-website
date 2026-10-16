@@ -9,6 +9,7 @@ import {
   supportServiceCategoriesByValue,
   supportServiceCategoryByKey,
   supportServiceCategoryValueIssue,
+  synchronizeSupportServiceStagesForCategories,
 } from "@/lib/support-service-categories";
 
 describe("support service categories", () => {
@@ -128,13 +129,13 @@ describe("support service categories", () => {
       isSupportServiceCategoryValue(
         "sot_genomic_interpretation,sot_human_advice_parenting_guidance",
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(supportServiceCategoryValueIssue("")).toBe("empty");
     expect(
       supportServiceCategoryValueIssue(
         "sot_genomic_interpretation,sot_human_advice_parenting_guidance",
       ),
-    ).toBe("mixed_families");
+    ).toBeNull();
     expect(
       supportServiceCategoryValueIssue(
         "sot_genomic_interpretation,sot_unknown",
@@ -147,9 +148,22 @@ describe("support service categories", () => {
     ).toBeNull();
   });
 
+  it("accepts every registered category in one comma-delimited scalar", () => {
+    const value = SUPPORT_SERVICE_CATEGORY_KEYS.join(",");
+
+    expect(isSupportServiceCategoryValue(value)).toBe(true);
+    expect(serializeSupportServiceCategoryKeys(SUPPORT_SERVICE_CATEGORY_KEYS)).toBe(
+      value,
+    );
+    expect(supportServiceCategoriesByValue(value)).toHaveLength(
+      SUPPORT_SERVICE_CATEGORY_KEYS.length,
+    );
+  });
+
   it("serializes and resolves categories in first-selection order", () => {
     const value = serializeSupportServiceCategoryKeys([
       "sot_genomic_report_review",
+      "sot_human_advice_parenting_guidance",
       " sot_genomic_interpretation ",
       "sot_genomic_report_review",
       "unknown",
@@ -157,14 +171,64 @@ describe("support service categories", () => {
     ]);
 
     expect(value).toBe(
-      "sot_genomic_report_review,sot_genomic_interpretation,sot_genomic_data_interoperability",
+      "sot_genomic_report_review,sot_human_advice_parenting_guidance,sot_genomic_interpretation,sot_genomic_data_interoperability",
     );
     expect(
       supportServiceCategoriesByValue(value).map((category) => category.key),
     ).toEqual([
       "sot_genomic_report_review",
+      "sot_human_advice_parenting_guidance",
       "sot_genomic_interpretation",
       "sot_genomic_data_interoperability",
+    ]);
+  });
+
+  it("synchronizes stages without restricting category combinations", () => {
+    expect(
+      synchronizeSupportServiceStagesForCategories(
+        "sot_human_advice_parenting_guidance",
+        ["test_planning", "human_advice"],
+      ),
+    ).toEqual(["human_advice"]);
+    expect(
+      synchronizeSupportServiceStagesForCategories(
+        "sot_genomic_interpretation,sot_human_advice_parenting_guidance",
+        ["wet_lab"],
+      ),
+    ).toEqual(["wet_lab", "human_advice"]);
+    expect(
+      synchronizeSupportServiceStagesForCategories(
+        "sot_complete_health_genomics_report",
+        ["wet_lab", "human_advice"],
+      ),
+    ).toEqual(["test_planning", "wet_lab", "bioinformatics"]);
+    expect(
+      synchronizeSupportServiceStagesForCategories(
+        "sot_complete_health_genomics_report,sot_human_advice_parenting_guidance",
+        ["human_advice"],
+      ),
+    ).toEqual([
+      "test_planning",
+      "wet_lab",
+      "bioinformatics",
+      "human_advice",
+    ]);
+    expect(
+      synchronizeSupportServiceStagesForCategories(
+        "sot_genomic_interpretation",
+        ["human_advice"],
+      ),
+    ).toEqual(["test_planning"]);
+    expect(
+      synchronizeSupportServiceStagesForCategories(
+        SUPPORT_SERVICE_CATEGORY_KEYS.join(","),
+        [],
+      ),
+    ).toEqual([
+      "test_planning",
+      "wet_lab",
+      "bioinformatics",
+      "human_advice",
     ]);
   });
 

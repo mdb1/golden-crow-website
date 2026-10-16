@@ -338,6 +338,7 @@ export const SUPPORT_SERVICE_STAGES = [
   "test_planning",
   "wet_lab",
   "bioinformatics",
+  "human_advice",
 ] as const;
 
 export const SUPPORT_SERVICE_OFFER_STATUSES = [
@@ -1095,22 +1096,8 @@ function cleanString(value: unknown) {
 const SUPPORT_SERVICE_CATEGORY_SET = new Set<string>(
   SUPPORT_SERVICE_CATEGORY_KEYS,
 );
-const HUMAN_ADVICE_SERVICE_CATEGORY_PREFIX = "sot_human_advice_";
 const SUPPORT_SERVICE_CATEGORY_VALUE_ERROR =
   "serviceCategory must be a canonical comma-separated list of one or more exact keys from the closed service-offer category registry.";
-
-function hasMixedServiceCategoryFamilies(categories: string[]) {
-  const hasHumanAdvice = categories.some((category) =>
-    category.startsWith(HUMAN_ADVICE_SERVICE_CATEGORY_PREFIX),
-  );
-  return (
-    hasHumanAdvice &&
-    categories.some(
-      (category) =>
-        !category.startsWith(HUMAN_ADVICE_SERVICE_CATEGORY_PREFIX),
-    )
-  );
-}
 
 function canonicalServiceCategoryTokens(value: unknown): string[] | null {
   if (typeof value !== "string" || !value) {
@@ -1124,8 +1111,7 @@ function canonicalServiceCategoryTokens(value: unknown): string[] | null {
         category !== category.trim() ||
         !SUPPORT_SERVICE_CATEGORY_SET.has(category),
     ) ||
-    new Set(categories).size !== categories.length ||
-    hasMixedServiceCategoryFamilies(categories)
+    new Set(categories).size !== categories.length
   ) {
     return null;
   }
@@ -1134,6 +1120,110 @@ function canonicalServiceCategoryTokens(value: unknown): string[] | null {
 
 export function isCanonicalSupportServiceCategoryValue(value: unknown) {
   return canonicalServiceCategoryTokens(value) !== null;
+}
+
+const SUPPORT_SERVICE_STAGES_VALUE_ERROR =
+  "stages must be a non-empty array of at most four unique canonical stage keys.";
+
+function canonicalSupportServiceStages(
+  value: unknown,
+): SupportServiceStage[] | null {
+  if (value === undefined) {
+    return ["test_planning"];
+  }
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    value.length > SUPPORT_SERVICE_STAGES.length ||
+    value.some(
+      (stage) => typeof stage !== "string" || !STAGE_SET.has(stage),
+    ) ||
+    new Set(value).size !== value.length
+  ) {
+    return null;
+  }
+  return value as SupportServiceStage[];
+}
+
+export function supportServiceCategoryStageContractIssue(
+  serviceCategory: unknown,
+  stagesValue: unknown,
+): string | null {
+  const categories = canonicalServiceCategoryTokens(serviceCategory);
+  if (!categories) {
+    return null;
+  }
+  const stages = canonicalSupportServiceStages(stagesValue);
+  if (!stages) {
+    return SUPPORT_SERVICE_STAGES_VALUE_ERROR;
+  }
+
+  const hasHumanAdvice = categories.some((category) =>
+    category.startsWith("sot_human_advice_"),
+  );
+  const hasOnlyHumanAdvice = categories.every((category) =>
+    category.startsWith("sot_human_advice_"),
+  );
+  const hasCompleteService = categories.some((category) =>
+    category.startsWith("sot_complete_"),
+  );
+  const stageSet = new Set<SupportServiceStage>(stages);
+
+  if (
+    hasOnlyHumanAdvice &&
+    (stages.length !== 1 || stages[0] !== "human_advice")
+  ) {
+    return "Service offers containing only sot_human_advice_* categories must use exactly the human_advice stage.";
+  }
+  if (hasHumanAdvice && !stageSet.has("human_advice")) {
+    return "Service offers containing any sot_human_advice_* category must include the human_advice stage.";
+  }
+  if (!hasHumanAdvice && stageSet.has("human_advice")) {
+    return "Service offers without a sot_human_advice_* category cannot include the human_advice stage.";
+  }
+  if (
+    hasCompleteService &&
+    !["test_planning", "wet_lab", "bioinformatics"].every((stage) =>
+      stageSet.has(stage as SupportServiceStage),
+    )
+  ) {
+    return "Service offers containing any sot_complete_* category must include the test_planning, wet_lab, and bioinformatics stages.";
+  }
+  return null;
+}
+
+function assertSupportServiceCategoryStageContract(
+  serviceCategory: unknown,
+  stages: unknown,
+) {
+  const issue = supportServiceCategoryStageContractIssue(
+    serviceCategory,
+    stages,
+  );
+  if (issue) {
+    throw new AdminRepositoryError(issue, 400);
+  }
+}
+
+function assertSupportServiceOfferCanReceiveTransactions(
+  offer: Pick<SupportServiceOfferRecord, "serviceCategory" | "stages">,
+) {
+  if (!isCanonicalSupportServiceCategoryValue(offer.serviceCategory)) {
+    throw new AdminRepositoryError(
+      "Selected service offer must define a canonical serviceCategory before it can receive new transactions.",
+      400,
+    );
+  }
+  const issue = supportServiceCategoryStageContractIssue(
+    offer.serviceCategory,
+    offer.stages,
+  );
+  if (issue) {
+    throw new AdminRepositoryError(
+      `Selected service offer cannot receive new transactions: ${issue}`,
+      400,
+    );
+  }
 }
 
 function tolerantStoredServiceCategoryValue(value: unknown): {
@@ -2440,12 +2530,22 @@ function offerDocument(
   const providerId = cleanString(input.providerId);
   const providerName = cleanString(input.providerName);
   const serviceVersion = versionNumber(input.serviceVersion);
-  const stages = normalizeStages(input.stages);
+  const allowHistoricalServiceCategory =
+    options.allowHistoricalServiceCategory === true;
+  const stages = allowHistoricalServiceCategory
+    ? normalizeStages(input.stages)
+    : canonicalSupportServiceStages(input.stages);
+  if (!stages) {
+    throw new AdminRepositoryError(SUPPORT_SERVICE_STAGES_VALUE_ERROR, 400);
+  }
   const inputSlots = normalizeOfferInputSlots(input.inputSlots);
   const outputSlots = normalizeOfferOutputSlots(input.outputSlots);
   const serviceCategory = serviceCategoryValue(input.serviceCategory, {
-    allowHistorical: options.allowHistoricalServiceCategory,
+    allowHistorical: allowHistoricalServiceCategory,
   });
+  if (!allowHistoricalServiceCategory) {
+    assertSupportServiceCategoryStageContract(serviceCategory, stages);
+  }
 
   return {
     schemaVersion: 1,
@@ -7795,12 +7895,7 @@ async function createSupportServiceTransactionWithPolicy(
   const offer = toOfferRecord(offerSnapshot.id, offerSnapshot.data() ?? {}, {
     requirePresentationFlags: true,
   });
-  if (!isCanonicalSupportServiceCategoryValue(offer.serviceCategory)) {
-    throw new AdminRepositoryError(
-      "Selected service offer must define a canonical serviceCategory before it can receive new transactions.",
-      400,
-    );
-  }
+  assertSupportServiceOfferCanReceiveTransactions(offer);
   if (offer.status !== "active") {
     throw new AdminRepositoryError(
       "Only active service offers are selectable for new transactions.",
@@ -8023,6 +8118,7 @@ async function createSupportServiceTransactionWithPolicy(
       latestOfferSnapshot.data() ?? {},
       { requirePresentationFlags: true },
     );
+    assertSupportServiceOfferCanReceiveTransactions(latestOffer);
     if (
       latestOffer.status !== "active" ||
       stableString(offerSnapshotForTransaction(latestOffer)) !==

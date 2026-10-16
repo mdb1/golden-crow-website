@@ -127,6 +127,7 @@ import {
   supportServiceCategoryDescription,
   supportServiceCategoryName,
   supportServiceCategoryValueIssue,
+  synchronizeSupportServiceStagesForCategories,
   type SupportServiceCategoryKey,
 } from "@/lib/support-service-categories";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
@@ -1950,8 +1951,6 @@ function serviceCategoryValidationMessage(value: unknown) {
   switch (supportServiceCategoryValueIssue(value)) {
     case "empty":
       return "Choose at least one service category.";
-    case "mixed_families":
-      return "Genomic and human-advice categories cannot be combined.";
     case "invalid":
       return "Choose only registered service categories.";
     default:
@@ -2084,6 +2083,10 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
   if (serviceCategoryError) {
     throw new Error(serviceCategoryError);
   }
+  const stages = synchronizeSupportServiceStagesForCategories(
+    serviceCategory,
+    form.stages,
+  );
 
   return {
     serviceId,
@@ -2093,7 +2096,7 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
     providerKind: form.providerKind,
     providerId: form.providerId.trim(),
     providerName: form.providerName.trim(),
-    stages: form.stages,
+    stages,
     status: form.status,
     isHiddenFromSearch: form.isHiddenFromSearch,
     isHighlightedOffer: form.isHighlightedOffer,
@@ -4510,6 +4513,11 @@ export function SupportServiceOfferWorkbench({
                             setForm((current) => ({
                               ...current,
                               serviceCategory,
+                              stages:
+                                synchronizeSupportServiceStagesForCategories(
+                                  serviceCategory,
+                                  current.stages,
+                                ),
                             }));
                           }}
                         />
@@ -5071,6 +5079,10 @@ export function SupportServiceOfferWorkbench({
                     setForm((current) => ({
                       ...current,
                       serviceCategory,
+                      stages: synchronizeSupportServiceStagesForCategories(
+                        serviceCategory,
+                        current.stages,
+                      ),
                     }))
                   }
                 />
@@ -6539,6 +6551,10 @@ function ShortContractVisual({
 }
 
 function stagePipelineDescription(stage: SupportServiceStage) {
+  if (stage === "human_advice") {
+    return "Person-to-person consultation, counseling, education, and support.";
+  }
+
   if (stage === "wet_lab") {
     return "Specimen logistics, extraction, sequencing, and lab-produced source files.";
   }
@@ -6551,6 +6567,10 @@ function stagePipelineDescription(stage: SupportServiceStage) {
 }
 
 function stagePipelineIcon(stage: SupportServiceStage) {
+  if (stage === "human_advice") {
+    return UserRound;
+  }
+
   if (stage === "wet_lab") {
     return FlaskConical;
   }
@@ -6644,7 +6664,7 @@ function StagePipeline({
         className={cn(
           "grid gap-3",
           layout === "horizontal" &&
-            "md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-stretch",
+            "md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] md:items-stretch",
         )}
       >
         {SUPPORT_SERVICE_STAGES.map((stage, index) => {
@@ -6997,7 +7017,6 @@ function ServiceCategoryPicker({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
-  const familyRestrictionId = useId();
   const draftStatusId = useId();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<SupportServiceCategoryKey[]>([]);
@@ -7049,17 +7068,7 @@ function ServiceCategoryPicker({
         return current.filter((key) => key !== categoryKey);
       }
 
-      const currentFamily = current[0]?.startsWith("sot_human_advice_")
-        ? "human_advice"
-        : current.length
-          ? "genomic"
-          : null;
-      const nextFamily = categoryKey.startsWith("sot_human_advice_")
-        ? "human_advice"
-        : "genomic";
-      return currentFamily && currentFamily !== nextFamily
-        ? current
-        : [...current, categoryKey];
+      return [...current, categoryKey];
     });
   }
 
@@ -7133,14 +7142,9 @@ function ServiceCategoryPicker({
               {t("Choose service categories")}
             </DialogTitle>
             <DialogDescription className="max-w-4xl leading-6">
-              <span>
-                {t(
-                  "Choose every category that describes a contracted outcome delivered by this offer. Supporting inputs, steps, and provider profession do not determine categories.",
-                )}
-              </span>{" "}
-              <span id={familyRestrictionId} className="font-semibold">
-                {t("Genomic and human-advice categories cannot be combined.")}
-              </span>
+              {t(
+                "Choose every category that describes a contracted outcome delivered by this offer. Supporting inputs, steps, and provider profession do not determine categories.",
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -7205,24 +7209,6 @@ function ServiceCategoryPicker({
                         <div className="divide-y divide-slate-200/80 dark:divide-violet-400/12">
                           {group.categories.map((category) => {
                             const selected = draft.includes(category.key);
-                            const selectedFamily = draft[0]?.startsWith(
-                              "sot_human_advice_",
-                            )
-                              ? "human_advice"
-                              : draft.length
-                                ? "genomic"
-                                : null;
-                            const categoryFamily = category.key.startsWith(
-                              "sot_human_advice_",
-                            )
-                              ? "human_advice"
-                              : "genomic";
-                            const incompatible =
-                              !selected &&
-                              Boolean(
-                                selectedFamily &&
-                                selectedFamily !== categoryFamily,
-                              );
 
                             return (
                               <button
@@ -7230,25 +7216,12 @@ function ServiceCategoryPicker({
                                 type="button"
                                 role="checkbox"
                                 aria-checked={selected}
-                                aria-describedby={
-                                  incompatible ? familyRestrictionId : undefined
-                                }
-                                disabled={incompatible}
-                                title={
-                                  incompatible
-                                    ? t(
-                                        "Genomic and human-advice categories cannot be combined.",
-                                      )
-                                    : undefined
-                                }
                                 onClick={() => toggleCategory(category.key)}
                                 className={cn(
                                   "flex w-full min-w-0 items-start gap-4 border-l-4 px-5 py-5 text-left outline-none transition-[background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400",
                                   selected
                                     ? "border-l-violet-500 bg-violet-50/95 shadow-[inset_0_0_32px_rgba(124,58,237,0.035)] dark:border-l-violet-300 dark:bg-violet-500/14"
                                     : "border-l-transparent bg-white hover:border-l-violet-200 hover:bg-violet-50/55 dark:bg-slate-950/48 dark:hover:border-l-violet-400/40 dark:hover:bg-violet-500/8",
-                                  incompatible &&
-                                    "cursor-not-allowed opacity-45 hover:border-l-transparent hover:bg-white dark:hover:border-l-transparent dark:hover:bg-slate-950/48",
                                 )}
                               >
                                 <span
@@ -7307,9 +7280,7 @@ function ServiceCategoryPicker({
                   {t(
                     draftIssue === "empty"
                       ? "Select at least one category to continue."
-                      : draftIssue === "mixed_families"
-                        ? "Remove categories from one family before applying."
-                        : "Choose only registered service categories.",
+                      : "Choose only registered service categories.",
                   )}
                 </p>
               ) : null}
