@@ -13,6 +13,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
+    "test:time-travel": "node scripts/test-time-travel.mjs",
     "test:gc-fitness": "jest --testPathPatterns=gc-fitness",
     "seed:gc-fitness-library": "node scripts/seed-gc-fitness-library.cjs",
     "seed:gc-fitness-standard-library": "node --experimental-transform-types scripts/sync-standard-exercise-library.ts",
