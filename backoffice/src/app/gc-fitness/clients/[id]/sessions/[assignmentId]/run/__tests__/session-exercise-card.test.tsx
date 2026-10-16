@@ -26,7 +26,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
-import { SessionExerciseCard } from "@/app/gc-fitness/clients/[id]/sessions/[assignmentId]/run/_components/session-exercise-card";
+import {
+  SessionExerciseCard,
+  clampInputNumber,
+} from "@/app/gc-fitness/clients/[id]/sessions/[assignmentId]/run/_components/session-exercise-card";
 
 // The card imports a Server Action, which drags `firebase-admin` (and its
 // node-only crypto deps) into the jsdom bundle. Stub the module.
@@ -188,5 +191,23 @@ describe("SessionExerciseCard — reordering", () => {
 
     await user.click(screen.getByRole("button", { name: "Bajar ejercicio" }));
     expect(handlers.onMove).toHaveBeenCalledWith(1);
+  });
+});
+
+// Regression (#451): the live-session cells used an ad-hoc replace(",", ".");
+// they now share parseDecimalInput with the template/assign editors.
+describe("clampInputNumber — shared decimal parser (#451)", () => {
+  it("reads both decimal separators", () => {
+    expect(clampInputNumber("22,5", 0, 2000)).toBe(22.5);
+    expect(clampInputNumber("22.5", 0, 2000)).toBe(22.5);
+  });
+  it("reads a well-formed thousands group and clamps to max", () => {
+    expect(clampInputNumber("1.234,5", 0, 2000)).toBe(1234.5);
+    expect(clampInputNumber("2.500,5", 0, 2000)).toBe(2000);
+  });
+  it("keeps the previous value for garbage and blanks, never 0", () => {
+    expect(clampInputNumber("1,5,0", 40, 2000)).toBe(40);
+    expect(clampInputNumber("12kg", 40, 2000)).toBe(40);
+    expect(clampInputNumber("  ", 40, 2000)).toBe(40);
   });
 });

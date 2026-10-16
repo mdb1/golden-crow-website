@@ -66,6 +66,7 @@ import {
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 import { formDraftKey, useFormDraft } from "@/lib/gc-fitness/use-form-draft";
 import { FormDraftRestoredNotice } from "@/components/gc-fitness/form-draft-restored-notice";
+import { parseDecimalInput } from "@/lib/gc-fitness/decimal-input";
 
 interface WorkoutAssignmentEditDialogProps {
   open: boolean;
@@ -448,7 +449,8 @@ export function WorkoutAssignmentEditDialog({
       });
       const weightsRaw = draft.setRows.map((r) => {
         const raw = r.kg.trim();
-        return raw === "" ? NaN : Number(raw);
+        // #451 — "62,5" (es keyboard) is 62.5, not NaN → 0 kg.
+        return raw === "" ? NaN : parseDecimalInput(raw);
       });
       // 260610-j67 (issue #159) — when "Sin peso" is on, ALWAYS emit the
       // explicit empty-array sentinel `[]` (reps-only), regardless of any
@@ -849,11 +851,19 @@ export function WorkoutAssignmentEditDialog({
                                   inputMode="decimal"
                                   value={row.kg}
                                   placeholder="Kg"
-                                  onChange={(e) =>
-                                    patchRow(draft.rowId, rowIdx, {
-                                      kg: e.target.value,
-                                    })
-                                  }
+                                  onChange={(e) => {
+                                    // #451 — accept "62,5" and "62.5"; drop a
+                                    // keystroke that makes the cell
+                                    // unparseable (it would be saved as 0 kg).
+                                    const value = e.target.value;
+                                    if (
+                                      value.trim() !== "" &&
+                                      !Number.isFinite(parseDecimalInput(value))
+                                    ) {
+                                      return;
+                                    }
+                                    patchRow(draft.rowId, rowIdx, { kg: value });
+                                  }}
                                   className="h-9 rounded-md border bg-background px-2 text-sm"
                                 />
                                 {lastLogged ? (

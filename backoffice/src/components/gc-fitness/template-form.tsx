@@ -147,6 +147,7 @@ import {
   reloadOntoCurrentDeployment,
   reportStaleDeployment,
 } from "@/lib/gc-fitness/stale-deployment";
+import { parseDecimalInput } from "@/lib/gc-fitness/decimal-input";
 
 /**
  * Per-label accent classes for superset group borders/pills (D9). Reuses the
@@ -2331,7 +2332,10 @@ export function TemplateForm({
                                       setSetWeightDraft((prev) => ({ ...prev, [setKey]: "" }));
                                       return;
                                     }
-                                    const next = Number(nextRaw);
+                                    // #451 — "22,5" (es keyboard) and "22.5" both
+                                    // parse; a keystroke that makes the text
+                                    // unparseable is dropped, as before.
+                                    const next = parseDecimalInput(nextRaw);
                                     if (!Number.isFinite(next)) return;
                                     setSetWeightDraft((prev) => ({ ...prev, [setKey]: e.target.value }));
                                   }}
@@ -2353,7 +2357,7 @@ export function TemplateForm({
                                       return;
                                     }
                                     if (raw !== undefined) {
-                                      const next = Number(raw);
+                                      const next = parseDecimalInput(raw);
                                       if (Number.isFinite(next)) {
                                         const safeLen = Math.max(setIdx + 1, current.length);
                                         const filled = Array.from({ length: safeLen }, (_, i) => {
@@ -2413,7 +2417,7 @@ export function TemplateForm({
                                       );
                                       const kgSource =
                                         draftKg !== undefined && draftKg !== ""
-                                          ? Number(draftKg)
+                                          ? parseDecimalInput(draftKg)
                                           : Number.isFinite(kgFromForm[0])
                                             ? kgFromForm[0]
                                             : NaN;

@@ -227,6 +227,41 @@ describe("WorkoutAssignmentEditDialog — the payload it builds", () => {
   });
 });
 
+describe("WorkoutAssignmentEditDialog — decimal kg (#451)", () => {
+  // Regression (#451): the kg cell was parsed with Number(), so "62,5" from a
+  // Spanish keyboard became NaN → 0 kg. It now uses parseDecimalInput.
+  it("a decimal-comma weight ('62,5') is saved as 62.5 kg", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await waitForLoaded();
+    const kg = screen.getAllByPlaceholderText("Kg")[1];
+    await user.clear(kg);
+    await user.type(kg, "62,5");
+    await user.click(saveButton());
+    await waitFor(() => expect(mockEditExercises).toHaveBeenCalledTimes(1));
+    expect(mockEditExercises.mock.calls[0][1].exercises[0].weightBySetKg).toEqual([
+      60, 62.5, 60,
+    ]);
+  });
+
+  // Regression (#451): an unparseable keystroke is dropped instead of the
+  // whole cell being saved as 0 kg.
+  it("a garbage kg keystroke is dropped, never saved as 0 kg", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await waitForLoaded();
+    const kg = screen.getAllByPlaceholderText("Kg")[1];
+    await user.clear(kg);
+    await user.type(kg, "62x");
+    expect(kg).toHaveValue("62");
+    await user.click(saveButton());
+    await waitFor(() => expect(mockEditExercises).toHaveBeenCalledTimes(1));
+    expect(mockEditExercises.mock.calls[0][1].exercises[0].weightBySetKg).toEqual([
+      60, 62, 60,
+    ]);
+  });
+});
+
 describe("WorkoutAssignmentEditDialog — failure handling", () => {
   it("surfaces the server message and does NOT report success upstream", async () => {
     const user = userEvent.setup();
