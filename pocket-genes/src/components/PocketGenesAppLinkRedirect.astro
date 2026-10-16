@@ -213,9 +213,6 @@ const initialCopy = isEnglishPage
         {
           isOrganizationRoute ? (
             <>
-              <div class="organization-profile-banner" data-preview-banner-shell hidden>
-                <img data-preview-banner alt="" hidden />
-              </div>
               <header class="organization-profile-identity">
                 <div class="organization-profile-logo shared-preview-avatar" data-preview-avatar>
                   <span data-preview-fallback>DNA</span>
@@ -241,10 +238,15 @@ const initialCopy = isEnglishPage
                   {initialCopy.openOrganizationInApp}
                 </a>
               </aside>
-              <section class="organization-profile-description" data-preview-body-shell hidden>
-                <h2 class="organization-description-title">{initialCopy.organizationDescriptionTitle}</h2>
-                <div class="shared-preview-body" data-preview-body hidden></div>
-              </section>
+              <div class="organization-profile-main">
+                <section class="organization-profile-description" data-preview-body-shell hidden>
+                  <h2 class="organization-description-title">{initialCopy.organizationDescriptionTitle}</h2>
+                  <div class="shared-preview-body" data-preview-body hidden></div>
+                </section>
+                <div class="organization-profile-banner" data-preview-banner-shell hidden>
+                  <img data-preview-banner alt="" hidden />
+                </div>
+              </div>
               <aside class="organization-profile-facts shared-preview-sections" data-preview-sections hidden>
                 <section class="shared-preview-section" data-preview-categories-section hidden>
                   <h3 data-preview-categories-title></h3>
@@ -5471,10 +5473,9 @@ const initialCopy = isEnglishPage
     display: grid;
     grid-template-columns: minmax(0, 1fr) 320px;
     grid-template-areas:
-      "banner banner"
       "identity actions"
-      "description facts";
-    grid-template-rows: auto auto 1fr;
+      "main facts";
+    grid-template-rows: auto 1fr;
     column-gap: 46px;
     row-gap: 0;
     align-items: start;
@@ -5493,13 +5494,13 @@ const initialCopy = isEnglishPage
   }
 
   .shared-preview--organization .organization-profile-banner {
-    grid-area: banner;
-    width: 100%;
-    height: 210px;
+    box-sizing: border-box;
+    width: min(100%, 640px);
+    aspect-ratio: 1024 / 500;
     overflow: hidden;
-    margin: 0 0 30px;
+    margin: 0;
     border: 1px solid #e9e5ed;
-    border-radius: 12px;
+    border-radius: 14px;
     background: #f8f6fa;
   }
 
@@ -5513,6 +5514,21 @@ const initialCopy = isEnglishPage
     display: block;
     object-fit: contain;
     object-position: center;
+  }
+
+  .shared-preview--organization .organization-profile-main {
+    grid-area: main;
+    display: grid;
+    gap: 30px;
+    align-self: start;
+    min-width: 0;
+    max-width: 730px;
+    margin: 0;
+    padding-right: 6px;
+  }
+
+  .shared-preview--organization .organization-profile-main:not(:has(> :not([hidden]))) {
+    display: none;
   }
 
   .shared-preview--organization .organization-profile-identity {
@@ -5666,12 +5682,11 @@ const initialCopy = isEnglishPage
   }
 
   .shared-preview--organization .organization-profile-description {
-    grid-area: description;
     align-self: start;
     min-width: 0;
-    max-width: 730px;
+    max-width: none;
     margin: 0;
-    padding-right: 6px;
+    padding: 0;
   }
 
   .shared-preview--organization .organization-description-title {
@@ -5716,7 +5731,7 @@ const initialCopy = isEnglishPage
     gap: 20px;
     align-self: start;
     min-width: 0;
-    margin: 20px 0 0;
+    margin: 0;
     border: 1px solid #e9e5ed;
     border-radius: 15px;
     background: #f8f6fa;
@@ -5939,10 +5954,6 @@ const initialCopy = isEnglishPage
       gap: 0;
     }
 
-    .shared-preview--organization .organization-profile-banner {
-      order: 0;
-    }
-
     .shared-preview--organization .organization-profile-identity {
       order: 1;
       width: 100%;
@@ -5955,7 +5966,7 @@ const initialCopy = isEnglishPage
       margin-top: 24px;
     }
 
-    .shared-preview--organization .organization-profile-description {
+    .shared-preview--organization .organization-profile-main {
       order: 3;
       width: 100%;
       max-width: none;
@@ -6100,8 +6111,6 @@ const initialCopy = isEnglishPage
     }
 
     .shared-preview--organization .organization-profile-banner {
-      height: 160px;
-      margin-bottom: 24px;
       border-radius: 10px;
     }
 
@@ -6140,7 +6149,8 @@ const initialCopy = isEnglishPage
       margin-top: 22px;
     }
 
-    .shared-preview--organization .organization-profile-description {
+    .shared-preview--organization .organization-profile-main {
+      gap: 26px;
       margin-top: 26px;
       padding-top: 24px;
     }

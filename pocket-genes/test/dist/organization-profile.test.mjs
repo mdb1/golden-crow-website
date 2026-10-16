@@ -25,7 +25,29 @@ test('organization profiles render a localized website action instead of the raw
   }
 });
 
-test('the desktop organization action rail starts beside the identity block', () => {
+test('organization banners render inside the main content after the description', () => {
+  for (const { page } of organizationPages) {
+    const { root } = loadPage(page);
+    const preview = root.querySelector('#shared-preview');
+    const main = preview?.querySelector('.organization-profile-main');
+    const description = main?.querySelector('.organization-profile-description');
+    const banner = main?.querySelector('[data-preview-banner-shell]');
+
+    assert.ok(preview, `${page} organization preview is missing`);
+    assert.ok(main, `${page} organization main content is missing`);
+    assert.ok(description, `${page} organization description is missing`);
+    assert.ok(banner, `${page} organization banner is missing`);
+    assert.equal(description.parentNode, main, `${page} description must be a direct child of the main content`);
+    assert.equal(banner.parentNode, main, `${page} banner must be a direct child of the main content`);
+    assert.notEqual(banner.parentNode, preview, `${page} banner must not be a top-level preview block`);
+    assert.ok(
+      main.childNodes.indexOf(description) < main.childNodes.indexOf(banner),
+      `${page} banner must follow the description`,
+    );
+  }
+});
+
+test('the desktop organization grid keeps the banner out of the full-width top row', () => {
   const { root } = loadPage(organizationPages[0].page);
   const componentStylesheet = root
     .querySelectorAll('link[rel="stylesheet"]')
@@ -35,6 +57,7 @@ test('the desktop organization action rail starts beside the identity block', ()
   assert.ok(componentStylesheet, 'organization profile stylesheet is missing');
   const css = fs.readFileSync(path.join(DIST, componentStylesheet), 'utf8');
 
-  assert.match(css, /grid-template:"banner banner""identity actions""description facts"/);
-  assert.doesNotMatch(css, /"identity identity""description actions"/);
+  assert.match(css, /grid-template:"identity actions""main facts"/);
+  assert.doesNotMatch(css, /"banner banner"/);
+  assert.doesNotMatch(css, /grid-area:banner/);
 });
