@@ -202,25 +202,63 @@ describe("GET /api/gc-fitness/storage-image — a coach cannot read arbitrary ob
     expect(opened).toEqual([]);
   });
 
-  it.failing(
-    "SECURITY GAP: gs://<foreign-bucket>/habits/… is read from the FOREIGN bucket with the Admin service account",
-    async () => {
-      put("other-project-backups", "habits/dump.json", "FOREIGN-SECRET", "application/json");
-      const res = await storageImage(imagePath("gs://other-project-backups/habits/dump.json"));
-      expect(res.status).toBe(403);
-      expect(opened.filter((o) => o.startsWith("other-project-backups::"))).toEqual([]);
-    },
-  );
+  // Was a SECURITY GAP: the gs:// bucket was tried FIRST with the Admin
+  // service account, so a coach could read habits/ | exercises/ |
+  // profile_photos/ objects from any bucket the SA can reach.
+  it.each([
+    "gs://other-project-backups/habits/dump.json",
+    "gs://gcfitness-test-backups/exercises/x.gif",
+    `gs://${BUCKET}.evil.com/habits/h1.jpg`,
+    `gs://${BUCKET.toUpperCase()}/habits/h1.jpg`,
+  ])("foreign bucket %s → 403, no object opened in ANY bucket", async (path) => {
+    put("other-project-backups", "habits/dump.json", "FOREIGN-SECRET", "application/json");
+    const res = await storageImage(imagePath(path));
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({ error: "Forbidden path" });
+    expect(opened).toEqual([]);
+  });
 
-  it.failing(
-    "SECURITY GAP: a stored image/svg+xml object is served same-origin as SVG (stored XSS on the backoffice origin)",
-    async () => {
-      put(BUCKET, "profile_photos/u9/avatar.jpg", "<svg onload=alert(1)>", "image/svg+xml");
-      const res = await storageImage(imagePath("profile_photos/u9/avatar.jpg"));
-      expect(res.status).toBe(200);
-      expect(res.headers.get("content-type")).not.toMatch(/svg|html|xml/i);
+  it.each([
+    LEGACY_BUCKET,
+    "gcfitness-3476b.firebasestorage.app", // habits/photo's fallback bucket
+  ])("gs:// on the project's own bucket %s is accepted", async (bucket) => {
+    put(bucket, "habits/h1/photo.jpg", "OWN", "image/jpeg");
+    const res = await storageImage(imagePath(`gs://${bucket}/habits/h1/photo.jpg`));
+    expect(res.status).toBe(200);
+    expect(opened[0]).toBe(`${bucket}::habits/h1/photo.jpg`);
+  });
+
+  it("gs:// on the configured env bucket is accepted", async () => {
+    process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET = "configured-bucket";
+    put("configured-bucket", "exercises/e1/a.gif", "GIF", "image/gif");
+    const res = await storageImage(imagePath("gs://configured-bucket/exercises/e1/a.gif"));
+    expect(res.status).toBe(200);
+  });
+
+  // Was a SECURITY GAP: the stored metadata content type was echoed back, so
+  // an SVG/HTML object under an allowed prefix ran script same-origin.
+  it.each([
+    ["image/svg+xml", "<svg onload=alert(1)>"],
+    ["text/html", "<script>alert(1)</script>"],
+    ["application/xhtml+xml", "<x/>"],
+    ["IMAGE/SVG+XML; charset=utf-8", "<svg/>"],
+  ])("stored %s is served as octet-stream, nosniff, sandboxed", async (type, body) => {
+    put(BUCKET, "profile_photos/u9/avatar.jpg", body, type);
+    const res = await storageImage(imagePath("profile_photos/u9/avatar.jpg"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/octet-stream");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("content-security-policy")).toBe("default-src 'none'; sandbox");
+  });
+
+  it.each(["image/png", "image/webp", "image/gif", "Image/JPEG; q=1"])(
+    "raster %s keeps its (normalized) type and still gets nosniff + sandbox",
+    async (type) => {
+      put(BUCKET, "exercises/e/a", "x", type);
+      const res = await storageImage(imagePath("exercises/e/a"));
+      expect(res.headers.get("content-type")).toBe(type.split(";")[0].toLowerCase());
       expect(res.headers.get("x-content-type-options")).toBe("nosniff");
-      expect(res.headers.get("content-security-policy")).toMatch(/sandbox/);
+      expect(res.headers.get("content-security-policy")).toBe("default-src 'none'; sandbox");
     },
   );
 });
@@ -317,14 +355,13 @@ describe("GET /api/gc-fitness/photo-proxy", () => {
     expect(opened).toHaveLength(2);
   });
 
-  it.failing(
-    "SECURITY GAP: a progress photo stored as image/svg+xml is served same-origin as SVG",
-    async () => {
-      put(BUCKET, "progress_photos/client-1/p1.jpg", "<svg onload=alert(1)>", "image/svg+xml");
-      const res = await photoProxy(proxyReq("p1"));
-      expect(res.status).toBe(200);
-      expect(res.headers.get("content-type")).not.toMatch(/svg|html|xml/i);
-      expect(res.headers.get("x-content-type-options")).toBe("nosniff");
-    },
-  );
+  // Was a SECURITY GAP: same echo of the stored content type as storage-image.
+  it("a progress photo stored as image/svg+xml is served as octet-stream, nosniff, sandboxed", async () => {
+    put(BUCKET, "progress_photos/client-1/p1.jpg", "<svg onload=alert(1)>", "image/svg+xml");
+    const res = await photoProxy(proxyReq("p1"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/octet-stream");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("content-security-policy")).toBe("default-src 'none'; sandbox");
+  });
 });

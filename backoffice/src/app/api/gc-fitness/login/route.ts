@@ -46,6 +46,12 @@ function mergeRoles(existingClaims: Record<string, unknown>): string[] {
       }
     }
   }
+  // Legacy `admin: true`-only claims are an admin too (auth-helpers and
+  // admin-actions.rolesFromClaims both read it); without this the
+  // `admin: roles.includes("admin")` below would WIPE it on login (#379).
+  if (existingClaims.admin === true) {
+    roles.add("admin");
+  }
   roles.add("trainer");
   return Array.from(roles);
 }

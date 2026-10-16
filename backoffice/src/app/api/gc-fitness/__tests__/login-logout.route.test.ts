@@ -188,12 +188,14 @@ describe("POST /api/gc-fitness/login — claims (#379)", () => {
     });
   });
 
-  it.failing("SECURITY GAP: legacy admin:true-only claim is WIPED by login (auth-helpers treats it as admin)", async () => {
+  it("legacy admin:true-only claim SURVIVES login (was a SECURITY GAP: login wiped it)", async () => {
     // auth-helpers.normalizeRolesFromToken and admin-actions.rolesFromClaims
     // both treat `admin: true` as the admin role; login must not drop it.
-    const claims = await claimsAfterLogin({ admin: true });
-    expect(claims.admin).toBe(true);
-    expect(claims.roles).toEqual(expect.arrayContaining(["admin", "trainer"]));
+    await expect(claimsAfterLogin({ admin: true })).resolves.toEqual({
+      admin: true,
+      role: "trainer",
+      roles: ["admin", "trainer"],
+    });
   });
 
   it("unrelated custom claims and extra roles are preserved (spread)", async () => {

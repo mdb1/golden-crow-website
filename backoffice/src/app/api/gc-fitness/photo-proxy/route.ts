@@ -6,6 +6,10 @@ import {
 } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import {
+  projectMediaBuckets,
+  safeImageHeaders,
+} from "@/lib/gc-fitness/storage-image-safety";
 
 // GET /api/gc-fitness/photo-proxy?photoId=<id>
 //
@@ -58,28 +62,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
-  const candidates = [
-    process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET,
-    projectId ? `${projectId}.firebasestorage.app` : undefined,
-    projectId ? `${projectId}.appspot.com` : undefined,
-  ].filter((value): value is string => Boolean(value));
-
-  for (const bucketName of candidates) {
+  for (const bucketName of projectMediaBuckets()) {
     try {
       const file = gcFitnessStorage().bucket(bucketName).file(storagePath);
       const [buffer] = await file.download();
       const [metadata] = await file.getMetadata();
-      const contentType =
-        typeof metadata.contentType === "string" && metadata.contentType
-          ? metadata.contentType
-          : "application/octet-stream";
+      // safeImageHeaders: a stored SVG/HTML object never runs same-origin.
       return new NextResponse(new Uint8Array(buffer), {
         status: 200,
-        headers: {
-          "Content-Type": contentType,
-          "Cache-Control": "private, max-age=300",
-        },
+        headers: safeImageHeaders(metadata.contentType),
       });
     } catch {
       // Try next bucket candidate.

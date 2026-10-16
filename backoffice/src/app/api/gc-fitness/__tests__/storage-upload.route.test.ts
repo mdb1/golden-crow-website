@@ -264,7 +264,15 @@ describe("POST /api/gc-fitness/coach-profile-photo", () => {
     expect(saved.map((s) => s.object)).toEqual(["profile_photos/coach-a/avatar.jpg"]);
   });
 
-  it.each(["text/plain", "application/octet-stream", ""])("content-type %j → 415", async (type) => {
+  it.each([
+    "text/plain",
+    "application/octet-stream",
+    "",
+    "image/gif",
+    "image/heic",
+    "image/svg+xml", // was a SECURITY GAP: stored + served same-origin (stored XSS)
+    "IMAGE/SVG+XML; charset=utf-8",
+  ])("content-type %j → 415, nothing saved", async (type) => {
     const res = await coachPhoto(upload(10, type));
     expect(res.status).toBe(415);
     await expect(res.json()).resolves.toEqual({ error: "Expected an image body" });
@@ -296,12 +304,13 @@ describe("POST /api/gc-fitness/coach-profile-photo", () => {
     await expect(res.json()).resolves.toEqual({ error: "Upload failed" });
   });
 
-  it.failing(
-    "SECURITY GAP: an image/svg+xml body is accepted and stored as the coach avatar (served same-origin by storage-image)",
-    async () => {
-      const res = await coachPhoto(upload(10, "image/svg+xml"));
-      expect(res.status).toBe(415);
-      expect(saved).toEqual([]);
-    },
-  );
+  it.each([
+    ["image/png", "image/png"],
+    ["image/webp", "image/webp"],
+    ["Image/JPEG; charset=binary", "image/jpeg"],
+  ])("%s is accepted and stored as %s (parameters stripped)", async (type, stored) => {
+    const res = await coachPhoto(upload(10, type));
+    expect(res.status).toBe(200);
+    expect(saved[0].options.contentType).toBe(stored);
+  });
 });
