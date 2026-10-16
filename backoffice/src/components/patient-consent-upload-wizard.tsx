@@ -381,6 +381,16 @@ type PreviewSignature = {
   placement: ConsentSignaturePlacement;
 };
 
+type DraftSignatureOverrides = Partial<
+  Pick<
+    InformedConsentDraftMutation,
+    | "patientSignatureDataUrl"
+    | "partnerSignatureDataUrl"
+    | "patientSignatureMethod"
+    | "partnerSignatureMethod"
+  >
+>;
+
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(Math.max(value, minimum), maximum);
 }
@@ -412,10 +422,10 @@ function formatSignatureDate(value: string) {
 }
 
 function SignaturePad({
-  onSave,
+  onSaveAndContinue,
   signerLabel,
 }: {
-  onSave: (value: string) => void;
+  onSaveAndContinue: (value: string) => void;
   signerLabel: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -447,7 +457,6 @@ function SignaturePad({
     context.lineWidth = 4;
     context.lineCap = "round";
     context.lineJoin = "round";
-    setHasInk(true);
   }
 
   function continueDrawing(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -458,6 +467,7 @@ function SignaturePad({
     const point = canvasPoint(event);
     context.lineTo(point.x, point.y);
     context.stroke();
+    setHasInk(true);
   }
 
   function finishDrawing(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -475,7 +485,7 @@ function SignaturePad({
   function saveSignature() {
     const canvas = canvasRef.current;
     if (!canvas || !hasInk) return;
-    onSave(canvas.toDataURL("image/png"));
+    onSaveAndContinue(canvas.toDataURL("image/png"));
   }
 
   return (
@@ -498,9 +508,14 @@ function SignaturePad({
           <RotateCcw className="size-4" />
           Borrar
         </Button>
-        <Button type="button" onClick={saveSignature} disabled={!hasInk}>
+        <Button
+          type="button"
+          className="h-11 bg-blue-600 px-5 font-semibold text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)] hover:bg-blue-700"
+          onClick={saveSignature}
+          disabled={!hasInk}
+        >
           <Check className="size-4" />
-          Guardar firma {signerLabel}
+          Guardar firma y continuar
         </Button>
       </div>
     </div>
@@ -514,6 +529,8 @@ function SignatureMethodField({
   savedSignature,
   onMethodChange,
   onComplete,
+  onDrawSaved,
+  autoFocusChooser = false,
 }: {
   signerLabel: string;
   value: string | null;
@@ -521,6 +538,8 @@ function SignatureMethodField({
   savedSignature?: string | null;
   onMethodChange: (method: SignatureMethod | null) => void;
   onComplete: (value: string, method: SignatureMethod) => void;
+  onDrawSaved: (value: string) => void;
+  autoFocusChooser?: boolean;
 }) {
   const [imageImportOpen, setImageImportOpen] = useState(
     method === "import" && !value,
@@ -545,6 +564,14 @@ function SignatureMethodField({
     element.focus();
     pendingFocusRef.current = null;
   }, [method, value]);
+
+  useEffect(() => {
+    if (!autoFocusChooser || method || value) return;
+    const focusTimer = window.setTimeout(() => {
+      chooserFirstOptionRef.current?.focus();
+    }, 0);
+    return () => window.clearTimeout(focusTimer);
+  }, [autoFocusChooser, method, value]);
 
   const methodSuccessCopy =
     method === "saved"
@@ -718,7 +745,10 @@ function SignatureMethodField({
         >
           <SignaturePad
             signerLabel={signerLabel}
-            onSave={(nextValue) => completeMethod(nextValue, "draw")}
+            onSaveAndContinue={(nextValue) => {
+              completeMethod(nextValue, "draw");
+              onDrawSaved(nextValue);
+            }}
           />
           <Button
             type="button"
@@ -1179,6 +1209,7 @@ export function PatientConsentUploadWizard({
     nextMode: ConsentFlowMode,
     nextActiveStepId: ConsentStepId,
     nextVisitedStepIds: ConsentStepId[] = visitedStepIds,
+    signatureOverrides: DraftSignatureOverrides = {},
   ): Omit<InformedConsentDraftMutation, "expectedRevision"> {
     const allowedSteps = draftStepsForMode(nextMode);
     const safeActiveStepId = allowedSteps.includes(
@@ -1215,6 +1246,7 @@ export function PatientConsentUploadWizard({
       patientPlacement,
       partnerPlacement,
       selectedRole: hasPartner ? selectedRole : "patient",
+      ...signatureOverrides,
     };
   }
 
@@ -1325,6 +1357,7 @@ export function PatientConsentUploadWizard({
       nextMode?: ConsentFlowMode;
       announce?: boolean;
       preservePreparation?: boolean;
+      draftSignatureOverrides?: DraftSignatureOverrides;
     } = {},
   ) {
     if (uploadInFlightRef.current) return;
@@ -1347,7 +1380,12 @@ export function PatientConsentUploadWizard({
     }
     if (!isBackoffice && nextMode) {
       scheduleDraftSave(
-        buildDraftSnapshot(nextMode, nextStepId, nextVisitedStepIds),
+        buildDraftSnapshot(
+          nextMode,
+          nextStepId,
+          nextVisitedStepIds,
+          options.draftSignatureOverrides,
+        ),
         0,
       );
     }
@@ -1623,6 +1661,29 @@ export function PatientConsentUploadWizard({
   const signaturesComplete =
     Boolean(patientSignatureDataUrl) &&
     (!hasPartner || Boolean(partnerSignatureDataUrl));
+
+  function continueAfterDrawnSignature(
+    role: ConsentSignerRole,
+    signatureDataUrl: string,
+  ) {
+    const allSignaturesWillBeComplete =
+      role === "patient"
+        ? !hasPartner || Boolean(partnerSignatureDataUrl)
+        : Boolean(patientSignatureDataUrl);
+    if (!allSignaturesWillBeComplete) return;
+    navigateToStep("editor", {
+      draftSignatureOverrides:
+        role === "patient"
+          ? {
+              patientSignatureDataUrl: signatureDataUrl,
+              patientSignatureMethod: "draw",
+            }
+          : {
+              partnerSignatureDataUrl: signatureDataUrl,
+              partnerSignatureMethod: "draw",
+            },
+    });
+  }
 
   async function prepareSignedConsent() {
     if (isBackoffice && !destinationComplete) {
@@ -2637,6 +2698,12 @@ export function PatientConsentUploadWizard({
                             nextMethod,
                           )
                         }
+                        onDrawSaved={(signatureDataUrl) =>
+                          continueAfterDrawnSignature(
+                            "patient",
+                            signatureDataUrl,
+                          )
+                        }
                       />
                     </section>
 
@@ -2651,21 +2718,39 @@ export function PatientConsentUploadWizard({
                             Fecha de firma: {formattedSignatureDate}
                           </p>
                         </div>
-                        <SignatureMethodField
-                          signerLabel="de la pareja"
-                          value={partnerSignatureDataUrl}
-                          method={partnerSignatureMethod}
-                          onMethodChange={(nextMethod) =>
-                            changeSignatureMethod("partner", nextMethod)
-                          }
-                          onComplete={(nextValue, nextMethod) =>
-                            completeSignatureMethod(
-                              "partner",
-                              nextValue,
-                              nextMethod,
-                            )
-                          }
-                        />
+                        {patientSignatureDataUrl ? (
+                          <SignatureMethodField
+                            signerLabel="de la pareja"
+                            value={partnerSignatureDataUrl}
+                            method={partnerSignatureMethod}
+                            onMethodChange={(nextMethod) =>
+                              changeSignatureMethod("partner", nextMethod)
+                            }
+                            onComplete={(nextValue, nextMethod) =>
+                              completeSignatureMethod(
+                                "partner",
+                                nextValue,
+                                nextMethod,
+                              )
+                            }
+                            onDrawSaved={(signatureDataUrl) =>
+                              continueAfterDrawnSignature(
+                                "partner",
+                                signatureDataUrl,
+                              )
+                            }
+                            autoFocusChooser
+                          />
+                        ) : (
+                          <div
+                            className="flex min-h-40 items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/30 p-5 text-center text-sm text-muted-foreground"
+                            aria-live="polite"
+                          >
+                            <LockKeyhole className="size-5 shrink-0" />
+                            Primero complete la firma del paciente para
+                            continuar con la firma de la pareja.
+                          </div>
+                        )}
                       </section>
                     ) : null}
                   </div>
@@ -2980,7 +3065,7 @@ export function PatientConsentUploadWizard({
                     </Button>
                   ) : null}
 
-                  {activeStepId === "signature" ? (
+                  {activeStepId === "signature" && signaturesComplete ? (
                     <Button
                       type="button"
                       className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"

@@ -935,38 +935,52 @@ describe("PatientConsentUploadWizard", () => {
       const canvas = screen.getByLabelText(
         "Área para dibujar la firma del paciente",
       );
+      const saveSignature = screen.getByRole("button", {
+        name: "Guardar firma y continuar",
+      });
+      expect(saveSignature).toBeDisabled();
+      expect(
+        screen.queryByRole("button", { name: "Continuar al editor" }),
+      ).not.toBeInTheDocument();
       fireEvent.pointerDown(canvas, {
         pointerId: 1,
         clientX: 10,
         clientY: 10,
       });
-      const saveSignature = screen.getByRole("button", {
-        name: "Guardar firma del paciente",
+      expect(saveSignature).toBeDisabled();
+      fireEvent.pointerMove(canvas, {
+        pointerId: 1,
+        clientX: 20,
+        clientY: 20,
       });
       expect(saveSignature).toBeEnabled();
       await user.click(saveSignature);
-      expect(
-        screen.getByAltText("Vista previa de la firma del paciente"),
-      ).toHaveAttribute(
-        "src",
-        expect.stringMatching(/^data:image\/png;base64,/),
-      );
-      expect(screen.getByLabelText("Firma del paciente lista")).toHaveFocus();
-      expect(
-        screen.getByText(
-          "La firma dibujada está lista para aplicarse al consentimiento.",
-        ),
-      ).toBeVisible();
-      expect(
-        screen.queryByLabelText("Área para dibujar la firma del paciente"),
-      ).not.toBeInTheDocument();
-      await user.click(
-        screen.getByRole("button", { name: "Continuar al editor" }),
-      );
 
       expect(
         screen.getByRole("heading", { name: "Aplicar firmas al PDF" }),
       ).toBeVisible();
+      await waitFor(() => {
+        const editorDrafts = jest
+          .mocked(sdkFetch)
+          .mock.calls.filter(
+            ([path, options]) =>
+              path === "/2pq/informed-consents/draft" &&
+              options?.method === "PUT",
+          )
+          .map(([, options]) => JSON.parse(String(options?.body)))
+          .filter((draft) => draft.activeStepId === "editor");
+        expect(editorDrafts.length).toBeGreaterThan(0);
+        for (const draft of editorDrafts) {
+          expect(draft).toEqual(
+            expect.objectContaining({
+              patientSignatureDataUrl: expect.stringMatching(
+                /^data:image\/png;base64,/,
+              ),
+              patientSignatureMethod: "draw",
+            }),
+          );
+        }
+      });
       expect(
         screen.getByText(/arrástrela directamente hasta su ubicación/),
       ).toBeVisible();
@@ -1517,6 +1531,11 @@ describe("PatientConsentUploadWizard", () => {
           name: /Reutilizar firma guardada/,
         }),
       ).not.toBeInTheDocument();
+      expect(
+        within(partnerSection).queryByRole("button", {
+          name: /Dibujar una firma nueva/,
+        }),
+      ).not.toBeInTheDocument();
 
       await user.click(
         within(patientSection).getByRole("button", {
@@ -1534,17 +1553,22 @@ describe("PatientConsentUploadWizard", () => {
         ),
         { pointerId: 1, clientX: 10, clientY: 10 },
       );
+      fireEvent.pointerMove(
+        within(partnerSection).getByLabelText(
+          "Área para dibujar la firma de la pareja",
+        ),
+        { pointerId: 1, clientX: 20, clientY: 20 },
+      );
       await user.click(
         within(partnerSection).getByRole("button", {
-          name: "Guardar firma de la pareja",
+          name: "Guardar firma y continuar",
         }),
       );
       expect(
-        within(partnerSection).getByAltText(
-          "Vista previa de la firma de la pareja",
-        ),
+        screen.getByRole("heading", { name: "Aplicar firmas al PDF" }),
       ).toBeVisible();
 
+      await user.click(screen.getByRole("button", { name: "Volver" }));
       await user.click(screen.getByRole("button", { name: "Volver" }));
       const partnerName = screen.getByRole("textbox", {
         name: "Nombre y apellido de la pareja",
@@ -1560,8 +1584,8 @@ describe("PatientConsentUploadWizard", () => {
         ),
       ).not.toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Continuar al editor" }),
-      ).toBeDisabled();
+        screen.queryByRole("button", { name: "Continuar al editor" }),
+      ).not.toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Volver" }));
       await user.click(
@@ -1660,10 +1684,10 @@ describe("PatientConsentUploadWizard", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("button", { name: /Dibujar una firma nueva/ }),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
       screen.getAllByRole("button", { name: /Importar una imagen/ }),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
       screen.queryByRole("button", {
         name: /Reutilizar firma guardada/,
@@ -2081,23 +2105,36 @@ describe("PatientConsentUploadWizard", () => {
         screen.getByLabelText("Área para dibujar la firma del paciente"),
         { pointerId: 1, clientX: 10, clientY: 10 },
       );
-      await user.click(
-        screen.getByRole("button", { name: "Guardar firma del paciente" }),
+      fireEvent.pointerMove(
+        screen.getByLabelText("Área para dibujar la firma del paciente"),
+        { pointerId: 1, clientX: 20, clientY: 20 },
       );
       await user.click(
-        within(partnerSignatureSection as HTMLElement).getByRole("button", {
-          name: /Dibujar una firma nueva/,
-        }),
+        screen.getByRole("button", { name: "Guardar firma y continuar" }),
       );
+      const partnerDrawMethod = within(
+        partnerSignatureSection as HTMLElement,
+      ).getByRole("button", {
+        name: /Dibujar una firma nueva/,
+      });
+      await waitFor(() => expect(partnerDrawMethod).toHaveFocus());
+      await user.click(partnerDrawMethod);
       fireEvent.pointerDown(
         screen.getByLabelText("Área para dibujar la firma de la pareja"),
         { pointerId: 2, clientX: 10, clientY: 10 },
       );
-      await user.click(
-        screen.getByRole("button", { name: "Guardar firma de la pareja" }),
+      fireEvent.pointerMove(
+        screen.getByLabelText("Área para dibujar la firma de la pareja"),
+        { pointerId: 2, clientX: 20, clientY: 20 },
       );
-      expect(screen.getAllByText("Firma lista")).toHaveLength(2);
+      await user.click(
+        screen.getByRole("button", { name: "Guardar firma y continuar" }),
+      );
+      expect(
+        screen.getByRole("heading", { name: "Aplicar firmas al PDF" }),
+      ).toBeVisible();
 
+      await user.click(screen.getByRole("button", { name: "Volver" }));
       await user.click(screen.getByRole("button", { name: "Volver" }));
       await user.click(screen.getByRole("button", { name: "Volver" }));
       await user.click(screen.getByRole("button", { name: "Volver" }));
@@ -2148,8 +2185,8 @@ describe("PatientConsentUploadWizard", () => {
       );
       expect(screen.queryByText("Firma lista")).not.toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Continuar al editor" }),
-      ).toBeDisabled();
+        screen.queryByRole("button", { name: "Continuar al editor" }),
+      ).not.toBeInTheDocument();
 
       await user.click(
         screen.getByRole("button", { name: /Dibujar una firma nueva/ }),
@@ -2158,11 +2195,12 @@ describe("PatientConsentUploadWizard", () => {
         screen.getByLabelText("Área para dibujar la firma del paciente"),
         { pointerId: 3, clientX: 10, clientY: 10 },
       );
-      await user.click(
-        screen.getByRole("button", { name: "Guardar firma del paciente" }),
+      fireEvent.pointerMove(
+        screen.getByLabelText("Área para dibujar la firma del paciente"),
+        { pointerId: 3, clientX: 20, clientY: 20 },
       );
       await user.click(
-        screen.getByRole("button", { name: "Continuar al editor" }),
+        screen.getByRole("button", { name: "Guardar firma y continuar" }),
       );
       await user.click(
         screen.getByRole("button", { name: "Aplicar firmas y continuar" }),
