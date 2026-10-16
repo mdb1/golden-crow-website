@@ -236,13 +236,27 @@ describe("TemplateForm editing — per-set values", () => {
   // reads "225" — saved as 225 kg (anything ≥ 50,1 ends up > 500 and fails
   // validation instead). The decimal point works; the comma silently
   // multiplies the weight by ten.
-  it.failing("a decimal-comma weight ('22,5') is not saved as 225 kg", async () => {
+  // Regression (#451): the kg cell now parses with the shared
+  // parseDecimalInput, so "22,5" is 22.5 kg.
+  it("a decimal-comma weight ('22,5') is not saved as 225 kg", async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderForm(defaults([exercise()]));
     await goToDetails(user);
     await retype(user, screen.getByLabelText("Weight for set 1"), "22,5");
     const ex = (await save(user, onSubmit)).exercises[0];
     expect(ex.weightBySetKg?.[0]).not.toBe(225);
+    expect(ex.weightBySetKg?.[0]).toBe(22.5);
+  });
+
+  // Regression (#451): garbage still never becomes a number — the keystroke
+  // that makes the text unparseable is dropped, so the cell keeps "22".
+  it("a garbage weight keystroke is dropped, not saved as 0", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm(defaults([exercise()]));
+    await goToDetails(user);
+    await retype(user, screen.getByLabelText("Weight for set 1"), "22kg");
+    const ex = (await save(user, onSubmit)).exercises[0];
+    expect(ex.weightBySetKg?.[0]).toBe(22);
   });
 
   it("a decimal-point weight is kept as typed", async () => {

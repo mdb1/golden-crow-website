@@ -52,6 +52,7 @@ import type {
 } from "@/lib/gc-fitness/live-workout-types";
 
 import type { SetRowState } from "./use-live-session";
+import { parseDecimalInput } from "@/lib/gc-fitness/decimal-input";
 
 function fmtKg(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
@@ -78,10 +79,12 @@ function formatRest(seconds: number): string {
   return s === 0 ? `${m}m descanso` : `${m}m ${s}s descanso`;
 }
 
-function clampInputNumber(raw: string, fallback: number, max: number): number {
+export function clampInputNumber(raw: string, fallback: number, max: number): number {
   const trimmed = raw.trim();
   if (!trimmed) return fallback;
-  const parsed = Number(trimmed.replace(",", "."));
+  // #451 — shared parser: "22,5"/"22.5" and well-formed thousands groups;
+  // garbage is NaN → keeps the previous value (fallback).
+  const parsed = parseDecimalInput(trimmed);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(0, Math.min(max, parsed));
 }

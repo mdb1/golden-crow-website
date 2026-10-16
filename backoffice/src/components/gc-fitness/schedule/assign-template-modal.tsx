@@ -82,6 +82,7 @@ import {
   expandRecurrenceDates,
   type ExpandableRecurrence,
 } from "@/lib/gc-fitness/recurrence-expansion";
+import { parseDecimalInput } from "@/lib/gc-fitness/decimal-input";
 
 // #294 — class applied to every day cell the recurrence will land on, so the
 // trainer previews the series on the calendar before submitting. The anchor
@@ -387,7 +388,8 @@ export function AssignTemplateModal({
           .map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(50, Math.round(n))) : NaN));
         const weightBySetKg = draft.setRows
           .map((row) => row.kg.trim())
-          .map((raw) => (raw === "" ? NaN : Number(raw)))
+          // #451 — "62,5" (es keyboard) is 62.5, not NaN → 0 kg.
+          .map((raw) => (raw === "" ? NaN : parseDecimalInput(raw)))
           .map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(500, n)) : NaN));
         // 26-03 — Parallel duration cleanup (5..1800 clamp). Only used
         // when the effective metric is "time"; we still compute it
@@ -457,9 +459,18 @@ export function AssignTemplateModal({
         const changedRepsBySet =
           finalRepsBySet.length !== baseRepsBySet.length ||
           finalRepsBySet.some((v, i) => v !== baseRepsBySet[i]);
+        // #451 — a template with NO weight prescription (legacy doc, empty
+        // array, not the explicit "Sin peso") seeds blank kg cells. Blank cells
+        // the coach never filled are "still no weights", not an explicit
+        // [0, 0, 0] prescription — so they are not a change.
+        const untouchedNoWeights =
+          !draft.noWeight &&
+          baseWeightBySetKg.length === 0 &&
+          draft.setRows.every((row) => row.kg.trim() === "");
         const changedWeights =
-          finalWeights.length !== baseWeightBySetKg.length ||
-          finalWeights.some((v, i) => v !== baseWeightBySetKg[i]);
+          !untouchedNoWeights &&
+          (finalWeights.length !== baseWeightBySetKg.length ||
+            finalWeights.some((v, i) => v !== baseWeightBySetKg[i]));
         // #582 — compare against the template's array COERCED to the final set
         // count, so "the coach deleted a set" registers as a change even when
         // no picker was opened: the inherited array is then the wrong length
@@ -1455,6 +1466,15 @@ export function AssignTemplateModal({
                             value={row.kg}
                             onChange={(event) => {
                               const value = event.target.value;
+                              // #451 — accept "62,5" and "62.5"; drop a
+                              // keystroke that makes the cell unparseable so
+                              // garbage can't reach the payload as 0 kg.
+                              if (
+                                value.trim() !== "" &&
+                                !Number.isFinite(parseDecimalInput(value))
+                              ) {
+                                return;
+                              }
                               setOverrideDrafts((prev) => {
                                 const cur = prev[exercise.index];
                                 const next = cur.setRows.map((r, i) =>

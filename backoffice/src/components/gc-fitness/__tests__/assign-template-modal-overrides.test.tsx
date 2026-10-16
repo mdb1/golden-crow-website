@@ -490,13 +490,27 @@ describe("AssignTemplateModal — per-exercise overrides", () => {
   // on a Spanish (es-AR) keyboard types the decimal COMMA — "62,5" — which is
   // NaN, and NaN is written as 0 kg. The assignment silently prescribes 0 kg
   // for that set; nothing on screen says the value was rejected.
-  it.failing("a decimal-comma weight ('62,5') is not silently written as 0 kg", async () => {
+  // Regression (#451): the kg cell parses with the shared parseDecimalInput.
+  it("a decimal-comma weight ('62,5') is not silently written as 0 kg", async () => {
     const user = userEvent.setup();
     renderModal();
     await pickTemplate(user);
     await replace(user, kgInputs()[1], "62,5");
     const payload = await submitOnce(user);
     expect(payload.exerciseOverrides?.[0]?.weightBySetKg?.[1]).not.toBe(0);
+    expect(payload.exerciseOverrides?.[0]?.weightBySetKg?.[1]).toBe(62.5);
+  });
+
+  // Regression (#451): an unparseable keystroke is dropped (the cell keeps the
+  // last valid text) instead of reaching the payload as 0 kg.
+  it("a garbage kg keystroke is dropped, never written as 0 kg", async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await pickTemplate(user);
+    await replace(user, kgInputs()[1], "62x");
+    expect(kgInputs()[1]).toHaveValue("62");
+    const payload = await submitOnce(user);
+    expect(payload.exerciseOverrides?.[0]?.weightBySetKg?.[1]).toBe(62);
   });
 
   // FINDING: a template exercise with NO weight prescription (legacy doc, field
@@ -504,7 +518,9 @@ describe("AssignTemplateModal — per-exercise overrides", () => {
   // array to []) renders empty kg cells, and an UNTOUCHED submit emits an
   // override `weightBySetKg: [0, 0, 0]` for it, turning "no weights
   // prescribed" into an explicit 0 kg prescription on the assignment.
-  it.failing("an untouched exercise without weights produces no override", async () => {
+  // Regression (#451): blank kg cells seeded from an empty weight array are
+  // "still no weights", not a change — no phantom [0, 0, 0] override.
+  it("an untouched exercise without weights produces no override", async () => {
     mockGetDetail.mockResolvedValue(
       detail([detailExercise({ weightBySetKg: [], hasExplicitNoWeightPrescription: false })]),
     );
@@ -513,5 +529,21 @@ describe("AssignTemplateModal — per-exercise overrides", () => {
     await pickTemplate(user);
     const payload = await submitOnce(user);
     expect(payload.exerciseOverrides).toBeUndefined();
+  });
+
+  // Regression (#451): the no-phantom rule must not swallow a REAL edit — a kg
+  // typed on an exercise that had no weights is still an override.
+  it("typing a kg on an exercise without weights still overrides", async () => {
+    mockGetDetail.mockResolvedValue(
+      detail([detailExercise({ weightBySetKg: [], hasExplicitNoWeightPrescription: false })]),
+    );
+    const user = userEvent.setup();
+    renderModal();
+    await pickTemplate(user);
+    await replace(user, kgInputs()[0], "20,5");
+    const payload = await submitOnce(user);
+    expect(payload.exerciseOverrides).toEqual([
+      { index: 0, weightBySetKg: [20.5, 0, 0] },
+    ]);
   });
 });
