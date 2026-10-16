@@ -136,9 +136,14 @@ function fakeTokens(opts: {
   } as unknown as Awaited<ReturnType<typeof getTokens>>;
 }
 
+// mockGet serves EVERY doc read, so this snapshot also answers the ownership
+// predicate's users/{clientId} read. `coachId` (default: the habit's
+// trainerId) is the client's CURRENT coach — i.e. by default the habit's author
+// still coaches the client; pass a different coachId for a transferred client.
 function fakeHabitSnapshot(opts: {
   exists: boolean;
   trainerId?: string | null;
+  coachId?: string | null;
   type?: "binary";
   id?: string;
   startsOn?: string;
@@ -158,6 +163,7 @@ function fakeHabitSnapshot(opts: {
     get: (field: string) =>
       ({
         trainerId: opts.trainerId,
+        coachId: opts.coachId === undefined ? opts.trainerId : opts.coachId,
         type: opts.type ?? "binary",
         clientId: "uid-client-abc",
         name: { en: "Test", es: "Prueba" },
