@@ -71,6 +71,16 @@ export function isPublisherPortalSdkPath(path: string) {
   );
 }
 
+/** The path without the query string, percent-decoded the way the router decodes it. */
+function decodedRequestPath(request: FastifyRequest): string {
+  const raw = request.url.split("?")[0] ?? request.url;
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 export async function authMiddleware(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -103,7 +113,7 @@ export async function authMiddleware(
       return reply.status(403).send({ error: "Account not authorized" });
     }
 
-    const requestPath = request.url.split("?")[0] ?? request.url;
+    const requestPath = decodedRequestPath(request);
     if (
       adminContext.canAccessPatientPortal &&
       !adminContext.canAccessBackoffice &&
@@ -145,7 +155,16 @@ export async function authMiddleware(
     request.adminContext = adminContext;
 
     // Project-level access enforcement for /gym/* routes (per D-13)
-    if (request.url.startsWith("/gym/") || request.url === "/gym") {
+    // Decide on the route Fastify MATCHED, not the raw URL: the router
+    // percent-decodes, so `/%67ym/members` runs the /gym/members handler while
+    // `request.url` doesn't start with "/gym" — that skipped this gate (#451).
+    const matchedPath = request.routeOptions?.url ?? requestPath;
+    if (
+      matchedPath === "/gym" ||
+      matchedPath.startsWith("/gym/") ||
+      requestPath === "/gym" ||
+      requestPath.startsWith("/gym/")
+    ) {
       const hasGymAccess = adminContext.projectAccess.includes("pocket-gyms");
       if (!hasGymAccess) {
         return reply

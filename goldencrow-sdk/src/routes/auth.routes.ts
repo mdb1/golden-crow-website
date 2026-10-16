@@ -186,7 +186,14 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           path: "/",
         });
 
-        return { status: "ok" };
+        // Return the VERIFIED identity so the backoffice's next-auth
+        // authorize() keys the session on the token's uid/email instead of
+        // the email the browser sent alongside the idToken (spoofable).
+        return {
+          status: "ok",
+          uid: decodedToken.uid,
+          email: decodedToken.email ?? null,
+        };
       } catch {
         return reply.status(401).send({ error: "Invalid ID token" });
       }

@@ -547,7 +547,11 @@ export async function mintExerciseThumbnailUploadUrl(input: {
   }
   // Content-type guard — must be a known image MIME we'll pin to the
   // signed URL. Anything else is a client bug or a spoof attempt.
-  const ext = THUMBNAIL_CONTENT_TYPES[contentType];
+  // Own keys only: "constructor"/"toString"/"__proto__" are truthy inherited
+  // properties of the object literal and used to pass this check (#451).
+  const ext = Object.hasOwn(THUMBNAIL_CONTENT_TYPES, contentType)
+    ? THUMBNAIL_CONTENT_TYPES[contentType]
+    : undefined;
   if (!ext) {
     throw new Error(
       "BadRequest: contentType must be one of image/jpeg, image/png, image/webp, image/gif.",

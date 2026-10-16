@@ -342,6 +342,38 @@ function mockElementScrollIntoView() {
   };
 }
 
+// The fixtures below carry fixed quota timestamps (resetAt 2026-10-16T07:00Z,
+// asOf 2026-10-15T12:00Z). With the real clock they expired at 07:00Z on
+// 2026-10-16 and every test failed closed on a "stale" daily quota — 72 reds
+// on main with no code change. Pin ONLY Date to the day the fixtures describe;
+// timers stay real so userEvent/waitFor keep working. Tests that need fake
+// timers still call jest.useFakeTimers() themselves.
+const FIXTURE_NOW = new Date("2026-10-15T12:00:00.000Z");
+beforeEach(() => {
+  jest.useFakeTimers({
+    now: FIXTURE_NOW,
+    doNotFake: [
+      "hrtime",
+      "nextTick",
+      "performance",
+      "queueMicrotask",
+      "requestAnimationFrame",
+      "cancelAnimationFrame",
+      "requestIdleCallback",
+      "cancelIdleCallback",
+      "setImmediate",
+      "clearImmediate",
+      "setInterval",
+      "clearInterval",
+      "setTimeout",
+      "clearTimeout",
+    ],
+  });
+});
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 describe("PartnershipCrmWorkbench delete flow", () => {
   beforeEach(() => {
     routerRefresh.mockClear();

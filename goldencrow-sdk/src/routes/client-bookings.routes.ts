@@ -18,6 +18,9 @@ const OptionalUrlSchema = z
   .trim()
   .url()
   .max(1000)
+  // Rendered as a link in the GOD MODE inbox: only web URLs, never
+  // javascript:/data: from this public form (#451).
+  .refine((value) => /^https?:\/\//i.test(value), "Must be an http(s) URL")
   .optional()
   .or(z.literal("").transform(() => undefined));
 

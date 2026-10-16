@@ -46,12 +46,32 @@ export async function getAdminContextServer(
     canAccessPatientPortal: ctx.canAccessPatientPortal,
     canAccessPGFlex: ctx.canAccessPGFlex ?? false,
     canAccessPublisherPortal: ctx.canAccessPublisherPortal ?? false,
+    // The active project comes from the NextAuth session, which the browser
+    // chose at sign-in — honour it only if the SDK says this account has
+    // access to it (#451).
     project:
-      (activeProject as ProjectKey) ??
+      (activeProject && ctx.projectAccess?.includes(activeProject)
+        ? (activeProject as ProjectKey)
+        : undefined) ??
       (ctx.projectAccess?.[0] as ProjectKey | undefined) ??
       "mydnamap",
     projectAccess: (ctx.projectAccess ?? []) as ProjectKey[],
   };
+}
+
+/**
+ * For Route Handlers: the admin context, or null when the caller has no
+ * usable SDK session — so the route can answer 401 instead of letting the
+ * SDK error fall into its generic 500 (#451).
+ */
+export async function getAdminContextOrNull(
+  activeProject?: string,
+): Promise<AdminContextRecord | null> {
+  try {
+    return await getAdminContextServer(activeProject);
+  } catch {
+    return null;
+  }
 }
 
 export async function requireAdminRole(

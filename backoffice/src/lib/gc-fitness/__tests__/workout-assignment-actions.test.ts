@@ -65,7 +65,21 @@ const mockWhere = jest.fn();
 const mockOrderBy = jest.fn();
 const mockQueryGet = jest.fn();
 
-const mockCollection = jest.fn(() => {
+// Clients belong to the signed-in trainer unless a test says otherwise —
+// the assign actions check `users/{clientId}.coachId` (#451).
+const mockClientCoach = { uid: "trainer-uid-1" };
+const mockUsersCollection = {
+  doc: jest.fn(() => ({
+    get: jest.fn(async () => ({
+      exists: true,
+      get: (field: string) => (field === "coachId" ? mockClientCoach.uid : undefined),
+      data: () => ({ coachId: mockClientCoach.uid }),
+    })),
+  })),
+};
+
+const mockCollection = jest.fn((name?: string) => {
+  if (name === "users") return mockUsersCollection;
   const col = {
     doc: mockDoc,
     where: mockWhere,

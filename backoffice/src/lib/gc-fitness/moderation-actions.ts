@@ -236,6 +236,12 @@ export async function listModerationQueue(
 
 /** The nav badge. Cheap (one aggregation) and admin-only; 0 for everybody else. */
 export async function countOpenReports(): Promise<number> {
+  // The doc says admin-only, and it was not: anyone got the live count (#451).
+  try {
+    await getCurrentAdmin();
+  } catch {
+    return 0;
+  }
   const db = gcFitnessFirestore();
   const agg = await db
     .collection(FirestoreCollections.socialReports)

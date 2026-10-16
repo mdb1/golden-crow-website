@@ -45,8 +45,21 @@ const CORS_ORIGINS = [
   /^http:\/\/127\.0\.0\.1:\d+$/,
 ];
 
-export async function buildServer() {
-  const fastify = Fastify({ logger: true }).withTypeProvider<ZodTypeProvider>();
+export interface BuildServerOptions {
+  /** Defaults to true; the smoke test and the route-gate test turn it off. */
+  logger?: boolean;
+  /** Sees every route as it registers — how the tests enumerate the API. */
+  onRoute?: (route: { method: string | string[]; url: string }) => void;
+}
+
+export async function buildServer(options: BuildServerOptions = {}) {
+  const fastify = Fastify({
+    logger: options.logger ?? true,
+  }).withTypeProvider<ZodTypeProvider>();
+  if (options.onRoute) {
+    const onRoute = options.onRoute;
+    fastify.addHook("onRoute", (route) => onRoute(route));
+  }
 
   fastify.setValidatorCompiler(validatorCompiler);
   fastify.setSerializerCompiler(serializerCompiler);

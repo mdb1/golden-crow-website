@@ -318,7 +318,10 @@ export async function updateNutritionPlan(
 
   batch.update(ref, {
     name: data.name,
-    templateId: data.templateId ?? null,
+    // The edit form always posts null (it only knows a template once one is
+    // applied in this session), so null means "unchanged" — `?? null` erased
+    // the plan's template link on every edit (#451).
+    templateId: data.templateId ?? current.templateId ?? null,
     startsOn: data.startsOn,
     endsOn: data.endsOn,
     targets: normalizeNutritionTargets(data.targets),

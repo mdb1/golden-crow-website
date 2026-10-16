@@ -436,6 +436,32 @@ function buildPerExerciseStampUpdate(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Client ownership — the Admin SDK bypasses Firestore rules, so this is the gate
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Every target must be the trainer themself (coach-less / self-as-coach) or a
+ * client whose `users/{uid}.coachId` is this trainer — the same check habits
+ * and nutrition make. Without it a coach could schedule workouts onto another
+ * coach's client (#451). Individual reads, not `getAll` (fails on Vercel).
+ */
+async function assertOwnClients(
+  db: ReturnType<typeof gcFitnessFirestore>,
+  trainerUid: string,
+  clientIds: readonly string[],
+): Promise<void> {
+  const others = [...new Set(clientIds)].filter((id) => id !== trainerUid);
+  const snaps = await Promise.all(
+    others.map((id) => db.collection(FirestoreCollections.users).doc(id).get()),
+  );
+  for (const snap of snaps) {
+    if (!snap.exists || snap.get("coachId") !== trainerUid) {
+      throw new Error("Not your client.");
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // assignTemplate — single-client write
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -473,6 +499,7 @@ export async function assignTemplate(
     throw new Error("Not your template.");
   }
 
+  await assertOwnClients(db, trainer.uid, [parsed.clientId]);
   // Doc-id convention from schemas/workout-assignments.md:
   //   asg-${clientUid}-${YYYYMMDD}-${uuid}
   const ymd = parsed.scheduledFor.replace(/-/g, "");
@@ -704,6 +731,7 @@ export async function bulkAssignTemplate(
   if (!canUseTemplate) {
     throw new Error("Not your template.");
   }
+  await assertOwnClients(db, trainer.uid, parsed.clientIds);
 
   const templateSnapshot = applyExerciseOverrides(
     await templateSnapshotForAssignment(template),
@@ -896,6 +924,7 @@ export async function assignTemplateRecurring(
   const canUseTemplate =
     template.trainerId === trainer.uid || template.isStandard === true;
   if (!canUseTemplate) throw new Error("Not your template.");
+  await assertOwnClients(db, trainer.uid, [parsed.clientId]);
 
   // Plans 21-04 + 21-04b: normalize the THREE accepted input shapes
   // (legacy `weekday`, multi-weekday `weekdays`, canonical `recurrence`) to a

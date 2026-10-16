@@ -17,6 +17,20 @@ function normalizeAccessSurface(value: unknown): AccessSurface {
     : "backoffice";
 }
 
+async function readVerifiedIdentity(
+  res: Response,
+): Promise<{ uid: string | null; email: string | null }> {
+  try {
+    const body = (await res.json()) as { uid?: unknown; email?: unknown };
+    return {
+      uid: typeof body?.uid === "string" && body.uid ? body.uid : null,
+      email: typeof body?.email === "string" && body.email ? body.email : null,
+    };
+  } catch {
+    return { uid: null, email: null };
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -42,10 +56,20 @@ export const authOptions: NextAuthOptions = {
             }),
           });
           if (!res.ok) return null;
+          // The SDK verifies the idToken and returns the identity it
+          // contains. That verified identity is authoritative: the
+          // `credentials.email` field is whatever the browser posted and can
+          // be spoofed. The credentials fallback exists only for deploy-order
+          // safety — an SDK deployed before it started returning uid/email
+          // replies `{ status: "ok" }` alone, and login must keep working
+          // until both sides ship.
+          const verified = await readVerifiedIdentity(res);
+          const email = verified.email ?? credentials.email ?? null;
           return {
-            id: credentials.email!,
+            // Nothing reads token.sub today; the Firebase uid is the stable key.
+            id: verified.uid ?? email ?? credentials.email!,
             name: credentials.name ?? null,
-            email: credentials.email ?? null,
+            email,
             image: credentials.image ?? null,
             project: credentials.project ?? "mydnamap",
             accessSurface,

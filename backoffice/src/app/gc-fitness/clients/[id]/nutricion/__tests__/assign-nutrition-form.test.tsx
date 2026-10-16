@@ -127,6 +127,29 @@ describe("AssignNutritionForm", () => {
     expect(payload.targets.kcal).toBe(2000);
   });
 
+  // Regression (#451): this form had its own `numberOrNull` without the
+  // decimal comma, so "12,5" g of fat became null and the plan saved with no
+  // fat target, while the library dialog saved 12.5. Both use
+  // parseDecimalInput now.
+  it("reads a decimal-comma macro ('12,5') as 12.5, like the library dialog", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByLabelText("Phase name"), "Definición");
+    await user.type(screen.getByLabelText("Name"), "Desayuno");
+    const daily = within(screen.getByTestId("nutrition-daily-targets"));
+    await user.type(daily.getByLabelText("Calories"), "2000");
+    await user.type(daily.getByLabelText(/^Fat/), "12,5");
+
+    await user.click(screen.getByTestId("nutrition-save"));
+
+    await waitFor(() => expect(assignNutritionPlan).toHaveBeenCalledTimes(1));
+    const payload = assignNutritionPlan.mock.calls[0]![0] as {
+      targets: Record<string, unknown>;
+    };
+    expect(payload.targets.fatG).toBe(12.5);
+  });
+
   it("shows the overlap warning the save is about to apply", async () => {
     previewNutritionAssign.mockResolvedValue([
       { planId: "plan-a", planName: "Mantenimiento", kind: "trim", date: "2026-08-31" },
