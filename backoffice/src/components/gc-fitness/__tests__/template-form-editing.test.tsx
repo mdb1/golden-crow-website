@@ -231,6 +231,29 @@ describe("TemplateForm editing — per-set values", () => {
     expect(ex.reps).toBe(10);
   });
 
+  // FINDING: the kg cell drops any keystroke that makes the text non-numeric.
+  // A coach on a Spanish keyboard typing "22,5" loses the comma and the field
+  // reads "225" — saved as 225 kg (anything ≥ 50,1 ends up > 500 and fails
+  // validation instead). The decimal point works; the comma silently
+  // multiplies the weight by ten.
+  it.failing("a decimal-comma weight ('22,5') is not saved as 225 kg", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm(defaults([exercise()]));
+    await goToDetails(user);
+    await retype(user, screen.getByLabelText("Weight for set 1"), "22,5");
+    const ex = (await save(user, onSubmit)).exercises[0];
+    expect(ex.weightBySetKg?.[0]).not.toBe(225);
+  });
+
+  it("a decimal-point weight is kept as typed", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm(defaults([exercise()]));
+    await goToDetails(user);
+    await retype(user, screen.getByLabelText("Weight for set 1"), "22.5");
+    const ex = (await save(user, onSubmit)).exercises[0];
+    expect(ex.weightBySetKg?.[0]).toBe(22.5);
+  });
+
   it("copy-to-all propagates set 1's reps and kg to every set", async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderForm(defaults([exercise()]));
