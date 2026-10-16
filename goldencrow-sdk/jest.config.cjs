@@ -14,6 +14,8 @@ module.exports = {
   testEnvironment: "node",
   testMatch: ["**/__tests__/**/*.test.ts"],
   testPathIgnorePatterns: ["/node_modules/", "/dist/"],
+  // TEST_CLOCK_SHIFT_DAYS support for `npm run test:time-travel` (no-op otherwise).
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   // SWC, not ts-jest: TypeScript 7 (the native compiler) no longer ships the
   // JS API ts-jest needs. SWC only strips types; the type check of the tests
   // lives in src/__tests__/typecheck-tests.test.ts (tsc -p tsconfig.jest.json).

@@ -47,7 +47,18 @@ npm run dev
 npm test         # jest (~20 s)
 npm run smoke    # boot the compiled app (run `npx tsc` first)
 npm run build    # what Vercel runs: deps check → tsc → smoke → jest
+npm run test:time-travel   # time-bomb detector (not part of build)
 ```
+
+**Rule: fixtures never depend on today.** A test that passes only near the
+date it was written blocks every deploy the day it expires (the backoffice
+lost a day of deploys to that on 2026-10-16). Pin `Date`
+(`jest.useFakeTimers({ now, doNotFake: [...timers] })`) or derive fixture dates
+from `Date.now()`. `npm run test:time-travel` runs the suite unshifted and with
+`Date` moved +1, +40, +400 and −1 days (`TEST_CLOCK_SHIFT_DAYS`, handled in
+`jest.setup.ts`; timers stay real and a test's own fake timers win) and lists
+the tests that fail only when shifted. Extra args go to jest; one file:
+`NODE_ENV=test TEST_CLOCK_SHIFT_DAYS=40 npx jest --config jest.config.cjs <file>`.
 
 Vercel runs `npm run build` for every production deploy (pushes to `main`;
 previews are skipped by the project's Ignored Build Step), and a failing build

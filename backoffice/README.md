@@ -93,6 +93,24 @@ it. Fixtures must not depend on today's date: on 2026-10-16 the CRM suites'
 fixed quota timestamps expired at 07:00Z and turned 72 tests red with no code
 change; pin `Date` (see `partnership-crm-workbench.test.tsx`) instead.
 
+**Rule: fixtures never depend on today.** Either pin `Date` to the fixture's
+day (`jest.useFakeTimers({ now, doNotFake: [...timers] })`, as the CRM suites
+do) or derive every fixture date from `Date.now()`. The time-bomb detector
+checks it:
+
+```bash
+npm run test:time-travel                      # whole suite, ~5 runs
+npm run test:time-travel -- src/components/god-mode   # extra args go to jest
+NODE_ENV=test TEST_CLOCK_SHIFT_DAYS=40 npx jest <file>  # one file, one shift
+```
+
+It runs the suite unshifted and then with `Date` moved +1, +40, +400 and −1
+days (`TEST_CLOCK_SHIFT_DAYS`, handled in `jest.setup.ts`: only `Date` is
+faked, timers stay real, and a test's own `jest.useFakeTimers` /
+`setSystemTime` wins), and lists the tests that fail **only** when shifted —
+each one is a deploy that will break by itself on some future day. It is not
+part of `build`; run it when you add date-dependent tests or fixtures.
+
 The gate is wider than this package: `firestore.rules` and several algorithms
 are shared with the iOS and Android apps, so a change here can break them and
 vice versa. The four suites and when to run them are in the repo-root
