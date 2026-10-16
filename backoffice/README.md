@@ -559,6 +559,16 @@ banner and recover from the draft.
 What none of them can cover: the previous build's JS chunks (no Skew Protection) —
 an old tab that lazily loads one hits the banner and the drafts bring the form back.
 
+### 0b. Branches don't deploy at all (`git.deploymentEnabled`, #451)
+
+`vercel.json` sets `"git": {"deploymentEnabled": {"*": false, "main": true}}`
+in **both** projects. Previews were never built (the ignore step below
+cancelled them), but each branch push still CREATED a deployment, and those
+count toward the Hobby plan's daily deployment limit: on 2026-10-16 about 20
+PR branches × 2 projects exhausted it, and a teammate's merge to `main` was
+refused with "Deployment rate limited — retry in 24 hours". Now only `main`
+creates deployments.
+
 ### 1. `vercel.json` → `scripts/vercel-ignore-build.sh`
 
 The Ignored Build Step. It aborts the build (exit **0** — Vercel's codes are
