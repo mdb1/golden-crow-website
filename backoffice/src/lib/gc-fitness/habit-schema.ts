@@ -122,10 +122,13 @@ const habitBaseShape = z.object({
   sourceTemplateId: z.string().trim().min(1).optional(),
   // HH:mm 24-hour local-time string. Regex matches the schema doc spec.
   // iOS schedules a daily UNCalendarNotificationTrigger at this hour-minute.
+  // Regression (#451): the hour used to be `[0-2][0-9]`, which let 24:00–29:59
+  // through. Hours are now 00–23. This schema only runs on WRITES (server
+  // actions + form resolver); stored docs are never re-validated on read.
   reminderTime: z
     .string()
     .regex(
-      /^[0-2][0-9]:[0-5][0-9]$/,
+      /^([01][0-9]|2[0-3]):[0-5][0-9]$/,
       "Reminder time must be HH:mm 24-hour format.",
     )
     .optional(),

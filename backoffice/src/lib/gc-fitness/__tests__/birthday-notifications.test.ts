@@ -98,16 +98,17 @@ describe("listBirthdayNotifications", () => {
       expect(listBirthdayNotifications(leapling, "2028-02-29")).toHaveLength(1);
     });
 
-    it("CURRENT behaviour: in a non-leap year it fires on NEITHER Feb 28 nor Mar 1", () => {
-      expect(listBirthdayNotifications(leapling, "2027-02-28")).toEqual([]);
+    it("does not ALSO fire on Mar 1 in a non-leap year, nor on Feb 28 of a leap year", () => {
       expect(listBirthdayNotifications(leapling, "2027-03-01")).toEqual([]);
+      expect(listBirthdayNotifications(leapling, "2028-02-28")).toEqual([]);
     });
 
-    // FINDING: a client born on Feb 29 gets no birthday card from the coach in 3
-    // of every 4 years. Common convention is to celebrate on Feb 28 in non-leap
-    // years. Flip to `it` once listBirthdayNotifications handles it.
-    it.failing("should fire on Feb 28 in a non-leap year", () => {
+    // Regression (#451): a client born on Feb 29 got no birthday card from the
+    // coach in 3 of every 4 years. It now fires on Feb 28 in non-leap years
+    // (2100 is a non-leap century year).
+    it("fires on Feb 28 in a non-leap year", () => {
       expect(listBirthdayNotifications(leapling, "2027-02-28")).toHaveLength(1);
+      expect(listBirthdayNotifications(leapling, "2100-02-28")).toHaveLength(1);
     });
   });
 

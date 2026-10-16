@@ -20,7 +20,7 @@
 // mutation invalidates it.
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -358,6 +358,28 @@ export function MonthCalendar({
   // Per-cell drag-and-drop state.
   const [dragChip, setDragChip] = useState<MonthWorkoutChip | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+
+  // Regression (#451): a drag that ends WITHOUT a drop on a day cell (released
+  // outside the grid, Esc, dropped on a non-target) must not leave the chip
+  // "in hand" — otherwise the next unrelated drop on a cell moves that stale
+  // workout. The chip's own onDragEnd covers the normal case; the window
+  // listeners cover a source chip that unmounted mid-drag (refetch).
+  const clearDrag = useCallback(() => {
+    setDragChip(null);
+    setDragOverDay(null);
+  }, []);
+  useEffect(() => {
+    if (!dragChip) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") clearDrag();
+    };
+    window.addEventListener("dragend", clearDrag);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("dragend", clearDrag);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [dragChip, clearDrag]);
 
   // Pending move → MoveAssignmentDialog (prompts the scope for recurring).
   const [pendingMove, setPendingMove] = useState<
@@ -807,6 +829,7 @@ export function MonthCalendar({
                         onCellDrop(civil);
                       }}
                       onDragStartChip={(chip) => setDragChip(chip)}
+                      onDragEndChip={clearDrag}
                       onClickChip={(chip) => setDetailAssignmentId(chip.id)}
                       onClickHabit={openHabitDetail}
                       onClickAdd={(kind) => onCellAddClicked(civil, kind)}
@@ -927,6 +950,7 @@ export function MonthCalendar({
                               onCellDrop(civil);
                             }}
                             onDragStartChip={(chip) => setDragChip(chip)}
+                            onDragEndChip={clearDrag}
                             onClickChip={(chip) =>
                               setDetailAssignmentId(chip.id)
                             }
@@ -1178,6 +1202,7 @@ interface DayCellProps {
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
   onDragStartChip: (chip: MonthWorkoutChip) => void;
+  onDragEndChip: () => void;
   onClickChip: (chip: MonthWorkoutChip) => void;
   onClickHabit: (habit: MonthHabitChip) => void;
   onClickAdd: (kind: "workout" | "habit") => void;
@@ -1203,6 +1228,7 @@ function DayCell({
   onDragLeave,
   onDrop,
   onDragStartChip,
+  onDragEndChip,
   onClickChip,
   onClickHabit,
   onClickAdd,
@@ -1321,6 +1347,7 @@ function DayCell({
                         e.dataTransfer.setData("text/plain", w.id);
                         onDragStartChip(w);
                       }}
+                      onDragEnd={onDragEndChip}
                       onClick={() => onClickChip(w)}
                       className={cn(
                         "group/chip relative flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight hover:brightness-95",
@@ -1394,6 +1421,7 @@ interface ClientDayCellProps {
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
   onDragStartChip: (chip: MonthWorkoutChip) => void;
+  onDragEndChip: () => void;
   onClickChip: (chip: MonthWorkoutChip) => void;
   onClickHabit: (habit: MonthHabitChip) => void;
   onClickAdd: (kind: "workout" | "habit") => void;
@@ -1422,6 +1450,7 @@ function ClientDayCell({
   onDragLeave,
   onDrop,
   onDragStartChip,
+  onDragEndChip,
   onClickChip,
   onClickHabit,
   onClickAdd,
@@ -1465,6 +1494,7 @@ function ClientDayCell({
                 e.dataTransfer.setData("text/plain", w.id);
                 onDragStartChip(w);
               }}
+              onDragEnd={onDragEndChip}
               onClick={() => onClickChip(w)}
               className={cn(
                 // Same chip styling as the month grid's DayCell so workouts

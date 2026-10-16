@@ -190,10 +190,9 @@ describe("reminders", () => {
     expect(issuePaths({ ...ON, reminderTime: time })).toEqual(["reminderTime"]);
   });
 
-  // FINDING: the HH regex is `[0-2][0-9]`, so 24:00–29:59 pass validation and get
-  // stored. iOS builds a DateComponents(hour: 25) trigger from it. Flip to `it`
-  // once the regex is `([01][0-9]|2[0-3])`.
-  it.failing.each(["24:00", "25:30", "29:59"])("should reject out-of-range hour %s", (time) => {
+  // Regression (#451): the HH regex was `[0-2][0-9]`, so 24:00–29:59 passed
+  // validation and got stored. It is now `([01][0-9]|2[0-3])`.
+  it.each(["24:00", "25:30", "29:59"])("should reject out-of-range hour %s", (time) => {
     expect(issuePaths({ ...ON, reminderTime: time })).toEqual(["reminderTime"]);
   });
 });

@@ -26,6 +26,19 @@ function monthDay(value: string): string | null {
   return `${month}-${day}`;
 }
 
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+// Regression (#451): a Feb 29 birthday is celebrated on Feb 28 in non-leap
+// years — before, it matched nothing 3 years out of 4.
+function observedMonthDay(birthMonthDay: string | null, todayCivil: string): string | null {
+  if (birthMonthDay !== "02-29") return birthMonthDay;
+  const year = Number(todayCivil.split("-")[0]);
+  if (!Number.isInteger(year) || isLeapYear(year)) return birthMonthDay;
+  return "02-28";
+}
+
 function mapBirthdayClient(doc: QueryDocumentSnapshot): ClientRosterEntry {
   const data = doc.data() as {
     email?: string;
@@ -62,7 +75,7 @@ export function listBirthdayNotifications(
   return clients.flatMap((client) => {
     const birthDate = client.birthDate?.trim();
     if (!birthDate) return [];
-    if (monthDay(birthDate) !== todayMonthDay) return [];
+    if (observedMonthDay(monthDay(birthDate), todayCivil) !== todayMonthDay) return [];
     const name = client.coachNickname?.trim() || client.displayName || client.email || client.uid;
     return [{
       id: `birthday:${client.uid}:${todayCivil}`,
