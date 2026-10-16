@@ -634,6 +634,26 @@ function assertCanManageIntegrationClients(context: AdminContext) {
   }
 }
 
+// Rotate and revoke follow the same ownership as listing: a full admin only
+// manages the clients they created; bootstrap (GOD MODE) is the break-glass
+// override. Missing and not-owned answer the same 404 so another admin's
+// client id is never confirmed (#451).
+function readManagedClientRecord(
+  snapshot: SnapshotLike,
+  context: AdminContext,
+): IntegrationClientRecord {
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError("Integration client not found.", 404);
+  }
+
+  const client = readClientRecord(snapshot);
+  if (!context.isBootstrap && client.createdByUid !== context.uid) {
+    throw new AdminRepositoryError("Integration client not found.", 404);
+  }
+
+  return client;
+}
+
 function assertActiveClient(record: IntegrationClientRecord) {
   if (record.status !== "active") {
     throw new AdminRepositoryError("Integration client was revoked.", 401);
@@ -1088,7 +1108,7 @@ export async function rotateReportingIntegrationClientSecret(
   return adminDb.runTransaction(async (transaction) => {
     const ref = clientRef(clientId);
     const snapshot = (await transaction.get(ref)) as SnapshotLike;
-    const client = readClientRecord(snapshot);
+    const client = readManagedClientRecord(snapshot, context);
     assertActiveClient(client);
 
     const update = {
@@ -1139,7 +1159,7 @@ export async function revokeReportingIntegrationClient(
   return adminDb.runTransaction(async (transaction) => {
     const ref = clientRef(clientId);
     const snapshot = (await transaction.get(ref)) as SnapshotLike;
-    const client = readClientRecord(snapshot);
+    const client = readManagedClientRecord(snapshot, context);
     const updatedClient: IntegrationClientRecord = {
       ...client,
       status: "revoked",

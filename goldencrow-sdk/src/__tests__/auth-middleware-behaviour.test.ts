@@ -257,21 +257,35 @@ describe("authMiddleware — mixed-surface sessions", () => {
     expect((await get("/pgflex/logistics")).statusCode).toBe(200);
   });
 
-  // LATENT BUG (defense in depth) — src/middleware/auth.ts:104-142. Each
-  // portal restriction only fires when that portal is the ONLY surface open
-  // (`canAccessX && !canAccessY && ...`). A context with two non-backoffice
-  // surfaces matches none of the three branches and falls through to the
-  // full backoffice API. resolveAdminContext cannot build such a context
-  // today (one role per account, and the access-surfaces predicates are
-  // mutually exclusive), so it is not exploitable — but the gate fails OPEN
-  // instead of restricting to the union of the open portals' paths.
-  it.failing.each([
+  // Regression (#451): each portal restriction only fired when that portal
+  // was the ONLY surface open (`canAccessX && !canAccessY && ...`), so a
+  // context with two non-backoffice surfaces matched none of the branches and
+  // fell through to the full backoffice API. resolveAdminContext cannot build
+  // such a context today (one role per account), but the gate failed OPEN.
+  // Without backoffice access the path must now belong to the UNION of the
+  // open portals' paths.
+  it.each([
     [["patient", "pgflex"]],
     [["patient", "publisher"]],
     [["pgflex", "publisher"]],
+    [["patient", "pgflex", "publisher"]],
   ] as const)("non-backoffice mixed session %j is still denied backoffice paths", async (surfaces) => {
     asSession(contextFor([...surfaces]));
-    expect((await get("/roles")).statusCode).toBe(403);
+    const res = await get("/roles");
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toEqual({
+      error: "This portal session cannot access backoffice APIs",
+    });
+  });
+
+  it("patient + publisher (no backoffice): the union of both portals passes, nothing else", async () => {
+    asSession(contextFor(["patient", "publisher"]));
+    expect((await get("/2pq/informed-consents")).statusCode).toBe(200);
+    expect((await get("/discover/organizations/org-1")).statusCode).toBe(200);
+    expect((await get("/pgflex/logistics")).statusCode).toBe(403);
+    expect(
+      (await get("/discover/organizations/org-1/submission-evaluation")).statusCode,
+    ).toBe(403);
   });
 });
 
