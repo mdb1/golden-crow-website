@@ -1990,12 +1990,26 @@ describe("support services workbenches", () => {
     const modal = await screen.findByRole("dialog");
     expect(modal.className).toContain("80rem");
     expect(within(modal).queryByRole("table")).toBeNull();
+    const categoryGroupHeader = within(modal)
+      .getByRole("heading", { name: "Clinical preparation" })
+      .closest("[data-service-category-group-header]");
+    expect(categoryGroupHeader).toBeTruthy();
+    expect(categoryGroupHeader?.className).toContain("bg-slate-950");
+    expect(categoryGroupHeader?.className).not.toMatch(/violet/);
     expect(
-      within(modal)
-        .getByRole("heading", { name: "Clinical preparation" })
-        .closest("[data-service-category-group-header]"),
-    ).toBeTruthy();
-    expect(within(modal).getByText(selectedDescription)).toBeTruthy();
+      within(modal).getByRole("heading", { name: "Clinical preparation" })
+        .className,
+    ).toContain("text-white");
+    expect(categoryGroupHeader?.querySelector("p")?.className).toContain(
+      "text-slate-300",
+    );
+    const selectedCategoryDescription = within(modal).getByText(
+      selectedDescription,
+    );
+    expect(selectedCategoryDescription.className).toContain("text-violet-900");
+    expect(selectedCategoryDescription.className).toContain(
+      "dark:text-violet-100",
+    );
     expect(within(modal).queryByRole("radio")).toBeNull();
     expect(within(modal).getAllByRole("checkbox")).toHaveLength(
       SUPPORT_SERVICE_CATEGORIES.length,
@@ -2033,6 +2047,17 @@ describe("support services workbenches", () => {
     const selectedCategoryCell = within(modal).getByRole("checkbox", {
       name: /^Genomic report generation\b/,
     });
+    expect(selectedCategoryCell.className).toContain("bg-violet-100/90");
+    expect(selectedCategoryCell.className).toContain("border-l-violet-600");
+    expect(selectedCategoryCell.className).toContain(
+      "dark:bg-violet-500/22",
+    );
+    expect(selectedCategoryCell.className).toContain(
+      "dark:border-l-violet-300",
+    );
+    expect(selectedCategoryCell.className).not.toMatch(
+      /bg-(?:slate-950|black)/,
+    );
     expect(
       within(selectedCategoryCell).queryByText(selectedCategory.key),
     ).toBeNull();

@@ -7179,34 +7179,34 @@ function ServiceCategoryPicker({
                     return (
                       <section
                         key={group.id}
-                        className="overflow-hidden rounded-2xl border border-violet-200/80 bg-white shadow-[0_18px_48px_-34px_rgba(76,29,149,0.75)] dark:border-violet-400/24 dark:bg-slate-950/70"
+                        className="overflow-hidden rounded-2xl border border-slate-300/90 bg-white shadow-[0_18px_48px_-34px_rgba(15,23,42,0.72)] dark:border-slate-700 dark:bg-slate-950/70"
                       >
                         <div
                           data-service-category-group-header
-                          className="border-b-2 border-violet-200 bg-gradient-to-r from-violet-100 via-violet-100/85 to-violet-50 px-5 py-5 shadow-[inset_4px_0_0_#7c3aed] dark:border-violet-400/28 dark:from-violet-500/24 dark:via-violet-500/16 dark:to-violet-950/38 dark:shadow-[inset_4px_0_0_#c4b5fd]"
+                          className="border-b border-slate-700 bg-slate-950 px-5 py-5 text-slate-200 shadow-[inset_4px_0_0_#64748b] dark:border-slate-700 dark:bg-black dark:shadow-[inset_4px_0_0_#94a3b8]"
                         >
                           <div className="flex items-start gap-4">
-                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md shadow-violet-600/20 ring-4 ring-white/55 dark:bg-violet-400 dark:text-violet-950 dark:ring-violet-950/35">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-100 shadow-md shadow-black/20 ring-4 ring-slate-700/80 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700/70">
                               <GroupIcon className="h-5 w-5" />
                             </span>
                             <div className="min-w-0 flex-1">
-                              <h3 className="text-[17px] font-bold leading-6 text-violet-950 dark:text-violet-50">
+                              <h3 className="text-[17px] font-bold leading-6 text-white">
                                 {language === "es"
                                   ? group.nameSpanish
                                   : group.nameEnglish}
                               </h3>
-                              <p className="mt-1 text-sm leading-6 text-violet-900/70 [overflow-wrap:anywhere] dark:text-violet-100/70">
+                              <p className="mt-1 text-sm leading-6 text-slate-300 [overflow-wrap:anywhere]">
                                 {language === "es"
                                   ? group.descriptionSpanish
                                   : group.descriptionEnglish}
                               </p>
                             </div>
-                            <span className="shrink-0 rounded-full border border-violet-200/80 bg-white/80 px-3 py-1 text-xs font-bold text-violet-700 shadow-sm dark:border-violet-300/20 dark:bg-violet-950/48 dark:text-violet-100">
+                            <span className="shrink-0 rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-xs font-bold text-slate-200 shadow-sm">
                               {group.categories.length} {t("Options").toLowerCase()}
                             </span>
                           </div>
                         </div>
-                        <div className="divide-y divide-slate-200/80 dark:divide-violet-400/12">
+                        <div className="divide-y divide-slate-200/80 dark:divide-slate-800">
                           {group.categories.map((category) => {
                             const selected = draft.includes(category.key);
 
@@ -7220,8 +7220,8 @@ function ServiceCategoryPicker({
                                 className={cn(
                                   "flex w-full min-w-0 items-start gap-4 border-l-4 px-5 py-5 text-left outline-none transition-[background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400",
                                   selected
-                                    ? "border-l-violet-500 bg-violet-50/95 shadow-[inset_0_0_32px_rgba(124,58,237,0.035)] dark:border-l-violet-300 dark:bg-violet-500/14"
-                                    : "border-l-transparent bg-white hover:border-l-violet-200 hover:bg-violet-50/55 dark:bg-slate-950/48 dark:hover:border-l-violet-400/40 dark:hover:bg-violet-500/8",
+                                    ? "border-l-violet-600 bg-violet-100/90 shadow-[inset_0_0_0_1px_rgba(124,58,237,0.16),inset_0_0_32px_rgba(124,58,237,0.08)] dark:border-l-violet-300 dark:bg-violet-500/22"
+                                    : "border-l-transparent bg-white hover:border-l-slate-300 hover:bg-slate-50 dark:bg-slate-950/48 dark:hover:border-l-slate-600 dark:hover:bg-slate-900/80",
                                 )}
                               >
                                 <span
@@ -7229,19 +7229,33 @@ function ServiceCategoryPicker({
                                     "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors",
                                     selected
                                       ? "border-violet-600 bg-violet-600 text-white shadow-sm"
-                                      : "border-violet-200 bg-white text-transparent dark:border-violet-400/28 dark:bg-slate-950",
+                                      : "border-slate-300 bg-white text-transparent dark:border-slate-600 dark:bg-slate-950",
                                   )}
                                 >
                                   <Check className="h-4 w-4" />
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                  <span className="block truncate text-base font-semibold leading-6 text-foreground">
+                                  <span
+                                    className={cn(
+                                      "block truncate text-base font-semibold leading-6",
+                                      selected
+                                        ? "text-violet-950 dark:text-violet-50"
+                                        : "text-foreground",
+                                    )}
+                                  >
                                     {supportServiceCategoryName(
                                       category,
                                       language,
                                     )}
                                   </span>
-                                  <span className="mt-1.5 block whitespace-normal text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+                                  <span
+                                    className={cn(
+                                      "mt-1.5 block whitespace-normal text-sm leading-6 [overflow-wrap:anywhere]",
+                                      selected
+                                        ? "text-violet-900 dark:text-violet-100"
+                                        : "text-muted-foreground",
+                                    )}
+                                  >
                                     {supportServiceCategoryDescription(
                                       category,
                                       language,
