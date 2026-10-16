@@ -622,8 +622,15 @@ export async function purgeDataHygieneItem(formData: FormData): Promise<void> {
   const db = gcFitnessFirestore();
   switch (kind as DataHygieneKind) {
     case "user": {
-      const role = String(formData.get("role") ?? "");
       const userId = String(formData.get("userId") ?? id);
+      // The cascade is chosen from the STORED role, never the form's `role`
+      // field: a tampered/replayed POST with role=client (or none) for a coach
+      // uid would otherwise run the client cascade on a coach account.
+      const userSnap = await db
+        .collection(FirestoreCollections.users)
+        .doc(userId)
+        .get();
+      const role = userSnap.exists ? userSnap.get("role") : null;
       if (role === "trainer") {
         await deleteCoachCascade({
           coachUid: userId,

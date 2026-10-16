@@ -123,8 +123,10 @@ describe("purgeDataHygieneItem — gate + validation", () => {
 });
 
 describe("purgeDataHygieneItem — per kind", () => {
-  it("user (role=trainer) → coach cascade with the DELETE COACH literal", async () => {
-    await purgeDataHygieneItem(form({ kind: "user", id: "user:x", role: "trainer", userId: "coach-A1" }));
+  it("user (stored role=trainer) → coach cascade with the DELETE COACH literal", async () => {
+    db = new FakeFirestore({ users: { "coach-A1": { role: "trainer" } } });
+    mockDb.current = db;
+    await purgeDataHygieneItem(form({ kind: "user", id: "user:x", userId: "coach-A1" }));
     expect(mockDeleteCoachCascade).toHaveBeenCalledWith({
       coachUid: "coach-A1",
       confirmation: "DELETE COACH",
@@ -134,7 +136,9 @@ describe("purgeDataHygieneItem — per kind", () => {
     expectRedirectFor("user");
   });
 
-  it("user (any other role) → client cascade; userId falls back to id", async () => {
+  it("user (any other stored role) → client cascade; userId falls back to id", async () => {
+    db = new FakeFirestore({ users: { "client-A1": { role: "client" } } });
+    mockDb.current = db;
     await purgeDataHygieneItem(form({ kind: "user", id: "client-A1" }));
     expect(mockDeleteClientCascade).toHaveBeenCalledWith({
       clientUid: "client-A1",
@@ -217,19 +221,21 @@ describe("purgeDataHygieneItem — per kind", () => {
     expectRedirectFor("exercise");
   });
 
-  // SECURITY GAP: purgeDataHygieneItem (data-hygiene-actions.ts:625) picks the
-  // coach-vs-client cascade from the client-supplied `role` FORM field instead
-  // of reading /users/{userId}.role. A tampered/replayed admin POST that omits
-  // `role` (or sends role=client) for a TRAINER uid runs the CLIENT cascade on
-  // the coach — which (admin-actions.ts:912) does not check the role either —
-  // deleting the coach's user doc + Auth account while orphaning their clients.
-  // Expected: the server derives the role from Firestore.
-  it.failing("derives the cascade from the stored role, not the form's role field", async () => {
-    db = new FakeFirestore({ users: { "coach-A1": { role: "trainer" } } });
+  // The cascade comes from /users/{userId}.role, NOT the form's `role` field:
+  // a tampered/replayed POST with role=client (or none) for a TRAINER uid must
+  // not run the client cascade on the coach.
+  it("derives the cascade from the stored role, not the form's role field", async () => {
+    db = new FakeFirestore({ users: { "coach-A1": { role: "trainer" }, "client-A1": { role: "client" } } });
     mockDb.current = db;
     await purgeDataHygieneItem(form({ kind: "user", id: "coach-A1", role: "client" }));
     expect(mockDeleteClientCascade).not.toHaveBeenCalled();
-    expect(mockDeleteCoachCascade).toHaveBeenCalled();
+    expect(mockDeleteCoachCascade).toHaveBeenCalledWith({ coachUid: "coach-A1", confirmation: "DELETE COACH", mode: "execute" });
+
+    jest.clearAllMocks();
+    await purgeDataHygieneItem(form({ kind: "user", id: "client-A1", role: "trainer" }));
+    expect(mockDeleteCoachCascade).not.toHaveBeenCalled();
+    expect(mockDeleteClientCascade).toHaveBeenCalledWith({ clientUid: "client-A1", confirmation: "DELETE CLIENT", mode: "execute" });
+    expect(db.writes).toEqual([]);
   });
 });
 
