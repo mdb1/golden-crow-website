@@ -239,12 +239,10 @@ describe("updateClientGoal", () => {
     });
   });
 
-  // SECURITY GAP: createClientGoal and listClientGoals both re-check
-  // users/{clientId}.coachId === session.uid, but updateClientGoal only checks
-  // the GOAL doc's coachId. After a client is transferred from coach A to
-  // coach B, coach A (who can no longer list the client's goals) can still
-  // edit/complete/archive goals about that client by goal id.
-  it.failing("rejects editing a goal about a client that is no longer the caller's", async () => {
+  // updateClientGoal re-checks users/{goal.clientId}.coachId === session.uid
+  // like create/list: after a transfer from coach A to coach B, coach A (who
+  // authored the goal) can no longer edit/complete/archive it by goal id.
+  it("rejects editing a goal about a client that is no longer the caller's", async () => {
     fake.seed({ "users/client-1": { role: "client", coachId: OTHER } });
     await expect(updateClientGoal({ goalId: "g-mine", status: "archived" })).rejects.toThrow(
       "Forbidden",
