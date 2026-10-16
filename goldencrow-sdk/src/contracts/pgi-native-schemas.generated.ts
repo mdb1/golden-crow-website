@@ -2085,9 +2085,16 @@ export const PGI_NATIVE_SCHEMAS = {
             "type": "string"
           },
           "download_url": {
-            "type": "string",
-            "format": "uri",
-            "pattern": "^https?://"
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^https?://"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "kind": {
             "const": "case"

@@ -272,6 +272,33 @@ describe("file storage JSON contracts", () => {
       "utf8",
     ),
   ) as Record<string, unknown>;
+  const validTwoPqWithoutReport = {
+    main_case: {
+      id: "CASE-00024",
+      download_url: null,
+      sibling_case_ids: [],
+      children_sampling_ids: [],
+    },
+    entities: {
+      batches: [],
+      cases: [
+        {
+          id: "CASE-00024",
+          download_url: null,
+          kind: "case",
+          scope: {},
+          identity: {},
+          classification: {},
+          status: {},
+          logistics: {},
+          relations: { samplingIds: [] },
+          timestamps: {},
+          audit: {},
+        },
+      ],
+      samplings: [],
+    },
+  };
 
   beforeEach(() => {
     collections.clear();
@@ -381,6 +408,15 @@ describe("file storage JSON contracts", () => {
     ).toEqual({
       fileType: "mdm",
       fileContent: JSON.stringify(validMdm),
+    });
+    expect(
+      validateStoredFileJsonContent({
+        fileType: "2pq",
+        fileContent: JSON.stringify(validTwoPqWithoutReport, null, 2),
+      }),
+    ).toEqual({
+      fileType: "2pq",
+      fileContent: JSON.stringify(validTwoPqWithoutReport),
     });
     expect(() =>
       validateStoredFileJsonContent({

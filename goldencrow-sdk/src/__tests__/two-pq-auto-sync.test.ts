@@ -291,6 +291,13 @@ describe("2PQ case automatic file and code synchronization", () => {
     expect(
       mockUpdateStoredFileDocument.mock.invocationCallOrder[0],
     ).toBeLessThan(mockPublishStoredFileAsReportCode.mock.invocationCallOrder[0]!);
+    const { identifyPgiNativeModel } = await import(
+      "../lib/pgi-native-schema.js"
+    );
+    expect(identifyPgiNativeModel(JSON.parse(fileContent))).toEqual({
+      ok: true,
+      model: "2pq",
+    });
     expect(mockPublishStoredFileAsReportCode).toHaveBeenCalledWith({
       fileId: "existing-file",
       reportCode: "ABCXXX",
