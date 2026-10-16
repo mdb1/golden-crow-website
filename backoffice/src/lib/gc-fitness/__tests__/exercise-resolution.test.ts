@@ -145,13 +145,11 @@ describe("resolveExerciseDocsById", () => {
     expect(maxInFlight).toBeLessThanOrEqual(20);
   });
 
-  // BUG (cost, low-medium): the `!fetched.has(target)` guard runs BEFORE the
-  // target is fetched, so every doc in a batch that merges into the same
-  // canonical id pushes it onto the queue again. 45 legacy ids merged into one
-  // standard exercise cost 45 extra reads of that one doc (90 reads instead of
-  // 46) — on every render of a client's history. The queue should dedupe
-  // (e.g. a `queued` Set) so a shared target is read once.
-  it.failing("reads a shared merge target only once", async () => {
+  // Regression (#451): the `!fetched.has(target)` guard ran BEFORE the target
+  // was fetched, so every doc in a batch merging into the same canonical id
+  // re-enqueued it — 45 legacy ids cost 90 reads instead of 46 on every render
+  // of a client's history. The queue now dedupes via a `queued` Set.
+  it("reads a shared merge target only once", async () => {
     const docs: Record<string, Doc> = { canon: { name: "Canon" } };
     const ids = Array.from({ length: 45 }, (_, i) => `e${i}`);
     for (const id of ids) docs[id] = { mergedInto: "canon" };

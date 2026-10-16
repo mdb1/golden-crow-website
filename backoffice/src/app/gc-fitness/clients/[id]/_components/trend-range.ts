@@ -41,15 +41,21 @@ export function bucketGranularity(range: TrendRangeKey): "day" | "week" {
 // "YYYY-MM-DD" civil-date form produced by `civilDateFormat`.
 
 function civilToUtcNoon(civilDate: string): Date | null {
-  const parts = civilDate.split("-");
-  if (parts.length !== 3) return null;
-  const y = Number(parts[0]);
-  const m = Number(parts[1]);
-  const d = Number(parts[2]);
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+  // Digits-only components (unpadded accepted); an empty one is malformed (`Number("")` is 0).
+  const match = /^(\d{1,4})-(\d{1,2})-(\d{1,2})$/.exec(civilDate);
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  // `setUTCFullYear` keeps the year literal — `Date.UTC` maps 0–99 to 1900–1999.
+  const date = new Date(Date.UTC(2000, 0, 1, 12, 0, 0));
+  date.setUTCFullYear(y, m - 1, d);
+  // Calendar-invalid dates ("2026-02-30", "2026-13-01") would otherwise roll over
+  // to a different day; treat them as malformed like every other bad input (#451).
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) {
     return null;
   }
-  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  return date;
 }
 
 function utcNoonToCivil(date: Date): string {
