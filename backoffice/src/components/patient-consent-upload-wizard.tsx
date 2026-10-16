@@ -9,6 +9,7 @@ import {
   Download,
   FilePenLine,
   FileUp,
+  ImagePlus,
   Link2,
   Loader2,
   PenLine,
@@ -23,6 +24,7 @@ import {
   useState,
 } from "react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
+import { SignatureImageImportDialog } from "@/components/signature-image-import-dialog";
 import {
   SingleFileUpload,
   type SingleFileValue,
@@ -141,7 +143,8 @@ function SignaturePad({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
-  const [hasInk, setHasInk] = useState(Boolean(value));
+  const [hasInk, setHasInk] = useState(false);
+  const [imageImportOpen, setImageImportOpen] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -149,18 +152,29 @@ function SignaturePad({
     if (!canvas || !context) return;
 
     context.clearRect(0, 0, canvas.width, canvas.height);
+    setHasInk(false);
     if (!value) {
-      setHasInk(false);
       return;
     }
 
+    let cancelled = false;
     const image = new Image();
     image.onload = () => {
+      if (cancelled) return;
       context.clearRect(0, 0, canvas.width, canvas.height);
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       setHasInk(true);
     };
+    image.onerror = () => {
+      if (!cancelled) setHasInk(false);
+    };
     image.src = value;
+
+    return () => {
+      cancelled = true;
+      image.onload = null;
+      image.onerror = null;
+    };
   }, [value]);
 
   function canvasPoint(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -245,6 +259,15 @@ function SignaturePad({
           <Check className="size-4" />
           Guardar firma {signerLabel}
         </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          aria-label={`Importar imagen de firma ${signerLabel}`}
+          onClick={() => setImageImportOpen(true)}
+        >
+          <ImagePlus className="size-4" />
+          Importar imagen de firma
+        </Button>
         {value ? (
           <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700">
             <CheckCircle2 className="size-4" />
@@ -252,6 +275,13 @@ function SignaturePad({
           </span>
         ) : null}
       </div>
+      <SignatureImageImportDialog
+        open={imageImportOpen}
+        signerLabel={signerLabel}
+        replacingSignature={Boolean(value)}
+        onOpenChange={setImageImportOpen}
+        onApply={onChange}
+      />
     </div>
   );
 }
@@ -1216,11 +1246,12 @@ export function PatientConsentUploadWizard({
               <div className="max-w-4xl space-y-5">
                 <div>
                   <h3 className="font-heading text-lg font-semibold">
-                    Dibujar firmas
+                    Dibujar o importar firmas
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Dibuje cada firma en su propio recuadro y guárdela antes de
-                    continuar.
+                    Dibuje cada firma en su propio recuadro o importe una foto.
+                    Al importar, podrá convertir el fondo blanco en
+                    transparencia antes de continuar.
                   </p>
                 </div>
 

@@ -4,6 +4,7 @@ import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PatientConsentUploadWizard } from "@/components/patient-consent-upload-wizard";
+import { processSignatureImageDataUrl } from "@/lib/signature-image";
 import { sdkFetch } from "@/lib/sdk-client";
 
 jest.mock("next/navigation", () => ({
@@ -17,9 +18,18 @@ jest.mock("@/lib/sdk-client", () => ({
   sdkFetch: jest.fn(),
 }));
 
+jest.mock("@/lib/signature-image", () => ({
+  ...jest.requireActual("@/lib/signature-image"),
+  processSignatureImageDataUrl: jest.fn(),
+}));
+
+const TRANSPARENT_SIGNATURE_DATA_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNgYGAAAAAEAAEnNCcKAAAAAElFTkSuQmCC";
+
 describe("PatientConsentUploadWizard", () => {
   beforeEach(() => {
     jest.mocked(sdkFetch).mockReset();
+    jest.mocked(processSignatureImageDataUrl).mockReset();
   });
 
   it("shows the five-step signing flow and the downloadable 2PQ PDF", () => {
@@ -231,6 +241,105 @@ describe("PatientConsentUploadWizard", () => {
     }
   });
 
+  it("imports a signature image, adjusts it, and uses the transparent asset", async () => {
+    jest.mocked(processSignatureImageDataUrl).mockResolvedValue({
+      dataUrl: TRANSPARENT_SIGNATURE_DATA_URL,
+      width: 720,
+      height: 240,
+      sourceWidth: 600,
+      sourceHeight: 200,
+      rasterWidth: 600,
+      rasterHeight: 200,
+      sourceBounds: {
+        left: 20,
+        top: 30,
+        right: 579,
+        bottom: 169,
+        width: 560,
+        height: 140,
+      },
+      inkPixelCount: 320,
+    });
+    const getContext = jest
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockReturnValue(null);
+
+    try {
+      const user = userEvent.setup();
+      render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
+
+      await user.click(
+        screen.getByRole("button", { name: "Continuar con los datos" }),
+      );
+      await user.type(
+        screen.getByRole("textbox", { name: "Documento del paciente" }),
+        "31.234.567",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Continuar para firmar" }),
+      );
+      await user.click(
+        screen.getByRole("button", {
+          name: "Importar imagen de firma del paciente",
+        }),
+      );
+
+      expect(
+        screen.getByRole("dialog", { name: "Importar firma del paciente" }),
+      ).toBeVisible();
+      const file = new File(["signature"], "firma.webp", {
+        type: "image/webp",
+      });
+      await user.upload(screen.getByLabelText("Imagen de la firma"), file);
+
+      await waitFor(() =>
+        expect(processSignatureImageDataUrl).toHaveBeenCalledWith(
+          expect.stringMatching(/^data:image\/webp;base64,/),
+          { contrast: 1.8, threshold: 190 },
+        ),
+      );
+      expect(
+        await screen.findByAltText(
+          "Vista previa de la firma con fondo transparente",
+        ),
+      ).toHaveAttribute("src", TRANSPARENT_SIGNATURE_DATA_URL);
+
+      fireEvent.change(screen.getByLabelText("Contraste"), {
+        target: { value: "2.4" },
+      });
+      fireEvent.change(screen.getByLabelText("Umbral blanco y negro"), {
+        target: { value: "170" },
+      });
+      await waitFor(() =>
+        expect(processSignatureImageDataUrl).toHaveBeenLastCalledWith(
+          expect.stringMatching(/^data:image\/webp;base64,/),
+          { contrast: 2.4, threshold: 170 },
+        ),
+      );
+
+      await user.click(
+        await screen.findByRole("button", { name: "Usar esta firma" }),
+      );
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByText("Firma guardada")).toBeVisible();
+      expect(
+        screen.getByRole("button", { name: "Guardar firma del paciente" }),
+      ).toBeDisabled();
+
+      const continueButton = screen.getByRole("button", {
+        name: "Continuar al editor",
+      });
+      expect(continueButton).toBeEnabled();
+      await user.click(continueButton);
+      expect(screen.getByAltText("Firma del paciente")).toHaveAttribute(
+        "src",
+        TRANSPARENT_SIGNATURE_DATA_URL,
+      );
+    } finally {
+      getContext.mockRestore();
+    }
+  });
+
   it("prefills the patient name and reveals the partner name only when selected", async () => {
     const user = userEvent.setup();
     render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
@@ -290,6 +399,16 @@ describe("PatientConsentUploadWizard", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByLabelText("Área para dibujar la firma de la pareja"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Importar imagen de firma del paciente",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Importar imagen de firma de la pareja",
+      }),
     ).toBeInTheDocument();
   });
 
