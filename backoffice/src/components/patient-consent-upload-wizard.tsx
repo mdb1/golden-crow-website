@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
+  CircleAlert,
   Check,
   CheckCircle2,
   CloudCheck,
@@ -30,7 +31,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { SignatureImageImportDialog } from "@/components/signature-image-import-dialog";
 import {
   SingleFileUpload,
@@ -196,16 +196,6 @@ const PATIENT_DIRECT_STEP_IDS: readonly PatientPortalConsentStepId[] = [
   "direct-sign",
   "direct-upload",
 ];
-
-const GUIDED_STEP_TRANSITION_MESSAGES: Partial<Record<ConsentStepId, string>> =
-  {
-    download: "Entorno de firma electrónica iniciado.",
-    data: "Documento preparado. Verifique ahora la identidad del firmante.",
-    signature: "Identidad declarada. Incorpore la firma al consentimiento.",
-    editor: "Firma preparada. Ubíquela en el documento digital.",
-    preview:
-      "Firma aplicada. Revise el documento y confirme su aceptación legal.",
-  };
 
 const CONSENT_STEPS: Record<ConsentStepId, ConsentWizardStep> = {
   method: {
@@ -1208,7 +1198,7 @@ export function PatientConsentUploadWizard({
   const [draftSaveStatus, setDraftSaveStatus] = useState<DraftSaveStatus>(
     restoredDraft ? "saved" : "idle",
   );
-  const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
   const formattedSignatureDate = formatSignatureDate(signatureDate);
 
   function buildDraftSnapshot(
@@ -1266,13 +1256,6 @@ export function PatientConsentUploadWizard({
     }
     if (!mountedRef.current) return;
     setDraftSaveStatus("conflict");
-    setToast({
-      id: Date.now(),
-      tone: "error",
-      title: "El borrador cambió en otra sesión",
-      message:
-        "Volvé a Consentimientos y elegí “Continuar desde borrador” para retomar la versión más reciente.",
-    });
   }
 
   function enqueuePendingDraftSave() {
@@ -1318,12 +1301,6 @@ export function PatientConsentUploadWizard({
               pendingDraftRef.current = pendingDraft;
             }
             setDraftSaveStatus("error");
-            setToast({
-              id: Date.now(),
-              tone: "error",
-              message:
-                "No se pudo guardar el borrador. Volveremos a intentarlo con el próximo cambio.",
-            });
           }
         }
       });
@@ -1361,7 +1338,6 @@ export function PatientConsentUploadWizard({
     nextStepId: ConsentStepId,
     options: {
       nextMode?: ConsentFlowMode;
-      announce?: boolean;
       preservePreparation?: boolean;
       draftSignatureOverrides?: DraftSignatureOverrides;
     } = {},
@@ -1381,9 +1357,7 @@ export function PatientConsentUploadWizard({
     if (options.nextMode) setMode(options.nextMode);
     setVisitedStepIds(nextVisitedStepIds);
     setActiveStepId(nextStepId);
-    if (nextMode === "guided" && options.announce !== false) {
-      announceGuidedStep(nextStepId);
-    }
+    setInlineError(null);
     if (!isBackoffice && nextMode) {
       scheduleDraftSave(
         buildDraftSnapshot(
@@ -1535,18 +1509,6 @@ export function PatientConsentUploadWizard({
       }
     };
   }, [activeStepId, isBackoffice, patientId]);
-
-  function announceGuidedStep(stepId: ConsentStepId) {
-    const message = GUIDED_STEP_TRANSITION_MESSAGES[stepId];
-    if (!message) return;
-    setToast({
-      id: Date.now(),
-      tone: "success",
-      title: "Firma electrónica",
-      message,
-      durationMs: 2200,
-    });
-  }
 
   function invalidateAfter() {
     documentVersionRef.current += 1;
@@ -1717,30 +1679,22 @@ export function PatientConsentUploadWizard({
 
   async function prepareSignedConsent() {
     if (isBackoffice && !destinationComplete) {
-      navigateToStep("destination", { announce: false });
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: "Seleccione un paciente y uno de sus casos 2PQ.",
-      });
+      navigateToStep("destination");
+      setInlineError("Seleccione un paciente y uno de sus casos 2PQ.");
       return;
     }
     if (!validateNames()) {
-      navigateToStep("data", { announce: false });
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: "Complete los datos de quienes firman antes de continuar.",
-      });
+      navigateToStep("data");
+      setInlineError(
+        "Complete los datos de quienes firman antes de continuar.",
+      );
       return;
     }
     if (!signaturesComplete || previewSignatures.length === 0) {
-      navigateToStep("signature", { announce: false });
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: "Prepare todas las firmas antes de generar el documento.",
-      });
+      navigateToStep("signature");
+      setInlineError(
+        "Prepare todas las firmas antes de generar el documento.",
+      );
       return;
     }
     const preparationDocumentVersion = documentVersionRef.current;
@@ -1750,7 +1704,7 @@ export function PatientConsentUploadWizard({
       preparationDocumentVersion === documentVersionRef.current &&
       preparationToken === preparationTokenRef.current;
     setPreparing(true);
-    setToast(null);
+    setInlineError(null);
     try {
       const response = await fetch(CONSENT_TEMPLATE_URL);
       if (!response.ok) {
@@ -1769,12 +1723,9 @@ export function PatientConsentUploadWizard({
       );
       if (!preparationIsCurrent()) {
         if (mountedRef.current) {
-          setToast({
-            id: Date.now(),
-            tone: "error",
-            message:
-              "El contenido o el paso activo cambiaron mientras se preparaba el documento. Aplicá las firmas nuevamente cuando estés listo para continuar.",
-          });
+          setInlineError(
+            "El contenido o el paso activo cambiaron mientras se preparaba el documento. Aplicá las firmas nuevamente cuando estés listo para continuar.",
+          );
         }
         return;
       }
@@ -1793,23 +1744,17 @@ export function PatientConsentUploadWizard({
     } catch (error) {
       if (!preparationIsCurrent()) {
         if (mountedRef.current) {
-          setToast({
-            id: Date.now(),
-            tone: "error",
-            message:
-              "El contenido o el paso activo cambiaron mientras se preparaba el documento. Aplicá las firmas nuevamente cuando estés listo para continuar.",
-          });
+          setInlineError(
+            "El contenido o el paso activo cambiaron mientras se preparaba el documento. Aplicá las firmas nuevamente cuando estés listo para continuar.",
+          );
         }
         return;
       }
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo preparar el consentimiento firmado.",
-      });
+      setInlineError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo preparar el consentimiento firmado.",
+      );
     } finally {
       if (mountedRef.current) setPreparing(false);
     }
@@ -1826,30 +1771,20 @@ export function PatientConsentUploadWizard({
     }
     if (uploadMode === "guided") {
       if (isBackoffice && !destinationComplete) {
-        navigateToStep("destination", { announce: false });
-        setToast({
-          id: Date.now(),
-          tone: "error",
-          message: "Seleccione un paciente y uno de sus casos 2PQ.",
-        });
+        navigateToStep("destination");
+        setInlineError("Seleccione un paciente y uno de sus casos 2PQ.");
         return;
       }
       if (!validateNames()) {
-        navigateToStep("data", { announce: false });
-        setToast({
-          id: Date.now(),
-          tone: "error",
-          message: "Complete los datos de quienes firman antes de continuar.",
-        });
+        navigateToStep("data");
+        setInlineError(
+          "Complete los datos de quienes firman antes de continuar.",
+        );
         return;
       }
       if (!signaturesComplete || !patientSignatureDataUrl) {
-        navigateToStep("signature", { announce: false });
-        setToast({
-          id: Date.now(),
-          tone: "error",
-          message: "Prepare todas las firmas antes de continuar.",
-        });
+        navigateToStep("signature");
+        setInlineError("Prepare todas las firmas antes de continuar.");
         return;
       }
       if (!legalAttestationAccepted) return;
@@ -1857,7 +1792,7 @@ export function PatientConsentUploadWizard({
     uploadInFlightRef.current = true;
     const submissionDocumentVersion = documentVersionRef.current;
     setSaving(true);
-    setToast(null);
+    setInlineError(null);
     if (!isBackoffice) {
       await flushDraftSave();
       if (draftConflictRef.current) {
@@ -1872,12 +1807,9 @@ export function PatientConsentUploadWizard({
         if (mode) {
           scheduleDraftSave(buildDraftSnapshot(mode, activeStepId), 0);
         }
-        setToast({
-          id: Date.now(),
-          tone: "error",
-          message:
-            "El contenido o el paso activo cambiaron durante el guardado. Revisá la información actual y volvé a confirmar el envío.",
-        });
+        setInlineError(
+          "El contenido o el paso activo cambiaron durante el guardado. Revisá la información actual y volvé a confirmar el envío.",
+        );
         return;
       }
       draftSavingStoppedRef.current = true;
@@ -1913,28 +1845,19 @@ export function PatientConsentUploadWizard({
       );
       router.refresh();
     } catch (error) {
-      if (
+      const isDraftConflict =
         !isBackoffice &&
         error instanceof SdkRequestError &&
-        error.status === 409
-      ) {
+        error.status === 409;
+      if (isDraftConflict) {
         markDraftConflict();
       } else {
         draftSavingStoppedRef.current = false;
         if (!isBackoffice && mode) {
           scheduleDraftSave(buildDraftSnapshot(mode, activeStepId), 0);
         }
+        setInlineError("No se pudo subir el consentimiento.");
       }
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message:
-          !isBackoffice &&
-          error instanceof SdkRequestError &&
-          error.status === 409
-            ? "El borrador cambió en otra sesión. Volvé a Consentimientos y retomá la versión más reciente."
-            : "No se pudo subir el consentimiento.",
-      });
     } finally {
       uploadInFlightRef.current = false;
       setSaving(false);
@@ -1949,7 +1872,7 @@ export function PatientConsentUploadWizard({
     const requestId = casesRequestRef.current + 1;
     casesRequestRef.current = requestId;
     setLoadingCases(true);
-    setToast(null);
+    setInlineError(null);
     try {
       const query = new URLSearchParams({ patientId: selectedPatientId });
       if (cursor) query.set("cursor", cursor);
@@ -1963,14 +1886,11 @@ export function PatientConsentUploadWizard({
       setCaseCursor(page.nextCursor);
     } catch (error) {
       if (requestId !== casesRequestRef.current) return;
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudieron cargar los casos 2PQ del paciente.",
-      });
+      setInlineError(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron cargar los casos 2PQ del paciente.",
+      );
     } finally {
       if (requestId === casesRequestRef.current) {
         setLoadingCases(false);
@@ -1981,7 +1901,7 @@ export function PatientConsentUploadWizard({
   async function loadMorePatients() {
     if (!patientCursor || loadingPatients) return;
     setLoadingPatients(true);
-    setToast(null);
+    setInlineError(null);
     try {
       const page = await sdkFetch<InformedConsentPatientPage>(
         `/2pq/informed-consents/patients?cursor=${encodeURIComponent(patientCursor)}`,
@@ -1989,14 +1909,11 @@ export function PatientConsentUploadWizard({
       setPatients((current) => mergeById(current, page.patients));
       setPatientCursor(page.nextCursor);
     } catch (error) {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudieron cargar más pacientes.",
-      });
+      setInlineError(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron cargar más pacientes.",
+      );
     } finally {
       setLoadingPatients(false);
     }
@@ -2037,11 +1954,7 @@ export function PatientConsentUploadWizard({
 
   function continueFromDestination() {
     if (!patientId || !caseId) {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: "Seleccione un paciente y uno de sus casos 2PQ.",
-      });
+      setInlineError("Seleccione un paciente y uno de sus casos 2PQ.");
       return;
     }
     navigateToStep(mode === "direct" ? "direct-download" : "download");
@@ -2309,9 +2222,9 @@ export function PatientConsentUploadWizard({
                   {draftSaveStatus === "saving"
                     ? "Guardando borrador…"
                     : draftSaveStatus === "conflict"
-                      ? "El borrador cambió en otra sesión"
+                      ? "El borrador cambió en otra sesión. Volvé a Consentimientos y elegí “Continuar desde borrador” para retomar la versión más reciente."
                       : draftSaveStatus === "error"
-                        ? "No se pudo guardar el borrador"
+                        ? "No se pudo guardar el borrador. Volveremos a intentarlo con el próximo cambio."
                         : "Borrador guardado automáticamente"}
                   {draftSaveStatus === "conflict" ? (
                     <Link
@@ -2350,6 +2263,26 @@ export function PatientConsentUploadWizard({
                 </div>
               ) : null}
             </header>
+
+            {inlineError ? (
+              <div
+                data-testid="consent-inline-error"
+                role="alert"
+                className="mb-5 flex max-w-3xl items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/8 p-4 text-destructive"
+              >
+                <CircleAlert className="mt-0.5 size-5 shrink-0" />
+                <p className="min-w-0 flex-1 text-sm font-medium leading-6">
+                  {inlineError}
+                </p>
+                <button
+                  type="button"
+                  className="shrink-0 text-xs font-semibold underline underline-offset-2"
+                  onClick={() => setInlineError(null)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            ) : null}
 
             <div
               key={activeStepId}
@@ -2847,9 +2780,6 @@ export function PatientConsentUploadWizard({
                     onAction={() =>
                       navigateToStep(
                         !signerDataComplete ? "data" : "signature",
-                        {
-                          announce: false,
-                        },
                       )
                     }
                   />
@@ -2963,7 +2893,6 @@ export function PatientConsentUploadWizard({
                           : !signaturesComplete
                             ? "signature"
                             : "editor",
-                        { announce: false },
                       )
                     }
                   />
@@ -3128,15 +3057,21 @@ export function PatientConsentUploadWizard({
                       type="button"
                       className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
                       disabled={preparing || !signaturesComplete}
+                      aria-busy={preparing}
                       onClick={() => void prepareSignedConsent()}
                     >
                       {preparing ? (
-                        <Loader2 className="size-4 animate-spin" />
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Preparando documento…
+                        </>
                       ) : (
-                        <FilePenLine className="size-4" />
+                        <>
+                          <FilePenLine className="size-4" />
+                          Aplicar firmas y continuar
+                          <ArrowRight className="size-4" />
+                        </>
                       )}
-                      Aplicar firmas y continuar
-                      <ArrowRight className="size-4" />
                     </Button>
                   ) : null}
 
@@ -3194,12 +3129,6 @@ export function PatientConsentUploadWizard({
           </div>
         </div>
       </div>
-
-      <ActionToast
-        toast={toast}
-        onDismiss={() => setToast(null)}
-        language="es"
-      />
 
       {completedConsentId ? (
         <div

@@ -44,6 +44,14 @@ jest.mock("@/lib/consent-pdf", () => ({
 const TRANSPARENT_SIGNATURE_DATA_URL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNgYGAAAAAEAAEnNCcKAAAAAElFTkSuQmCC";
 
+const OBSOLETE_GUIDED_TRANSITION_MESSAGES = [
+  "Entorno de firma electrónica iniciado.",
+  "Documento preparado. Verifique ahora la identidad del firmante.",
+  "Identidad declarada. Incorpore la firma al consentimiento.",
+  "Firma preparada. Ubíquela en el documento digital.",
+  "Firma aplicada. Revise el documento y confirme su aceptación legal.",
+] as const;
+
 function consentDraft(
   overrides: Partial<InformedConsentDraftRecord> = {},
 ): InformedConsentDraftRecord {
@@ -91,6 +99,12 @@ function expectSidebarSteps(stepIds: string[]) {
       step.getAttribute("data-step-id"),
     ),
   ).toEqual(stepIds);
+}
+
+function expectNoGuidedTransitionMessages() {
+  for (const message of OBSOLETE_GUIDED_TRANSITION_MESSAGES) {
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+  }
 }
 
 async function chooseGuidedFlow(user: ReturnType<typeof userEvent.setup>) {
@@ -220,10 +234,7 @@ describe("PatientConsentUploadWizard", () => {
         name: "Está firmando un documento digital",
       }),
     ).toBeVisible();
-    expect(screen.getByText("Firma electrónica")).toBeVisible();
-    expect(
-      screen.getByText("Entorno de firma electrónica iniciado."),
-    ).toBeVisible();
+    expectNoGuidedTransitionMessages();
     expect(
       screen.queryByRole("button", { name: "Firmar en línea" }),
     ).not.toBeInTheDocument();
@@ -616,6 +627,11 @@ describe("PatientConsentUploadWizard", () => {
       await waitFor(() =>
         expect(applySignaturesToConsentPdf).toHaveBeenCalledTimes(1),
       );
+      const preparingButton = screen.getByRole("button", {
+        name: "Preparando documento…",
+      });
+      expect(preparingButton).toBeDisabled();
+      expect(preparingButton).toHaveAttribute("aria-busy", "true");
 
       const sidebar = screen.getByTestId("consent-wizard-sidebar");
       await user.click(
@@ -676,7 +692,7 @@ describe("PatientConsentUploadWizard", () => {
     const draftStatus = await screen.findByTestId("consent-draft-save-status");
     expect(draftStatus).toHaveAttribute("role", "alert");
     expect(
-      within(draftStatus).getByText("El borrador cambió en otra sesión"),
+      within(draftStatus).getByText(/El borrador cambió en otra sesión/),
     ).toBeVisible();
     expect(
       within(draftStatus).getByRole("link", {
@@ -1192,9 +1208,11 @@ describe("PatientConsentUploadWizard", () => {
       render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
 
       await chooseGuidedFlow(user);
+      expectNoGuidedTransitionMessages();
       await user.click(
         screen.getByRole("button", { name: "Continuar con los datos" }),
       );
+      expectNoGuidedTransitionMessages();
       await user.type(
         screen.getByRole("textbox", { name: "Documento del paciente" }),
         "31.234.567",
@@ -2537,9 +2555,11 @@ describe("PatientConsentUploadWizard", () => {
       render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
 
       await chooseGuidedFlow(user);
+      expectNoGuidedTransitionMessages();
       await user.click(
         screen.getByRole("button", { name: "Continuar con los datos" }),
       );
+      expectNoGuidedTransitionMessages();
       await user.type(
         screen.getByRole("textbox", { name: "Documento del paciente" }),
         "31.234.567",
@@ -2547,6 +2567,7 @@ describe("PatientConsentUploadWizard", () => {
       await user.click(
         screen.getByRole("button", { name: "Continuar para firmar" }),
       );
+      expectNoGuidedTransitionMessages();
       await user.click(
         await screen.findByRole("button", {
           name: /Reutilizar firma guardada/,
@@ -2555,6 +2576,7 @@ describe("PatientConsentUploadWizard", () => {
       await user.click(
         screen.getByRole("button", { name: "Continuar al editor" }),
       );
+      expectNoGuidedTransitionMessages();
       await user.click(
         screen.getByRole("button", { name: "Aplicar firmas y continuar" }),
       );
@@ -2562,6 +2584,7 @@ describe("PatientConsentUploadWizard", () => {
       const legalAttestation = await screen.findByRole("checkbox", {
         name: /Declaro, bajo mi responsabilidad, que soy la persona/,
       });
+      expectNoGuidedTransitionMessages();
       const finalAcceptance = screen.getByRole("button", {
         name: "Acepto la realización de este estudio",
       });
