@@ -15,6 +15,7 @@ import {
   sendInformedConsentEmailForContext,
   setInformedConsentCaseForContext,
 } from "../repositories/informed-consents.repository.js";
+import { SAVED_SIGNATURE_MAX_DATA_URL_LENGTH } from "../lib/saved-signature.js";
 
 const CursorSchema = z.object({ cursor: z.string().min(1).optional() });
 const PatientCaseCursorSchema = CursorSchema.extend({
@@ -95,12 +96,36 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
   f.post(
     "/2pq/informed-consents",
     {
+      bodyLimit: 1_500_000,
       schema: {
-        body: z.object({
-          patientId: z.string().min(1).optional(),
-          caseId: z.string().min(1).optional(),
-          file: ConsentFileSchema,
-        }),
+        body: z
+          .object({
+            patientId: z.string().min(1).optional(),
+            caseId: z.string().min(1).optional(),
+            flowMode: z.enum(["guided", "direct"]).optional(),
+            savedSignature: z
+              .string()
+              .min(1)
+              .max(SAVED_SIGNATURE_MAX_DATA_URL_LENGTH)
+              .optional(),
+            file: ConsentFileSchema,
+          })
+          .superRefine((body, context) => {
+            if (body.flowMode === "guided" && !body.savedSignature) {
+              context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["savedSignature"],
+                message: "Guided uploads require a saved signature.",
+              });
+            }
+            if (body.flowMode !== "guided" && body.savedSignature) {
+              context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["savedSignature"],
+                message: "Only guided uploads may include a saved signature.",
+              });
+            }
+          }),
       },
     },
     async (request, reply) => {

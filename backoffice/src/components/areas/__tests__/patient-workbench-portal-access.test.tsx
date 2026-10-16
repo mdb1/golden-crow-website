@@ -67,6 +67,7 @@ function detail(options: {
   credentialAvailable: boolean;
   hasAccessedPortal?: boolean;
   hasInformedConsent?: boolean;
+  savedSignature?: string | null;
 }): PatientDetailRecord {
   return {
     patient: {
@@ -81,6 +82,7 @@ function detail(options: {
       createdAt: "2026-08-12T12:00:00.000Z",
       updatedAt: "2026-08-12T12:00:00.000Z",
     },
+    savedSignature: options.savedSignature ?? null,
     institution,
     doctor,
     roleRecord: options.accessGranted
@@ -165,9 +167,7 @@ describe("PatientWorkbench portal credentials", () => {
     );
     expect(screen.getByText("Removed doctor")).toBeTruthy();
     expect(screen.getAllByText("DOC-00001").length).toBeGreaterThan(0);
-    expect(
-      screen.queryByRole("link", { name: "Open doctor" }),
-    ).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open doctor" })).toBeNull();
   });
 
   it("shows the save error log when updating a patient fails", async () => {
@@ -177,7 +177,9 @@ describe("PatientWorkbench portal credentials", () => {
         "Request: PUT /areas/patients/PAT-00001\n\nStatus: 500\n\nResponse: database unavailable",
     });
     (sdkFetch as jest.Mock).mockRejectedValue(error);
-    renderWorkbench(detail({ accessGranted: false, credentialAvailable: false }));
+    renderWorkbench(
+      detail({ accessGranted: false, credentialAvailable: false }),
+    );
 
     const fullName = screen.getByLabelText("Full name");
     await user.clear(fullName);
@@ -190,9 +192,7 @@ describe("PatientWorkbench portal credentials", () => {
     expect(
       await screen.findByRole("dialog", { name: "Action error log" }),
     ).toBeTruthy();
-    expect(
-      screen.getByText(/Response: database unavailable/),
-    ).toBeTruthy();
+    expect(screen.getByText(/Response: database unavailable/)).toBeTruthy();
   });
 
   it("rejects a single-word patient name before creating the patient", async () => {
@@ -256,6 +256,43 @@ describe("PatientWorkbench portal credentials", () => {
     expect(informedConsent.getAttribute("data-state")).toBe("unchecked");
   });
 
+  it("shows the saved signature only on the patient detail", () => {
+    const savedSignature =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNgYGAAAAAEAAEnNCcKAAAAAElFTkSuQmCC";
+    renderWorkbench(
+      detail({
+        accessGranted: true,
+        credentialAvailable: true,
+        savedSignature,
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Saved patient signature" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Saved patient signature" }),
+    ).toHaveAttribute("src", savedSignature);
+    expect(
+      screen.queryByText(
+        "This patient does not have a saved digital signature yet.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows an explicit empty state when the patient has no saved signature", () => {
+    renderWorkbench(detail({ accessGranted: true, credentialAvailable: true }));
+
+    expect(
+      screen.getByText(
+        "This patient does not have a saved digital signature yet.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("img", { name: "Saved patient signature" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("copies an existing temporary password without revealing the field", async () => {
     const user = userEvent.setup();
     (sdkFetch as jest.Mock).mockResolvedValue({
@@ -282,7 +319,9 @@ describe("PatientWorkbench portal credentials", () => {
       role: {},
       temporaryPassword: "QWERTYUI",
     });
-    renderWorkbench(detail({ accessGranted: false, credentialAvailable: false }));
+    renderWorkbench(
+      detail({ accessGranted: false, credentialAvailable: false }),
+    );
 
     await user.click(
       screen.getByRole("button", { name: "Give access to the patient portal" }),
@@ -302,7 +341,9 @@ describe("PatientWorkbench portal credentials", () => {
       { email: "dopazoh+admin@gmail.com" },
     );
 
-    await user.click(screen.getByRole("button", { name: "Send consent email" }));
+    await user.click(
+      screen.getByRole("button", { name: "Send consent email" }),
+    );
 
     expect(sdkFetch).toHaveBeenCalledWith("/2pq/informed-consents/email", {
       method: "POST",

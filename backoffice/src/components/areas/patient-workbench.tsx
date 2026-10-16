@@ -14,6 +14,7 @@ import {
   KeyRound,
   Loader2,
   Mail,
+  PenLine,
   RotateCcw,
   Save,
   Trash2,
@@ -48,7 +49,10 @@ import type {
   PatientRecord,
   RoleManagementRecord,
 } from "@/lib/admin-areas";
-import { isInstitutionManagerRole, PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
+import {
+  isInstitutionManagerRole,
+  PERSON_STATUS_OPTIONS,
+} from "@/lib/admin-areas";
 import {
   canManagePatientPortalCredentialsUi,
   canEditPatientUi,
@@ -78,7 +82,7 @@ function toPatientFormState(
   defaults?: {
     institutionId?: string;
     doctorId?: string;
-  }
+  },
 ): PatientFormState {
   return {
     institutionId: patient?.institutionId ?? defaults?.institutionId ?? "",
@@ -135,18 +139,24 @@ export function PatientWorkbench({
   const t = (text: string) => appText(language, text);
   const router = useRouter();
   const scopedInstitutionId =
-    isInstitutionManagerRole(adminContext.role) || adminContext.role === "institution_doctor"
+    isInstitutionManagerRole(adminContext.role) ||
+    adminContext.role === "institution_doctor"
       ? adminContext.institutionId
       : undefined;
   const scopedDoctorId =
-    adminContext.role === "institution_doctor" ? adminContext.doctorId : undefined;
+    adminContext.role === "institution_doctor"
+      ? adminContext.doctorId
+      : undefined;
   const defaultInstitutionId =
-    scopedInstitutionId ?? initialInstitutionId ?? detail?.patient.institutionId;
-  const suggestedDoctorId = scopedDoctorId ?? initialDoctorId ?? detail?.patient.doctorId;
+    scopedInstitutionId ??
+    initialInstitutionId ??
+    detail?.patient.institutionId;
+  const suggestedDoctorId =
+    scopedDoctorId ?? initialDoctorId ?? detail?.patient.doctorId;
   const defaultDoctorId = doctors.some(
     (doctor) =>
       doctor.id === suggestedDoctorId &&
-      (!defaultInstitutionId || doctor.institutionId === defaultInstitutionId)
+      (!defaultInstitutionId || doctor.institutionId === defaultInstitutionId),
   )
     ? suggestedDoctorId
     : "";
@@ -155,7 +165,7 @@ export function PatientWorkbench({
     doctorId: defaultDoctorId,
   };
   const [state, setState] = useState<PatientFormState>(() =>
-    toPatientFormState(detail?.patient, defaults)
+    toPatientFormState(detail?.patient, defaults),
   );
   const [pending, setPending] = useState(false);
   const [grantingPortalAccess, setGrantingPortalAccess] = useState(false);
@@ -173,8 +183,8 @@ export function PatientWorkbench({
   const [portalAccessGranted, setPortalAccessGranted] = useState(
     Boolean(
       detail?.roleRecord?.role === "patient" &&
-        detail.roleRecord.isActive &&
-        detail.roleRecord.canAccessPatientPortal,
+      detail.roleRecord.isActive &&
+      detail.roleRecord.canAccessPatientPortal,
     ),
   );
   const [toast, setToast] = useState<ActionToastState | null>(null);
@@ -182,7 +192,7 @@ export function PatientWorkbench({
 
   const sourceState = useMemo(
     () => toPatientFormState(detail?.patient, defaults),
-    [defaults.doctorId, defaults.institutionId, detail?.patient]
+    [defaults.doctorId, defaults.institutionId, detail?.patient],
   );
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
   const isEditable =
@@ -190,7 +200,7 @@ export function PatientWorkbench({
     (detail ? canEditPatientUi(adminContext, detail.patient) : false);
   const canManagePortalCredentials = Boolean(
     detail?.portalAccessCredential?.canReveal &&
-      canManagePatientPortalCredentialsUi(adminContext, detail.patient),
+    canManagePatientPortalCredentialsUi(adminContext, detail.patient),
   );
   const canSendConsentEmail =
     Boolean(detail) &&
@@ -213,7 +223,7 @@ export function PatientWorkbench({
     label: `${doctor.fullName} (${doctor.id})`,
   }));
   const selectedInstitution = institutions.find(
-    (institution) => institution.id === state.institutionId
+    (institution) => institution.id === state.institutionId,
   );
   const selectedDoctor = doctors.find((doctor) => doctor.id === state.doctorId);
   const missingDoctorId =
@@ -299,10 +309,13 @@ export function PatientWorkbench({
       };
 
       if (mode === "create") {
-        const response = await sdkFetch<{ patient: PatientRecord }>("/areas/patients", {
-          method: "POST",
-          body: JSON.stringify(body),
-        });
+        const response = await sdkFetch<{ patient: PatientRecord }>(
+          "/areas/patients",
+          {
+            method: "POST",
+            body: JSON.stringify(body),
+          },
+        );
         setToast({
           id: Date.now(),
           tone: "success",
@@ -317,10 +330,13 @@ export function PatientWorkbench({
         return;
       }
 
-      await sdkFetch<{ patient: PatientRecord }>(`/areas/patients/${detail.patient.id}`, {
-        method: "PUT",
-        body: JSON.stringify(body),
-      });
+      await sdkFetch<{ patient: PatientRecord }>(
+        `/areas/patients/${detail.patient.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(body),
+        },
+      );
       setToast({
         id: Date.now(),
         tone: "success",
@@ -331,7 +347,10 @@ export function PatientWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: mode === "create" ? t("Unable to create the patient.") : t("Unable to save the patient."),
+        message:
+          mode === "create"
+            ? t("Unable to create the patient.")
+            : t("Unable to save the patient."),
         details: patientSaveErrorDetails(error),
       });
     } finally {
@@ -569,9 +588,13 @@ export function PatientWorkbench({
                     <AlertDialogMedia className="bg-destructive/12 text-destructive">
                       <AlertTriangle className="h-5 w-5" />
                     </AlertDialogMedia>
-                    <AlertDialogTitle>{t("Delete patient")} {detail.patient.fullName}?</AlertDialogTitle>
+                    <AlertDialogTitle>
+                      {t("Delete patient")} {detail.patient.fullName}?
+                    </AlertDialogTitle>
                     <AlertDialogDescription>
-                      {t("This removes the patient record and any linked patient role assignment.")}
+                      {t(
+                        "This removes the patient record and any linked patient role assignment.",
+                      )}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -612,41 +635,40 @@ export function PatientWorkbench({
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="patient-institution">{t("Institution")}</Label>
-              <OptionSelectField
-                options={institutionOptions}
-                value={state.institutionId}
-                onChange={(institutionId) => {
-                  const nextInstitutionDoctors = doctors.filter(
-                    (doctor) => doctor.institutionId === institutionId
-                  );
-                  setState((current) => ({
-                    ...current,
-                    institutionId,
-                    doctorId:
-                      nextInstitutionDoctors.some(
-                        (doctor) => doctor.id === current.doctorId
-                      )
-                      ? current.doctorId
-                      : "",
-                  }));
-                }}
-                placeholder={t("Select institution")}
-                emptyLabel={t("No institution")}
-                disabled={!isEditable || Boolean(scopedInstitutionId)}
-              />
+            <OptionSelectField
+              options={institutionOptions}
+              value={state.institutionId}
+              onChange={(institutionId) => {
+                const nextInstitutionDoctors = doctors.filter(
+                  (doctor) => doctor.institutionId === institutionId,
+                );
+                setState((current) => ({
+                  ...current,
+                  institutionId,
+                  doctorId: nextInstitutionDoctors.some(
+                    (doctor) => doctor.id === current.doctorId,
+                  )
+                    ? current.doctorId
+                    : "",
+                }));
+              }}
+              placeholder={t("Select institution")}
+              emptyLabel={t("No institution")}
+              disabled={!isEditable || Boolean(scopedInstitutionId)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="patient-doctor">{t("Doctor")}</Label>
-              <OptionSelectField
-                options={doctorOptions}
-                value={state.doctorId}
-                onChange={(doctorId) =>
-                  setState((current) => ({ ...current, doctorId }))
-                }
-                placeholder={t("Select doctor")}
-                emptyLabel={t("No doctor")}
-                disabled={!isEditable || Boolean(scopedDoctorId)}
-              />
+            <OptionSelectField
+              options={doctorOptions}
+              value={state.doctorId}
+              onChange={(doctorId) =>
+                setState((current) => ({ ...current, doctorId }))
+              }
+              placeholder={t("Select doctor")}
+              emptyLabel={t("No doctor")}
+              disabled={!isEditable || Boolean(scopedDoctorId)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="patient-email">{t("Email")}</Label>
@@ -654,7 +676,10 @@ export function PatientWorkbench({
               id="patient-email"
               value={state.email}
               onChange={(event) =>
-                setState((current) => ({ ...current, email: event.target.value }))
+                setState((current) => ({
+                  ...current,
+                  email: event.target.value,
+                }))
               }
               disabled={!isEditable}
             />
@@ -665,11 +690,16 @@ export function PatientWorkbench({
               id="patient-full-name"
               value={state.fullName}
               onChange={(event) => {
-                setState((current) => ({ ...current, fullName: event.target.value }));
+                setState((current) => ({
+                  ...current,
+                  fullName: event.target.value,
+                }));
                 setFullNameError(null);
               }}
               aria-invalid={Boolean(fullNameError)}
-              aria-describedby={fullNameError ? "patient-full-name-error" : undefined}
+              aria-describedby={
+                fullNameError ? "patient-full-name-error" : undefined
+              }
               disabled={!isEditable}
             />
             {fullNameError ? (
@@ -703,7 +733,10 @@ export function PatientWorkbench({
               type="date"
               value={state.birthDate}
               onChange={(event) =>
-                setState((current) => ({ ...current, birthDate: event.target.value }))
+                setState((current) => ({
+                  ...current,
+                  birthDate: event.target.value,
+                }))
               }
               disabled={!isEditable}
             />
@@ -743,13 +776,42 @@ export function PatientWorkbench({
               id="patient-notes"
               value={state.notes}
               onChange={(event) =>
-                setState((current) => ({ ...current, notes: event.target.value }))
+                setState((current) => ({
+                  ...current,
+                  notes: event.target.value,
+                }))
               }
               disabled={!isEditable}
             />
           </div>
         </div>
       </section>
+
+      {detail ? (
+        <section className="glass-panel flex flex-col gap-4 px-5 py-5">
+          <div className="flex items-center gap-2">
+            <PenLine className="size-5 text-primary" aria-hidden="true" />
+            <h3 className="font-heading text-lg font-semibold text-foreground">
+              {t("Saved patient signature")}
+            </h3>
+          </div>
+
+          {detail.savedSignature ? (
+            <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-border/80 bg-white p-4 shadow-inner">
+              <img
+                src={detail.savedSignature}
+                alt={t("Saved patient signature")}
+                className="mx-auto block h-auto max-h-48 w-full object-contain"
+                decoding="async"
+              />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border bg-muted/25 px-5 py-8 text-center text-sm text-muted-foreground">
+              {t("This patient does not have a saved digital signature yet.")}
+            </div>
+          )}
+        </section>
+      ) : null}
 
       {detail ? (
         <section className="glass-panel flex flex-col gap-5 px-5 py-5">
@@ -764,14 +826,20 @@ export function PatientWorkbench({
             </div>
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
               {portalAccessGranted
-                ? t("This patient can sign in through the patient portal and open its patient-only pages.")
-                : t("This patient does not currently have access to either the patient portal or the backoffice. Granting access creates an active patient role for the portal only.")}
+                ? t(
+                    "This patient can sign in through the patient portal and open its patient-only pages.",
+                  )
+                : t(
+                    "This patient does not currently have access to either the patient portal or the backoffice. Granting access creates an active patient role for the portal only.",
+                  )}
             </p>
           </div>
 
           {detail.roleRecord && detail.roleRecord.role !== "patient" ? (
             <div className="rounded-lg border border-amber-400/35 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:bg-amber-400/10 dark:text-amber-100">
-              {t("This email already has a non-patient role. Patient portal access cannot be combined with backoffice access.")}
+              {t(
+                "This email already has a non-patient role. Patient portal access cannot be combined with backoffice access.",
+              )}
             </div>
           ) : null}
 
@@ -810,7 +878,8 @@ export function PatientWorkbench({
               (portalAccessGranted && hasTemporaryPassword) ||
               grantingPortalAccess ||
               !canManagePortalCredentials ||
-              (detail.roleRecord !== null && detail.roleRecord.role !== "patient")
+              (detail.roleRecord !== null &&
+                detail.roleRecord.role !== "patient")
             }
           >
             {portalAccessGranted && hasTemporaryPassword ? (
@@ -838,9 +907,7 @@ export function PatientWorkbench({
                 <Input
                   id="patient-temporary-password"
                   value={
-                    temporaryPasswordRevealed
-                      ? temporaryPassword
-                      : "********"
+                    temporaryPasswordRevealed ? temporaryPassword : "********"
                   }
                   readOnly
                   className="font-mono tracking-widest"
@@ -915,7 +982,9 @@ export function PatientWorkbench({
           <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-medium text-foreground">
-                {selectedInstitution?.name ?? detail?.institution?.name ?? t("No institution")}
+                {selectedInstitution?.name ??
+                  detail?.institution?.name ??
+                  t("No institution")}
               </p>
               {selectedInstitution || detail?.institution ? (
                 <span className="font-mono text-xs text-muted-foreground">
@@ -925,14 +994,17 @@ export function PatientWorkbench({
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {compactList([
-                selectedInstitution?.contactEmail ?? detail?.institution?.contactEmail,
+                selectedInstitution?.contactEmail ??
+                  detail?.institution?.contactEmail,
                 selectedInstitution?.city ?? detail?.institution?.city,
                 selectedInstitution?.country ?? detail?.institution?.country,
               ]) || t("Institution link")}
             </p>
-            {(selectedInstitution || detail?.institution) ? (
+            {selectedInstitution || detail?.institution ? (
               <Button variant="link" size="sm" className="px-0" asChild>
-                <Link href={`/areas/institutions/${selectedInstitution?.id ?? detail?.institution?.id}`}>
+                <Link
+                  href={`/areas/institutions/${selectedInstitution?.id ?? detail?.institution?.id}`}
+                >
                   {t("Open institution")}
                 </Link>
               </Button>
@@ -965,14 +1037,13 @@ export function PatientWorkbench({
               {compactList([
                 selectedDoctor?.authEmail ?? detail?.doctor?.authEmail,
                 selectedDoctor?.specialty ?? detail?.doctor?.specialty,
-              ]) ||
-                (missingDoctorId
-                  ? missingDoctorTitle
-                  : t("Doctor link"))}
+              ]) || (missingDoctorId ? missingDoctorTitle : t("Doctor link"))}
             </p>
-            {(selectedDoctor || detail?.doctor) ? (
+            {selectedDoctor || detail?.doctor ? (
               <Button variant="link" size="sm" className="px-0" asChild>
-                <Link href={`/areas/doctors/${selectedDoctor?.id ?? detail?.doctor?.id}`}>
+                <Link
+                  href={`/areas/doctors/${selectedDoctor?.id ?? detail?.doctor?.id}`}
+                >
                   {t("Open doctor")}
                 </Link>
               </Button>
@@ -980,7 +1051,6 @@ export function PatientWorkbench({
           </div>
         </div>
       </section>
-
     </div>
   );
 }

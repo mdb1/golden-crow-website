@@ -17,6 +17,7 @@ import {
 } from "../lib/patient-portal-credentials.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import { normalizePGFlexInstitutionAddress } from "../lib/pgflex-address.js";
+import { readSavedSignatureDataUrl } from "../lib/saved-signature.js";
 import {
   canCreateDoctor,
   canCreateInstitution,
@@ -351,13 +352,12 @@ async function loadScopedInstitutionRecords(context: AdminContext) {
 }
 
 async function loadScopedDoctorRecords(context: AdminContext) {
-  const snapshot =
-    isGlobalAdminRole(context.role)
-      ? await adminDb.collection(DOCTORS_COLLECTION).get()
-      : await adminDb
-          .collection(DOCTORS_COLLECTION)
-          .where("institutionId", "==", context.institutionId ?? "__none__")
-          .get();
+  const snapshot = isGlobalAdminRole(context.role)
+    ? await adminDb.collection(DOCTORS_COLLECTION).get()
+    : await adminDb
+        .collection(DOCTORS_COLLECTION)
+        .where("institutionId", "==", context.institutionId ?? "__none__")
+        .get();
 
   return snapshot.docs
     .map((doc) => toDoctorRecord(doc.id, doc.data() as Record<string, unknown>))
@@ -365,13 +365,12 @@ async function loadScopedDoctorRecords(context: AdminContext) {
 }
 
 async function loadScopedPatientRecords(context: AdminContext) {
-  const snapshot =
-    isGlobalAdminRole(context.role)
-      ? await adminDb.collection(PATIENTS_COLLECTION).get()
-      : await adminDb
-          .collection(PATIENTS_COLLECTION)
-          .where("institutionId", "==", context.institutionId ?? "__none__")
-          .get();
+  const snapshot = isGlobalAdminRole(context.role)
+    ? await adminDb.collection(PATIENTS_COLLECTION).get()
+    : await adminDb
+        .collection(PATIENTS_COLLECTION)
+        .where("institutionId", "==", context.institutionId ?? "__none__")
+        .get();
 
   return snapshot.docs
     .map((doc) =>
@@ -385,13 +384,12 @@ async function loadScopedRoleRecords(context: AdminContext) {
     return [];
   }
 
-  const snapshot =
-    isGlobalAdminRole(context.role)
-      ? await adminDb.collection(USER_ROLES_COLLECTION).get()
-      : await adminDb
-          .collection(USER_ROLES_COLLECTION)
-          .where("institutionId", "==", context.institutionId ?? "__none__")
-          .get();
+  const snapshot = isGlobalAdminRole(context.role)
+    ? await adminDb.collection(USER_ROLES_COLLECTION).get()
+    : await adminDb
+        .collection(USER_ROLES_COLLECTION)
+        .where("institutionId", "==", context.institutionId ?? "__none__")
+        .get();
 
   return snapshot.docs
     .map((doc) => {
@@ -428,7 +426,9 @@ async function loadScopedRoleRecords(context: AdminContext) {
         createdByEmail: normalizeOptionalString(data.createdByEmail),
       } satisfies UserRoleRecord;
     })
-    .filter((record) => record.institutionId || isGlobalAdminRole(context.role));
+    .filter(
+      (record) => record.institutionId || isGlobalAdminRole(context.role),
+    );
 }
 
 function toDoctorListItem(
@@ -662,10 +662,7 @@ export async function listInstitutionsForContext(
   const administrativeOperatorCounts = new Map<string, number>();
   const laboratoryStaffCounts = new Map<string, number>();
   roleRecords.forEach((record) => {
-    if (
-      !record.institutionId ||
-      !record.isActive
-    ) {
+    if (!record.institutionId || !record.isActive) {
       return;
     }
 
@@ -1440,7 +1437,15 @@ export async function getPatientDetailForContext(
   context: AdminContext,
   patientId: string,
 ): Promise<PatientDetailRecord> {
-  const patient = await ensurePatientExists(patientId);
+  const patientSnapshot = await adminDb
+    .collection(PATIENTS_COLLECTION)
+    .doc(patientId)
+    .get();
+  if (!patientSnapshot.exists) {
+    throw new AdminRepositoryError("Patient not found.", 404);
+  }
+  const patientData = patientSnapshot.data() as Record<string, unknown>;
+  const patient = toPatientRecord(patientSnapshot.id, patientData);
   if (!canViewPatient(context, patient)) {
     throw new AdminRepositoryError("You cannot view this patient.", 403);
   }
@@ -1449,21 +1454,11 @@ export async function getPatientDetailForContext(
     context,
     patient,
   );
-  const [
-    institution,
-    doctor,
-    roleRecord,
-    credentialSnapshot,
-    authUser,
-    informedConsentSnapshot,
-  ] =
+  const [institution, doctor, roleRecord, authUser, informedConsentSnapshot] =
     await Promise.all([
       getInstitutionById(patient.institutionId),
       patient.doctorId ? getDoctorById(patient.doctorId) : null,
       getUserRoleByEmail(patient.email),
-      canRevealTemporaryPassword
-        ? adminDb.collection(PATIENTS_COLLECTION).doc(patient.id).get()
-        : Promise.resolve(null),
       adminAuth.getUserByEmail(patient.email).catch((error: unknown) => {
         if (
           error &&
@@ -1483,7 +1478,7 @@ export async function getPatientDetailForContext(
         .get(),
     ]);
   const temporaryPassword = normalizeTemporaryPassword(
-    credentialSnapshot?.data()?.temporary_password,
+    canRevealTemporaryPassword ? patientData.temporary_password : undefined,
   );
 
   return {
@@ -1492,6 +1487,7 @@ export async function getPatientDetailForContext(
       doctorName: doctor?.fullName,
       doctorEmail: doctor?.authEmail,
     }),
+    savedSignature: readSavedSignatureDataUrl(patientData.saved_signature),
     institution,
     doctor: doctor
       ? toDoctorListItem(doctor, {
@@ -1634,8 +1630,7 @@ async function provisionPatientPortalAccess(
       rollbackBatch.delete(roleReference);
     }
     rollbackBatch.update(patientReference, {
-      temporary_password:
-        existingTemporaryPassword ?? FieldValue.delete(),
+      temporary_password: existingTemporaryPassword ?? FieldValue.delete(),
     });
     await rollbackBatch.commit();
     throw new AdminRepositoryError(

@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PatientConsentUploadWizard } from "@/components/patient-consent-upload-wizard";
+import { applySignaturesToConsentPdf } from "@/lib/consent-pdf";
 import { processSignatureImageDataUrl } from "@/lib/signature-image";
 import { sdkFetch } from "@/lib/sdk-client";
 
@@ -30,6 +31,11 @@ jest.mock("@/lib/sdk-client", () => ({
 jest.mock("@/lib/signature-image", () => ({
   ...jest.requireActual("@/lib/signature-image"),
   processSignatureImageDataUrl: jest.fn(),
+}));
+
+jest.mock("@/lib/consent-pdf", () => ({
+  ...jest.requireActual("@/lib/consent-pdf"),
+  applySignaturesToConsentPdf: jest.fn(),
 }));
 
 const TRANSPARENT_SIGNATURE_DATA_URL =
@@ -64,6 +70,7 @@ describe("PatientConsentUploadWizard", () => {
   beforeEach(() => {
     jest.mocked(sdkFetch).mockReset();
     jest.mocked(processSignatureImageDataUrl).mockReset();
+    jest.mocked(applySignaturesToConsentPdf).mockReset();
     mockRouterPush.mockReset();
     mockRouterRefresh.mockReset();
   });
@@ -651,6 +658,7 @@ describe("PatientConsentUploadWizard", () => {
       .mocked(sdkFetch)
       .mock.calls.find(([path]) => path === "/2pq/informed-consents");
     expect(JSON.parse(String(patientUploadCall?.[1]?.body))).toEqual({
+      flowMode: "direct",
       file: expect.objectContaining({
         name: "consentimiento.pdf",
         type: "application/pdf",
@@ -750,6 +758,283 @@ describe("PatientConsentUploadWizard", () => {
       screen.getByRole("heading", { name: "Descargar consentimiento" }),
     ).toBeInTheDocument();
     expectActiveSidebarStep("Descargar consentimiento");
+  });
+
+  it("clears saved signatures and signer details when the operator switches patients", async () => {
+    const oldPatientSignature = "data:image/png;base64,b2xkLXBhdGllbnQ=";
+    const oldPartnerSignature = "data:image/png;base64,b2xkLXBhcnRuZXI=";
+    const newPatientSignature = "data:image/png;base64,bmV3LXBhdGllbnQ=";
+    const context = {
+      beginPath: jest.fn(),
+      clearRect: jest.fn(),
+      drawImage: jest.fn(),
+      lineTo: jest.fn(),
+      moveTo: jest.fn(),
+      stroke: jest.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const getContext = jest
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockReturnValue(context);
+    const toDataUrl = jest
+      .spyOn(HTMLCanvasElement.prototype, "toDataURL")
+      .mockReturnValueOnce(oldPatientSignature)
+      .mockReturnValueOnce(oldPartnerSignature)
+      .mockReturnValueOnce(newPatientSignature);
+    const setPointerCaptureDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "setPointerCapture",
+    );
+    Object.defineProperty(HTMLCanvasElement.prototype, "setPointerCapture", {
+      configurable: true,
+      value: jest.fn(),
+    });
+    const originalFetch = global.fetch;
+    Object.defineProperty(global, "fetch", {
+      configurable: true,
+      value: jest.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () => new Uint8Array([37, 80, 68, 70]).buffer,
+      })),
+    });
+    jest
+      .mocked(applySignaturesToConsentPdf)
+      .mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
+    jest
+      .mocked(sdkFetch)
+      .mockResolvedValueOnce({
+        cases: [
+          {
+            id: "CASE-ADA",
+            institutionId: "INST-00001",
+            doctorId: "DOC-00001",
+            patientId: "PAT-ADA",
+            patientName: "Ada Paciente",
+            caseLabel: "Caso Ada",
+            informedConsentId: null,
+            createdAt: "2026-10-16T00:00:00.000Z",
+            updatedAt: "2026-10-16T00:00:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        cases: [
+          {
+            id: "CASE-BEA",
+            institutionId: "INST-00001",
+            doctorId: "DOC-00001",
+            patientId: "PAT-BEA",
+            patientName: "Bea Paciente",
+            caseLabel: "Caso Bea",
+            informedConsentId: null,
+            createdAt: "2026-10-16T00:00:00.000Z",
+            updatedAt: "2026-10-16T00:00:00.000Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ record: { id: "CONSENT-BEA" } });
+
+    try {
+      const user = userEvent.setup();
+      render(
+        <PatientConsentUploadWizard
+          surface="backoffice"
+          initialPatientPage={{
+            patients: [
+              {
+                id: "PAT-ADA",
+                fullName: "Ada Paciente",
+                email: "ada@example.com",
+              },
+              {
+                id: "PAT-BEA",
+                fullName: "Bea Paciente",
+                email: "bea@example.com",
+              },
+            ],
+          }}
+        />,
+      );
+
+      await chooseGuidedFlow(user);
+      await user.click(screen.getByRole("combobox", { name: "Paciente" }));
+      await user.click(
+        screen.getByRole("option", { name: "Ada Paciente - PAT-ADA" }),
+      );
+      await waitFor(() =>
+        expect(sdkFetch).toHaveBeenCalledWith(
+          "/2pq/informed-consents/cases?patientId=PAT-ADA",
+        ),
+      );
+      await user.click(screen.getByRole("combobox", { name: "Caso 2PQ" }));
+      await user.click(
+        screen.getByRole("option", { name: "Caso Ada - CASE-ADA" }),
+      );
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await user.click(
+        screen.getByRole("button", { name: "Continuar con los datos" }),
+      );
+
+      const signatureDate = screen.getByLabelText("Fecha de firma");
+      const defaultSignatureDate = (signatureDate as HTMLInputElement).value;
+      await user.type(
+        screen.getByRole("textbox", { name: "Documento del paciente" }),
+        "31.234.567",
+      );
+      fireEvent.change(signatureDate, { target: { value: "2026-01-02" } });
+      await user.click(
+        screen.getByRole("checkbox", {
+          name: "El consentimiento también será firmado por la pareja",
+        }),
+      );
+      await user.type(
+        screen.getByRole("textbox", {
+          name: "Nombre y apellido de la pareja",
+        }),
+        "Alex Pareja",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Continuar para firmar" }),
+      );
+
+      fireEvent.pointerDown(
+        screen.getByLabelText("Área para dibujar la firma del paciente"),
+        { pointerId: 1, clientX: 10, clientY: 10 },
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Guardar firma del paciente" }),
+      );
+      fireEvent.pointerDown(
+        screen.getByLabelText("Área para dibujar la firma de la pareja"),
+        { pointerId: 2, clientX: 10, clientY: 10 },
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Guardar firma de la pareja" }),
+      );
+      expect(screen.getAllByText("Firma guardada")).toHaveLength(2);
+
+      await user.click(screen.getByRole("button", { name: "Volver" }));
+      await user.click(screen.getByRole("button", { name: "Volver" }));
+      await user.click(screen.getByRole("button", { name: "Volver" }));
+      await user.click(screen.getByRole("combobox", { name: "Paciente" }));
+      await user.click(
+        screen.getByRole("option", { name: "Bea Paciente - PAT-BEA" }),
+      );
+      await waitFor(() =>
+        expect(sdkFetch).toHaveBeenCalledWith(
+          "/2pq/informed-consents/cases?patientId=PAT-BEA",
+        ),
+      );
+      await user.click(screen.getByRole("combobox", { name: "Caso 2PQ" }));
+      await user.click(
+        screen.getByRole("option", { name: "Caso Bea - CASE-BEA" }),
+      );
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await user.click(
+        screen.getByRole("button", { name: "Continuar con los datos" }),
+      );
+
+      expect(
+        screen.getByRole("textbox", { name: "Nombre y apellido del paciente" }),
+      ).toHaveValue("Bea Paciente");
+      expect(
+        screen.getByRole("textbox", { name: "Documento del paciente" }),
+      ).toHaveValue("");
+      expect(screen.getByLabelText("Fecha de firma")).toHaveValue(
+        defaultSignatureDate,
+      );
+      expect(
+        screen.getByRole("checkbox", {
+          name: "El consentimiento también será firmado por la pareja",
+        }),
+      ).not.toBeChecked();
+      expect(
+        screen.queryByRole("textbox", {
+          name: "Nombre y apellido de la pareja",
+        }),
+      ).not.toBeInTheDocument();
+
+      await user.type(
+        screen.getByRole("textbox", { name: "Documento del paciente" }),
+        "32.345.678",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Continuar para firmar" }),
+      );
+      expect(screen.queryByText("Firma guardada")).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Continuar al editor" }),
+      ).toBeDisabled();
+
+      fireEvent.pointerDown(
+        screen.getByLabelText("Área para dibujar la firma del paciente"),
+        { pointerId: 3, clientX: 10, clientY: 10 },
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Guardar firma del paciente" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Continuar al editor" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Aplicar firmas y continuar" }),
+      );
+      await user.click(
+        await screen.findByRole("button", { name: "Subir consentimiento" }),
+      );
+
+      await waitFor(() =>
+        expect(sdkFetch).toHaveBeenCalledWith(
+          "/2pq/informed-consents",
+          expect.objectContaining({ method: "POST", body: expect.any(String) }),
+        ),
+      );
+      const uploadCall = jest
+        .mocked(sdkFetch)
+        .mock.calls.find(([path]) => path === "/2pq/informed-consents");
+      expect(JSON.parse(String(uploadCall?.[1]?.body))).toMatchObject({
+        patientId: "PAT-BEA",
+        caseId: "CASE-BEA",
+        flowMode: "guided",
+        savedSignature: newPatientSignature,
+      });
+      expect(String(uploadCall?.[1]?.body)).not.toContain(oldPatientSignature);
+      expect(String(uploadCall?.[1]?.body)).not.toContain(oldPartnerSignature);
+      expect(applySignaturesToConsentPdf).toHaveBeenCalledWith(
+        expect.any(ArrayBuffer),
+        [
+          expect.objectContaining({
+            role: "patient",
+            name: "Bea Paciente",
+            document: "32.345.678",
+            signatureDataUrl: newPatientSignature,
+            placement: { x: 0.72, y: 0.445, width: 0.16 },
+          }),
+        ],
+      );
+    } finally {
+      getContext.mockRestore();
+      toDataUrl.mockRestore();
+      if (originalFetch) {
+        Object.defineProperty(global, "fetch", {
+          configurable: true,
+          value: originalFetch,
+        });
+      } else {
+        Reflect.deleteProperty(global, "fetch");
+      }
+      if (setPointerCaptureDescriptor) {
+        Object.defineProperty(
+          HTMLCanvasElement.prototype,
+          "setPointerCapture",
+          setPointerCaptureDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(
+          HTMLCanvasElement.prototype,
+          "setPointerCapture",
+        );
+      }
+    }
   });
 
   it("routes a backoffice direct upload through destination and the complete manual path", async () => {
@@ -875,6 +1160,7 @@ describe("PatientConsentUploadWizard", () => {
     expect(JSON.parse(String(adminUploadCall?.[1]?.body))).toEqual({
       patientId: "PAT-00001",
       caseId: "CASE-00001",
+      flowMode: "direct",
       file: expect.objectContaining({
         name: "admin-consent.pdf",
         type: "application/pdf",
@@ -883,5 +1169,121 @@ describe("PatientConsentUploadWizard", () => {
     expect(mockRouterPush).toHaveBeenCalledWith(
       "/2pq-dashboard/consents/CONSENT-ADMIN",
     );
+  });
+
+  it("sends only the patient signature with a guided consent upload", async () => {
+    const context = {
+      beginPath: jest.fn(),
+      clearRect: jest.fn(),
+      drawImage: jest.fn(),
+      lineTo: jest.fn(),
+      moveTo: jest.fn(),
+      stroke: jest.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const getContext = jest
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockReturnValue(context);
+    const toDataUrl = jest
+      .spyOn(HTMLCanvasElement.prototype, "toDataURL")
+      .mockReturnValue(TRANSPARENT_SIGNATURE_DATA_URL);
+    const originalFetch = global.fetch;
+    const fetchTemplate = jest.fn(async () => ({
+      ok: true,
+      arrayBuffer: async () => new Uint8Array([37, 80, 68, 70]).buffer,
+    }));
+    Object.defineProperty(global, "fetch", {
+      configurable: true,
+      value: fetchTemplate,
+    });
+    const setPointerCaptureDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "setPointerCapture",
+    );
+    Object.defineProperty(HTMLCanvasElement.prototype, "setPointerCapture", {
+      configurable: true,
+      value: jest.fn(),
+    });
+    jest
+      .mocked(applySignaturesToConsentPdf)
+      .mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
+    jest.mocked(sdkFetch).mockResolvedValue({
+      record: { id: "CONSENT-GUIDED" },
+    });
+
+    try {
+      const user = userEvent.setup();
+      render(<PatientConsentUploadWizard initialPatientName="Ada Paciente" />);
+
+      await chooseGuidedFlow(user);
+      await user.click(
+        screen.getByRole("button", { name: "Continuar con los datos" }),
+      );
+      await user.type(
+        screen.getByRole("textbox", { name: "Documento del paciente" }),
+        "31.234.567",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Continuar para firmar" }),
+      );
+      const canvas = screen.getByLabelText(
+        "Área para dibujar la firma del paciente",
+      );
+      fireEvent.pointerDown(canvas, {
+        pointerId: 1,
+        clientX: 10,
+        clientY: 10,
+      });
+      await user.click(
+        screen.getByRole("button", { name: "Guardar firma del paciente" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Continuar al editor" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Aplicar firmas y continuar" }),
+      );
+      await user.click(
+        await screen.findByRole("button", { name: "Subir consentimiento" }),
+      );
+
+      await waitFor(() =>
+        expect(sdkFetch).toHaveBeenCalledWith(
+          "/2pq/informed-consents",
+          expect.objectContaining({ method: "POST", body: expect.any(String) }),
+        ),
+      );
+      const uploadCall = jest
+        .mocked(sdkFetch)
+        .mock.calls.find(([path]) => path === "/2pq/informed-consents");
+      expect(JSON.parse(String(uploadCall?.[1]?.body))).toMatchObject({
+        flowMode: "guided",
+        savedSignature: TRANSPARENT_SIGNATURE_DATA_URL,
+        file: { type: "application/pdf" },
+      });
+      expect(String(uploadCall?.[1]?.body)).not.toContain("partnerSignature");
+    } finally {
+      getContext.mockRestore();
+      toDataUrl.mockRestore();
+      if (originalFetch) {
+        Object.defineProperty(global, "fetch", {
+          configurable: true,
+          value: originalFetch,
+        });
+      } else {
+        Reflect.deleteProperty(global, "fetch");
+      }
+      if (setPointerCaptureDescriptor) {
+        Object.defineProperty(
+          HTMLCanvasElement.prototype,
+          "setPointerCapture",
+          setPointerCaptureDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(
+          HTMLCanvasElement.prototype,
+          "setPointerCapture",
+        );
+      }
+    }
   });
 });

@@ -22,7 +22,7 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 const SPANISH_TEXT: Record<string, string> = {
   "Golden Crow": "Golden Crow",
   "Pocket Gyms": "Pocket Gyms",
-  "Corvo": "Corvo",
+  Corvo: "Corvo",
   PocketGenes: "PocketGenes",
   Operator: "Operador",
   "Pocket Genes Admin": "Administración Pocket Genes",
@@ -1677,8 +1677,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "La plantilla que falló no fue enviada.",
   "This template was not sent because the daily limit was reached or usage could not be verified.":
     "Esta plantilla no fue enviada porque se alcanzó el límite diario o no se pudo verificar el uso.",
-  "Template action was not sent.":
-    "La acción de la plantilla no fue enviada.",
+  "Template action was not sent.": "La acción de la plantilla no fue enviada.",
   "Plantillas is cached and read-only because its daily limit has been reached.":
     "Plantillas está en modo de solo lectura con datos en caché porque alcanzó su límite diario.",
   "Plantillas data and actions are unavailable because its daily limit has been reached.":
@@ -1877,8 +1876,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Edit CRM organization": "Editar organización del CRM",
   "CRM organization saved.": "Organización del CRM guardada.",
   "CRM status updated.": "Estado del CRM actualizado.",
-  "Unable to update CRM status.":
-    "No se pudo actualizar el estado del CRM.",
+  "Unable to update CRM status.": "No se pudo actualizar el estado del CRM.",
   "Unable to save CRM organization.":
     "No se pudo guardar la organización del CRM.",
   "CRM organization deleted.": "Organización del CRM eliminada.",
@@ -3071,8 +3069,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Select linked study request form":
     "Seleccionar formulario de solicitud linkeado",
   "0 available study requests": "0 solicitudes de estudio disponibles",
-  "No unlinked study requests":
-    "No hay solicitudes de estudio sin vincular",
+  "No unlinked study requests": "No hay solicitudes de estudio sin vincular",
   "There are no study request forms available for a new biopsy. Create one or unlink an existing study request before continuing.":
     "No hay formularios de solicitud de estudio disponibles para una nueva biopsia. Creá uno o desvinculá una solicitud existente antes de continuar.",
   "Review study requests": "Revisar solicitudes de estudio",
@@ -3124,12 +3121,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Patient email": "Mail del paciente",
   "Important: credentials to upload the informed consent will be sent to this email address. Verify that it is entered correctly.":
     "Importante: a esta dirección de correo se enviarán las credenciales para subir consentimiento informado, verifique que esté correctamente escrito.",
-  "Complete the forms in this order":
-    "Completá los formularios en este orden",
+  "Complete the forms in this order": "Completá los formularios en este orden",
   "Each step stays visible; unavailable actions are disabled for the current profile.":
     "Cada paso permanece visible; las acciones no habilitadas para este perfil se muestran en gris.",
-  "Complete study request form":
-    "Completar formulario de solicitud de estudio",
+  "Complete study request form": "Completar formulario de solicitud de estudio",
   "Complete sample form (biopsies)":
     "Completar formulario de muestras (biopsias)",
   "Complete withdrawal request form":
@@ -3203,8 +3198,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Fast PGT (24-72hs)": "Fast PGT (24-72hs)",
   "Standard PGT (>15 days)": "Standard PGT (>15 días)",
   "PGT SR (>15 days)": "PGT SR (>15 días)",
-  "Maximum result delivery date":
-    "Fecha máxima para envío de resultados",
+  "Maximum result delivery date": "Fecha máxima para envío de resultados",
   "Automatically calculated from the request creation time using a maximum window of":
     "Calculada automáticamente desde la creación de la solicitud con un plazo máximo de",
   "8 hours": "8 horas",
@@ -3212,8 +3206,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "16 calendar days": "16 días corridos",
   "Karyotype attachment is available only for PGT SR.":
     "La opción de adjuntar cariotipo está disponible únicamente para PGT SR.",
-  "Do you want to attach a karyotype?":
-    "¿Desea adjuntar un cariotipo?",
+  "Do you want to attach a karyotype?": "¿Desea adjuntar un cariotipo?",
   "Request reason": "Motivo de solicitud",
   Date: "Fecha",
   "Pick existing institution": "Elegir institución existente",
@@ -4196,6 +4189,9 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los roles de paciente requieren vínculo de médico y de paciente.",
   "Patient scope": "Alcance de paciente",
   "Patient workbench": "Mesa de trabajo de paciente",
+  "Saved patient signature": "Firma guardada del paciente",
+  "This patient does not have a saved digital signature yet.":
+    "Este paciente todavía no tiene una firma digital guardada.",
   patients: "pacientes",
   "Patients appear here as institution and doctor-linked records for operations, but they do not access this admin themselves. Doctors can edit only their own patients.":
     "Los pacientes aparecen acá como registros operativos vinculados a institución y médico, pero no acceden ellos mismos a esta administración. Los médicos solo pueden editar sus propios pacientes.",

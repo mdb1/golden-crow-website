@@ -110,6 +110,15 @@ const deleteDocMock = jest.fn(async () => undefined);
 const transactionSetMock = jest.fn();
 const transactionDeleteMock = jest.fn();
 const sendGmailMessageMock = jest.fn(async (_message: unknown) => undefined);
+let mockTransactionPatientOverride: MockDoc | null | undefined;
+
+function expectNoEntityTransactionWrites() {
+  expect(
+    transactionSetMock.mock.calls.filter(
+      ([reference]) => reference.collectionName !== "admin_sequences",
+    ),
+  ).toEqual([]);
+}
 
 class QueryStub {
   readonly operations: QueryOperation[] = [];
@@ -204,11 +213,15 @@ jest.mock("../config/firebase.js", () => ({
                   data: () => ({ current: 3 }),
                 };
               }
-              const doc = docsForCollection(reference.collectionName ?? "").find(
-                (candidate) => candidate.id === reference.id,
-              );
+              const doc =
+                reference.collectionName === "patients" &&
+                mockTransactionPatientOverride !== undefined
+                  ? mockTransactionPatientOverride
+                  : docsForCollection(reference.collectionName ?? "").find(
+                      (candidate) => candidate.id === reference.id,
+                    );
               return {
-                id: reference.id,
+                id: doc?.id ?? reference.id,
                 exists: Boolean(doc),
                 data: () => doc?.data,
               };
@@ -235,6 +248,10 @@ const baseContext = {
   projectAccess: ["mydnamap" as const],
 };
 
+const SAVED_SIGNATURE =
+  "data:image/png;base64," +
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=";
+
 describe("informed consent repository scoping", () => {
   beforeEach(() => {
     queryStubs.length = 0;
@@ -246,6 +263,7 @@ describe("informed consent repository scoping", () => {
     transactionSetMock.mockClear();
     transactionDeleteMock.mockClear();
     sendGmailMessageMock.mockClear();
+    mockTransactionPatientOverride = undefined;
     consentDocs.forEach((doc) => {
       doc.data.caseId = null;
     });
@@ -435,6 +453,238 @@ describe("informed consent repository scoping", () => {
     );
   });
 
+  it("atomically stores a guided consent and the exact patient saved_signature field", async () => {
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await createInformedConsentForContext(
+      { ...baseContext, role: "full_admin" },
+      {
+        patientId: "PAT-00001",
+        flowMode: "guided",
+        savedSignature: SAVED_SIGNATURE,
+        file: {
+          name: "consent.pdf",
+          type: "application/pdf",
+          size: 1,
+          content: "data:application/pdf;base64,eA==",
+        },
+      },
+    );
+
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collectionName: "patients",
+        id: "PAT-00001",
+      }),
+      expect.objectContaining({ saved_signature: SAVED_SIGNATURE }),
+      { merge: true },
+    );
+    const patientWrite = transactionSetMock.mock.calls.find(
+      ([reference]) => reference.collectionName === "patients",
+    )?.[1] as Record<string, unknown>;
+    expect(patientWrite).not.toHaveProperty("savedSignature");
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collectionName: "2pq-informed-consent",
+        id: "CONS-00004",
+      }),
+      expect.objectContaining({ patientId: "PAT-00001" }),
+    );
+    expect(setDocMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["without a case", undefined],
+    ["with a case", "CASE-00001"],
+  ])(
+    "does not recreate a concurrently deleted patient %s",
+    async (_, caseId) => {
+      mockTransactionPatientOverride = null;
+      const { createInformedConsentForContext } =
+        await import("../repositories/informed-consents.repository");
+
+      await expect(
+        createInformedConsentForContext(
+          { ...baseContext, role: "full_admin" },
+          {
+            patientId: "PAT-00001",
+            caseId,
+            flowMode: "guided",
+            savedSignature: SAVED_SIGNATURE,
+            file: {
+              name: "consent.pdf",
+              type: "application/pdf",
+              size: 1,
+              content: "data:application/pdf;base64,eA==",
+            },
+          },
+        ),
+      ).rejects.toMatchObject({
+        message: "Patient not found.",
+        statusCode: 404,
+      });
+
+      expectNoEntityTransactionWrites();
+      expect(setDocMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it("revalidates patient scope before saving a guided signature", async () => {
+    mockTransactionPatientOverride = patientDoc(
+      "PAT-00001",
+      "INST-00002",
+      "DOC-00002",
+    );
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      createInformedConsentForContext(
+        {
+          ...baseContext,
+          role: "institution_doctor",
+          institutionId: "INST-00001",
+          doctorId: "DOC-00001",
+        },
+        {
+          patientId: "PAT-00001",
+          caseId: "CASE-00001",
+          flowMode: "guided",
+          savedSignature: SAVED_SIGNATURE,
+          file: {
+            name: "consent.pdf",
+            type: "application/pdf",
+            size: 1,
+            content: "data:application/pdf;base64,eA==",
+          },
+        },
+      ),
+    ).rejects.toMatchObject({
+      message: "You cannot upload consent files for this patient.",
+      statusCode: 403,
+    });
+
+    expectNoEntityTransactionWrites();
+    expect(setDocMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a guided signature when patient identity changes concurrently", async () => {
+    const changedPatient = patientDoc("PAT-00001", "INST-00001", "DOC-00001");
+    changedPatient.data.email = "replacement@example.com";
+    mockTransactionPatientOverride = changedPatient;
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      createInformedConsentForContext(
+        { ...baseContext, role: "full_admin" },
+        {
+          patientId: "PAT-00001",
+          flowMode: "guided",
+          savedSignature: SAVED_SIGNATURE,
+          file: {
+            name: "consent.pdf",
+            type: "application/pdf",
+            size: 1,
+            content: "data:application/pdf;base64,eA==",
+          },
+        },
+      ),
+    ).rejects.toMatchObject({
+      message:
+        "The patient identity or assignment changed while the consent was being saved.",
+      statusCode: 409,
+    });
+
+    expectNoEntityTransactionWrites();
+    expect(setDocMock).not.toHaveBeenCalled();
+  });
+
+  it("never changes an existing saved signature for a direct upload", async () => {
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await createInformedConsentForContext(
+      { ...baseContext, role: "full_admin" },
+      {
+        patientId: "PAT-00001",
+        flowMode: "direct",
+        file: {
+          name: "consent.pdf",
+          type: "application/pdf",
+          size: 1,
+          content: "data:application/pdf;base64,eA==",
+        },
+      },
+    );
+
+    expect(
+      transactionSetMock.mock.calls.some(
+        ([reference]) => reference.collectionName === "patients",
+      ),
+    ).toBe(false);
+    expect(setDocMock).toHaveBeenCalledWith(
+      expect.objectContaining({ patientId: "PAT-00001" }),
+    );
+  });
+
+  it("rejects invalid guided signature data before creating any document", async () => {
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      createInformedConsentForContext(
+        { ...baseContext, role: "full_admin" },
+        {
+          patientId: "PAT-00001",
+          flowMode: "guided",
+          savedSignature: "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+          file: {
+            name: "consent.pdf",
+            type: "application/pdf",
+            size: 1,
+            content: "data:application/pdf;base64,eA==",
+          },
+        },
+      ),
+    ).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(transactionSetMock).not.toHaveBeenCalled();
+    expect(setDocMock).not.toHaveBeenCalled();
+  });
+
+  it("prevents a patient from saving a signature onto another patient", async () => {
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await expect(
+      createInformedConsentForContext(
+        {
+          ...baseContext,
+          role: "patient",
+          patientId: "PAT-00001",
+          canAccessBackoffice: false,
+          canAccessPatientPortal: true,
+        },
+        {
+          patientId: "PAT-00002",
+          flowMode: "guided",
+          savedSignature: SAVED_SIGNATURE,
+          file: {
+            name: "consent.pdf",
+            type: "application/pdf",
+            size: 1,
+            content: "data:application/pdf;base64,eA==",
+          },
+        },
+      ),
+    ).rejects.toMatchObject({
+      message: "Patients can only upload their own consent files.",
+      statusCode: 403,
+    });
+  });
+
   it("creates and links an admin consent to its selected case atomically", async () => {
     const { createInformedConsentForContext } =
       await import("../repositories/informed-consents.repository");
@@ -477,6 +727,38 @@ describe("informed consent repository scoping", () => {
       { merge: true },
     );
     expect(setDocMock).not.toHaveBeenCalled();
+  });
+
+  it("includes the patient signature in the same case-link transaction", async () => {
+    const { createInformedConsentForContext } =
+      await import("../repositories/informed-consents.repository");
+
+    await createInformedConsentForContext(
+      { ...baseContext, role: "2pq_admin" },
+      {
+        patientId: "PAT-00001",
+        caseId: "CASE-00001",
+        flowMode: "guided",
+        savedSignature: SAVED_SIGNATURE,
+        file: {
+          name: "consent.pdf",
+          type: "application/pdf",
+          size: 1,
+          content: "data:application/pdf;base64,eA==",
+        },
+      },
+    );
+
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ collectionName: "patients", id: "PAT-00001" }),
+      expect.objectContaining({ saved_signature: SAVED_SIGNATURE }),
+      { merge: true },
+    );
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ collectionName: "2pq_case", id: "CASE-00001" }),
+      expect.objectContaining({ informedConsentId: "CONS-00004" }),
+      { merge: true },
+    );
   });
 
   it("lets global admins delete only the consent document", async () => {

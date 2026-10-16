@@ -862,8 +862,12 @@ export function PatientConsentUploadWizard({
     }
   }
 
-  async function uploadConsent(file: SingleFileValue | null) {
+  async function uploadConsent(
+    file: SingleFileValue | null,
+    uploadMode: ConsentFlowMode,
+  ) {
     if (!file || saving) return;
+    if (uploadMode === "guided" && !patientSignatureDataUrl) return;
     setSaving(true);
     setToast(null);
     try {
@@ -873,6 +877,10 @@ export function PatientConsentUploadWizard({
           method: "POST",
           body: JSON.stringify({
             ...(isBackoffice ? { patientId, caseId } : {}),
+            flowMode: uploadMode,
+            ...(uploadMode === "guided"
+              ? { savedSignature: patientSignatureDataUrl }
+              : {}),
             file,
           }),
         },
@@ -964,10 +972,22 @@ export function PatientConsentUploadWizard({
     setPatientNameError("");
     setPatientDocument("");
     setPatientDocumentError("");
+    setSignatureDate(todayInBuenosAires());
+    setSignatureDateError("");
+    setHasPartner(false);
+    setPartnerName("");
+    setPartnerNameError("");
+    setPatientSignatureDataUrl(null);
+    setPartnerSignatureDataUrl(null);
+    setPatientPlacement(INITIAL_PATIENT_PLACEMENT);
+    setPartnerPlacement(INITIAL_PARTNER_PLACEMENT);
+    setSelectedRole("patient");
+    setSignedFile(null);
+    setDirectFile(null);
+    setDirectFileError("");
     setCaseId("");
     setCases([]);
     setCaseCursor(undefined);
-    invalidateAfter();
     void loadCasesForPatient(nextPatientId);
   }
 
@@ -1742,7 +1762,7 @@ export function PatientConsentUploadWizard({
                       type="button"
                       className="bg-emerald-600 text-white hover:bg-emerald-700"
                       disabled={saving}
-                      onClick={() => void uploadConsent(signedFile)}
+                      onClick={() => void uploadConsent(signedFile, "guided")}
                     >
                       {saving ? (
                         <Loader2 className="size-4 animate-spin" />
@@ -1763,7 +1783,7 @@ export function PatientConsentUploadWizard({
                       saving ||
                       (isBackoffice && !destinationComplete)
                     }
-                    onClick={() => void uploadConsent(directFile)}
+                    onClick={() => void uploadConsent(directFile, "direct")}
                   >
                     {saving ? (
                       <Loader2 className="size-4 animate-spin" />

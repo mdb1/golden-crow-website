@@ -327,6 +327,7 @@ export interface DoctorDetailRecord {
 
 export interface PatientDetailRecord {
   patient: PatientListItem;
+  savedSignature: string | null;
   institution: InstitutionRecord | null;
   doctor: DoctorListItem | null;
   roleRecord: RoleManagementRecord | null;

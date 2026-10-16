@@ -22,7 +22,8 @@ jest.mock("../repositories/informed-consents.repository.js", () => ({
   INFORMED_CONSENT_FILE_MAX_BYTES: 750_000,
   createInformedConsentForContext: mockCreateInformedConsentForContext,
   deleteInformedConsentForContext: mockDeleteInformedConsentForContext,
-  getCaseConsentTraceabilityForContext: mockGetCaseConsentTraceabilityForContext,
+  getCaseConsentTraceabilityForContext:
+    mockGetCaseConsentTraceabilityForContext,
   getInformedConsentDetailForContext: mockGetInformedConsentDetailForContext,
   getInformedConsentFileForContext: mockGetInformedConsentFileForContext,
   listInformedConsentCasesForContext: mockListInformedConsentCasesForContext,
@@ -58,7 +59,10 @@ function validFile() {
 const endpoints = [
   { method: "GET" as const, url: "/2pq/informed-consents" },
   { method: "GET" as const, url: "/2pq/informed-consents/patients" },
-  { method: "GET" as const, url: "/2pq/informed-consents/cases?patientId=PAT-1" },
+  {
+    method: "GET" as const,
+    url: "/2pq/informed-consents/cases?patientId=PAT-1",
+  },
   {
     method: "POST" as const,
     url: "/2pq/informed-consents",
@@ -95,9 +99,8 @@ let fastify: FastifyInstance;
 beforeEach(async () => {
   jest.clearAllMocks();
   currentContext = makeAdminContext({ role: "2pq_admin" });
-  const { informedConsentRoutes } = await import(
-    "../routes/informed-consents.routes.js"
-  );
+  const { informedConsentRoutes } =
+    await import("../routes/informed-consents.routes.js");
   fastify = await buildRouteServer(informedConsentRoutes, () => currentContext);
 });
 
@@ -122,15 +125,33 @@ describe("informed consent routes — authentication", () => {
   );
 
   it.each([
-    ["another patient's consent detail", "GET", "/2pq/informed-consents/IC-OTHER", mockGetInformedConsentDetailForContext],
-    ["another patient's consent file", "GET", "/2pq/informed-consents/IC-OTHER/file", mockGetInformedConsentFileForContext],
-    ["deleting a consent", "DELETE", "/2pq/informed-consents/IC-OTHER", mockDeleteInformedConsentForContext],
+    [
+      "another patient's consent detail",
+      "GET",
+      "/2pq/informed-consents/IC-OTHER",
+      mockGetInformedConsentDetailForContext,
+    ],
+    [
+      "another patient's consent file",
+      "GET",
+      "/2pq/informed-consents/IC-OTHER/file",
+      mockGetInformedConsentFileForContext,
+    ],
+    [
+      "deleting a consent",
+      "DELETE",
+      "/2pq/informed-consents/IC-OTHER",
+      mockDeleteInformedConsentForContext,
+    ],
   ] as const)(
     "passes the repository's 403 through for a patient reaching %s",
     async (_, method, url, mock) => {
       currentContext = PATIENT;
       mock.mockRejectedValue(
-        new AdminRepositoryError("You cannot access this informed consent.", 403),
+        new AdminRepositoryError(
+          "You cannot access this informed consent.",
+          403,
+        ),
       );
 
       const response = await fastify.inject({ method, url });
@@ -143,11 +164,18 @@ describe("informed consent routes — authentication", () => {
 });
 
 describe("POST /2pq/informed-consents", () => {
+  const savedSignature =
+    "data:image/png;base64," +
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=";
+
   it.each([
     ["a file over the size limit", { ...validFile(), size: 750_001 }],
     ["a zero-byte file", { ...validFile(), size: 0 }],
     ["an empty content", { ...validFile(), content: "" }],
-    ["an over-long filename", { ...validFile(), name: `${"x".repeat(252)}.pdf` }],
+    [
+      "an over-long filename",
+      { ...validFile(), name: `${"x".repeat(252)}.pdf` },
+    ],
     ["a missing type", { name: "consent.pdf", size: 10, content: "abc" }],
   ])("rejects %s with 400", async (_, file) => {
     const response = await fastify.inject({
@@ -190,6 +218,51 @@ describe("POST /2pq/informed-consents", () => {
       payload,
     );
     expect(response.json()).toEqual({ record: { id: "IC-1" } });
+  });
+
+  it("forwards the patient signature only for a guided upload", async () => {
+    mockCreateInformedConsentForContext.mockResolvedValue({ id: "IC-1" });
+    const payload = {
+      patientId: "PAT-1",
+      caseId: "CASE-1",
+      flowMode: "guided",
+      savedSignature,
+      file: validFile(),
+    };
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/2pq/informed-consents",
+      payload,
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateInformedConsentForContext).toHaveBeenCalledWith(
+      currentContext,
+      payload,
+    );
+  });
+
+  it.each([
+    ["a guided upload without a signature", { flowMode: "guided" }],
+    [
+      "a direct upload with a signature",
+      { flowMode: "direct", savedSignature },
+    ],
+    ["an unclassified upload with a signature", { savedSignature }],
+  ])("rejects %s", async (_, uploadFields) => {
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/2pq/informed-consents",
+      payload: {
+        patientId: "PAT-1",
+        ...uploadFields,
+        file: validFile(),
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateInformedConsentForContext).not.toHaveBeenCalled();
   });
 
   it("surfaces a repository-side file type refusal as 400", async () => {
