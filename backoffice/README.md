@@ -82,10 +82,26 @@ merging, or the red shows up as a failed production deploy instead. The build is
    dashboard redirect; the Open API upload without a token → 401; and no
    `ERR_REQUIRE_ESM` in the log. Proven against the 2026-10-15 outage: with
    firebase-admin 14 installed it fails 3 checks. ~1 s, needs `.env.local`.
-4. `NODE_ENV=test jest --ci --silent --testTimeout=30000` — this whole suite.
-   Vercel's build machine has 2 cores and runs it ~2× slower than a laptop; a
-   userEvent-heavy test past Jest's default 5 s failed a production deploy
-   (#455), so the build allows 30 s per test. Local runs keep the 5 s default.
+4. `scripts/test-gate.mjs` — Jest, **sized to the change** (#451). The full
+   suite is ~10 of the ~11 min a Vercel build takes, so on Vercel it runs:
+   - **full** when dependencies, Jest/TS/Next config, `src/lib/test-utils`,
+     type declarations or the gate itself changed; when there's no known
+     last-green commit; once a week; or with `TEST_GATE=full` in the env;
+   - **related** otherwise: `jest --findRelatedTests <changed files>` (every
+     test that imports them, transitively) **plus every test that reads the
+     filesystem or spawns processes** (the contract, no-inline-actions and i18n
+     scans — the import graph can't link them to a change). ~30 s for a typical
+     change;
+   - **skip** when only inert files changed (docs, backups, the version bump).
+
+   The diff base is the last commit that **passed** on Vercel, kept in
+   `.next/cache/gc-test-gate.json` (Vercel restores the build cache only from a
+   successful deployment), so a cancelled or failed deploy can't hide changes.
+   Proven by mutation: breaking `parseDecimalInput` fails 7 suites, 5 of them
+   components that import it indirectly. **Local `npm run build` always runs
+   the full suite**; `TEST_GATE=related` tries the Vercel plan locally. The
+   build uses `--testTimeout=30000` (Vercel's 2-core builder timed out a test
+   at the default 5 s, #455); `npx jest` locally keeps 5 s.
 
 `npm run build:app` is steps 1–2 alone (what `check-deploy-skew.sh` needs);
 `npm run smoke` is step 3 against an existing build.
