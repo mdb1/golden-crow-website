@@ -42,8 +42,18 @@ type StandardBodyPart =
   | "ARMS";
 
 interface FamilySpec {
+  /** Drives the doc id (`std-<group>-<slug(baseEn)>-<equipment>`) — never rename. */
   baseEn: string;
   baseEs: string;
+  /**
+   * #451: display-name override when two families share a `baseEn` (same id
+   * slug in different groups) but are genuinely different exercises — e.g. a
+   * chest dip vs a triceps dip, or a timed warm-up vs a rep-counted drill. The
+   * id keeps deriving from `baseEn` (renaming the id orphans the prod doc);
+   * only `name.{en,es}` changes, which is safe to re-sync.
+   */
+  displayEn?: string;
+  displayEs?: string;
   equipments: EquipmentKey[];
   aliases: string[];
   overview: string;
@@ -106,8 +116,8 @@ function makeKeywords(baseEn: string, baseEs: string, equipment: EquipmentKey, a
 function makeExercise(groupSlug: string, family: FamilySpec, equipment: EquipmentKey): StandardLibraryExercise {
   const equipmentEn = EQUIPMENT_LABELS[equipment].en;
   const equipmentEs = EQUIPMENT_LABELS[equipment].es;
-  const nameEn = `${family.baseEn} (${equipmentEn})`;
-  const nameEs = `${family.baseEs} (${equipmentEs})`;
+  const nameEn = `${family.displayEn ?? family.baseEn} (${equipmentEn})`;
+  const nameEs = `${family.displayEs ?? family.baseEs} (${equipmentEs})`;
   return {
     exerciseId: `std-${groupSlug}-${slugify(family.baseEn)}-${slugify(equipmentEn)}`,
     name: { en: nameEn, es: nameEs },
@@ -115,7 +125,11 @@ function makeExercise(groupSlug: string, family: FamilySpec, equipment: Equipmen
     equipment: [equipment],
     targetMuscles: family.targetMuscles,
     secondaryMuscles: family.secondaryMuscles,
-    keywords: makeKeywords(family.baseEn, family.baseEs, equipment, family.aliases),
+    keywords: makeKeywords(family.baseEn, family.baseEs, equipment, [
+      ...(family.displayEn ? [family.displayEn] : []),
+      ...(family.displayEs ? [family.displayEs] : []),
+      ...family.aliases,
+    ]),
     variations: family.variations ?? [],
     overview: family.overview,
     tags: [STANDARD_LIBRARY_TAG],
@@ -219,6 +233,8 @@ const GROUPS: Array<{ slug: string; families: FamilySpec[] }> = [
       family({
         baseEn: "Dip",
         baseEs: "Fondo",
+        displayEn: "Chest Dip",
+        displayEs: "Fondo para pecho",
         equipments: ["bodyweight", "machine"],
         aliases: ["Chest Dip", "Parallel Bar Dip"],
         overview: "Chest-focused dip with strong lower-chest and triceps demand.",
@@ -799,54 +815,6 @@ const GROUPS: Array<{ slug: string; families: FamilySpec[] }> = [
     slug: "quadriceps",
     families: [
       family({
-        baseEn: "Leg Extension",
-        baseEs: "Extension de piernas",
-        equipments: ["machine"],
-        aliases: ["Quad Extension"],
-        overview: "Quadriceps isolation on a machine.",
-        bodyPart: "QUADRICEPS",
-        muscleGroups: ["quadriceps", "legs"],
-        targetMuscles: ["Quadriceps"],
-        secondaryMuscles: [],
-        variations: ["Front Squat", "Hack Squat"],
-      }),
-      family({
-        baseEn: "Front Squat",
-        baseEs: "Sentadilla frontal",
-        equipments: ["barbell", "smith", "dumbbell"],
-        aliases: ["Quad Squat", "Goblet Squat"],
-        overview: "Upright squat pattern with a quad bias.",
-        bodyPart: "QUADRICEPS",
-        muscleGroups: ["quadriceps", "legs", "core"],
-        targetMuscles: ["Quadriceps"],
-        secondaryMuscles: ["Glutes", "Core"],
-        variations: ["Back Squat", "Split Squat"],
-      }),
-      family({
-        baseEn: "Hack Squat",
-        baseEs: "Sentadilla hack",
-        equipments: ["machine", "smith"],
-        aliases: ["Machine Squat"],
-        overview: "Supported squat for heavy quad loading.",
-        bodyPart: "QUADRICEPS",
-        muscleGroups: ["quadriceps", "legs"],
-        targetMuscles: ["Quadriceps"],
-        secondaryMuscles: ["Glutes"],
-        variations: ["Leg Press", "Front Squat"],
-      }),
-      family({
-        baseEn: "Leg Press",
-        baseEs: "Prensa de piernas",
-        equipments: ["machine"],
-        aliases: ["45 Degree Press"],
-        overview: "Quad-focused press with stable torso support.",
-        bodyPart: "QUADRICEPS",
-        muscleGroups: ["quadriceps", "legs", "glutes"],
-        targetMuscles: ["Quadriceps"],
-        secondaryMuscles: ["Glutes", "Hamstrings"],
-        variations: ["Hack Squat", "Split Squat"],
-      }),
-      family({
         baseEn: "Sissy Squat",
         baseEs: "Sentadilla sissy",
         equipments: ["bodyweight", "smith"],
@@ -869,30 +837,6 @@ const GROUPS: Array<{ slug: string; families: FamilySpec[] }> = [
         targetMuscles: ["Quadriceps"],
         secondaryMuscles: ["Glutes", "Hamstrings"],
         variations: ["Reverse Lunge", "Split Squat"],
-      }),
-      family({
-        baseEn: "Step-Up",
-        baseEs: "Subida al cajon",
-        equipments: ["bodyweight", "dumbbell", "barbell"],
-        aliases: ["Box Step-Up"],
-        overview: "Single-leg quad builder with knee drive.",
-        bodyPart: "QUADRICEPS",
-        muscleGroups: ["quadriceps", "legs", "glutes"],
-        targetMuscles: ["Quadriceps"],
-        secondaryMuscles: ["Glutes", "Core"],
-        variations: ["Walking Lunge", "Split Squat"],
-      }),
-      family({
-        baseEn: "Bulgarian Split Squat",
-        baseEs: "Sentadilla bulgara",
-        equipments: ["bodyweight", "dumbbell", "smith"],
-        aliases: ["Rear Foot Elevated Split Squat"],
-        overview: "Single-leg exercise that heavily loads the quads.",
-        bodyPart: "QUADRICEPS",
-        muscleGroups: ["quadriceps", "glutes", "legs"],
-        targetMuscles: ["Quadriceps"],
-        secondaryMuscles: ["Glutes", "Core"],
-        variations: ["Split Squat", "Lunge"],
       }),
     ],
   },
@@ -1051,6 +995,8 @@ const GROUPS: Array<{ slug: string; families: FamilySpec[] }> = [
       family({
         baseEn: "Dip",
         baseEs: "Fondo",
+        displayEn: "Triceps Dip",
+        displayEs: "Fondo para triceps",
         equipments: ["bodyweight", "machine"],
         aliases: ["Triceps Dip", "Bench Dip"],
         overview: "Compound triceps movement with chest assist.",
@@ -1456,18 +1402,6 @@ const GROUPS: Array<{ slug: string; families: FamilySpec[] }> = [
         targetMuscles: ["Quadriceps", "Shoulders"],
         secondaryMuscles: ["Glutes", "Triceps"],
         variations: ["Push Press", "Clean and Press"],
-      }),
-      family({
-        baseEn: "Kettlebell Swing",
-        baseEs: "Balanceo con kettlebell",
-        equipments: ["kettlebell"],
-        aliases: ["Russian Swing"],
-        overview: "Ballistic hinge for power and conditioning.",
-        bodyPart: "FULL_BODY",
-        muscleGroups: ["full_body", "hamstrings", "glutes", "core"],
-        targetMuscles: ["Hamstrings", "Glutes"],
-        secondaryMuscles: ["Core", "Forearms"],
-        variations: ["Deadlift", "Burpee"],
       }),
       family({
         baseEn: "Turkish Get-Up",
@@ -1980,6 +1914,8 @@ const GROUPS: Array<{ slug: string; families: FamilySpec[] }> = [
       family({
         baseEn: "High Knees",
         baseEs: "Rodillas arriba",
+        displayEn: "High Knees Warm-up",
+        displayEs: "Rodillas arriba de calentamiento",
         equipments: ["bodyweight"],
         aliases: ["Running in Place"],
         overview: "Fast knee-drive run-in-place warm-up.",
@@ -1993,6 +1929,8 @@ const GROUPS: Array<{ slug: string; families: FamilySpec[] }> = [
       family({
         baseEn: "Mountain Climber",
         baseEs: "Escalador",
+        displayEn: "Mountain Climber Warm-up",
+        displayEs: "Escalador de calentamiento",
         equipments: ["bodyweight"],
         aliases: ["Running Plank"],
         overview: "Plank with alternating knee drives.",
@@ -2006,6 +1944,8 @@ const GROUPS: Array<{ slug: string; families: FamilySpec[] }> = [
       family({
         baseEn: "Jump Rope",
         baseEs: "Saltar la cuerda",
+        displayEn: "Jump Rope Warm-up",
+        displayEs: "Saltar la cuerda de calentamiento",
         equipments: ["rope"],
         aliases: ["Skipping"],
         overview: "Rope skipping for a cardio warm-up.",
@@ -2221,6 +2161,36 @@ function buildGroupExercises(spec: { slug: string; families: FamilySpec[] }): St
 }
 
 export const STANDARD_LIBRARY_EXERCISES: StandardLibraryExercise[] = GROUPS.flatMap(buildGroupExercises);
+
+/**
+ * #451 — standard ids REMOVED from the source because they were exact twins of
+ * another std id (same movement, equipment and display name; only the group
+ * slug differed), mapped to the canonical id that stays. The canonical one is
+ * the FIRST occurrence in the list, which is also the doc the name-keyed gif
+ * scripts (`assign-external-gifs.ts`, `.find` by `name.en`) wrote media to.
+ *
+ * The sync script is upsert-only, so these docs are still LIVE in production:
+ * removing them here only stops re-syncing them. Production follow-up (NOT
+ * done by any script yet): stamp `mergedInto: <canonical>` on each retired
+ * doc — never delete it; workout_logs / assignments / templates may reference
+ * the retired id and resolve through `mergedInto`.
+ */
+export const RETIRED_STANDARD_LIBRARY_IDS: Readonly<Record<string, string>> = {
+  "std-quadriceps-leg-extension-machine": "std-legs-leg-extension-machine",
+  "std-quadriceps-front-squat-barbell": "std-legs-front-squat-barbell",
+  "std-quadriceps-front-squat-smith": "std-legs-front-squat-smith",
+  "std-quadriceps-front-squat-dumbbell": "std-legs-front-squat-dumbbell",
+  "std-quadriceps-hack-squat-machine": "std-legs-hack-squat-machine",
+  "std-quadriceps-hack-squat-smith": "std-legs-hack-squat-smith",
+  "std-quadriceps-leg-press-machine": "std-legs-leg-press-machine",
+  "std-quadriceps-step-up-bodyweight": "std-legs-step-up-bodyweight",
+  "std-quadriceps-step-up-dumbbell": "std-legs-step-up-dumbbell",
+  "std-quadriceps-step-up-barbell": "std-legs-step-up-barbell",
+  "std-quadriceps-bulgarian-split-squat-bodyweight": "std-glutes-bulgarian-split-squat-bodyweight",
+  "std-quadriceps-bulgarian-split-squat-dumbbell": "std-glutes-bulgarian-split-squat-dumbbell",
+  "std-quadriceps-bulgarian-split-squat-smith": "std-glutes-bulgarian-split-squat-smith",
+  "std-full_body-kettlebell-swing-kettlebell": "std-hamstrings-kettlebell-swing-kettlebell",
+};
 
 export function standardLibraryPreviewTitle(item: StandardLibraryExercise): string {
   return item.name.en;

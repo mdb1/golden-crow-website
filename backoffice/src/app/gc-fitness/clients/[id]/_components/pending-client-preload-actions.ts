@@ -130,12 +130,15 @@ export async function submitHabit(
           : undefined
       : undefined;
 
+  // #451: `habitCreateSchema.name` is a strict `{ en, es }` object, so the
+  // free-text name is mirrored into both languages (the form has one field).
+  // Sending the bare string made every free-text pending preload throw.
   const resolvedName = selectedTemplate
     ? {
         en: selectedTemplate.name.en,
         es: selectedTemplate.name.es,
       }
-    : name;
+    : { en: name, es: name };
 
   await createPendingHabit(normalizedEmail, {
     type: resolvedType,

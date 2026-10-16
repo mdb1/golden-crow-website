@@ -28,7 +28,7 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-it("reads only this client's subcollection, ordered by recordedAt asc, bounded", async () => {
+it("reads only this client's subcollection, newest first, bounded", async () => {
   log("a", 80, ts("2026-06-10T10:00:00Z"));
   log("b", 70, ts("2026-06-10T10:00:00Z"), "someone-else");
   const points = await loadBodyWeightPoints("c1", "UTC");
@@ -37,7 +37,7 @@ it("reads only this client's subcollection, ordered by recordedAt asc, bounded",
     {
       collection: "users/c1/body_weight_logs",
       filters: [],
-      orderBy: [{ field: "recordedAt", dir: "asc" }],
+      orderBy: [{ field: "recordedAt", dir: "desc" }],
       limit: 500,
     },
   ]);
@@ -127,13 +127,12 @@ it("fails soft to [] when the read throws", async () => {
   await expect(loadBodyWeightPoints("c1", "UTC")).resolves.toEqual([]);
 });
 
-// FINDING: the read is `orderBy(recordedAt, "asc").limit(500)` and the 365-day
-// window is applied IN MEMORY afterwards. Once a client has more than 500 logs in
-// total (≈ 1.4 years of daily weigh-ins), the query returns the OLDEST 500 — all
-// outside the window — and the chart / phase "Δ peso" go blank or stale. The
-// window belongs in the query (`where(recordedAt >= windowStart)`) or the order
-// should be desc + reverse.
-it.failing("still returns this year's weigh-ins when the client has > 500 logs in total", async () => {
+// Regression (#451): the read was `orderBy(recordedAt, "asc").limit(500)` with
+// the 365-day window applied in memory afterwards, so once a client had more
+// than 500 logs in total the query returned the OLDEST 500 — all outside the
+// window — and the chart / phase "Δ peso" went blank. The read is now newest
+// first, so the bound cuts the old tail.
+it("still returns this year's weigh-ins when the client has > 500 logs in total", async () => {
   for (let i = 0; i < 520; i += 1) {
     // 520 daily logs ending yesterday: the most recent 365 are in the window.
     const at = new Date(NOW.getTime() - (520 - i) * DAY);

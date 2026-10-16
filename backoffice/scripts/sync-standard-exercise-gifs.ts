@@ -73,6 +73,9 @@ const OVERRIDES: Record<string, string | null> = {
   "Cable Crossover (Cable)": "0227",
   "Pec Deck Fly (Machine)": "0596",
   "Dip (Machine)": "1451",
+  // #451: the two dip families got distinguishing display names; keep the gif.
+  "Chest Dip (Machine)": "1451",
+  "Triceps Dip (Machine)": "1451",
   "Pull-Up (Machine)": "0017",
   "Chin-Up (Machine)": "0572",
   "Lat Pulldown (Machine)": "0673",
@@ -119,6 +122,10 @@ const OVERRIDES: Record<string, string | null> = {
   "High Knees (Bodyweight)": "3636",
   "Mountain Climber (Bodyweight)": "0630",
   "Jump Rope (Rope)": "2612",
+  // #451: the timed warm-up twins got distinguishing display names; same gifs.
+  "High Knees Warm-up (Bodyweight)": "3636",
+  "Mountain Climber Warm-up (Bodyweight)": "0630",
+  "Jump Rope Warm-up (Rope)": "2612",
   "Inchworm (Bodyweight)": "1471",
   "World's Greatest Stretch (Bodyweight)": "1604",
   "Glute Bridge March (Bodyweight)": "3561",

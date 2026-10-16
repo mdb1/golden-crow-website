@@ -12,6 +12,7 @@
 import { createHash } from "node:crypto";
 
 import {
+  RETIRED_STANDARD_LIBRARY_IDS,
   STANDARD_LIBRARY_EXERCISES,
   STANDARD_LIBRARY_SOURCE,
   STANDARD_LIBRARY_TAG,
@@ -35,12 +36,14 @@ describe("standard exercise library", () => {
     expect(duplicates(ids)).toEqual([]);
   });
 
-  it("ids are pinned: 303 entries, stable list (renames orphan production docs)", () => {
+  it("ids are pinned: 289 entries, stable list (renames orphan production docs)", () => {
     // If you ADD exercises, update both numbers. If this fails without an
     // intentional add, an id changed — that orphans the existing Firestore doc.
-    expect(ids.length).toBe(303);
+    // #451: 303 → 289 — the 14 exact twins in RETIRED_STANDARD_LIBRARY_IDS
+    // were removed (only removals; no surviving id changed).
+    expect(ids.length).toBe(289);
     expect(createHash("sha256").update(ids.join("\n")).digest("hex")).toBe(
-      "be423490a09d31b3840e0eb467c64f4f5a994f4bf7e094a679635e73e2f24db3",
+      "b47c8867a45fd3c21cb7849002b53f90a16475d168492e6ac177dde157a0d28d",
     );
   });
 
@@ -107,21 +110,40 @@ describe("standard exercise library", () => {
     expect(standardLibraryPreviewTitle(STANDARD_LIBRARY_EXERCISES[0])).toBe("Bench Press (Barbell)");
   });
 
-  // FINDING: the same exercise is generated under two group slugs, so the
-  // library holds two DIFFERENT ids with the SAME display name — e.g.
-  // "Front Squat (Barbell)" exists as both std-legs-… and std-quadriceps-…
-  // (19 English names, 18 Spanish). A coach picking either one splits the
-  // client's history/PRs between twin ids (the #1111 class). Pinned here so a
-  // de-duplication is noticed; flip to `it` once the library is deduplicated.
-  it("CURRENT: 19 English display names are shared by two ids", () => {
-    expect(duplicates(STANDARD_LIBRARY_EXERCISES.map((e) => e.name.en))).toHaveLength(19);
-    const frontSquat = STANDARD_LIBRARY_EXERCISES.filter((e) => e.name.en === "Front Squat (Barbell)").map(
-      (e) => e.exerciseId,
-    );
-    expect(frontSquat).toHaveLength(2);
+  // Regression (#451): the same exercise was generated under two group slugs,
+  // so the library held two DIFFERENT ids with the SAME display name (19 English
+  // names) — a coach picking either one split the client's history/PRs between
+  // twin ids (the #1111 class). Exact twins were removed from the source (see
+  // RETIRED_STANDARD_LIBRARY_IDS); genuinely different exercises that shared a
+  // name (chest vs triceps dip; timed warm-up vs rep drill) got display names.
+  it("retired twin ids are gone from the source and point at a surviving canonical id", () => {
+    const live = new Set(ids);
+    const retired = Object.entries(RETIRED_STANDARD_LIBRARY_IDS);
+    expect(retired).toHaveLength(14);
+    for (const [gone, canonical] of retired) {
+      expect(live.has(gone)).toBe(false);
+      expect(live.has(canonical)).toBe(true);
+    }
   });
 
-  it.failing("no two standard exercises share a display name", () => {
+  it("display-name overrides keep the id derived from baseEn", () => {
+    const byId = new Map(STANDARD_LIBRARY_EXERCISES.map((e) => [e.exerciseId, e]));
+    expect(byId.get("std-chest-dip-bodyweight")?.name).toEqual({
+      en: "Chest Dip (Bodyweight)",
+      es: "Fondo para pecho (Peso corporal)",
+    });
+    expect(byId.get("std-triceps-dip-machine")?.name.en).toBe("Triceps Dip (Machine)");
+    expect(byId.get("std-warmup-high-knees-bodyweight")?.name.en).toBe("High Knees Warm-up (Bodyweight)");
+    expect(byId.get("std-cardio-high-knees-bodyweight")?.name.en).toBe("High Knees (Bodyweight)");
+    // The old base name stays searchable.
+    expect(byId.get("std-chest-dip-bodyweight")?.keywords).toEqual(expect.arrayContaining(["Dip", "Chest Dip"]));
+  });
+
+  it("no two standard exercises share a Spanish display name either", () => {
+    expect(duplicates(STANDARD_LIBRARY_EXERCISES.map((e) => e.name.es))).toEqual([]);
+  });
+
+  it("no two standard exercises share a display name", () => {
     expect(duplicates(STANDARD_LIBRARY_EXERCISES.map((e) => e.name.en))).toEqual([]);
   });
 });

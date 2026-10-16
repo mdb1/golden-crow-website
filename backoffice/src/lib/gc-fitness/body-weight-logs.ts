@@ -70,11 +70,19 @@ export async function loadBodyWeightPoints(
     Date.now() - BODY_WEIGHT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
   );
 
+  // #451: NEWEST first. With `asc` + limit the read returned the OLDEST 500
+  // logs, so a client with > 500 in total got nothing from this year once the
+  // window filter below ran. `desc` makes the bound cut the old tail instead.
+  // No `where(recordedAt >= windowStart)` on purpose: a range filter is
+  // type-bound in Firestore and would silently drop legacy ISO-string
+  // `recordedAt` docs inside the window (Timestamps and strings never compare).
+  // The window is still applied in memory. Served by the automatic single-field
+  // index on `recordedAt` — no composite index needed.
   const snap = await gcFitnessFirestore()
     .collection(FirestoreCollections.users)
     .doc(clientId)
     .collection("body_weight_logs")
-    .orderBy("recordedAt", "asc")
+    .orderBy("recordedAt", "desc")
     .limit(MAX_WEIGHT_LOGS)
     .get()
     .catch(() => null);
@@ -87,13 +95,23 @@ export async function loadBodyWeightPoints(
       if (weight === null || !date) return null;
       if (!isPlausibleWeightKg(weight)) return null;
       if (date < windowStart) return null;
-      return { date: civilDateFormat(date, timezone), weight };
+      return { date: civilDateFormat(date, timezone), weight, at: date.getTime() };
     })
-    .filter((point): point is BodyWeightPoint => point !== null);
+    .filter(
+      (point): point is BodyWeightPoint & { at: number } => point !== null,
+    );
 
-  const byDate = new Map<string, number>();
-  for (const point of points) byDate.set(point.date, point.weight);
+  // Latest `recordedAt` of a civil day wins — compared by instant, not by
+  // query order (the read is newest-first, and legacy string dates don't
+  // sort with Timestamps anyway).
+  const byDate = new Map<string, { weight: number; at: number }>();
+  for (const point of points) {
+    const prev = byDate.get(point.date);
+    if (!prev || point.at >= prev.at) {
+      byDate.set(point.date, { weight: point.weight, at: point.at });
+    }
+  }
   return Array.from(byDate.entries())
-    .map(([date, weight]) => ({ date, weight }))
+    .map(([date, { weight }]) => ({ date, weight }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }

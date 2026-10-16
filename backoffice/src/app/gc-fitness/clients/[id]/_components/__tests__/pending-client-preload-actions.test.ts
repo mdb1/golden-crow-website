@@ -27,6 +27,8 @@ jest.mock("@/lib/gc-fitness/trainer-timezone", () => ({
 
 import { revalidatePath } from "next/cache";
 
+import { habitCreateSchema } from "@/lib/gc-fitness/habit-schema";
+
 import {
   assignTemplateRecurringToPending,
   assignTemplateToPending,
@@ -179,7 +181,7 @@ describe("submitHabit", () => {
     expect(listTemplates).not.toHaveBeenCalled();
     expect(createHabit).toHaveBeenCalledWith(EMAIL, {
       type: "binary",
-      name: "Drink water",
+      name: { en: "Drink water", es: "Drink water" },
       clientId: `pending:${EMAIL}`,
       reminderEnabled: false,
       scheduleType: "recurring",
@@ -191,6 +193,17 @@ describe("submitHabit", () => {
       scheduleMonthDays: undefined,
     });
     expectRevalidated();
+  });
+
+  // Regression (#451): the free-text path sent `name` as a plain STRING, but
+  // createPendingHabit parses with habitCreateSchema, whose `name` is a strict
+  // `{ en, es }` object — so pre-loading any non-template habit for a pending
+  // client threw a ZodError every time. The payload must survive the REAL
+  // schema the delegate applies (the delegate itself is mocked here).
+  it("free-text habit payload parses with the real habitCreateSchema", async () => {
+    await submitHabit(EMAIL, form([["name", "Drink water"], ["startsOn", "2026-06-20"]]));
+    const payload = createHabit.mock.calls[0][1] as Record<string, unknown>;
+    expect(habitCreateSchema.safeParse(payload).success).toBe(true);
   });
 
   it("template habit uses the template's bilingual name; weekly keeps valid ISO weekdays", async () => {

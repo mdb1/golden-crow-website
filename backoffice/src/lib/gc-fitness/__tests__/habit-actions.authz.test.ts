@@ -257,7 +257,7 @@ describe("createPendingHabit", () => {
     });
   });
 
-  it("rejects a plain-string name (the preload form's free-text path sends one)", async () => {
+  it("rejects a plain-string name (the preload action mirrors it into { en, es } since #451)", async () => {
     await expect(
       createPendingHabit("new@example.com", { ...VALID_HABIT, name: "Drink water" }),
     ).rejects.toThrow();
