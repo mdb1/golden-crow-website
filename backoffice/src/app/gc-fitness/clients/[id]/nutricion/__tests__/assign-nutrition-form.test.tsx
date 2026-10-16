@@ -127,6 +127,31 @@ describe("AssignNutritionForm", () => {
     expect(payload.targets.kcal).toBe(2000);
   });
 
+  // BUG (#451, medium): this form has its OWN private `numberOrNull`
+  // (AssignNutritionForm.tsx:173) that does NOT accept the decimal comma, unlike
+  // its twin in library/_nutrition/macro-fields.tsx. A Spanish-keyboard coach
+  // typing "12,5" g of fat gets NaN → null: the target is silently DROPPED and
+  // the plan saves with "no fat target". The library dialog saves the same
+  // keystrokes as 12.5, so the two surfaces disagree on identical input.
+  it.failing("reads a decimal-comma macro ('12,5') as 12.5, like the library dialog", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByLabelText("Phase name"), "Definición");
+    await user.type(screen.getByLabelText("Name"), "Desayuno");
+    const daily = within(screen.getByTestId("nutrition-daily-targets"));
+    await user.type(daily.getByLabelText("Calories"), "2000");
+    await user.type(daily.getByLabelText(/^Fat/), "12,5");
+
+    await user.click(screen.getByTestId("nutrition-save"));
+
+    await waitFor(() => expect(assignNutritionPlan).toHaveBeenCalledTimes(1));
+    const payload = assignNutritionPlan.mock.calls[0]![0] as {
+      targets: Record<string, unknown>;
+    };
+    expect(payload.targets.fatG).toBe(12.5);
+  });
+
   it("shows the overlap warning the save is about to apply", async () => {
     previewNutritionAssign.mockResolvedValue([
       { planId: "plan-a", planName: "Mantenimiento", kind: "trim", date: "2026-08-31" },
