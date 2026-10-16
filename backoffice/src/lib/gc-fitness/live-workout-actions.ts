@@ -713,6 +713,21 @@ export async function finalizeWorkoutSession(
     return { logId: parsed.logId, futureUpdated: 0 };
   }
 
+  // Same check as cancelWorkoutSession, BEFORE any write: the log's
+  // `assignment_id` is trusted to name an assignment we're about to mark
+  // completed (and propagate into), so it must be the caller's. A missing
+  // assignment stays tolerated (deleted mid-session — the log is the source
+  // of truth; the update below swallows that).
+  if (assignmentId) {
+    const assignmentSnap = await db.collection(ASSIGNMENTS).doc(assignmentId).get();
+    if (
+      assignmentSnap.exists &&
+      (assignmentSnap.data() as Record<string, unknown>).trainerId !== trainer.uid
+    ) {
+      throw new Error("Not your assignment.");
+    }
+  }
+
   // #1197/#1307 — bodyweight exercises carry a FRACTION of the client's body
   // weight into volume (stamped as bodyweight_kg + bodyweight_factor),
   // exactly like the iOS / Android finalize. Best effort: a failed read
