@@ -1994,14 +1994,17 @@ describe("support services workbenches", () => {
       .getByRole("heading", { name: "Clinical preparation" })
       .closest("[data-service-category-group-header]");
     expect(categoryGroupHeader).toBeTruthy();
-    expect(categoryGroupHeader?.className).toContain("bg-slate-950");
+    expect(categoryGroupHeader?.className).toContain("bg-slate-200");
+    expect(categoryGroupHeader?.className).toContain("dark:bg-slate-300");
+    expect(categoryGroupHeader?.className).toContain("text-black");
+    expect(categoryGroupHeader?.className).not.toMatch(/bg-(?:black|slate-950)/);
     expect(categoryGroupHeader?.className).not.toMatch(/violet/);
     expect(
       within(modal).getByRole("heading", { name: "Clinical preparation" })
         .className,
-    ).toContain("text-white");
+    ).toContain("text-black");
     expect(categoryGroupHeader?.querySelector("p")?.className).toContain(
-      "text-slate-300",
+      "text-slate-800",
     );
     const selectedCategoryDescription = within(modal).getByText(
       selectedDescription,

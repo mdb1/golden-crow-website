@@ -7183,25 +7183,25 @@ function ServiceCategoryPicker({
                       >
                         <div
                           data-service-category-group-header
-                          className="border-b border-slate-700 bg-slate-950 px-5 py-5 text-slate-200 shadow-[inset_4px_0_0_#64748b] dark:border-slate-700 dark:bg-black dark:shadow-[inset_4px_0_0_#94a3b8]"
+                          className="border-b border-slate-300 bg-slate-200 px-5 py-5 text-black shadow-[inset_4px_0_0_#64748b] dark:border-slate-400 dark:bg-slate-300 dark:text-black dark:shadow-[inset_4px_0_0_#64748b]"
                         >
                           <div className="flex items-start gap-4">
-                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-100 shadow-md shadow-black/20 ring-4 ring-slate-700/80 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700/70">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-300 text-black shadow-md shadow-slate-500/20 ring-4 ring-white/70 dark:bg-slate-200 dark:text-black dark:ring-slate-400/60">
                               <GroupIcon className="h-5 w-5" />
                             </span>
                             <div className="min-w-0 flex-1">
-                              <h3 className="text-[17px] font-bold leading-6 text-white">
+                              <h3 className="text-[17px] font-bold leading-6 text-black">
                                 {language === "es"
                                   ? group.nameSpanish
                                   : group.nameEnglish}
                               </h3>
-                              <p className="mt-1 text-sm leading-6 text-slate-300 [overflow-wrap:anywhere]">
+                              <p className="mt-1 text-sm leading-6 text-slate-800 [overflow-wrap:anywhere]">
                                 {language === "es"
                                   ? group.descriptionSpanish
                                   : group.descriptionEnglish}
                               </p>
                             </div>
-                            <span className="shrink-0 rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-xs font-bold text-slate-200 shadow-sm">
+                            <span className="shrink-0 rounded-full border border-slate-400 bg-slate-100 px-3 py-1 text-xs font-bold text-black shadow-sm">
                               {group.categories.length} {t("Options").toLowerCase()}
                             </span>
                           </div>
