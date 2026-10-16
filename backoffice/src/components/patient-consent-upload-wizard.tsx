@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRight,
   Check,
   CheckCircle2,
   Download,
@@ -67,18 +68,103 @@ const MAX_CONSENT_BYTES = 750_000;
 const SIGNATURE_CANVAS_WIDTH = 720;
 const SIGNATURE_CANVAS_HEIGHT = 240;
 
-const PATIENT_STEPS = [
-  { title: "Descargar", icon: Download },
-  { title: "Datos", icon: UserRound },
-  { title: "Firmar", icon: PenLine },
-  { title: "Aplicar firma", icon: FilePenLine },
-  { title: "Vista previa", icon: CheckCircle2 },
-] as const;
+type ConsentFlowMode = "guided" | "direct";
 
-const BACKOFFICE_STEPS = [
-  { title: "Destino", icon: Link2 },
-  ...PATIENT_STEPS,
-] as const;
+type ConsentStepId =
+  | "method"
+  | "destination"
+  | "download"
+  | "data"
+  | "signature"
+  | "editor"
+  | "preview"
+  | "direct-upload";
+
+type ConsentWizardStep = {
+  id: ConsentStepId;
+  title: string;
+  description: string;
+  icon: typeof Download;
+};
+
+const CONSENT_STEPS: Record<ConsentStepId, ConsentWizardStep> = {
+  method: {
+    id: "method",
+    title: "Elegir cómo continuar",
+    description:
+      "Firme el consentimiento paso a paso o cargue un archivo que ya esté firmado.",
+    icon: FilePenLine,
+  },
+  destination: {
+    id: "destination",
+    title: "Seleccionar paciente y caso 2PQ",
+    description:
+      "Elija a quién pertenece el consentimiento y el caso 2PQ que debe quedar vinculado.",
+    icon: Link2,
+  },
+  download: {
+    id: "download",
+    title: "Descargar consentimiento",
+    description:
+      "Descargue el documento para leerlo o conservar una copia antes de firmarlo en línea.",
+    icon: Download,
+  },
+  data: {
+    id: "data",
+    title: "Datos de quienes firman",
+    description:
+      "Confirme los datos del paciente e indique si su pareja también firmará el consentimiento.",
+    icon: UserRound,
+  },
+  signature: {
+    id: "signature",
+    title: "Dibujar o importar firmas",
+    description:
+      "Dibuje cada firma o importe una imagen y convierta su fondo blanco en transparente.",
+    icon: PenLine,
+  },
+  editor: {
+    id: "editor",
+    title: "Aplicar firmas al PDF",
+    description:
+      "Seleccione una firma y arrástrela directamente hasta su ubicación en la última página. Las firmas nunca se aplican en la primera ni en páginas intermedias.",
+    icon: FilePenLine,
+  },
+  preview: {
+    id: "preview",
+    title: "Revisar y subir",
+    description:
+      "Revise el consentimiento completo antes de descargarlo o guardarlo definitivamente.",
+    icon: CheckCircle2,
+  },
+  "direct-upload": {
+    id: "direct-upload",
+    title: "Cargar consentimiento firmado",
+    description:
+      "Seleccione el PDF o la imagen final del consentimiento que ya fue firmado.",
+    icon: FileUp,
+  },
+};
+
+function consentSteps(
+  isBackoffice: boolean,
+  mode: ConsentFlowMode | null,
+): ConsentWizardStep[] {
+  if (!mode) return [CONSENT_STEPS.method];
+
+  const destination = isBackoffice ? [CONSENT_STEPS.destination] : [];
+  return mode === "guided"
+    ? [
+        CONSENT_STEPS.method,
+        ...destination,
+        CONSENT_STEPS.download,
+        CONSENT_STEPS.data,
+        CONSENT_STEPS.signature,
+        CONSENT_STEPS.editor,
+        CONSENT_STEPS.preview,
+      ]
+    : [CONSENT_STEPS.method, ...destination, CONSENT_STEPS["direct-upload"]];
+}
 
 const INITIAL_PATIENT_PLACEMENT: ConsentSignaturePlacement = {
   x: 0.72,
@@ -445,61 +531,68 @@ function SignaturePagePreview({
   );
 }
 
-function StepNavigation({
+function ConsentWizardSidebar({
   steps,
-  activeStep,
-  furthestStep,
-  onSelect,
+  activeStepId,
 }: {
-  steps: ReadonlyArray<{
-    title: string;
-    icon: typeof Download;
-  }>;
-  activeStep: number;
-  furthestStep: number;
-  onSelect: (step: number) => void;
+  steps: ConsentWizardStep[];
+  activeStepId: ConsentStepId;
 }) {
+  const activeStepIndex = Math.max(
+    0,
+    steps.findIndex((step) => step.id === activeStepId),
+  );
+
   return (
-    <ol
-      className={cn(
-        "grid gap-2 sm:grid-cols-2",
-        steps.length === 6 ? "xl:grid-cols-6" : "xl:grid-cols-5",
-      )}
+    <aside
+      data-testid="consent-wizard-sidebar"
+      className="overflow-hidden rounded-lg border border-violet-200/80 bg-violet-950 text-white shadow-[0_24px_70px_-48px_rgba(76,29,149,0.8)] lg:sticky lg:top-6"
     >
-      {steps.map((step, index) => {
-        const Icon = step.icon;
-        const active = index === activeStep;
-        const complete = index < activeStep || index < furthestStep;
-        return (
-          <li key={step.title}>
-            <button
-              type="button"
+      <div className="border-b border-white/10 px-5 py-6">
+        <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-white/12 text-violet-100">
+          <FilePenLine className="size-5" />
+        </div>
+        <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-violet-200">
+          Consentimiento informado
+        </p>
+        <h2 className="mt-2 font-heading text-2xl font-semibold leading-tight">
+          Subir consentimiento
+        </h2>
+      </div>
+      <ol className="hidden gap-1 p-3 lg:grid">
+        {steps.map((step, index) => {
+          const Icon = step.icon;
+          const active = step.id === activeStepId;
+          const complete = index < activeStepIndex;
+          return (
+            <li
+              key={step.id}
+              aria-current={active ? "step" : undefined}
+              data-step-id={step.id}
               className={cn(
-                "flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : complete
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
-                    : "border-border bg-background text-muted-foreground",
+                "flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                active && "bg-white text-violet-950 shadow-sm",
+                !active && "text-violet-100/76",
               )}
-              disabled={index > furthestStep}
-              onClick={() => onSelect(index)}
             >
               <span
                 className={cn(
-                  "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
-                  active ? "border-primary-foreground/70" : "border-current/30",
+                  "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold",
+                  active && "border-violet-200 bg-violet-100 text-violet-800",
+                  complete &&
+                    "border-emerald-300/40 bg-emerald-400/18 text-emerald-100",
+                  !active && !complete && "border-white/18 bg-white/5",
                 )}
               >
-                {complete ? <Check className="size-4" /> : index + 1}
+                {complete ? <Check className="size-3.5" /> : index + 1}
               </span>
-              <Icon className="size-4" />
-              <span className="text-sm font-semibold">{step.title}</span>
-            </button>
-          </li>
-        );
-      })}
-    </ol>
+              <Icon className="size-4 shrink-0" />
+              <span className="min-w-0 leading-5">{step.title}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </aside>
   );
 }
 
@@ -521,17 +614,17 @@ export function PatientConsentUploadWizard({
   const router = useRouter();
   const casesRequestRef = useRef(0);
   const isBackoffice = surface === "backoffice";
-  const steps = isBackoffice ? BACKOFFICE_STEPS : PATIENT_STEPS;
-  const stepOffset = isBackoffice ? 1 : 0;
-  const destinationStep = 0;
-  const downloadStep = stepOffset;
-  const dataStep = stepOffset + 1;
-  const signatureStep = stepOffset + 2;
-  const editorStep = stepOffset + 3;
-  const previewStep = stepOffset + 4;
-  const [mode, setMode] = useState<"guided" | "direct">("guided");
-  const [activeStep, setActiveStep] = useState(0);
-  const [furthestStep, setFurthestStep] = useState(0);
+  const [mode, setMode] = useState<ConsentFlowMode | null>(null);
+  const [activeStepId, setActiveStepId] =
+    useState<ConsentStepId>("method");
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const previousActiveStepIdRef = useRef<ConsentStepId>(activeStepId);
+  const steps = consentSteps(isBackoffice, mode);
+  const activeStepIndex = Math.max(
+    0,
+    steps.findIndex((step) => step.id === activeStepId),
+  );
+  const activeStep = steps[activeStepIndex] ?? CONSENT_STEPS.method;
   const [patients, setPatients] = useState(initialPatientPage?.patients ?? []);
   const [patientCursor, setPatientCursor] = useState(
     initialPatientPage?.nextCursor,
@@ -571,15 +664,34 @@ export function PatientConsentUploadWizard({
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const formattedSignatureDate = formatSignatureDate(signatureDate);
 
-  function goToStep(step: number) {
-    const nextStep = clamp(step, 0, steps.length - 1);
-    setActiveStep(nextStep);
-    setFurthestStep((current) => Math.max(current, nextStep));
+  useEffect(() => {
+    if (previousActiveStepIdRef.current === activeStepId) return;
+    previousActiveStepIdRef.current = activeStepId;
+    stepHeadingRef.current?.focus();
+  }, [activeStepId]);
+
+  function goToStep(stepId: ConsentStepId) {
+    setActiveStepId(stepId);
   }
 
-  function invalidateAfter(step: number) {
+  function invalidateAfter() {
     setSignedFile(null);
-    setFurthestStep((current) => Math.min(current, step));
+  }
+
+  function selectMode(nextMode: ConsentFlowMode) {
+    setMode(nextMode);
+    setActiveStepId(
+      isBackoffice
+        ? "destination"
+        : nextMode === "guided"
+          ? "download"
+          : "direct-upload",
+    );
+  }
+
+  function returnToPreviousStep() {
+    const previousStep = steps[activeStepIndex - 1];
+    if (previousStep) setActiveStepId(previousStep.id);
   }
 
   function updatePlacement(
@@ -591,7 +703,7 @@ export function PatientConsentUploadWizard({
     } else {
       setPartnerPlacement(nextPlacement);
     }
-    invalidateAfter(editorStep);
+    invalidateAfter();
   }
 
   function validateNames() {
@@ -629,7 +741,7 @@ export function PatientConsentUploadWizard({
   }
 
   function continueFromNames() {
-    if (validateNames()) goToStep(signatureStep);
+    if (validateNames()) goToStep("signature");
   }
 
   const previewSignatures: PreviewSignature[] = patientSignatureDataUrl
@@ -693,7 +805,7 @@ export function PatientConsentUploadWizard({
         size: bytes.byteLength,
         content: bytesToPdfDataUrl(bytes),
       });
-      goToStep(previewStep);
+      goToStep("preview");
     } catch (error) {
       setToast({
         id: Date.now(),
@@ -811,7 +923,7 @@ export function PatientConsentUploadWizard({
     setCaseId("");
     setCases([]);
     setCaseCursor(undefined);
-    invalidateAfter(destinationStep);
+    invalidateAfter();
     void loadCasesForPatient(nextPatientId);
   }
 
@@ -824,25 +936,15 @@ export function PatientConsentUploadWizard({
       });
       return;
     }
-    goToStep(downloadStep);
+    goToStep(mode === "direct" ? "direct-upload" : "download");
   }
 
   const selectedCase = cases.find((candidate) => candidate.id === caseId);
   const destinationComplete = Boolean(patientId && caseId);
 
-  function renderDestinationFields(showContinue: boolean) {
+  function renderDestinationFields() {
     return (
       <div className="max-w-3xl space-y-5">
-        <div>
-          <h3 className="font-heading text-lg font-semibold">
-            Seleccionar paciente y caso 2PQ
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            El consentimiento se guardará para el paciente elegido y quedará
-            vinculado al caso seleccionado.
-          </p>
-        </div>
-
         <div className="space-y-2">
           <Label htmlFor="consent-owner-patient">Paciente</Label>
           <Select value={patientId} onValueChange={selectPatient}>
@@ -880,7 +982,7 @@ export function PatientConsentUploadWizard({
             disabled={!patientId || loadingCases}
             onValueChange={(nextCaseId) => {
               setCaseId(nextCaseId);
-              invalidateAfter(destinationStep);
+              invalidateAfter();
             }}
           >
             <SelectTrigger id="consent-owner-case" className="w-full">
@@ -939,148 +1041,134 @@ export function PatientConsentUploadWizard({
           </div>
         ) : null}
 
-        {showContinue ? (
-          <Button
-            type="button"
-            disabled={!destinationComplete || loadingCases}
-            onClick={continueFromDestination}
-          >
-            Continuar con el consentimiento
-          </Button>
-        ) : null}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" size="sm" asChild>
-        <Link
-          href={
-            isBackoffice
-              ? "/2pq-dashboard/consents"
-              : "/patient-portal/consents"
-          }
-        >
-          <ArrowLeft className="size-4" />
-          Volver a consentimientos
-        </Link>
-      </Button>
+    <>
+      <div className="grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] xl:gap-8">
+        <ConsentWizardSidebar steps={steps} activeStepId={activeStepId} />
 
-      <section className="glass-panel space-y-5 px-5 py-5 sm:px-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="font-heading text-xl font-semibold">
-            Subir consentimiento
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant={mode === "guided" ? "default" : "outline"}
-              onClick={() => setMode("guided")}
-            >
-              <PenLine className="size-4" />
-              Firmar en línea
-            </Button>
-            <Button
-              type="button"
-              variant={mode === "direct" ? "default" : "outline"}
-              onClick={() => setMode("direct")}
-            >
-              <FileUp className="size-4" />
-              Cargar archivo firmado
-            </Button>
-          </div>
-        </div>
-
-        {mode === "direct" ? (
-          <div className="max-w-3xl space-y-4 border-t border-border/70 pt-5">
-            {isBackoffice ? renderDestinationFields(false) : null}
-            <SingleFileUpload
-              id={`${surface}-direct-consent-file`}
-              label="Consentimiento firmado"
-              value={directFile}
-              onChange={(file) => {
-                setDirectFile(file);
-                setDirectFileError("");
+        <div className="min-w-0">
+          <header className="mb-6 border-b border-violet-100 pb-6 dark:border-violet-400/16">
+            <div
+              className="grid gap-1.5"
+              style={{
+                gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
               }}
-              onError={setDirectFileError}
-              error={directFileError}
-              uploadLabel="Elegir archivo"
-              removeLabel="Quitar archivo"
-              emptyLabel="Sin archivo seleccionado"
-              invalidTypeMessage="Seleccione un PDF o una imagen compatible."
-              tooLargeMessage="El archivo seleccionado supera los 750 KB."
-              readErrorMessage="No se pudo leer el archivo seleccionado."
-              helperText="PDF o imagen, máximo 750 KB."
-            />
-            <Button
-              type="button"
-              className="bg-emerald-600 text-white hover:bg-emerald-700"
-              disabled={
-                !directFile ||
-                saving ||
-                (isBackoffice && !destinationComplete)
-              }
-              onClick={() => void uploadConsent(directFile)}
+              aria-label="Progreso de carga del consentimiento"
             >
-              {saving ? (
-                <Loader2 className="size-4 animate-spin" />
+              {mode ? (
+                steps.map((step, index) => (
+                  <span
+                    key={step.id}
+                    className={cn(
+                      "h-1.5 rounded-full transition-colors",
+                      index <= activeStepIndex
+                        ? "bg-violet-600"
+                        : "bg-violet-100 dark:bg-violet-400/16",
+                    )}
+                  />
+                ))
               ) : (
-                <Upload className="size-4" />
+                <span className="h-1.5 rounded-full bg-violet-200 dark:bg-violet-400/24" />
               )}
-              Subir consentimiento
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-6 border-t border-border/70 pt-5">
-            <StepNavigation
-              steps={steps}
-              activeStep={activeStep}
-              furthestStep={furthestStep}
-              onSelect={goToStep}
-            />
+            </div>
+            <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-200">
+              {mode
+                ? `Paso ${activeStepIndex + 1} de ${steps.length}`
+                : "Paso 1 · Elegir recorrido"}
+            </p>
+            <h1
+              ref={stepHeadingRef}
+              tabIndex={-1}
+              className="mt-2 scroll-mt-6 font-heading text-3xl font-semibold text-foreground outline-none"
+            >
+              {activeStep.title}
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+              {activeStep.description}
+            </p>
+          </header>
 
-            {isBackoffice && activeStep === destinationStep
-              ? renderDestinationFields(true)
-              : null}
+          <div data-step-id={activeStepId} className="min-h-[34rem]">
+            {activeStepId === "method" ? (
+              <div className="grid max-w-4xl gap-5 md:grid-cols-2">
+                <button
+                  type="button"
+                  aria-label="Firmar en línea"
+                  className={cn(
+                    "group flex min-h-64 flex-col items-start rounded-xl border bg-white/78 p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-[0_24px_60px_-40px_rgba(109,40,217,0.7)] dark:bg-slate-950/42",
+                    mode === "guided"
+                      ? "border-violet-500 ring-2 ring-violet-500/20"
+                      : "border-violet-100 dark:border-violet-400/16",
+                  )}
+                  onClick={() => selectMode("guided")}
+                >
+                  <span className="flex size-12 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-400/14 dark:text-violet-100">
+                    <PenLine className="size-6" />
+                  </span>
+                  <span className="mt-6 font-heading text-xl font-semibold text-foreground">
+                    Firmar en línea
+                  </span>
+                  <span className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Complete los datos, dibuje o importe las firmas y ubíquelas
+                    sobre el consentimiento desde este flujo.
+                  </span>
+                  <span className="mt-auto flex items-center gap-2 pt-6 text-sm font-semibold text-violet-700 dark:text-violet-200">
+                    Comenzar firma guiada
+                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                  </span>
+                </button>
 
-            {activeStep === downloadStep ? (
-              <div className="max-w-3xl space-y-5">
-                <div className="rounded-xl border border-border/70 bg-background/60 p-5">
-                  <h3 className="font-heading text-lg font-semibold">
-                    Descargar el consentimiento 2PQ
-                  </h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Descargue el documento para leerlo o conservar una copia.
-                    Luego podrá firmarlo directamente en esta pantalla.
-                  </p>
-                  <Button className="mt-4" variant="outline" asChild>
-                    <a
-                      href={CONSENT_TEMPLATE_URL}
-                      download="consentimiento-informado-2pq.pdf"
-                    >
-                      <Download className="size-4" />
-                      Descargar consentimiento-informado-2pq.pdf
-                    </a>
-                  </Button>
-                </div>
-                <Button type="button" onClick={() => goToStep(dataStep)}>
-                  Continuar con los datos
+                <button
+                  type="button"
+                  aria-label="Cargar archivo firmado"
+                  className={cn(
+                    "group flex min-h-64 flex-col items-start rounded-xl border bg-white/78 p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-[0_24px_60px_-40px_rgba(109,40,217,0.7)] dark:bg-slate-950/42",
+                    mode === "direct"
+                      ? "border-violet-500 ring-2 ring-violet-500/20"
+                      : "border-violet-100 dark:border-violet-400/16",
+                  )}
+                  onClick={() => selectMode("direct")}
+                >
+                  <span className="flex size-12 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-400/14 dark:text-violet-100">
+                    <FileUp className="size-6" />
+                  </span>
+                  <span className="mt-6 font-heading text-xl font-semibold text-foreground">
+                    Cargar archivo firmado
+                  </span>
+                  <span className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Use esta opción si ya tiene el consentimiento completo y
+                    firmado en un PDF o una imagen.
+                  </span>
+                  <span className="mt-auto flex items-center gap-2 pt-6 text-sm font-semibold text-violet-700 dark:text-violet-200">
+                    Ir a la carga directa
+                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                  </span>
+                </button>
+              </div>
+            ) : null}
+
+            {activeStepId === "destination" ? renderDestinationFields() : null}
+
+            {activeStepId === "download" ? (
+              <div className="max-w-3xl rounded-xl border border-violet-100 bg-white/78 p-6 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                <Button variant="outline" asChild>
+                  <a
+                    href={CONSENT_TEMPLATE_URL}
+                    download="consentimiento-informado-2pq.pdf"
+                  >
+                    <Download className="size-4" />
+                    Descargar consentimiento-informado-2pq.pdf
+                  </a>
                 </Button>
               </div>
             ) : null}
 
-            {activeStep === dataStep ? (
+            {activeStepId === "data" ? (
               <div className="max-w-3xl space-y-5">
-                <div>
-                  <h3 className="font-heading text-lg font-semibold">
-                    Datos de quienes firman
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Confirme el nombre y documento del paciente e indique si
-                    su pareja también firmará el consentimiento.
-                  </p>
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="consent-patient-name">
                     Nombre y apellido del paciente
@@ -1096,7 +1184,7 @@ export function PatientConsentUploadWizard({
                     onChange={(event) => {
                       setPatientName(event.target.value);
                       setPatientNameError("");
-                      invalidateAfter(dataStep);
+                      invalidateAfter();
                     }}
                   />
                   {patientNameError ? (
@@ -1128,7 +1216,7 @@ export function PatientConsentUploadWizard({
                     onChange={(event) => {
                       setPatientDocument(event.target.value);
                       setPatientDocumentError("");
-                      invalidateAfter(dataStep);
+                      invalidateAfter();
                     }}
                   />
                   {patientDocumentError ? (
@@ -1159,7 +1247,7 @@ export function PatientConsentUploadWizard({
                     onChange={(event) => {
                       setSignatureDate(event.target.value);
                       setSignatureDateError("");
-                      invalidateAfter(dataStep);
+                      invalidateAfter();
                     }}
                   />
                   {signatureDateError ? (
@@ -1182,7 +1270,7 @@ export function PatientConsentUploadWizard({
                         setHasPartner(nextHasPartner);
                         setPartnerNameError("");
                         if (!nextHasPartner) setSelectedRole("patient");
-                        invalidateAfter(dataStep);
+                        invalidateAfter();
                       }}
                     />
                     <Label
@@ -1211,7 +1299,7 @@ export function PatientConsentUploadWizard({
                         onChange={(event) => {
                           setPartnerName(event.target.value);
                           setPartnerNameError("");
-                          invalidateAfter(dataStep);
+                          invalidateAfter();
                         }}
                       />
                       {partnerNameError ? (
@@ -1226,35 +1314,11 @@ export function PatientConsentUploadWizard({
                   ) : null}
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => goToStep(downloadStep)}
-                  >
-                    <ArrowLeft className="size-4" />
-                    Volver a descargar
-                  </Button>
-                  <Button type="button" onClick={continueFromNames}>
-                    Continuar para firmar
-                  </Button>
-                </div>
               </div>
             ) : null}
 
-            {activeStep === signatureStep ? (
+            {activeStepId === "signature" ? (
               <div className="max-w-4xl space-y-5">
-                <div>
-                  <h3 className="font-heading text-lg font-semibold">
-                    Dibujar o importar firmas
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Dibuje cada firma en su propio recuadro o importe una foto.
-                    Al importar, podrá convertir el fondo blanco en
-                    transparencia antes de continuar.
-                  </p>
-                </div>
-
                 <div className={cn("grid gap-5", hasPartner && "lg:grid-cols-2")}>
                   <section className="space-y-3 rounded-xl border border-border/70 bg-background/60 p-4">
                     <div>
@@ -1274,7 +1338,7 @@ export function PatientConsentUploadWizard({
                       value={patientSignatureDataUrl}
                       onChange={(value) => {
                         setPatientSignatureDataUrl(value);
-                        invalidateAfter(signatureStep);
+                        invalidateAfter();
                       }}
                     />
                   </section>
@@ -1295,45 +1359,18 @@ export function PatientConsentUploadWizard({
                         value={partnerSignatureDataUrl}
                         onChange={(value) => {
                           setPartnerSignatureDataUrl(value);
-                          invalidateAfter(signatureStep);
+                          invalidateAfter();
                         }}
                       />
                     </section>
                   ) : null}
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => goToStep(dataStep)}
-                  >
-                    <ArrowLeft className="size-4" />
-                    Volver a datos
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={!signaturesComplete}
-                    onClick={() => goToStep(editorStep)}
-                  >
-                    Continuar al editor
-                  </Button>
-                </div>
               </div>
             ) : null}
 
-            {activeStep === editorStep && signaturesComplete ? (
+            {activeStepId === "editor" && signaturesComplete ? (
               <div className="space-y-5">
-                <div>
-                  <h3 className="font-heading text-lg font-semibold">
-                    Aplicar firmas al PDF
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Seleccione una firma y arrástrela directamente hasta su
-                    ubicación en la última página. Las firmas nunca se aplican
-                    en la primera ni en páginas intermedias.
-                  </p>
-                </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -1366,42 +1403,11 @@ export function PatientConsentUploadWizard({
                   onPlacementChange={updatePlacement}
                   onSelectRole={setSelectedRole}
                 />
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => goToStep(signatureStep)}
-                  >
-                    <ArrowLeft className="size-4" />
-                    Volver a firmar
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={preparing}
-                    onClick={() => void prepareSignedConsent()}
-                  >
-                    {preparing ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <FilePenLine className="size-4" />
-                    )}
-                    Aplicar firmas y continuar
-                  </Button>
-                </div>
               </div>
             ) : null}
 
-            {activeStep === previewStep && signaturesComplete && signedFile ? (
+            {activeStepId === "preview" && signaturesComplete && signedFile ? (
               <div className="space-y-5">
-                <div>
-                  <h3 className="font-heading text-lg font-semibold">
-                    Vista previa completa
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Revise el documento completo. Los nombres y las firmas se
-                    aplican únicamente en la última página.
-                  </p>
-                </div>
                 <div className="grid gap-6 xl:grid-cols-2">
                   {CONSENT_TEMPLATE_PREVIEW_URLS.map((_, pageIndex) => (
                     <div key={pageIndex} className="space-y-2">
@@ -1415,26 +1421,157 @@ export function PatientConsentUploadWizard({
                     </div>
                   ))}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => goToStep(editorStep)}
+              </div>
+            ) : null}
+
+            {activeStepId === "direct-upload" ? (
+              <div className="max-w-3xl">
+                <SingleFileUpload
+                  id={`${surface}-direct-consent-file`}
+                  label="Consentimiento firmado"
+                  value={directFile}
+                  onChange={(file) => {
+                    setDirectFile(file);
+                    setDirectFileError("");
+                  }}
+                  onError={setDirectFileError}
+                  error={directFileError}
+                  uploadLabel="Elegir archivo"
+                  removeLabel="Quitar archivo"
+                  emptyLabel="Sin archivo seleccionado"
+                  invalidTypeMessage="Seleccione un PDF o una imagen compatible."
+                  tooLargeMessage="El archivo seleccionado supera los 750 KB."
+                  readErrorMessage="No se pudo leer el archivo seleccionado."
+                  helperText="PDF o imagen, máximo 750 KB."
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <div className="sticky bottom-0 z-20 mt-6 border-t border-violet-100 bg-background/94 py-4 backdrop-blur dark:border-violet-400/16">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {activeStepId === "method" ? (
+                <Button variant="outline" asChild>
+                  <Link
+                    href={
+                      isBackoffice
+                        ? "/2pq-dashboard/consents"
+                        : "/patient-portal/consents"
+                    }
                   >
                     <ArrowLeft className="size-4" />
-                    Volver al editor
+                    Volver a consentimientos
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={returnToPreviousStep}
+                >
+                  <ArrowLeft className="size-4" />
+                  Volver
+                </Button>
+              )}
+
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                {activeStepId === "destination" ? (
+                  <Button
+                    type="button"
+                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                    disabled={!destinationComplete || loadingCases}
+                    onClick={continueFromDestination}
+                  >
+                    Continuar
+                    <ArrowRight className="size-4" />
                   </Button>
-                  <Button variant="outline" asChild>
-                    <a href={signedFile.content} download={signedFile.name}>
-                      <Download className="size-4" />
-                      Descargar PDF firmado
-                    </a>
+                ) : null}
+
+                {activeStepId === "download" ? (
+                  <Button
+                    type="button"
+                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                    onClick={() => goToStep("data")}
+                  >
+                    Continuar con los datos
+                    <ArrowRight className="size-4" />
                   </Button>
+                ) : null}
+
+                {activeStepId === "data" ? (
+                  <Button
+                    type="button"
+                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                    onClick={continueFromNames}
+                  >
+                    Continuar para firmar
+                    <ArrowRight className="size-4" />
+                  </Button>
+                ) : null}
+
+                {activeStepId === "signature" ? (
+                  <Button
+                    type="button"
+                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                    disabled={!signaturesComplete}
+                    onClick={() => goToStep("editor")}
+                  >
+                    Continuar al editor
+                    <ArrowRight className="size-4" />
+                  </Button>
+                ) : null}
+
+                {activeStepId === "editor" ? (
+                  <Button
+                    type="button"
+                    className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+                    disabled={preparing || !signaturesComplete}
+                    onClick={() => void prepareSignedConsent()}
+                  >
+                    {preparing ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <FilePenLine className="size-4" />
+                    )}
+                    Aplicar firmas y continuar
+                    <ArrowRight className="size-4" />
+                  </Button>
+                ) : null}
+
+                {activeStepId === "preview" && signedFile ? (
+                  <>
+                    <Button variant="outline" asChild>
+                      <a href={signedFile.content} download={signedFile.name}>
+                        <Download className="size-4" />
+                        Descargar PDF firmado
+                      </a>
+                    </Button>
+                    <Button
+                      type="button"
+                      className="bg-emerald-600 text-white hover:bg-emerald-700"
+                      disabled={saving}
+                      onClick={() => void uploadConsent(signedFile)}
+                    >
+                      {saving ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Upload className="size-4" />
+                      )}
+                      Subir consentimiento
+                    </Button>
+                  </>
+                ) : null}
+
+                {activeStepId === "direct-upload" ? (
                   <Button
                     type="button"
                     className="bg-emerald-600 text-white hover:bg-emerald-700"
-                    disabled={saving}
-                    onClick={() => void uploadConsent(signedFile)}
+                    disabled={
+                      !directFile ||
+                      saving ||
+                      (isBackoffice && !destinationComplete)
+                    }
+                    onClick={() => void uploadConsent(directFile)}
                   >
                     {saving ? (
                       <Loader2 className="size-4 animate-spin" />
@@ -1443,18 +1580,18 @@ export function PatientConsentUploadWizard({
                     )}
                     Subir consentimiento
                   </Button>
-                </div>
+                ) : null}
               </div>
-            ) : null}
+            </div>
           </div>
-        )}
-      </section>
+        </div>
+      </div>
 
       <ActionToast
         toast={toast}
         onDismiss={() => setToast(null)}
         language="es"
       />
-    </div>
+    </>
   );
 }
