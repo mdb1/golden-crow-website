@@ -25,7 +25,20 @@ module.exports = {
         module: { type: "commonjs" },
       },
     ],
+    "/node_modules/@fastify/cookie/.+\\.js$": [
+      "@swc/jest",
+      {
+        jsc: { parser: { syntax: "ecmascript" }, target: "es2022" },
+        module: { type: "commonjs" },
+      },
+    ],
   },
+  // @fastify/cookie loads `cookie` with a dynamic `import()` at register time,
+  // which Jest's CommonJS VM refuses without --experimental-vm-modules. Run
+  // that package (and the ESM-only `cookie` it nests) through SWC (CommonJS)
+  // so the import() becomes a require() — this is what lets tests boot the
+  // whole app via buildServer().
+  transformIgnorePatterns: ["^(?!.*/node_modules/@fastify/cookie/).*/node_modules/"],
   // Allow `import { ... } from "../config/firebase.js"` in source code
   // to resolve to the .ts file under CommonJS. This strips
   // the trailing `.js` extension off relative imports.
