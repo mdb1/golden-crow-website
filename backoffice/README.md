@@ -63,12 +63,32 @@ Firebase credentials. Every test either exercises a pure module or mounts a
 component with React Testing Library, and everything that would touch Firebase
 is mocked at the module boundary.
 
-### This suite is the only gate before production
+### Vercel runs this suite — a red test cannot reach production (#451)
 
-**The backoffice auto-deploys `main` on push, and CI is switched off for cost.**
-There is no pipeline that will catch a red test after the fact — `npx jest`
-green locally is literally the last thing between a merge and the trainers
-using it. Run the whole suite (not just your file) before pushing.
+**`npm run build` is the gate**, because it is the one thing that runs on every
+deploy without anyone remembering to: Vercel runs it for every preview (every
+PR, Dependabot's included) and for `main`, and a failing build never replaces
+the running deploy. CI stays off by design. The build is:
+
+1. `scripts/check-server-deps.mjs` — server packages load without require(esm).
+2. `next build` — includes the type check and the `"use server"` rules Jest can't see.
+3. `scripts/smoke-start.mjs` — `next start` **with require(esm) off (the Vercel
+   runtime mode)**, then the requests of a sign-in on both surfaces: Pocket
+   Genes `/login`, NextAuth, dashboard/portal redirects; Corvo `/gc-fitness/login`,
+   `/api/gc-fitness/login` with a bad token → 403 (firebase-admin loaded),
+   dashboard redirect; the Open API upload without a token → 401; and no
+   `ERR_REQUIRE_ESM` in the log. Proven against the 2026-10-15 outage: with
+   firebase-admin 14 installed it fails 3 checks. ~1 s, needs `.env.local`.
+4. `jest --ci` — this whole suite.
+
+`npm run build:app` is steps 1–2 alone (what `check-deploy-skew.sh` needs);
+`npm run smoke` is step 3 against an existing build.
+
+Consequences: a test that only fails on some days or some machines blocks
+every deploy, so a flaky test is a production incident — fix it, don't retry
+it. Fixtures must not depend on today's date: on 2026-10-16 the CRM suites'
+fixed quota timestamps expired at 07:00Z and turned 72 tests red with no code
+change; pin `Date` (see `partnership-crm-workbench.test.tsx`) instead.
 
 The gate is wider than this package: `firestore.rules` and several algorithms
 are shared with the iOS and Android apps, so a change here can break them and
