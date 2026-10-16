@@ -41,6 +41,7 @@ import {
 import {
   applySignaturesToConsentPdf,
   bytesToPdfDataUrl,
+  CONSENT_SIGNER_DOCUMENT_PLACEMENTS,
   CONSENT_SIGNER_NAME_PLACEMENTS,
   CONSENT_TEMPLATE_PREVIEW_URLS,
   CONSENT_TEMPLATE_URL,
@@ -93,6 +94,7 @@ type PreviewSignature = {
   role: ConsentSignerRole;
   label: string;
   name: string;
+  document?: string;
   dataUrl: string;
   placement: ConsentSignaturePlacement;
 };
@@ -310,6 +312,8 @@ function SignaturePagePreview({
       />
       {signatures.map((signature) => {
         const namePlacement = CONSENT_SIGNER_NAME_PLACEMENTS[signature.role];
+        const documentPlacement =
+          CONSENT_SIGNER_DOCUMENT_PLACEMENTS[signature.role];
         return (
           <div key={signature.role}>
             {namePlacement.pageIndex === pageIndex ? (
@@ -322,6 +326,19 @@ function SignaturePagePreview({
                 }}
               >
                 {signature.name}
+              </span>
+            ) : null}
+            {signature.document &&
+            documentPlacement.pageIndex === pageIndex ? (
+              <span
+                className="pointer-events-none absolute overflow-hidden whitespace-nowrap font-sans text-[clamp(5px,1vw,9px)] text-slate-950"
+                style={{
+                  left: `${documentPlacement.x * 100}%`,
+                  top: `${(documentPlacement.baselineFromTop - 0.012) * 100}%`,
+                  width: `${documentPlacement.maxWidth * 100}%`,
+                }}
+              >
+                {signature.document}
               </span>
             ) : null}
             {signature.placement.pageIndex === pageIndex ? (
@@ -456,6 +473,8 @@ export function PatientConsentUploadWizard({
   const [loadingCases, setLoadingCases] = useState(false);
   const [patientName, setPatientName] = useState(initialPatientName.trim());
   const [patientNameError, setPatientNameError] = useState("");
+  const [patientDocument, setPatientDocument] = useState("");
+  const [patientDocumentError, setPatientDocumentError] = useState("");
   const [hasPartner, setHasPartner] = useState(false);
   const [partnerName, setPartnerName] = useState("");
   const [partnerNameError, setPartnerNameError] = useState("");
@@ -503,17 +522,25 @@ export function PatientConsentUploadWizard({
 
   function validateNames() {
     const nextPatientName = patientName.trim();
+    const nextPatientDocument = patientDocument.trim();
     const nextPartnerName = partnerName.trim();
     const missingPatient = !nextPatientName;
+    const missingPatientDocument = !nextPatientDocument;
     const missingPartner = hasPartner && !nextPartnerName;
     setPatientNameError(
       missingPatient ? "Ingrese el nombre y apellido del paciente." : "",
     );
+    setPatientDocumentError(
+      missingPatientDocument ? "Ingrese el documento del paciente." : "",
+    );
     setPartnerNameError(
       missingPartner ? "Ingrese el nombre y apellido de la pareja." : "",
     );
-    if (missingPatient || missingPartner) return false;
+    if (missingPatient || missingPatientDocument || missingPartner) {
+      return false;
+    }
     setPatientName(nextPatientName);
+    setPatientDocument(nextPatientDocument);
     if (hasPartner) setPartnerName(nextPartnerName);
     return true;
   }
@@ -528,6 +555,7 @@ export function PatientConsentUploadWizard({
           role: "patient",
           label: "del paciente",
           name: patientName.trim(),
+          document: patientDocument.trim(),
           dataUrl: patientSignatureDataUrl,
           placement: patientPlacement,
         },
@@ -572,6 +600,7 @@ export function PatientConsentUploadWizard({
         previewSignatures.map((signature) => ({
           role: signature.role,
           name: signature.name,
+          document: signature.document,
           signatureDataUrl: signature.dataUrl,
           placement: signature.placement,
         })),
@@ -700,6 +729,8 @@ export function PatientConsentUploadWizard({
     setPatientId(nextPatientId);
     setPatientName(patient?.fullName.trim() ?? "");
     setPatientNameError("");
+    setPatientDocument("");
+    setPatientDocumentError("");
     setCaseId("");
     setCases([]);
     setCaseCursor(undefined);
@@ -969,8 +1000,8 @@ export function PatientConsentUploadWizard({
                     Datos de quienes firman
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Confirme el nombre del paciente e indique si su pareja
-                    también firmará el consentimiento.
+                    Confirme el nombre y documento del paciente e indique si
+                    su pareja también firmará el consentimiento.
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -997,6 +1028,38 @@ export function PatientConsentUploadWizard({
                       className="text-sm font-medium text-destructive"
                     >
                       {patientNameError}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="consent-patient-document">
+                    Documento del paciente
+                  </Label>
+                  <Input
+                    id="consent-patient-document"
+                    value={patientDocument}
+                    required
+                    maxLength={40}
+                    placeholder="DNI o pasaporte"
+                    aria-invalid={Boolean(patientDocumentError)}
+                    aria-describedby={
+                      patientDocumentError
+                        ? "consent-patient-document-error"
+                        : undefined
+                    }
+                    onChange={(event) => {
+                      setPatientDocument(event.target.value);
+                      setPatientDocumentError("");
+                      invalidateAfter(dataStep);
+                    }}
+                  />
+                  {patientDocumentError ? (
+                    <p
+                      id="consent-patient-document-error"
+                      className="text-sm font-medium text-destructive"
+                    >
+                      {patientDocumentError}
                     </p>
                   ) : null}
                 </div>
@@ -1089,6 +1152,9 @@ export function PatientConsentUploadWizard({
                       <h4 className="font-semibold">Firma del paciente</h4>
                       <p className="text-sm text-muted-foreground">
                         {patientName.trim()}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Documento: {patientDocument.trim()}
                       </p>
                     </div>
                     <SignaturePad

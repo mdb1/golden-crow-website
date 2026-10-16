@@ -37,7 +37,7 @@ describe("consent PDF signing", () => {
     ).rejects.toThrow("The signature must be a PNG data URL.");
   });
 
-  it("embeds patient and partner names and signatures in one PDF", async () => {
+  it("embeds the patient document with names and signatures in one PDF", async () => {
     const source = await PDFDocument.create();
     source.addPage([596, 842]);
     source.addPage([596, 842]);
@@ -46,6 +46,7 @@ describe("consent PDF signing", () => {
       {
         role: "patient",
         name: "Ada Paciente",
+        document: "31.234.567",
         signatureDataUrl: ONE_PIXEL_PNG,
         placement: { pageIndex: 1, x: 0.72, y: 0.445, width: 0.16 },
       },

@@ -21,6 +21,7 @@ export type ConsentSignerRole = "patient" | "partner";
 export type ConsentPdfSigner = {
   role: ConsentSignerRole;
   name: string;
+  document?: string;
   signatureDataUrl: string;
   placement: ConsentSignaturePlacement;
 };
@@ -40,6 +41,24 @@ export const CONSENT_SIGNER_NAME_PLACEMENTS: Record<
     x: 0.5,
     baselineFromTop: 0.66,
     maxWidth: 0.18,
+  },
+};
+
+export const CONSENT_SIGNER_DOCUMENT_PLACEMENTS: Record<
+  ConsentSignerRole,
+  { pageIndex: number; x: number; baselineFromTop: number; maxWidth: number }
+> = {
+  patient: {
+    pageIndex: 1,
+    x: 0.5,
+    baselineFromTop: 0.532,
+    maxWidth: 0.14,
+  },
+  partner: {
+    pageIndex: 1,
+    x: 0.5,
+    baselineFromTop: 0.727,
+    maxWidth: 0.14,
   },
 };
 
@@ -136,6 +155,31 @@ export async function applySignaturesToConsentPdf(
       color: rgb(0.07, 0.09, 0.13),
       maxWidth: namePageWidth * namePlacement.maxWidth,
     });
+
+    const document = signer.document?.trim();
+    if (document) {
+      const documentPlacement =
+        CONSENT_SIGNER_DOCUMENT_PLACEMENTS[signer.role];
+      const documentPage = pages[
+        Math.round(clamp(documentPlacement.pageIndex, 0, pages.length - 1))
+      ];
+      const documentPageWidth = documentPage.getWidth();
+      const documentPageHeight = documentPage.getHeight();
+      const documentFontSize = fitTextSize(
+        font,
+        document,
+        documentPageWidth * documentPlacement.maxWidth,
+      );
+
+      documentPage.drawText(document, {
+        x: documentPageWidth * documentPlacement.x,
+        y: documentPageHeight * (1 - documentPlacement.baselineFromTop),
+        size: documentFontSize,
+        font,
+        color: rgb(0.07, 0.09, 0.13),
+        maxWidth: documentPageWidth * documentPlacement.maxWidth,
+      });
+    }
   }
 
   return pdf.save();

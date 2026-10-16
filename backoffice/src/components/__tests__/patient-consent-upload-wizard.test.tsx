@@ -56,6 +56,10 @@ describe("PatientConsentUploadWizard", () => {
         name: "Nombre y apellido del paciente",
       }),
     ).toHaveValue("Ada Paciente");
+    const patientDocument = screen.getByRole("textbox", {
+      name: "Documento del paciente",
+    });
+    expect(patientDocument).toBeRequired();
     expect(
       screen.queryByRole("textbox", {
         name: "Nombre y apellido de la pareja",
@@ -73,6 +77,7 @@ describe("PatientConsentUploadWizard", () => {
     });
     expect(partnerName).toBeRequired();
 
+    await user.type(patientDocument, "31.234.567");
     await user.type(partnerName, "Alex Pareja");
     await user.click(
       screen.getByRole("button", { name: "Continuar para firmar" }),
@@ -86,7 +91,7 @@ describe("PatientConsentUploadWizard", () => {
     ).toBeInTheDocument();
   });
 
-  it("requires the patient name before opening the signature step", async () => {
+  it("requires the patient name and document before opening the signature step", async () => {
     const user = userEvent.setup();
     render(<PatientConsentUploadWizard />);
 
@@ -99,6 +104,9 @@ describe("PatientConsentUploadWizard", () => {
 
     expect(
       screen.getByText("Ingrese el nombre y apellido del paciente."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Ingrese el documento del paciente."),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Datos de quienes firman" }),
