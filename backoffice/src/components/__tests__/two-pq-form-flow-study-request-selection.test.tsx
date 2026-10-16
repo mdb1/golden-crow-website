@@ -307,4 +307,46 @@ describe("StudyRequestSelectionTable", () => {
       screen.getByText("Do you want to attach a karyotype?"),
     ).toBeInTheDocument();
   });
+
+  it("does not show the manual-patient placeholder in the study request preview", () => {
+    const state = buildInitialState(institution.id, doctor.id);
+    state.patientInformation = {
+      ...state.patientInformation,
+      firstName: "Ana",
+      lastName: "Paciente",
+      fullName: "Ana Paciente",
+      email: "ana@example.test",
+      medicalRecordNumber: "30111222",
+    };
+    const draft = {
+      id: "admin-uid",
+      formType: "study_request",
+      collectionKey: "2pq-form-drafts",
+      currentStep: "previewAndSignature",
+      stepIndex: 4,
+      state,
+      createdAt: "2026-10-16T12:00:00.000Z",
+      updatedAt: "2026-10-16T12:00:00.000Z",
+    } as TwoPQFormDraftRecord;
+
+    renderFlow(
+      <TwoPQFormFlow
+        formType="study_request"
+        institutions={[institution]}
+        doctors={[doctor]}
+        patients={[]}
+        initialDraft={draft}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Study request form preview" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Patient data")).toBeInTheDocument();
+    expect(screen.getByText("ana@example.test")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Manual patient information"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Pick existing patient")).not.toBeInTheDocument();
+  });
 });

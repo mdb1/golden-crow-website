@@ -3870,12 +3870,19 @@ export function TwoPQFormFlow({
   };
   const previewSelectedPatient = selectedPatient
     ? `${selectedPatient.fullName} (${selectedPatient.id})`
-    : state.selectedPatientId || t("Manual patient information");
+    : state.selectedPatientId;
   const previewSelectedInstitution = selectedInstitution
     ? `${selectedInstitution.name} (${selectedInstitution.id})`
     : state.selectedInstitutionId || t("Manual institution information");
   const patientPreviewFields: PreviewField[] = [
-    { label: t("Pick existing patient"), value: previewSelectedPatient },
+    ...(previewSelectedPatient
+      ? [
+          {
+            label: t("Pick existing patient"),
+            value: previewSelectedPatient,
+          },
+        ]
+      : []),
     {
       label: t("Institution"),
       value: selectedInstitution
