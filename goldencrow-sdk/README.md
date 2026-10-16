@@ -49,9 +49,10 @@ npm run smoke    # boot the compiled app (run `npx tsc` first)
 npm run build    # what Vercel runs: deps check → tsc → smoke → jest
 ```
 
-Vercel runs `npm run build` for every preview and production deploy, and a
-failing build never replaces the running deploy, so the tests in it are the
-ones nobody can skip. `scripts/smoke-boot.mjs` imports `dist/server.js` with
+Vercel runs `npm run build` for every production deploy (pushes to `main`;
+previews are skipped by the project's Ignored Build Step), and a failing build
+never replaces the running deploy, so the tests in it are the ones nobody can
+skip: a red `main` stays on the last green SDK instead of shipping. `scripts/smoke-boot.mjs` imports `dist/server.js` with
 require(esm) OFF (the Vercel runtime mode) and checks that the app boots, that
 `POST /auth/login` with a bad token answers 401 (not 500), and that **every
 route not in its public list answers 401 to an anonymous request**. Adding a

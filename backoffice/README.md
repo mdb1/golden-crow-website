@@ -66,9 +66,12 @@ is mocked at the module boundary.
 ### Vercel runs this suite — a red test cannot reach production (#451)
 
 **`npm run build` is the gate**, because it is the one thing that runs on every
-deploy without anyone remembering to: Vercel runs it for every preview (every
-PR, Dependabot's included) and for `main`, and a failing build never replaces
-the running deploy. CI stays off by design. The build is:
+production deploy without anyone remembering to: Vercel runs it for every push
+to `main` that touches `backoffice/`, and a failing build never replaces the
+running deploy — production stays on the last green build. CI stays off by
+design. Previews are NOT built (`scripts/vercel-ignore-build.sh`), so a PR —
+Dependabot's included — shows no test result: run `npm run build` before
+merging, or the red shows up as a failed production deploy instead. The build is:
 
 1. `scripts/check-server-deps.mjs` — server packages load without require(esm).
 2. `next build` — includes the type check and the `"use server"` rules Jest can't see.
