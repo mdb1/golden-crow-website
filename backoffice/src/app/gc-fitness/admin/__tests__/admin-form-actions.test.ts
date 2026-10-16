@@ -164,11 +164,12 @@ describe("admin/coaches/[uid]/actions.ts", () => {
     expectNav(["/gc-fitness/admin/coaches/coach-A1"], null);
   });
 
-  it("deleteClientAction hard-codes mode=execute and does NOT forward coachUid to the cascade", async () => {
+  it("deleteClientAction hard-codes mode=execute and forwards coachUid so the lib checks ownership", async () => {
     await coachActions.deleteClientAction(
       form({ coachUid: "coach-A1", clientUid: "client-A1", confirmation: "DELETE CLIENT", mode: "dry_run" }),
     );
     expect(mockLib.deleteClientCascade).toHaveBeenCalledWith({
+      coachUid: "coach-A1",
       clientUid: "client-A1",
       confirmation: "DELETE CLIENT",
       mode: "execute",

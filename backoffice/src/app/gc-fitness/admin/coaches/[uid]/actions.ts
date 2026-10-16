@@ -57,7 +57,9 @@ export async function deleteClientAction(formData: FormData) {
   const coachUid = String(formData.get("coachUid") ?? "");
   const clientUid = String(formData.get("clientUid") ?? "");
   const confirmation = String(formData.get("confirmation") ?? "");
-  await deleteClientCascade({ clientUid, confirmation, mode: "execute" });
+  // coachUid scopes the cascade: the lib refuses a client that is not this
+  // coach's (same ownership read as deactivate / unlink).
+  await deleteClientCascade({ coachUid, clientUid, confirmation, mode: "execute" });
   revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
   redirect(`/gc-fitness/admin/coaches/${coachUid}?op=delete_client&ok=1`);
 }
