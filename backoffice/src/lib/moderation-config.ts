@@ -1767,6 +1767,12 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
   if (pathname === "/god-mode/service-transactions") {
     return { eyebrow: "GOD MODE", title: "Service Transactions", description: "Pocket Genes service request transactions." };
   }
+  if (pathname.startsWith("/god-mode/defered-service-transactions/")) {
+    return { eyebrow: "GOD MODE", title: "Deferred Transaction", description: "Edit an email-based deferred service transaction index." };
+  }
+  if (pathname === "/god-mode/defered-service-transactions") {
+    return { eyebrow: "GOD MODE", title: "Deferred Transactions", description: "Email-based deferred service transaction indexes." };
+  }
   if (pathname.startsWith("/god-mode/plantillas")) {
     return { eyebrow: "GOD MODE", title: "Plantillas", description: "CRUD system email templates for the CRM." };
   }

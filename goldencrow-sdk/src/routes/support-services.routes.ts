@@ -16,17 +16,20 @@ import {
   deleteSupportServiceTransaction,
   deliverSupportServiceTransaction,
   getSupportServiceIdAvailability,
+  getDeferredServiceTransaction,
   getSupportServiceOffer,
   getSupportServiceOfferTransactionStats,
   getSupportServiceTransaction,
   getSupportServiceTransactionLinkedReports,
   isCanonicalSupportServiceCategoryValue,
   listSupportServiceLinkedReportCandidates,
+  listDeferredServiceTransactions,
   listSupportServiceOffers,
   listSupportServiceTransactions,
   removeSupportServiceTransactionOutputReport,
   supportServiceCategoryStageContractIssue,
   updateSupportServiceOffer,
+  updateDeferredServiceTransaction,
   updateSupportServiceTransaction,
 } from "../repositories/support-services.repository.js";
 
@@ -483,6 +486,11 @@ const ListOffersQuerySchema = ListQuerySchema.extend({
 const ListTransactionsQuerySchema = ListQuerySchema.extend({
   serviceId: z.string().trim().max(160).optional(),
 });
+const ListDeferredTransactionsQuerySchema = ListQuerySchema.pick({
+  cursor: true,
+  limit: true,
+  query: true,
+});
 const ServiceIdAvailabilityQuerySchema = z.object({
   serviceId: GeneratedServiceIdSchema,
   excludeOfferId: z.string().trim().min(1).max(180).optional(),
@@ -577,6 +585,27 @@ const OfferParamsSchema = z.object({
 const TransactionParamsSchema = z.object({
   transactionId: z.string().trim().min(1),
 });
+const DeferredTransactionParamsSchema = z.object({
+  deferredId: z.string().trim().min(1).max(500),
+});
+const DeferredTransactionBodySchema = z
+  .object({
+    email: z.string().trim().email().max(320),
+    deferredTransactionIds: z.array(RequestIdSchema).max(100),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      new Set(value.deferredTransactionIds).size !==
+      value.deferredTransactionIds.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "deferredTransactionIds must be unique.",
+        path: ["deferredTransactionIds"],
+      });
+    }
+  });
 const OptionalBooleanQuerySchema = z
   .enum(["true", "false"])
   .transform((value) => value === "true")
@@ -924,6 +953,75 @@ export async function supportServicesRoutes(
           deleted: true,
           offerId: request.params.offerId,
         });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/support-services/deferred-transactions",
+    { schema: { querystring: ListDeferredTransactionsQuerySchema } },
+    async (request, reply) => {
+      if (!request.adminContext?.isBootstrap) {
+        return reply.status(403).send({
+          error: "Only GOD MODE can manage deferred service transactions.",
+        });
+      }
+      try {
+        const result = await listDeferredServiceTransactions(
+          request.adminContext!,
+          request.query,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/support-services/deferred-transactions/:deferredId",
+    { schema: { params: DeferredTransactionParamsSchema } },
+    async (request, reply) => {
+      if (!request.adminContext?.isBootstrap) {
+        return reply.status(403).send({
+          error: "Only GOD MODE can manage deferred service transactions.",
+        });
+      }
+      try {
+        const deferredTransaction = await getDeferredServiceTransaction(
+          request.adminContext!,
+          request.params.deferredId,
+        );
+        return reply.send({ deferredTransaction });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.put(
+    "/admin/support-services/deferred-transactions/:deferredId",
+    {
+      schema: {
+        params: DeferredTransactionParamsSchema,
+        body: DeferredTransactionBodySchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext?.isBootstrap) {
+        return reply.status(403).send({
+          error: "Only GOD MODE can manage deferred service transactions.",
+        });
+      }
+      try {
+        const deferredTransaction = await updateDeferredServiceTransaction(
+          request.adminContext!,
+          request.params.deferredId,
+          request.body,
+        );
+        return reply.send({ deferredTransaction });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

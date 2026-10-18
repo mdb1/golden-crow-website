@@ -5647,6 +5647,31 @@ const SPANISH_TEXT: Record<string, string> = {
   "Requester identity": "Identidad del solicitante",
   "Linked community user": "Usuario de comunidad vinculado",
   "Email-only deferred requester": "Solicitante diferido por email",
+  "Deferred Transactions": "Transacciones diferidas",
+  "Deferred Transaction": "Transacción diferida",
+  "Deferred transactions": "Transacciones diferidas",
+  "Search by email or transaction ID":
+    "Buscar por email o ID de transacción",
+  "No deferred transaction users found.":
+    "No se encontraron usuarios con transacciones diferidas.",
+  "Back to deferred transactions": "Volver a transacciones diferidas",
+  "Linked service transactions": "Transacciones de servicio vinculadas",
+  "Link transaction": "Vincular transacción",
+  "No transactions are linked to this email.":
+    "No hay transacciones vinculadas a este email.",
+  "Use a canonical pgr_* transaction ID.":
+    "Usá un ID de transacción pgr_* canónico.",
+  "That transaction is already linked.":
+    "Esa transacción ya está vinculada.",
+  "Deferred transaction links saved.":
+    "Se guardaron los vínculos de transacciones diferidas.",
+  "The relationship will be validated when saved.":
+    "La relación se validará al guardar.",
+  "Transaction not found.": "No se encontró la transacción.",
+  "Requester does not match this deferred email.":
+    "El solicitante no coincide con este email diferido.",
+  "Unlinking removes the transaction from this deferred email index; it does not delete the service transaction.":
+    "Desvincular quita la transacción de este índice de email diferido; no elimina la transacción de servicio.",
   "Remove linked user": "Quitar usuario vinculado",
   "Pick a user": "Elegir usuario",
   "No user selected": "Sin usuario seleccionado",

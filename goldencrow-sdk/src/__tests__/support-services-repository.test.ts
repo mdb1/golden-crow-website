@@ -2457,6 +2457,121 @@ describe("support service pagination", () => {
   });
 });
 
+describe("deferred service transaction administration", () => {
+  const oldEmail = "old@example.com";
+  const newEmail = "new@example.com";
+  const sourceId = Buffer.from(oldEmail).toString("base64url");
+  const targetId = Buffer.from(newEmail).toString("base64url");
+  const transactionId = "pgr_deferred_admin_1";
+
+  beforeEach(() => {
+    jest.resetModules();
+    collections.clear();
+    orderByCalls.length = 0;
+    seedDoc("deferred_service_transactions", sourceId, {
+      email: oldEmail,
+      deferred_transaction_ids: [transactionId],
+    });
+    seedDoc("service_transactions", transactionId, {
+      schemaVersion: 1,
+      requestId: transactionId,
+      offerId: "offer-1",
+      serviceId: baseOffer.serviceId,
+      serviceVersion: 1,
+      providerId: baseOffer.providerId,
+      providerKind: "organization",
+      status: "received",
+      requestedByUserEmail: oldEmail,
+      requestedAtClient: "2026-10-18T05:00:00.000Z",
+      requestRevision: 1,
+      idempotencyKey: "deferred-admin-1",
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      issues: [],
+      missingRequiredInputRoles: [],
+      offerSnapshot: {},
+      providerSnapshot: {},
+      contractSource: "pocket_genes_services_wiki_v1",
+    });
+  });
+
+  it("lists deferred indexes with counts and resolves requester matches", async () => {
+    const {
+      getDeferredServiceTransaction,
+      listDeferredServiceTransactions,
+    } = await import("../repositories/support-services.repository.js");
+
+    await expect(
+      listDeferredServiceTransactions(context, { limit: 20 }),
+    ).resolves.toEqual({
+      deferredTransactions: [
+        {
+          id: sourceId,
+          email: oldEmail,
+          deferredTransactionIds: [transactionId],
+          transactionCount: 1,
+        },
+      ],
+      nextCursor: undefined,
+    });
+    await expect(
+      getDeferredServiceTransaction(context, sourceId),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        email: oldEmail,
+        transactions: [
+          expect.objectContaining({
+            transactionId,
+            exists: true,
+            requesterMatches: true,
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("moves the deterministic email index and synchronizes linked transactions", async () => {
+    const { updateDeferredServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const result = await updateDeferredServiceTransaction(context, sourceId, {
+      email: newEmail.toUpperCase(),
+      deferredTransactionIds: [transactionId],
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({ id: targetId, email: newEmail }),
+    );
+    expect(collectionStore("deferred_service_transactions").has(sourceId)).toBe(
+      false,
+    );
+    expect(
+      collectionStore("deferred_service_transactions").get(targetId),
+    ).toEqual({
+      email: newEmail,
+      deferred_transaction_ids: [transactionId],
+    });
+    expect(collectionStore("service_transactions").get(transactionId)).toEqual(
+      expect.objectContaining({
+        requestedByUserEmail: newEmail,
+        updatedByEmail: context.email,
+      }),
+    );
+  });
+
+  it("rejects deferred index access for publisher roles", async () => {
+    const { listDeferredServiceTransactions } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      listDeferredServiceTransactions(organizationPublisherContext),
+    ).rejects.toThrow("Only GOD MODE");
+  });
+});
+
 describe("organization publisher support service scope", () => {
   const ownOffer = {
     ...baseOffer,

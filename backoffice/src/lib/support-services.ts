@@ -482,6 +482,30 @@ export interface SupportServiceTransactionsPage {
   nextCursor?: string;
 }
 
+export interface DeferredServiceTransactionIndexRecord {
+  id: string;
+  email: string;
+  deferredTransactionIds: string[];
+  transactionCount: number;
+}
+
+export interface DeferredServiceTransactionLinkRecord {
+  transactionId: string;
+  exists: boolean;
+  requesterMatches: boolean;
+  transaction?: SupportServiceTransactionRecord;
+}
+
+export interface DeferredServiceTransactionIndexDetail
+  extends DeferredServiceTransactionIndexRecord {
+  transactions: DeferredServiceTransactionLinkRecord[];
+}
+
+export interface DeferredServiceTransactionsPage {
+  deferredTransactions: DeferredServiceTransactionIndexRecord[];
+  nextCursor?: string;
+}
+
 export function stageLabel(value: string) {
   return (
     SUPPORT_SERVICE_STAGES.find((option) => option.value === value)?.label ??

@@ -47,6 +47,13 @@ const twoPQAdminContext: AdminContextRecord = {
   role: "2pq_admin",
 };
 
+const godModeContext: AdminContextRecord = {
+  ...fullAdminContext,
+  email: "god@example.com",
+  uid: "god-uid",
+  isBootstrap: true,
+};
+
 function renderSidebar(context: AdminContextRecord = fullAdminContext) {
   window.matchMedia = matchMedia;
 
@@ -130,5 +137,40 @@ describe("AppSidebar PGFlex section", () => {
     ]) {
       expect(document.querySelector(`a[href="${href}"]`)).toBeTruthy();
     }
+  });
+});
+
+describe("AppSidebar GOD MODE actions", () => {
+  it("places deferred transactions immediately below service transactions", () => {
+    renderSidebar(godModeContext);
+
+    const serviceTransactions = screen.getByRole("link", {
+      name: /Service Transactions/,
+    });
+    const deferredTransactions = screen.getByRole("link", {
+      name: /Deferred Transactions/,
+    });
+
+    expect(deferredTransactions).toHaveAttribute(
+      "href",
+      "/god-mode/defered-service-transactions",
+    );
+    expect(
+      serviceTransactions.compareDocumentPosition(deferredTransactions) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(serviceTransactions.closest("li")?.nextElementSibling).toBe(
+      deferredTransactions.closest("li"),
+    );
+  });
+
+  it("does not show deferred transaction administration outside GOD MODE", () => {
+    renderSidebar(fullAdminContext);
+
+    expect(
+      document.querySelector(
+        'a[href="/god-mode/defered-service-transactions"]',
+      ),
+    ).toBeNull();
   });
 });

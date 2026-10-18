@@ -815,6 +815,30 @@ export interface SupportServiceTransactionsPage {
   nextCursor?: string;
 }
 
+export interface DeferredServiceTransactionIndexRecord {
+  id: string;
+  email: string;
+  deferredTransactionIds: string[];
+  transactionCount: number;
+}
+
+export interface DeferredServiceTransactionLinkRecord {
+  transactionId: string;
+  exists: boolean;
+  requesterMatches: boolean;
+  transaction?: SupportServiceTransactionRecord;
+}
+
+export interface DeferredServiceTransactionIndexDetail
+  extends DeferredServiceTransactionIndexRecord {
+  transactions: DeferredServiceTransactionLinkRecord[];
+}
+
+export interface DeferredServiceTransactionsPage {
+  deferredTransactions: DeferredServiceTransactionIndexRecord[];
+  nextCursor?: string;
+}
+
 export interface SupportServiceOfferTransactionVersionStats {
   serviceVersion: number;
   totalTransactions: number;
@@ -6723,6 +6747,266 @@ function deferredTransactionIdsFromData(
     );
   }
   return transactionIds;
+}
+
+function requireDeferredServiceTransactionsGodMode(context: AdminContext) {
+  if (!context.isBootstrap) {
+    throw new AdminRepositoryError(
+      "Only GOD MODE can manage deferred service transactions.",
+      403,
+    );
+  }
+}
+
+function deferredServiceTransactionIndexRecord(
+  id: string,
+  data: Record<string, unknown>,
+): DeferredServiceTransactionIndexRecord {
+  const email = cleanString(data.email).toLowerCase();
+  if (!email) {
+    throw new AdminRepositoryError(
+      "Deferred service transaction index email is missing.",
+      409,
+    );
+  }
+  const deferredTransactionIds = deferredTransactionIdsFromData(data, email);
+  return {
+    id,
+    email,
+    deferredTransactionIds,
+    transactionCount: deferredTransactionIds.length,
+  };
+}
+
+function matchesDeferredServiceTransactionFilters(
+  record: DeferredServiceTransactionIndexRecord,
+  queryValue?: string,
+) {
+  const query = cleanString(queryValue).toLowerCase();
+  return (
+    !query ||
+    record.email.includes(query) ||
+    record.id.toLowerCase().includes(query) ||
+    record.deferredTransactionIds.some((id) =>
+      id.toLowerCase().includes(query),
+    )
+  );
+}
+
+export async function listDeferredServiceTransactions(
+  context: AdminContext,
+  options: Pick<ListOptions, "cursor" | "limit" | "query"> = {},
+): Promise<DeferredServiceTransactionsPage> {
+  requireDeferredServiceTransactionsGodMode(context);
+  const result = await listWithFilters({
+    collectionName: DEFERRED_SERVICE_TRANSACTIONS_COLLECTION,
+    cursor: options.cursor,
+    limit: normalizeLimit(options.limit),
+    hasFilters: Boolean(cleanString(options.query)),
+    toRecord: deferredServiceTransactionIndexRecord,
+    matches: (record) =>
+      matchesDeferredServiceTransactionFilters(record, options.query),
+  });
+
+  return {
+    deferredTransactions: result.records,
+    nextCursor: result.nextCursor,
+  };
+}
+
+async function deferredServiceTransactionIndexDetail(
+  record: DeferredServiceTransactionIndexRecord,
+): Promise<DeferredServiceTransactionIndexDetail> {
+  const transactions = await Promise.all(
+    record.deferredTransactionIds.map(async (transactionId) => {
+      const snapshot = await getTransactionSnapshotByIdOrRequestId(
+        transactionId,
+      );
+      if (!snapshot) {
+        return {
+          transactionId,
+          exists: false,
+          requesterMatches: false,
+        };
+      }
+      const transaction = toTransactionAdminRecord(
+        snapshot.id,
+        snapshot.data() ?? {},
+      );
+      return {
+        transactionId,
+        exists: true,
+        requesterMatches:
+          !transaction.requestedByUserId &&
+          cleanString(transaction.requestedByUserEmail).toLowerCase() ===
+            record.email,
+        transaction,
+      };
+    }),
+  );
+
+  return { ...record, transactions };
+}
+
+export async function getDeferredServiceTransaction(
+  context: AdminContext,
+  deferredId: string,
+): Promise<DeferredServiceTransactionIndexDetail> {
+  requireDeferredServiceTransactionsGodMode(context);
+  const snapshot = await adminDb
+    .collection(DEFERRED_SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(cleanString(deferredId))
+    .get();
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError(
+      "Deferred service transaction index not found.",
+      404,
+    );
+  }
+  return deferredServiceTransactionIndexDetail(
+    deferredServiceTransactionIndexRecord(
+      snapshot.id,
+      snapshot.data() ?? {},
+    ),
+  );
+}
+
+export async function updateDeferredServiceTransaction(
+  context: AdminContext,
+  deferredId: string,
+  input: { email: string; deferredTransactionIds: string[] },
+): Promise<DeferredServiceTransactionIndexDetail> {
+  requireDeferredServiceTransactionsGodMode(context);
+  const normalizedEmail = cleanString(input.email).toLowerCase();
+  const transactionIds = input.deferredTransactionIds.map((id) =>
+    cleanString(id),
+  );
+  if (!normalizedEmail) {
+    throw new AdminRepositoryError("Email is required.", 400);
+  }
+  if (
+    transactionIds.some((id) => !/^pgr_[a-z0-9_]+$/.test(id)) ||
+    new Set(transactionIds).size !== transactionIds.length
+  ) {
+    throw new AdminRepositoryError(
+      "Deferred transaction IDs must be unique canonical pgr_* IDs.",
+      400,
+    );
+  }
+
+  const sourceRef = adminDb
+    .collection(DEFERRED_SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(cleanString(deferredId));
+  const targetId = deferredServiceTransactionIndexId(normalizedEmail);
+  const targetRef = adminDb
+    .collection(DEFERRED_SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(targetId);
+
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const sourceSnapshot = await firestoreTransaction.get(sourceRef);
+    if (!sourceSnapshot.exists) {
+      throw new AdminRepositoryError(
+        "Deferred service transaction index not found.",
+        404,
+      );
+    }
+    deferredServiceTransactionIndexRecord(
+      sourceSnapshot.id,
+      sourceSnapshot.data() ?? {},
+    );
+
+    const targetSnapshot =
+      sourceRef.path === targetRef.path
+        ? sourceSnapshot
+        : await firestoreTransaction.get(targetRef);
+    if (sourceRef.path !== targetRef.path && targetSnapshot.exists) {
+      throw new AdminRepositoryError(
+        "A deferred service transaction index already exists for that email.",
+        409,
+      );
+    }
+
+    const transactionRefs = transactionIds.map((transactionId) =>
+      adminDb.collection(SERVICE_TRANSACTIONS_COLLECTION).doc(transactionId),
+    );
+    const transactionSnapshots = await Promise.all(
+      transactionRefs.map((reference) => firestoreTransaction.get(reference)),
+    );
+    const previousIndexRefs = new Map<string, DocumentReference>();
+    for (let index = 0; index < transactionSnapshots.length; index += 1) {
+      const snapshot = transactionSnapshots[index];
+      const transactionId = transactionIds[index];
+      if (!snapshot?.exists) {
+        throw new AdminRepositoryError(
+          `Service transaction ${transactionId} was not found.`,
+          400,
+        );
+      }
+      const data = snapshot.data() ?? {};
+      if (cleanString(data.requestedByUserId)) {
+        throw new AdminRepositoryError(
+          `Service transaction ${transactionId} is linked to a user ID and cannot be deferred by email.`,
+          409,
+        );
+      }
+      const previousEmail = cleanString(data.requestedByUserEmail).toLowerCase();
+      if (previousEmail && previousEmail !== normalizedEmail) {
+        const previousRef = adminDb
+          .collection(DEFERRED_SERVICE_TRANSACTIONS_COLLECTION)
+          .doc(deferredServiceTransactionIndexId(previousEmail));
+        if (
+          previousRef.path !== sourceRef.path &&
+          previousRef.path !== targetRef.path
+        ) {
+          previousIndexRefs.set(previousRef.path, previousRef);
+        }
+      }
+    }
+
+    const previousIndexSnapshots = await Promise.all(
+      [...previousIndexRefs.values()].map((reference) =>
+        firestoreTransaction.get(reference),
+      ),
+    );
+    for (const previousSnapshot of previousIndexSnapshots) {
+      if (!previousSnapshot.exists) {
+        continue;
+      }
+      const previousRecord = deferredServiceTransactionIndexRecord(
+        previousSnapshot.id,
+        previousSnapshot.data() ?? {},
+      );
+      const remainingIds = previousRecord.deferredTransactionIds.filter(
+        (id) => !transactionIds.includes(id),
+      );
+      firestoreTransaction.set(previousSnapshot.ref, {
+        email: previousRecord.email,
+        deferred_transaction_ids: remainingIds,
+      });
+    }
+
+    for (let index = 0; index < transactionRefs.length; index += 1) {
+      firestoreTransaction.set(
+        transactionRefs[index]!,
+        {
+          requestedByUserEmail: normalizedEmail,
+          updatedAt: FieldValue.serverTimestamp(),
+          updatedByEmail: context.email,
+        },
+        { merge: true },
+      );
+    }
+
+    firestoreTransaction.set(targetRef, {
+      email: normalizedEmail,
+      deferred_transaction_ids: transactionIds,
+    });
+    if (sourceRef.path !== targetRef.path) {
+      firestoreTransaction.delete(sourceRef);
+    }
+  });
+
+  return getDeferredServiceTransaction(context, targetId);
 }
 
 function policyInteger(
