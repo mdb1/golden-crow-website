@@ -59,6 +59,9 @@ export function contextFor(
 
 /** Fill `:param` segments with a harmless concrete value. */
 export function concretePath(url: string): string {
+  if (url === "/service-transactions/:transactionId/notify-owner") {
+    return "/service-transactions/pgr_ios_0123456789abcdef0123456789abcdef/notify-owner";
+  }
   return url.replace(/:[A-Za-z0-9_]+/g, "x1");
 }
 

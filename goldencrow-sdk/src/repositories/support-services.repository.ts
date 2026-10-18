@@ -1,4 +1,4 @@
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import {
   FieldPath,
   FieldValue,
@@ -22,6 +22,13 @@ import {
   TWO_PQ_REPORT_OWNER_ID,
   TWO_PQ_REPORT_OWNER_NAME,
 } from "../lib/two-pq-report-owner.js";
+import {
+  sendServiceTransactionOwnerNotificationEmail,
+} from "../lib/service-transaction-owner-notification-email.js";
+import {
+  NATIVE_SERVICE_TRANSACTION_NOTIFICATION_CONTRACT_SOURCE,
+  nativeServiceTransactionPlatform,
+} from "../lib/service-transaction-owner-notification-contract.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import type {
   AdminContext,
@@ -40,6 +47,8 @@ const DEFERRED_SERVICE_TRANSACTIONS_COLLECTION =
   "deferred_service_transactions";
 const SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION =
   "service_transaction_idempotency";
+const SERVICE_TRANSACTION_NOTIFICATIONS_COLLECTION =
+  "service_transaction_notifications";
 const OBJECT_CODES_COLLECTION = "object_codes";
 const UPLOADED_OBJECTS_COLLECTION = "uploaded_objects";
 const REPORT_CODES_COLLECTION = "report_codes";
@@ -60,6 +69,7 @@ const OUTPUT_OBJECT_DOWNLOAD_TIMEOUT_MS = 10_000;
 const OUTPUT_OBJECT_CODE_CANDIDATE_COUNT = 12;
 const MAX_OBJECT_REVISION_HISTORY_RECORDS = 100;
 const MAX_DEFERRED_SERVICE_TRANSACTIONS_PER_EMAIL = 5;
+const SERVICE_TRANSACTION_NOTIFICATION_LEASE_MS = 5 * 60 * 1000;
 const SUPPORTED_LINKED_REPORT_FORMATS = new Set([
   "mdm",
   "ag",
@@ -3310,7 +3320,7 @@ function assertActiveProviderData(providerData: Record<string, unknown>) {
   }
 }
 
-async function resolveAuthoritativeProviderOwner(
+async function resolveAuthoritativeProviderOwnerRecord(
   offer: SupportServiceOfferRecord,
   providerData: Record<string, unknown>,
   readDocument: DocumentReader,
@@ -3353,7 +3363,26 @@ async function resolveAuthoritativeProviderOwner(
       }
     }
   }
-  return ownerCommunityUserId;
+  return {
+    ownerCommunityUserId,
+    ownerData: ownerSnapshot.data() ?? {},
+    ownerCommunityData: communityUserSnapshot.data() ?? {},
+  };
+}
+
+async function resolveAuthoritativeProviderOwner(
+  offer: SupportServiceOfferRecord,
+  providerData: Record<string, unknown>,
+  readDocument: DocumentReader,
+  requireActive = true,
+) {
+  const owner = await resolveAuthoritativeProviderOwnerRecord(
+    offer,
+    providerData,
+    readDocument,
+    requireActive,
+  );
+  return owner.ownerCommunityUserId;
 }
 
 function offerFromFrozenTransaction(
@@ -8540,6 +8569,315 @@ export async function createSupportServiceTransaction(
     requireGodModeAccess: true,
     enforceRequesterAdmission: true,
   });
+}
+
+export type SupportServiceTransactionOwnerNotificationResult = {
+  transactionId: string;
+  status: "sent" | "already_sent" | "in_progress";
+};
+
+type SupportServiceTransactionOwnerNotificationClaim =
+  | SupportServiceTransactionOwnerNotificationResult
+  | {
+      status: "claimed";
+      transactionId: string;
+      attemptToken: string;
+      email: Parameters<
+        typeof sendServiceTransactionOwnerNotificationEmail
+      >[0];
+    };
+
+function notificationAttemptCount(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0
+    ? value
+    : 0;
+}
+
+function notificationErrorMessage(error: unknown) {
+  const message =
+    error instanceof Error && error.message.trim()
+      ? error.message.trim()
+      : "The mail provider rejected the notification.";
+  return message.slice(0, 500);
+}
+
+async function finishServiceTransactionNotificationAttempt(
+  transactionId: string,
+  attemptToken: string,
+  result:
+    | { status: "sent" }
+    | { status: "failed"; error: unknown },
+) {
+  const notificationRef = adminDb
+    .collection(SERVICE_TRANSACTION_NOTIFICATIONS_COLLECTION)
+    .doc(transactionId);
+
+  return adminDb.runTransaction(async (firestoreTransaction) => {
+    const snapshot = await firestoreTransaction.get(notificationRef);
+    const data = snapshot.data() ?? {};
+    if (
+      !snapshot.exists ||
+      cleanString(data.attemptToken) !== attemptToken ||
+      cleanString(data.status) !== "sending"
+    ) {
+      return false;
+    }
+
+    firestoreTransaction.set(
+      notificationRef,
+      withoutUndefined({
+        ...data,
+        status: result.status,
+        attemptToken: null,
+        leaseExpiresAt: null,
+        updatedAt: FieldValue.serverTimestamp(),
+        sentAt:
+          result.status === "sent"
+            ? FieldValue.serverTimestamp()
+            : data.sentAt,
+        failedAt:
+          result.status === "failed"
+            ? FieldValue.serverTimestamp()
+            : null,
+        lastError:
+          result.status === "failed"
+            ? notificationErrorMessage(result.error)
+            : null,
+      }),
+      { merge: false },
+    );
+    return true;
+  });
+}
+
+/**
+ * Sends the one owner email associated with a newly committed service
+ * transaction. The native apps call this command after Firestore confirms the
+ * transaction write. The caller proves knowledge of the normalized requester
+ * email; recipient and message data are always reloaded from canonical records.
+ */
+export async function notifySupportServiceTransactionOwner(
+  transactionIdValue: string,
+  requestedByUserEmailValue: string,
+): Promise<SupportServiceTransactionOwnerNotificationResult> {
+  const transactionId = cleanString(transactionIdValue);
+  const requestedByUserEmail = cleanString(
+    requestedByUserEmailValue,
+  ).toLowerCase();
+  const nativePlatform = nativeServiceTransactionPlatform(transactionId);
+  if (!nativePlatform) {
+    throw new AdminRepositoryError(
+      "A canonical native-app service transaction ID is required.",
+      400,
+    );
+  }
+  if (!REQUESTER_EMAIL_PATTERN.test(requestedByUserEmail)) {
+    throw new AdminRepositoryError(
+      "A valid requester email is required.",
+      400,
+    );
+  }
+
+  const transactionRef = adminDb
+    .collection(SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(transactionId);
+  const notificationRef = adminDb
+    .collection(SERVICE_TRANSACTION_NOTIFICATIONS_COLLECTION)
+    .doc(transactionId);
+  const attemptToken = randomUUID();
+  const claimedAt = new Date();
+  const leaseExpiresAt = new Date(
+    claimedAt.getTime() + SERVICE_TRANSACTION_NOTIFICATION_LEASE_MS,
+  );
+
+  const claim =
+    await adminDb.runTransaction<SupportServiceTransactionOwnerNotificationClaim>(
+      async (firestoreTransaction) => {
+        const [transactionSnapshot, notificationSnapshot] = await Promise.all([
+          firestoreTransaction.get(transactionRef),
+          firestoreTransaction.get(notificationRef),
+        ]);
+        if (!transactionSnapshot.exists) {
+          throw new AdminRepositoryError(
+            "Service transaction not found.",
+            404,
+          );
+        }
+
+        const transaction = toTransactionRecord(
+          transactionSnapshot.id,
+          transactionSnapshot.data() ?? {},
+        );
+        if (
+          transaction.requestId !== transactionId ||
+          transaction.id !== transactionId
+        ) {
+          throw new AdminRepositoryError(
+            "Service transaction identity is inconsistent.",
+            409,
+          );
+        }
+
+        const expectedIdempotencyKey = `${nativePlatform}-${transactionId}`;
+        if (
+          transaction.contractSource !==
+            NATIVE_SERVICE_TRANSACTION_NOTIFICATION_CONTRACT_SOURCE ||
+          transaction.idempotencyKey !== expectedIdempotencyKey ||
+          transaction.requestedByUserEmail !== requestedByUserEmail
+        ) {
+          throw new AdminRepositoryError(
+            "Service transaction not found.",
+            404,
+          );
+        }
+
+        const notificationData = notificationSnapshot.data() ?? {};
+        const notificationStatus = cleanString(notificationData.status);
+        if (notificationStatus === "sent") {
+          return {
+            transactionId,
+            status: "already_sent",
+          };
+        }
+        const currentLeaseExpiresAt = dateFromUnknown(
+          notificationData.leaseExpiresAt,
+          "Notification lease expiration",
+        );
+        if (
+          notificationStatus === "sending" &&
+          currentLeaseExpiresAt &&
+          currentLeaseExpiresAt.getTime() > claimedAt.getTime()
+        ) {
+          return {
+            transactionId,
+            status: "in_progress",
+          };
+        }
+
+        const offer = offerFromFrozenTransaction(transaction);
+        const providerRef = adminDb
+          .collection(
+            transaction.providerKind === "individual"
+              ? FEED_INDIVIDUALS_COLLECTION
+              : FEED_ORGANIZATIONS_COLLECTION,
+          )
+          .doc(transaction.providerId);
+        const providerSnapshot = await firestoreTransaction.get(providerRef);
+        if (!providerSnapshot.exists) {
+          throw new AdminRepositoryError(
+            "Service provider not found.",
+            409,
+          );
+        }
+        const providerData = providerSnapshot.data() ?? {};
+        const owner = await resolveAuthoritativeProviderOwnerRecord(
+          offer,
+          providerData,
+          (reference) => firestoreTransaction.get(reference),
+        );
+        const ownerEmail = (
+          cleanString(owner.ownerData.owner_contact_email) ||
+          cleanString(owner.ownerCommunityData.email)
+        ).toLowerCase();
+        if (!REQUESTER_EMAIL_PATTERN.test(ownerEmail)) {
+          throw new AdminRepositoryError(
+            "The service provider owner requires a valid email address.",
+            409,
+          );
+        }
+        const ownerName =
+          cleanString(owner.ownerData.owner_name) ||
+          cleanString(owner.ownerCommunityData.fullName) ||
+          cleanString(owner.ownerCommunityData.name) ||
+          cleanString(transaction.providerSnapshot.name) ||
+          offer.providerName;
+        const providerName =
+          cleanString(transaction.providerSnapshot.name) ||
+          offer.providerName;
+
+        firestoreTransaction.set(
+          notificationRef,
+          {
+            serviceTransactionId: transactionId,
+            requestedByUserEmail,
+            providerOwnerId: owner.ownerCommunityUserId,
+            status: "sending",
+            attemptToken,
+            attemptCount:
+              notificationAttemptCount(notificationData.attemptCount) + 1,
+            claimedAt: FieldValue.serverTimestamp(),
+            leaseExpiresAt,
+            sentAt: notificationData.sentAt ?? null,
+            failedAt: null,
+            lastError: null,
+            createdAt:
+              notificationData.createdAt ?? FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: false },
+        );
+
+        return {
+          status: "claimed",
+          transactionId,
+          attemptToken,
+          email: {
+            ownerEmail,
+            ownerName,
+            requesterEmail: requestedByUserEmail,
+            transactionId,
+            transactionName:
+              transaction.customTransactionName ?? transaction.name,
+            serviceId: transaction.serviceId,
+            providerName,
+            requestedAt:
+              transaction.requestedAt ?? transaction.requestedAtClient,
+          },
+        };
+      },
+    );
+
+  if (claim.status !== "claimed") {
+    return claim;
+  }
+
+  try {
+    await sendServiceTransactionOwnerNotificationEmail(claim.email);
+  } catch (error) {
+    try {
+      await finishServiceTransactionNotificationAttempt(
+        transactionId,
+        claim.attemptToken,
+        { status: "failed", error },
+      );
+    } catch {
+      // Preserve the mail-provider failure below. The active lease still
+      // prevents an immediate duplicate while Firestore is unavailable.
+    }
+    throw new AdminRepositoryError(
+      "The service transaction was saved, but its owner email could not be sent. Retry the notification request.",
+      502,
+    );
+  }
+
+  let finalized: boolean;
+  try {
+    finalized = await finishServiceTransactionNotificationAttempt(
+      transactionId,
+      claim.attemptToken,
+      { status: "sent" },
+    );
+  } catch {
+    throw new AdminRepositoryError(
+      "The owner email was accepted, but its delivery receipt could not be finalized. Retry later.",
+      503,
+    );
+  }
+
+  return {
+    transactionId,
+    status: finalized ? "sent" : "in_progress",
+  };
 }
 
 function normalizedTwoPQCaseId(caseId: string) {

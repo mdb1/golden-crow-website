@@ -38,7 +38,8 @@ if (!process.env.SMOKE_BOOT_CHILD) {
 }
 
 // Routes the global hook lets through on purpose. A new public route must be
-// added here AND to PUBLIC_PATHS in src/server.ts — on purpose, twice.
+// added here AND to the public-path matcher in src/server.ts — on purpose,
+// twice.
 const PUBLIC = new Set([
   "GET /health",
   "POST /auth/login",
@@ -48,6 +49,7 @@ const PUBLIC = new Set([
   "POST /client-bookings",
   "POST /discover/publisher-favicon",
   "POST /discover/publisher-requests",
+  "POST /service-transactions/:transactionId/notify-owner",
 ]);
 const isPublic = (method, url) =>
   PUBLIC.has(`${method} ${url}`) || url.startsWith("/internal/openapi/");

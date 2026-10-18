@@ -5,6 +5,7 @@ type MockData = Record<string, unknown>;
 
 const mockLookup = jest.fn();
 const mockRandomInt = jest.fn();
+const mockSendServiceTransactionOwnerNotificationEmail = jest.fn();
 
 jest.mock("node:dns/promises", () => ({
   lookup: (...args: unknown[]) => mockLookup(...args),
@@ -13,6 +14,11 @@ jest.mock("node:dns/promises", () => ({
 jest.mock("node:crypto", () => ({
   ...jest.requireActual("node:crypto"),
   randomInt: (...args: unknown[]) => mockRandomInt(...args),
+}));
+
+jest.mock("../lib/service-transaction-owner-notification-email.js", () => ({
+  sendServiceTransactionOwnerNotificationEmail: (...args: unknown[]) =>
+    mockSendServiceTransactionOwnerNotificationEmail(...args),
 }));
 
 const collections = new Map<string, Map<string, MockData>>();
@@ -310,6 +316,7 @@ jest.mock("../config/firebase.js", () => ({
 afterEach(() => {
   beforeNextTransaction = undefined;
   writes.length = 0;
+  mockSendServiceTransactionOwnerNotificationEmail.mockReset();
   jest.restoreAllMocks();
 });
 
@@ -5496,6 +5503,9 @@ describe("support service delivered transactions", () => {
 });
 
 describe("support service canonical transaction creation", () => {
+  const nativeNotificationTransactionId =
+    "pgr_ios_0123456789abcdef0123456789abcdef";
+
   function creationInput(requestId = "pgr_new_report_1") {
     return {
       requestId,
@@ -5565,10 +5575,24 @@ describe("support service canonical transaction creation", () => {
     };
   }
 
+  function nativeNotificationCreationInput(
+    requestId = nativeNotificationTransactionId,
+  ) {
+    return {
+      ...creationInput(requestId),
+      idempotencyKey: `ios-${requestId}`,
+      contractSource: "pocket_genes_services_wiki_v1",
+    };
+  }
+
   beforeEach(() => {
     jest.resetModules();
     collections.clear();
     mockRandomInt.mockReset();
+    mockSendServiceTransactionOwnerNotificationEmail.mockReset();
+    mockSendServiceTransactionOwnerNotificationEmail.mockResolvedValue(
+      undefined,
+    );
     let nextObjectCode = 300_000_000;
     mockRandomInt.mockImplementation(() => nextObjectCode++);
     seedDoc("feed_organizations", "feed-org-1", {
@@ -5619,6 +5643,262 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
+  it("emails the authoritative provider owner once for a committed transaction", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionOwner,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      nativeNotificationCreationInput(),
+    );
+
+    const sent = await notifySupportServiceTransactionOwner(
+      nativeNotificationTransactionId,
+      "NEW-USER@EXAMPLE.COM",
+    );
+    const replayed = await notifySupportServiceTransactionOwner(
+      nativeNotificationTransactionId,
+      "new-user@example.com",
+    );
+
+    expect(sent).toEqual({
+      transactionId: nativeNotificationTransactionId,
+      status: "sent",
+    });
+    expect(replayed).toEqual({
+      transactionId: nativeNotificationTransactionId,
+      status: "already_sent",
+    });
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerEmail: "services@pocketgenes.example",
+        ownerName: "Pocket Genes",
+        requesterEmail: "new-user@example.com",
+        transactionId: nativeNotificationTransactionId,
+        transactionName: "Report service",
+        serviceId: "pgs_pocket_genes_1",
+      }),
+    );
+    expect(
+      collectionStore("service_transaction_notifications").get(
+        nativeNotificationTransactionId,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        serviceTransactionId: nativeNotificationTransactionId,
+        status: "sent",
+        attemptCount: 1,
+        providerOwnerId: "feed-org-1",
+      }),
+    );
+  });
+
+  it("retries a failed owner email without creating a duplicate notification record", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionOwner,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      nativeNotificationCreationInput(),
+    );
+    mockSendServiceTransactionOwnerNotificationEmail.mockRejectedValueOnce(
+      new Error("temporary Gmail failure"),
+    );
+
+    await expect(
+      notifySupportServiceTransactionOwner(
+        nativeNotificationTransactionId,
+        "new-user@example.com",
+      ),
+    ).rejects.toMatchObject({ statusCode: 502 });
+    await expect(
+      notifySupportServiceTransactionOwner(
+        nativeNotificationTransactionId,
+        "new-user@example.com",
+      ),
+    ).resolves.toEqual({
+      transactionId: nativeNotificationTransactionId,
+      status: "sent",
+    });
+
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).toHaveBeenCalledTimes(2);
+    expect(
+      collectionStore("service_transaction_notifications").get(
+        nativeNotificationTransactionId,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        status: "sent",
+        attemptCount: 2,
+        lastError: null,
+      }),
+    );
+  });
+
+  it("keeps the lease when Gmail accepts but receipt finalization fails", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionOwner,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      nativeNotificationCreationInput(),
+    );
+    mockSendServiceTransactionOwnerNotificationEmail.mockImplementationOnce(
+      async () => {
+        beforeNextTransaction = () => {
+          throw new Error("Firestore unavailable after Gmail accepted");
+        };
+      },
+    );
+
+    await expect(
+      notifySupportServiceTransactionOwner(
+        nativeNotificationTransactionId,
+        "new-user@example.com",
+      ),
+    ).rejects.toMatchObject({ statusCode: 503 });
+    await expect(
+      notifySupportServiceTransactionOwner(
+        nativeNotificationTransactionId,
+        "new-user@example.com",
+      ),
+    ).resolves.toEqual({
+      transactionId: nativeNotificationTransactionId,
+      status: "in_progress",
+    });
+
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      collectionStore("service_transaction_notifications").get(
+        nativeNotificationTransactionId,
+      ),
+    ).toEqual(expect.objectContaining({ status: "sending" }));
+  });
+
+  it("does not send while another notification attempt owns the lease", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionOwner,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      nativeNotificationCreationInput(),
+    );
+    seedDoc(
+      "service_transaction_notifications",
+      nativeNotificationTransactionId,
+      {
+        serviceTransactionId: nativeNotificationTransactionId,
+        status: "sending",
+        attemptToken: "active-attempt",
+        attemptCount: 1,
+        leaseExpiresAt: new Date(Date.now() + 60_000),
+      },
+    );
+
+    await expect(
+      notifySupportServiceTransactionOwner(
+        nativeNotificationTransactionId,
+        "new-user@example.com",
+      ),
+    ).resolves.toEqual({
+      transactionId: nativeNotificationTransactionId,
+      status: "in_progress",
+    });
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("rejects a requester-email mismatch without sending or claiming", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionOwner,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      nativeNotificationCreationInput(),
+    );
+
+    await expect(
+      notifySupportServiceTransactionOwner(
+        nativeNotificationTransactionId,
+        "attacker@example.com",
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).not.toHaveBeenCalled();
+    expect(collectionStore("service_transaction_notifications").size).toBe(0);
+  });
+
+  it("rejects a native-shaped ID without the native contract provenance", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionOwner,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      nativeNotificationCreationInput(),
+    );
+    const stored = collectionStore("service_transactions").get(
+      nativeNotificationTransactionId,
+    )!;
+    stored.contractSource = "service_offer";
+
+    await expect(
+      notifySupportServiceTransactionOwner(
+        nativeNotificationTransactionId,
+        "new-user@example.com",
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("rejects a native request that did not persist its requester email", async () => {
+    seedDoc("community_users", "new-user", {
+      email: "new-user@example.com",
+      token_status: {
+        total_transaction_limit: 20,
+        daily_transaction_limit: 5,
+        cooldown_seconds: 0,
+      },
+      requestedServiceTransactions: [],
+    });
+    const input = nativeNotificationCreationInput();
+    delete (input as { requestedByUserEmail?: string }).requestedByUserEmail;
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionOwner,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(context, input);
+
+    await expect(
+      notifySupportServiceTransactionOwner(
+        nativeNotificationTransactionId,
+        "new-user@example.com",
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).not.toHaveBeenCalled();
+  });
+
   it("creates one deferred transaction from the canonical 2PQ offer for the doctor email", async () => {
     const { providerId, offerId } = seedLegacyTwoPQOffer();
     const doctorEmail = "doctor@clinic.example";
@@ -5636,6 +5916,7 @@ describe("support service canonical transaction creation", () => {
     const {
       createTwoPQCaseServiceTransaction,
       getTwoPQCaseLinkedServiceTransactionSnapshot,
+      notifySupportServiceTransactionOwner,
     } = await import("../repositories/support-services.repository.js");
     const institutionalContext: AdminContext = {
       ...context,
@@ -5672,6 +5953,12 @@ describe("support service canonical transaction creation", () => {
     );
     const linkedSnapshot =
       await getTwoPQCaseLinkedServiceTransactionSnapshot("CASE-00022");
+    await expect(
+      notifySupportServiceTransactionOwner(
+        "pgr_2pq_case_00022",
+        doctorEmail,
+      ),
+    ).rejects.toMatchObject({ statusCode: 400 });
 
     expect(created).toMatchObject({
       id: "pgr_2pq_case_00022",
@@ -5726,6 +6013,9 @@ describe("support service canonical transaction creation", () => {
       createdAt: "2026-09-16T12:00:00.000Z",
       updatedAt: "2026-09-16T12:00:00.000Z",
     });
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).not.toHaveBeenCalled();
     expect(collectionStore("service_transactions").size).toBe(1);
     expect(
       collectionStore("service_transactions").get("pgr_2pq_case_00022"),

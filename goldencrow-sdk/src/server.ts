@@ -16,6 +16,7 @@ import {
 import { registerRoutes } from "./routes/index.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { ENV } from "./config/env.js";
+import { nativeServiceTransactionPlatform } from "./lib/service-transaction-owner-notification-contract.js";
 
 // Routes exempt from session cookie auth
 const PUBLIC_PATHS = new Set([
@@ -30,8 +31,13 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 export function isPublicPath(path: string) {
+  const notificationPath = path.match(
+    /^\/service-transactions\/([^/]+)\/notify-owner$/,
+  );
   return (
     PUBLIC_PATHS.has(path) ||
+    (notificationPath !== null &&
+      nativeServiceTransactionPlatform(notificationPath[1] ?? "") !== null) ||
     path === "/internal/openapi" ||
     path.startsWith("/internal/openapi/")
   );

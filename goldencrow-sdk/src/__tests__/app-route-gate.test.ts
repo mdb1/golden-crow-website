@@ -105,6 +105,7 @@ const ANONYMOUS_ROUTES = [
   "POST /discover/publisher-favicon",
   "POST /discover/publisher-requests",
   "POST /client-bookings",
+  "POST /service-transactions/:transactionId/notify-owner",
   // /internal/openapi/* skips the cookie hook; the handlers demand a Bearer
   // reporting token instead (asserted below). oauth/token is the
   // client-credentials exchange that MINTS that token.
