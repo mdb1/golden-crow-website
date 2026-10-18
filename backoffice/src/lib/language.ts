@@ -607,6 +607,8 @@ const SPANISH_TEXT: Record<string, string> = {
   Unverified: "No verificado",
   active: "activo",
   inactive: "inactivo",
+  missing: "no encontrado",
+  unknown: "desconocido",
   archived: "archivado",
   pending_approval: "pendiente de aprobación",
   draft: "borrador",
@@ -5677,6 +5679,33 @@ const SPANISH_TEXT: Record<string, string> = {
     "Esa transacción ya está vinculada.",
   "Deferred transaction links saved.":
     "Se guardaron los vínculos de transacciones diferidas.",
+  "Send email again": "Enviar email nuevamente",
+  "Review notification email": "Revisar email de notificación",
+  "Review the canonical recipient and raw email details before sending this notification again.":
+    "Revisá el destinatario canónico y los datos sin procesar del email antes de volver a enviar esta notificación.",
+  "Loading email details...": "Cargando datos del email...",
+  "Actual recipient": "Destinatario real",
+  "Temporary routing is active. The provider email below is informational and will not receive this message.":
+    "El enrutamiento temporal está activo. El email del prestador que figura debajo es informativo y no recibirá este mensaje.",
+  "Provider publisher": "Publicador prestador",
+  "Provider status": "Estado del prestador",
+  "This provider publisher is missing or inactive. Its displayed contact details may be historical, and sending is disabled until the publisher is active.":
+    "Este publicador prestador no existe o está inactivo. Los datos de contacto mostrados pueden ser históricos y el envío está deshabilitado hasta que el publicador esté activo.",
+  "Selected transaction": "Transacción seleccionada",
+  "Requested by": "Solicitada por",
+  "Deferred index email": "Email del índice diferido",
+  "The deferred index email differs from the transaction requester. The email content uses the transaction requester shown above.":
+    "El email del índice diferido no coincide con el solicitante de la transacción. El contenido del email usa el solicitante de la transacción que se muestra arriba.",
+  "Transactions linked to this deferred email":
+    "Transacciones vinculadas a este email diferido",
+  "Raw email details": "Datos sin procesar del email",
+  "Save the deferred transaction changes before previewing an email.":
+    "Guardá los cambios de la transacción diferida antes de previsualizar un email.",
+  "Notification email sent.": "Se envió el email de notificación.",
+  "This resend request was already delivered.":
+    "Esta solicitud de reenvío ya fue entregada.",
+  "Notification email is already being sent.":
+    "El email de notificación ya se está enviando.",
   "The relationship will be validated when saved.":
     "La relación se validará al guardar.",
   "Transaction not found.": "No se encontró la transacción.",

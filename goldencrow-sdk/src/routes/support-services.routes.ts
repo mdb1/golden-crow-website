@@ -18,6 +18,7 @@ import {
   deliverSupportServiceTransaction,
   getSupportServiceIdAvailability,
   getDeferredServiceTransaction,
+  getDeferredServiceTransactionNotificationPreview,
   getSupportServiceOffer,
   getSupportServiceOfferTransactionStats,
   getSupportServiceTransaction,
@@ -28,6 +29,7 @@ import {
   listSupportServiceOffers,
   listSupportServiceTransactions,
   removeSupportServiceTransactionOutputReport,
+  resendDeferredServiceTransactionNotification,
   supportServiceCategoryStageContractIssue,
   updateSupportServiceOffer,
   updateDeferredServiceTransaction,
@@ -589,6 +591,16 @@ const TransactionParamsSchema = z.object({
 const DeferredTransactionParamsSchema = z.object({
   deferredId: z.string().trim().min(1).max(500),
 });
+const DeferredTransactionNotificationParamsSchema =
+  DeferredTransactionParamsSchema.extend({
+    transactionId: z.string().trim().min(1).max(500),
+  });
+const DeferredTransactionNotificationResendBodySchema = z
+  .object({
+    resendRequestId: z.string().trim().uuid(),
+    previewFingerprint: z.string().trim().regex(/^[0-9a-f]{64}$/),
+  })
+  .strict();
 const DeferredTransactionBodySchema = z
   .object({
     email: z.string().trim().email().max(320),
@@ -975,6 +987,61 @@ export async function supportServicesRoutes(
           request.query,
         );
         return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/support-services/deferred-transactions/:deferredId/transactions/:transactionId/notification",
+    { schema: { params: DeferredTransactionNotificationParamsSchema } },
+    async (request, reply) => {
+      if (!request.adminContext?.isBootstrap) {
+        return reply.status(403).send({
+          error: "Only GOD MODE can manage deferred service transactions.",
+        });
+      }
+      try {
+        const preview =
+          await getDeferredServiceTransactionNotificationPreview(
+            request.adminContext,
+            request.params.deferredId,
+            request.params.transactionId,
+          );
+        return reply.send({ preview });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/admin/support-services/deferred-transactions/:deferredId/transactions/:transactionId/notification",
+    {
+      schema: {
+        params: DeferredTransactionNotificationParamsSchema,
+        body: DeferredTransactionNotificationResendBodySchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext?.isBootstrap) {
+        return reply.status(403).send({
+          error: "Only GOD MODE can manage deferred service transactions.",
+        });
+      }
+      try {
+        const notification =
+          await resendDeferredServiceTransactionNotification(
+            request.adminContext,
+            request.params.deferredId,
+            request.params.transactionId,
+            request.body.resendRequestId,
+            request.body.previewFingerprint,
+          );
+        return reply
+          .status(notification.status === "in_progress" ? 202 : 200)
+          .send({ notification });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

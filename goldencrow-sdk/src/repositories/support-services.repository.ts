@@ -24,6 +24,7 @@ import {
 } from "../lib/two-pq-report-owner.js";
 import {
   SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
+  buildServiceTransactionOwnerNotificationEmail,
   sendServiceTransactionOwnerNotificationEmail,
 } from "../lib/service-transaction-owner-notification-email.js";
 import {
@@ -50,6 +51,8 @@ const SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION =
   "service_transaction_idempotency";
 const SERVICE_TRANSACTION_NOTIFICATIONS_COLLECTION =
   "service_transaction_notifications";
+const SERVICE_TRANSACTION_NOTIFICATION_RESENDS_COLLECTION =
+  "service_transaction_notification_resends";
 const OBJECT_CODES_COLLECTION = "object_codes";
 const UPLOADED_OBJECTS_COLLECTION = "uploaded_objects";
 const REPORT_CODES_COLLECTION = "report_codes";
@@ -842,6 +845,44 @@ export interface DeferredServiceTransactionCommunityUser {
 export interface DeferredServiceTransactionIndexDetail
   extends DeferredServiceTransactionIndexRecord {
   communityUser?: DeferredServiceTransactionCommunityUser;
+}
+
+export interface DeferredServiceTransactionNotificationPreview {
+  deferredId: string;
+  deferredEmail: string;
+  transactionId: string;
+  linkedTransactionIds: string[];
+  requesterEmailMismatch: boolean;
+  previewFingerprint: string;
+  transaction: {
+    id: string;
+    name: string;
+    requestedByUserEmail: string;
+    status: SupportServiceTransactionStatus;
+  };
+  provider: {
+    id: string;
+    accountType: SupportServiceProviderKind;
+    name: string;
+    email: string | null;
+    status: string;
+  };
+  email: {
+    recipientEmail: string;
+    subject: string;
+    text: string;
+    input: {
+      transactionName: string;
+      requesterEmail: string;
+    };
+  };
+}
+
+export interface DeferredServiceTransactionNotificationResendResult {
+  transactionId: string;
+  resendRequestId: string;
+  recipientEmail: string;
+  status: "sent" | "already_sent" | "in_progress";
 }
 
 export interface DeferredServiceTransactionsPage {
@@ -6984,6 +7025,219 @@ export async function deleteDeferredServiceTransaction(
   });
 }
 
+type DeferredServiceTransactionNotificationPreviewWithoutFingerprint = Omit<
+  DeferredServiceTransactionNotificationPreview,
+  "previewFingerprint"
+>;
+
+function deferredServiceTransactionProviderCollection(
+  providerKind: SupportServiceProviderKind,
+) {
+  return providerKind === "individual"
+    ? FEED_INDIVIDUALS_COLLECTION
+    : FEED_ORGANIZATIONS_COLLECTION;
+}
+
+function buildDeferredServiceTransactionNotificationPreview(input: {
+  deferredId: string;
+  deferredData: Record<string, unknown>;
+  transactionId: string;
+  transactionDocumentId: string;
+  transactionData: Record<string, unknown>;
+  providerExists: boolean;
+  providerData: Record<string, unknown>;
+}): {
+  preview: DeferredServiceTransactionNotificationPreview;
+  emailInput: Parameters<
+    typeof sendServiceTransactionOwnerNotificationEmail
+  >[0];
+  transaction: SupportServiceTransactionRecord;
+} {
+  const deferredRecord = deferredServiceTransactionIndexRecord(
+    input.deferredId,
+    input.deferredData,
+  );
+  if (!deferredRecord.deferredTransactionIds.includes(input.transactionId)) {
+    throw new AdminRepositoryError(
+      "Service transaction is not linked to this deferred index.",
+      409,
+    );
+  }
+
+  const transaction = toTransactionRecord(
+    input.transactionDocumentId,
+    input.transactionData,
+  );
+  if (transaction.requestId !== input.transactionId) {
+    throw new AdminRepositoryError(
+      "Linked service transaction identity is inconsistent.",
+      409,
+    );
+  }
+  const requesterEmail = cleanString(
+    transaction.requestedByUserEmail,
+  ).toLowerCase();
+  if (!REQUESTER_EMAIL_PATTERN.test(requesterEmail)) {
+    throw new AdminRepositoryError(
+      "Linked service transaction has no valid requester email.",
+      409,
+    );
+  }
+
+  const offer = offerFromFrozenTransaction(transaction);
+  const providerName =
+    cleanString(input.providerData.name) ||
+    cleanString(input.providerData.title) ||
+    cleanString(transaction.providerSnapshot.name) ||
+    offer.providerName ||
+    transaction.providerId;
+  const providerEmail =
+    cleanString(input.providerData.contactEmail).toLowerCase() || null;
+  const emailInput = {
+    requesterEmail,
+    transactionName: transaction.name,
+  };
+  const emailMessage =
+    buildServiceTransactionOwnerNotificationEmail(emailInput);
+  const previewWithoutFingerprint = {
+    deferredId: deferredRecord.id,
+    deferredEmail: deferredRecord.email,
+    transactionId: input.transactionId,
+    linkedTransactionIds: [...deferredRecord.deferredTransactionIds],
+    requesterEmailMismatch: requesterEmail !== deferredRecord.email,
+    transaction: {
+      id: input.transactionId,
+      name: transaction.name,
+      requestedByUserEmail: requesterEmail,
+      status: transaction.status,
+    },
+    provider: {
+      id: transaction.providerId,
+      accountType: transaction.providerKind,
+      name: providerName,
+      email: providerEmail,
+      status: input.providerExists
+        ? normalizeKey(cleanString(input.providerData.status)) || "unknown"
+        : "missing",
+    },
+    email: {
+      recipientEmail: emailMessage.to,
+      subject: emailMessage.subject,
+      text: emailMessage.text,
+      input: emailInput,
+    },
+  } satisfies DeferredServiceTransactionNotificationPreviewWithoutFingerprint;
+  const previewFingerprint = createHash("sha256")
+    .update(stableString(previewWithoutFingerprint))
+    .digest("hex");
+
+  return {
+    emailInput,
+    transaction,
+    preview: {
+      ...previewWithoutFingerprint,
+      previewFingerprint,
+    },
+  };
+}
+
+async function resolveDeferredServiceTransactionNotificationPreview(
+  context: AdminContext,
+  deferredIdValue: string,
+  transactionIdValue: string,
+): Promise<{
+  preview: DeferredServiceTransactionNotificationPreview;
+  emailInput: Parameters<
+    typeof sendServiceTransactionOwnerNotificationEmail
+  >[0];
+  transactionDocumentId: string;
+}> {
+  requireDeferredServiceTransactionsGodMode(context);
+  const deferredId = cleanString(deferredIdValue);
+  const transactionId = cleanString(transactionIdValue);
+  if (!deferredId) {
+    throw new AdminRepositoryError(
+      "Deferred service transaction index not found.",
+      404,
+    );
+  }
+  if (!transactionId) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+
+  const deferredSnapshot = await adminDb
+    .collection(DEFERRED_SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(deferredId)
+    .get();
+  if (!deferredSnapshot.exists) {
+    throw new AdminRepositoryError(
+      "Deferred service transaction index not found.",
+      404,
+    );
+  }
+  const deferredRecord = deferredServiceTransactionIndexRecord(
+    deferredSnapshot.id,
+    deferredSnapshot.data() ?? {},
+  );
+  if (!deferredRecord.deferredTransactionIds.includes(transactionId)) {
+    throw new AdminRepositoryError(
+      "Service transaction is not linked to this deferred index.",
+      409,
+    );
+  }
+  const transactionSnapshot =
+    await getTransactionSnapshotByIdOrRequestId(transactionId);
+  if (!transactionSnapshot) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+  const transaction = toTransactionRecord(
+    transactionSnapshot.id,
+    transactionSnapshot.data() ?? {},
+  );
+  if (transaction.requestId !== transactionId) {
+    throw new AdminRepositoryError(
+      "Linked service transaction identity is inconsistent.",
+      409,
+    );
+  }
+  const providerSnapshot = await adminDb
+    .collection(
+      deferredServiceTransactionProviderCollection(transaction.providerKind),
+    )
+    .doc(transaction.providerId)
+    .get();
+  const providerData = providerSnapshot.data() ?? {};
+  const resolved = buildDeferredServiceTransactionNotificationPreview({
+    deferredId: deferredSnapshot.id,
+    deferredData: deferredSnapshot.data() ?? {},
+    transactionId,
+    transactionDocumentId: transactionSnapshot.id,
+    transactionData: transactionSnapshot.data() ?? {},
+    providerExists: providerSnapshot.exists,
+    providerData,
+  });
+
+  return {
+    preview: resolved.preview,
+    emailInput: resolved.emailInput,
+    transactionDocumentId: transactionSnapshot.id,
+  };
+}
+
+export async function getDeferredServiceTransactionNotificationPreview(
+  context: AdminContext,
+  deferredId: string,
+  transactionId: string,
+): Promise<DeferredServiceTransactionNotificationPreview> {
+  const { preview } =
+    await resolveDeferredServiceTransactionNotificationPreview(
+      context,
+      deferredId,
+      transactionId,
+    );
+  return preview;
+}
+
 function policyInteger(
   value: unknown,
   fallback: number,
@@ -8588,6 +8842,19 @@ type SupportServiceTransactionOwnerNotificationClaim =
       >[0];
     };
 
+type DeferredServiceTransactionNotificationResendClaim =
+  | DeferredServiceTransactionNotificationResendResult
+  | {
+      status: "claimed";
+      transactionId: string;
+      resendRequestId: string;
+      receiptId: string;
+      attemptToken: string;
+      email: Parameters<
+        typeof sendServiceTransactionOwnerNotificationEmail
+      >[0];
+    };
+
 function notificationAttemptCount(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0
     ? value
@@ -8600,6 +8867,380 @@ function notificationErrorMessage(error: unknown) {
       ? error.message.trim()
       : "The mail provider rejected the notification.";
   return message.slice(0, 500);
+}
+
+function deferredNotificationResendReceiptId(
+  transactionId: string,
+  resendRequestId: string,
+) {
+  return createHash("sha256")
+    .update(`${transactionId}\u0000${resendRequestId}`)
+    .digest("hex");
+}
+
+function deferredNotificationResendReplay(input: {
+  receiptExists: boolean;
+  receiptData: Record<string, unknown>;
+  transactionId: string;
+  resendRequestId: string;
+  previewFingerprint: string;
+  now: Date;
+}): DeferredServiceTransactionNotificationResendResult | null {
+  if (!input.receiptExists) {
+    return null;
+  }
+  if (
+    cleanString(input.receiptData.serviceTransactionId) !==
+      input.transactionId ||
+    cleanString(input.receiptData.resendRequestId) !==
+      input.resendRequestId ||
+    cleanString(input.receiptData.previewFingerprint) !==
+      input.previewFingerprint
+  ) {
+    throw new AdminRepositoryError(
+      "Notification resend receipt is inconsistent.",
+      409,
+    );
+  }
+
+  const status = cleanString(input.receiptData.status);
+  if (status !== "sent" && status !== "sending") {
+    return null;
+  }
+  const recipientEmail = cleanString(
+    input.receiptData.recipientEmail,
+  ).toLowerCase();
+  if (!REQUESTER_EMAIL_PATTERN.test(recipientEmail)) {
+    throw new AdminRepositoryError(
+      "Notification resend receipt is inconsistent.",
+      409,
+    );
+  }
+  if (status === "sent") {
+    return {
+      transactionId: input.transactionId,
+      resendRequestId: input.resendRequestId,
+      recipientEmail,
+      status: "already_sent",
+    };
+  }
+
+  const leaseExpiresAt = dateFromUnknown(
+    input.receiptData.leaseExpiresAt,
+    "Notification resend lease expiration",
+  );
+  return leaseExpiresAt && leaseExpiresAt.getTime() > input.now.getTime()
+    ? {
+        transactionId: input.transactionId,
+        resendRequestId: input.resendRequestId,
+        recipientEmail,
+        status: "in_progress",
+      }
+    : null;
+}
+
+async function finishDeferredServiceTransactionNotificationResend(
+  receiptId: string,
+  attemptToken: string,
+  result:
+    | { status: "sent" }
+    | { status: "failed"; error: unknown },
+) {
+  const receiptRef = adminDb
+    .collection(SERVICE_TRANSACTION_NOTIFICATION_RESENDS_COLLECTION)
+    .doc(receiptId);
+
+  return adminDb.runTransaction(async (firestoreTransaction) => {
+    const snapshot = await firestoreTransaction.get(receiptRef);
+    const data = snapshot.data() ?? {};
+    if (
+      !snapshot.exists ||
+      cleanString(data.attemptToken) !== attemptToken ||
+      cleanString(data.status) !== "sending"
+    ) {
+      return false;
+    }
+
+    firestoreTransaction.set(
+      receiptRef,
+      withoutUndefined({
+        ...data,
+        status: result.status,
+        attemptToken: null,
+        leaseExpiresAt: null,
+        updatedAt: FieldValue.serverTimestamp(),
+        sentAt:
+          result.status === "sent"
+            ? FieldValue.serverTimestamp()
+            : data.sentAt,
+        failedAt:
+          result.status === "failed"
+            ? FieldValue.serverTimestamp()
+            : null,
+        lastError:
+          result.status === "failed"
+            ? notificationErrorMessage(result.error)
+            : null,
+      }),
+      { merge: false },
+    );
+    return true;
+  });
+}
+
+export async function resendDeferredServiceTransactionNotification(
+  context: AdminContext,
+  deferredIdValue: string,
+  transactionIdValue: string,
+  resendRequestIdValue: string,
+  previewFingerprintValue: string,
+): Promise<DeferredServiceTransactionNotificationResendResult> {
+  requireDeferredServiceTransactionsGodMode(context);
+  const resendRequestId = cleanString(resendRequestIdValue).toLowerCase();
+  const previewFingerprint = cleanString(
+    previewFingerprintValue,
+  ).toLowerCase();
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      resendRequestId,
+    )
+  ) {
+    throw new AdminRepositoryError(
+      "A valid notification resend request ID is required.",
+      400,
+    );
+  }
+  if (!/^[0-9a-f]{64}$/.test(previewFingerprint)) {
+    throw new AdminRepositoryError(
+      "A valid notification preview fingerprint is required.",
+      400,
+    );
+  }
+
+  const deferredId = cleanString(deferredIdValue);
+  const transactionId = cleanString(transactionIdValue);
+  if (!deferredId) {
+    throw new AdminRepositoryError(
+      "Deferred service transaction index not found.",
+      404,
+    );
+  }
+  if (!transactionId) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+  const receiptId = deferredNotificationResendReceiptId(
+    transactionId,
+    resendRequestId,
+  );
+  const receiptRef = adminDb
+    .collection(SERVICE_TRANSACTION_NOTIFICATION_RESENDS_COLLECTION)
+    .doc(receiptId);
+  const existingReceiptSnapshot = await receiptRef.get();
+  const existingReplay = deferredNotificationResendReplay({
+    receiptExists: existingReceiptSnapshot.exists,
+    receiptData: existingReceiptSnapshot.data() ?? {},
+    transactionId,
+    resendRequestId,
+    previewFingerprint,
+    now: new Date(),
+  });
+  if (existingReplay) {
+    return existingReplay;
+  }
+
+  const { preview, transactionDocumentId } =
+    await resolveDeferredServiceTransactionNotificationPreview(
+      context,
+      deferredIdValue,
+      transactionIdValue,
+    );
+  const deferredRef = adminDb
+    .collection(DEFERRED_SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(preview.deferredId);
+  const transactionRef = adminDb
+    .collection(SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(transactionDocumentId);
+  const attemptToken = randomUUID();
+  const claimedAt = new Date();
+  const leaseExpiresAt = new Date(
+    claimedAt.getTime() + SERVICE_TRANSACTION_NOTIFICATION_LEASE_MS,
+  );
+
+  const claim =
+    await adminDb.runTransaction<DeferredServiceTransactionNotificationResendClaim>(
+      async (firestoreTransaction) => {
+        const [receiptSnapshot, deferredSnapshot, transactionSnapshot] =
+          await Promise.all([
+            firestoreTransaction.get(receiptRef),
+            firestoreTransaction.get(deferredRef),
+            firestoreTransaction.get(transactionRef),
+          ]);
+        const receiptData = receiptSnapshot.data() ?? {};
+        const replay = deferredNotificationResendReplay({
+          receiptExists: receiptSnapshot.exists,
+          receiptData,
+          transactionId: preview.transactionId,
+          resendRequestId,
+          previewFingerprint,
+          now: claimedAt,
+        });
+        if (replay) {
+          return replay;
+        }
+        if (
+          receiptSnapshot.exists &&
+          cleanString(receiptData.deferredId) !== preview.deferredId
+        ) {
+          throw new AdminRepositoryError(
+            "Notification resend receipt is inconsistent.",
+            409,
+          );
+        }
+
+        if (!deferredSnapshot.exists) {
+          throw new AdminRepositoryError(
+            "Deferred service transaction index not found.",
+            404,
+          );
+        }
+        if (!transactionSnapshot.exists) {
+          throw new AdminRepositoryError(
+            "Service transaction not found.",
+            404,
+          );
+        }
+        const currentTransaction = toTransactionRecord(
+          transactionSnapshot.id,
+          transactionSnapshot.data() ?? {},
+        );
+        if (currentTransaction.requestId !== preview.transactionId) {
+          throw new AdminRepositoryError(
+            "Linked service transaction identity is inconsistent.",
+            409,
+          );
+        }
+        const providerRef = adminDb
+          .collection(
+            deferredServiceTransactionProviderCollection(
+              currentTransaction.providerKind,
+            ),
+          )
+          .doc(currentTransaction.providerId);
+        const providerSnapshot = await firestoreTransaction.get(providerRef);
+        if (!providerSnapshot.exists) {
+          throw new AdminRepositoryError(
+            "The linked service provider no longer exists.",
+            409,
+          );
+        }
+        const providerData = providerSnapshot.data() ?? {};
+        if (normalizeKey(cleanString(providerData.status)) !== "active") {
+          throw new AdminRepositoryError(
+            "The linked service provider is no longer active. Review the email again before sending.",
+            409,
+          );
+        }
+        const current = buildDeferredServiceTransactionNotificationPreview({
+          deferredId: deferredSnapshot.id,
+          deferredData: deferredSnapshot.data() ?? {},
+          transactionId: preview.transactionId,
+          transactionDocumentId: transactionSnapshot.id,
+          transactionData: transactionSnapshot.data() ?? {},
+          providerExists: true,
+          providerData,
+        });
+        if (current.preview.previewFingerprint !== previewFingerprint) {
+          throw new AdminRepositoryError(
+            "Notification details changed. Review the email again before sending.",
+            409,
+          );
+        }
+
+        firestoreTransaction.set(
+          receiptRef,
+          {
+            deferredId: preview.deferredId,
+            serviceTransactionId: preview.transactionId,
+            resendRequestId,
+            previewFingerprint,
+            requestedByUserEmail:
+              current.preview.transaction.requestedByUserEmail,
+            recipientEmail: SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
+            providerId: current.preview.provider.id,
+            providerKind: current.preview.provider.accountType,
+            status: "sending",
+            attemptToken,
+            attemptCount:
+              notificationAttemptCount(receiptData.attemptCount) + 1,
+            claimedAt: FieldValue.serverTimestamp(),
+            leaseExpiresAt,
+            sentAt: receiptData.sentAt ?? null,
+            failedAt: null,
+            lastError: null,
+            createdAt:
+              receiptData.createdAt ?? FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            createdByEmail:
+              cleanString(receiptData.createdByEmail) || context.email,
+            updatedByEmail: context.email,
+          },
+          { merge: false },
+        );
+
+        return {
+          status: "claimed",
+          transactionId: preview.transactionId,
+          resendRequestId,
+          receiptId,
+          attemptToken,
+          email: current.emailInput,
+        };
+      },
+    );
+
+  if (claim.status !== "claimed") {
+    return claim;
+  }
+
+  try {
+    await sendServiceTransactionOwnerNotificationEmail(claim.email);
+  } catch (error) {
+    try {
+      await finishDeferredServiceTransactionNotificationResend(
+        claim.receiptId,
+        claim.attemptToken,
+        { status: "failed", error },
+      );
+    } catch {
+      // Preserve the mail-provider error. The active lease prevents the same
+      // explicit resend request from immediately delivering a duplicate.
+    }
+    throw new AdminRepositoryError(
+      "The notification email could not be sent. Retry the same resend request.",
+      502,
+    );
+  }
+
+  let finalized: boolean;
+  try {
+    finalized = await finishDeferredServiceTransactionNotificationResend(
+      claim.receiptId,
+      claim.attemptToken,
+      { status: "sent" },
+    );
+  } catch {
+    throw new AdminRepositoryError(
+      "The notification email was accepted, but its resend receipt could not be finalized. Retry later.",
+      503,
+    );
+  }
+
+  return {
+    transactionId: claim.transactionId,
+    resendRequestId: claim.resendRequestId,
+    recipientEmail: SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
+    status: finalized ? "sent" : "in_progress",
+  };
 }
 
 async function finishServiceTransactionNotificationAttempt(

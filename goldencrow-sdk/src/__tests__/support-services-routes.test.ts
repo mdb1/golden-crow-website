@@ -13,8 +13,10 @@ const mockListSupportServiceOffers = jest.fn();
 const mockListSupportServiceTransactions = jest.fn();
 const mockListDeferredServiceTransactions = jest.fn();
 const mockGetDeferredServiceTransaction = jest.fn();
+const mockGetDeferredServiceTransactionNotificationPreview = jest.fn();
 const mockUpdateDeferredServiceTransaction = jest.fn();
 const mockDeleteDeferredServiceTransaction = jest.fn();
+const mockResendDeferredServiceTransactionNotification = jest.fn();
 const mockCreateSupportServiceTransaction = jest.fn();
 const mockUpdateSupportServiceTransaction = jest.fn();
 const mockDeleteSupportServiceTransaction = jest.fn();
@@ -170,6 +172,8 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   deliverSupportServiceTransaction: mockDeliverSupportServiceTransaction,
   getSupportServiceIdAvailability: mockGetSupportServiceIdAvailability,
   getDeferredServiceTransaction: mockGetDeferredServiceTransaction,
+  getDeferredServiceTransactionNotificationPreview:
+    mockGetDeferredServiceTransactionNotificationPreview,
   getSupportServiceOffer: jest.fn(),
   getSupportServiceOfferTransactionStats:
     mockGetSupportServiceOfferTransactionStats,
@@ -183,6 +187,8 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   listSupportServiceTransactions: mockListSupportServiceTransactions,
   removeSupportServiceTransactionOutputReport:
     mockRemoveSupportServiceTransactionOutputReport,
+  resendDeferredServiceTransactionNotification:
+    mockResendDeferredServiceTransactionNotification,
   updateSupportServiceOffer: mockUpdateSupportServiceOffer,
   updateDeferredServiceTransaction: mockUpdateDeferredServiceTransaction,
   updateSupportServiceTransaction: mockUpdateSupportServiceTransaction,
@@ -403,6 +409,36 @@ describe("support service admin routes", () => {
       transactionCount: 1,
       transactions: [],
     });
+    mockGetDeferredServiceTransactionNotificationPreview.mockResolvedValue({
+      deferredId: "deferred-1",
+      deferredEmail: "person@example.com",
+      transactionId: "pgr_deferred_1",
+      linkedTransactionIds: ["pgr_deferred_1"],
+      requesterEmailMismatch: false,
+      previewFingerprint: "a".repeat(64),
+      transaction: {
+        id: "pgr_deferred_1",
+        name: "Report service",
+        requestedByUserEmail: "person@example.com",
+        status: "received",
+      },
+      provider: {
+        id: "provider-1",
+        accountType: "organization",
+        name: "Genome Lab",
+        email: "provider@example.com",
+        status: "active",
+      },
+      email: {
+        recipientEmail: "federico@goldencrowvs.com",
+        subject: "New Pocket Genes service request",
+        text: "A new service request has been submitted.",
+        input: {
+          transactionName: "Report service",
+          requesterEmail: "person@example.com",
+        },
+      },
+    });
     mockUpdateDeferredServiceTransaction.mockResolvedValue({
       id: "deferred-2",
       email: "updated@example.com",
@@ -411,6 +447,12 @@ describe("support service admin routes", () => {
       transactions: [],
     });
     mockDeleteDeferredServiceTransaction.mockResolvedValue(undefined);
+    mockResendDeferredServiceTransactionNotification.mockResolvedValue({
+      transactionId: "pgr_deferred_1",
+      resendRequestId: "123e4567-e89b-42d3-a456-426614174000",
+      recipientEmail: "federico@goldencrowvs.com",
+      status: "sent",
+    });
     mockDeleteSupportServiceTransaction.mockResolvedValue({
       cleanupWarnings: [],
       deletedArtifacts: {
@@ -550,6 +592,68 @@ describe("support service admin routes", () => {
     );
   });
 
+  it("previews and resends one linked deferred transaction notification through GOD MODE", async () => {
+    const fastify = await buildTestServer();
+    const path =
+      "/admin/support-services/deferred-transactions/deferred-1/transactions/pgr_deferred_1/notification";
+    const previewResponse = await fastify.inject({
+      method: "GET",
+      url: path,
+    });
+    const resendResponse = await fastify.inject({
+      method: "POST",
+      url: path,
+      payload: {
+        resendRequestId: "123e4567-e89b-42d3-a456-426614174000",
+        previewFingerprint: "a".repeat(64),
+      },
+    });
+
+    expect(previewResponse.statusCode).toBe(200);
+    expect(previewResponse.json()).toEqual({
+      preview: expect.objectContaining({
+        transactionId: "pgr_deferred_1",
+        email: expect.objectContaining({
+          recipientEmail: "federico@goldencrowvs.com",
+        }),
+      }),
+    });
+    expect(
+      mockGetDeferredServiceTransactionNotificationPreview,
+    ).toHaveBeenCalledWith(
+      bootstrapContext,
+      "deferred-1",
+      "pgr_deferred_1",
+    );
+    expect(resendResponse.statusCode).toBe(200);
+    expect(mockResendDeferredServiceTransactionNotification).toHaveBeenCalledWith(
+      bootstrapContext,
+      "deferred-1",
+      "pgr_deferred_1",
+      "123e4567-e89b-42d3-a456-426614174000",
+      "a".repeat(64),
+    );
+  });
+
+  it("rejects client-supplied notification recipients and content", async () => {
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/deferred-transactions/deferred-1/transactions/pgr_deferred_1/notification",
+      payload: {
+        resendRequestId: "123e4567-e89b-42d3-a456-426614174000",
+        previewFingerprint: "a".repeat(64),
+        recipientEmail: "attacker@example.com",
+        text: "Replace the canonical message",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(
+      mockResendDeferredServiceTransactionNotification,
+    ).not.toHaveBeenCalled();
+  });
+
   it("rejects duplicate deferred transaction IDs before repository access", async () => {
     const fastify = await buildTestServer();
     const response = await fastify.inject({
@@ -612,6 +716,18 @@ describe("support service admin routes", () => {
       method: "DELETE",
       url: "/admin/support-services/deferred-transactions/deferred-1",
     });
+    const previewResponse = await fastify.inject({
+      method: "GET",
+      url: "/admin/support-services/deferred-transactions/deferred-1/transactions/pgr_deferred_1/notification",
+    });
+    const resendResponse = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/deferred-transactions/deferred-1/transactions/pgr_deferred_1/notification",
+      payload: {
+        resendRequestId: "123e4567-e89b-42d3-a456-426614174000",
+        previewFingerprint: "a".repeat(64),
+      },
+    });
 
     expect(listResponse.statusCode).toBe(403);
     expect(listResponse.json()).toEqual({
@@ -621,8 +737,16 @@ describe("support service admin routes", () => {
     expect(deleteResponse.json()).toEqual({
       error: "Only GOD MODE can manage deferred service transactions.",
     });
+    expect(previewResponse.statusCode).toBe(403);
+    expect(resendResponse.statusCode).toBe(403);
     expect(mockListDeferredServiceTransactions).not.toHaveBeenCalled();
     expect(mockDeleteDeferredServiceTransaction).not.toHaveBeenCalled();
+    expect(
+      mockGetDeferredServiceTransactionNotificationPreview,
+    ).not.toHaveBeenCalled();
+    expect(
+      mockResendDeferredServiceTransactionNotification,
+    ).not.toHaveBeenCalled();
   });
 
   it("creates a service offer with the Pocket Genes service identifiers", async () => {

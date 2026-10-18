@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,10 +16,12 @@ import {
   CircleAlert,
   Link2,
   Loader2,
+  Mail,
   Plus,
   RefreshCw,
   Save,
   Search,
+  Send,
   Trash2,
   Unlink,
   UserRoundX,
@@ -56,6 +58,8 @@ import { sdkFetch } from "@/lib/sdk-client";
 import type {
   DeferredServiceTransactionIndexDetail,
   DeferredServiceTransactionIndexRecord,
+  DeferredServiceTransactionNotificationPreview,
+  DeferredServiceTransactionNotificationResendResult,
   DeferredServiceTransactionsPage,
 } from "@/lib/support-services";
 
@@ -64,8 +68,28 @@ const API_ROUTE = "/admin/support-services/deferred-transactions";
 const PANEL_CLASS =
   "overflow-hidden rounded-2xl border border-border/70 bg-card/90 shadow-sm";
 
+function deferredNotificationApiRoute(
+  deferredId: string,
+  transactionId: string,
+) {
+  return `${API_ROUTE}/${encodeURIComponent(deferredId)}/transactions/${encodeURIComponent(transactionId)}/notification`;
+}
+
+function createNotificationResendRequestId() {
+  return globalThis.crypto.randomUUID();
+}
+
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "The request failed.";
+}
+
+function requestStatus(error: unknown) {
+  return error &&
+    typeof error === "object" &&
+    "status" in error &&
+    typeof error.status === "number"
+    ? error.status
+    : undefined;
 }
 
 function requestErrorLog(error: unknown) {
@@ -633,6 +657,17 @@ export function DeferredServiceTransactionWorkbench({
   const [loadedRecordId, setLoadedRecordId] = useState("");
   const [formError, setFormError] = useState("");
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [notificationTransactionId, setNotificationTransactionId] =
+    useState("");
+  const [notificationPreview, setNotificationPreview] =
+    useState<DeferredServiceTransactionNotificationPreview | null>(null);
+  const [notificationPreviewPending, setNotificationPreviewPending] =
+    useState(false);
+  const [notificationPreviewError, setNotificationPreviewError] =
+    useState<unknown>(null);
+  const [notificationResendRequestId, setNotificationResendRequestId] =
+    useState("");
+  const notificationPreviewRequestRef = useRef(0);
 
   const detailQuery = useQuery({
     queryKey: ["deferred-service-transaction", deferredId],
@@ -682,6 +717,141 @@ export function DeferredServiceTransactionWorkbench({
         details: error instanceof Error ? error.stack : undefined,
       }),
   });
+
+  const notificationPreviewMutation = useMutation({
+    mutationFn: ({
+      transactionId,
+    }: {
+      transactionId: string;
+      requestToken: number;
+    }) =>
+      sdkFetch<{ preview: DeferredServiceTransactionNotificationPreview }>(
+        deferredNotificationApiRoute(deferredId, transactionId),
+      ),
+    onSuccess: ({ preview }, { requestToken }) => {
+      if (notificationPreviewRequestRef.current === requestToken) {
+        setNotificationPreview(preview);
+        setNotificationPreviewPending(false);
+        setNotificationPreviewError(null);
+      }
+    },
+    onError: (error, { requestToken }) => {
+      if (notificationPreviewRequestRef.current === requestToken) {
+        setNotificationPreviewPending(false);
+        setNotificationPreviewError(error);
+      }
+    },
+  });
+
+  const notificationResendMutation = useMutation({
+    mutationFn: ({
+      transactionId,
+      resendRequestId,
+      previewFingerprint,
+    }: {
+      transactionId: string;
+      resendRequestId: string;
+      previewFingerprint: string;
+    }) =>
+      sdkFetch<{
+        notification: DeferredServiceTransactionNotificationResendResult;
+      }>(deferredNotificationApiRoute(deferredId, transactionId), {
+        method: "POST",
+        body: JSON.stringify({ resendRequestId, previewFingerprint }),
+      }),
+    onSuccess: ({ notification }) => {
+      setNotificationTransactionId("");
+      setNotificationPreview(null);
+      setNotificationResendRequestId("");
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message:
+          notification.status === "sent"
+            ? t("Notification email sent.")
+            : notification.status === "already_sent"
+              ? t("This resend request was already delivered.")
+              : t("Notification email is already being sent."),
+      });
+    },
+    onError: (error) => {
+      if (requestStatus(error) === 409) {
+        notificationPreviewRequestRef.current += 1;
+        setNotificationPreview(null);
+        setNotificationPreviewPending(false);
+        setNotificationPreviewError(error);
+        setNotificationResendRequestId("");
+      }
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: errorMessage(error),
+        details: requestErrorLog(error),
+      });
+    },
+  });
+
+  const hasUnsavedChanges = Boolean(
+    record &&
+      (email.trim().toLowerCase() !== record.email ||
+        transactionIds.length !== record.deferredTransactionIds.length ||
+        transactionIds.some(
+          (transactionId, index) =>
+            transactionId !== record.deferredTransactionIds[index],
+        )),
+  );
+
+  function openNotificationPreview(transactionId: string) {
+    const requestToken = notificationPreviewRequestRef.current + 1;
+    notificationPreviewRequestRef.current = requestToken;
+    setNotificationTransactionId(transactionId);
+    setNotificationPreview(null);
+    setNotificationPreviewPending(true);
+    setNotificationPreviewError(null);
+    setNotificationResendRequestId("");
+    notificationPreviewMutation.reset();
+    notificationResendMutation.reset();
+    notificationPreviewMutation.mutate({ transactionId, requestToken });
+  }
+
+  function closeNotificationPreview() {
+    if (notificationResendMutation.isPending) return;
+    notificationPreviewRequestRef.current += 1;
+    setNotificationTransactionId("");
+    setNotificationPreview(null);
+    setNotificationPreviewPending(false);
+    setNotificationPreviewError(null);
+    setNotificationResendRequestId("");
+    notificationPreviewMutation.reset();
+    notificationResendMutation.reset();
+  }
+
+  function retryNotificationPreview() {
+    const requestToken = notificationPreviewRequestRef.current + 1;
+    notificationPreviewRequestRef.current = requestToken;
+    setNotificationPreview(null);
+    setNotificationPreviewPending(true);
+    setNotificationPreviewError(null);
+    notificationResendMutation.reset();
+    notificationPreviewMutation.mutate({
+      transactionId: notificationTransactionId,
+      requestToken,
+    });
+  }
+
+  function resendNotification() {
+    if (!notificationPreview || notificationResendMutation.isPending) return;
+    const resendRequestId =
+      notificationResendRequestId || createNotificationResendRequestId();
+    if (!notificationResendRequestId) {
+      setNotificationResendRequestId(resendRequestId);
+    }
+    notificationResendMutation.mutate({
+      transactionId: notificationPreview.transactionId,
+      resendRequestId,
+      previewFingerprint: notificationPreview.previewFingerprint,
+    });
+  }
 
   function addTransaction() {
     const id = newTransactionId.trim();
@@ -834,6 +1004,17 @@ export function DeferredServiceTransactionWorkbench({
                   "Unlinking removes the transaction from this deferred email index; it does not delete the service transaction.",
                 )}
               </p>
+              {hasUnsavedChanges ? (
+                <p
+                  id="deferred-notification-save-first"
+                  role="status"
+                  className="text-xs font-medium text-amber-700 dark:text-amber-300"
+                >
+                  {t(
+                    "Save the deferred transaction changes before previewing an email.",
+                  )}
+                </p>
+              ) : null}
               {formError ? (
                 <p role="alert" className="text-sm text-destructive">
                   {formError}
@@ -861,6 +1042,37 @@ export function DeferredServiceTransactionWorkbench({
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={
+                              hasUnsavedChanges ||
+                              saveMutation.isPending ||
+                              !record?.deferredTransactionIds.includes(
+                                transactionId,
+                              )
+                            }
+                            title={
+                              hasUnsavedChanges
+                                ? t(
+                                    "Save the deferred transaction changes before previewing an email.",
+                                  )
+                                : undefined
+                            }
+                            aria-label={`${t("Send email again")}: ${transactionId}`}
+                            aria-describedby={
+                              hasUnsavedChanges
+                                ? "deferred-notification-save-first"
+                                : undefined
+                            }
+                            onClick={() =>
+                              openNotificationPreview(transactionId)
+                            }
+                          >
+                            <Mail className="h-4 w-4" />
+                            {t("Send email again")}
+                          </Button>
                           <Button asChild type="button" variant="outline" size="sm">
                             <Link
                               href={`/god-mode/service-transactions/${encodeURIComponent(transactionId)}`}
@@ -892,6 +1104,250 @@ export function DeferredServiceTransactionWorkbench({
           </div>
         )}
       </form>
+
+      <Dialog
+        open={Boolean(notificationTransactionId)}
+        onOpenChange={(open) => {
+          if (!open) closeNotificationPreview();
+        }}
+      >
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-3xl"
+          showCloseButton={!notificationResendMutation.isPending}
+        >
+          <DialogHeader>
+            <DialogTitle>{t("Review notification email")}</DialogTitle>
+            <DialogDescription>
+              {t(
+                "Review the canonical recipient and raw email details before sending this notification again.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {notificationPreviewPending ? (
+            <div
+              role="status"
+              className="flex min-h-48 items-center justify-center gap-3 text-sm text-muted-foreground"
+            >
+              <Loader2 className="h-5 w-5 animate-spin" />
+              {t("Loading email details...")}
+            </div>
+          ) : notificationPreviewError ? (
+            <div
+              role="alert"
+              className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/8 p-4 text-sm text-destructive"
+            >
+              <p>{errorMessage(notificationPreviewError)}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={retryNotificationPreview}
+              >
+                <RefreshCw className="h-4 w-4" />
+                {t("Retry")}
+              </Button>
+            </div>
+          ) : notificationPreview ? (
+            <div className="space-y-5">
+              <section className="rounded-xl border border-violet-300/70 bg-violet-50/80 p-4 text-violet-950 dark:border-violet-300/25 dark:bg-violet-400/10 dark:text-violet-50">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">
+                  {t("Actual recipient")}
+                </p>
+                <p className="mt-2 break-all text-lg font-semibold">
+                  {notificationPreview.email.recipientEmail}
+                </p>
+                <p className="mt-2 text-sm opacity-80">
+                  {t(
+                    "Temporary routing is active. The provider email below is informational and will not receive this message.",
+                  )}
+                </p>
+              </section>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <section className="rounded-xl border border-border/80 bg-muted/20 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-heading font-semibold text-foreground">
+                      {t("Provider publisher")}
+                    </h3>
+                    <Badge variant="secondary">
+                      {t(
+                        notificationPreview.provider.accountType ===
+                          "organization"
+                          ? "Organization publisher"
+                          : "Individual publisher",
+                      )}
+                    </Badge>
+                  </div>
+                  <dl className="mt-4 space-y-3 text-sm">
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {t("Name")}
+                      </dt>
+                      <dd className="mt-1 font-medium text-foreground">
+                        {notificationPreview.provider.name}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {t("Provider email")}
+                      </dt>
+                      <dd className="mt-1 break-all font-medium text-foreground">
+                        {notificationPreview.provider.email ??
+                          t("Not available")}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {t("Provider status")}
+                      </dt>
+                      <dd className="mt-1">
+                        <Badge variant="outline">
+                          {t(notificationPreview.provider.status)}
+                        </Badge>
+                      </dd>
+                    </div>
+                  </dl>
+                  {notificationPreview.provider.status !== "active" ? (
+                    <p
+                      role="alert"
+                      className="mt-4 rounded-lg border border-amber-400/50 bg-amber-500/10 p-3 text-xs leading-5 text-amber-900 dark:text-amber-100"
+                    >
+                      {t(
+                        "This provider publisher is missing or inactive. Its displayed contact details may be historical, and sending is disabled until the publisher is active.",
+                      )}
+                    </p>
+                  ) : null}
+                </section>
+
+                <section className="rounded-xl border border-border/80 bg-muted/20 p-4">
+                  <h3 className="font-heading font-semibold text-foreground">
+                    {t("Selected transaction")}
+                  </h3>
+                  <p className="mt-3 font-medium text-foreground">
+                    {notificationPreview.transaction.name}
+                  </p>
+                  <p className="mt-2 break-all font-mono text-xs text-muted-foreground">
+                    {notificationPreview.transaction.id}
+                  </p>
+                  <dl className="mt-4 space-y-3 text-sm">
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {t("Requested by")}
+                      </dt>
+                      <dd className="mt-1 break-all text-foreground">
+                        {notificationPreview.transaction.requestedByUserEmail}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {t("Deferred index email")}
+                      </dt>
+                      <dd className="mt-1 break-all text-foreground">
+                        {notificationPreview.deferredEmail}
+                      </dd>
+                    </div>
+                  </dl>
+                  {notificationPreview.requesterEmailMismatch ? (
+                    <p
+                      role="alert"
+                      className="mt-4 rounded-lg border border-amber-400/50 bg-amber-500/10 p-3 text-xs leading-5 text-amber-900 dark:text-amber-100"
+                    >
+                      {t(
+                        "The deferred index email differs from the transaction requester. The email content uses the transaction requester shown above.",
+                      )}
+                    </p>
+                  ) : null}
+                </section>
+              </div>
+
+              <section className="rounded-xl border border-border/80 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="font-heading font-semibold text-foreground">
+                    {t("Transactions linked to this deferred email")}
+                  </h3>
+                  <Badge variant="secondary">
+                    {notificationPreview.linkedTransactionIds.length}
+                  </Badge>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {notificationPreview.linkedTransactionIds.map(
+                    (linkedTransactionId) => (
+                      <Badge
+                        key={linkedTransactionId}
+                        variant={
+                          linkedTransactionId ===
+                          notificationPreview.transactionId
+                            ? "default"
+                            : "outline"
+                        }
+                        className="max-w-full break-all font-mono font-normal"
+                      >
+                        {linkedTransactionId}
+                      </Badge>
+                    ),
+                  )}
+                </div>
+              </section>
+
+              <section className="space-y-2">
+                <h3
+                  id="deferred-notification-raw-email-heading"
+                  className="font-heading font-semibold text-foreground"
+                >
+                  {t("Raw email details")}
+                </h3>
+                <pre
+                  aria-labelledby="deferred-notification-raw-email-heading"
+                  tabIndex={0}
+                  className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-border/80 bg-muted/30 p-4 font-mono text-xs leading-5 text-foreground"
+                >
+                  {JSON.stringify(
+                    {
+                      to: notificationPreview.email.recipientEmail,
+                      subject: notificationPreview.email.subject,
+                      text: notificationPreview.email.text,
+                      input: notificationPreview.email.input,
+                    },
+                    null,
+                    2,
+                  )}
+                </pre>
+              </section>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeNotificationPreview}
+              disabled={notificationResendMutation.isPending}
+            >
+              {t("Cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={resendNotification}
+              disabled={
+                !notificationPreview ||
+                notificationPreviewPending ||
+                notificationResendMutation.isPending ||
+                notificationPreview?.provider.status !== "active"
+              }
+            >
+              {notificationResendMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              {notificationResendMutation.isPending
+                ? t("Sending...")
+                : t("Send email again")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

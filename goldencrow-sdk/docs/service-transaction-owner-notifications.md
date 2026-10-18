@@ -33,6 +33,35 @@ For the current temporary routing policy, every email is sent to
 only the canonical service name and requester email in a compact card, with a
 single button to the authenticated backoffice service-transactions dashboard.
 
+## Manual GOD MODE resend
+
+The deferred transaction detail screen previews and resends one linked
+transaction at a time through the authenticated admin routes:
+
+```text
+GET  /admin/support-services/deferred-transactions/:deferredId/transactions/:transactionId/notification
+POST /admin/support-services/deferred-transactions/:deferredId/transactions/:transactionId/notification
+```
+
+The preview reloads the persisted deferred index, selected transaction, and
+live Discover provider. It shows the exact fixed recipient, subject, text and
+canonical email input alongside the provider publisher's name, account type,
+contact email, and every transaction ID linked to the deferred email. Provider
+details and linked IDs are operator context only; they are not added to the
+outbound message. If an operator has moved the deferred index to another email,
+the preview shows both values and builds the message from the immutable
+transaction requester email.
+
+The POST body contains a client-generated `resendRequestId` UUID and the
+server-generated `previewFingerprint` returned by GET. The server reloads and
+rebuilds all delivery data, requires the linked Discover provider to still
+exist and be active, and rejects the command when its current fingerprint no
+longer matches the preview. It never accepts a recipient or message from the
+client. Each UUID has an independent receipt and lease in
+`service_transaction_notification_resends`, so retrying the same action cannot
+send twice while a newly confirmed action can deliberately send another email.
+These receipts do not alter the native app's one-time notification receipt.
+
 Responses are `200` with `sent` or `already_sent`, or `202` with `in_progress`
 when another request currently owns the delivery lease. Delivery failures are
 retryable and return `502`; they never undo the committed service transaction.

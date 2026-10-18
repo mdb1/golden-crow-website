@@ -19,6 +19,15 @@ jest.mock("node:crypto", () => ({
 jest.mock("../lib/service-transaction-owner-notification-email.js", () => ({
   SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL:
     "federico@goldencrowvs.com",
+  buildServiceTransactionOwnerNotificationEmail: (input: {
+    requesterEmail: string;
+    transactionName: string;
+  }) => ({
+    to: "federico@goldencrowvs.com",
+    subject: "New Pocket Genes service request",
+    text: `Service: ${input.transactionName}\nRequested by: ${input.requesterEmail}`,
+    html: "<p>New service request</p>",
+  }),
   sendServiceTransactionOwnerNotificationEmail: (...args: unknown[]) =>
     mockSendServiceTransactionOwnerNotificationEmail(...args),
 }));
@@ -5587,6 +5596,15 @@ describe("support service canonical transaction creation", () => {
     };
   }
 
+  function emailOnlyNotificationCreationInput(
+    requestId = nativeNotificationTransactionId,
+  ) {
+    return {
+      ...nativeNotificationCreationInput(requestId),
+      requestedByUserId: undefined,
+    };
+  }
+
   beforeEach(() => {
     jest.resetModules();
     collections.clear();
@@ -5599,6 +5617,7 @@ describe("support service canonical transaction creation", () => {
     mockRandomInt.mockImplementation(() => nextObjectCode++);
     seedDoc("feed_organizations", "feed-org-1", {
       name: "Pocket Genes",
+      contactEmail: "publisher@pocketgenes.example",
       status: "active",
       imageUrl: "https://example.com/provider.png",
       ownerCommunityUserId: "feed-org-1",
@@ -5693,6 +5712,418 @@ describe("support service canonical transaction creation", () => {
         recipientEmail: "federico@goldencrowvs.com",
       }),
     );
+  });
+
+  it("previews canonical deferred notification details and idempotently resends each explicit request", async () => {
+    const {
+      createSupportServiceTransaction,
+      getDeferredServiceTransactionNotificationPreview,
+      resendDeferredServiceTransactionNotification,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      emailOnlyNotificationCreationInput(),
+    );
+    const deferredId = Buffer.from("new-user@example.com").toString(
+      "base64url",
+    );
+    seedDoc(
+      "service_transaction_notifications",
+      nativeNotificationTransactionId,
+      {
+        serviceTransactionId: nativeNotificationTransactionId,
+        recipientEmail: "federico@goldencrowvs.com",
+        status: "sent",
+      },
+    );
+
+    const preview =
+      await getDeferredServiceTransactionNotificationPreview(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+      );
+
+    expect(preview).toEqual({
+      deferredId,
+      deferredEmail: "new-user@example.com",
+      transactionId: nativeNotificationTransactionId,
+      linkedTransactionIds: [nativeNotificationTransactionId],
+      requesterEmailMismatch: false,
+      previewFingerprint: expect.stringMatching(/^[0-9a-f]{64}$/),
+      transaction: {
+        id: nativeNotificationTransactionId,
+        name: "Report service",
+        requestedByUserEmail: "new-user@example.com",
+        status: "received",
+      },
+      provider: {
+        id: "feed-org-1",
+        accountType: "organization",
+        name: "Pocket Genes",
+        email: "publisher@pocketgenes.example",
+        status: "active",
+      },
+      email: {
+        recipientEmail: "federico@goldencrowvs.com",
+        subject: "New Pocket Genes service request",
+        text: "Service: Report service\nRequested by: new-user@example.com",
+        input: {
+          transactionName: "Report service",
+          requesterEmail: "new-user@example.com",
+        },
+      },
+    });
+    expect(preview.email.text).not.toContain(nativeNotificationTransactionId);
+
+    const firstResendRequestId =
+      "123e4567-e89b-42d3-a456-426614174000";
+    const secondResendRequestId =
+      "123e4567-e89b-42d3-a456-426614174001";
+    await expect(
+      resendDeferredServiceTransactionNotification(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+        firstResendRequestId,
+        preview.previewFingerprint,
+      ),
+    ).resolves.toEqual({
+      transactionId: nativeNotificationTransactionId,
+      resendRequestId: firstResendRequestId,
+      recipientEmail: "federico@goldencrowvs.com",
+      status: "sent",
+    });
+    collectionStore("deferred_service_transactions").delete(deferredId);
+    await expect(
+      resendDeferredServiceTransactionNotification(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+        firstResendRequestId,
+        preview.previewFingerprint,
+      ),
+    ).resolves.toEqual({
+      transactionId: nativeNotificationTransactionId,
+      resendRequestId: firstResendRequestId,
+      recipientEmail: "federico@goldencrowvs.com",
+      status: "already_sent",
+    });
+    seedDoc("deferred_service_transactions", deferredId, {
+      email: "new-user@example.com",
+      deferred_transaction_ids: [nativeNotificationTransactionId],
+    });
+    await expect(
+      resendDeferredServiceTransactionNotification(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+        secondResendRequestId,
+        preview.previewFingerprint,
+      ),
+    ).resolves.toEqual(expect.objectContaining({ status: "sent" }));
+
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).toHaveBeenCalledTimes(2);
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).toHaveBeenCalledWith({
+      requesterEmail: "new-user@example.com",
+      transactionName: "Report service",
+    });
+    expect(
+      collectionStore("service_transaction_notification_resends").size,
+    ).toBe(2);
+    expect(
+      [
+        ...collectionStore(
+          "service_transaction_notification_resends",
+        ).values(),
+      ],
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          serviceTransactionId: nativeNotificationTransactionId,
+          previewFingerprint: preview.previewFingerprint,
+          recipientEmail: "federico@goldencrowvs.com",
+          providerKind: "organization",
+          status: "sent",
+        }),
+      ]),
+    );
+  });
+
+  it("shows an individual publisher and keeps missing provider contact information non-blocking", async () => {
+    const {
+      createSupportServiceTransaction,
+      getDeferredServiceTransactionNotificationPreview,
+      resendDeferredServiceTransactionNotification,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      emailOnlyNotificationCreationInput(),
+    );
+    const stored = collectionStore("service_transactions").get(
+      nativeNotificationTransactionId,
+    )!;
+    stored.providerId = "feed-individual-1";
+    stored.providerKind = "individual";
+    stored.providerSnapshot = {
+      id: "feed-individual-1",
+      kind: "individual",
+      name: "Dr. Genome",
+    };
+    stored.offerSnapshot = {
+      ...(stored.offerSnapshot as Record<string, unknown>),
+      providerId: "feed-individual-1",
+      providerKind: "individual",
+      providerName: "Dr. Genome",
+    };
+    seedDoc("feed_individuals", "feed-individual-1", {
+      name: "Dr. Genome",
+      status: "active",
+    });
+    collectionStore("object_owners").delete("feed-individual-1");
+    collectionStore("community_users").delete("feed-individual-1");
+    const deferredId = Buffer.from("new-user@example.com").toString(
+      "base64url",
+    );
+
+    const preview =
+      await getDeferredServiceTransactionNotificationPreview(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+      );
+
+    expect(preview.provider).toEqual({
+      id: "feed-individual-1",
+      accountType: "individual",
+      name: "Dr. Genome",
+      email: null,
+      status: "active",
+    });
+    await expect(
+      resendDeferredServiceTransactionNotification(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+        "123e4567-e89b-42d3-a456-426614174000",
+        preview.previewFingerprint,
+      ),
+    ).resolves.toEqual(expect.objectContaining({ status: "sent" }));
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects unlinked transactions but previews a changed deferred index email explicitly", async () => {
+    const {
+      createSupportServiceTransaction,
+      getDeferredServiceTransactionNotificationPreview,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      emailOnlyNotificationCreationInput(),
+    );
+    const deferredId = Buffer.from("new-user@example.com").toString(
+      "base64url",
+    );
+
+    await expect(
+      getDeferredServiceTransactionNotificationPreview(
+        context,
+        deferredId,
+        "pgr_not_linked",
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    collectionStore("service_transactions").get(
+      nativeNotificationTransactionId,
+    )!.requestedByUserEmail = "different@example.com";
+    const preview =
+      await getDeferredServiceTransactionNotificationPreview(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+      );
+    expect(preview).toEqual(
+      expect.objectContaining({
+        deferredEmail: "new-user@example.com",
+        requesterEmailMismatch: true,
+        transaction: expect.objectContaining({
+          requestedByUserEmail: "different@example.com",
+        }),
+        email: expect.objectContaining({
+          input: expect.objectContaining({
+            requesterEmail: "different@example.com",
+          }),
+        }),
+      }),
+    );
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale preview and rechecks that the provider is active before resending", async () => {
+    const {
+      createSupportServiceTransaction,
+      getDeferredServiceTransactionNotificationPreview,
+      resendDeferredServiceTransactionNotification,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      emailOnlyNotificationCreationInput(),
+    );
+    const deferredId = Buffer.from("new-user@example.com").toString(
+      "base64url",
+    );
+    const preview =
+      await getDeferredServiceTransactionNotificationPreview(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+      );
+    beforeNextTransaction = () => {
+      collectionStore("service_transactions").get(
+        nativeNotificationTransactionId,
+      )!.name = "Changed after preview";
+    };
+
+    await expect(
+      resendDeferredServiceTransactionNotification(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+        "123e4567-e89b-42d3-a456-426614174000",
+        preview.previewFingerprint,
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    const refreshedPreview =
+      await getDeferredServiceTransactionNotificationPreview(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+      );
+    beforeNextTransaction = () => {
+      collectionStore("feed_organizations").get("feed-org-1")!.status =
+        "inactive";
+    };
+    await expect(
+      resendDeferredServiceTransactionNotification(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+        "123e4567-e89b-42d3-a456-426614174001",
+        refreshedPreview.previewFingerprint,
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("shows a missing provider in the preview and refuses to resend", async () => {
+    const {
+      createSupportServiceTransaction,
+      getDeferredServiceTransactionNotificationPreview,
+      resendDeferredServiceTransactionNotification,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      emailOnlyNotificationCreationInput(),
+    );
+    collectionStore("feed_organizations").delete("feed-org-1");
+    const deferredId = Buffer.from("new-user@example.com").toString(
+      "base64url",
+    );
+    const preview =
+      await getDeferredServiceTransactionNotificationPreview(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+      );
+
+    expect(preview.provider).toEqual(
+      expect.objectContaining({
+        id: "feed-org-1",
+        accountType: "organization",
+        name: "Pocket Genes",
+        email: null,
+        status: "missing",
+      }),
+    );
+    await expect(
+      resendDeferredServiceTransactionNotification(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+        "123e4567-e89b-42d3-a456-426614174000",
+        preview.previewFingerprint,
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed manual resend with the same request ID without duplicating a successful replay", async () => {
+    const {
+      createSupportServiceTransaction,
+      getDeferredServiceTransactionNotificationPreview,
+      resendDeferredServiceTransactionNotification,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      emailOnlyNotificationCreationInput(),
+    );
+    const deferredId = Buffer.from("new-user@example.com").toString(
+      "base64url",
+    );
+    const preview =
+      await getDeferredServiceTransactionNotificationPreview(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+      );
+    const resendRequestId = "123e4567-e89b-42d3-a456-426614174000";
+    mockSendServiceTransactionOwnerNotificationEmail.mockRejectedValueOnce(
+      new Error("SMTP unavailable"),
+    );
+
+    await expect(
+      resendDeferredServiceTransactionNotification(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+        resendRequestId,
+        preview.previewFingerprint,
+      ),
+    ).rejects.toMatchObject({ statusCode: 502 });
+    await expect(
+      resendDeferredServiceTransactionNotification(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+        resendRequestId,
+        preview.previewFingerprint,
+      ),
+    ).resolves.toEqual(expect.objectContaining({ status: "sent" }));
+    await expect(
+      resendDeferredServiceTransactionNotification(
+        context,
+        deferredId,
+        nativeNotificationTransactionId,
+        resendRequestId,
+        preview.previewFingerprint,
+      ),
+    ).resolves.toEqual(expect.objectContaining({ status: "already_sent" }));
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).toHaveBeenCalledTimes(2);
   });
 
   it("does not require provider-owner contact records for temporary routing", async () => {

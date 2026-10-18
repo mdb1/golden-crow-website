@@ -500,6 +500,44 @@ export interface DeferredServiceTransactionIndexDetail
   communityUser?: DeferredServiceTransactionCommunityUser;
 }
 
+export interface DeferredServiceTransactionNotificationPreview {
+  deferredId: string;
+  deferredEmail: string;
+  transactionId: string;
+  linkedTransactionIds: string[];
+  requesterEmailMismatch: boolean;
+  previewFingerprint: string;
+  transaction: {
+    id: string;
+    name: string;
+    requestedByUserEmail: string;
+    status: SupportServiceTransactionStatus;
+  };
+  provider: {
+    id: string;
+    accountType: SupportServiceProviderKind;
+    name: string;
+    email: string | null;
+    status: string;
+  };
+  email: {
+    recipientEmail: string;
+    subject: string;
+    text: string;
+    input: {
+      transactionName: string;
+      requesterEmail: string;
+    };
+  };
+}
+
+export interface DeferredServiceTransactionNotificationResendResult {
+  transactionId: string;
+  resendRequestId: string;
+  recipientEmail: string;
+  status: "sent" | "already_sent" | "in_progress";
+}
+
 export interface DeferredServiceTransactionsPage {
   deferredTransactions: DeferredServiceTransactionIndexRecord[];
   nextCursor?: string;
