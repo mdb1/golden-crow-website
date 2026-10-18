@@ -462,8 +462,23 @@ describe("deferred service transaction workbenches", () => {
       within(dialog).getByText("federico@goldencrowvs.com"),
     ).toBeInTheDocument();
     expect(within(dialog).getByText("Genome Lab")).toBeInTheDocument();
+    const providerRoutingLabel = within(dialog).getByText(
+      "Provider recipient if temporary routing is removed",
+    );
+    const providerRoutingNote = providerRoutingLabel.closest(
+      '[role="note"]',
+    ) as HTMLElement;
+    expect(providerRoutingNote).toBeInTheDocument();
     expect(
-      within(dialog).getByText("provider@genome.example"),
+      within(providerRoutingNote).getByText("provider@genome.example"),
+    ).toBeInTheDocument();
+    expect(
+      within(providerRoutingNote).getByText("Not receiving this email"),
+    ).toBeInTheDocument();
+    expect(
+      within(providerRoutingNote).getByText(
+        "This is the provider's real delivery email. It would become the recipient if temporary routing were removed.",
+      ),
     ).toBeInTheDocument();
     expect(
       within(dialog).getByText("Organization publisher"),
@@ -667,6 +682,81 @@ describe("deferred service transaction workbenches", () => {
     expect(
       within(dialog).getByRole("button", { name: "Send email again" }),
     ).toBeDisabled();
+  });
+
+  it("warns when no provider delivery email is available for future routing", async () => {
+    sdkFetchMock
+      .mockResolvedValueOnce({
+        deferredTransaction: {
+          id: "deferred-index",
+          email: "requester@example.com",
+          deferredTransactionIds: ["pgr_one"],
+          transactionCount: 1,
+        },
+      })
+      .mockResolvedValueOnce({
+        preview: {
+          deferredId: "deferred-index",
+          deferredEmail: "requester@example.com",
+          transactionId: "pgr_one",
+          linkedTransactionIds: ["pgr_one"],
+          requesterEmailMismatch: false,
+          previewFingerprint: "a".repeat(64),
+          transaction: {
+            id: "pgr_one",
+            name: "Genome interpretation",
+            requestedByUserEmail: "requester@example.com",
+            status: "received",
+          },
+          provider: {
+            id: "provider-1",
+            accountType: "organization",
+            name: "Genome Lab",
+            email: null,
+            status: "active",
+          },
+          email: {
+            recipientEmail: "federico@goldencrowvs.com",
+            subject: "New Pocket Genes service request",
+            text: "Service: Genome interpretation",
+            input: {
+              transactionName: "Genome interpretation",
+              requesterEmail: "requester@example.com",
+            },
+          },
+        },
+      });
+
+    renderWithProviders(
+      <DeferredServiceTransactionWorkbench deferredId="deferred-index" />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Send email again: pgr_one",
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Review notification email",
+    });
+    const providerRoutingLabel = within(dialog).getByText(
+      "Provider recipient if temporary routing is removed",
+    );
+    const providerRoutingNote = providerRoutingLabel.closest(
+      '[role="note"]',
+    ) as HTMLElement;
+
+    expect(providerRoutingNote).toBeInTheDocument();
+    expect(
+      within(providerRoutingNote).getByText("Not available"),
+    ).toBeInTheDocument();
+    expect(
+      within(providerRoutingNote).getByText(
+        "No provider delivery email is currently available. Temporary routing cannot be removed until one is configured.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Send email again" }),
+    ).toBeEnabled();
   });
 
   it("requires a fresh preview after the backend reports changed notification details", async () => {

@@ -1159,9 +1159,43 @@ export function DeferredServiceTransactionWorkbench({
                 </p>
                 <p className="mt-2 text-sm opacity-80">
                   {t(
-                    "Temporary routing is active. The provider email below is informational and will not receive this message.",
+                    "Temporary routing is active. Only the address above receives this send.",
                   )}
                 </p>
+                <div
+                  role="note"
+                  className="mt-4 rounded-xl border border-amber-400/60 bg-amber-50 p-3 text-amber-950 dark:border-amber-300/30 dark:bg-amber-400/10 dark:text-amber-50"
+                >
+                  <div className="flex items-start gap-3">
+                    <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-75">
+                          {t(
+                            "Provider recipient if temporary routing is removed",
+                          )}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/50 bg-amber-100/70 text-amber-950 dark:border-amber-300/40 dark:bg-amber-300/10 dark:text-amber-50"
+                        >
+                          {t("Not receiving this email")}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 break-all text-base font-semibold">
+                        {notificationPreview.provider.email ??
+                          t("Not available")}
+                      </p>
+                      <p className="mt-2 text-xs leading-5 opacity-80">
+                        {t(
+                          notificationPreview.provider.email
+                            ? "This is the provider's real delivery email. It would become the recipient if temporary routing were removed."
+                            : "No provider delivery email is currently available. Temporary routing cannot be removed until one is configured.",
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </section>
 
               <div className="grid gap-4 sm:grid-cols-2">

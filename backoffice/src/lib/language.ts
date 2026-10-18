@@ -5685,8 +5685,15 @@ const SPANISH_TEXT: Record<string, string> = {
     "Revisá el destinatario canónico y los datos sin procesar del email antes de volver a enviar esta notificación.",
   "Loading email details...": "Cargando datos del email...",
   "Actual recipient": "Destinatario real",
-  "Temporary routing is active. The provider email below is informational and will not receive this message.":
-    "El enrutamiento temporal está activo. El email del prestador que figura debajo es informativo y no recibirá este mensaje.",
+  "Temporary routing is active. Only the address above receives this send.":
+    "El enrutamiento temporal está activo. Solo la dirección que figura arriba recibe este envío.",
+  "Provider recipient if temporary routing is removed":
+    "Destinatario prestador si se elimina el enrutamiento temporal",
+  "Not receiving this email": "No recibe este email",
+  "This is the provider's real delivery email. It would become the recipient if temporary routing were removed.":
+    "Este es el email real de entrega del prestador. Pasaría a ser el destinatario si se eliminara el enrutamiento temporal.",
+  "No provider delivery email is currently available. Temporary routing cannot be removed until one is configured.":
+    "Actualmente no hay un email de entrega disponible para el prestador. El enrutamiento temporal no puede eliminarse hasta que se configure uno.",
   "Provider publisher": "Publicador prestador",
   "Provider status": "Estado del prestador",
   "This provider publisher is missing or inactive. Its displayed contact details may be historical, and sending is disabled until the publisher is active.":
