@@ -3,10 +3,16 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
+  CheckCircle2,
   CircleAlert,
   Link2,
   Loader2,
@@ -14,16 +20,28 @@ import {
   RefreshCw,
   Save,
   Search,
+  Trash2,
   Unlink,
   UserRoundX,
+  XCircle,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -37,6 +55,7 @@ import { appText } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
 import type {
   DeferredServiceTransactionIndexDetail,
+  DeferredServiceTransactionIndexRecord,
   DeferredServiceTransactionsPage,
 } from "@/lib/support-services";
 
@@ -49,11 +68,56 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "The request failed.";
 }
 
+function requestErrorLog(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "details" in error &&
+    typeof error.details === "string"
+  ) {
+    return error.details;
+  }
+  if (error instanceof Error) {
+    return [
+      `Error: ${error.message}`,
+      error.stack ? `Stack:\n${error.stack}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+  try {
+    return `Error:\n${JSON.stringify(error, null, 2)}`;
+  } catch {
+    return `Error: ${String(error)}`;
+  }
+}
+
+type DeferredIndexDeletionResult = {
+  deferredId: string;
+  status: "deleted" | "failed";
+  error?: string;
+  log?: string;
+};
+
 export function DeferredServiceTransactionsBrowser() {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
+  const [selectedDeferredIds, setSelectedDeferredIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [deleteTargets, setDeleteTargets] = useState<
+    DeferredServiceTransactionIndexRecord[]
+  >([]);
+  const [deleteRunning, setDeleteRunning] = useState(false);
+  const [deleteFinished, setDeleteFinished] = useState(false);
+  const [currentDeletingId, setCurrentDeletingId] = useState("");
+  const [deleteResults, setDeleteResults] = useState<
+    DeferredIndexDeletionResult[]
+  >([]);
+  const [toast, setToast] = useState<ActionToastState | null>(null);
 
   const listQuery = useInfiniteQuery({
     queryKey: ["deferred-service-transactions", activeQuery],
@@ -70,8 +134,24 @@ export function DeferredServiceTransactionsBrowser() {
   });
 
   const rows = useMemo(
-    () => listQuery.data?.pages.flatMap((page) => page.deferredTransactions) ?? [],
+    () =>
+      listQuery.data?.pages.flatMap((page) => page.deferredTransactions) ?? [],
     [listQuery.data],
+  );
+  const visibleDeferredIds = rows.map((record) => record.id);
+  const selectedVisibleCount = visibleDeferredIds.filter((id) =>
+    selectedDeferredIds.has(id),
+  ).length;
+  const allVisibleSelected =
+    visibleDeferredIds.length > 0 &&
+    selectedVisibleCount === visibleDeferredIds.length;
+  const someVisibleSelected =
+    selectedVisibleCount > 0 && !allVisibleSelected;
+  const deleteProgress = deleteTargets.length
+    ? (deleteResults.length / deleteTargets.length) * 100
+    : 0;
+  const deletionFailed = deleteResults.some(
+    (result) => result.status === "failed",
   );
 
   function submitSearch(event: FormEvent) {
@@ -79,113 +159,463 @@ export function DeferredServiceTransactionsBrowser() {
     setActiveQuery(query.trim());
   }
 
+  function resetDeletion() {
+    setDeleteTargets([]);
+    setDeleteRunning(false);
+    setDeleteFinished(false);
+    setCurrentDeletingId("");
+    setDeleteResults([]);
+  }
+
+  function openDeletion(targets: DeferredServiceTransactionIndexRecord[]) {
+    if (targets.length === 0) return;
+    resetDeletion();
+    setDeleteTargets(targets);
+  }
+
+  function closeDeletion() {
+    if (deleteRunning) return;
+    const deletedIds = new Set(
+      deleteResults
+        .filter((result) => result.status === "deleted")
+        .map((result) => result.deferredId),
+    );
+    if (deleteFinished) {
+      if (deletedIds.size > 0) {
+        setSelectedDeferredIds((current) => {
+          const next = new Set(current);
+          for (const id of deletedIds) next.delete(id);
+          return next;
+        });
+      }
+      void queryClient.invalidateQueries({
+        queryKey: ["deferred-service-transactions"],
+      });
+      const failedResult = deleteResults.find(
+        (result) => result.status === "failed",
+      );
+      setToast({
+        id: Date.now(),
+        tone: deletionFailed ? "error" : "success",
+        message: deletionFailed
+          ? t("Some deferred indexes could not be deleted.")
+          : `${deletedIds.size} ${t(
+              deletedIds.size === 1
+                ? "deferred index deleted."
+                : "deferred indexes deleted.",
+            )}`,
+        details: failedResult?.log,
+      });
+    }
+    resetDeletion();
+  }
+
+  function toggleSelection(deferredId: string) {
+    setSelectedDeferredIds((current) => {
+      const next = new Set(current);
+      if (next.has(deferredId)) next.delete(deferredId);
+      else next.add(deferredId);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setSelectedDeferredIds((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) {
+        for (const id of visibleDeferredIds) next.delete(id);
+      } else {
+        for (const id of visibleDeferredIds) next.add(id);
+      }
+      return next;
+    });
+  }
+
+  async function runDeletion() {
+    setDeleteRunning(true);
+    setDeleteFinished(false);
+    setDeleteResults([]);
+
+    for (const record of deleteTargets) {
+      setCurrentDeletingId(record.id);
+      try {
+        await sdkFetch<{ deleted: boolean; deferredId: string }>(
+          `${API_ROUTE}/${encodeURIComponent(record.id)}`,
+          { method: "DELETE" },
+        );
+        setDeleteResults((current) => [
+          ...current,
+          { deferredId: record.id, status: "deleted" },
+        ]);
+      } catch (error) {
+        setDeleteResults((current) => [
+          ...current,
+          {
+            deferredId: record.id,
+            status: "failed",
+            error: errorMessage(error),
+            log: requestErrorLog(error),
+          },
+        ]);
+        break;
+      }
+    }
+
+    setCurrentDeletingId("");
+    setDeleteRunning(false);
+    setDeleteFinished(true);
+  }
+
   return (
-    <section className={PANEL_CLASS}>
-      <div className="flex flex-col gap-4 border-b border-border/70 p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="font-heading text-xl font-semibold text-foreground">
-              {t("Deferred Transactions")}
-            </h2>
-            <HeaderUnclutterButton />
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => listQuery.refetch()}
-          >
-            <RefreshCw className="h-4 w-4" />
-            {t("Refresh")}
-          </Button>
-        </div>
-        <form className="flex gap-2" onSubmit={submitSearch}>
-          <label className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search by email")}
-              className="pl-9"
-            />
-          </label>
-          <Button type="submit" variant="secondary">
-            {t("Search")}
-          </Button>
-        </form>
-      </div>
+    <>
+      <ActionToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        language={language}
+      />
+      <Dialog
+        open={deleteTargets.length > 0}
+        onOpenChange={(open) => {
+          if (!open) closeDeletion();
+        }}
+      >
+        <DialogContent className="flex max-h-[88vh] flex-col overflow-hidden sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {deleteRunning
+                ? t("Deleting deferred indexes")
+                : deleteFinished
+                  ? deletionFailed
+                    ? t("Deletion stopped")
+                    : t("Deletion complete")
+                  : deleteTargets.length === 1
+                    ? t("Delete deferred index")
+                    : t("Delete selected deferred indexes")}
+            </DialogTitle>
+            <DialogDescription>
+              {deleteRunning
+                ? t(
+                    "Deferred indexes are deleted one at a time. Keep this window open until the process finishes.",
+                  )
+                : deleteFinished
+                  ? deletionFailed
+                    ? t(
+                        "A deferred index could not be deleted. Completed deletions were preserved and later indexes were not processed.",
+                      )
+                    : t(
+                        "The selected deferred indexes were deleted. Root service transactions were preserved.",
+                      )
+                  : t(
+                      "Review the selected deferred indexes before deleting them.",
+                    )}
+            </DialogDescription>
+          </DialogHeader>
 
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("Email")}</TableHead>
-              <TableHead>{t("Deferred transactions")}</TableHead>
-              <TableHead className="text-right">{t("Actions")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {listQuery.isLoading ? (
-              Array.from({ length: 5 }).map((_, index) => (
-                <TableRow key={index}>
-                  <TableCell colSpan={3}>
-                    <Skeleton className="h-9 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : listQuery.isError ? (
-              <TableRow>
-                <TableCell colSpan={3} className="py-10 text-center text-destructive">
-                  <CircleAlert className="mx-auto mb-2 h-7 w-7" />
-                  {errorMessage(listQuery.error)}
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
-                  {t("No deferred transaction documents found.")}
-                </TableCell>
-              </TableRow>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            {!deleteRunning && !deleteFinished ? (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-border bg-muted/25 p-4">
+                  <p className="text-sm font-medium text-foreground">
+                    {deleteTargets.length} {t("selected")}
+                  </p>
+                  <div className="mt-2 flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
+                    {deleteTargets.map((record) => (
+                      <Badge key={record.id} variant="outline">
+                        {record.email || record.id} · {record.transactionCount}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-foreground">
+                  {t(
+                    "Deletion removes only each selected email index. Root service transactions are preserved, but their pending IDs will no longer link automatically when those emails sign in.",
+                  )}
+                </div>
+              </div>
             ) : (
-              rows.map((record) => (
-                <TableRow key={record.id}>
-                  <TableCell className="font-medium text-foreground">
-                    {record.email || t("Not available")}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{record.transactionCount}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`${ROUTE}/${encodeURIComponent(record.id)}`}>
-                        {t("Open")}
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                    <span className="truncate">
+                      {currentDeletingId
+                        ? `${t("Deleting")}: ${
+                            deleteTargets.find(
+                              (record) => record.id === currentDeletingId,
+                            )?.email || currentDeletingId
+                          }`
+                        : deletionFailed
+                          ? t("Deletion stopped")
+                          : t("Deletion complete")}
+                    </span>
+                    <span>{Math.round(deleteProgress)}%</span>
+                  </div>
+                  <Progress value={deleteProgress} />
+                </div>
+
+                <div className="space-y-2">
+                  {deleteTargets.map((record) => {
+                    const result = deleteResults.find(
+                      (candidate) => candidate.deferredId === record.id,
+                    );
+                    const isCurrent = currentDeletingId === record.id;
+                    return (
+                      <div
+                        key={record.id}
+                        className={`rounded-lg border p-3 ${
+                          result?.status === "failed"
+                            ? "border-destructive/40 bg-destructive/5"
+                            : result?.status === "deleted"
+                              ? "border-emerald-400/35 bg-emerald-500/5"
+                              : isCurrent
+                                ? "border-primary/40 bg-primary/5"
+                                : "border-border"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {record.email || record.id}
+                            </p>
+                            <p className="mt-1 font-mono text-xs text-muted-foreground">
+                              {record.id}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {result?.status === "deleted"
+                                ? t("Deleted")
+                                : result?.status === "failed"
+                                  ? result.error
+                                  : isCurrent
+                                    ? t("Processing")
+                                    : t("Pending")}
+                            </p>
+                            {result?.status === "failed" && result.log ? (
+                              <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-background p-2 font-mono text-[11px] leading-4 text-muted-foreground">
+                                {result.log}
+                              </pre>
+                            ) : null}
+                          </div>
+                          {isCurrent ? (
+                            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                          ) : result?.status === "deleted" ? (
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                          ) : result?.status === "failed" ? (
+                            <XCircle className="h-4 w-4 shrink-0 text-destructive" />
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            {!deleteRunning && !deleteFinished ? (
+              <>
+                <Button type="button" variant="outline" onClick={closeDeletion}>
+                  {t("Cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => void runDeletion()}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deleteTargets.length === 1
+                    ? t("Delete index")
+                    : t("Delete selected")}
+                </Button>
+              </>
+            ) : deleteFinished ? (
+              <Button type="button" onClick={closeDeletion}>
+                {t("Finish")}
+              </Button>
+            ) : (
+              <Button type="button" disabled>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("Deleting")}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <section className={PANEL_CLASS}>
+        <div className="flex flex-col gap-4 border-b border-border/70 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="font-heading text-xl font-semibold text-foreground">
+                {t("Deferred Transactions")}
+              </h2>
+              <HeaderUnclutterButton />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {selectedVisibleCount > 0 ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() =>
+                    openDeletion(
+                      rows.filter((record) =>
+                        selectedDeferredIds.has(record.id),
+                      ),
+                    )
+                  }
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t("Delete selected")} ({selectedVisibleCount})
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => listQuery.refetch()}
+              >
+                <RefreshCw className="h-4 w-4" />
+                {t("Refresh")}
+              </Button>
+            </div>
+          </div>
+          <form className="flex gap-2" onSubmit={submitSearch}>
+            <label className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("Search by email")}
+                className="pl-9"
+              />
+            </label>
+            <Button type="submit" variant="secondary">
+              {t("Search")}
+            </Button>
+          </form>
+        </div>
+
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12 px-3">
+                  <Checkbox
+                    checked={
+                      allVisibleSelected
+                        ? true
+                        : someVisibleSelected
+                          ? "indeterminate"
+                          : false
+                    }
+                    onCheckedChange={toggleAllVisible}
+                    disabled={rows.length === 0}
+                    aria-label={t(
+                      "Select all visible deferred transaction indexes",
+                    )}
+                  />
+                </TableHead>
+                <TableHead>{t("Email")}</TableHead>
+                <TableHead>{t("Deferred transactions")}</TableHead>
+                <TableHead className="text-right">{t("Actions")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {listQuery.isLoading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell colSpan={4}>
+                      <Skeleton className="h-9 w-full" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : listQuery.isError ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="py-10 text-center text-destructive"
+                  >
+                    <CircleAlert className="mx-auto mb-2 h-7 w-7" />
+                    {errorMessage(listQuery.error)}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {listQuery.hasNextPage ? (
-        <div className="flex justify-center border-t border-border/70 p-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => listQuery.fetchNextPage()}
-            disabled={listQuery.isFetchingNextPage}
-          >
-            {listQuery.isFetchingNextPage ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : null}
-            {t("Load more")}
-          </Button>
+              ) : rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="py-10 text-center text-muted-foreground"
+                  >
+                    {t("No deferred transaction documents found.")}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell className="w-12 px-3">
+                      <Checkbox
+                        checked={selectedDeferredIds.has(record.id)}
+                        onCheckedChange={() => toggleSelection(record.id)}
+                        aria-label={`${t(
+                          "Select deferred transaction index",
+                        )} ${record.email || record.id}`}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {record.email || t("Not available")}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {record.transactionCount}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button asChild variant="outline" size="sm">
+                          <Link
+                            href={`${ROUTE}/${encodeURIComponent(record.id)}`}
+                          >
+                            {t("Open")}
+                            <ArrowRight className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => openDeletion([record])}
+                          title={t("Delete deferred index")}
+                          aria-label={`${t("Delete deferred index")} ${
+                            record.email || record.id
+                          }`}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-      ) : null}
-    </section>
+
+        {listQuery.hasNextPage ? (
+          <div className="flex justify-center border-t border-border/70 p-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => listQuery.fetchNextPage()}
+              disabled={listQuery.isFetchingNextPage}
+            >
+              {listQuery.isFetchingNextPage ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              {t("Load more")}
+            </Button>
+          </div>
+        ) : null}
+      </section>
+    </>
   );
 }
 

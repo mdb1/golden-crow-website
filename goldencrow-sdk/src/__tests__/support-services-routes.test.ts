@@ -3,6 +3,7 @@ import {
   serializerCompiler,
   validatorCompiler,
 } from "fastify-type-provider-zod";
+import { AdminRepositoryError } from "../repositories/admin-errors.js";
 import type { AdminContext } from "../types/sdk.types.js";
 
 const mockCreateSupportServiceOffer = jest.fn();
@@ -13,6 +14,7 @@ const mockListSupportServiceTransactions = jest.fn();
 const mockListDeferredServiceTransactions = jest.fn();
 const mockGetDeferredServiceTransaction = jest.fn();
 const mockUpdateDeferredServiceTransaction = jest.fn();
+const mockDeleteDeferredServiceTransaction = jest.fn();
 const mockCreateSupportServiceTransaction = jest.fn();
 const mockUpdateSupportServiceTransaction = jest.fn();
 const mockDeleteSupportServiceTransaction = jest.fn();
@@ -162,6 +164,7 @@ jest.mock("../repositories/support-services.repository.js", () => ({
     mockAttachSupportServiceTransactionOutputReport,
   createSupportServiceOffer: mockCreateSupportServiceOffer,
   createSupportServiceTransaction: mockCreateSupportServiceTransaction,
+  deleteDeferredServiceTransaction: mockDeleteDeferredServiceTransaction,
   deleteSupportServiceOffer: mockDeleteSupportServiceOffer,
   deleteSupportServiceTransaction: mockDeleteSupportServiceTransaction,
   deliverSupportServiceTransaction: mockDeliverSupportServiceTransaction,
@@ -407,6 +410,7 @@ describe("support service admin routes", () => {
       transactionCount: 1,
       transactions: [],
     });
+    mockDeleteDeferredServiceTransaction.mockResolvedValue(undefined);
     mockDeleteSupportServiceTransaction.mockResolvedValue({
       cleanupWarnings: [],
       deletedArtifacts: {
@@ -561,18 +565,64 @@ describe("support service admin routes", () => {
     expect(mockUpdateDeferredServiceTransaction).not.toHaveBeenCalled();
   });
 
+  it("deletes a deferred transaction index through GOD MODE", async () => {
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/admin/support-services/deferred-transactions/deferred-1",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      deleted: true,
+      deferredId: "deferred-1",
+    });
+    expect(mockDeleteDeferredServiceTransaction).toHaveBeenCalledWith(
+      bootstrapContext,
+      "deferred-1",
+    );
+  });
+
+  it("returns the repository 404 when a deferred transaction index is missing", async () => {
+    mockDeleteDeferredServiceTransaction.mockRejectedValueOnce(
+      new AdminRepositoryError(
+        "Deferred service transaction index not found.",
+        404,
+      ),
+    );
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/admin/support-services/deferred-transactions/missing-index",
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: "Deferred service transaction index not found.",
+    });
+  });
+
   it("blocks publisher access to deferred transaction administration", async () => {
     const fastify = await buildTestServer(organizationPublisherContext);
-    const response = await fastify.inject({
+    const listResponse = await fastify.inject({
       method: "GET",
       url: "/admin/support-services/deferred-transactions",
     });
+    const deleteResponse = await fastify.inject({
+      method: "DELETE",
+      url: "/admin/support-services/deferred-transactions/deferred-1",
+    });
 
-    expect(response.statusCode).toBe(403);
-    expect(response.json()).toEqual({
+    expect(listResponse.statusCode).toBe(403);
+    expect(listResponse.json()).toEqual({
+      error: "Only GOD MODE can manage deferred service transactions.",
+    });
+    expect(deleteResponse.statusCode).toBe(403);
+    expect(deleteResponse.json()).toEqual({
       error: "Only GOD MODE can manage deferred service transactions.",
     });
     expect(mockListDeferredServiceTransactions).not.toHaveBeenCalled();
+    expect(mockDeleteDeferredServiceTransaction).not.toHaveBeenCalled();
   });
 
   it("creates a service offer with the Pocket Genes service identifiers", async () => {

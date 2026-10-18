@@ -6926,6 +6926,34 @@ export async function updateDeferredServiceTransaction(
   return getDeferredServiceTransaction(context, targetId);
 }
 
+export async function deleteDeferredServiceTransaction(
+  context: AdminContext,
+  deferredId: string,
+): Promise<void> {
+  requireDeferredServiceTransactionsGodMode(context);
+  const normalizedDeferredId = cleanString(deferredId);
+  if (!normalizedDeferredId) {
+    throw new AdminRepositoryError(
+      "Deferred service transaction index not found.",
+      404,
+    );
+  }
+
+  const deferredRef = adminDb
+    .collection(DEFERRED_SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(normalizedDeferredId);
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const deferredSnapshot = await firestoreTransaction.get(deferredRef);
+    if (!deferredSnapshot.exists) {
+      throw new AdminRepositoryError(
+        "Deferred service transaction index not found.",
+        404,
+      );
+    }
+    firestoreTransaction.delete(deferredRef);
+  });
+}
+
 function policyInteger(
   value: unknown,
   fallback: number,

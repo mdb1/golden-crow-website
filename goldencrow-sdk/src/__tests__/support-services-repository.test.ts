@@ -2604,14 +2604,100 @@ describe("deferred service transaction administration", () => {
     ).not.toHaveProperty("updatedByEmail");
   });
 
+  it("deletes only the selected deferred index and preserves its service transaction", async () => {
+    seedDoc("deferred_service_transactions", targetId, {
+      email: newEmail,
+      deferred_transaction_ids: ["pgr_other_deferred_transaction"],
+    });
+    const serviceTransactionBefore = clone(
+      collectionStore("service_transactions").get(transactionId)!,
+    );
+    const { deleteDeferredServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await deleteDeferredServiceTransaction(context, `  ${sourceId}  `);
+
+    expect(collectionStore("deferred_service_transactions").has(sourceId)).toBe(
+      false,
+    );
+    expect(
+      collectionStore("deferred_service_transactions").get(targetId),
+    ).toEqual({
+      email: newEmail,
+      deferred_transaction_ids: ["pgr_other_deferred_transaction"],
+    });
+    expect(collectionStore("service_transactions").get(transactionId)).toEqual(
+      serviceTransactionBefore,
+    );
+  });
+
+  it.each([
+    [
+      "empty",
+      {
+        email: oldEmail,
+        deferred_transaction_ids: [],
+      },
+    ],
+    [
+      "malformed",
+      {
+        email: newEmail,
+        deferred_transaction_ids: "not-an-array",
+        unexpected_field: true,
+      },
+    ],
+  ])(
+    "deletes a %s deferred index without parsing its payload",
+    async (_label, payload) => {
+      seedDoc("deferred_service_transactions", sourceId, payload);
+      const { deleteDeferredServiceTransaction } = await import(
+        "../repositories/support-services.repository.js"
+      );
+
+      await deleteDeferredServiceTransaction(context, sourceId);
+
+      expect(
+        collectionStore("deferred_service_transactions").has(sourceId),
+      ).toBe(false);
+    },
+  );
+
+  it("returns not found when deleting a missing deferred index", async () => {
+    collectionStore("deferred_service_transactions").delete(sourceId);
+    const { deleteDeferredServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      deleteDeferredServiceTransaction(context, sourceId),
+    ).rejects.toMatchObject({
+      message: "Deferred service transaction index not found.",
+      statusCode: 404,
+    });
+  });
+
   it("rejects deferred index access for publisher roles", async () => {
-    const { listDeferredServiceTransactions } = await import(
+    const {
+      deleteDeferredServiceTransaction,
+      listDeferredServiceTransactions,
+    } = await import(
       "../repositories/support-services.repository.js"
     );
 
     await expect(
       listDeferredServiceTransactions(organizationPublisherContext),
     ).rejects.toThrow("Only GOD MODE");
+    await expect(
+      deleteDeferredServiceTransaction(
+        organizationPublisherContext,
+        sourceId,
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(collectionStore("deferred_service_transactions").has(sourceId)).toBe(
+      true,
+    );
   });
 });
 

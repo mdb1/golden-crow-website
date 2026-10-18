@@ -12,6 +12,7 @@ import {
   attachSupportServiceTransactionOutputObject,
   createSupportServiceOffer,
   createSupportServiceTransaction,
+  deleteDeferredServiceTransaction,
   deleteSupportServiceOffer,
   deleteSupportServiceTransaction,
   deliverSupportServiceTransaction,
@@ -1022,6 +1023,30 @@ export async function supportServicesRoutes(
           request.body,
         );
         return reply.send({ deferredTransaction });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.delete(
+    "/admin/support-services/deferred-transactions/:deferredId",
+    { schema: { params: DeferredTransactionParamsSchema } },
+    async (request, reply) => {
+      if (!request.adminContext?.isBootstrap) {
+        return reply.status(403).send({
+          error: "Only GOD MODE can manage deferred service transactions.",
+        });
+      }
+      try {
+        await deleteDeferredServiceTransaction(
+          request.adminContext!,
+          request.params.deferredId,
+        );
+        return reply.send({
+          deleted: true,
+          deferredId: request.params.deferredId,
+        });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

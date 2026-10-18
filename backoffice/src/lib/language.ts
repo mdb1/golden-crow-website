@@ -5803,6 +5803,29 @@ const SPANISH_TEXT: Record<string, string> = {
     "Elimina los objetos cargados de entrada que no son formularios, sus códigos y archivos almacenados.",
   "Deleting linked artifacts is permanent and can affect records that reuse the same object, report, code, or stored file.":
     "Eliminar artefactos vinculados es permanente y puede afectar registros que reutilicen el mismo objeto, informe, código o archivo almacenado.",
+  "Select all visible deferred transaction indexes":
+    "Seleccionar todos los índices de transacciones diferidas visibles",
+  "Select deferred transaction index":
+    "Seleccionar índice de transacciones diferidas",
+  "Delete deferred index": "Eliminar índice diferido",
+  "Delete selected deferred indexes":
+    "Eliminar índices diferidos seleccionados",
+  "Deleting deferred indexes": "Eliminando índices diferidos",
+  "Delete index": "Eliminar índice",
+  "Deferred indexes are deleted one at a time. Keep this window open until the process finishes.":
+    "Los índices diferidos se eliminan de a uno. Mantené esta ventana abierta hasta que finalice el proceso.",
+  "A deferred index could not be deleted. Completed deletions were preserved and later indexes were not processed.":
+    "No se pudo eliminar un índice diferido. Las eliminaciones completadas se conservaron y los índices posteriores no se procesaron.",
+  "The selected deferred indexes were deleted. Root service transactions were preserved.":
+    "Se eliminaron los índices diferidos seleccionados. Las transacciones de servicio raíz se conservaron.",
+  "Review the selected deferred indexes before deleting them.":
+    "Revisá los índices diferidos seleccionados antes de eliminarlos.",
+  "Deletion removes only each selected email index. Root service transactions are preserved, but their pending IDs will no longer link automatically when those emails sign in.":
+    "La eliminación quita únicamente cada índice de email seleccionado. Las transacciones de servicio raíz se conservan, pero sus IDs pendientes ya no se vincularán automáticamente cuando esos emails inicien sesión.",
+  "Some deferred indexes could not be deleted.":
+    "Algunos índices diferidos no se pudieron eliminar.",
+  "deferred index deleted.": "índice diferido eliminado.",
+  "deferred indexes deleted.": "índices diferidos eliminados.",
   Deleting: "Eliminando",
   Deleted: "Eliminado",
   "Service transaction saved.": "Transacción de servicio guardada.",
