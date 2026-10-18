@@ -4304,6 +4304,386 @@ describe("support services workbenches", () => {
     expect(postedPayload).not.toHaveProperty("requestedByUserId");
   });
 
+  it("makes the persisted requester email the primary identity and copies it", async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (
+        String(path).endsWith(`/transactions/${deliveredTransaction.requestId}`)
+      ) {
+        return { transaction: deliveredTransaction };
+      }
+      if (String(path).endsWith(`/offers/${deliveredTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${String(path)}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={deliveredTransaction.requestId}
+      />,
+    );
+
+    expect(
+      await screen.findByText(
+        "This request was submitted by requester@example.org.",
+      ),
+    ).toBeTruthy();
+    const email = screen.getByRole("textbox", {
+      name: "Requester email",
+    }) as HTMLInputElement;
+    expect(email.value).toBe("requester@example.org");
+    expect(email.readOnly).toBe(true);
+    expect(screen.getByText("user-requester")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy email" }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("requester@example.org");
+    });
+    expect(await screen.findByText("Email copied to clipboard.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy();
+    expect(
+      appText("es", "This request was submitted by {email}.").replace(
+        "{email}",
+        "requester@example.org",
+      ),
+    ).toBe("Esta solicitud fue realizada por requester@example.org.");
+  });
+
+  it("shows an explicit identity state when a historical request has no email", async () => {
+    const transactionWithoutEmail: SupportServiceTransactionRecord = {
+      ...deliveredTransaction,
+      id: "pgr_without_email",
+      requestId: "pgr_without_email",
+      requestedByUserEmail: undefined,
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (
+        String(path).endsWith(
+          `/transactions/${transactionWithoutEmail.requestId}`,
+        )
+      ) {
+        return { transaction: transactionWithoutEmail };
+      }
+      if (String(path).endsWith(`/offers/${transactionWithoutEmail.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${String(path)}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={transactionWithoutEmail.requestId}
+      />,
+    );
+
+    expect(
+      await screen.findByText(
+        "No requester email was recorded for this request.",
+      ),
+    ).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Copy email" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("textbox", {
+        name: "Requester email",
+      }) as HTMLInputElement).value,
+    ).toBe("");
+  });
+
+  it("presents canonical form answers in frozen definition order with compact metadata", async () => {
+    const transactionWithAnswers: SupportServiceTransactionRecord = {
+      ...deliveredTransaction,
+      id: "pgr_form_answers",
+      requestId: "pgr_form_answers",
+      inputs: [
+        {
+          ...deliveredTransaction.inputs[0]!,
+          objectSnapshot: {
+            objectId: "obj_form_1",
+            objectType: "pgo_form",
+            schemaVersion: "1.0.0",
+            revision: 2,
+            createdAt: "2026-09-20T11:59:00.000Z",
+            createdBy: "user-requester",
+            data: {
+              formShape: {
+                fields: [
+                  {
+                    key: "delivery_mode",
+                    label: "Delivery mode",
+                    type: "enum",
+                    required: true,
+                    options: [
+                      { value: "email", label: "Email delivery" },
+                    ],
+                  },
+                  {
+                    key: "consent",
+                    label: "Consent granted",
+                    type: "boolean",
+                    required: true,
+                  },
+                  {
+                    key: "genes",
+                    label: "Candidate genes",
+                    type: "multi_enum",
+                    required: false,
+                    options: [
+                      { value: "brca1", label: "BRCA 1" },
+                      { value: "tp53", label: "TP 53" },
+                    ],
+                  },
+                  {
+                    key: "sample_count",
+                    label: "Sample count",
+                    type: "integer",
+                    required: false,
+                  },
+                  {
+                    key: "details",
+                    label: "Clinical details",
+                    type: "long_text",
+                    required: false,
+                  },
+                ],
+              },
+              fields: [
+                { key: "sample_count", value: 0 },
+                { key: "delivery_mode", value: "email" },
+                { key: "consent", value: false },
+                { key: "genes", value: ["brca1", "tp53"] },
+                {
+                  key: "legacy_extra",
+                  value: "<img src=x onerror=alert(1)>",
+                },
+              ],
+              notes: "Please call before processing.",
+            },
+          },
+        },
+      ],
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (
+        String(path).endsWith(
+          `/transactions/${transactionWithAnswers.requestId}`,
+        )
+      ) {
+        return { transaction: transactionWithAnswers };
+      }
+      if (String(path).endsWith(`/offers/${transactionWithAnswers.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${String(path)}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={transactionWithAnswers.requestId}
+      />,
+    );
+
+    const formCard = await screen.findByRole("article", {
+      name: "Input object bindings · form",
+    });
+    const answers = within(formCard).getByRole("region", {
+      name: "Submitted form answers",
+    });
+    const content = answers.textContent ?? "";
+    expect(content.indexOf("Delivery mode")).toBeLessThan(
+      content.indexOf("Consent granted"),
+    );
+    expect(content.indexOf("Consent granted")).toBeLessThan(
+      content.indexOf("Candidate genes"),
+    );
+    expect(within(answers).getByText("Email delivery")).toBeTruthy();
+    expect(within(answers).getByText("No")).toBeTruthy();
+    expect(within(answers).getByText("BRCA 1, TP 53")).toBeTruthy();
+    expect(within(answers).getByText("0")).toBeTruthy();
+    expect(within(answers).getByText("Not answered")).toBeTruthy();
+    expect(within(answers).getByText("Additional answer")).toBeTruthy();
+    expect(
+      within(answers).getByText("<img src=x onerror=alert(1)>")
+        .textContent,
+    ).toBe("<img src=x onerror=alert(1)>");
+    expect(answers.querySelector("img")).toBeNull();
+    expect(within(answers).getByText("Please call before processing.")).toBeTruthy();
+
+    [
+      "obj_form_1",
+      "2",
+      "123456789",
+      "uploaded-form-1",
+      "file-form-1",
+      "owner-form-1",
+    ].forEach((value) => {
+      expect(within(formCard).getByText(value)).toBeTruthy();
+    });
+    fireEvent.click(
+      within(formCard).getByRole("button", { name: "View object snapshot" }),
+    );
+    expect(await screen.findByText("Object snapshot preview")).toBeTruthy();
+    expect(screen.getByText(/delivery_mode/)).toBeTruthy();
+  });
+
+  it("distinguishes an empty form, an unanswered form, malformed evidence, and no form", async () => {
+    const baseFormInput = deliveredTransaction.inputs[0]!;
+    const transactions: Record<string, SupportServiceTransactionRecord> = {
+      pgr_empty_form: {
+        ...deliveredTransaction,
+        id: "pgr_empty_form",
+        requestId: "pgr_empty_form",
+        inputs: [
+          {
+            ...baseFormInput,
+            objectSnapshot: {
+              data: { formShape: { fields: [] }, fields: [] },
+            },
+          },
+        ],
+      },
+      pgr_unanswered_form: {
+        ...deliveredTransaction,
+        id: "pgr_unanswered_form",
+        requestId: "pgr_unanswered_form",
+        inputs: [
+          {
+            ...baseFormInput,
+            objectSnapshot: {
+              data: {
+                formShape: {
+                  fields: [
+                    {
+                      key: "question",
+                      label: "Declared question",
+                      type: "text",
+                      required: false,
+                    },
+                  ],
+                },
+                fields: [],
+              },
+            },
+          },
+        ],
+      },
+      pgr_malformed_form: {
+        ...deliveredTransaction,
+        id: "pgr_malformed_form",
+        requestId: "pgr_malformed_form",
+        inputs: [
+          {
+            ...baseFormInput,
+            objectSnapshot: { data: { form_shape: { fields: [] }, fields: [] } },
+          },
+        ],
+      },
+      pgr_without_form: {
+        ...deliveredTransaction,
+        id: "pgr_without_form",
+        requestId: "pgr_without_form",
+        offerSnapshot: {
+          ...frozenOfferSnapshot,
+          formShape: undefined,
+          inputSlots: [
+            {
+              role: "sample",
+              objectType: "pgo_dna_sample",
+              acceptedTypes: ["pgo_dna_sample"],
+              required: true,
+              cardinality: { min: 1, max: 1 },
+            },
+          ],
+        },
+        inputs: [
+          {
+            role: "sample",
+            objectRef: { objectId: "obj_sample_only", revision: 1 },
+            objectType: "pgo_dna_sample",
+            objectSnapshot: {
+              objectId: "obj_sample_only",
+              objectType: "pgo_dna_sample",
+              revision: 1,
+            },
+          },
+        ],
+      },
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      const transaction = Object.values(transactions).find((candidate) =>
+        value.endsWith(`/transactions/${candidate.requestId}`),
+      );
+      if (transaction) {
+        return { transaction };
+      }
+      if (value.includes("/offers/")) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    const empty = renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId="pgr_empty_form"
+      />,
+    );
+    expect(await screen.findByText("This request form is empty.")).toBeTruthy();
+    empty.unmount();
+
+    const unanswered = renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId="pgr_unanswered_form"
+      />,
+    );
+    expect(
+      await screen.findByText("The requester did not answer any form fields."),
+    ).toBeTruthy();
+    expect(screen.getByText("Declared question")).toBeTruthy();
+    expect(screen.getByText("Not answered")).toBeTruthy();
+    unanswered.unmount();
+
+    const malformed = renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId="pgr_malformed_form"
+      />,
+    );
+    expect(
+      await screen.findByText("The request form snapshot could not be read."),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "View object snapshot" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("This request form is empty.")).toBeNull();
+    malformed.unmount();
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId="pgr_without_form"
+      />,
+    );
+    expect(await screen.findByText("No request form")).toBeTruthy();
+    const technicalCard = screen.getByRole("article", {
+      name: "Input object bindings · sample",
+    });
+    expect(within(technicalCard).getByText("obj_sample_only")).toBeTruthy();
+    expect(within(technicalCard).getByText("Object snapshot")).toBeTruthy();
+  });
+
   it("exports the persisted service transaction record as raw JSON", async () => {
     sdkFetchMock.mockImplementation(async (path) => {
       if (
@@ -5306,8 +5686,11 @@ describe("support services workbenches", () => {
       />,
     );
 
+    expect(await screen.findByText("No request form")).toBeTruthy();
     expect(
-      await screen.findByText("No input files are required for this service."),
+      screen.getByText(
+        "This transaction does not include a request form or other input files.",
+      ),
     ).toBeTruthy();
     expect(
       screen.getByText("No output files are required for this service."),

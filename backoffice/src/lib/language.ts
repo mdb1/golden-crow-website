@@ -5441,6 +5441,30 @@ const SPANISH_TEXT: Record<string, string> = {
   "No outputs": "Sin salidas",
   "No input files are required for this service.":
     "Este servicio no requiere archivos de entrada.",
+  "No request form": "Sin formulario de solicitud",
+  "This transaction does not include a request form.":
+    "Esta transacción no incluye un formulario de solicitud.",
+  "This transaction does not include a request form or other input files.":
+    "Esta transacción no incluye un formulario de solicitud ni otros archivos de entrada.",
+  "Submitted answers": "Respuestas enviadas",
+  "Submitted form answers": "Respuestas enviadas del formulario",
+  "What the requester entered in the frozen form.":
+    "Lo que el solicitante ingresó en el formulario congelado.",
+  answers: "respuestas",
+  "The request form snapshot could not be read.":
+    "No se pudo leer el snapshot del formulario de solicitud.",
+  "Open the raw snapshot to inspect the original evidence without changing it.":
+    "Abrí el snapshot sin procesar para revisar la evidencia original sin modificarla.",
+  "This request form is empty.": "Este formulario de solicitud está vacío.",
+  "It contains no declared fields or submitted answers.":
+    "No contiene campos declarados ni respuestas enviadas.",
+  "The requester did not answer any form fields.":
+    "El solicitante no respondió ningún campo del formulario.",
+  "Additional answer": "Respuesta adicional",
+  "Not answered": "Sin responder",
+  "No selections": "Sin selecciones",
+  "Empty response": "Respuesta vacía",
+  "Form metadata": "Metadatos del formulario",
   "No output slots defined.": "No hay slots de salida definidos.",
   "No output files are required for this service.":
     "Este servicio no requiere archivos de salida.",
@@ -5649,6 +5673,16 @@ const SPANISH_TEXT: Record<string, string> = {
   "Requester identity": "Identidad del solicitante",
   "Linked community user": "Usuario de comunidad vinculado",
   "Email-only deferred requester": "Solicitante diferido por email",
+  "This request was submitted by {email}.":
+    "Esta solicitud fue realizada por {email}.",
+  "No requester email was recorded for this request.":
+    "No se registró un email del solicitante para esta solicitud.",
+  "No email recorded": "No hay email registrado",
+  "Copy email": "Copiar email",
+  "Email copied to clipboard.": "Email copiado al portapapeles.",
+  "Email could not be copied. Select the address and copy it manually.":
+    "No se pudo copiar el email. Seleccioná la dirección y copiala manualmente.",
+  "No linked community user": "Sin usuario de comunidad vinculado",
   "Deferred Transactions": "Transacciones diferidas",
   "Deferred Transaction": "Transacción diferida",
   "Deferred transactions": "Transacciones diferidas",

@@ -8128,6 +8128,13 @@ function TransactionRequesterIdentity({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [draftUserId, setDraftUserId] = useState(requestedByUserId);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
+    "idle",
+  );
+
+  useEffect(() => {
+    setCopyState("idle");
+  }, [requestedByUserEmail]);
 
   const usersQuery = useInfiniteQuery({
     queryKey: ["support-service-requester-picker"],
@@ -8177,6 +8184,19 @@ function TransactionRequesterIdentity({
     setOpen(false);
   }
 
+  async function copyRequesterEmail() {
+    if (!requestedByUserEmail) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(requestedByUserEmail);
+      setCopyState("copied");
+    } catch {
+      setCopyState("error");
+    }
+  }
+
   return (
     <article className="grid gap-4 rounded-2xl border border-violet-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.88))] p-5 shadow-[0_18px_52px_-42px_rgba(109,40,217,0.58)] dark:border-violet-400/20 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.84))] lg:col-span-2">
       <div className="flex items-center gap-3">
@@ -8197,16 +8217,92 @@ function TransactionRequesterIdentity({
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <DisplayField label="Requester user ID">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="min-w-0 flex-1">
-              <GeneratedValue
-                value={requestedByUserId || t("No user selected")}
-                showLock={showLockedFields && isEditing}
-              />
+      {isEditing ? (
+        <div className="grid gap-4">
+          <div className="rounded-2xl border border-sky-200/80 bg-[linear-gradient(135deg,rgba(239,246,255,0.92),rgba(255,255,255,0.96))] p-4 shadow-sm dark:border-sky-400/24 dark:bg-[linear-gradient(135deg,rgba(14,116,144,0.14),rgba(15,23,42,0.78))] sm:p-5">
+            {requestedByUserEmail ? (
+              <p className="text-base font-semibold text-slate-950 dark:text-white sm:text-lg">
+                {t("This request was submitted by {email}.").replace(
+                  "{email}",
+                  requestedByUserEmail,
+                )}
+              </p>
+            ) : (
+              <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-amber-900 dark:border-amber-400/28 dark:bg-amber-500/12 dark:text-amber-100">
+                <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <p className="text-sm font-medium">
+                  {t("No requester email was recorded for this request.")}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+              <label className="min-w-0 flex-1">
+                <span className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-sky-800 dark:text-sky-200">
+                  {t("Requester email")}
+                </span>
+                <Input
+                  aria-label={t("Requester email")}
+                  value={requestedByUserEmail}
+                  readOnly
+                  placeholder={t("No email recorded")}
+                  className="select-all border-sky-200 bg-white font-mono text-sm shadow-sm dark:border-sky-400/24 dark:bg-slate-950/60"
+                />
+              </label>
+              <Button
+                type="button"
+                onClick={() => void copyRequesterEmail()}
+                disabled={!requestedByUserEmail}
+                className="h-11 shrink-0 rounded-xl bg-sky-600 px-5 font-semibold text-white shadow-[0_14px_30px_-16px_rgba(2,132,199,0.8)] hover:bg-sky-700 disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-300"
+              >
+                {copyState === "copied" ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+                {copyState === "copied" ? t("Copied") : t("Copy email")}
+              </Button>
             </div>
-            {!isEditing ? (
+
+            <p
+              aria-live="polite"
+              className={cn(
+                "mt-2 min-h-5 text-xs font-medium",
+                copyState === "copied" &&
+                  "text-emerald-700 dark:text-emerald-200",
+                copyState === "error" && "text-destructive",
+                copyState === "idle" && "text-transparent",
+              )}
+            >
+              {copyState === "copied"
+                ? t("Email copied to clipboard.")
+                : copyState === "error"
+                  ? t(
+                      "Email could not be copied. Select the address and copy it manually.",
+                    )
+                  : " "}
+            </p>
+          </div>
+
+          <dl className="grid gap-2 rounded-xl border border-violet-100/80 bg-white/72 px-4 py-3 dark:border-violet-400/14 dark:bg-slate-950/34 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+            <dt className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              {t("Requester user ID")}
+            </dt>
+            <dd className="break-all font-mono text-sm text-foreground sm:text-right">
+              {requestedByUserId || t("No linked community user")}
+            </dd>
+          </dl>
+        </div>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <DisplayField label="Requester user ID">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1">
+                <GeneratedValue
+                  value={requestedByUserId || t("No user selected")}
+                  showLock={showLockedFields && isEditing}
+                />
+              </div>
               <div className="flex flex-wrap gap-2">
                 {requestedByUserId ? (
                   <Button
@@ -8231,16 +8327,9 @@ function TransactionRequesterIdentity({
                   {t("Pick a user")}
                 </Button>
               </div>
-            ) : null}
-          </div>
-        </DisplayField>
-        <Field label="Requester email">
-          {isEditing ? (
-            <GeneratedValue
-              value={requestedByUserEmail || "-"}
-              showLock={showLockedFields}
-            />
-          ) : (
+            </div>
+          </DisplayField>
+          <Field label="Requester email">
             <Input
               value={requestedByUserEmail}
               onChange={(event) =>
@@ -8252,9 +8341,9 @@ function TransactionRequesterIdentity({
               disabled={Boolean(requestedByUserId)}
               placeholder={t("Enter an email when no user is linked")}
             />
-          )}
-        </Field>
-      </div>
+          </Field>
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex max-h-[88vh] w-[min(calc(100vw-2rem),86rem)] max-w-none flex-col overflow-hidden sm:max-w-none">
@@ -11135,7 +11224,7 @@ export function SupportServiceTransactionWorkbench({
           ) : null}
         </Section>
         <Section title="Input object bindings">
-          <ObjectRefTable slots={form.inputs} />
+          <ObjectRefTable slots={form.inputs} presentFormAnswers={isEditing} />
           {form.missingRequiredInputRoles.length ? (
             <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-800 shadow-sm dark:border-amber-400/25 dark:bg-amber-500/12 dark:text-amber-100">
               <CircleAlert className="h-4 w-4" />
@@ -12284,10 +12373,221 @@ function OutputObjectUploadDialog({
   );
 }
 
+type FrozenFormFieldDefinition = {
+  key: string;
+  label: string;
+  type: string;
+  required: boolean;
+  options: Array<{ value: string; label: string }>;
+  helpInfoText?: string;
+};
+
+type FrozenFormAnswer = {
+  key: string;
+  value: unknown;
+};
+
+type FrozenFormSnapshotPresentation =
+  | {
+      status: "ready";
+      definitions: FrozenFormFieldDefinition[];
+      answers: FrozenFormAnswer[];
+      notes?: string;
+    }
+  | { status: "malformed" };
+
+function isFormSnapshotRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseFrozenFormSnapshot(
+  snapshotText: string,
+): FrozenFormSnapshotPresentation {
+  let snapshot: unknown;
+  try {
+    snapshot = JSON.parse(snapshotText);
+  } catch {
+    return { status: "malformed" };
+  }
+
+  if (!isFormSnapshotRecord(snapshot)) {
+    return { status: "malformed" };
+  }
+  const data = snapshot.data;
+  if (!isFormSnapshotRecord(data)) {
+    return { status: "malformed" };
+  }
+  const formShape = data.formShape;
+  if (
+    !isFormSnapshotRecord(formShape) ||
+    !Array.isArray(formShape.fields) ||
+    !Array.isArray(data.fields) ||
+    (data.notes !== undefined && typeof data.notes !== "string")
+  ) {
+    return { status: "malformed" };
+  }
+
+  const definitions: FrozenFormFieldDefinition[] = [];
+  for (const value of formShape.fields) {
+    if (
+      !isFormSnapshotRecord(value) ||
+      typeof value.key !== "string" ||
+      !value.key ||
+      typeof value.label !== "string" ||
+      typeof value.type !== "string" ||
+      typeof value.required !== "boolean" ||
+      (value.helpInfoText !== undefined &&
+        typeof value.helpInfoText !== "string") ||
+      (value.options !== undefined && !Array.isArray(value.options))
+    ) {
+      return { status: "malformed" };
+    }
+
+    const options: Array<{ value: string; label: string }> = [];
+    for (const option of value.options ?? []) {
+      if (
+        !isFormSnapshotRecord(option) ||
+        typeof option.value !== "string" ||
+        typeof option.label !== "string"
+      ) {
+        return { status: "malformed" };
+      }
+      options.push({ value: option.value, label: option.label });
+    }
+
+    definitions.push({
+      key: value.key,
+      label: value.label || value.key,
+      type: value.type,
+      required: value.required,
+      options,
+      ...(typeof value.helpInfoText === "string"
+        ? { helpInfoText: value.helpInfoText }
+        : {}),
+    });
+  }
+
+  const answers: FrozenFormAnswer[] = [];
+  for (const value of data.fields) {
+    if (
+      !isFormSnapshotRecord(value) ||
+      typeof value.key !== "string" ||
+      !value.key ||
+      !Object.prototype.hasOwnProperty.call(value, "value")
+    ) {
+      return { status: "malformed" };
+    }
+    answers.push({ key: value.key, value: value.value });
+  }
+
+  return {
+    status: "ready",
+    definitions,
+    answers,
+    ...(typeof data.notes === "string" ? { notes: data.notes } : {}),
+  };
+}
+
+function displayFrozenFormAnswer(
+  value: unknown,
+  definition: FrozenFormFieldDefinition | undefined,
+  t: (text: string) => string,
+) {
+  if (definition?.type === "boolean" && typeof value === "boolean") {
+    return value ? t("Yes") : t("No");
+  }
+
+  const optionLabel = (optionValue: unknown) => {
+    if (typeof optionValue !== "string") {
+      return String(optionValue);
+    }
+    return (
+      definition?.options.find((option) => option.value === optionValue)
+        ?.label ?? optionValue
+    );
+  };
+
+  if (definition?.type === "enum") {
+    return optionLabel(value);
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return t("No selections");
+    }
+    const values =
+      definition?.type === "multi_enum"
+        ? value.map(optionLabel)
+        : value.map((item) =>
+            typeof item === "string" || typeof item === "number"
+              ? String(item)
+              : JSON.stringify(item),
+          );
+    return values.join(", ");
+  }
+
+  if (value === null) {
+    return "null";
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  if (typeof value === "string" && value.length === 0) {
+    return t("Empty response");
+  }
+  return String(value);
+}
+
+function frozenFormDisplayRows(
+  presentation: Extract<FrozenFormSnapshotPresentation, { status: "ready" }>,
+) {
+  const consumedAnswers = new Set<number>();
+  const declaredRows = presentation.definitions.map((definition, index) => {
+    const answerIndex = presentation.answers.findIndex(
+      (answer, candidateIndex) =>
+        !consumedAnswers.has(candidateIndex) && answer.key === definition.key,
+    );
+    if (answerIndex >= 0) {
+      consumedAnswers.add(answerIndex);
+    }
+    return {
+      id: `declared-${index}-${definition.key}`,
+      label: definition.label,
+      definition,
+      answered: answerIndex >= 0,
+      value:
+        answerIndex >= 0
+          ? presentation.answers[answerIndex]?.value
+          : undefined,
+      unknown: false,
+    };
+  });
+  const unknownRows = presentation.answers.flatMap((answer, index) =>
+    consumedAnswers.has(index)
+      ? []
+      : [
+          {
+            id: `additional-${index}-${answer.key}`,
+            label: answer.key,
+            definition: undefined,
+            answered: true,
+            value: answer.value,
+            unknown: true,
+          },
+        ],
+  );
+
+  return [...declaredRows, ...unknownRows];
+}
+
 function ObjectRefTable({
   slots,
+  presentFormAnswers = false,
 }: {
   slots: ObjectRefDraft[];
+  presentFormAnswers?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -12297,6 +12597,24 @@ function ObjectRefTable({
   } | null>(null);
 
   if (slots.length === 0) {
+    if (presentFormAnswers) {
+      return (
+        <div className="flex items-start gap-3 rounded-2xl border border-dashed border-violet-200 bg-violet-50/45 px-5 py-5 text-sm text-muted-foreground dark:border-violet-400/24 dark:bg-violet-500/[0.06]">
+          <ClipboardList className="mt-0.5 h-5 w-5 shrink-0 text-violet-600 dark:text-violet-200" />
+          <div>
+            <p className="font-semibold text-foreground">
+              {t("No request form")}
+            </p>
+            <p className="mt-1">
+              {t(
+                "This transaction does not include a request form or other input files.",
+              )}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
         {t("No input files are required for this service.")}
@@ -12307,6 +12625,20 @@ function ObjectRefTable({
   return (
     <>
       <div className="grid gap-4">
+        {presentFormAnswers &&
+        !slots.some((slot) => slot.objectType === FORM_OBJECT_TYPE) ? (
+          <div className="flex items-start gap-3 rounded-2xl border border-dashed border-violet-200 bg-violet-50/45 px-5 py-5 text-sm text-muted-foreground dark:border-violet-400/24 dark:bg-violet-500/[0.06]">
+            <ClipboardList className="mt-0.5 h-5 w-5 shrink-0 text-violet-600 dark:text-violet-200" />
+            <div>
+              <p className="font-semibold text-foreground">
+                {t("No request form")}
+              </p>
+              <p className="mt-1">
+                {t("This transaction does not include a request form.")}
+              </p>
+            </div>
+          </div>
+        ) : null}
         {slots.map((slot, index) => {
           const identityCells = [
             { label: t("Object ID"), value: slot.objectId },
@@ -12319,6 +12651,215 @@ function ObjectRefTable({
             { label: t("File storage ID"), value: slot.fileStorageId },
             { label: t("Object owner ID"), value: slot.objectOwnerId },
           ];
+          const formPresentation =
+            presentFormAnswers && slot.objectType === FORM_OBJECT_TYPE
+              ? parseFrozenFormSnapshot(slot.objectSnapshotText)
+              : null;
+
+          if (formPresentation) {
+            const rows =
+              formPresentation.status === "ready"
+                ? frozenFormDisplayRows(formPresentation)
+                : [];
+            const hasSubmittedAnswers =
+              formPresentation.status === "ready" &&
+              formPresentation.answers.length > 0;
+            const hasNoFieldsOrAnswers =
+              formPresentation.status === "ready" &&
+              formPresentation.definitions.length === 0 &&
+              formPresentation.answers.length === 0;
+            const notes =
+              formPresentation.status === "ready"
+                ? formPresentation.notes?.trim()
+                : undefined;
+
+            return (
+              <article
+                key={`${slot.role}-${index}`}
+                aria-label={`${t("Input object bindings")} · ${slot.role}`}
+                className="overflow-hidden rounded-2xl border border-violet-200/80 bg-white/92 shadow-[0_18px_48px_-34px_rgba(109,40,217,0.44)] dark:border-violet-400/20 dark:bg-slate-950/50"
+              >
+                <header className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-100/80 bg-[linear-gradient(135deg,rgba(245,243,255,0.88),rgba(239,246,255,0.72))] px-5 py-4 dark:border-violet-400/14 dark:bg-[linear-gradient(135deg,rgba(109,40,217,0.12),rgba(14,116,144,0.08))]">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/18 dark:text-violet-100">
+                      <ClipboardList className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <h4 className="font-heading text-base font-semibold text-foreground">
+                        {t("Request form")}
+                      </h4>
+                      <p className="font-mono text-xs text-muted-foreground">
+                        {slot.role}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {slot.required ? (
+                      <Badge variant="outline">{t("Required")}</Badge>
+                    ) : null}
+                    <Badge variant="secondary">
+                      {bindingTypeLabel(slot.objectType)}
+                    </Badge>
+                  </div>
+                </header>
+
+                <div className="grid gap-0 lg:grid-cols-[minmax(0,1.75fr)_minmax(17rem,0.75fr)]">
+                  <section
+                    aria-label={t("Submitted form answers")}
+                    className="min-w-0 p-5 lg:border-r lg:border-violet-100/80 dark:lg:border-violet-400/14"
+                  >
+                    <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-200">
+                          {t("Submitted answers")}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {t("What the requester entered in the frozen form.")}
+                        </p>
+                      </div>
+                      {formPresentation.status === "ready" ? (
+                        <Badge variant="outline">
+                          {formPresentation.answers.length} {t("answers")}
+                        </Badge>
+                      ) : null}
+                    </div>
+
+                    {formPresentation.status === "malformed" ? (
+                      <div
+                        role="alert"
+                        className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/78 px-4 py-4 text-amber-950 dark:border-amber-400/28 dark:bg-amber-500/12 dark:text-amber-100"
+                      >
+                        <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+                        <div>
+                          <p className="font-semibold">
+                            {t("The request form snapshot could not be read.")}
+                          </p>
+                          <p className="mt-1 text-sm">
+                            {t(
+                              "Open the raw snapshot to inspect the original evidence without changing it.",
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    ) : hasNoFieldsOrAnswers ? (
+                      <div className="rounded-2xl border border-dashed border-violet-200 bg-violet-50/45 px-5 py-7 text-center dark:border-violet-400/24 dark:bg-violet-500/[0.06]">
+                        <ClipboardList className="mx-auto h-6 w-6 text-violet-500" />
+                        <p className="mt-3 font-semibold text-foreground">
+                          {t("This request form is empty.")}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {t("It contains no declared fields or submitted answers.")}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3">
+                        {!hasSubmittedAnswers ? (
+                          <div className="rounded-xl border border-sky-200 bg-sky-50/75 px-4 py-3 text-sm text-sky-900 dark:border-sky-400/24 dark:bg-sky-500/10 dark:text-sky-100">
+                            {t("The requester did not answer any form fields.")}
+                          </div>
+                        ) : null}
+                        <dl className="grid gap-3 sm:grid-cols-2">
+                          {rows.map((row) => (
+                            <div
+                              key={row.id}
+                              className="min-w-0 rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/60"
+                            >
+                              <dt className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                <span>{row.label}</span>
+                                {row.definition?.required ? (
+                                  <Badge variant="outline" className="text-[10px]">
+                                    {t("Required")}
+                                  </Badge>
+                                ) : null}
+                                {row.unknown ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="border-amber-200 bg-amber-50 text-[10px] text-amber-800 dark:border-amber-400/25 dark:bg-amber-500/10 dark:text-amber-100"
+                                  >
+                                    {t("Additional answer")}
+                                  </Badge>
+                                ) : null}
+                              </dt>
+                              <dd
+                                className={cn(
+                                  "mt-2 whitespace-pre-wrap break-words text-base font-semibold leading-6",
+                                  row.answered
+                                    ? "text-slate-950 dark:text-white"
+                                    : "italic text-muted-foreground",
+                                )}
+                              >
+                                {row.answered
+                                  ? displayFrozenFormAnswer(
+                                      row.value,
+                                      row.definition,
+                                      t,
+                                    )
+                                  : t("Not answered")}
+                              </dd>
+                              {row.definition?.helpInfoText ? (
+                                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                                  {row.definition.helpInfoText}
+                                </p>
+                              ) : null}
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    )}
+
+                    {notes ? (
+                      <div className="mt-4 rounded-2xl border border-indigo-200/80 bg-indigo-50/70 px-4 py-4 dark:border-indigo-400/24 dark:bg-indigo-500/10">
+                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-200">
+                          {t("Notes")}
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-foreground">
+                          {notes}
+                        </p>
+                      </div>
+                    ) : null}
+                  </section>
+
+                  <aside className="min-w-0 bg-slate-50/50 p-5 dark:bg-slate-950/30">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                      {t("Form metadata")}
+                    </p>
+                    <dl className="mt-4 grid gap-4">
+                      {identityCells.map((cell) => (
+                        <div key={cell.label} className="min-w-0">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {cell.label}
+                          </dt>
+                          <dd className="mt-1 break-all font-mono text-xs text-foreground">
+                            {cell.value || "—"}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <div className="mt-5 border-t border-violet-100/80 pt-4 dark:border-violet-400/14">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!slot.objectSnapshotText.trim()}
+                        onClick={() =>
+                          setSnapshotPreview({
+                            role: slot.role,
+                            content: slot.objectSnapshotText,
+                          })
+                        }
+                        className="w-full justify-center"
+                      >
+                        <FileText className="h-4 w-4" />
+                        {slot.objectSnapshotText.trim()
+                          ? t("View object snapshot")
+                          : t("No snapshot available")}
+                      </Button>
+                    </div>
+                  </aside>
+                </div>
+              </article>
+            );
+          }
 
           return (
             <article
