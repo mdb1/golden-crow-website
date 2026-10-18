@@ -2568,6 +2568,135 @@ describe("deferred service transaction administration", () => {
     });
   });
 
+  it("pages linked transactions using only frozen service offer names", async () => {
+    const frozenTransactionId = "pgr_deferred_frozen";
+    const missingTransactionId = "pgr_deferred_missing";
+    const legacyNameTransactionId = "pgr_deferred_legacy_name";
+    const legacyServiceIdTransactionId = "pgr_deferred_legacy_service_id";
+    const malformedTransactionId = "pgr_deferred_malformed";
+    const linkedTransactionIds = [
+      frozenTransactionId,
+      missingTransactionId,
+      legacyNameTransactionId,
+      legacyServiceIdTransactionId,
+      malformedTransactionId,
+    ];
+    seedDoc("deferred_service_transactions", sourceId, {
+      email: oldEmail,
+      deferred_transaction_ids: linkedTransactionIds,
+    });
+    seedDoc("service_transactions", frozenTransactionId, {
+      serviceId: "pgs_frozen_offer_12345",
+      name: "Legacy root name",
+      customTransactionName: "Custom transaction name",
+      offerSnapshot: { name: "Frozen offer name" },
+    });
+    seedDoc("service_offers", "offer-1", {
+      ...baseOffer,
+      name: "Changed live offer name",
+    });
+    seedDoc("service_transactions", legacyNameTransactionId, {
+      serviceId: "pgs_legacy_named_offer_12345",
+      name: "Legacy root offer name",
+      customTransactionName: "Custom name must not win",
+    });
+    seedDoc("service_transactions", legacyServiceIdTransactionId, {
+      serviceId: "pgs_legacy_id_only_12345",
+      customTransactionName: "Custom name must not win",
+    });
+    seedDoc("service_transactions", malformedTransactionId, {
+      offerSnapshot: "not-an-object",
+      customTransactionName: "Custom name must not make this valid",
+    });
+    const { listDeferredServiceTransactionLinks } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const firstPage = await listDeferredServiceTransactionLinks(
+      context,
+      sourceId,
+      { limit: 2 },
+    );
+
+    expect(firstPage).toEqual({
+      transactions: [
+        {
+          transactionId: frozenTransactionId,
+          exists: true,
+          serviceOfferName: "Frozen offer name",
+          serviceId: "pgs_frozen_offer_12345",
+        },
+        {
+          transactionId: missingTransactionId,
+          exists: false,
+        },
+      ],
+      nextCursor: expect.any(String),
+    });
+
+    collectionStore("service_offers").delete("offer-1");
+    await expect(
+      listDeferredServiceTransactionLinks(context, sourceId, { limit: 1 }),
+    ).resolves.toEqual({
+      transactions: [
+        expect.objectContaining({
+          transactionId: frozenTransactionId,
+          serviceOfferName: "Frozen offer name",
+        }),
+      ],
+      nextCursor: expect.any(String),
+    });
+
+    const secondPage = await listDeferredServiceTransactionLinks(
+      context,
+      sourceId,
+      { cursor: firstPage.nextCursor, limit: 2 },
+    );
+    expect(secondPage).toEqual({
+      transactions: [
+        {
+          transactionId: legacyNameTransactionId,
+          exists: true,
+          serviceId: "pgs_legacy_named_offer_12345",
+        },
+        {
+          transactionId: legacyServiceIdTransactionId,
+          exists: true,
+          serviceId: "pgs_legacy_id_only_12345",
+        },
+      ],
+      nextCursor: expect.any(String),
+    });
+    await expect(
+      listDeferredServiceTransactionLinks(context, sourceId, {
+        cursor: secondPage.nextCursor,
+        limit: 2,
+      }),
+    ).resolves.toEqual({
+      transactions: [
+        {
+          transactionId: malformedTransactionId,
+          exists: false,
+        },
+      ],
+      nextCursor: undefined,
+    });
+
+    seedDoc("deferred_service_transactions", sourceId, {
+      email: oldEmail,
+      deferred_transaction_ids: [...linkedTransactionIds].reverse(),
+    });
+    await expect(
+      listDeferredServiceTransactionLinks(context, sourceId, {
+        cursor: firstPage.nextCursor,
+        limit: 2,
+      }),
+    ).rejects.toMatchObject({
+      message: "Invalid deferred service transaction cursor.",
+      statusCode: 400,
+    });
+  });
+
   it("returns the unique community user with the exact deferred email", async () => {
     seedDoc("community_users", "community-user-1", {
       email: oldEmail,
@@ -2699,6 +2828,7 @@ describe("deferred service transaction administration", () => {
   it("rejects deferred index access for publisher roles", async () => {
     const {
       deleteDeferredServiceTransaction,
+      listDeferredServiceTransactionLinks,
       listDeferredServiceTransactions,
     } = await import(
       "../repositories/support-services.repository.js"
@@ -2707,6 +2837,12 @@ describe("deferred service transaction administration", () => {
     await expect(
       listDeferredServiceTransactions(organizationPublisherContext),
     ).rejects.toThrow("Only GOD MODE");
+    await expect(
+      listDeferredServiceTransactionLinks(
+        organizationPublisherContext,
+        sourceId,
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
     await expect(
       deleteDeferredServiceTransaction(
         organizationPublisherContext,

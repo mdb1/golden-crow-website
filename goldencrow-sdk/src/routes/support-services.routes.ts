@@ -24,6 +24,7 @@ import {
   getSupportServiceTransaction,
   getSupportServiceTransactionLinkedReports,
   isCanonicalSupportServiceCategoryValue,
+  listDeferredServiceTransactionLinks,
   listSupportServiceLinkedReportCandidates,
   listDeferredServiceTransactions,
   listSupportServiceOffers,
@@ -493,6 +494,10 @@ const ListDeferredTransactionsQuerySchema = ListQuerySchema.pick({
   cursor: true,
   limit: true,
   query: true,
+});
+const ListDeferredTransactionLinksQuerySchema = ListQuerySchema.pick({
+  cursor: true,
+  limit: true,
 });
 const ServiceIdAvailabilityQuerySchema = z.object({
   serviceId: GeneratedServiceIdSchema,
@@ -984,6 +989,33 @@ export async function supportServicesRoutes(
       try {
         const result = await listDeferredServiceTransactions(
           request.adminContext!,
+          request.query,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/support-services/deferred-transactions/:deferredId/transactions",
+    {
+      schema: {
+        params: DeferredTransactionParamsSchema,
+        querystring: ListDeferredTransactionLinksQuerySchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext?.isBootstrap) {
+        return reply.status(403).send({
+          error: "Only GOD MODE can manage deferred service transactions.",
+        });
+      }
+      try {
+        const result = await listDeferredServiceTransactionLinks(
+          request.adminContext,
+          request.params.deferredId,
           request.query,
         );
         return reply.send(result);

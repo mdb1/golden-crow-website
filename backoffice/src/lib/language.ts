@@ -5659,8 +5659,18 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se encontraron documentos de transacciones diferidas.",
   "Back to deferred transactions": "Volver a transacciones diferidas",
   "Linked service transactions": "Transacciones de servicio vinculadas",
+  "Linked service offers": "Ofertas de servicio vinculadas",
   "Stored deferred transaction IDs":
     "IDs de transacciones diferidas guardados",
+  "Loading linked service offers...":
+    "Cargando ofertas de servicio vinculadas...",
+  "Service transaction not found": "Transacción de servicio no encontrada",
+  "Service offer name unavailable":
+    "Nombre de oferta de servicio no disponible",
+  "Save to load the service offer name":
+    "Guardá para cargar el nombre de la oferta de servicio",
+  "Could not load the linked service offers.":
+    "No se pudieron cargar las ofertas de servicio vinculadas.",
   "Link transaction": "Vincular transacción",
   "No transactions are linked to this email.":
     "No hay transacciones vinculadas a este email.",

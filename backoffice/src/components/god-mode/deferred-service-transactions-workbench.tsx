@@ -58,6 +58,7 @@ import { sdkFetch } from "@/lib/sdk-client";
 import type {
   DeferredServiceTransactionIndexDetail,
   DeferredServiceTransactionIndexRecord,
+  DeferredServiceTransactionLinksPage,
   DeferredServiceTransactionNotificationPreview,
   DeferredServiceTransactionNotificationResendResult,
   DeferredServiceTransactionsPage,
@@ -651,6 +652,7 @@ export function DeferredServiceTransactionWorkbench({
   const router = useRouter();
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [transactionIds, setTransactionIds] = useState<string[]>([]);
   const [newTransactionId, setNewTransactionId] = useState("");
@@ -677,6 +679,28 @@ export function DeferredServiceTransactionWorkbench({
       ),
   });
   const record = detailQuery.data?.deferredTransaction;
+
+  const linkedTransactionsQuery = useInfiniteQuery({
+    queryKey: ["deferred-service-transaction-links", deferredId],
+    initialPageParam: "",
+    enabled: Boolean(record),
+    queryFn: ({ pageParam }) => {
+      const parameters = new URLSearchParams({ limit: "20" });
+      if (pageParam) parameters.set("cursor", pageParam);
+      return sdkFetch<DeferredServiceTransactionLinksPage>(
+        `${API_ROUTE}/${encodeURIComponent(deferredId)}/transactions?${parameters.toString()}`,
+      );
+    },
+    getNextPageParam: (page) => page.nextCursor,
+  });
+
+  const linkedTransactions = useMemo(
+    () =>
+      linkedTransactionsQuery.data?.pages.flatMap(
+        (page) => page.transactions ?? [],
+      ) ?? [],
+    [linkedTransactionsQuery.data],
+  );
 
   useEffect(() => {
     if (!record || loadedRecordId === record.id) return;
@@ -707,6 +731,10 @@ export function DeferredServiceTransactionWorkbench({
         router.replace(`${ROUTE}/${encodeURIComponent(deferredTransaction.id)}`);
       } else {
         void detailQuery.refetch();
+        void queryClient.resetQueries({
+          queryKey: ["deferred-service-transaction-links", deferredId],
+          exact: true,
+        });
       }
     },
     onError: (error) =>
@@ -799,6 +827,19 @@ export function DeferredServiceTransactionWorkbench({
           (transactionId, index) =>
             transactionId !== record.deferredTransactionIds[index],
         )),
+  );
+
+  const savedTransactionIds = new Set(record?.deferredTransactionIds ?? []);
+  const loadedLinkedTransactionIds = new Set(
+    linkedTransactions.map((transaction) => transaction.transactionId),
+  );
+  const locallyAddedTransactionIds = transactionIds.filter(
+    (transactionId) =>
+      !savedTransactionIds.has(transactionId) &&
+      !loadedLinkedTransactionIds.has(transactionId),
+  );
+  const visibleLinkedTransactions = linkedTransactions.filter((transaction) =>
+    transactionIds.includes(transaction.transactionId),
   );
 
   function openNotificationPreview(transactionId: string) {
@@ -983,7 +1024,7 @@ export function DeferredServiceTransactionWorkbench({
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-heading text-lg font-semibold">
-                  {t("Stored deferred transaction IDs")}
+                  {t("Linked service offers")}
                 </h3>
                 <Badge variant="secondary">{transactionIds.length}</Badge>
               </div>
@@ -1027,18 +1068,71 @@ export function DeferredServiceTransactionWorkbench({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {transactionIds.map((transactionId, index) => {
+                  {linkedTransactionsQuery.isLoading ? (
+                    <div
+                      role="status"
+                      className="flex items-center gap-2 rounded-xl border border-border/70 p-4 text-sm text-muted-foreground"
+                    >
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t("Loading linked service offers...")}
+                    </div>
+                  ) : null}
+
+                  {linkedTransactionsQuery.isError ? (
+                    <div
+                      role="alert"
+                      className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex min-w-0 items-start gap-2">
+                        <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div className="min-w-0">
+                          <p>{t("Could not load the linked service offers.")}</p>
+                          <p className="mt-1 break-words text-xs">
+                            {errorMessage(linkedTransactionsQuery.error)}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => linkedTransactionsQuery.refetch()}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        {t("Retry")}
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {[
+                    ...visibleLinkedTransactions.map((transaction) => ({
+                      transactionId: transaction.transactionId,
+                      primaryLabel: transaction.exists
+                        ? transaction.serviceOfferName?.trim() ||
+                          t("Service offer name unavailable")
+                        : t("Service transaction not found"),
+                    })),
+                    ...locallyAddedTransactionIds.map((transactionId) => ({
+                      transactionId,
+                      primaryLabel: t("Save to load the service offer name"),
+                    })),
+                  ].map(({ transactionId, primaryLabel }, index) => {
                     return (
                       <div
                         key={`${transactionId}-${index}`}
                         className="flex flex-col gap-3 rounded-xl border border-border/70 p-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-start gap-2">
                             <Link2 className="h-4 w-4 text-muted-foreground" />
-                            <span className="break-all font-mono text-sm font-medium text-foreground">
-                              {transactionId}
-                            </span>
+                            <div className="min-w-0">
+                              <p className="break-words text-sm font-medium text-foreground">
+                                {primaryLabel}
+                              </p>
+                              <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                                {transactionId}
+                              </p>
+                            </div>
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-wrap gap-2">
@@ -1098,6 +1192,22 @@ export function DeferredServiceTransactionWorkbench({
                       </div>
                     );
                   })}
+
+                  {linkedTransactionsQuery.hasNextPage ? (
+                    <div className="flex justify-center pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => linkedTransactionsQuery.fetchNextPage()}
+                        disabled={linkedTransactionsQuery.isFetchingNextPage}
+                      >
+                        {linkedTransactionsQuery.isFetchingNextPage ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : null}
+                        {t("Load more")}
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

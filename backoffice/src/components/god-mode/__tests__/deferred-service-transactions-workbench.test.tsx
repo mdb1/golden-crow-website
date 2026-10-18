@@ -54,6 +54,24 @@ function renderWithProviders(children: React.ReactNode) {
   );
 }
 
+function isLinkedTransactionsRequest(path: unknown) {
+  return String(path).includes(
+    "/admin/support-services/deferred-transactions/",
+  ) && String(path).includes("/transactions?");
+}
+
+function linkedTransaction(
+  transactionId: string,
+  serviceOfferName = `Offer for ${transactionId}`,
+) {
+  return {
+    transactionId,
+    exists: true,
+    serviceOfferName,
+    serviceId: `pgs_${transactionId.replace(/^pgr_/, "")}`,
+  };
+}
+
 describe("deferred service transaction workbenches", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -317,9 +335,26 @@ describe("deferred service transaction workbenches", () => {
     ).toBeInTheDocument();
   });
 
-  it("edits the email, links and unlinks transaction IDs, and follows a moved index", async () => {
-    sdkFetchMock
-      .mockResolvedValueOnce({
+  it("shows the service offer name while retaining transaction actions, then edits and follows a moved index", async () => {
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (isLinkedTransactionsRequest(path)) {
+        return {
+          transactions: [
+            linkedTransaction("pgr_old", "Whole genome sequencing"),
+          ],
+        };
+      }
+      if (init?.method === "PUT") {
+        return {
+          deferredTransaction: {
+            id: "new-index",
+            email: "new@example.com",
+            deferredTransactionIds: ["pgr_new"],
+            transactionCount: 1,
+          },
+        };
+      }
+      return {
         deferredTransaction: {
           id: "old-index",
           email: "old@example.com",
@@ -331,15 +366,8 @@ describe("deferred service transaction workbenches", () => {
             username: "old-user",
           },
         },
-      })
-      .mockResolvedValueOnce({
-        deferredTransaction: {
-          id: "new-index",
-          email: "new@example.com",
-          deferredTransactionIds: ["pgr_new"],
-          transactionCount: 1,
-        },
-      });
+      };
+    });
 
     renderWithProviders(
       <DeferredServiceTransactionWorkbench deferredId="old-index" />,
@@ -353,10 +381,17 @@ describe("deferred service transaction workbenches", () => {
       "href",
       "/collections/community_users/community-user-1",
     );
+    const offerName = await screen.findByText("Whole genome sequencing");
+    expect(offerName).toHaveClass("font-medium");
+    expect(screen.getByText("pgr_old")).toHaveClass("text-xs");
+    expect(screen.queryByText("pgs_old")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /^Open$/ })).toHaveAttribute(
       "href",
       "/god-mode/service-transactions/pgr_old",
     );
+    expect(
+      screen.getByRole("button", { name: "Send email again: pgr_old" }),
+    ).toBeEnabled();
     fireEvent.change(email, { target: { value: "new@example.com" } });
     expect(
       screen.getByRole("button", { name: "Send email again: pgr_old" }),
@@ -385,6 +420,181 @@ describe("deferred service transaction workbenches", () => {
         "/god-mode/defered-service-transactions/new-index",
       ),
     );
+  });
+
+  it("shows a missing-transaction label instead of using the transaction ID as the primary label", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (isLinkedTransactionsRequest(path)) {
+        return {
+          transactions: [
+            {
+              transactionId: "pgr_missing",
+              exists: false,
+            },
+          ],
+        };
+      }
+      return {
+        deferredTransaction: {
+          id: "deferred-index",
+          email: "missing@example.com",
+          deferredTransactionIds: ["pgr_missing"],
+          transactionCount: 1,
+        },
+      };
+    });
+
+    renderWithProviders(
+      <DeferredServiceTransactionWorkbench deferredId="deferred-index" />,
+    );
+
+    expect(
+      await screen.findByText("Service transaction not found"),
+    ).toHaveClass("font-medium");
+    expect(screen.getByText("pgr_missing")).toHaveClass("text-xs");
+    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute(
+      "href",
+      "/god-mode/service-transactions/pgr_missing",
+    );
+  });
+
+  it("paginates linked service offer summaries twenty at a time", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (String(path).endsWith("/transactions?limit=20")) {
+        return {
+          transactions: [linkedTransaction("pgr_one", "First offer")],
+          nextCursor: "cursor-one",
+        };
+      }
+      if (
+        String(path).endsWith(
+          "/transactions?limit=20&cursor=cursor-one",
+        )
+      ) {
+        return {
+          transactions: [linkedTransaction("pgr_two", "Second offer")],
+        };
+      }
+      return {
+        deferredTransaction: {
+          id: "deferred-index",
+          email: "paged@example.com",
+          deferredTransactionIds: ["pgr_one", "pgr_two"],
+          transactionCount: 2,
+        },
+      };
+    });
+
+    renderWithProviders(
+      <DeferredServiceTransactionWorkbench deferredId="deferred-index" />,
+    );
+
+    expect(await screen.findByText("First offer")).toBeInTheDocument();
+    expect(screen.queryByText("Second offer")).not.toBeInTheDocument();
+    expect(screen.queryByText("pgr_two")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+
+    expect(await screen.findByText("Second offer")).toBeInTheDocument();
+    expect(sdkFetchMock).toHaveBeenCalledWith(
+      "/admin/support-services/deferred-transactions/deferred-index/transactions?limit=20&cursor=cursor-one",
+    );
+  });
+
+  it("marks a newly added unsaved link until its service offer name can be loaded", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (isLinkedTransactionsRequest(path)) {
+        return {
+          transactions: [linkedTransaction("pgr_old", "Existing offer")],
+        };
+      }
+      return {
+        deferredTransaction: {
+          id: "deferred-index",
+          email: "requester@example.com",
+          deferredTransactionIds: ["pgr_old"],
+          transactionCount: 1,
+        },
+      };
+    });
+
+    renderWithProviders(
+      <DeferredServiceTransactionWorkbench deferredId="deferred-index" />,
+    );
+
+    await screen.findByText("Existing offer");
+    fireEvent.change(screen.getByPlaceholderText("pgr_*"), {
+      target: { value: "pgr_new" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Link transaction" }));
+
+    expect(
+      screen.getByText("Save to load the service offer name"),
+    ).toHaveClass("font-medium");
+    expect(screen.getByText("pgr_new")).toHaveClass("text-xs");
+    expect(
+      screen.getByRole("button", { name: "Send email again: pgr_new" }),
+    ).toBeDisabled();
+  });
+
+  it("resets the offer-summary pages after saving the same deferred index", async () => {
+    let saved = false;
+    let linkedPageRequests = 0;
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "PUT") {
+        saved = true;
+        return {
+          deferredTransaction: {
+            id: "deferred-index",
+            email: "requester@example.com",
+            deferredTransactionIds: ["pgr_old", "pgr_new"],
+            transactionCount: 2,
+          },
+        };
+      }
+      if (isLinkedTransactionsRequest(path)) {
+        linkedPageRequests += 1;
+        return {
+          transactions: saved
+            ? [
+                linkedTransaction("pgr_old", "Existing offer"),
+                linkedTransaction("pgr_new", "Newly linked offer"),
+              ]
+            : [linkedTransaction("pgr_old", "Existing offer")],
+        };
+      }
+      return {
+        deferredTransaction: {
+          id: "deferred-index",
+          email: "requester@example.com",
+          deferredTransactionIds: saved
+            ? ["pgr_old", "pgr_new"]
+            : ["pgr_old"],
+          transactionCount: saved ? 2 : 1,
+        },
+      };
+    });
+
+    renderWithProviders(
+      <DeferredServiceTransactionWorkbench deferredId="deferred-index" />,
+    );
+
+    await screen.findByText("Existing offer");
+    fireEvent.change(screen.getByPlaceholderText("pgr_*"), {
+      target: { value: "pgr_new" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Link transaction" }));
+    expect(
+      screen.getByText("Save to load the service offer name"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Newly linked offer")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Save to load the service offer name"),
+    ).not.toBeInTheDocument();
+    expect(linkedPageRequests).toBe(2);
   });
 
   it("previews the canonical recipient, provider, linked transactions, and raw payload before resending", async () => {
@@ -441,6 +651,14 @@ describe("deferred service transaction workbenches", () => {
       }
       if (String(path).endsWith("/notification")) {
         return { preview };
+      }
+      if (isLinkedTransactionsRequest(path)) {
+        return {
+          transactions: [
+            linkedTransaction("pgr_one", "Genome interpretation"),
+            linkedTransaction("pgr_two", "Carrier screening"),
+          ],
+        };
       }
       return { deferredTransaction: detail };
     });
@@ -574,6 +792,14 @@ describe("deferred service transaction workbenches", () => {
       if (String(path).includes("/pgr_two/notification")) {
         return secondPreview.promise;
       }
+      if (isLinkedTransactionsRequest(path)) {
+        return {
+          transactions: [
+            linkedTransaction("pgr_one", "First offer"),
+            linkedTransaction("pgr_two", "Second offer"),
+          ],
+        };
+      }
       return { deferredTransaction: detail };
     });
 
@@ -653,6 +879,11 @@ describe("deferred service transaction workbenches", () => {
           },
         };
       }
+      if (isLinkedTransactionsRequest(path)) {
+        return {
+          transactions: [linkedTransaction("pgr_one")],
+        };
+      }
       return {
         deferredTransaction: {
           id: "deferred-index",
@@ -685,47 +916,55 @@ describe("deferred service transaction workbenches", () => {
   });
 
   it("warns when no provider delivery email is available for future routing", async () => {
-    sdkFetchMock
-      .mockResolvedValueOnce({
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (String(path).endsWith("/notification")) {
+        return {
+          preview: {
+            deferredId: "deferred-index",
+            deferredEmail: "requester@example.com",
+            transactionId: "pgr_one",
+            linkedTransactionIds: ["pgr_one"],
+            requesterEmailMismatch: false,
+            previewFingerprint: "a".repeat(64),
+            transaction: {
+              id: "pgr_one",
+              name: "Genome interpretation",
+              requestedByUserEmail: "requester@example.com",
+              status: "received",
+            },
+            provider: {
+              id: "provider-1",
+              accountType: "organization",
+              name: "Genome Lab",
+              email: null,
+              status: "active",
+            },
+            email: {
+              recipientEmail: "federico@goldencrowvs.com",
+              subject: "New Pocket Genes service request",
+              text: "Service: Genome interpretation",
+              input: {
+                transactionName: "Genome interpretation",
+                requesterEmail: "requester@example.com",
+              },
+            },
+          },
+        };
+      }
+      if (isLinkedTransactionsRequest(path)) {
+        return {
+          transactions: [linkedTransaction("pgr_one")],
+        };
+      }
+      return {
         deferredTransaction: {
           id: "deferred-index",
           email: "requester@example.com",
           deferredTransactionIds: ["pgr_one"],
           transactionCount: 1,
         },
-      })
-      .mockResolvedValueOnce({
-        preview: {
-          deferredId: "deferred-index",
-          deferredEmail: "requester@example.com",
-          transactionId: "pgr_one",
-          linkedTransactionIds: ["pgr_one"],
-          requesterEmailMismatch: false,
-          previewFingerprint: "a".repeat(64),
-          transaction: {
-            id: "pgr_one",
-            name: "Genome interpretation",
-            requestedByUserEmail: "requester@example.com",
-            status: "received",
-          },
-          provider: {
-            id: "provider-1",
-            accountType: "organization",
-            name: "Genome Lab",
-            email: null,
-            status: "active",
-          },
-          email: {
-            recipientEmail: "federico@goldencrowvs.com",
-            subject: "New Pocket Genes service request",
-            text: "Service: Genome interpretation",
-            input: {
-              transactionName: "Genome interpretation",
-              requesterEmail: "requester@example.com",
-            },
-          },
-        },
-      });
+      };
+    });
 
     renderWithProviders(
       <DeferredServiceTransactionWorkbench deferredId="deferred-index" />,
@@ -828,6 +1067,11 @@ describe("deferred service transaction workbenches", () => {
             previewCount === 1
               ? previewFor("Original request", "a".repeat(64))
               : previewFor("Updated request", "b".repeat(64)),
+        };
+      }
+      if (isLinkedTransactionsRequest(path)) {
+        return {
+          transactions: [linkedTransaction("pgr_one")],
         };
       }
       return { deferredTransaction: detail };

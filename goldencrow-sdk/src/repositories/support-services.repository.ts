@@ -847,6 +847,18 @@ export interface DeferredServiceTransactionIndexDetail
   communityUser?: DeferredServiceTransactionCommunityUser;
 }
 
+export interface DeferredServiceTransactionLinkSummary {
+  transactionId: string;
+  exists: boolean;
+  serviceOfferName?: string;
+  serviceId?: string;
+}
+
+export interface DeferredServiceTransactionLinksPage {
+  transactions: DeferredServiceTransactionLinkSummary[];
+  nextCursor?: string;
+}
+
 export interface DeferredServiceTransactionNotificationPreview {
   deferredId: string;
   deferredEmail: string;
@@ -1448,6 +1460,13 @@ type ServiceListCursor = {
   id: string;
 };
 
+type DeferredServiceTransactionLinksCursor = {
+  version: 1;
+  deferredIdHash: string;
+  offset: number;
+  transactionIdsHash: string;
+};
+
 function parseListCursor(cursor?: string): ServiceListCursor | undefined {
   if (!cursor) {
     return undefined;
@@ -1473,6 +1492,70 @@ function serviceListCursor(doc: QueryDocumentSnapshot) {
   return Buffer.from(JSON.stringify({ id: doc.id }), "utf8").toString(
     "base64url",
   );
+}
+
+function deferredServiceTransactionIdsHash(transactionIds: string[]) {
+  return createHash("sha256")
+    .update(JSON.stringify(transactionIds), "utf8")
+    .digest("hex");
+}
+
+function deferredServiceTransactionIdHash(deferredId: string) {
+  return createHash("sha256").update(deferredId, "utf8").digest("hex");
+}
+
+function parseDeferredServiceTransactionLinksCursor(
+  cursor: string | undefined,
+  deferredId: string,
+  transactionIds: string[],
+) {
+  if (!cursor) {
+    return 0;
+  }
+
+  try {
+    const value = optionalRecord(
+      JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")),
+    );
+    const parsed = {
+      version: value.version,
+      deferredIdHash: cleanString(value.deferredIdHash),
+      offset: value.offset,
+      transactionIdsHash: cleanString(value.transactionIdsHash),
+    };
+    if (
+      parsed.version !== 1 ||
+      parsed.deferredIdHash !== deferredServiceTransactionIdHash(deferredId) ||
+      !Number.isInteger(parsed.offset) ||
+      (parsed.offset as number) <= 0 ||
+      (parsed.offset as number) >= transactionIds.length ||
+      !/^[0-9a-f]{64}$/.test(parsed.transactionIdsHash) ||
+      parsed.transactionIdsHash !==
+        deferredServiceTransactionIdsHash(transactionIds)
+    ) {
+      throw new Error("invalid cursor");
+    }
+    return parsed.offset as number;
+  } catch {
+    throw new AdminRepositoryError(
+      "Invalid deferred service transaction cursor.",
+      400,
+    );
+  }
+}
+
+function deferredServiceTransactionLinksCursor(
+  deferredId: string,
+  transactionIds: string[],
+  offset: number,
+) {
+  const cursor: DeferredServiceTransactionLinksCursor = {
+    version: 1,
+    deferredIdHash: deferredServiceTransactionIdHash(deferredId),
+    offset,
+    transactionIdsHash: deferredServiceTransactionIdsHash(transactionIds),
+  };
+  return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
 function withoutUndefined<T extends Record<string, unknown>>(input: T) {
@@ -6928,6 +7011,96 @@ export async function getDeferredServiceTransaction(
       snapshot.data() ?? {},
     ),
   );
+}
+
+async function deferredServiceTransactionLinkSummary(
+  transactionId: string,
+): Promise<DeferredServiceTransactionLinkSummary> {
+  const missing = {
+    transactionId,
+    exists: false,
+  } satisfies DeferredServiceTransactionLinkSummary;
+
+  if (!transactionId || transactionId.includes("/")) {
+    return missing;
+  }
+
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
+  if (!snapshot) {
+    return missing;
+  }
+  const data = snapshot.data();
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return missing;
+  }
+
+  const offerSnapshot = optionalRecord(data.offerSnapshot);
+  const serviceId = cleanString(data.serviceId);
+  const serviceOfferName = cleanString(offerSnapshot.name);
+  const legacyTransactionName = cleanString(data.name);
+  if (!serviceOfferName && !legacyTransactionName && !serviceId) {
+    return missing;
+  }
+
+  return withoutUndefined({
+    transactionId,
+    exists: true,
+    serviceOfferName: serviceOfferName || undefined,
+    serviceId: serviceId || undefined,
+  }) satisfies DeferredServiceTransactionLinkSummary;
+}
+
+export async function listDeferredServiceTransactionLinks(
+  context: AdminContext,
+  deferredId: string,
+  options: Pick<ListOptions, "cursor" | "limit"> = {},
+): Promise<DeferredServiceTransactionLinksPage> {
+  requireDeferredServiceTransactionsGodMode(context);
+  const normalizedDeferredId = cleanString(deferredId);
+  const snapshot = await adminDb
+    .collection(DEFERRED_SERVICE_TRANSACTIONS_COLLECTION)
+    .doc(normalizedDeferredId)
+    .get();
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError(
+      "Deferred service transaction index not found.",
+      404,
+    );
+  }
+
+  const storedTransactionIds = snapshot.data()?.deferred_transaction_ids;
+  if (!Array.isArray(storedTransactionIds)) {
+    throw new AdminRepositoryError(
+      "Deferred service transaction index is malformed.",
+      409,
+    );
+  }
+  const transactionIds = storedTransactionIds.map((value) =>
+    cleanString(value),
+  );
+  const offset = parseDeferredServiceTransactionLinksCursor(
+    options.cursor,
+    normalizedDeferredId,
+    transactionIds,
+  );
+  const limit = normalizeLimit(options.limit);
+  const requestedTransactionIds = transactionIds.slice(offset, offset + limit);
+  const transactions = await Promise.all(
+    requestedTransactionIds.map(deferredServiceTransactionLinkSummary),
+  );
+  const nextOffset = offset + requestedTransactionIds.length;
+
+  return {
+    transactions,
+    nextCursor:
+      nextOffset < transactionIds.length
+        ? deferredServiceTransactionLinksCursor(
+            normalizedDeferredId,
+            transactionIds,
+            nextOffset,
+          )
+        : undefined,
+  };
 }
 
 export async function updateDeferredServiceTransaction(

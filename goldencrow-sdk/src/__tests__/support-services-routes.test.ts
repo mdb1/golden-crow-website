@@ -12,6 +12,7 @@ const mockDeleteSupportServiceOffer = jest.fn();
 const mockListSupportServiceOffers = jest.fn();
 const mockListSupportServiceTransactions = jest.fn();
 const mockListDeferredServiceTransactions = jest.fn();
+const mockListDeferredServiceTransactionLinks = jest.fn();
 const mockGetDeferredServiceTransaction = jest.fn();
 const mockGetDeferredServiceTransactionNotificationPreview = jest.fn();
 const mockUpdateDeferredServiceTransaction = jest.fn();
@@ -182,6 +183,8 @@ jest.mock("../repositories/support-services.repository.js", () => ({
     mockGetSupportServiceTransactionLinkedReports,
   listSupportServiceLinkedReportCandidates:
     mockListSupportServiceLinkedReportCandidates,
+  listDeferredServiceTransactionLinks:
+    mockListDeferredServiceTransactionLinks,
   listDeferredServiceTransactions: mockListDeferredServiceTransactions,
   listSupportServiceOffers: mockListSupportServiceOffers,
   listSupportServiceTransactions: mockListSupportServiceTransactions,
@@ -402,6 +405,17 @@ describe("support service admin routes", () => {
       deferredTransactions: [],
       nextCursor: undefined,
     });
+    mockListDeferredServiceTransactionLinks.mockResolvedValue({
+      transactions: [
+        {
+          transactionId: "pgr_deferred_1",
+          exists: true,
+          serviceOfferName: "Frozen report offer",
+          serviceId: "pgs_report_offer_12345",
+        },
+      ],
+      nextCursor: "next-links-cursor",
+    });
     mockGetDeferredServiceTransaction.mockResolvedValue({
       id: "deferred-1",
       email: "person@example.com",
@@ -592,6 +606,32 @@ describe("support service admin routes", () => {
     );
   });
 
+  it("pages linked deferred transactions through GOD MODE", async () => {
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/support-services/deferred-transactions/deferred-1/transactions?limit=7&cursor=links-cursor",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      transactions: [
+        {
+          transactionId: "pgr_deferred_1",
+          exists: true,
+          serviceOfferName: "Frozen report offer",
+          serviceId: "pgs_report_offer_12345",
+        },
+      ],
+      nextCursor: "next-links-cursor",
+    });
+    expect(mockListDeferredServiceTransactionLinks).toHaveBeenCalledWith(
+      bootstrapContext,
+      "deferred-1",
+      expect.objectContaining({ limit: 7, cursor: "links-cursor" }),
+    );
+  });
+
   it("previews and resends one linked deferred transaction notification through GOD MODE", async () => {
     const fastify = await buildTestServer();
     const path =
@@ -716,6 +756,10 @@ describe("support service admin routes", () => {
       method: "DELETE",
       url: "/admin/support-services/deferred-transactions/deferred-1",
     });
+    const linksResponse = await fastify.inject({
+      method: "GET",
+      url: "/admin/support-services/deferred-transactions/deferred-1/transactions",
+    });
     const previewResponse = await fastify.inject({
       method: "GET",
       url: "/admin/support-services/deferred-transactions/deferred-1/transactions/pgr_deferred_1/notification",
@@ -737,10 +781,12 @@ describe("support service admin routes", () => {
     expect(deleteResponse.json()).toEqual({
       error: "Only GOD MODE can manage deferred service transactions.",
     });
+    expect(linksResponse.statusCode).toBe(403);
     expect(previewResponse.statusCode).toBe(403);
     expect(resendResponse.statusCode).toBe(403);
     expect(mockListDeferredServiceTransactions).not.toHaveBeenCalled();
     expect(mockDeleteDeferredServiceTransaction).not.toHaveBeenCalled();
+    expect(mockListDeferredServiceTransactionLinks).not.toHaveBeenCalled();
     expect(
       mockGetDeferredServiceTransactionNotificationPreview,
     ).not.toHaveBeenCalled();

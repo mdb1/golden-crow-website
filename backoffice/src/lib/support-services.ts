@@ -500,6 +500,18 @@ export interface DeferredServiceTransactionIndexDetail
   communityUser?: DeferredServiceTransactionCommunityUser;
 }
 
+export interface DeferredServiceTransactionLinkSummary {
+  transactionId: string;
+  exists: boolean;
+  serviceOfferName?: string;
+  serviceId?: string;
+}
+
+export interface DeferredServiceTransactionLinksPage {
+  transactions: DeferredServiceTransactionLinkSummary[];
+  nextCursor?: string;
+}
+
 export interface DeferredServiceTransactionNotificationPreview {
   deferredId: string;
   deferredEmail: string;
