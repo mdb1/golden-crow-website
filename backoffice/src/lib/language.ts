@@ -5652,8 +5652,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Deferred transactions": "Transacciones diferidas",
   "Document ID": "ID de documento",
   "Stored IDs": "IDs guardados",
-  "Search by email or document ID":
-    "Buscar por email o ID de documento",
+  "Search by email": "Buscar por email",
   "No deferred transaction documents found.":
     "No se encontraron documentos de transacciones diferidas.",
   "Back to deferred transactions": "Volver a transacciones diferidas",

@@ -58,6 +58,11 @@ describe("deferred service transaction workbenches", () => {
 
     expect(await screen.findByText("person@example.com")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.queryByText("pgr_one")).not.toBeInTheDocument();
+    expect(screen.queryByText("pgr_two")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("cGVyc29uQGV4YW1wbGUuY29t"),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Open/ })).toHaveAttribute(
       "href",
       "/god-mode/defered-service-transactions/cGVyc29uQGV4YW1wbGUuY29t",

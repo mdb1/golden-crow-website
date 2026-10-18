@@ -105,7 +105,7 @@ export function DeferredServiceTransactionsBrowser() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search by email or document ID")}
+              placeholder={t("Search by email")}
               className="pl-9"
             />
           </label>
@@ -119,9 +119,8 @@ export function DeferredServiceTransactionsBrowser() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t("Document ID")}</TableHead>
               <TableHead>{t("Email")}</TableHead>
-              <TableHead>{t("Stored IDs")}</TableHead>
+              <TableHead>{t("Deferred transactions")}</TableHead>
               <TableHead className="text-right">{t("Actions")}</TableHead>
             </TableRow>
           </TableHeader>
@@ -129,30 +128,27 @@ export function DeferredServiceTransactionsBrowser() {
             {listQuery.isLoading ? (
               Array.from({ length: 5 }).map((_, index) => (
                 <TableRow key={index}>
-                  <TableCell colSpan={4}>
+                  <TableCell colSpan={3}>
                     <Skeleton className="h-9 w-full" />
                   </TableCell>
                 </TableRow>
               ))
             ) : listQuery.isError ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-destructive">
+                <TableCell colSpan={3} className="py-10 text-center text-destructive">
                   <CircleAlert className="mx-auto mb-2 h-7 w-7" />
                   {errorMessage(listQuery.error)}
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
                   {t("No deferred transaction documents found.")}
                 </TableCell>
               </TableRow>
             ) : (
               rows.map((record) => (
                 <TableRow key={record.id}>
-                  <TableCell>
-                    <p className="font-mono text-xs text-foreground">{record.id}</p>
-                  </TableCell>
                   <TableCell className="font-medium text-foreground">
                     {record.email || t("Not available")}
                   </TableCell>
