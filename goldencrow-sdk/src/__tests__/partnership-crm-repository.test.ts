@@ -53,15 +53,19 @@ const mockQueryReadLog: Array<{
   operations: MockQueryOperation[];
 }> = [];
 const mockPointReadLog: Array<{ collectionName: string; id: string }> = [];
+let mockQueryGetErrorCollection: string | null = null;
+let mockQueryReadHook: ((collectionName: string) => void) | null = null;
 type MockTransactionDocumentRef = {
   get: jest.Mock;
   set: jest.Mock;
   update: jest.Mock;
+  delete: jest.Mock;
 };
 type MockTransaction = {
   get: jest.Mock;
   set: jest.Mock;
   update: jest.Mock;
+  delete: jest.Mock;
 };
 let mockTransactionCommitError: Error | null = null;
 let mockTransactionRetryBeforeCommit: (() => void) | null = null;
@@ -81,10 +85,17 @@ const mockRunTransaction = jest.fn(
           },
         ),
         set: jest.fn(
-          (reference: MockTransactionDocumentRef, data: MockDocData) => {
-            stagedWrites.push(() => reference.set(data));
+          (
+            reference: MockTransactionDocumentRef,
+            data: MockDocData,
+            options?: { merge?: boolean },
+          ) => {
+            stagedWrites.push(() => reference.set(data, options));
           },
         ),
+        delete: jest.fn((reference: MockTransactionDocumentRef) => {
+          stagedWrites.push(() => reference.delete());
+        }),
       };
 
       const result = await callback(transaction);
@@ -117,7 +128,10 @@ function mockDocKey(collectionName: string, id: string) {
 
 function mockDocsIn(collectionName: string) {
   return [...mockDocs.entries()]
-    .filter(([key]) => key.startsWith(`${collectionName}/`))
+    .filter(([key]) => {
+      if (!key.startsWith(`${collectionName}/`)) return false;
+      return !key.slice(collectionName.length + 1).includes("/");
+    })
     .map(([key, data]) => ({
       id: key.slice(collectionName.length + 1),
       data,
@@ -213,9 +227,19 @@ function mockDocumentRef(
         ref: mockDocumentRef(collectionName, id),
       };
     }),
-    set: jest.fn(async (data: MockDocData) => {
-      mockDocs.set(mockDocKey(collectionName, id), data);
-    }),
+    set: jest.fn(
+      async (data: MockDocData, options?: { merge?: boolean }) => {
+        mockDocs.set(
+          mockDocKey(collectionName, id),
+          options?.merge
+            ? {
+                ...(mockDocs.get(mockDocKey(collectionName, id)) ?? {}),
+                ...data,
+              }
+            : data,
+        );
+      },
+    ),
     update: jest.fn(async (data: MockDocData) => {
       mockDocs.set(mockDocKey(collectionName, id), {
         ...(mockDocs.get(mockDocKey(collectionName, id)) ?? {}),
@@ -423,11 +447,16 @@ function mockMakeQuery(
       })),
     })),
     get: jest.fn(async () => {
+      if (mockQueryGetErrorCollection === collectionName) {
+        mockQueryGetErrorCollection = null;
+        throw new Error(`Simulated ${collectionName} query failure`);
+      }
       mockQueryReadLog.push({
         collectionName,
         operations: [...operations],
       });
       const docs = mockApplyQueryOperations(collectionName, operations);
+      mockQueryReadHook?.(collectionName);
       return {
         empty: docs.length === 0,
         docs,
@@ -498,6 +527,8 @@ const godModeContext = {
 beforeEach(() => {
   mockQueryReadLog.length = 0;
   mockPointReadLog.length = 0;
+  mockQueryGetErrorCollection = null;
+  mockQueryReadHook = null;
 });
 
 function mockIsoAt(index: number) {
@@ -1192,7 +1223,7 @@ describe("partnership CRM repository pagination", () => {
     );
   });
 
-  it("returns visual-filter metadata without reading a source collection", async () => {
+  it("returns empty visual-filter metadata from the snapshot pointer without reading a source target collection", async () => {
     const { getPartnershipCrmVisualFilters } = await import(
       "../repositories/partnership-crm.repository"
     );
@@ -1204,7 +1235,300 @@ describe("partnership CRM repository pagination", () => {
 
     expect(filters.targetKind).toBe("professionals");
     expect(filters.facets.status.buckets).toEqual([]);
-    expect(mockCollection).not.toHaveBeenCalled();
+    expect(mockCollection).toHaveBeenCalledWith("partnership_crm_snapshots");
+    expect(mockCollection).not.toHaveBeenCalledWith(
+      "partnership_crm_professionals",
+    );
+  });
+});
+
+describe("partnership CRM snapshots", () => {
+  beforeEach(() => {
+    mockDocs.clear();
+    mockCollection.mockClear();
+    mockRunTransaction.mockClear();
+    mockTransactionCommitError = null;
+    mockTransactionRetryBeforeCommit = null;
+  });
+
+  it("refreshes every organization and professional beyond one hundred source rows", async () => {
+    const { refreshPartnershipCrmSnapshot } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 260; index += 1) {
+      seedOrganization(
+        `org-${index.toString().padStart(3, "0")}`,
+        index,
+        index % 2 === 0
+          ? "org_genomics_laboratories"
+          : "org_genetic_testing_laboratories",
+      );
+    }
+    seedProfessional("pro-1", 1, "pro_clinical_geneticists");
+    seedProfessional("pro-2", 2, "pro_genetic_counselors");
+
+    const snapshot = await refreshPartnershipCrmSnapshot(godModeContext);
+
+    expect(snapshot.refreshState).toBe("ready");
+    expect(snapshot.sourceReadCount).toBe(262);
+    expect(snapshot.totals).toEqual({
+      all: 262,
+      organizations: 260,
+      professionals: 2,
+    });
+    expect(snapshot.targets.organizations.facets.status.buckets).toContainEqual(
+      { value: "new", count: 260 },
+    );
+    expect(snapshot.targets.organizations.facets.category.buckets).toEqual(
+      expect.arrayContaining([
+        { value: "org_genomics_laboratories", count: 130 },
+        { value: "org_genetic_testing_laboratories", count: 130 },
+      ]),
+    );
+    expect(
+      mockDocsIn(
+        `partnership_crm_snapshots/${snapshot.generationId}/items`,
+      ),
+    ).toHaveLength(262);
+    expect(
+      mockQueryReadLog.filter(
+        (entry) => entry.collectionName === "partnership_crm_organizations",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("blocks a second refresh on the same Buenos Aires civil day", async () => {
+    const { refreshPartnershipCrmSnapshot } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedOrganization("org-1", 1, "org_genomics_laboratories");
+    await refreshPartnershipCrmSnapshot(godModeContext);
+    const sourceReads = mockQueryReadLog.length;
+
+    await expect(
+      refreshPartnershipCrmSnapshot(godModeContext),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        statusCode: 409,
+        code: "CRM_SNAPSHOT_ALREADY_ATTEMPTED_TODAY",
+      }),
+    );
+    expect(mockQueryReadLog).toHaveLength(sourceReads);
+  });
+
+  it("records a failed attempt and still blocks another attempt that day", async () => {
+    const {
+      getPartnershipCrmSnapshot,
+      refreshPartnershipCrmSnapshot,
+    } = await import("../repositories/partnership-crm.repository");
+    seedOrganization("org-1", 1, "org_genomics_laboratories");
+    mockQueryGetErrorCollection = "partnership_crm_organizations";
+
+    await expect(
+      refreshPartnershipCrmSnapshot(godModeContext),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        statusCode: 500,
+        code: "CRM_SNAPSHOT_REFRESH_FAILED",
+      }),
+    );
+    await expect(
+      refreshPartnershipCrmSnapshot(godModeContext),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        statusCode: 409,
+        code: "CRM_SNAPSHOT_ALREADY_ATTEMPTED_TODAY",
+      }),
+    );
+    await expect(getPartnershipCrmSnapshot(godModeContext)).resolves.toEqual(
+      expect.objectContaining({
+        refreshState: "failed",
+        canRefreshToday: false,
+        lastRefreshError: expect.stringContaining("Simulated"),
+      }),
+    );
+  });
+
+  it("updates snapshot facets transactionally after a full target edit", async () => {
+    const {
+      getPartnershipCrmSnapshot,
+      refreshPartnershipCrmSnapshot,
+      updatePartnershipCrmOrganization,
+    } = await import("../repositories/partnership-crm.repository");
+    seedOrganization("org-1", 1, "org_genomics_laboratories");
+    await refreshPartnershipCrmSnapshot(godModeContext);
+
+    await updatePartnershipCrmOrganization(godModeContext, "org-1", {
+      name: "Updated organization",
+      category: "org_genetic_testing_laboratories",
+      country: "US",
+      status: "meeting",
+      contactLinkedIn: "https://linkedin.com/company/updated",
+    });
+    const snapshot = await getPartnershipCrmSnapshot(godModeContext);
+
+    expect(snapshot).toEqual(
+      expect.objectContaining({
+        refreshState: "ready",
+        lastIncrementalUpdateAt: expect.any(String),
+        totals: { all: 1, organizations: 1, professionals: 0 },
+      }),
+    );
+    expect(snapshot?.targets.organizations.facets.status.buckets).toContainEqual(
+      { value: "meeting", count: 1 },
+    );
+    expect(snapshot?.targets.organizations.facets.status.buckets).not.toContainEqual(
+      { value: "new", count: 1 },
+    );
+    expect(snapshot?.targets.organizations.facets.category.buckets).toContainEqual(
+      { value: "org_genetic_testing_laboratories", count: 1 },
+    );
+    expect(
+      snapshot?.targets.organizations.facets.linkedInState.buckets,
+    ).toContainEqual({ value: "has_linkedin", count: 1 });
+  });
+
+  it("moves one item from new to contacted after an explicit status update", async () => {
+    const {
+      getPartnershipCrmSnapshot,
+      refreshPartnershipCrmSnapshot,
+      updatePartnershipCrmOrganizationStatus,
+    } = await import("../repositories/partnership-crm.repository");
+    seedOrganization("org-1", 1, "org_genomics_laboratories");
+    await refreshPartnershipCrmSnapshot(godModeContext);
+
+    await updatePartnershipCrmOrganizationStatus(
+      godModeContext,
+      "org-1",
+      "contacted",
+    );
+    const snapshot = await getPartnershipCrmSnapshot(godModeContext);
+
+    expect(snapshot?.totals).toEqual({
+      all: 1,
+      organizations: 1,
+      professionals: 0,
+    });
+    expect(snapshot?.targets.organizations.facets.status.buckets).toContainEqual(
+      { value: "contacted", count: 1 },
+    );
+    expect(snapshot?.targets.organizations.facets.status.buckets).not.toContainEqual(
+      { value: "new", count: 1 },
+    );
+  });
+
+  it("increments and decrements totals for creates and deletes", async () => {
+    const {
+      createPartnershipCrmProfessional,
+      deletePartnershipCrmProfessional,
+      getPartnershipCrmSnapshot,
+      refreshPartnershipCrmSnapshot,
+    } = await import("../repositories/partnership-crm.repository");
+    seedOrganization("org-1", 1, "org_genomics_laboratories");
+    await refreshPartnershipCrmSnapshot(godModeContext);
+
+    const professional = await createPartnershipCrmProfessional(
+      godModeContext,
+      {
+        name: "Dra. Ada Genome",
+        category: "pro_clinical_geneticists",
+        country: "AR",
+        status: "new",
+      },
+    );
+    await expect(getPartnershipCrmSnapshot(godModeContext)).resolves.toEqual(
+      expect.objectContaining({
+        totals: { all: 2, organizations: 1, professionals: 1 },
+      }),
+    );
+
+    await deletePartnershipCrmProfessional(godModeContext, professional.id);
+    await expect(getPartnershipCrmSnapshot(godModeContext)).resolves.toEqual(
+      expect.objectContaining({
+        totals: { all: 1, organizations: 1, professionals: 0 },
+      }),
+    );
+  });
+
+  it("marks the snapshot dirty without failing the primary mutation when its item projection drifted", async () => {
+    const {
+      getPartnershipCrmSnapshot,
+      refreshPartnershipCrmSnapshot,
+      updatePartnershipCrmOrganizationStatus,
+    } = await import("../repositories/partnership-crm.repository");
+    seedOrganization("org-1", 1, "org_genomics_laboratories");
+    const refreshed = await refreshPartnershipCrmSnapshot(godModeContext);
+    const itemsCollection = `partnership_crm_snapshots/${refreshed.generationId}/items`;
+    const indexedItem = mockDocsIn(itemsCollection)[0]!;
+    mockDocs.set(mockDocKey(itemsCollection, indexedItem.id), {
+      ...indexedItem.data,
+      status: "contacted",
+    });
+
+    await expect(
+      updatePartnershipCrmOrganizationStatus(
+        godModeContext,
+        "org-1",
+        "meeting",
+      ),
+    ).resolves.toEqual(expect.objectContaining({ status: "meeting" }));
+
+    expect(
+      mockDocs.get(mockDocKey("partnership_crm_organizations", "org-1"))
+        ?.status,
+    ).toBe("meeting");
+    await expect(getPartnershipCrmSnapshot(godModeContext)).resolves.toEqual(
+      expect.objectContaining({
+        refreshState: "dirty",
+        totals: { all: 1, organizations: 1, professionals: 0 },
+      }),
+    );
+  });
+
+  it("does not promote a generation when the source revision changes during its scan", async () => {
+    const {
+      getPartnershipCrmSnapshot,
+      refreshPartnershipCrmSnapshot,
+    } = await import("../repositories/partnership-crm.repository");
+    seedOrganization("org-1", 1, "org_genomics_laboratories");
+    const first = await refreshPartnershipCrmSnapshot(godModeContext);
+    const currentKey = mockDocKey("partnership_crm_snapshots", "current");
+    mockDocs.set(currentKey, {
+      ...(mockDocs.get(currentKey) ?? {}),
+      lastRefreshAttemptDate: "2000-01-01",
+    });
+    let revisionBumped = false;
+    mockQueryReadHook = (collectionName) => {
+      if (
+        collectionName !== "partnership_crm_professionals" ||
+        revisionBumped
+      ) {
+        return;
+      }
+      revisionBumped = true;
+      const current = mockDocs.get(currentKey) ?? {};
+      mockDocs.set(currentKey, {
+        ...current,
+        sourceRevision: Number(current.sourceRevision ?? 0) + 1,
+      });
+    };
+
+    await expect(
+      refreshPartnershipCrmSnapshot(godModeContext),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        statusCode: 409,
+        code: "CRM_SNAPSHOT_SOURCE_CHANGED",
+      }),
+    );
+    expect(revisionBumped).toBe(true);
+    await expect(getPartnershipCrmSnapshot(godModeContext)).resolves.toEqual(
+      expect.objectContaining({
+        generationId: first.generationId,
+        refreshState: "failed",
+        totals: { all: 1, organizations: 1, professionals: 0 },
+      }),
+    );
   });
 });
 

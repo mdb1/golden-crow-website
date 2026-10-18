@@ -2,8 +2,10 @@ import {
   FieldPath,
   FieldValue,
   Timestamp,
+  type DocumentReference,
   type Query,
   type QueryDocumentSnapshot,
+  type Transaction,
 } from "firebase-admin/firestore";
 import { createHash } from "node:crypto";
 import { adminDbFor } from "../config/firebase.js";
@@ -27,6 +29,12 @@ const TEMPLATES_COLLECTION = "plantillas";
 const SENT_EMAIL_LOG_COLLECTION = "crm_sent_email_log";
 const ACTIVITIES_COLLECTION = "activities";
 const DAILY_USAGE_COLLECTION = "partnership_crm_daily_usage";
+const SNAPSHOTS_COLLECTION = "partnership_crm_snapshots";
+const SNAPSHOT_CURRENT_DOCUMENT = "current";
+const SNAPSHOT_ITEMS_COLLECTION = "items";
+const SNAPSHOT_SCHEMA_VERSION = 1;
+const SNAPSHOT_SCAN_PAGE_SIZE = 250;
+const SNAPSHOT_TIME_ZONE = "America/Argentina/Buenos_Aires";
 const MAX_PAGE_SIZE = 10;
 const DEFAULT_PAGE_SIZE = MAX_PAGE_SIZE;
 const MAX_TARGET_PAGE_SIZE = 20;
@@ -152,6 +160,12 @@ export type PartnershipCrmLinkedInState = "has_linkedin" | "missing_linkedin";
 export type PartnershipCrmStatusCounts = Record<PartnershipCrmStatus, number>;
 export type PartnershipCrmVisualFilterFacetKey =
   "status" | "category" | "country" | "linkedInState";
+export type PartnershipCrmSnapshotRefreshState =
+  | "empty"
+  | "building"
+  | "ready"
+  | "failed"
+  | "dirty";
 
 type PartnershipCrmTargetListOptions = {
   cursor?: string;
@@ -185,6 +199,20 @@ export class PartnershipCrmUsageError extends Error {
   ) {
     super(message);
     this.name = "PartnershipCrmUsageError";
+  }
+}
+
+export class PartnershipCrmSnapshotError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly code:
+      | "CRM_SNAPSHOT_ALREADY_ATTEMPTED_TODAY"
+      | "CRM_SNAPSHOT_SOURCE_CHANGED"
+      | "CRM_SNAPSHOT_REFRESH_FAILED",
+  ) {
+    super(message);
+    this.name = "PartnershipCrmSnapshotError";
   }
 }
 
@@ -400,6 +428,26 @@ export interface PartnershipCrmVisualFilters {
     PartnershipCrmVisualFilterFacetKey,
     PartnershipCrmVisualFilterFacet
   >;
+}
+
+export interface PartnershipCrmSnapshot {
+  schemaVersion: number;
+  refreshState: PartnershipCrmSnapshotRefreshState;
+  canRefreshToday: boolean;
+  nextRefreshAt: string;
+  generationId?: string;
+  lastRefreshAttemptDate?: string;
+  lastRefreshAttemptAt?: string;
+  lastFullRefreshAt?: string;
+  lastIncrementalUpdateAt?: string;
+  lastRefreshError?: string;
+  sourceReadCount: number;
+  totals: {
+    all: number;
+    organizations: number;
+    professionals: number;
+  };
+  targets: Record<PartnershipCrmTargetKind, PartnershipCrmVisualFilters>;
 }
 
 export interface PartnershipCrmDuplicateCandidate {
@@ -2183,14 +2231,761 @@ function emptyVisualFacetCounts() {
   } satisfies Record<PartnershipCrmVisualFilterFacetKey, Map<string, number>>;
 }
 
+type PartnershipCrmSnapshotProjection = {
+  targetKind: PartnershipCrmTargetKind;
+  targetId: string;
+  status: PartnershipCrmStatus;
+  category: string;
+  country: string;
+  linkedInState: PartnershipCrmLinkedInState;
+};
+
+type PartnershipCrmSnapshotTargetCounts = {
+  total: number;
+  statusCounts: Record<string, number>;
+  categoryCounts: Record<string, number>;
+  countryCounts: Record<string, number>;
+  linkedInStateCounts: Record<string, number>;
+};
+
+type PartnershipCrmSnapshotTargets = Record<
+  PartnershipCrmTargetKind,
+  PartnershipCrmSnapshotTargetCounts
+>;
+
+function emptySnapshotTargetCounts(): PartnershipCrmSnapshotTargetCounts {
+  return {
+    total: 0,
+    statusCounts: Object.fromEntries(
+      PARTNERSHIP_CRM_STATUSES.map((status) => [status, 0]),
+    ),
+    categoryCounts: { [MISSING_CATEGORY_FILTER_VALUE]: 0 },
+    countryCounts: { [MISSING_COUNTRY_FILTER_VALUE]: 0 },
+    linkedInStateCounts: {
+      has_linkedin: 0,
+      missing_linkedin: 0,
+    },
+  };
+}
+
+function emptySnapshotTargets(): PartnershipCrmSnapshotTargets {
+  return {
+    organizations: emptySnapshotTargetCounts(),
+    professionals: emptySnapshotTargetCounts(),
+  };
+}
+
+function nonNegativeInteger(value: unknown) {
+  return typeof value === "number" &&
+    Number.isFinite(value) &&
+    Number.isInteger(value) &&
+    value >= 0
+    ? value
+    : 0;
+}
+
+function snapshotCountMap(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {} as Record<string, number>;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, count]) => [
+      key,
+      nonNegativeInteger(count),
+    ]),
+  );
+}
+
+function snapshotTargetCountsFromValue(
+  value: unknown,
+): PartnershipCrmSnapshotTargetCounts | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const data = value as Record<string, unknown>;
+  if (
+    typeof data.total !== "number" ||
+    !Number.isInteger(data.total) ||
+    data.total < 0
+  ) {
+    return null;
+  }
+
+  return {
+    total: data.total,
+    statusCounts: {
+      ...emptySnapshotTargetCounts().statusCounts,
+      ...snapshotCountMap(data.statusCounts),
+    },
+    categoryCounts: snapshotCountMap(data.categoryCounts),
+    countryCounts: snapshotCountMap(data.countryCounts),
+    linkedInStateCounts: {
+      ...emptySnapshotTargetCounts().linkedInStateCounts,
+      ...snapshotCountMap(data.linkedInStateCounts),
+    },
+  };
+}
+
+function snapshotTargetsFromValue(
+  value: unknown,
+): PartnershipCrmSnapshotTargets | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const data = value as Record<string, unknown>;
+  const organizations = snapshotTargetCountsFromValue(data.organizations);
+  const professionals = snapshotTargetCountsFromValue(data.professionals);
+  return organizations && professionals
+    ? { organizations, professionals }
+    : null;
+}
+
+function cloneSnapshotTargetCounts(
+  value: PartnershipCrmSnapshotTargetCounts,
+): PartnershipCrmSnapshotTargetCounts {
+  return {
+    total: value.total,
+    statusCounts: { ...value.statusCounts },
+    categoryCounts: { ...value.categoryCounts },
+    countryCounts: { ...value.countryCounts },
+    linkedInStateCounts: { ...value.linkedInStateCounts },
+  };
+}
+
+function incrementSnapshotMap(
+  counts: Record<string, number>,
+  key: string,
+  delta: 1 | -1,
+) {
+  const next = nonNegativeInteger(counts[key]) + delta;
+  if (next < 0) {
+    return false;
+  }
+  counts[key] = next;
+  return true;
+}
+
+function applyProjectionDelta(
+  targets: PartnershipCrmSnapshotTargets,
+  previous: PartnershipCrmSnapshotProjection | null,
+  next: PartnershipCrmSnapshotProjection | null,
+): PartnershipCrmSnapshotTargets | null {
+  const targetKind = previous?.targetKind ?? next?.targetKind;
+  if (!targetKind || (previous && next && previous.targetKind !== next.targetKind)) {
+    return null;
+  }
+
+  const updatedTarget = cloneSnapshotTargetCounts(targets[targetKind]);
+  if (previous) {
+    updatedTarget.total -= 1;
+    if (
+      updatedTarget.total < 0 ||
+      !incrementSnapshotMap(updatedTarget.statusCounts, previous.status, -1) ||
+      !incrementSnapshotMap(
+        updatedTarget.categoryCounts,
+        previous.category,
+        -1,
+      ) ||
+      !incrementSnapshotMap(updatedTarget.countryCounts, previous.country, -1) ||
+      !incrementSnapshotMap(
+        updatedTarget.linkedInStateCounts,
+        previous.linkedInState,
+        -1,
+      )
+    ) {
+      return null;
+    }
+  }
+
+  if (next) {
+    updatedTarget.total += 1;
+    incrementSnapshotMap(updatedTarget.statusCounts, next.status, 1);
+    incrementSnapshotMap(updatedTarget.categoryCounts, next.category, 1);
+    incrementSnapshotMap(updatedTarget.countryCounts, next.country, 1);
+    incrementSnapshotMap(
+      updatedTarget.linkedInStateCounts,
+      next.linkedInState,
+      1,
+    );
+  }
+
+  return {
+    ...targets,
+    [targetKind]: updatedTarget,
+  };
+}
+
+function snapshotProjection(
+  targetKind: PartnershipCrmTargetKind,
+  targetId: string,
+  data: Record<string, unknown>,
+): PartnershipCrmSnapshotProjection {
+  const category =
+    crmCategoryKeys(data.category, targetKind)[0] ??
+    MISSING_CATEGORY_FILTER_VALUE;
+  const country =
+    crmCountryCodes(data.country)[0] ?? MISSING_COUNTRY_FILTER_VALUE;
+  const linkedIn =
+    targetKind === "professionals" ? data.linkedIn : data.contactLinkedIn;
+
+  return {
+    targetKind,
+    targetId,
+    status: normalizeStatus(data.status),
+    category,
+    country,
+    linkedInState: linkedInStateFacetValue(Boolean(cleanString(linkedIn))),
+  };
+}
+
+function snapshotProjectionFromItem(
+  data: Record<string, unknown>,
+): PartnershipCrmSnapshotProjection | null {
+  const targetKind = cleanString(data.targetKind);
+  const targetId = cleanString(data.targetId);
+  const status = cleanString(data.status);
+  const linkedInState = cleanString(data.linkedInState);
+  if (
+    !PARTNERSHIP_CRM_TEMPLATE_AUDIENCES.includes(
+      targetKind as PartnershipCrmTargetKind,
+    ) ||
+    !targetId ||
+    !PARTNERSHIP_CRM_STATUSES.includes(status as PartnershipCrmStatus) ||
+    !["has_linkedin", "missing_linkedin"].includes(linkedInState)
+  ) {
+    return null;
+  }
+
+  return {
+    targetKind: targetKind as PartnershipCrmTargetKind,
+    targetId,
+    status: status as PartnershipCrmStatus,
+    category: cleanString(data.category) || MISSING_CATEGORY_FILTER_VALUE,
+    country: cleanString(data.country) || MISSING_COUNTRY_FILTER_VALUE,
+    linkedInState: linkedInState as PartnershipCrmLinkedInState,
+  };
+}
+
+function snapshotProjectionsEqual(
+  left: PartnershipCrmSnapshotProjection,
+  right: PartnershipCrmSnapshotProjection,
+) {
+  return (
+    left.targetKind === right.targetKind &&
+    left.targetId === right.targetId &&
+    left.status === right.status &&
+    left.category === right.category &&
+    left.country === right.country &&
+    left.linkedInState === right.linkedInState
+  );
+}
+
+function snapshotItemDocumentId(
+  targetKind: PartnershipCrmTargetKind,
+  targetId: string,
+) {
+  return `item_${createHash("sha256")
+    .update(`${targetKind}\0${targetId}`, "utf8")
+    .digest("hex")}`;
+}
+
+function snapshotTargetVisualFilters(
+  targetKind: PartnershipCrmTargetKind,
+  value: PartnershipCrmSnapshotTargetCounts,
+): PartnershipCrmVisualFilters {
+  const result = visualFacetResponse(targetKind, {
+    status: new Map(Object.entries(value.statusCounts)),
+    category: new Map(Object.entries(value.categoryCounts)),
+    country: new Map(Object.entries(value.countryCounts)),
+    linkedInState: new Map(Object.entries(value.linkedInStateCounts)),
+  });
+
+  Object.values(result.facets).forEach((facet) => {
+    facet.total = value.total;
+  });
+  return result;
+}
+
+function snapshotWindow(now = new Date()) {
+  const current = zonedDateParts(now, SNAPSHOT_TIME_ZONE);
+  const date = `${current.year.toString().padStart(4, "0")}-${current.month
+    .toString()
+    .padStart(2, "0")}-${current.day.toString().padStart(2, "0")}`;
+  const nextCalendarDay = new Date(
+    Date.UTC(current.year, current.month - 1, current.day + 1),
+  );
+  const nextRefreshAt = zonedMidnightToUtc(
+    nextCalendarDay.getUTCFullYear(),
+    nextCalendarDay.getUTCMonth() + 1,
+    nextCalendarDay.getUTCDate(),
+    SNAPSHOT_TIME_ZONE,
+  ).toISOString();
+  return { date, nextRefreshAt };
+}
+
+function snapshotRefreshState(
+  value: unknown,
+): PartnershipCrmSnapshotRefreshState {
+  return ["empty", "building", "ready", "failed", "dirty"].includes(
+    cleanString(value),
+  )
+    ? (cleanString(value) as PartnershipCrmSnapshotRefreshState)
+    : "empty";
+}
+
+async function publicPartnershipCrmSnapshot(
+  currentData: Record<string, unknown>,
+): Promise<PartnershipCrmSnapshot> {
+  const activeGenerationId = cleanString(currentData.activeGenerationId);
+  const generationSnapshot = activeGenerationId
+    ? await adminDb
+        .collection(SNAPSHOTS_COLLECTION)
+        .doc(activeGenerationId)
+        .get()
+    : null;
+  const generationData =
+    generationSnapshot?.exists && generationSnapshot.data()
+      ? (generationSnapshot.data() as Record<string, unknown>)
+      : {};
+  const storedTargets = snapshotTargetsFromValue(generationData.targets);
+  const targets = storedTargets ?? emptySnapshotTargets();
+  const organizations = snapshotTargetVisualFilters(
+    "organizations",
+    targets.organizations,
+  );
+  const professionals = snapshotTargetVisualFilters(
+    "professionals",
+    targets.professionals,
+  );
+  const window = snapshotWindow();
+  const lastRefreshAttemptDate = cleanString(
+    currentData.lastRefreshAttemptDate,
+  );
+  const storedState = snapshotRefreshState(currentData.refreshState);
+  const activeGenerationInvalid = Boolean(
+    activeGenerationId &&
+      (!generationSnapshot?.exists || !storedTargets),
+  );
+  const refreshState =
+    (normalizeBoolean(currentData.dirty) || activeGenerationInvalid) &&
+    !["building", "failed"].includes(storedState)
+      ? "dirty"
+      : storedState;
+
+  return withoutUndefined({
+    schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+    refreshState,
+    canRefreshToday: lastRefreshAttemptDate !== window.date,
+    nextRefreshAt: window.nextRefreshAt,
+    generationId: activeGenerationId || undefined,
+    lastRefreshAttemptDate: lastRefreshAttemptDate || undefined,
+    lastRefreshAttemptAt:
+      timestampToIso(currentData.lastRefreshAttemptAt) ?? undefined,
+    lastFullRefreshAt:
+      timestampToIso(currentData.lastFullRefreshAt) ?? undefined,
+    lastIncrementalUpdateAt:
+      timestampToIso(currentData.lastIncrementalUpdateAt) ?? undefined,
+    lastRefreshError: cleanString(currentData.lastRefreshError) || undefined,
+    sourceReadCount: nonNegativeInteger(currentData.sourceReadCount),
+    totals: {
+      all: targets.organizations.total + targets.professionals.total,
+      organizations: targets.organizations.total,
+      professionals: targets.professionals.total,
+    },
+    targets: { organizations, professionals },
+  }) as PartnershipCrmSnapshot;
+}
+
+export async function getPartnershipCrmSnapshot(
+  context: AdminContext,
+): Promise<PartnershipCrmSnapshot | null> {
+  requireGodMode(context);
+  const snapshot = await adminDb
+    .collection(SNAPSHOTS_COLLECTION)
+    .doc(SNAPSHOT_CURRENT_DOCUMENT)
+    .get();
+  return snapshot.exists
+    ? publicPartnershipCrmSnapshot(snapshot.data() ?? {})
+    : null;
+}
+
 export async function getPartnershipCrmVisualFilters(
   context: AdminContext,
   targetKind: PartnershipCrmTargetKind,
 ): Promise<PartnershipCrmVisualFilters> {
   requireGodMode(context);
-  return visualFacetResponse(targetKind, emptyVisualFacetCounts());
+  const snapshot = await getPartnershipCrmSnapshot(context);
+  return (
+    snapshot?.targets[targetKind] ??
+    visualFacetResponse(targetKind, emptyVisualFacetCounts())
+  );
 }
 
+function snapshotTargetsForProjections(
+  projections: readonly PartnershipCrmSnapshotProjection[],
+) {
+  let targets = emptySnapshotTargets();
+  for (const projection of projections) {
+    const next = applyProjectionDelta(targets, null, projection);
+    if (!next) {
+      throw new Error("CRM snapshot projection could not be counted.");
+    }
+    targets = next;
+  }
+  return targets;
+}
+
+async function scanPartnershipCrmSnapshotTargets(
+  targetKind: PartnershipCrmTargetKind,
+) {
+  const collectionName =
+    targetKind === "professionals"
+      ? PROFESSIONALS_COLLECTION
+      : ORGANIZATIONS_COLLECTION;
+  const linkedInField =
+    targetKind === "professionals" ? "linkedIn" : "contactLinkedIn";
+  const projections: PartnershipCrmSnapshotProjection[] = [];
+  let lastDocument: QueryDocumentSnapshot | undefined;
+
+  for (;;) {
+    let query: Query = adminDb
+      .collection(collectionName)
+      .select("status", "category", "country", linkedInField)
+      .orderBy(FieldPath.documentId(), "asc")
+      .limit(SNAPSHOT_SCAN_PAGE_SIZE);
+    if (lastDocument) {
+      query = query.startAfter(lastDocument);
+    }
+
+    const page = await query.get();
+    for (const document of page.docs) {
+      projections.push(
+        snapshotProjection(targetKind, document.id, document.data()),
+      );
+    }
+    if (page.docs.length < SNAPSHOT_SCAN_PAGE_SIZE) {
+      break;
+    }
+    lastDocument = page.docs.at(-1);
+    if (!lastDocument) {
+      break;
+    }
+  }
+
+  return projections;
+}
+
+async function writeSnapshotProjectionItems(
+  generationReference: DocumentReference,
+  projections: readonly PartnershipCrmSnapshotProjection[],
+) {
+  const chunkSize = 100;
+  for (let index = 0; index < projections.length; index += chunkSize) {
+    const chunk = projections.slice(index, index + chunkSize);
+    await Promise.all(
+      chunk.map((projection) =>
+        generationReference
+          .collection(SNAPSHOT_ITEMS_COLLECTION)
+          .doc(
+            snapshotItemDocumentId(
+              projection.targetKind,
+              projection.targetId,
+            ),
+          )
+          .set({
+            ...projection,
+            generationId: generationReference.id,
+            indexedAt: FieldValue.serverTimestamp(),
+          }),
+      ),
+    );
+  }
+}
+
+function snapshotErrorMessage(error: unknown) {
+  return (error instanceof Error ? error.message : "Unknown snapshot error")
+    .trim()
+    .slice(0, 1000);
+}
+
+export async function refreshPartnershipCrmSnapshot(
+  context: AdminContext,
+): Promise<PartnershipCrmSnapshot> {
+  requireGodMode(context);
+  const currentReference = adminDb
+    .collection(SNAPSHOTS_COLLECTION)
+    .doc(SNAPSHOT_CURRENT_DOCUMENT);
+  const generationReference = adminDb.collection(SNAPSHOTS_COLLECTION).doc();
+  const window = snapshotWindow();
+  let reserved = false;
+  let sourceReadCount = 0;
+
+  try {
+    const startedRevision = await adminDb.runTransaction(
+      async (transaction) => {
+        const currentSnapshot = await transaction.get(currentReference);
+        const currentData = currentSnapshot.exists
+          ? (currentSnapshot.data() ?? {})
+          : {};
+        if (cleanString(currentData.lastRefreshAttemptDate) === window.date) {
+          throw new PartnershipCrmSnapshotError(
+            "The CRM snapshot refresh has already been attempted today.",
+            409,
+            "CRM_SNAPSHOT_ALREADY_ATTEMPTED_TODAY",
+          );
+        }
+
+        const sourceRevision = nonNegativeInteger(currentData.sourceRevision);
+        transaction.set(
+          currentReference,
+          {
+            schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+            sourceRevision,
+            lastRefreshAttemptDate: window.date,
+            lastRefreshAttemptAt: FieldValue.serverTimestamp(),
+            refreshState: "building",
+            refreshGenerationId: generationReference.id,
+            refreshStartedRevision: sourceRevision,
+            lastRefreshError: "",
+            sourceReadCount: 0,
+            updatedAt: FieldValue.serverTimestamp(),
+            createdAt:
+              currentData.createdAt ?? FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        return sourceRevision;
+      },
+    );
+    reserved = true;
+
+    await generationReference.set({
+      schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+      generationId: generationReference.id,
+      refreshDate: window.date,
+      refreshState: "building",
+      sourceRevision: startedRevision,
+      createdAt: FieldValue.serverTimestamp(),
+      createdByEmail: context.email,
+    });
+
+    const [organizations, professionals] = await Promise.all([
+      scanPartnershipCrmSnapshotTargets("organizations"),
+      scanPartnershipCrmSnapshotTargets("professionals"),
+    ]);
+    const projections = [...organizations, ...professionals];
+    sourceReadCount = projections.length;
+    const targets = snapshotTargetsForProjections(projections);
+    await writeSnapshotProjectionItems(generationReference, projections);
+
+    await adminDb.runTransaction(async (transaction) => {
+      const currentSnapshot = await transaction.get(currentReference);
+      const currentData = currentSnapshot.data() ?? {};
+      if (
+        cleanString(currentData.refreshGenerationId) !==
+          generationReference.id ||
+        nonNegativeInteger(currentData.sourceRevision) !== startedRevision
+      ) {
+        throw new PartnershipCrmSnapshotError(
+          "CRM data changed while the snapshot was being built.",
+          409,
+          "CRM_SNAPSHOT_SOURCE_CHANGED",
+        );
+      }
+
+      transaction.set(
+        generationReference,
+        {
+          schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+          generationId: generationReference.id,
+          refreshDate: window.date,
+          refreshState: "ready",
+          sourceRevision: startedRevision,
+          sourceReadCount,
+          targets,
+          completedAt: FieldValue.serverTimestamp(),
+          createdByEmail: context.email,
+        },
+        { merge: true },
+      );
+      transaction.set(
+        currentReference,
+        {
+          schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+          activeGenerationId: generationReference.id,
+          refreshGenerationId: "",
+          refreshState: "ready",
+          lastRefreshError: "",
+          lastFullRefreshAt: FieldValue.serverTimestamp(),
+          sourceReadCount,
+          dirty: false,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    });
+
+    return (await getPartnershipCrmSnapshot(context))!;
+  } catch (error) {
+    if (reserved) {
+      const message = snapshotErrorMessage(error);
+      await adminDb.runTransaction(async (transaction) => {
+        const currentSnapshot = await transaction.get(currentReference);
+        if (
+          cleanString(currentSnapshot.data()?.refreshGenerationId) !==
+          generationReference.id
+        ) {
+          return;
+        }
+        transaction.set(
+          currentReference,
+          {
+            refreshState: "failed",
+            lastRefreshError: message,
+            sourceReadCount,
+            dirty: true,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        transaction.set(
+          generationReference,
+          {
+            refreshState: "failed",
+            lastRefreshError: message,
+            sourceReadCount,
+            failedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      });
+    }
+
+    if (error instanceof PartnershipCrmSnapshotError) {
+      throw error;
+    }
+    throw new PartnershipCrmSnapshotError(
+      "The CRM snapshot refresh failed.",
+      500,
+      "CRM_SNAPSHOT_REFRESH_FAILED",
+    );
+  }
+}
+
+async function syncPartnershipCrmSnapshotMutation(
+  transaction: Transaction,
+  targetKind: PartnershipCrmTargetKind,
+  targetId: string,
+  previousData: Record<string, unknown> | null,
+  nextData: Record<string, unknown> | null,
+) {
+  const currentReference = adminDb
+    .collection(SNAPSHOTS_COLLECTION)
+    .doc(SNAPSHOT_CURRENT_DOCUMENT);
+  const currentSnapshot = await transaction.get(currentReference);
+  const currentData = currentSnapshot.exists
+    ? (currentSnapshot.data() ?? {})
+    : {};
+  const activeGenerationId = cleanString(currentData.activeGenerationId);
+  const previousProjection = previousData
+    ? snapshotProjection(targetKind, targetId, previousData)
+    : null;
+  const nextProjection = nextData
+    ? snapshotProjection(targetKind, targetId, nextData)
+    : null;
+  const nextRevision = nonNegativeInteger(currentData.sourceRevision) + 1;
+  let driftReason = "";
+  let generationReference: DocumentReference | undefined;
+  let itemReference: DocumentReference | undefined;
+  let generationData: Record<string, unknown> = {};
+  let itemData: Record<string, unknown> = {};
+
+  if (activeGenerationId) {
+    generationReference = adminDb
+      .collection(SNAPSHOTS_COLLECTION)
+      .doc(activeGenerationId);
+    itemReference = generationReference
+      .collection(SNAPSHOT_ITEMS_COLLECTION)
+      .doc(snapshotItemDocumentId(targetKind, targetId));
+    const generationSnapshot = await transaction.get(generationReference);
+    const itemSnapshot = await transaction.get(itemReference);
+    generationData = generationSnapshot.exists
+      ? (generationSnapshot.data() ?? {})
+      : {};
+    itemData = itemSnapshot.exists ? (itemSnapshot.data() ?? {}) : {};
+
+    const indexedProjection = itemSnapshot.exists
+      ? snapshotProjectionFromItem(itemData)
+      : null;
+    if (!generationSnapshot.exists) {
+      driftReason = "Active CRM snapshot generation is missing.";
+    } else if (previousProjection) {
+      if (
+        !indexedProjection ||
+        cleanString(itemData.generationId) !== activeGenerationId ||
+        !snapshotProjectionsEqual(indexedProjection, previousProjection)
+      ) {
+        driftReason = "CRM snapshot item does not match the source record.";
+      }
+    } else if (itemSnapshot.exists) {
+      driftReason = "CRM snapshot already contains the newly created item.";
+    }
+  } else {
+    driftReason = "No active CRM snapshot generation exists.";
+  }
+
+  let updatedTargets: PartnershipCrmSnapshotTargets | null = null;
+  if (!driftReason && generationReference && itemReference) {
+    const targets = snapshotTargetsFromValue(generationData.targets);
+    updatedTargets = targets
+      ? applyProjectionDelta(targets, previousProjection, nextProjection)
+      : null;
+    if (!updatedTargets) {
+      driftReason = "CRM snapshot aggregate is invalid.";
+    }
+  }
+
+  const existingState = snapshotRefreshState(currentData.refreshState);
+  const preserveWorkflowState = ["building", "failed"].includes(existingState);
+  transaction.set(
+    currentReference,
+    {
+      schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+      sourceRevision: nextRevision,
+      lastIncrementalUpdateAt: FieldValue.serverTimestamp(),
+      dirty: normalizeBoolean(currentData.dirty) || Boolean(driftReason),
+      refreshState:
+        driftReason && !preserveWorkflowState ? "dirty" : existingState,
+      snapshotDriftReason: driftReason,
+      updatedAt: FieldValue.serverTimestamp(),
+      createdAt: currentData.createdAt ?? FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  if (!driftReason && generationReference && itemReference && updatedTargets) {
+    transaction.set(
+      generationReference,
+      {
+        targets: updatedTargets,
+        lastIncrementalUpdateAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    if (nextProjection) {
+      transaction.set(itemReference, {
+        ...nextProjection,
+        generationId: activeGenerationId,
+        indexedAt: FieldValue.serverTimestamp(),
+      });
+    } else {
+      transaction.delete(itemReference);
+    }
+  }
+}
 async function getOrganizationSnapshot(organizationId: string) {
   const snapshot = await adminDb
     .collection(ORGANIZATIONS_COLLECTION)
@@ -3089,20 +3884,32 @@ export async function createPartnershipCrmOrganization(
   }
 
   const ref = adminDb.collection(ORGANIZATIONS_COLLECTION).doc();
+  const activityReference = ref.collection(ACTIVITIES_COLLECTION).doc();
   const now = new Date();
-  await ref.set(
-    withoutUndefined({
+  const storedDocument = withoutUndefined({
       ...document,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       createdByEmail: context.email,
       updatedByEmail: context.email,
-    }),
-  );
-  await addActivity(ref.id, context, {
-    type: "created",
-    title: "Organization created",
-    body: cleanString(input.notes),
+  });
+  await adminDb.runTransaction(async (transaction) => {
+    await syncPartnershipCrmSnapshotMutation(
+      transaction,
+      "organizations",
+      ref.id,
+      null,
+      storedDocument,
+    );
+    transaction.set(ref, storedDocument);
+    transaction.set(
+      activityReference,
+      targetActivityDocument(context, {
+        type: "created",
+        title: "Organization created",
+        body: cleanString(input.notes),
+      }),
+    );
   });
 
   return toOrganizationRecord(ref.id, {
@@ -3120,48 +3927,58 @@ export async function updatePartnershipCrmOrganization(
   input: PartnershipCrmOrganizationInput,
 ) {
   requireGodMode(context);
-  const snapshot = await getOrganizationSnapshot(organizationId);
-  if (!snapshot) {
-    throw new AdminRepositoryError("CRM organization not found.", 404);
-  }
-
-  const previous = toOrganizationRecord(organizationId, snapshot.data() ?? {});
   const document = organizationDocument(input);
   if (!cleanString(document.name)) {
     throw new AdminRepositoryError("Organization name is required.", 400);
   }
+  const reference = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId);
+  const activityReference = reference.collection(ACTIVITIES_COLLECTION).doc();
 
-  await snapshot.ref.set(
-    withoutUndefined({
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("CRM organization not found.", 404);
+    }
+    const previousData = snapshot.data() ?? {};
+    const previous = toOrganizationRecord(organizationId, previousData);
+    const storedDocument = withoutUndefined({
       ...document,
-      createdAt: snapshot.data()?.createdAt,
-      createdByEmail: snapshot.data()?.createdByEmail,
+      createdAt: previousData.createdAt,
+      createdByEmail: previousData.createdByEmail,
       updatedAt: FieldValue.serverTimestamp(),
       updatedByEmail: context.email,
-    }),
-  );
-
-  const nextStatus = normalizeStatus(document.status);
-  if (previous.status !== nextStatus) {
-    await addActivity(organizationId, context, {
-      type: "status",
-      title: `Status changed to ${nextStatus}`,
-      body: `Previous status: ${previous.status}`,
-      metadata: { previousStatus: previous.status, nextStatus },
     });
-  } else {
-    await addActivity(organizationId, context, {
-      type: "updated",
-      title: "Organization updated",
-    });
-  }
+    await syncPartnershipCrmSnapshotMutation(
+      transaction,
+      "organizations",
+      organizationId,
+      previousData,
+      storedDocument,
+    );
+    transaction.set(reference, storedDocument);
 
-  return toOrganizationRecord(organizationId, {
-    ...document,
-    createdAt: snapshot.data()?.createdAt,
-    createdByEmail: snapshot.data()?.createdByEmail,
-    updatedAt: new Date(),
-    updatedByEmail: context.email,
+    const nextStatus = normalizeStatus(document.status);
+    transaction.set(
+      activityReference,
+      targetActivityDocument(
+        context,
+        previous.status !== nextStatus
+          ? {
+              type: "status",
+              title: `Status changed to ${nextStatus}`,
+              body: `Previous status: ${previous.status}`,
+              metadata: { previousStatus: previous.status, nextStatus },
+            }
+          : { type: "updated", title: "Organization updated" },
+      ),
+    );
+
+    return toOrganizationRecord(organizationId, {
+      ...storedDocument,
+      updatedAt: new Date(),
+    });
   });
 }
 
@@ -3187,6 +4004,13 @@ export async function updatePartnershipCrmOrganizationStatus(
       return toOrganizationRecord(organizationId, snapshot.data() ?? {});
     }
 
+    await syncPartnershipCrmSnapshotMutation(
+      transaction,
+      "organizations",
+      organizationId,
+      snapshot.data() ?? {},
+      { ...(snapshot.data() ?? {}), status },
+    );
     transaction.update(reference, {
       status,
       updatedAt: FieldValue.serverTimestamp(),
@@ -3261,12 +4085,23 @@ export async function deletePartnershipCrmOrganization(
   organizationId: string,
 ) {
   requireGodMode(context);
-  const snapshot = await getOrganizationSnapshot(organizationId);
-  if (!snapshot) {
-    throw new AdminRepositoryError("CRM organization not found.", 404);
-  }
-
-  await snapshot.ref.delete();
+  const reference = adminDb
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId);
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("CRM organization not found.", 404);
+    }
+    await syncPartnershipCrmSnapshotMutation(
+      transaction,
+      "organizations",
+      organizationId,
+      snapshot.data() ?? {},
+      null,
+    );
+    transaction.delete(reference);
+  });
 }
 
 export async function listPartnershipCrmProfessionals(
@@ -3322,20 +4157,32 @@ export async function createPartnershipCrmProfessional(
   }
 
   const ref = adminDb.collection(PROFESSIONALS_COLLECTION).doc();
+  const activityReference = ref.collection(ACTIVITIES_COLLECTION).doc();
   const now = new Date();
-  await ref.set(
-    withoutUndefined({
+  const storedDocument = withoutUndefined({
       ...document,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       createdByEmail: context.email,
       updatedByEmail: context.email,
-    }),
-  );
-  await addProfessionalActivity(ref.id, context, {
-    type: "created",
-    title: "Professional created",
-    body: cleanString(input.notes),
+  });
+  await adminDb.runTransaction(async (transaction) => {
+    await syncPartnershipCrmSnapshotMutation(
+      transaction,
+      "professionals",
+      ref.id,
+      null,
+      storedDocument,
+    );
+    transaction.set(ref, storedDocument);
+    transaction.set(
+      activityReference,
+      targetActivityDocument(context, {
+        type: "created",
+        title: "Professional created",
+        body: cleanString(input.notes),
+      }),
+    );
   });
 
   return toProfessionalRecord(ref.id, {
@@ -3353,48 +4200,58 @@ export async function updatePartnershipCrmProfessional(
   input: PartnershipCrmProfessionalInput,
 ) {
   requireGodMode(context);
-  const snapshot = await getProfessionalSnapshot(professionalId);
-  if (!snapshot) {
-    throw new AdminRepositoryError("CRM professional not found.", 404);
-  }
-
-  const previous = toProfessionalRecord(professionalId, snapshot.data() ?? {});
   const document = professionalDocument(input);
   if (!cleanString(document.name)) {
     throw new AdminRepositoryError("Professional name is required.", 400);
   }
+  const reference = adminDb
+    .collection(PROFESSIONALS_COLLECTION)
+    .doc(professionalId);
+  const activityReference = reference.collection(ACTIVITIES_COLLECTION).doc();
 
-  await snapshot.ref.set(
-    withoutUndefined({
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("CRM professional not found.", 404);
+    }
+    const previousData = snapshot.data() ?? {};
+    const previous = toProfessionalRecord(professionalId, previousData);
+    const storedDocument = withoutUndefined({
       ...document,
-      createdAt: snapshot.data()?.createdAt,
-      createdByEmail: snapshot.data()?.createdByEmail,
+      createdAt: previousData.createdAt,
+      createdByEmail: previousData.createdByEmail,
       updatedAt: FieldValue.serverTimestamp(),
       updatedByEmail: context.email,
-    }),
-  );
-
-  const nextStatus = normalizeStatus(document.status);
-  if (previous.status !== nextStatus) {
-    await addProfessionalActivity(professionalId, context, {
-      type: "status",
-      title: `Status changed to ${nextStatus}`,
-      body: `Previous status: ${previous.status}`,
-      metadata: { previousStatus: previous.status, nextStatus },
     });
-  } else {
-    await addProfessionalActivity(professionalId, context, {
-      type: "updated",
-      title: "Professional updated",
-    });
-  }
+    await syncPartnershipCrmSnapshotMutation(
+      transaction,
+      "professionals",
+      professionalId,
+      previousData,
+      storedDocument,
+    );
+    transaction.set(reference, storedDocument);
 
-  return toProfessionalRecord(professionalId, {
-    ...document,
-    createdAt: snapshot.data()?.createdAt,
-    createdByEmail: snapshot.data()?.createdByEmail,
-    updatedAt: new Date(),
-    updatedByEmail: context.email,
+    const nextStatus = normalizeStatus(document.status);
+    transaction.set(
+      activityReference,
+      targetActivityDocument(
+        context,
+        previous.status !== nextStatus
+          ? {
+              type: "status",
+              title: `Status changed to ${nextStatus}`,
+              body: `Previous status: ${previous.status}`,
+              metadata: { previousStatus: previous.status, nextStatus },
+            }
+          : { type: "updated", title: "Professional updated" },
+      ),
+    );
+
+    return toProfessionalRecord(professionalId, {
+      ...storedDocument,
+      updatedAt: new Date(),
+    });
   });
 }
 
@@ -3420,6 +4277,13 @@ export async function updatePartnershipCrmProfessionalStatus(
       return toProfessionalRecord(professionalId, snapshot.data() ?? {});
     }
 
+    await syncPartnershipCrmSnapshotMutation(
+      transaction,
+      "professionals",
+      professionalId,
+      snapshot.data() ?? {},
+      { ...(snapshot.data() ?? {}), status },
+    );
     transaction.update(reference, {
       status,
       updatedAt: FieldValue.serverTimestamp(),
@@ -3494,12 +4358,23 @@ export async function deletePartnershipCrmProfessional(
   professionalId: string,
 ) {
   requireGodMode(context);
-  const snapshot = await getProfessionalSnapshot(professionalId);
-  if (!snapshot) {
-    throw new AdminRepositoryError("CRM professional not found.", 404);
-  }
-
-  await snapshot.ref.delete();
+  const reference = adminDb
+    .collection(PROFESSIONALS_COLLECTION)
+    .doc(professionalId);
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError("CRM professional not found.", 404);
+    }
+    await syncPartnershipCrmSnapshotMutation(
+      transaction,
+      "professionals",
+      professionalId,
+      snapshot.data() ?? {},
+      null,
+    );
+    transaction.delete(reference);
+  });
 }
 
 export async function listPartnershipCrmActivities(
@@ -3707,6 +4582,13 @@ async function createIdempotentImportedOrganization(
       createdByEmail: context.email,
       updatedByEmail: context.email,
     });
+    await syncPartnershipCrmSnapshotMutation(
+      transaction,
+      "organizations",
+      documentId,
+      null,
+      storedDocument,
+    );
     transaction.set(reference, storedDocument);
     return {
       created: true,
@@ -3747,6 +4629,13 @@ async function createIdempotentImportedProfessional(
       createdByEmail: context.email,
       updatedByEmail: context.email,
     });
+    await syncPartnershipCrmSnapshotMutation(
+      transaction,
+      "professionals",
+      documentId,
+      null,
+      storedDocument,
+    );
     transaction.set(reference, storedDocument);
     return {
       created: true,
@@ -3758,6 +4647,46 @@ async function createIdempotentImportedProfessional(
         updatedByEmail: context.email,
       }),
     };
+  });
+}
+
+async function setImportedPartnershipCrmTarget(
+  context: AdminContext,
+  targetKind: PartnershipCrmTargetKind,
+  targetId: string,
+  document: Record<string, unknown>,
+) {
+  const collectionName =
+    targetKind === "professionals"
+      ? PROFESSIONALS_COLLECTION
+      : ORGANIZATIONS_COLLECTION;
+  const reference = adminDb.collection(collectionName).doc(targetId);
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    if (!snapshot.exists) {
+      throw new AdminRepositoryError(
+        targetKind === "professionals"
+          ? "CRM professional not found."
+          : "CRM organization not found.",
+        404,
+      );
+    }
+    const previousData = snapshot.data() ?? {};
+    const storedDocument = withoutUndefined({
+      ...document,
+      createdAt: previousData.createdAt,
+      createdByEmail: previousData.createdByEmail,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByEmail: context.email,
+    });
+    await syncPartnershipCrmSnapshotMutation(
+      transaction,
+      targetKind,
+      targetId,
+      previousData,
+      storedDocument,
+    );
+    transaction.set(reference, storedDocument);
   });
 }
 
@@ -3906,14 +4835,11 @@ export async function importPartnershipCrmOrganizations(
                   "organizations",
                 )
               : document;
-        await existing.ref.set(
-          withoutUndefined({
-            ...nextDocument,
-            createdAt: existingData.createdAt,
-            createdByEmail: existingData.createdByEmail,
-            updatedAt: FieldValue.serverTimestamp(),
-            updatedByEmail: context.email,
-          }),
+        await setImportedPartnershipCrmTarget(
+          context,
+          "organizations",
+          duplicateId,
+          nextDocument,
         );
         await addActivity(duplicateId, context, {
           type: "import",
@@ -4136,14 +5062,11 @@ export async function importPartnershipCrmProfessionals(
                   "professionals",
                 )
               : document;
-        await existing.ref.set(
-          withoutUndefined({
-            ...nextDocument,
-            createdAt: existingData.createdAt,
-            createdByEmail: existingData.createdByEmail,
-            updatedAt: FieldValue.serverTimestamp(),
-            updatedByEmail: context.email,
-          }),
+        await setImportedPartnershipCrmTarget(
+          context,
+          "professionals",
+          duplicateId,
+          nextDocument,
         );
         await addProfessionalActivity(duplicateId, context, {
           type: "import",
@@ -4256,17 +5179,31 @@ export async function sendPartnershipCrmOrganizationEmail(
 
   await sendPartnershipCrmEmail({ to, subject, text, html });
 
-  const nextStatus =
-    organization.status === "new" ? "contacted" : organization.status;
-  await snapshot.ref.set(
-    {
+  const contactUpdate = await adminDb.runTransaction(async (transaction) => {
+    const latestSnapshot = await transaction.get(snapshot.ref);
+    if (!latestSnapshot.exists) {
+      throw new AdminRepositoryError("CRM organization not found.", 404);
+    }
+    const latestData = latestSnapshot.data() ?? {};
+    const previousStatus = normalizeStatus(latestData.status);
+    const nextStatus = previousStatus === "new" ? "contacted" : previousStatus;
+    if (previousStatus !== nextStatus) {
+      await syncPartnershipCrmSnapshotMutation(
+        transaction,
+        "organizations",
+        organizationId,
+        latestData,
+        { ...latestData, status: nextStatus },
+      );
+    }
+    transaction.update(snapshot.ref, {
       status: nextStatus,
       lastContactAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       updatedByEmail: context.email,
-    },
-    { merge: true },
-  );
+    });
+    return { previousStatus, nextStatus };
+  });
 
   const activity = await addActivity(organizationId, context, {
     type: "email",
@@ -4278,8 +5215,8 @@ export async function sendPartnershipCrmOrganizationEmail(
       subject,
       templateId,
       templateName,
-      previousStatus: organization.status,
-      nextStatus,
+      previousStatus: contactUpdate.previousStatus,
+      nextStatus: contactUpdate.nextStatus,
     },
   });
   const sentEmailLog = await addSentEmailLog(context, {
@@ -4295,7 +5232,7 @@ export async function sendPartnershipCrmOrganizationEmail(
   const now = new Date().toISOString();
   const updatedOrganization: PartnershipCrmOrganizationRecord = {
     ...organization,
-    status: nextStatus,
+    status: contactUpdate.nextStatus,
     lastContactAt: now,
     updatedAt: now,
     updatedByEmail: context.email,
@@ -4346,17 +5283,31 @@ export async function sendPartnershipCrmProfessionalEmail(
 
   await sendPartnershipCrmEmail({ to, subject, text, html });
 
-  const nextStatus =
-    professional.status === "new" ? "contacted" : professional.status;
-  await snapshot.ref.set(
-    {
+  const contactUpdate = await adminDb.runTransaction(async (transaction) => {
+    const latestSnapshot = await transaction.get(snapshot.ref);
+    if (!latestSnapshot.exists) {
+      throw new AdminRepositoryError("CRM professional not found.", 404);
+    }
+    const latestData = latestSnapshot.data() ?? {};
+    const previousStatus = normalizeStatus(latestData.status);
+    const nextStatus = previousStatus === "new" ? "contacted" : previousStatus;
+    if (previousStatus !== nextStatus) {
+      await syncPartnershipCrmSnapshotMutation(
+        transaction,
+        "professionals",
+        professionalId,
+        latestData,
+        { ...latestData, status: nextStatus },
+      );
+    }
+    transaction.update(snapshot.ref, {
       status: nextStatus,
       lastContactAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       updatedByEmail: context.email,
-    },
-    { merge: true },
-  );
+    });
+    return { previousStatus, nextStatus };
+  });
 
   const activity = await addProfessionalActivity(professionalId, context, {
     type: "email",
@@ -4368,8 +5319,8 @@ export async function sendPartnershipCrmProfessionalEmail(
       subject,
       templateId,
       templateName,
-      previousStatus: professional.status,
-      nextStatus,
+      previousStatus: contactUpdate.previousStatus,
+      nextStatus: contactUpdate.nextStatus,
     },
   });
   const sentEmailLog = await addSentEmailLog(context, {
@@ -4385,7 +5336,7 @@ export async function sendPartnershipCrmProfessionalEmail(
   const now = new Date().toISOString();
   const updatedProfessional: PartnershipCrmProfessionalRecord = {
     ...professional,
-    status: nextStatus,
+    status: contactUpdate.nextStatus,
     lastContactAt: now,
     updatedAt: now,
     updatedByEmail: context.email,

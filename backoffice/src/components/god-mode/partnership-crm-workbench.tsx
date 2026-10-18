@@ -67,6 +67,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -147,6 +158,8 @@ import {
   type PartnershipCrmProfessionalInput,
   type PartnershipCrmProfessionalRecord,
   type PartnershipCrmProfessionalsPage,
+  type PartnershipCrmSnapshot,
+  type PartnershipCrmSnapshotResponse,
   type PartnershipCrmSentEmailLogRecord,
   type PartnershipCrmSentEmailLogsPage,
   type PartnershipCrmStatus,
@@ -166,6 +179,10 @@ const ORGANIZATIONS_QUERY_KEY = "god-mode-partnership-crm-organizations";
 const ACTIVITIES_QUERY_KEY = "god-mode-partnership-crm-activities";
 const TEMPLATES_QUERY_KEY = "god-mode-partnership-crm-templates";
 const SENT_EMAIL_LOG_QUERY_KEY = "god-mode-partnership-crm-sent-email-log";
+const SNAPSHOT_QUERY_KEY = "god-mode-partnership-crm-snapshot";
+const CRM_SNAPSHOT_ENDPOINT = "/admin/partnership-crm/snapshot";
+const CRM_SNAPSHOT_REFRESH_ENDPOINT =
+  "/admin/partnership-crm/snapshot/refresh";
 const EMAIL_CTA_CLASS =
   "h-11 min-w-[11rem] bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] hover:bg-blue-700 focus-visible:ring-blue-500/35 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400";
 const CRM_TARGET_PAGE_SIZE = 20;
@@ -729,7 +746,7 @@ function crmLocalText(language: AppLanguage, key: string) {
       "Las acciones nuevas del CRM permanecen deshabilitadas hasta que termine la verificación.",
     "Retry verification": "Reintentar verificación",
     Resets: "Se reinicia",
-    "Load CRM": "Cargar CRM",
+    "Load results": "Cargar resultados",
     "Apply filters": "Aplicar filtros",
     "Apply sends these filters to the server before results are returned.":
       "Aplicar envía estos filtros al servidor antes de devolver resultados.",
@@ -751,10 +768,45 @@ function crmLocalText(language: AppLanguage, key: string) {
       "Último conteo confirmado por el servidor",
     "Usage unavailable": "Uso no disponible",
     "Last confirmed": "Última confirmación",
-    "Refresh counter": "Actualizar contador",
+    "Verify usage": "Verificar uso",
+    "Pre-filters and CRM index": "Filtros previos e índice del CRM",
+    "Apply and load results": "Aplicar y cargar resultados",
+    "Load index": "Cargar índice",
+    "Update index": "Actualizar índice",
+    "CRM index snapshot": "Snapshot del índice del CRM",
+    "All CRM items": "Todos los ítems del CRM",
+    Organizations: "Organizaciones",
+    Professionals: "Profesionales",
+    "Last full refresh": "Última actualización completa",
+    "Last incremental update": "Última actualización incremental",
+    "Next refresh available": "Próxima actualización disponible",
+    "Source reads": "Lecturas de origen",
+    "Index not loaded yet": "El índice todavía no fue cargado",
+    "Create the CRM index to see complete totals and pre-filter every item, not only the loaded page.":
+      "Creá el índice del CRM para ver totales completos y filtrar previamente todos los ítems, no sólo la página cargada.",
+    "CRM index needs review": "El índice del CRM necesita revisión",
+    "At least one incremental CRM change could not be reconciled with this index.":
+      "Al menos un cambio incremental del CRM no pudo reconciliarse con este índice.",
+    "The last full index refresh failed.":
+      "Falló la última actualización completa del índice.",
+    "CRM index refresh warning": "Advertencia de actualización del índice del CRM",
+    "A full refresh reviews every CRM item and may consume many Firestore reads. It can run only once per day.":
+      "Una actualización completa releva todos los ítems del CRM y puede consumir muchas lecturas de Firestore. Sólo puede ejecutarse una vez por día.",
+    "Refresh CRM index": "Actualizar índice del CRM",
+    "CRM index updated.": "Índice del CRM actualizado.",
+    "Unable to load the CRM index.": "No se pudo cargar el índice del CRM.",
+    "Unable to update the CRM index.":
+      "No se pudo actualizar el índice del CRM.",
+    "Index refresh in progress": "Actualización del índice en curso",
+    "A full refresh is already being built.":
+      "Ya se está generando una actualización completa.",
+    "Daily index refresh already used":
+      "La actualización diaria del índice ya fue utilizada",
+    "You can view the current index now and refresh it again after":
+      "Podés consultar el índice actual y volver a actualizarlo después de",
     "Loaded results": "Resultados cargados",
-    "No CRM data loaded. Use Load CRM when you deliberately want fresh data.":
-      "No hay datos del CRM cargados. Usá Cargar CRM cuando quieras datos nuevos deliberadamente.",
+    "No CRM data loaded. Use Load results when you deliberately want fresh data.":
+      "No hay datos del CRM cargados. Usá Cargar resultados cuando quieras datos nuevos deliberadamente.",
     "Data changed. Refresh when ready.":
       "Los datos cambiaron. Actualizá cuando quieras.",
     "See 20 more": "Ver 20 más",
@@ -979,25 +1031,6 @@ const OUTCOME_STATUSES: PartnershipCrmStatus[] = [
   "not_interested",
   "not_a_fit",
 ];
-
-function funnelStatusCounts(
-  rawCounts: PartnershipCrmStatusCounts,
-): PartnershipCrmStatusCounts {
-  const partner = rawCounts.partner;
-  const meeting = rawCounts.meeting + partner;
-  const replied = rawCounts.replied + meeting;
-  const contacted = rawCounts.contacted + replied;
-  const totalPipeline = rawCounts.new + contacted;
-
-  return {
-    ...rawCounts,
-    new: totalPipeline,
-    contacted,
-    replied,
-    meeting,
-    partner,
-  };
-}
 
 function emptyImportSummary(): PartnershipCrmImportResult["summary"] {
   return {
@@ -1726,52 +1759,6 @@ function hasTargetFilters(
       normalizedCountryFilter(filters.country) ||
       filters.linkedInState !== "all",
   );
-}
-
-function localVisualFilters(
-  targetKind: PartnershipCrmTargetKind,
-  targets: readonly PartnershipCrmTargetRecord[],
-): PartnershipCrmVisualFilters {
-  const facet = (
-    key: PartnershipCrmVisualFilterFacetKey,
-    values: string[],
-  ): PartnershipCrmVisualFilterFacet => {
-    const counts = new Map<string, number>();
-    for (const value of values) {
-      counts.set(value, (counts.get(value) ?? 0) + 1);
-    }
-
-    return {
-      key,
-      total: values.length,
-      buckets: Array.from(counts, ([value, count]) => ({ value, count })),
-    };
-  };
-  const categories = targets.map(
-    (target) =>
-      normalizeCrmCategory(target.category, targetKind) ||
-      CRM_MISSING_CATEGORY_FILTER_VALUE,
-  );
-  const countries = targets.map(
-    (target) =>
-      normalizeCrmCountry(target.country) || CRM_MISSING_COUNTRY_FILTER_VALUE,
-  );
-  const linkedInStates = targets.map((target) =>
-    targetLinkedIn(target, targetKind) ? "has_linkedin" : "missing_linkedin",
-  );
-
-  return {
-    targetKind,
-    facets: {
-      status: facet(
-        "status",
-        targets.map((target) => target.status),
-      ),
-      category: facet("category", categories),
-      country: facet("country", countries),
-      linkedInState: facet("linkedInState", linkedInStates),
-    },
-  };
 }
 
 function visualSelectedSegmentsForFilters(
@@ -3268,6 +3255,26 @@ function metricCount(
   return targets.filter((target) => target.status === status).length;
 }
 
+function formatCrmSnapshotDate(
+  value: string | undefined,
+  language: AppLanguage,
+) {
+  if (!value) {
+    return "—";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en-US", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Argentina/Buenos_Aires",
+  }).format(parsed);
+}
+
 function ErrorBanner({ children }: { children: React.ReactNode }) {
   return (
     <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -3403,12 +3410,12 @@ function CrmDailyUsageBar({
           variant="ghost"
           size="sm"
           className="h-6 shrink-0 px-2 text-[11px]"
-          aria-label={crmLocalText(language, "Refresh counter")}
+          aria-label={crmLocalText(language, "Verify usage")}
           onClick={onRefresh}
           disabled={pending}
         >
           <RefreshCw className={cn("h-3 w-3", pending && "animate-spin")} />
-          {crmLocalText(language, "Refresh counter")}
+          {crmLocalText(language, "Verify usage")}
         </Button>
       </div>
     </div>
@@ -4301,29 +4308,36 @@ function VisualFilterPieSection({
 function VisualFiltersDialog({
   open,
   onOpenChange,
+  snapshot,
   filters,
   activeListFilters,
   loading,
   error,
+  refreshing,
   language,
   targetKind,
-  disabled,
+  applyDisabled,
+  onRefreshSnapshot,
   onClearAll,
   onApply,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  snapshot: PartnershipCrmSnapshot | null;
   filters?: PartnershipCrmVisualFilters;
   activeListFilters: ListFilters;
   loading: boolean;
   error: unknown;
+  refreshing: boolean;
   language: AppLanguage;
   targetKind: PartnershipCrmTargetKind;
-  disabled: boolean;
+  applyDisabled: boolean;
+  onRefreshSnapshot: () => void;
   onClearAll: () => void;
   onApply: (targets: VisualFilterApplyTarget[]) => void;
 }) {
   const t = (text: string) => appText(language, text);
+  const crmText = (text: string) => crmLocalText(language, text);
   const [selectedSegments, setSelectedSegments] = useState<
     Partial<Record<PartnershipCrmVisualFilterFacetKey, string>>
   >({});
@@ -4345,6 +4359,15 @@ function VisualFiltersDialog({
   const activeSelectedCount = Object.keys(activeSelectedSegments).length;
   const canApplySelectedSegments =
     selectedCount > 0 || activeSelectedCount > 0 || allowEmptyApply;
+  const hasBuiltSnapshot = Boolean(
+    snapshot?.generationId || snapshot?.lastFullRefreshAt,
+  );
+  const refreshDisabled = Boolean(
+    refreshing || snapshot?.canRefreshToday === false,
+  );
+  const refreshButtonLabel = crmText(
+    hasBuiltSnapshot ? "Update index" : "Load index",
+  );
 
   useEffect(() => {
     if (open && !wasOpenRef.current) {
@@ -4395,39 +4418,179 @@ function VisualFiltersDialog({
       <DialogContent className="crm-control-surface flex max-h-[92vh] flex-col overflow-hidden sm:max-w-5xl">
         <DialogHeader className="shrink-0 gap-3 pr-10 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <DialogTitle>{t("Visual filters")}</DialogTitle>
+            <DialogTitle>{crmText("Pre-filters and CRM index")}</DialogTitle>
             <DialogDescription className="sr-only">
               {t("Select visual filter segments before applying.")}
             </DialogDescription>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="self-start"
-            onClick={() => {
-              setSelectedSegments({});
-              setAllowEmptyApply(true);
-              onClearAll();
-            }}
-            disabled={disabled}
-          >
-            {t("Clear all filters")}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 self-start">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={refreshDisabled}
+                >
+                  <RefreshCw
+                    className={cn("h-3.5 w-3.5", refreshing && "animate-spin")}
+                  />
+                  {refreshButtonLabel}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {crmText("CRM index refresh warning")}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {crmText(
+                      "A full refresh reviews every CRM item and may consume many Firestore reads. It can run only once per day.",
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
+                  <AlertDialogAction onClick={onRefreshSnapshot}>
+                    {crmText("Refresh CRM index")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedSegments({});
+                setAllowEmptyApply(true);
+                onClearAll();
+              }}
+              disabled={applyDisabled}
+            >
+              {t("Clear all filters")}
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {error ? (
-            <ErrorBanner>{t("Failed to load visual filters.")}</ErrorBanner>
+          {hasBuiltSnapshot && snapshot ? (
+            <section
+              aria-label={crmText("CRM index snapshot")}
+              className="mb-4 grid gap-3 rounded-xl border border-border/80 bg-background/60 p-4"
+            >
+              <div className="grid gap-2 sm:grid-cols-3">
+                {[
+                  [crmText("All CRM items"), snapshot.totals.all],
+                  [crmText("Organizations"), snapshot.totals.organizations],
+                  [crmText("Professionals"), snapshot.totals.professionals],
+                ].map(([label, value]) => (
+                  <div
+                    key={String(label)}
+                    className="rounded-lg border border-border/70 bg-muted/35 px-3 py-2"
+                  >
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="mt-1 text-xl font-semibold tabular-nums">
+                      {value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <dl className="grid gap-x-4 gap-y-2 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <dt>{crmText("Last full refresh")}</dt>
+                  <dd className="font-medium text-foreground">
+                    {formatCrmSnapshotDate(snapshot.lastFullRefreshAt, language)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{crmText("Last incremental update")}</dt>
+                  <dd className="font-medium text-foreground">
+                    {formatCrmSnapshotDate(
+                      snapshot.lastIncrementalUpdateAt,
+                      language,
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{crmText("Source reads")}</dt>
+                  <dd className="font-medium text-foreground tabular-nums">
+                    {snapshot.sourceReadCount}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{crmText("Next refresh available")}</dt>
+                  <dd className="font-medium text-foreground">
+                    {formatCrmSnapshotDate(snapshot.nextRefreshAt, language)}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          ) : !loading ? (
+            <section className="mb-4 rounded-xl border border-dashed border-border/80 bg-background/50 px-4 py-5">
+              <p className="font-medium">{crmText("Index not loaded yet")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {crmText(
+                  "Create the CRM index to see complete totals and pre-filter every item, not only the loaded page.",
+                )}
+              </p>
+            </section>
           ) : null}
 
-          {loading && facets.length === 0 ? (
+          {snapshot?.refreshState === "dirty" ? (
+            <p className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                <strong>{crmText("CRM index needs review")}</strong>
+                {" · "}
+                {crmText(
+                  "At least one incremental CRM change could not be reconciled with this index.",
+                )}
+              </span>
+            </p>
+          ) : null}
+          {snapshot?.refreshState === "failed" ? (
+            <div className="mb-4">
+              <ErrorBanner>
+                {crmText("The last full index refresh failed.")}
+                {snapshot.lastRefreshError
+                  ? ` ${snapshot.lastRefreshError}`
+                  : ""}
+              </ErrorBanner>
+            </div>
+          ) : null}
+          {snapshot?.refreshState === "building" &&
+          snapshot.canRefreshToday === false ? (
+            <p className="mb-4 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-800 dark:text-blue-200">
+              <strong>{crmText("Index refresh in progress")}</strong>
+              {" · "}
+              {crmText("A full refresh is already being built.")}
+            </p>
+          ) : null}
+          {snapshot &&
+          !snapshot.canRefreshToday &&
+          snapshot.refreshState !== "building" ? (
+            <p className="mb-4 rounded-lg border border-border/80 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <strong>{crmText("Daily index refresh already used")}</strong>
+              {" · "}
+              {crmText(
+                "You can view the current index now and refresh it again after",
+              )}{" "}
+              {formatCrmSnapshotDate(snapshot.nextRefreshAt, language)}.
+            </p>
+          ) : null}
+
+          {error ? (
+            <ErrorBanner>{crmText("Unable to load the CRM index.")}</ErrorBanner>
+          ) : null}
+
+          {loading && !hasBuiltSnapshot ? (
             <div className="grid gap-4">
               {Array.from({ length: 4 }).map((_, index) => (
                 <Skeleton key={index} className="h-64 rounded-xl" />
               ))}
             </div>
-          ) : facets.length === 0 ? (
+          ) : !hasBuiltSnapshot ? null : facets.length === 0 ? (
             <EmptyState>{t("No visual filters available.")}</EmptyState>
           ) : (
             <div className="grid gap-4">
@@ -4450,10 +4613,10 @@ function VisualFiltersDialog({
           <Button
             type="button"
             className="w-full sm:w-auto"
-            disabled={disabled || !canApplySelectedSegments}
+            disabled={applyDisabled || !canApplySelectedSegments}
             onClick={applySelectedSegments}
           >
-            {t("Apply")}
+            {crmText("Apply and load results")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -8112,6 +8275,7 @@ export function PartnershipCrmWorkbench() {
   const [sentEmailLogOpen, setSentEmailLogOpen] = useState(false);
   const [sentEmailLogReadBlocked, setSentEmailLogReadBlocked] = useState(false);
   const [visualFiltersOpen, setVisualFiltersOpen] = useState(false);
+  const snapshotWasConsultedRef = useRef(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importRulesOpen, setImportRulesOpen] = useState(false);
   const [importPreview, setImportPreview] =
@@ -8785,10 +8949,54 @@ export function PartnershipCrmWorkbench() {
     () => sentEmailLogQuery.data?.pages.flatMap((page) => page.emails) ?? [],
     [sentEmailLogQuery.data?.pages],
   );
-  const visualFilters = useMemo(
-    () => localVisualFilters(targetKind, organizations),
-    [organizations, targetKind],
-  );
+  const snapshotQuery = useQuery({
+    queryKey: [SNAPSHOT_QUERY_KEY],
+    queryFn: () =>
+      sdkFetch<PartnershipCrmSnapshotResponse>(CRM_SNAPSHOT_ENDPOINT, {
+        cache: "no-store",
+      }),
+    enabled: false,
+    retry: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  const crmSnapshot = snapshotQuery.data?.snapshot ?? null;
+  const visualFilters =
+    crmSnapshot?.generationId || crmSnapshot?.lastFullRefreshAt
+      ? crmSnapshot.targets[targetKind]
+      : undefined;
+  const refreshSnapshotMutation = useMutation({
+    mutationFn: () =>
+      sdkFetch<PartnershipCrmSnapshotResponse>(CRM_SNAPSHOT_REFRESH_ENDPOINT, {
+        method: "POST",
+      }),
+    onSuccess: (result) => {
+      queryClient.setQueryData([SNAPSHOT_QUERY_KEY], result);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        message: crmLocalText(language, "CRM index updated."),
+      });
+    },
+    onError: (error) => {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: crmLocalText(language, "Unable to update the CRM index."),
+        details: errorMessage(error),
+      });
+    },
+  });
+
+  function refetchSnapshotIfConsulted() {
+    if (!snapshotWasConsultedRef.current) {
+      return;
+    }
+
+    void snapshotQuery.refetch();
+  }
   const compatibilityTargetQuery = useQuery({
     queryKey: [
       ORGANIZATIONS_QUERY_KEY,
@@ -8954,7 +9162,6 @@ export function PartnershipCrmWorkbench() {
     setSentEmailLogOpen(false);
     setDeleteTarget(null);
     setDeleteSelectedOpen(false);
-    setVisualFiltersOpen(false);
     setCompatibilityDialog(null);
     setInteractiveAutoImportEnabled(false);
   }, [freshActionsDisabled]);
@@ -9285,6 +9492,7 @@ export function PartnershipCrmWorkbench() {
       if (!target) {
         return;
       }
+      refetchSnapshotIfConsulted();
       setOrganizationDialog(null);
       replaceTargetsInCachedPages([target]);
       if (variables.mode === "edit") {
@@ -9342,6 +9550,7 @@ export function PartnershipCrmWorkbench() {
         return;
       }
 
+      refetchSnapshotIfConsulted();
       replaceTargetsInCachedPages([target]);
       markTargetActivitiesStale(targetKind, [target.id]);
       setStatusChangeErrorDetails(null);
@@ -9466,6 +9675,7 @@ export function PartnershipCrmWorkbench() {
         { method: "DELETE" },
       ),
     onSuccess: (_result, organizationId) => {
+      refetchSnapshotIfConsulted();
       setDeleteTarget(null);
       setSelectedTargetIds((current) => {
         if (!current.has(organizationId)) {
@@ -9529,6 +9739,9 @@ export function PartnershipCrmWorkbench() {
     },
     onSuccess: ({ attemptedIds, successfulIds, failure }) => {
       const deletedIds = new Set(successfulIds);
+      if (successfulIds.length > 0) {
+        refetchSnapshotIfConsulted();
+      }
       setDeleteSelectedOpen(false);
       setSelectedTargetIds((current) => {
         const next = new Set(current);
@@ -9799,6 +10012,16 @@ export function PartnershipCrmWorkbench() {
       const target = result.professional ?? result.organization;
       if (!target) {
         return;
+      }
+      const previousTarget =
+        selectedOrganization?.id === target.id
+          ? selectedOrganization
+          : organizations.find((entry) => entry.id === target.id);
+      if (
+        previousTarget?.status === "new" &&
+        target.status === "contacted"
+      ) {
+        refetchSnapshotIfConsulted();
       }
       sentEmailDetailsRef.current.set(
         result.sentEmailLog.id,
@@ -10133,6 +10356,9 @@ export function PartnershipCrmWorkbench() {
       method: "POST",
       body: JSON.stringify(requestPayload),
     });
+    if (result.summary.created > 0 || result.summary.updated > 0) {
+      refetchSnapshotIfConsulted();
+    }
 
     importing = saveImportSession({
       ...importing,
@@ -10740,15 +10966,17 @@ export function PartnershipCrmWorkbench() {
   }
 
   const statusCounts = useMemo(() => {
-    const rawCounts = Object.fromEntries(
+    return Object.fromEntries(
       CRM_STATUS_OPTIONS.map((option) => [
         option.value,
-        metricCount(organizations, option.value),
+        visualFilters
+          ? (visualFilters.facets.status.buckets.find(
+              (bucket) => bucket.value === option.value,
+            )?.count ?? 0)
+          : metricCount(organizations, option.value),
       ]),
     ) as PartnershipCrmStatusCounts;
-
-    return funnelStatusCounts(rawCounts);
-  }, [organizations]);
+  }, [organizations, visualFilters]);
   const activityLogBadge = !selectedOrganization
     ? targetKind === "professionals"
       ? t("No professional selected")
@@ -10822,6 +11050,14 @@ export function PartnershipCrmWorkbench() {
 
   function applyDraftFilters() {
     requestTargetPage({ ...filters });
+  }
+
+  function setVisualFiltersDialogOpen(open: boolean) {
+    setVisualFiltersOpen(open);
+    if (open) {
+      snapshotWasConsultedRef.current = true;
+      void snapshotQuery.refetch();
+    }
   }
 
   function clearAllFilters() {
@@ -11217,16 +11453,18 @@ export function PartnershipCrmWorkbench() {
                 organizationQuery.isFetching && "animate-spin",
               )}
             />
-            {hasTargetPage ? t("Refresh") : crmLocalText(language, "Load CRM")}
+            {hasTargetPage
+              ? t("Refresh")
+              : crmLocalText(language, "Load results")}
           </Button>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setVisualFiltersOpen(true)}
+            onClick={() => setVisualFiltersDialogOpen(true)}
           >
             <Filter className="h-3.5 w-3.5" />
-            {t("Visual filters")}
+            {crmLocalText(language, "Pre-filters and CRM index")}
           </Button>
           <Button
             type="button"
@@ -11547,7 +11785,7 @@ export function PartnershipCrmWorkbench() {
                 {!hasTargetPage
                   ? crmLocalText(
                       language,
-                      "No CRM data loaded. Use Load CRM when you deliberately want fresh data.",
+                      "No CRM data loaded. Use Load results when you deliberately want fresh data.",
                     )
                   : listPageIsPartial
                     ? crmLocalText(
@@ -12341,14 +12579,17 @@ export function PartnershipCrmWorkbench() {
 
       <VisualFiltersDialog
         open={visualFiltersOpen}
-        onOpenChange={setVisualFiltersOpen}
+        onOpenChange={setVisualFiltersDialogOpen}
+        snapshot={crmSnapshot}
         filters={visualFilters}
         activeListFilters={filters}
-        loading={false}
-        error={null}
+        loading={snapshotQuery.isFetching}
+        error={snapshotQuery.error}
+        refreshing={refreshSnapshotMutation.isPending}
         language={language}
         targetKind={targetKind}
-        disabled={freshActionsDisabled}
+        applyDisabled={freshActionsDisabled}
+        onRefreshSnapshot={() => refreshSnapshotMutation.mutate()}
         onClearAll={clearAllFilters}
         onApply={applyVisualFilter}
       />

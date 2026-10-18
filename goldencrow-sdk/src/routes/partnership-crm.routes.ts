@@ -7,6 +7,7 @@ import {
   PARTNERSHIP_CRM_STATUSES,
   PARTNERSHIP_CRM_TEMPLATE_AUDIENCES,
   PARTNERSHIP_CRM_TEMPLATE_STATUSES,
+  PartnershipCrmSnapshotError,
   PartnershipCrmUsageError,
   consumePartnershipCrmDailyUsage,
   createPartnershipCrmActivity,
@@ -20,6 +21,7 @@ import {
   getPartnershipCrmDailyUsage,
   getPartnershipCrmOrganization,
   getPartnershipCrmProfessional,
+  getPartnershipCrmSnapshot,
   getPartnershipCrmSentEmailLog,
   getPartnershipCrmTemplate,
   getPartnershipCrmVisualFilters,
@@ -34,6 +36,7 @@ import {
   listPartnershipCrmTemplates,
   previewPartnershipCrmImport,
   previewPartnershipCrmProfessionalImport,
+  refreshPartnershipCrmSnapshot,
   sendPartnershipCrmOrganizationEmail,
   sendPartnershipCrmProfessionalEmail,
   updatePartnershipCrmOrganization,
@@ -195,6 +198,13 @@ const EmailBodySchema = z.object({
 });
 
 function sendRepositoryError(reply: FastifyReply, error: unknown) {
+  if (error instanceof PartnershipCrmSnapshotError) {
+    return reply.status(error.statusCode).send({
+      error: error.message,
+      code: error.code,
+    });
+  }
+
   if (error instanceof PartnershipCrmUsageError) {
     return reply.status(error.statusCode).send({
       error: error.message,
@@ -239,6 +249,8 @@ export async function partnershipCrmRoutes(
   const usageByRequest = new WeakMap<object, PartnershipCrmDailyUsage>();
   const usageLookupRoute = "/admin/partnership-crm/daily-usage";
   const pageLoadRoute = "/admin/partnership-crm/daily-usage/page-load";
+  const snapshotRoute = "/admin/partnership-crm/snapshot";
+  const snapshotRefreshRoute = "/admin/partnership-crm/snapshot/refresh";
 
   f.addHook("onRequest", async (request, reply) => {
     if (!request.adminContext) {
@@ -252,7 +264,12 @@ export async function partnershipCrmRoutes(
     }
 
     const routeUrl = request.routeOptions.url ?? request.url.split("?")[0] ?? "";
-    if (routeUrl === usageLookupRoute || routeUrl === pageLoadRoute) {
+    if (
+      routeUrl === usageLookupRoute ||
+      routeUrl === pageLoadRoute ||
+      routeUrl === snapshotRoute ||
+      routeUrl === snapshotRefreshRoute
+    ) {
       return;
     }
 
@@ -372,6 +389,28 @@ export async function partnershipCrmRoutes(
       }
     },
   );
+
+  f.get(snapshotRoute, async (request, reply) => {
+    reply.header("Cache-Control", "private, no-store");
+    try {
+      const snapshot = await getPartnershipCrmSnapshot(request.adminContext!);
+      return reply.send({ snapshot });
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
+
+  f.post(snapshotRefreshRoute, async (request, reply) => {
+    reply.header("Cache-Control", "private, no-store");
+    try {
+      const snapshot = await refreshPartnershipCrmSnapshot(
+        request.adminContext!,
+      );
+      return reply.send({ snapshot });
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
 
   f.get(
     "/admin/partnership-crm/templates",

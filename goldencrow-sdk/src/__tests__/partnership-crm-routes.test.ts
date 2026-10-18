@@ -24,8 +24,19 @@ const mockUpdatePartnershipCrmProfessionalStatus = jest.fn();
 const mockUpdatePartnershipCrmTemplateFavorite = jest.fn();
 const mockConsumePartnershipCrmDailyUsage = jest.fn();
 const mockGetPartnershipCrmDailyUsage = jest.fn();
+const mockGetPartnershipCrmSnapshot = jest.fn();
+const mockRefreshPartnershipCrmSnapshot = jest.fn();
 
 jest.mock("../repositories/partnership-crm.repository.js", () => ({
+  PartnershipCrmSnapshotError: class PartnershipCrmSnapshotError extends Error {
+    constructor(
+      message: string,
+      public readonly statusCode: number,
+      public readonly code: string,
+    ) {
+      super(message);
+    }
+  },
   PartnershipCrmUsageError: class PartnershipCrmUsageError extends Error {
     constructor(
       message: string,
@@ -67,6 +78,7 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
   deletePartnershipCrmTemplate: mockDeletePartnershipCrmTemplate,
   getPartnershipCrmOrganization: jest.fn(),
   getPartnershipCrmDailyUsage: mockGetPartnershipCrmDailyUsage,
+  getPartnershipCrmSnapshot: mockGetPartnershipCrmSnapshot,
   getPartnershipCrmProfessional: jest.fn(),
   getPartnershipCrmSentEmailLog: mockGetPartnershipCrmSentEmailLog,
   getPartnershipCrmTemplate: jest.fn(),
@@ -83,6 +95,7 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
   previewPartnershipCrmImport: jest.fn(),
   previewPartnershipCrmProfessionalImport:
     mockPreviewPartnershipCrmProfessionalImport,
+  refreshPartnershipCrmSnapshot: mockRefreshPartnershipCrmSnapshot,
   sendPartnershipCrmOrganizationEmail: jest.fn(),
   sendPartnershipCrmProfessionalEmail: jest.fn(),
   updatePartnershipCrmOrganization: jest.fn(),
@@ -278,6 +291,17 @@ describe("partnership CRM routes", () => {
       resetAt: "2026-09-11T07:00:00.000Z",
       locked: false,
     });
+    mockGetPartnershipCrmSnapshot.mockResolvedValue(null);
+    mockRefreshPartnershipCrmSnapshot.mockResolvedValue({
+      schemaVersion: 1,
+      refreshState: "ready",
+      canRefreshToday: false,
+      nextRefreshAt: "2026-09-11T03:00:00.000Z",
+      generationId: "generation-1",
+      sourceReadCount: 3,
+      totals: { all: 3, organizations: 2, professionals: 1 },
+      targets: {},
+    });
   });
 
   it("returns authoritative usage without headers or consuming quota", async () => {
@@ -297,6 +321,83 @@ describe("partnership CRM routes", () => {
       bootstrapContext,
       "crm",
     );
+    expect(mockConsumePartnershipCrmDailyUsage).not.toHaveBeenCalled();
+  });
+
+  it("returns the CRM snapshot without usage headers or consuming quota", async () => {
+    const fastify = await buildTestServer();
+    mockGetPartnershipCrmSnapshot.mockResolvedValue({
+      schemaVersion: 1,
+      refreshState: "ready",
+      canRefreshToday: false,
+      nextRefreshAt: "2026-09-11T03:00:00.000Z",
+      generationId: "generation-1",
+      sourceReadCount: 3,
+      totals: { all: 3, organizations: 2, professionals: 1 },
+      targets: {},
+    });
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/partnership-crm/snapshot",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(response.json()).toEqual({
+      snapshot: expect.objectContaining({ generationId: "generation-1" }),
+    });
+    expect(mockGetPartnershipCrmSnapshot).toHaveBeenCalledWith(
+      bootstrapContext,
+    );
+    expect(mockConsumePartnershipCrmDailyUsage).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the CRM snapshot without usage headers or consuming quota", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/partnership-crm/snapshot/refresh",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(response.json()).toEqual({
+      snapshot: expect.objectContaining({
+        refreshState: "ready",
+        sourceReadCount: 3,
+      }),
+    });
+    expect(mockRefreshPartnershipCrmSnapshot).toHaveBeenCalledWith(
+      bootstrapContext,
+    );
+    expect(mockConsumePartnershipCrmDailyUsage).not.toHaveBeenCalled();
+  });
+
+  it("returns a coded conflict when the daily snapshot attempt is exhausted", async () => {
+    const { PartnershipCrmSnapshotError } = await import(
+      "../repositories/partnership-crm.repository.js"
+    );
+    mockRefreshPartnershipCrmSnapshot.mockRejectedValueOnce(
+      new PartnershipCrmSnapshotError(
+        "The CRM snapshot refresh has already been attempted today.",
+        409,
+        "CRM_SNAPSHOT_ALREADY_ATTEMPTED_TODAY",
+      ),
+    );
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/partnership-crm/snapshot/refresh",
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: "The CRM snapshot refresh has already been attempted today.",
+      code: "CRM_SNAPSHOT_ALREADY_ATTEMPTED_TODAY",
+    });
     expect(mockConsumePartnershipCrmDailyUsage).not.toHaveBeenCalled();
   });
 

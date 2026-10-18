@@ -19,6 +19,7 @@ import { sdkFetch } from "@/lib/sdk-client";
 import type {
   PartnershipCrmOrganizationRecord,
   PartnershipCrmProfessionalRecord,
+  PartnershipCrmSnapshot,
   PartnershipCrmTemplateRecord,
 } from "@/lib/partnership-crm";
 
@@ -97,6 +98,84 @@ const professional: PartnershipCrmProfessionalRecord = {
   notes: "Professional CRM row.",
   is_favorite: false,
   normalizedName: "dra ada genome",
+};
+
+const indexedCrmSnapshot: PartnershipCrmSnapshot = {
+  schemaVersion: 1,
+  refreshState: "ready",
+  canRefreshToday: true,
+  nextRefreshAt: "2026-10-16T03:00:00.000Z",
+  generationId: "crm-snapshot-2026-10-15",
+  lastRefreshAttemptDate: "2026-10-15",
+  lastRefreshAttemptAt: "2026-10-15T10:00:00.000Z",
+  lastFullRefreshAt: "2026-10-15T10:00:00.000Z",
+  lastIncrementalUpdateAt: "2026-10-15T11:00:00.000Z",
+  sourceReadCount: 248,
+  totals: {
+    all: 248,
+    organizations: 241,
+    professionals: 7,
+  },
+  targets: {
+    organizations: {
+      targetKind: "organizations",
+      facets: {
+        status: {
+          key: "status",
+          total: 241,
+          buckets: [
+            { value: "new", count: 229 },
+            { value: "contacted", count: 5 },
+            { value: "replied", count: 3 },
+            { value: "meeting", count: 2 },
+            { value: "partner", count: 2 },
+          ],
+        },
+        category: {
+          key: "category",
+          total: 241,
+          buckets: [
+            { value: "org_genetic_testing_laboratories", count: 241 },
+          ],
+        },
+        country: {
+          key: "country",
+          total: 241,
+          buckets: [{ value: "AR", count: 241 }],
+        },
+        linkedInState: {
+          key: "linkedInState",
+          total: 241,
+          buckets: [{ value: "missing_linkedin", count: 241 }],
+        },
+      },
+    },
+    professionals: {
+      targetKind: "professionals",
+      facets: {
+        status: {
+          key: "status",
+          total: 7,
+          buckets: [{ value: "new", count: 7 }],
+        },
+        category: {
+          key: "category",
+          total: 7,
+          buckets: [{ value: "pro_clinical_geneticists", count: 7 }],
+        },
+        country: {
+          key: "country",
+          total: 7,
+          buckets: [{ value: "AR", count: 7 }],
+        },
+        linkedInState: {
+          key: "linkedInState",
+          total: 7,
+          buckets: [{ value: "has_linkedin", count: 7 }],
+        },
+      },
+    },
+  },
 };
 
 const emailTemplates: PartnershipCrmTemplateRecord[] = [
@@ -261,6 +340,7 @@ function renderWorkbench(
     if (
       options.injectActionUsage !== false &&
       String(path).startsWith("/admin/partnership-crm/") &&
+      !String(path).startsWith("/admin/partnership-crm/snapshot") &&
       result &&
       typeof result === "object" &&
       !("usage" in result)
@@ -1195,7 +1275,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       authoritativeUsageMock: true,
     });
     await screen.findByRole("button", { name: "Retry verification" });
-    await user.click(screen.getByRole("button", { name: "Refresh counter" }));
+    await user.click(screen.getByRole("button", { name: "Verify usage" }));
 
     await screen.findByText("3 / 100 · 3%");
     expect(screen.getByText(/Server-confirmed action count/)).toBeTruthy();
@@ -2025,7 +2105,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.queryByText("Second delete target")).toBeNull();
     expect(
       screen.getByText(
-        "No CRM data loaded. Use Load CRM when you deliberately want fresh data.",
+        "No CRM data loaded. Use Load results when you deliberately want fresh data.",
       ),
     ).toBeTruthy();
     expect(screen.getByText("Data changed. Refresh when ready.")).toBeTruthy();
@@ -4724,7 +4804,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
     });
   });
 
-  it("shows funnel status metrics from the explicitly loaded page", async () => {
+  it("uses exact loaded-page status metrics before a snapshot is available", async () => {
     const visibleNewRows = Array.from({ length: 50 }, (_, index) => ({
       ...organization,
       id: `org-visible-${index + 1}`,
@@ -4790,14 +4870,18 @@ describe("PartnershipCrmWorkbench list pager", () => {
     ).toBeTruthy();
   });
 
-  it("builds visual-filter summaries from the loaded page without another CRM read", async () => {
+  it("uses snapshot facets for pre-filters and exact status-card counts", async () => {
     const user = userEvent.setup();
 
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
-      if (String(path).includes("/activities")) {
+      const stringPath = String(path);
+      if (stringPath === "/admin/partnership-crm/snapshot") {
+        return { snapshot: indexedCrmSnapshot };
+      }
+      if (stringPath.includes("/activities")) {
         return { activities: [] };
       }
-      if (String(path).startsWith("/admin/partnership-crm/email-templates")) {
+      if (stringPath.startsWith("/admin/partnership-crm/email-templates")) {
         return { templates: [], nextCursor: undefined };
       }
       return { organizations: [organization], nextCursor: undefined };
@@ -4805,13 +4889,29 @@ describe("PartnershipCrmWorkbench list pager", () => {
 
     renderWorkbench();
     await screen.findByText(organization.name);
-    const callsBeforeOpen = jest.mocked(sdkFetch).mock.calls.length;
 
-    await user.click(screen.getByRole("button", { name: "Visual filters" }));
+    await user.click(
+      screen.getByRole("button", { name: "Pre-filters and CRM index" }),
+    );
 
     const dialog = await screen.findByRole("dialog", {
-      name: "Visual filters",
+      name: "Pre-filters and CRM index",
     });
+    const totalCard = within(dialog).getByText("All CRM items").parentElement;
+    const organizationsCard = within(dialog).getByText("Organizations")
+      .parentElement;
+    const professionalsCard = within(dialog).getByText("Professionals")
+      .parentElement;
+    expect(totalCard).toBeTruthy();
+    expect(organizationsCard).toBeTruthy();
+    expect(professionalsCard).toBeTruthy();
+    expect(within(totalCard as HTMLElement).getByText("248")).toBeTruthy();
+    expect(
+      within(organizationsCard as HTMLElement).getByText("241"),
+    ).toBeTruthy();
+    expect(
+      within(professionalsCard as HTMLElement).getByText("7"),
+    ).toBeTruthy();
     const statusSection = within(dialog).getByText("Status").closest("section");
     expect(statusSection).toBeTruthy();
     expect(
@@ -4819,12 +4919,299 @@ describe("PartnershipCrmWorkbench list pager", () => {
         name: "Select visual filter from pie: Status - CRM New",
       }),
     ).toBeTruthy();
-    expect(jest.mocked(sdkFetch).mock.calls).toHaveLength(callsBeforeOpen);
+
+    await user.keyboard("{Escape}");
+
+    expect(
+      await screen.findByRole("button", { name: /New\s+229/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Contacted\s+5/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Replied\s+3/ }),
+    ).toBeTruthy();
     expect(
       jest
         .mocked(sdkFetch)
-        .mock.calls.some(([path]) => String(path).includes("/visual-filters")),
+        .mock.calls.find(
+          ([path]) => path === "/admin/partnership-crm/snapshot",
+        ),
+    ).toEqual([
+      "/admin/partnership-crm/snapshot",
+      { cache: "no-store" },
+    ]);
+  });
+
+  it("does not present an unbuilt failed pointer as an authoritative snapshot", async () => {
+    const user = userEvent.setup();
+    const failedPointer: PartnershipCrmSnapshot = {
+      ...indexedCrmSnapshot,
+      refreshState: "failed",
+      canRefreshToday: false,
+      generationId: undefined,
+      lastFullRefreshAt: undefined,
+      lastIncrementalUpdateAt: undefined,
+      lastRefreshError: "Firestore read failed.",
+      sourceReadCount: 0,
+      totals: { all: 0, organizations: 0, professionals: 0 },
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/snapshot") {
+        return { snapshot: failedPointer };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+    await screen.findByText(organization.name);
+    await user.click(
+      screen.getByRole("button", { name: "Pre-filters and CRM index" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Pre-filters and CRM index",
+    });
+    expect(within(dialog).getByText("Index not loaded yet")).toBeTruthy();
+    expect(within(dialog).queryByText("All CRM items")).toBeNull();
+    expect(
+      within(dialog).queryByLabelText("CRM index snapshot"),
+    ).toBeNull();
+    expect(
+      within(dialog).getByText(/The last full index refresh failed/)
+        .textContent,
+    ).toContain("Firestore read failed.");
+    expect(
+      within(dialog).getByText("Daily index refresh already used"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", { name: "Load index" }),
+    ).toHaveProperty("disabled", true);
+
+    await user.keyboard("{Escape}");
+    expect(
+      await screen.findByRole("button", { name: /New\s+1/ }),
+    ).toBeTruthy();
+  });
+
+  it("allows a new refresh when a building marker is from a prior day", async () => {
+    const user = userEvent.setup();
+    const staleBuildingSnapshot: PartnershipCrmSnapshot = {
+      ...indexedCrmSnapshot,
+      refreshState: "building",
+      canRefreshToday: true,
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/snapshot") {
+        return { snapshot: staleBuildingSnapshot };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+    await screen.findByText(organization.name);
+    await user.click(
+      screen.getByRole("button", { name: "Pre-filters and CRM index" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Pre-filters and CRM index",
+    });
+    expect(
+      within(dialog).getByRole("button", { name: "Update index" }),
+    ).toHaveProperty("disabled", false);
+    expect(within(dialog).queryByText("Index refresh in progress")).toBeNull();
+  });
+
+  it("refetches a consulted snapshot after facet changes but not favorites or notes", async () => {
+    const user = userEvent.setup();
+    let snapshotReads = 0;
+    let currentOrganization = { ...organization };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (stringPath === "/admin/partnership-crm/snapshot") {
+        snapshotReads += 1;
+        return { snapshot: indexedCrmSnapshot };
+      }
+      if (
+        stringPath === "/admin/partnership-crm/organizations/org-1/status" &&
+        init?.method === "PATCH"
+      ) {
+        currentOrganization = {
+          ...currentOrganization,
+          status: "contacted",
+        };
+        return { organization: currentOrganization };
+      }
+      if (
+        stringPath === "/admin/partnership-crm/organizations/org-1/favorite" &&
+        init?.method === "PATCH"
+      ) {
+        currentOrganization = {
+          ...currentOrganization,
+          is_favorite: true,
+        };
+        return { organization: currentOrganization };
+      }
+      if (stringPath.endsWith("/activities") && init?.method === "POST") {
+        return {
+          activity: {
+            id: "activity-note-1",
+            type: "note",
+            title: "Snapshot-neutral note",
+            body: "Snapshot-neutral note",
+          },
+        };
+      }
+      if (stringPath.includes("/activities")) {
+        return { activities: [], nextCursor: undefined };
+      }
+      return {
+        organizations: [currentOrganization],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWorkbench();
+    await screen.findByText(organization.name);
+    await user.click(
+      screen.getByRole("button", { name: "Pre-filters and CRM index" }),
+    );
+    await waitFor(() => expect(snapshotReads).toBe(1));
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByText(organization.name));
+    const detailPanel = await screen.findByTestId("crm-detail-panel");
+    await user.click(
+      within(detailPanel).getByRole("button", { name: "Change status" }),
+    );
+    const statusDialog = await screen.findByRole("dialog", {
+      name: "Change status",
+    });
+    await user.click(
+      within(statusDialog).getByRole("radio", { name: "CRM Contacted" }),
+    );
+    await user.click(
+      within(statusDialog).getByRole("button", { name: "Save" }),
+    );
+    await waitFor(() => expect(snapshotReads).toBe(2));
+
+    await user.click(
+      within(detailPanel).getByRole("button", { name: "Mark as favorite" }),
+    );
+    await within(detailPanel).findByRole("button", {
+      name: "Unmark as favorite",
+    });
+    expect(snapshotReads).toBe(2);
+
+    await user.click(
+      screen.getByRole("button", { name: /Activity log/ }),
+    );
+    await user.type(
+      screen.getByPlaceholderText("Add an activity note..."),
+      "Snapshot-neutral note",
+    );
+    await user.click(screen.getByRole("button", { name: "Add" }));
+    expect(
+      await screen.findAllByText("Snapshot-neutral note"),
+    ).toHaveLength(2);
+    expect(snapshotReads).toBe(2);
+  });
+
+  it("loads and refreshes the snapshot outside the action quota after an explicit warning", async () => {
+    const user = userEvent.setup();
+    const lockedUsage = {
+      surface: "crm",
+      used: 100,
+      limit: 100,
+      percentage: 100,
+      remaining: 0,
+      resetAt: "2026-10-16T07:00:00.000Z",
+      locked: true,
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      const stringPath = String(path);
+      if (stringPath === "/admin/partnership-crm/daily-usage/page-load") {
+        return { usage: lockedUsage };
+      }
+      if (stringPath === "/admin/partnership-crm/snapshot") {
+        return { snapshot: null };
+      }
+      if (
+        stringPath === "/admin/partnership-crm/snapshot/refresh" &&
+        init?.method === "POST"
+      ) {
+        return { snapshot: indexedCrmSnapshot };
+      }
+      return { organizations: [], nextCursor: undefined };
+    });
+
+    renderWorkbench("en", {
+      autoLoad: false,
+      authoritativeUsageMock: true,
+    });
+    await screen.findByText("Daily limit reached");
+
+    const preFiltersButton = screen.getByRole("button", {
+      name: "Pre-filters and CRM index",
+    });
+    expect(preFiltersButton).toHaveProperty("disabled", false);
+    await user.click(preFiltersButton);
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Pre-filters and CRM index",
+    });
+    const loadIndexButton = within(dialog).getByRole("button", {
+      name: "Load index",
+    });
+    expect(loadIndexButton).toHaveProperty("disabled", false);
+    await user.click(loadIndexButton);
+
+    const warning = await screen.findByRole("alertdialog", {
+      name: "CRM index refresh warning",
+    });
+    expect(warning.textContent).toContain(
+      "may consume many Firestore reads",
+    );
+    expect(warning.textContent).toContain("only once per day");
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.some(
+          ([path]) => path === "/admin/partnership-crm/snapshot/refresh",
+        ),
     ).toBe(false);
+
+    await user.click(
+      within(warning).getByRole("button", { name: "Refresh CRM index" }),
+    );
+
+    await screen.findByText("CRM index updated.");
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.find(
+          ([path]) => path === "/admin/partnership-crm/snapshot",
+        ),
+    ).toEqual([
+      "/admin/partnership-crm/snapshot",
+      { cache: "no-store" },
+    ]);
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.find(
+          ([path]) => path === "/admin/partnership-crm/snapshot/refresh",
+        ),
+    ).toEqual([
+      "/admin/partnership-crm/snapshot/refresh",
+      { method: "POST" },
+    ]);
+    expect(within(dialog).getByText("All CRM items")).toBeTruthy();
   });
 
   it("shows visible count, page count, and previous/next controls as a right-aligned pager", async () => {

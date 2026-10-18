@@ -227,6 +227,40 @@ export interface PartnershipCrmVisualFilters {
   >;
 }
 
+export type PartnershipCrmSnapshotRefreshState =
+  | "empty"
+  | "building"
+  | "ready"
+  | "failed"
+  | "dirty";
+
+export interface PartnershipCrmSnapshot {
+  schemaVersion: number;
+  refreshState: PartnershipCrmSnapshotRefreshState;
+  canRefreshToday: boolean;
+  nextRefreshAt: string;
+  generationId?: string;
+  lastRefreshAttemptDate?: string;
+  lastRefreshAttemptAt?: string;
+  lastFullRefreshAt?: string;
+  lastIncrementalUpdateAt?: string;
+  lastRefreshError?: string;
+  sourceReadCount: number;
+  totals: {
+    all: number;
+    organizations: number;
+    professionals: number;
+  };
+  targets: {
+    organizations: PartnershipCrmVisualFilters;
+    professionals: PartnershipCrmVisualFilters;
+  };
+}
+
+export interface PartnershipCrmSnapshotResponse {
+  snapshot: PartnershipCrmSnapshot | null;
+}
+
 export interface PartnershipCrmTemplateInput {
   name: string;
   audience?: PartnershipCrmTemplateAudience;
