@@ -555,6 +555,88 @@ describe("support services workbenches", () => {
     expect(screen.queryByText("No records found.")).toBeNull();
   });
 
+  it("bulk selects god-mode transactions and deletes them with chosen linked artifacts", async () => {
+    const secondTransaction: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      id: "pgr_running_2",
+      requestId: "pgr_running_2",
+      idempotencyKey: "ios-pgr_running_2",
+    };
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      if (init?.method === "DELETE") {
+        return {
+          deleted: true,
+          transactionId: String(path).split("/").at(-1),
+          cleanupWarnings: [],
+          deletedArtifacts: {
+            forms: 0,
+            reports: 1,
+            outputObjects: 1,
+            inputObjects: 0,
+            objectCodes: 1,
+            reportCodes: 1,
+            storedFiles: 2,
+          },
+        };
+      }
+      return {
+        transactions: [runningTransaction, secondTransaction],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithQueryClient(<SupportServicesBrowser kind="transactions" />);
+
+    fireEvent.click(
+      await screen.findByRole("checkbox", {
+        name: `Select service transaction ${runningTransaction.requestId}`,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: `Select service transaction ${secondTransaction.requestId}`,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete selected (2)" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Delete selected service transactions",
+    });
+    fireEvent.click(
+      within(dialog).getByRole("checkbox", { name: "Delete linked reports" }),
+    );
+    fireEvent.click(
+      within(dialog).getByRole("checkbox", {
+        name: "Delete output PGO objects",
+      }),
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Delete selected" }),
+    );
+
+    expect(
+      await within(dialog).findByText(
+        "The selected transactions and requested linked artifacts were deleted.",
+      ),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("100%")).toBeTruthy();
+    const deleteCalls = sdkFetchMock.mock.calls.filter(
+      ([, init]) => init?.method === "DELETE",
+    );
+    expect(deleteCalls).toHaveLength(2);
+    for (const [path] of deleteCalls) {
+      const url = new URL(String(path), "https://backoffice.example");
+      expect(Object.fromEntries(url.searchParams)).toEqual({
+        deleteLinkedForm: "false",
+        deleteLinkedReports: "true",
+        deleteOutputObjects: "true",
+        deleteInputObjects: "false",
+      });
+    }
+  });
+
   it("marks noncompliant offers in the god-mode list", async () => {
     sdkFetchMock.mockResolvedValue({
       offers: [
@@ -596,6 +678,11 @@ describe("support services workbenches", () => {
     expect(screen.getByTestId("publisher-support-service-list")).toBeTruthy();
     expect(screen.queryByText("Alta de transaccion")).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(
+      screen.queryByRole("checkbox", {
+        name: /Select service transaction/,
+      }),
+    ).toBeNull();
     expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
     expect(screen.getByRole("link", { name: "Open" }).getAttribute("href")).toBe(
       `/publisher-portal/service-transactions/${runningTransaction.requestId}`,
@@ -2445,7 +2532,6 @@ describe("support services workbenches", () => {
   });
 
   it("reports secondary cleanup warnings after the root transaction is deleted", async () => {
-    jest.spyOn(window, "confirm").mockReturnValue(true);
     sdkFetchMock.mockImplementation(async (_path, init) => {
       if (init?.method === "DELETE") {
         return {
@@ -2463,6 +2549,16 @@ describe("support services workbenches", () => {
 
     await screen.findByText(runningTransaction.requestId);
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Delete service transaction",
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Delete transaction" }),
+    );
+    expect(
+      await within(dialog).findByText("Requester reference cleanup failed."),
+    ).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Finish" }));
 
     expect(
       await screen.findByText(

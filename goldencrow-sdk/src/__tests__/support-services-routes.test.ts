@@ -383,6 +383,18 @@ describe("support service admin routes", () => {
       transactions: [],
       nextCursor: undefined,
     });
+    mockDeleteSupportServiceTransaction.mockResolvedValue({
+      cleanupWarnings: [],
+      deletedArtifacts: {
+        forms: 0,
+        reports: 0,
+        outputObjects: 0,
+        inputObjects: 0,
+        objectCodes: 0,
+        reportCodes: 0,
+        storedFiles: 0,
+      },
+    });
     mockCreateSupportServiceTransaction.mockResolvedValue({
       id: "txn-1",
       requestId: "pgr_demo_final_report",
@@ -810,6 +822,33 @@ describe("support service admin routes", () => {
       expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
     },
   );
+
+  it("passes god-mode linked-artifact choices to transaction deletion", async () => {
+    const fastify = await buildTestServer();
+    const options = {
+      deleteLinkedForm: true,
+      deleteLinkedReports: true,
+      deleteOutputObjects: true,
+      deleteInputObjects: false,
+    };
+
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/admin/support-services/transactions/pgr_demo_final_report?deleteLinkedForm=true&deleteLinkedReports=true&deleteOutputObjects=true&deleteInputObjects=false",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockDeleteSupportServiceTransaction).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      options,
+    );
+    expect(response.json()).toMatchObject({
+      deleted: true,
+      transactionId: "pgr_demo_final_report",
+      deletedArtifacts: { forms: 0, reports: 0, outputObjects: 0 },
+    });
+  });
 
   it("enforces the category-stage contract on offer updates", async () => {
     const fastify = await buildTestServer();

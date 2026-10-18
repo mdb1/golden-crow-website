@@ -95,6 +95,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -347,6 +348,30 @@ type ProcessedPromotionalBannerUpload = {
   name: string;
   mimeType: string;
   compressed: boolean;
+};
+
+type TransactionDeletionOptions = {
+  deleteLinkedForm: boolean;
+  deleteLinkedReports: boolean;
+  deleteOutputObjects: boolean;
+  deleteInputObjects: boolean;
+};
+
+type TransactionDeletionResult = {
+  transactionId: string;
+  status: "deleted" | "failed";
+  cleanupWarnings?: string[];
+  deletedArtifacts?: {
+    forms: number;
+    reports: number;
+    outputObjects: number;
+    inputObjects: number;
+    objectCodes: number;
+    reportCodes: number;
+    storedFiles: number;
+  };
+  error?: string;
+  log?: string;
 };
 
 const SERVICE_PAGE_SIZE = 20;
@@ -2528,6 +2553,28 @@ export function SupportServicesBrowser({
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [listErrorLogOpen, setListErrorLogOpen] = useState(false);
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState<
+    Set<string>
+  >(new Set());
+  const [transactionDeleteTargets, setTransactionDeleteTargets] = useState<
+    SupportServiceTransactionRecord[]
+  >([]);
+  const [transactionDeleteOptions, setTransactionDeleteOptions] =
+    useState<TransactionDeletionOptions>({
+      deleteLinkedForm: false,
+      deleteLinkedReports: false,
+      deleteOutputObjects: false,
+      deleteInputObjects: false,
+    });
+  const [transactionDeleteRunning, setTransactionDeleteRunning] =
+    useState(false);
+  const [transactionDeleteFinished, setTransactionDeleteFinished] =
+    useState(false);
+  const [currentDeletingTransactionId, setCurrentDeletingTransactionId] =
+    useState("");
+  const [transactionDeleteResults, setTransactionDeleteResults] = useState<
+    TransactionDeletionResult[]
+  >([]);
   const isOffers = kind === "offers";
   const queryKey = isOffers ? OFFERS_QUERY_KEY : TRANSACTIONS_QUERY_KEY;
   const route = routeBase ?? baseRoute(kind);
@@ -2565,6 +2612,31 @@ export function SupportServicesBrowser({
   );
   const rows = isOffers ? offers : transactions;
   const allowDelete = canDelete && !publisherPresentation;
+  const allowTransactionSelection = !isOffers && allowDelete;
+  const tableColumnCount = isOffers
+    ? publisherPresentation
+      ? 5
+      : 6
+    : allowTransactionSelection
+      ? 7
+      : 6;
+  const visibleTransactionIds = transactions.map(
+    (transaction) => transaction.id,
+  );
+  const selectedVisibleTransactionCount = visibleTransactionIds.filter((id) =>
+    selectedTransactionIds.has(id),
+  ).length;
+  const allVisibleTransactionsSelected =
+    visibleTransactionIds.length > 0 &&
+    selectedVisibleTransactionCount === visibleTransactionIds.length;
+  const someVisibleTransactionsSelected =
+    selectedVisibleTransactionCount > 0 && !allVisibleTransactionsSelected;
+  const transactionDeleteProgress = transactionDeleteTargets.length
+    ? (transactionDeleteResults.length / transactionDeleteTargets.length) * 100
+    : 0;
+  const transactionDeleteFailed = transactionDeleteResults.some(
+    (result) => result.status === "failed",
+  );
   const listErrorLog = useMemo(
     () => (listQuery.error ? requestErrorLog(listQuery.error) : ""),
     [listQuery.error],
@@ -2606,14 +2678,145 @@ export function SupportServicesBrowser({
   function handleDelete(
     record: SupportServiceOfferRecord | SupportServiceTransactionRecord,
   ) {
-    const label =
-      "name" in record
-        ? record.name
-        : (record as SupportServiceTransactionRecord).requestId;
+    if (!isOffers) {
+      openTransactionDelete([record as SupportServiceTransactionRecord]);
+      return;
+    }
+    const label = (record as SupportServiceOfferRecord).name;
     if (!window.confirm(`${t("Delete")} ${label}?`)) {
       return;
     }
     deleteMutation.mutate(record);
+  }
+
+  function resetTransactionDelete() {
+    setTransactionDeleteTargets([]);
+    setTransactionDeleteOptions({
+      deleteLinkedForm: false,
+      deleteLinkedReports: false,
+      deleteOutputObjects: false,
+      deleteInputObjects: false,
+    });
+    setTransactionDeleteRunning(false);
+    setTransactionDeleteFinished(false);
+    setCurrentDeletingTransactionId("");
+    setTransactionDeleteResults([]);
+  }
+
+  function openTransactionDelete(
+    targets: SupportServiceTransactionRecord[],
+  ) {
+    if (!allowTransactionSelection || targets.length === 0) return;
+    resetTransactionDelete();
+    setTransactionDeleteTargets(targets);
+  }
+
+  function closeTransactionDelete() {
+    if (transactionDeleteRunning) return;
+    const deletedIds = new Set(
+      transactionDeleteResults
+        .filter((result) => result.status === "deleted")
+        .map((result) => result.transactionId),
+    );
+    if (deletedIds.size > 0) {
+      const cleanupWarnings = transactionDeleteResults.flatMap(
+        (result) => result.cleanupWarnings ?? [],
+      );
+      setSelectedTransactionIds((current) => {
+        const next = new Set(current);
+        for (const id of deletedIds) next.delete(id);
+        return next;
+      });
+      void queryClient.invalidateQueries({ queryKey: [queryKey] });
+      setToast({
+        id: nextToastId(),
+        tone: transactionDeleteFailed ? "error" : "success",
+        message: transactionDeleteFailed
+          ? t("Some service transactions could not be deleted.")
+          : cleanupWarnings.length > 0
+            ? `${t("Service transaction deleted. Secondary cleanup warnings:")} ${cleanupWarnings.join(" ")}`
+            : `${deletedIds.size} ${t(
+                deletedIds.size === 1
+                  ? "service transaction deleted."
+                  : "service transactions deleted.",
+              )}`,
+        durationMs: cleanupWarnings.length > 0 ? 15000 : undefined,
+      });
+    }
+    resetTransactionDelete();
+  }
+
+  function toggleTransactionSelection(transactionId: string) {
+    setSelectedTransactionIds((current) => {
+      const next = new Set(current);
+      if (next.has(transactionId)) next.delete(transactionId);
+      else next.add(transactionId);
+      return next;
+    });
+  }
+
+  function toggleAllVisibleTransactions() {
+    setSelectedTransactionIds((current) => {
+      const next = new Set(current);
+      if (allVisibleTransactionsSelected) {
+        for (const id of visibleTransactionIds) next.delete(id);
+      } else {
+        for (const id of visibleTransactionIds) next.add(id);
+      }
+      return next;
+    });
+  }
+
+  async function runTransactionDeletion() {
+    setTransactionDeleteRunning(true);
+    setTransactionDeleteFinished(false);
+    setTransactionDeleteResults([]);
+
+    for (const transaction of transactionDeleteTargets) {
+      setCurrentDeletingTransactionId(transaction.requestId);
+      const deleteParams = new URLSearchParams(
+        Object.entries(transactionDeleteOptions).map(([key, value]) => [
+          key,
+          String(value),
+        ]),
+      );
+      const path = `${apiBasePath("transactions")}/${encodeURIComponent(
+        transaction.id,
+      )}?${deleteParams.toString()}`;
+      try {
+        const result = await sdkFetch<{
+          deleted: boolean;
+          transactionId: string;
+          cleanupWarnings?: string[];
+          deletedArtifacts?: TransactionDeletionResult["deletedArtifacts"];
+        }>(path, { method: "DELETE" });
+        setTransactionDeleteResults((current) => [
+          ...current,
+          {
+            transactionId: transaction.id,
+            status: "deleted",
+            cleanupWarnings: result.cleanupWarnings,
+            deletedArtifacts: result.deletedArtifacts,
+          },
+        ]);
+      } catch (error) {
+        setTransactionDeleteResults((current) => [
+          ...current,
+          {
+            transactionId: transaction.id,
+            status: "failed",
+            error:
+              error instanceof Error ? error.message : t("Action failed."),
+            log: requestErrorLog(error),
+          },
+        ]);
+        break;
+      }
+    }
+
+    setCurrentDeletingTransactionId("");
+    setTransactionDeleteRunning(false);
+    setTransactionDeleteFinished(true);
   }
 
   const title =
@@ -2712,6 +2915,230 @@ export function SupportServicesBrowser({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog
+        open={transactionDeleteTargets.length > 0}
+        onOpenChange={(open) => {
+          if (!open) closeTransactionDelete();
+        }}
+      >
+        <DialogContent className="flex max-h-[88vh] flex-col overflow-hidden sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {transactionDeleteRunning
+                ? t("Deleting service transactions")
+                : transactionDeleteFinished
+                  ? transactionDeleteFailed
+                    ? t("Deletion stopped")
+                    : t("Deletion complete")
+                  : transactionDeleteTargets.length === 1
+                    ? t("Delete service transaction")
+                    : t("Delete selected service transactions")}
+            </DialogTitle>
+            <DialogDescription>
+              {transactionDeleteRunning
+                ? t(
+                    "Transactions are deleted one at a time. Keep this window open until the process finishes.",
+                  )
+                : transactionDeleteFinished
+                  ? transactionDeleteFailed
+                    ? t(
+                        "A transaction could not be deleted. Completed deletions were preserved and later transactions were not processed.",
+                      )
+                    : t(
+                        "The selected transactions and requested linked artifacts were deleted.",
+                      )
+                  : t(
+                      "Choose whether linked artifacts should also be deleted. Unselected artifact types will be preserved.",
+                    )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            {!transactionDeleteRunning && !transactionDeleteFinished ? (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-border bg-muted/25 p-4">
+                  <p className="text-sm font-medium text-foreground">
+                    {transactionDeleteTargets.length} {t("selected")}
+                  </p>
+                  <div className="mt-2 flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
+                    {transactionDeleteTargets.map((transaction) => (
+                      <Badge key={transaction.id} variant="outline">
+                        {transaction.requestId}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {(
+                    [
+                      [
+                        "deleteLinkedForm",
+                        "Delete linked form",
+                        "Deletes the linked pgo_form object, its code, and stored file.",
+                      ],
+                      [
+                        "deleteLinkedReports",
+                        "Delete linked reports",
+                        "Deletes linked uploaded reports, report codes, and stored files.",
+                      ],
+                      [
+                        "deleteOutputObjects",
+                        "Delete output PGO objects",
+                        "Deletes output uploaded objects, object codes, and stored files.",
+                      ],
+                      [
+                        "deleteInputObjects",
+                        "Delete input PGO objects",
+                        "Deletes non-form input uploaded objects, object codes, and stored files.",
+                      ],
+                    ] as const
+                  ).map(([key, label, description]) => (
+                    <label
+                      key={key}
+                      className="flex cursor-pointer gap-3 rounded-lg border border-border p-4 transition-colors hover:bg-muted/35"
+                    >
+                      <Checkbox
+                        checked={transactionDeleteOptions[key]}
+                        onCheckedChange={(checked) =>
+                          setTransactionDeleteOptions((current) => ({
+                            ...current,
+                            [key]: Boolean(checked),
+                          }))
+                        }
+                        aria-label={t(label)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold text-foreground">
+                          {t(label)}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                          {t(description)}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-foreground">
+                  {t(
+                    "Deleting linked artifacts is permanent and can affect records that reuse the same object, report, code, or stored file.",
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                    <span className="truncate">
+                      {currentDeletingTransactionId
+                        ? `${t("Deleting")}: ${currentDeletingTransactionId}`
+                        : transactionDeleteFailed
+                          ? t("Deletion stopped")
+                          : t("Deletion complete")}
+                    </span>
+                    <span>{Math.round(transactionDeleteProgress)}%</span>
+                  </div>
+                  <Progress value={transactionDeleteProgress} />
+                </div>
+
+                <div className="space-y-2">
+                  {transactionDeleteTargets.map((transaction) => {
+                    const result = transactionDeleteResults.find(
+                      (candidate) => candidate.transactionId === transaction.id,
+                    );
+                    const isCurrent =
+                      currentDeletingTransactionId === transaction.requestId;
+                    return (
+                      <div
+                        key={transaction.id}
+                        className={cn(
+                          "rounded-lg border p-3",
+                          result?.status === "failed"
+                            ? "border-destructive/40 bg-destructive/5"
+                            : result?.status === "deleted"
+                              ? "border-emerald-400/35 bg-emerald-500/5"
+                              : isCurrent
+                                ? "border-primary/40 bg-primary/5"
+                                : "border-border",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate font-mono text-sm font-medium text-foreground">
+                              {transaction.requestId}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {result?.status === "deleted"
+                                ? t("Deleted")
+                                : result?.status === "failed"
+                                  ? result.error
+                                  : isCurrent
+                                    ? t("Processing")
+                                    : t("Pending")}
+                            </p>
+                            {result?.cleanupWarnings?.length ? (
+                              <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                                {result.cleanupWarnings.join(" ")}
+                              </p>
+                            ) : null}
+                            {result?.status === "failed" && result.log ? (
+                              <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-background p-2 font-mono text-[11px] leading-4 text-muted-foreground">
+                                {result.log}
+                              </pre>
+                            ) : null}
+                          </div>
+                          {isCurrent ? (
+                            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                          ) : result?.status === "deleted" ? (
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                          ) : result?.status === "failed" ? (
+                            <XCircle className="h-4 w-4 shrink-0 text-destructive" />
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            {!transactionDeleteRunning && !transactionDeleteFinished ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={closeTransactionDelete}
+                >
+                  {t("Cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => void runTransactionDeletion()}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {transactionDeleteTargets.length === 1
+                    ? t("Delete transaction")
+                    : t("Delete selected")}
+                </Button>
+              </>
+            ) : transactionDeleteFinished ? (
+              <Button type="button" onClick={closeTransactionDelete}>
+                {t("Finish")}
+              </Button>
+            ) : (
+              <Button type="button" disabled>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("Deleting")}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <section className={SUPPORT_SERVICE_PANEL_CLASS}>
         <div
           className={cn("flex flex-col gap-4", SUPPORT_SERVICE_HEADER_CLASS)}
@@ -2724,6 +3151,26 @@ export function SupportServicesBrowser({
               <HeaderUnclutterButton />
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {allowTransactionSelection &&
+              selectedVisibleTransactionCount > 0 ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() =>
+                    openTransactionDelete(
+                      transactions.filter((transaction) =>
+                        selectedTransactionIds.has(transaction.id),
+                      ),
+                    )
+                  }
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>
+                    {t("Delete selected")} ({selectedVisibleTransactionCount})
+                  </span>
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 variant="outline"
@@ -2843,6 +3290,21 @@ export function SupportServicesBrowser({
                 </TableRow>
               ) : (
                 <TableRow>
+                  {allowTransactionSelection ? (
+                    <TableHead className="w-12 px-3">
+                      <Checkbox
+                        checked={
+                          allVisibleTransactionsSelected
+                            ? true
+                            : someVisibleTransactionsSelected
+                              ? "indeterminate"
+                              : false
+                        }
+                        onCheckedChange={toggleAllVisibleTransactions}
+                        aria-label={t("Select all visible service transactions")}
+                      />
+                    </TableHead>
+                  ) : null}
                   <TableHead>
                     {t(recordColumnLabel ?? "Transaction")}
                   </TableHead>
@@ -2858,7 +3320,7 @@ export function SupportServicesBrowser({
               {isInitialLoading ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <TableRow key={index}>
-                    <TableCell colSpan={isOffers && publisherPresentation ? 5 : 6}>
+                    <TableCell colSpan={tableColumnCount}>
                       <Skeleton className="h-9 w-full" />
                     </TableCell>
                   </TableRow>
@@ -2866,7 +3328,7 @@ export function SupportServicesBrowser({
               ) : listQuery.isError && rows.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={isOffers && publisherPresentation ? 5 : 6}
+                    colSpan={tableColumnCount}
                     className="py-10 text-center"
                   >
                     <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-destructive">
@@ -2907,7 +3369,7 @@ export function SupportServicesBrowser({
               ) : rows.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={isOffers && publisherPresentation ? 5 : 6}
+                    colSpan={tableColumnCount}
                     className="py-10 text-center"
                   >
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-muted-foreground">
@@ -3013,6 +3475,17 @@ export function SupportServicesBrowser({
               ) : (
                 transactions.map((transaction) => (
                   <TableRow key={transaction.id}>
+                    {allowTransactionSelection ? (
+                      <TableCell className="w-12 px-3">
+                        <Checkbox
+                          checked={selectedTransactionIds.has(transaction.id)}
+                          onCheckedChange={() =>
+                            toggleTransactionSelection(transaction.id)
+                          }
+                          aria-label={`${t("Select service transaction")} ${transaction.requestId}`}
+                        />
+                      </TableCell>
+                    ) : null}
                     <TableCell className="min-w-[16rem]">
                       <Link
                         href={`${route}/${encodeURIComponent(transaction.requestId)}`}

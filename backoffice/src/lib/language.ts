@@ -5730,6 +5730,44 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service transaction deleted.": "Transacción de servicio eliminada.",
   "Service transaction deleted. Secondary cleanup warnings:":
     "Transacción de servicio eliminada. Advertencias de limpieza secundaria:",
+  "service transaction deleted.": "transacción de servicio eliminada.",
+  "service transactions deleted.": "transacciones de servicio eliminadas.",
+  "Some service transactions could not be deleted.":
+    "Algunas transacciones de servicio no se pudieron eliminar.",
+  "Select all visible service transactions":
+    "Seleccionar todas las transacciones de servicio visibles",
+  "Select service transaction": "Seleccionar transacción de servicio",
+  "Delete service transaction": "Eliminar transacción de servicio",
+  "Delete selected service transactions":
+    "Eliminar transacciones de servicio seleccionadas",
+  "Deleting service transactions": "Eliminando transacciones de servicio",
+  "Delete transaction": "Eliminar transacción",
+  "Deletion stopped": "La eliminación se detuvo",
+  "Deletion complete": "Eliminación completada",
+  "Transactions are deleted one at a time. Keep this window open until the process finishes.":
+    "Las transacciones se eliminan de a una. Mantené esta ventana abierta hasta que finalice el proceso.",
+  "A transaction could not be deleted. Completed deletions were preserved and later transactions were not processed.":
+    "Una transacción no se pudo eliminar. Las eliminaciones completadas se conservaron y las transacciones posteriores no se procesaron.",
+  "The selected transactions and requested linked artifacts were deleted.":
+    "Se eliminaron las transacciones seleccionadas y los artefactos vinculados solicitados.",
+  "Choose whether linked artifacts should also be deleted. Unselected artifact types will be preserved.":
+    "Elegí si también se deben eliminar los artefactos vinculados. Los tipos de artefactos no seleccionados se conservarán.",
+  "Delete linked form": "Eliminar formulario vinculado",
+  "Deletes the linked pgo_form object, its code, and stored file.":
+    "Elimina el objeto pgo_form vinculado, su código y el archivo almacenado.",
+  "Delete linked reports": "Eliminar informes vinculados",
+  "Deletes linked uploaded reports, report codes, and stored files.":
+    "Elimina los informes cargados vinculados, sus códigos y archivos almacenados.",
+  "Delete output PGO objects": "Eliminar objetos PGO de salida",
+  "Deletes output uploaded objects, object codes, and stored files.":
+    "Elimina los objetos cargados de salida, sus códigos y archivos almacenados.",
+  "Delete input PGO objects": "Eliminar objetos PGO de entrada",
+  "Deletes non-form input uploaded objects, object codes, and stored files.":
+    "Elimina los objetos cargados de entrada que no son formularios, sus códigos y archivos almacenados.",
+  "Deleting linked artifacts is permanent and can affect records that reuse the same object, report, code, or stored file.":
+    "Eliminar artefactos vinculados es permanente y puede afectar registros que reutilicen el mismo objeto, informe, código o archivo almacenado.",
+  Deleting: "Eliminando",
+  Deleted: "Eliminado",
   "Service transaction saved.": "Transacción de servicio guardada.",
   "Service offer": "Oferta de servicio",
   "Service offer raw JSON": "JSON raw de la oferta de servicio",

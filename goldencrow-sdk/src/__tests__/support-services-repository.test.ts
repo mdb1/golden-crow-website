@@ -63,6 +63,7 @@ function snapshotFor(collectionName: string, id: string, data?: MockData) {
 function docRef(collectionName: string, id: string) {
   return {
     id,
+    path: `${collectionName}/${id}`,
     async get() {
       const data = collectionStore(collectionName).get(id);
       return snapshotFor(collectionName, id, data);
@@ -251,8 +252,8 @@ jest.mock("firebase-admin/firestore", () => ({
       return new Date("2026-09-16T12:00:00.000Z");
     }
 
-    static arrayRemove(value: unknown) {
-      return { operation: "arrayRemove", value };
+    static arrayRemove(...values: unknown[]) {
+      return { operation: "arrayRemove", values };
     }
   },
   Timestamp: class TimestampStub {
@@ -271,6 +272,24 @@ jest.mock("firebase-admin/firestore", () => ({
 jest.mock("../config/firebase.js", () => ({
   adminDbFor: jest.fn(() => ({
     collection: jest.fn((name: string) => collectionRef(name)),
+    batch: jest.fn(() => {
+      const operations: Array<() => Promise<void>> = [];
+      return {
+        delete: (ref: ReturnType<typeof docRef>) => {
+          operations.push(() => ref.delete());
+        },
+        set: (
+          ref: ReturnType<typeof docRef>,
+          data: MockData,
+          options?: { merge?: boolean },
+        ) => {
+          operations.push(() => ref.set(data, options));
+        },
+        commit: async () => {
+          for (const operation of operations) await operation();
+        },
+      };
+    }),
     runTransaction: jest.fn(async (handler) => {
       const beforeTransaction = beforeNextTransaction;
       beforeNextTransaction = undefined;
@@ -4976,6 +4995,155 @@ describe("support service delivered transactions", () => {
         requestId: transaction.requestId,
       }),
     ]);
+  });
+
+  it("deletes only the linked artifact categories selected by god mode", async () => {
+    seedDoc("object_codes", "123456789", {
+      uploaded_object_id: "uploaded-object-1",
+      owner_id: "feed-org-1",
+    });
+    seedDoc("uploaded_objects", "uploaded-object-1", {
+      object_code: "123456789",
+      object_type: "pgo_pdf_report",
+      linked_file_id: "stored-output-1",
+      object_owner_id: "feed-org-1",
+      service_transaction_id: transaction.requestId,
+    });
+    seedDoc("file_storage", "stored-output-1", {
+      linked_object_code: "123456789",
+      file_type: "pgo_pdf_report",
+    });
+    seedDoc("report_codes", "ABC123", {
+      uploaded_report_id: "uploaded-report-1",
+      owner_id: "feed-org-1",
+    });
+    seedDoc("uploaded_reports", "uploaded-report-1", {
+      report_code: "ABC123",
+      linked_file_id: "stored-report-1",
+      report_owner_id: "feed-org-1",
+    });
+    seedDoc("file_storage", "stored-report-1", {
+      linked_report_code: "ABC123",
+      file_type: "pdf",
+    });
+    const { deleteSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const result = await deleteSupportServiceTransaction(
+      context,
+      "transaction-1",
+      {
+        deleteLinkedForm: true,
+        deleteLinkedReports: true,
+        deleteOutputObjects: true,
+        deleteInputObjects: false,
+      },
+    );
+
+    expect(result.deletedArtifacts).toEqual({
+      forms: 1,
+      reports: 1,
+      outputObjects: 1,
+      inputObjects: 0,
+      objectCodes: 2,
+      reportCodes: 1,
+      storedFiles: 3,
+    });
+    for (const [collectionName, id] of [
+      ["service_transactions", "transaction-1"],
+      ["object_codes", "987654321"],
+      ["uploaded_objects", "uploaded-form-1"],
+      ["file_storage", "stored-form-1"],
+      ["object_codes", "123456789"],
+      ["uploaded_objects", "uploaded-object-1"],
+      ["file_storage", "stored-output-1"],
+      ["report_codes", "ABC123"],
+      ["uploaded_reports", "uploaded-report-1"],
+      ["file_storage", "stored-report-1"],
+    ] as const) {
+      expect(collectionStore(collectionName).has(id)).toBe(false);
+    }
+  });
+
+  it("preserves linked artifacts when god mode deletes only the transaction", async () => {
+    const { deleteSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const result = await deleteSupportServiceTransaction(
+      context,
+      "transaction-1",
+    );
+
+    expect(result.deletedArtifacts).toEqual({
+      forms: 0,
+      reports: 0,
+      outputObjects: 0,
+      inputObjects: 0,
+      objectCodes: 0,
+      reportCodes: 0,
+      storedFiles: 0,
+    });
+    expect(collectionStore("object_codes").has("987654321")).toBe(true);
+    expect(collectionStore("uploaded_objects").has("uploaded-form-1")).toBe(
+      true,
+    );
+    expect(collectionStore("file_storage").has("stored-form-1")).toBe(true);
+  });
+
+  it("resolves and deletes a non-form input object code from its uploaded object", async () => {
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      inputs: [
+        ...transaction.inputs,
+        {
+          role: "sequence_data",
+          objectRef: { objectId: "obj_sequence_1", revision: 1 },
+          objectType: "pgo_sequence_data",
+          uploadedObjectId: "uploaded-input-1",
+          objectSnapshot: {},
+        },
+      ],
+      outputObjects: [],
+      outputReports: [],
+    });
+    seedDoc("object_codes", "111111111", {
+      uploaded_object_id: "uploaded-input-1",
+      owner_id: "user-1",
+    });
+    seedDoc("uploaded_objects", "uploaded-input-1", {
+      object_code: "111111111",
+      object_type: "pgo_sequence_data",
+      linked_file_id: "stored-input-1",
+      object_owner_id: "user-1",
+    });
+    seedDoc("file_storage", "stored-input-1", {
+      linked_object_code: "111111111",
+      file_type: "pgo_sequence_data",
+    });
+    const { deleteSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const result = await deleteSupportServiceTransaction(
+      context,
+      "transaction-1",
+      { deleteInputObjects: true },
+    );
+
+    expect(result.deletedArtifacts).toMatchObject({
+      forms: 0,
+      inputObjects: 1,
+      objectCodes: 1,
+      storedFiles: 1,
+    });
+    expect(collectionStore("object_codes").has("111111111")).toBe(false);
+    expect(collectionStore("uploaded_objects").has("uploaded-input-1")).toBe(
+      false,
+    );
+    expect(collectionStore("file_storage").has("stored-input-1")).toBe(false);
+    expect(collectionStore("object_codes").has("987654321")).toBe(true);
   });
 
   it("deletes a malformed root transaction before cleaning secondary references", async () => {

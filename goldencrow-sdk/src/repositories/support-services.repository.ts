@@ -788,6 +788,23 @@ export interface SupportServiceTransactionRecord {
   complianceWarnings: string[];
 }
 
+export interface SupportServiceTransactionDeleteOptions {
+  deleteLinkedForm?: boolean;
+  deleteLinkedReports?: boolean;
+  deleteOutputObjects?: boolean;
+  deleteInputObjects?: boolean;
+}
+
+export interface SupportServiceTransactionDeletedArtifacts {
+  forms: number;
+  reports: number;
+  outputObjects: number;
+  inputObjects: number;
+  objectCodes: number;
+  reportCodes: number;
+  storedFiles: number;
+}
+
 export interface SupportServiceOffersPage {
   offers: SupportServiceOfferRecord[];
   nextCursor?: string;
@@ -10799,6 +10816,7 @@ function requestedTransactionSummariesAfterRemoval(
 
 async function deleteSupportServiceTransactionRecord(
   transactionId: string,
+  options: SupportServiceTransactionDeleteOptions = {},
 ) {
   const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
   if (!snapshot) {
@@ -10825,9 +10843,305 @@ async function deleteSupportServiceTransactionRecord(
     cleanString(storedProviderSnapshot.kind);
   const idempotencyKey = cleanString(transactionData.idempotencyKey);
 
-  // An explicit god-mode delete is authoritative. The root is removed first;
-  // malformed data or a secondary-index failure cannot veto that intention.
-  await snapshot.ref.delete();
+  const deletedArtifacts: SupportServiceTransactionDeletedArtifacts = {
+    forms: 0,
+    reports: 0,
+    outputObjects: 0,
+    inputObjects: 0,
+    objectCodes: 0,
+    reportCodes: 0,
+    storedFiles: 0,
+  };
+  const shouldDeleteArtifacts = Boolean(
+    options.deleteLinkedForm ||
+    options.deleteLinkedReports ||
+    options.deleteOutputObjects ||
+    options.deleteInputObjects,
+  );
+
+  if (shouldDeleteArtifacts) {
+    const objectCodeRefs = new Map<string, DocumentReference>();
+    const uploadedObjectRefs = new Map<string, DocumentReference>();
+    const reportCodeRefs = new Map<string, DocumentReference>();
+    const uploadedReportRefs = new Map<string, DocumentReference>();
+    const storedFileRefs = new Map<string, DocumentReference>();
+    const ownerObjectIds = new Map<string, Set<string>>();
+    const ownerReportIds = new Map<string, Set<string>>();
+
+    const addOwnerArtifact = (
+      index: Map<string, Set<string>>,
+      ownerId: string,
+      artifactId: string,
+    ) => {
+      if (!ownerId || !artifactId) return;
+      const ids = index.get(ownerId) ?? new Set<string>();
+      ids.add(artifactId);
+      index.set(ownerId, ids);
+    };
+
+    const collectObject = async (
+      raw: Record<string, unknown>,
+      category: "form" | "input" | "output",
+    ) => {
+      let objectCode = cleanString(raw.objectCode);
+      const explicitUploadedObjectId = cleanString(raw.uploadedObjectId);
+      const explicitFileStorageId = cleanString(raw.fileStorageId);
+      const expectedObjectType = cleanString(raw.objectType);
+      if (!objectCode && !explicitUploadedObjectId && !explicitFileStorageId) {
+        return;
+      }
+
+      let codeRef = objectCode
+        ? adminDb.collection(OBJECT_CODES_COLLECTION).doc(objectCode)
+        : null;
+      let codeSnapshot = codeRef ? await codeRef.get() : null;
+      let codeUploadedObjectId = cleanString(
+        codeSnapshot?.data()?.uploaded_object_id,
+      );
+      if (
+        explicitUploadedObjectId &&
+        codeUploadedObjectId &&
+        explicitUploadedObjectId !== codeUploadedObjectId
+      ) {
+        throw new AdminRepositoryError(
+          `Object code ${objectCode} points to another uploaded object.`,
+          409,
+        );
+      }
+      const uploadedObjectId = explicitUploadedObjectId || codeUploadedObjectId;
+      const uploadedRef = uploadedObjectId
+        ? adminDb.collection(UPLOADED_OBJECTS_COLLECTION).doc(uploadedObjectId)
+        : null;
+      const uploadedSnapshot = uploadedRef ? await uploadedRef.get() : null;
+      const uploadedData = uploadedSnapshot?.data() ?? {};
+      const storedObjectCode = cleanString(uploadedData.object_code);
+      const storedObjectType = cleanString(uploadedData.object_type);
+      if (!objectCode && storedObjectCode) {
+        objectCode = storedObjectCode;
+        codeRef = adminDb.collection(OBJECT_CODES_COLLECTION).doc(objectCode);
+        codeSnapshot = await codeRef.get();
+        codeUploadedObjectId = cleanString(
+          codeSnapshot.data()?.uploaded_object_id,
+        );
+        if (
+          codeUploadedObjectId &&
+          uploadedObjectId &&
+          codeUploadedObjectId !== uploadedObjectId
+        ) {
+          throw new AdminRepositoryError(
+            `Object code ${objectCode} points to another uploaded object.`,
+            409,
+          );
+        }
+      }
+      if (
+        uploadedSnapshot?.exists &&
+        ((objectCode && storedObjectCode !== objectCode) ||
+          (expectedObjectType && storedObjectType !== expectedObjectType))
+      ) {
+        throw new AdminRepositoryError(
+          `Uploaded object ${uploadedObjectId} no longer matches the transaction link.`,
+          409,
+        );
+      }
+
+      const linkedFileId = cleanString(uploadedData.linked_file_id);
+      if (
+        explicitFileStorageId &&
+        linkedFileId &&
+        explicitFileStorageId !== linkedFileId
+      ) {
+        throw new AdminRepositoryError(
+          `Uploaded object ${uploadedObjectId} points to another stored file.`,
+          409,
+        );
+      }
+      const fileStorageId = explicitFileStorageId || linkedFileId;
+      if (fileStorageId) {
+        const fileRef = adminDb
+          .collection(FILE_STORAGE_COLLECTION)
+          .doc(fileStorageId);
+        const fileSnapshot = await fileRef.get();
+        const linkedObjectCode = cleanString(
+          fileSnapshot.data()?.linked_object_code,
+        );
+        if (
+          fileSnapshot.exists &&
+          linkedObjectCode &&
+          (!objectCode || linkedObjectCode !== objectCode)
+        ) {
+          throw new AdminRepositoryError(
+            `Stored file ${fileStorageId} no longer belongs to object code ${objectCode || "(missing)"}.`,
+            409,
+          );
+        }
+        if (fileSnapshot.exists) storedFileRefs.set(fileRef.path, fileRef);
+      }
+
+      if (codeSnapshot?.exists && codeRef) {
+        objectCodeRefs.set(codeRef.path, codeRef);
+      }
+      if (uploadedSnapshot?.exists && uploadedRef) {
+        uploadedObjectRefs.set(uploadedRef.path, uploadedRef);
+        addOwnerArtifact(
+          ownerObjectIds,
+          cleanString(uploadedData.object_owner_id) ||
+            cleanString(uploadedData.owner_community_user_id),
+          uploadedObjectId,
+        );
+        if (category === "form") deletedArtifacts.forms += 1;
+        if (category === "input") deletedArtifacts.inputObjects += 1;
+        if (category === "output") deletedArtifacts.outputObjects += 1;
+      }
+    };
+
+    const rawInputs = Array.isArray(transactionData.inputs)
+      ? transactionData.inputs
+      : [];
+    for (const entry of rawInputs) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const input = entry as Record<string, unknown>;
+      const isForm = cleanString(input.objectType) === FORM_OBJECT_TYPE;
+      if (
+        (isForm && options.deleteLinkedForm) ||
+        (!isForm && options.deleteInputObjects)
+      ) {
+        await collectObject(input, isForm ? "form" : "input");
+      }
+    }
+
+    if (options.deleteOutputObjects) {
+      const rawOutputs = Array.isArray(transactionData.outputObjects)
+        ? transactionData.outputObjects
+        : [];
+      for (const entry of rawOutputs) {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+          continue;
+        }
+        await collectObject(entry as Record<string, unknown>, "output");
+      }
+    }
+
+    if (options.deleteLinkedReports) {
+      const rawReports = Array.isArray(transactionData.outputReports)
+        ? transactionData.outputReports
+        : [];
+      for (const entry of rawReports) {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+          continue;
+        }
+        const reportCode = cleanString(
+          (entry as Record<string, unknown>).reportCode,
+        );
+        if (!reportCode) continue;
+        const codeRef = adminDb
+          .collection(REPORT_CODES_COLLECTION)
+          .doc(reportCode);
+        const codeSnapshot = await codeRef.get();
+        const uploadedReportId = cleanString(
+          codeSnapshot.data()?.uploaded_report_id,
+        );
+        const uploadedRef = uploadedReportId
+          ? adminDb
+              .collection(UPLOADED_REPORTS_COLLECTION)
+              .doc(uploadedReportId)
+          : null;
+        const uploadedSnapshot = uploadedRef ? await uploadedRef.get() : null;
+        const uploadedData = uploadedSnapshot?.data() ?? {};
+        if (
+          uploadedSnapshot?.exists &&
+          cleanString(uploadedData.report_code) !== reportCode
+        ) {
+          throw new AdminRepositoryError(
+            `Uploaded report ${uploadedReportId} no longer belongs to report code ${reportCode}.`,
+            409,
+          );
+        }
+        const linkedFileId = cleanString(uploadedData.linked_file_id);
+        if (linkedFileId) {
+          const fileRef = adminDb
+            .collection(FILE_STORAGE_COLLECTION)
+            .doc(linkedFileId);
+          const fileSnapshot = await fileRef.get();
+          const linkedReportCode = cleanString(
+            fileSnapshot.data()?.linked_report_code,
+          );
+          if (
+            fileSnapshot.exists &&
+            linkedReportCode &&
+            linkedReportCode !== reportCode
+          ) {
+            throw new AdminRepositoryError(
+              `Stored file ${linkedFileId} no longer belongs to report code ${reportCode}.`,
+              409,
+            );
+          }
+          if (fileSnapshot.exists) storedFileRefs.set(fileRef.path, fileRef);
+        }
+        if (codeSnapshot.exists) reportCodeRefs.set(codeRef.path, codeRef);
+        if (uploadedSnapshot?.exists && uploadedRef) {
+          uploadedReportRefs.set(uploadedRef.path, uploadedRef);
+          addOwnerArtifact(
+            ownerReportIds,
+            cleanString(uploadedData.report_owner_id) ||
+              cleanString(codeSnapshot.data()?.owner_id),
+            uploadedReportId,
+          );
+          deletedArtifacts.reports += 1;
+        }
+      }
+    }
+
+    deletedArtifacts.objectCodes = objectCodeRefs.size;
+    deletedArtifacts.reportCodes = reportCodeRefs.size;
+    deletedArtifacts.storedFiles = storedFileRefs.size;
+
+    const ownerIds = new Set([
+      ...ownerObjectIds.keys(),
+      ...ownerReportIds.keys(),
+    ]);
+    const existingOwnerIds = new Set<string>();
+    for (const ownerId of ownerIds) {
+      const ownerSnapshot = await adminDb
+        .collection(COMMUNITY_USERS_COLLECTION)
+        .doc(ownerId)
+        .get();
+      if (ownerSnapshot.exists) existingOwnerIds.add(ownerId);
+    }
+
+    const batch = adminDb.batch();
+    for (const reference of objectCodeRefs.values()) batch.delete(reference);
+    for (const reference of uploadedObjectRefs.values())
+      batch.delete(reference);
+    for (const reference of reportCodeRefs.values()) batch.delete(reference);
+    for (const reference of uploadedReportRefs.values())
+      batch.delete(reference);
+    for (const reference of storedFileRefs.values()) batch.delete(reference);
+    for (const ownerId of existingOwnerIds) {
+      const patch: Record<string, unknown> = {
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      const objectIds = [...(ownerObjectIds.get(ownerId) ?? [])];
+      const reportIds = [...(ownerReportIds.get(ownerId) ?? [])];
+      if (objectIds.length > 0) {
+        patch.owned_objects = FieldValue.arrayRemove(...objectIds);
+      }
+      if (reportIds.length > 0) {
+        patch.owned_reports = FieldValue.arrayRemove(...reportIds);
+      }
+      batch.set(
+        adminDb.collection(COMMUNITY_USERS_COLLECTION).doc(ownerId),
+        patch,
+        { merge: true },
+      );
+    }
+    batch.delete(snapshot.ref);
+    await batch.commit();
+  } else {
+    // An explicit god-mode delete is authoritative. The root is removed first;
+    // malformed data or a secondary-index failure cannot veto that intention.
+    await snapshot.ref.delete();
+  }
 
   const cleanupWarnings: string[] = [];
   const cleanupSummaryReference = async (
@@ -10944,15 +11258,16 @@ async function deleteSupportServiceTransactionRecord(
     }
   }
 
-  return { cleanupWarnings };
+  return { cleanupWarnings, deletedArtifacts };
 }
 
 export async function deleteSupportServiceTransaction(
   context: AdminContext,
   transactionId: string,
+  options: SupportServiceTransactionDeleteOptions = {},
 ) {
   requireGodMode(context);
-  return deleteSupportServiceTransactionRecord(transactionId);
+  return deleteSupportServiceTransactionRecord(transactionId, options);
 }
 
 export async function deleteTwoPQCaseServiceTransactionForCleanup(

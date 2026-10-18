@@ -577,6 +577,16 @@ const OfferParamsSchema = z.object({
 const TransactionParamsSchema = z.object({
   transactionId: z.string().trim().min(1),
 });
+const OptionalBooleanQuerySchema = z
+  .enum(["true", "false"])
+  .transform((value) => value === "true")
+  .optional();
+const TransactionDeleteQuerySchema = z.object({
+  deleteLinkedForm: OptionalBooleanQuerySchema,
+  deleteLinkedReports: OptionalBooleanQuerySchema,
+  deleteOutputObjects: OptionalBooleanQuerySchema,
+  deleteInputObjects: OptionalBooleanQuerySchema,
+});
 const ReportCodeSchema = z.string().trim().regex(/^[A-Z0-9]{6}$/);
 const TransactionReportParamsSchema = TransactionParamsSchema.extend({
   reportCode: ReportCodeSchema,
@@ -998,7 +1008,12 @@ export async function supportServicesRoutes(
 
   f.delete(
     "/admin/support-services/transactions/:transactionId",
-    { schema: { params: TransactionParamsSchema } },
+    {
+      schema: {
+        params: TransactionParamsSchema,
+        querystring: TransactionDeleteQuerySchema,
+      },
+    },
     async (request, reply) => {
       if (!request.adminContext?.isBootstrap) {
         return reply.status(403).send({
@@ -1009,11 +1024,13 @@ export async function supportServicesRoutes(
         const result = await deleteSupportServiceTransaction(
           request.adminContext!,
           request.params.transactionId,
+          request.query,
         );
         return reply.send({
           deleted: true,
           transactionId: request.params.transactionId,
           cleanupWarnings: result.cleanupWarnings,
+          deletedArtifacts: result.deletedArtifacts,
         });
       } catch (error) {
         return sendRepositoryError(reply, error);
