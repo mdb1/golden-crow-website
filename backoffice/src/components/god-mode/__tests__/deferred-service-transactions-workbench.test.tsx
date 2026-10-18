@@ -75,19 +75,11 @@ describe("deferred service transaction workbenches", () => {
           email: "old@example.com",
           deferredTransactionIds: ["pgr_old"],
           transactionCount: 1,
-          transactions: [
-            {
-              transactionId: "pgr_old",
-              exists: true,
-              requesterMatches: true,
-              transaction: {
-                id: "pgr_old",
-                requestId: "pgr_old",
-                status: "received",
-                requestedByUserEmail: "old@example.com",
-              },
-            },
-          ],
+          communityUser: {
+            id: "community-user-1",
+            email: "old@example.com",
+            username: "old-user",
+          },
         },
       })
       .mockResolvedValueOnce({
@@ -96,7 +88,6 @@ describe("deferred service transaction workbenches", () => {
           email: "new@example.com",
           deferredTransactionIds: ["pgr_new"],
           transactionCount: 1,
-          transactions: [],
         },
       });
 
@@ -105,6 +96,17 @@ describe("deferred service transaction workbenches", () => {
     );
 
     const email = await screen.findByLabelText("Email");
+    expect(
+      screen.getByText("A community user already exists for this email."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open user/ })).toHaveAttribute(
+      "href",
+      "/collections/community_users/community-user-1",
+    );
+    expect(screen.getByRole("link", { name: /^Open$/ })).toHaveAttribute(
+      "href",
+      "/god-mode/service-transactions/pgr_old",
+    );
     fireEvent.change(email, { target: { value: "new@example.com" } });
     fireEvent.change(screen.getByPlaceholderText("pgr_*"), {
       target: { value: "pgr_new" },
@@ -130,5 +132,29 @@ describe("deferred service transaction workbenches", () => {
         "/god-mode/defered-service-transactions/new-index",
       ),
     );
+  });
+
+  it("explains when no community user has the deferred email", async () => {
+    sdkFetchMock.mockResolvedValue({
+      deferredTransaction: {
+        id: "unclaimed-index",
+        email: "unclaimed@example.com",
+        deferredTransactionIds: [],
+        transactionCount: 0,
+      },
+    });
+
+    renderWithProviders(
+      <DeferredServiceTransactionWorkbench deferredId="unclaimed-index" />,
+    );
+
+    expect(
+      await screen.findByText("No community user has this exact email."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The linked service transactions remain deferred by email until that community account exists.",
+      ),
+    ).toBeInTheDocument();
   });
 });

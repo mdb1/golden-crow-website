@@ -2496,7 +2496,7 @@ describe("deferred service transaction administration", () => {
     });
   });
 
-  it("lists deferred indexes with counts and resolves requester matches", async () => {
+  it("lists deferred index documents and returns their literal stored IDs", async () => {
     const {
       getDeferredServiceTransaction,
       listDeferredServiceTransactions,
@@ -2520,18 +2520,59 @@ describe("deferred service transaction administration", () => {
     ).resolves.toEqual(
       expect.objectContaining({
         email: oldEmail,
-        transactions: [
-          expect.objectContaining({
-            transactionId,
-            exists: true,
-            requesterMatches: true,
-          }),
-        ],
+        deferredTransactionIds: [transactionId],
       }),
     );
   });
 
-  it("moves the deterministic email index and synchronizes linked transactions", async () => {
+  it("lists literal deferred documents without resolving stored IDs", async () => {
+    seedDoc("deferred_service_transactions", sourceId, {
+      email: oldEmail,
+      deferred_transaction_ids: ["legacy-transaction-reference"],
+    });
+    collectionStore("service_transactions").clear();
+    const { listDeferredServiceTransactions } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      listDeferredServiceTransactions(context, { limit: 20 }),
+    ).resolves.toEqual({
+      deferredTransactions: [
+        {
+          id: sourceId,
+          email: oldEmail,
+          deferredTransactionIds: ["legacy-transaction-reference"],
+          transactionCount: 1,
+        },
+      ],
+      nextCursor: undefined,
+    });
+  });
+
+  it("returns the unique community user with the exact deferred email", async () => {
+    seedDoc("community_users", "community-user-1", {
+      email: oldEmail,
+      username: "old-user",
+    });
+    const { getDeferredServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      getDeferredServiceTransaction(context, sourceId),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        communityUser: {
+          id: "community-user-1",
+          email: oldEmail,
+          username: "old-user",
+        },
+      }),
+    );
+  });
+
+  it("moves the deterministic email index without rewriting service transactions", async () => {
     const { updateDeferredServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
@@ -2555,10 +2596,12 @@ describe("deferred service transaction administration", () => {
     });
     expect(collectionStore("service_transactions").get(transactionId)).toEqual(
       expect.objectContaining({
-        requestedByUserEmail: newEmail,
-        updatedByEmail: context.email,
+        requestedByUserEmail: oldEmail,
       }),
     );
+    expect(
+      collectionStore("service_transactions").get(transactionId),
+    ).not.toHaveProperty("updatedByEmail");
   });
 
   it("rejects deferred index access for publisher roles", async () => {

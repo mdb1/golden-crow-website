@@ -489,16 +489,15 @@ export interface DeferredServiceTransactionIndexRecord {
   transactionCount: number;
 }
 
-export interface DeferredServiceTransactionLinkRecord {
-  transactionId: string;
-  exists: boolean;
-  requesterMatches: boolean;
-  transaction?: SupportServiceTransactionRecord;
+export interface DeferredServiceTransactionCommunityUser {
+  id: string;
+  email: string;
+  username?: string;
 }
 
 export interface DeferredServiceTransactionIndexDetail
   extends DeferredServiceTransactionIndexRecord {
-  transactions: DeferredServiceTransactionLinkRecord[];
+  communityUser?: DeferredServiceTransactionCommunityUser;
 }
 
 export interface DeferredServiceTransactionsPage {

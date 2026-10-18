@@ -5650,15 +5650,28 @@ const SPANISH_TEXT: Record<string, string> = {
   "Deferred Transactions": "Transacciones diferidas",
   "Deferred Transaction": "Transacción diferida",
   "Deferred transactions": "Transacciones diferidas",
-  "Search by email or transaction ID":
-    "Buscar por email o ID de transacción",
-  "No deferred transaction users found.":
-    "No se encontraron usuarios con transacciones diferidas.",
+  "Document ID": "ID de documento",
+  "Stored IDs": "IDs guardados",
+  "Search by email or document ID":
+    "Buscar por email o ID de documento",
+  "No deferred transaction documents found.":
+    "No se encontraron documentos de transacciones diferidas.",
   "Back to deferred transactions": "Volver a transacciones diferidas",
   "Linked service transactions": "Transacciones de servicio vinculadas",
+  "Stored deferred transaction IDs":
+    "IDs de transacciones diferidas guardados",
   "Link transaction": "Vincular transacción",
   "No transactions are linked to this email.":
     "No hay transacciones vinculadas a este email.",
+  "A community user already exists for this email.":
+    "Ya existe un usuario de comunidad para este email.",
+  "This user may already have redeemed a deferred transaction ID.":
+    "Es posible que este usuario ya haya canjeado un ID de transacción diferida.",
+  "Open user": "Abrir usuario",
+  "No community user has this exact email.":
+    "Ningún usuario de comunidad tiene este email exacto.",
+  "The linked service transactions remain deferred by email until that community account exists.":
+    "Las transacciones de servicio vinculadas permanecen diferidas por email hasta que exista esa cuenta de comunidad.",
   "Use a canonical pgr_* transaction ID.":
     "Usá un ID de transacción pgr_* canónico.",
   "That transaction is already linked.":

@@ -822,16 +822,15 @@ export interface DeferredServiceTransactionIndexRecord {
   transactionCount: number;
 }
 
-export interface DeferredServiceTransactionLinkRecord {
-  transactionId: string;
-  exists: boolean;
-  requesterMatches: boolean;
-  transaction?: SupportServiceTransactionRecord;
+export interface DeferredServiceTransactionCommunityUser {
+  id: string;
+  email: string;
+  username?: string;
 }
 
 export interface DeferredServiceTransactionIndexDetail
   extends DeferredServiceTransactionIndexRecord {
-  transactions: DeferredServiceTransactionLinkRecord[];
+  communityUser?: DeferredServiceTransactionCommunityUser;
 }
 
 export interface DeferredServiceTransactionsPage {
@@ -6763,13 +6762,9 @@ function deferredServiceTransactionIndexRecord(
   data: Record<string, unknown>,
 ): DeferredServiceTransactionIndexRecord {
   const email = cleanString(data.email).toLowerCase();
-  if (!email) {
-    throw new AdminRepositoryError(
-      "Deferred service transaction index email is missing.",
-      409,
-    );
-  }
-  const deferredTransactionIds = deferredTransactionIdsFromData(data, email);
+  const deferredTransactionIds = Array.isArray(data.deferred_transaction_ids)
+    ? data.deferred_transaction_ids.map((value) => cleanString(value))
+    : [];
   return {
     id,
     email,
@@ -6786,10 +6781,7 @@ function matchesDeferredServiceTransactionFilters(
   return (
     !query ||
     record.email.includes(query) ||
-    record.id.toLowerCase().includes(query) ||
-    record.deferredTransactionIds.some((id) =>
-      id.toLowerCase().includes(query),
-    )
+    record.id.toLowerCase().includes(query)
   );
 }
 
@@ -6817,35 +6809,31 @@ export async function listDeferredServiceTransactions(
 async function deferredServiceTransactionIndexDetail(
   record: DeferredServiceTransactionIndexRecord,
 ): Promise<DeferredServiceTransactionIndexDetail> {
-  const transactions = await Promise.all(
-    record.deferredTransactionIds.map(async (transactionId) => {
-      const snapshot = await getTransactionSnapshotByIdOrRequestId(
-        transactionId,
-      );
-      if (!snapshot) {
-        return {
-          transactionId,
-          exists: false,
-          requesterMatches: false,
-        };
-      }
-      const transaction = toTransactionAdminRecord(
-        snapshot.id,
-        snapshot.data() ?? {},
-      );
-      return {
-        transactionId,
-        exists: true,
-        requesterMatches:
-          !transaction.requestedByUserId &&
-          cleanString(transaction.requestedByUserEmail).toLowerCase() ===
-            record.email,
-        transaction,
-      };
-    }),
-  );
+  const communityUsersSnapshot = record.email
+    ? await adminDb
+        .collection(COMMUNITY_USERS_COLLECTION)
+        .where("email", "==", record.email)
+        .limit(2)
+        .get()
+    : null;
 
-  return { ...record, transactions };
+  if ((communityUsersSnapshot?.docs.length ?? 0) > 1) {
+    throw new AdminRepositoryError(
+      "Multiple community users use this deferred email. Resolve the duplicate records before continuing.",
+      409,
+    );
+  }
+  const communityUserSnapshot = communityUsersSnapshot?.docs[0];
+  const communityUserData = communityUserSnapshot?.data() ?? {};
+  const communityUser = communityUserSnapshot
+    ? {
+        id: communityUserSnapshot.id,
+        email: cleanString(communityUserData.email),
+        username: cleanString(communityUserData.username) || undefined,
+      }
+    : undefined;
+
+  return { ...record, communityUser };
 }
 
 export async function getDeferredServiceTransaction(
@@ -6923,77 +6911,6 @@ export async function updateDeferredServiceTransaction(
       throw new AdminRepositoryError(
         "A deferred service transaction index already exists for that email.",
         409,
-      );
-    }
-
-    const transactionRefs = transactionIds.map((transactionId) =>
-      adminDb.collection(SERVICE_TRANSACTIONS_COLLECTION).doc(transactionId),
-    );
-    const transactionSnapshots = await Promise.all(
-      transactionRefs.map((reference) => firestoreTransaction.get(reference)),
-    );
-    const previousIndexRefs = new Map<string, DocumentReference>();
-    for (let index = 0; index < transactionSnapshots.length; index += 1) {
-      const snapshot = transactionSnapshots[index];
-      const transactionId = transactionIds[index];
-      if (!snapshot?.exists) {
-        throw new AdminRepositoryError(
-          `Service transaction ${transactionId} was not found.`,
-          400,
-        );
-      }
-      const data = snapshot.data() ?? {};
-      if (cleanString(data.requestedByUserId)) {
-        throw new AdminRepositoryError(
-          `Service transaction ${transactionId} is linked to a user ID and cannot be deferred by email.`,
-          409,
-        );
-      }
-      const previousEmail = cleanString(data.requestedByUserEmail).toLowerCase();
-      if (previousEmail && previousEmail !== normalizedEmail) {
-        const previousRef = adminDb
-          .collection(DEFERRED_SERVICE_TRANSACTIONS_COLLECTION)
-          .doc(deferredServiceTransactionIndexId(previousEmail));
-        if (
-          previousRef.path !== sourceRef.path &&
-          previousRef.path !== targetRef.path
-        ) {
-          previousIndexRefs.set(previousRef.path, previousRef);
-        }
-      }
-    }
-
-    const previousIndexSnapshots = await Promise.all(
-      [...previousIndexRefs.values()].map((reference) =>
-        firestoreTransaction.get(reference),
-      ),
-    );
-    for (const previousSnapshot of previousIndexSnapshots) {
-      if (!previousSnapshot.exists) {
-        continue;
-      }
-      const previousRecord = deferredServiceTransactionIndexRecord(
-        previousSnapshot.id,
-        previousSnapshot.data() ?? {},
-      );
-      const remainingIds = previousRecord.deferredTransactionIds.filter(
-        (id) => !transactionIds.includes(id),
-      );
-      firestoreTransaction.set(previousSnapshot.ref, {
-        email: previousRecord.email,
-        deferred_transaction_ids: remainingIds,
-      });
-    }
-
-    for (let index = 0; index < transactionRefs.length; index += 1) {
-      firestoreTransaction.set(
-        transactionRefs[index]!,
-        {
-          requestedByUserEmail: normalizedEmail,
-          updatedAt: FieldValue.serverTimestamp(),
-          updatedByEmail: context.email,
-        },
-        { merge: true },
       );
     }
 

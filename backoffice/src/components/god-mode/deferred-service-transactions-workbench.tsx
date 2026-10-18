@@ -15,6 +15,7 @@ import {
   Save,
   Search,
   Unlink,
+  UserRoundX,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -104,7 +105,7 @@ export function DeferredServiceTransactionsBrowser() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search by email or transaction ID")}
+              placeholder={t("Search by email or document ID")}
               className="pl-9"
             />
           </label>
@@ -118,8 +119,9 @@ export function DeferredServiceTransactionsBrowser() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>{t("Document ID")}</TableHead>
               <TableHead>{t("Email")}</TableHead>
-              <TableHead>{t("Deferred transactions")}</TableHead>
+              <TableHead>{t("Stored IDs")}</TableHead>
               <TableHead className="text-right">{t("Actions")}</TableHead>
             </TableRow>
           </TableHeader>
@@ -127,32 +129,32 @@ export function DeferredServiceTransactionsBrowser() {
             {listQuery.isLoading ? (
               Array.from({ length: 5 }).map((_, index) => (
                 <TableRow key={index}>
-                  <TableCell colSpan={3}>
+                  <TableCell colSpan={4}>
                     <Skeleton className="h-9 w-full" />
                   </TableCell>
                 </TableRow>
               ))
             ) : listQuery.isError ? (
               <TableRow>
-                <TableCell colSpan={3} className="py-10 text-center text-destructive">
+                <TableCell colSpan={4} className="py-10 text-center text-destructive">
                   <CircleAlert className="mx-auto mb-2 h-7 w-7" />
                   {errorMessage(listQuery.error)}
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
-                  {t("No deferred transaction users found.")}
+                <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                  {t("No deferred transaction documents found.")}
                 </TableCell>
               </TableRow>
             ) : (
               rows.map((record) => (
                 <TableRow key={record.id}>
                   <TableCell>
-                    <p className="font-medium text-foreground">{record.email}</p>
-                    <p className="mt-1 font-mono text-xs text-muted-foreground">
-                      {record.id}
-                    </p>
+                    <p className="font-mono text-xs text-foreground">{record.id}</p>
+                  </TableCell>
+                  <TableCell className="font-medium text-foreground">
+                    {record.email || t("Not available")}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">{record.transactionCount}</Badge>
@@ -280,10 +282,6 @@ export function DeferredServiceTransactionWorkbench({
     saveMutation.mutate();
   }
 
-  const linksById = new Map(
-    record?.transactions.map((link) => [link.transactionId, link]) ?? [],
-  );
-
   return (
     <>
       <ActionToast
@@ -340,10 +338,56 @@ export function DeferredServiceTransactionWorkbench({
               />
             </div>
 
+            {record?.communityUser ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-amber-400/45 bg-amber-500/8 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
+                      {t("A community user already exists for this email.")}
+                    </p>
+                    <p className="mt-1 text-sm text-amber-900/80 dark:text-amber-100/75">
+                      {t(
+                        "This user may already have redeemed a deferred transaction ID.",
+                      )}
+                    </p>
+                    <p className="mt-2 break-all font-mono text-xs text-amber-900 dark:text-amber-200">
+                      {record.communityUser.username
+                        ? `@${record.communityUser.username} · `
+                        : ""}
+                      {record.communityUser.email} · {record.communityUser.id}
+                    </p>
+                  </div>
+                </div>
+                <Button asChild type="button" variant="outline" size="sm">
+                  <Link
+                    href={`/collections/community_users/${encodeURIComponent(record.communityUser.id)}`}
+                  >
+                    {t("Open user")}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/25 p-4">
+                <UserRoundX className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {t("No community user has this exact email.")}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {t(
+                      "The linked service transactions remain deferred by email until that community account exists.",
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-heading text-lg font-semibold">
-                  {t("Linked service transactions")}
+                  {t("Stored deferred transaction IDs")}
                 </h3>
                 <Badge variant="secondary">{transactionIds.length}</Badge>
               </div>
@@ -376,56 +420,43 @@ export function DeferredServiceTransactionWorkbench({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {transactionIds.map((transactionId) => {
-                    const link = linksById.get(transactionId);
+                  {transactionIds.map((transactionId, index) => {
                     return (
                       <div
-                        key={transactionId}
+                        key={`${transactionId}-${index}`}
                         className="flex flex-col gap-3 rounded-xl border border-border/70 p-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <Link2 className="h-4 w-4 text-muted-foreground" />
+                            <span className="break-all font-mono text-sm font-medium text-foreground">
+                              {transactionId}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                          <Button asChild type="button" variant="outline" size="sm">
                             <Link
                               href={`/god-mode/service-transactions/${encodeURIComponent(transactionId)}`}
-                              className="break-all font-mono text-sm font-medium text-primary hover:underline"
                             >
-                              {transactionId}
+                              {t("Open")}
+                              <ArrowRight className="h-4 w-4" />
                             </Link>
-                            {link?.transaction ? (
-                              <Badge variant="outline">{link.transaction.status}</Badge>
-                            ) : null}
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {!link
-                              ? t("The relationship will be validated when saved.")
-                              : !link.exists
-                                ? t("Transaction not found.")
-                                : link.requesterMatches
-                                  ? `${t("Requester email")}: ${link.transaction?.requestedByUserEmail}`
-                                  : link.transaction?.requestedByUserId
-                                    ? `${t("Requester user ID")}: ${link.transaction.requestedByUserId}`
-                                    : `${t("Requester email")}: ${link.transaction?.requestedByUserEmail ?? t("Not available")}`}
-                          </p>
-                          {link?.transaction ? (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {link.transaction.name} · {link.transaction.serviceId}
-                            </p>
-                          ) : null}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setTransactionIds((current) =>
+                                current.filter((id) => id !== transactionId),
+                              )
+                            }
+                          >
+                            <Unlink className="h-4 w-4" />
+                            {t("Unlink")}
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setTransactionIds((current) =>
-                              current.filter((id) => id !== transactionId),
-                            )
-                          }
-                        >
-                          <Unlink className="h-4 w-4" />
-                          {t("Unlink")}
-                        </Button>
                       </div>
                     );
                   })}
