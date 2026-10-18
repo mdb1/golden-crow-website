@@ -76,7 +76,7 @@ describe("service transaction notification routes", () => {
   it("returns a retryable mail failure from the repository", async () => {
     notifyOwnerMock.mockRejectedValueOnce(
       new AdminRepositoryError(
-        "The service transaction was saved, but its owner email could not be sent. Retry the notification request.",
+        "The service transaction was saved, but its notification email could not be sent. Retry the notification request.",
         502,
       ),
     );

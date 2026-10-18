@@ -1,7 +1,8 @@
-# Service transaction owner notifications
+# Service transaction notifications
 
-Native clients trigger the owner email after Firestore confirms a new service
-transaction. The SDK does not watch the `service_transactions` collection.
+Native clients trigger the notification email after Firestore confirms a new
+service transaction. The SDK does not watch the `service_transactions`
+collection.
 
 ## Request
 
@@ -20,11 +21,17 @@ only the normalized requester email:
 
 The command reloads the transaction and frozen offer, verifies the supplied
 email against the canonical requester, requires the native-app contract source
-and platform-specific idempotency key, and resolves the provider owner on the
-server. The high-entropy transaction ID plus exact stored requester email are
-the guest-flow proof; clients must not log or expose the email, and should avoid
-logging the full ID. Deterministic 2PQ and backoffice transaction IDs are
-rejected. Clients cannot choose the recipient or supply message content.
+and platform-specific idempotency key, and verifies that the referenced service
+provider still exists and is active. The high-entropy transaction ID plus exact
+stored requester email are the guest-flow proof; clients must not log or expose
+the email, and should avoid logging the full ID. Deterministic 2PQ and
+backoffice transaction IDs are rejected. Clients cannot choose the recipient
+or supply message content.
+
+For the current temporary routing policy, every email is sent to
+`federico@goldencrowvs.com` rather than the service provider. The message shows
+only the canonical service name and requester email in a compact card, with a
+single button to the authenticated backoffice service-transactions dashboard.
 
 Responses are `200` with `sent` or `already_sent`, or `202` with `in_progress`
 when another request currently owns the delivery lease. Delivery failures are

@@ -8,14 +8,8 @@ jest.mock("../lib/gmail-mailer.js", () => ({
 
 describe("service transaction owner notification email", () => {
   const input = {
-    ownerEmail: "owner@example.org",
-    ownerName: "Genome Lab",
     requesterEmail: "requester@example.org",
-    transactionId: "pgr_ios_0123456789abcdef0123456789abcdef",
     transactionName: "Whole genome interpretation",
-    serviceId: "pgs_genome_lab_12345",
-    providerName: "Genome Lab",
-    requestedAt: "2026-10-18T12:30:00.000Z",
   };
 
   beforeEach(() => {
@@ -23,8 +17,11 @@ describe("service transaction owner notification email", () => {
     delete process.env.SERVICE_TRANSACTION_MAIL_FROM;
   });
 
-  it("builds a notification with the requester and canonical transaction details", async () => {
-    const { buildServiceTransactionOwnerNotificationEmail } = await import(
+  it("routes a concise card notification to the temporary operations inbox", async () => {
+    const {
+      buildServiceTransactionOwnerNotificationEmail,
+      SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
+    } = await import(
       "../lib/service-transaction-owner-notification-email.js"
     );
 
@@ -32,19 +29,45 @@ describe("service transaction owner notification email", () => {
 
     expect(message).toEqual(
       expect.objectContaining({
-        to: "owner@example.org",
-        subject:
-          "New Pocket Genes service request: Whole genome interpretation",
+        to: SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
+        subject: "New Pocket Genes service request",
       }),
     );
-    expect(message.text).toContain(
-      "Request ID: pgr_ios_0123456789abcdef0123456789abcdef",
+    expect(SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL).toBe(
+      "federico@goldencrowvs.com",
     );
+    expect(message.text).toContain("Service: Whole genome interpretation");
     expect(message.text).toContain("Requested by: requester@example.org");
     expect(message.text).toContain(
-      "/publisher-portal/service-transactions/pgr_ios_0123456789abcdef0123456789abcdef",
+      "/god-mode/service-transactions",
     );
-    expect(message.text).toContain("automated no-reply notification");
+    expect(message.text).not.toContain("Request ID");
+    expect(message.text).not.toContain("Service ID");
+    expect(message.text).not.toContain("Provider:");
+    expect(message.text).not.toContain("Requested at");
+    expect(message.html).toContain("font-family:Arial,Helvetica,sans-serif");
+    expect(message.html).toContain("background:#2d1b69");
+    expect(message.html).toContain("Review in backoffice");
+    expect(message.html).toContain("/god-mode/service-transactions");
+    expect(message.html).not.toContain("Request ID");
+    expect(message.html).not.toContain("Service ID");
+    expect(message.html).not.toContain("Requested at");
+  });
+
+  it("escapes canonical transaction content in the HTML card", async () => {
+    const { buildServiceTransactionOwnerNotificationEmail } = await import(
+      "../lib/service-transaction-owner-notification-email.js"
+    );
+
+    const message = buildServiceTransactionOwnerNotificationEmail({
+      ...input,
+      transactionName: 'Genome <script>alert("unsafe")</script>',
+    });
+
+    expect(message.html).toContain(
+      "Genome &lt;script&gt;alert(&quot;unsafe&quot;)&lt;/script&gt;",
+    );
+    expect(message.html).not.toContain("<script>");
   });
 
   it("uses an explicit no-reply sender when configured", async () => {
@@ -57,7 +80,7 @@ describe("service transaction owner notification email", () => {
     await sendServiceTransactionOwnerNotificationEmail(input);
 
     expect(sendGmailMessageMock).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "owner@example.org" }),
+      expect.objectContaining({ to: "federico@goldencrowvs.com" }),
       expect.objectContaining({
         from: "Pocket Genes <no-reply@pocketgenes.com>",
         boundaryPrefix: "pocket-genes-service-request",

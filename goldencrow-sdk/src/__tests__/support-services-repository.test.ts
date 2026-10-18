@@ -17,6 +17,8 @@ jest.mock("node:crypto", () => ({
 }));
 
 jest.mock("../lib/service-transaction-owner-notification-email.js", () => ({
+  SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL:
+    "federico@goldencrowvs.com",
   sendServiceTransactionOwnerNotificationEmail: (...args: unknown[]) =>
     mockSendServiceTransactionOwnerNotificationEmail(...args),
 }));
@@ -5643,7 +5645,7 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
-  it("emails the authoritative provider owner once for a committed transaction", async () => {
+  it("emails the temporary operations inbox once for a committed transaction", async () => {
     const {
       createSupportServiceTransaction,
       notifySupportServiceTransactionOwner,
@@ -5675,16 +5677,10 @@ describe("support service canonical transaction creation", () => {
     ).toHaveBeenCalledTimes(1);
     expect(
       mockSendServiceTransactionOwnerNotificationEmail,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ownerEmail: "services@pocketgenes.example",
-        ownerName: "Pocket Genes",
-        requesterEmail: "new-user@example.com",
-        transactionId: nativeNotificationTransactionId,
-        transactionName: "Report service",
-        serviceId: "pgs_pocket_genes_1",
-      }),
-    );
+    ).toHaveBeenCalledWith({
+      requesterEmail: "new-user@example.com",
+      transactionName: "Report service",
+    });
     expect(
       collectionStore("service_transaction_notifications").get(
         nativeNotificationTransactionId,
@@ -5694,12 +5690,39 @@ describe("support service canonical transaction creation", () => {
         serviceTransactionId: nativeNotificationTransactionId,
         status: "sent",
         attemptCount: 1,
-        providerOwnerId: "feed-org-1",
+        recipientEmail: "federico@goldencrowvs.com",
       }),
     );
   });
 
-  it("retries a failed owner email without creating a duplicate notification record", async () => {
+  it("does not require provider-owner contact records for temporary routing", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionOwner,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      nativeNotificationCreationInput(),
+    );
+    collectionStore("object_owners").delete("feed-org-1");
+    collectionStore("community_users").delete("feed-org-1");
+
+    await expect(
+      notifySupportServiceTransactionOwner(
+        nativeNotificationTransactionId,
+        "new-user@example.com",
+      ),
+    ).resolves.toEqual({
+      transactionId: nativeNotificationTransactionId,
+      status: "sent",
+    });
+
+    expect(
+      mockSendServiceTransactionOwnerNotificationEmail,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a failed notification email without creating a duplicate notification record", async () => {
     const {
       createSupportServiceTransaction,
       notifySupportServiceTransactionOwner,

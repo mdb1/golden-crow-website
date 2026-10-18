@@ -23,6 +23,7 @@ import {
   TWO_PQ_REPORT_OWNER_NAME,
 } from "../lib/two-pq-report-owner.js";
 import {
+  SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
   sendServiceTransactionOwnerNotificationEmail,
 } from "../lib/service-transaction-owner-notification-email.js";
 import {
@@ -8651,10 +8652,11 @@ async function finishServiceTransactionNotificationAttempt(
 }
 
 /**
- * Sends the one owner email associated with a newly committed service
- * transaction. The native apps call this command after Firestore confirms the
- * transaction write. The caller proves knowledge of the normalized requester
- * email; recipient and message data are always reloaded from canonical records.
+ * Sends the one operations notification associated with a newly committed
+ * service transaction. The native apps call this command after Firestore
+ * confirms the transaction write. The caller proves knowledge of the
+ * normalized requester email; message data is always reloaded from canonical
+ * records and the recipient is fixed on the server.
  */
 export async function notifySupportServiceTransactionOwner(
   transactionIdValue: string,
@@ -8754,7 +8756,7 @@ export async function notifySupportServiceTransactionOwner(
           };
         }
 
-        const offer = offerFromFrozenTransaction(transaction);
+        offerFromFrozenTransaction(transaction);
         const providerRef = adminDb
           .collection(
             transaction.providerKind === "individual"
@@ -8769,38 +8771,15 @@ export async function notifySupportServiceTransactionOwner(
             409,
           );
         }
-        const providerData = providerSnapshot.data() ?? {};
-        const owner = await resolveAuthoritativeProviderOwnerRecord(
-          offer,
-          providerData,
-          (reference) => firestoreTransaction.get(reference),
-        );
-        const ownerEmail = (
-          cleanString(owner.ownerData.owner_contact_email) ||
-          cleanString(owner.ownerCommunityData.email)
-        ).toLowerCase();
-        if (!REQUESTER_EMAIL_PATTERN.test(ownerEmail)) {
-          throw new AdminRepositoryError(
-            "The service provider owner requires a valid email address.",
-            409,
-          );
-        }
-        const ownerName =
-          cleanString(owner.ownerData.owner_name) ||
-          cleanString(owner.ownerCommunityData.fullName) ||
-          cleanString(owner.ownerCommunityData.name) ||
-          cleanString(transaction.providerSnapshot.name) ||
-          offer.providerName;
-        const providerName =
-          cleanString(transaction.providerSnapshot.name) ||
-          offer.providerName;
+        assertActiveProviderData(providerSnapshot.data() ?? {});
 
         firestoreTransaction.set(
           notificationRef,
           {
             serviceTransactionId: transactionId,
             requestedByUserEmail,
-            providerOwnerId: owner.ownerCommunityUserId,
+            recipientEmail:
+              SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
             status: "sending",
             attemptToken,
             attemptCount:
@@ -8822,16 +8801,8 @@ export async function notifySupportServiceTransactionOwner(
           transactionId,
           attemptToken,
           email: {
-            ownerEmail,
-            ownerName,
             requesterEmail: requestedByUserEmail,
-            transactionId,
-            transactionName:
-              transaction.customTransactionName ?? transaction.name,
-            serviceId: transaction.serviceId,
-            providerName,
-            requestedAt:
-              transaction.requestedAt ?? transaction.requestedAtClient,
+            transactionName: transaction.name,
           },
         };
       },
@@ -8855,7 +8826,7 @@ export async function notifySupportServiceTransactionOwner(
       // prevents an immediate duplicate while Firestore is unavailable.
     }
     throw new AdminRepositoryError(
-      "The service transaction was saved, but its owner email could not be sent. Retry the notification request.",
+      "The service transaction was saved, but its notification email could not be sent. Retry the notification request.",
       502,
     );
   }
@@ -8869,7 +8840,7 @@ export async function notifySupportServiceTransactionOwner(
     );
   } catch {
     throw new AdminRepositoryError(
-      "The owner email was accepted, but its delivery receipt could not be finalized. Retry later.",
+      "The notification email was accepted, but its delivery receipt could not be finalized. Retry later.",
       503,
     );
   }
