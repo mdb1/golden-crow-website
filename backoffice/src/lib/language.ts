@@ -5731,6 +5731,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Actual recipient": "Destinatario real",
   "Temporary routing is active. Only the address above receives this send.":
     "El enrutamiento temporal está activo. Solo la dirección que figura arriba recibe este envío.",
+  "Provider routing is active. The provider email above receives this send.":
+    "El enrutamiento al prestador está activo. El email del prestador que figura arriba recibe este envío.",
   "Provider recipient if temporary routing is removed":
     "Destinatario prestador si se elimina el enrutamiento temporal",
   "Not receiving this email": "No recibe este email",

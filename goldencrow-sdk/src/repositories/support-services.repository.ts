@@ -23,10 +23,12 @@ import {
   TWO_PQ_REPORT_OWNER_NAME,
 } from "../lib/two-pq-report-owner.js";
 import {
-  SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
   buildServiceTransactionOwnerNotificationEmail,
   sendServiceTransactionOwnerNotificationEmail,
 } from "../lib/service-transaction-owner-notification-email.js";
+import {
+  ServiceTransactionNotificationRoutingError,
+} from "../lib/service-transaction-notification-routing.js";
 import {
   NATIVE_SERVICE_TRANSACTION_NOTIFICATION_CONTRACT_SOURCE,
   nativeServiceTransactionPlatform,
@@ -880,6 +882,7 @@ export interface DeferredServiceTransactionNotificationPreview {
     status: string;
   };
   email: {
+    recipientMode: "temporary_operations" | "provider";
     recipientEmail: string;
     subject: string;
     text: string;
@@ -7211,6 +7214,25 @@ function deferredServiceTransactionProviderCollection(
     : FEED_ORGANIZATIONS_COLLECTION;
 }
 
+function serviceTransactionNotificationEmailMessage(
+  input: Parameters<
+    typeof sendServiceTransactionOwnerNotificationEmail
+  >[0],
+) {
+  try {
+    return buildServiceTransactionOwnerNotificationEmail(input);
+  } catch (error) {
+    if (
+      error instanceof ServiceTransactionNotificationRoutingError ||
+      (error instanceof Error &&
+        error.name === "ServiceTransactionNotificationRoutingError")
+    ) {
+      throw new AdminRepositoryError(error.message, 409);
+    }
+    throw error;
+  }
+}
+
 function buildDeferredServiceTransactionNotificationPreview(input: {
   deferredId: string;
   deferredData: Record<string, unknown>;
@@ -7269,9 +7291,9 @@ function buildDeferredServiceTransactionNotificationPreview(input: {
   const emailInput = {
     requesterEmail,
     transactionName: transaction.name,
+    providerContactEmail: providerEmail,
   };
-  const emailMessage =
-    buildServiceTransactionOwnerNotificationEmail(emailInput);
+  const emailMessage = serviceTransactionNotificationEmailMessage(emailInput);
   const previewWithoutFingerprint = {
     deferredId: deferredRecord.id,
     deferredEmail: deferredRecord.email,
@@ -7294,10 +7316,14 @@ function buildDeferredServiceTransactionNotificationPreview(input: {
         : "missing",
     },
     email: {
+      recipientMode: emailMessage.recipientMode,
       recipientEmail: emailMessage.to,
       subject: emailMessage.subject,
       text: emailMessage.text,
-      input: emailInput,
+      input: {
+        requesterEmail,
+        transactionName: transaction.name,
+      },
     },
   } satisfies DeferredServiceTransactionNotificationPreviewWithoutFingerprint;
   const previewFingerprint = createHash("sha256")
@@ -9023,6 +9049,7 @@ type DeferredServiceTransactionNotificationResendClaim =
       resendRequestId: string;
       receiptId: string;
       attemptToken: string;
+      recipientEmail: string;
       email: Parameters<
         typeof sendServiceTransactionOwnerNotificationEmail
       >[0];
@@ -9338,7 +9365,7 @@ export async function resendDeferredServiceTransactionNotification(
             previewFingerprint,
             requestedByUserEmail:
               current.preview.transaction.requestedByUserEmail,
-            recipientEmail: SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
+            recipientEmail: current.preview.email.recipientEmail,
             providerId: current.preview.provider.id,
             providerKind: current.preview.provider.accountType,
             status: "sending",
@@ -9366,6 +9393,7 @@ export async function resendDeferredServiceTransactionNotification(
           resendRequestId,
           receiptId,
           attemptToken,
+          recipientEmail: current.preview.email.recipientEmail,
           email: current.emailInput,
         };
       },
@@ -9411,7 +9439,7 @@ export async function resendDeferredServiceTransactionNotification(
   return {
     transactionId: claim.transactionId,
     resendRequestId: claim.resendRequestId,
-    recipientEmail: SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
+    recipientEmail: claim.recipientEmail,
     status: finalized ? "sent" : "in_progress",
   };
 }
@@ -9470,7 +9498,7 @@ async function finishServiceTransactionNotificationAttempt(
  * service transaction. The native apps call this command after Firestore
  * confirms the transaction write. The caller proves knowledge of the
  * normalized requester email; message data is always reloaded from canonical
- * records and the recipient is fixed on the server.
+ * records and notification routing is decided entirely on the server.
  */
 export async function notifySupportServiceTransactionOwner(
   transactionIdValue: string,
@@ -9585,15 +9613,23 @@ export async function notifySupportServiceTransactionOwner(
             409,
           );
         }
-        assertActiveProviderData(providerSnapshot.data() ?? {});
+        const providerData = providerSnapshot.data() ?? {};
+        assertActiveProviderData(providerData);
+        const email = {
+          requesterEmail: requestedByUserEmail,
+          transactionName: transaction.name,
+          providerContactEmail:
+            cleanString(providerData.contactEmail).toLowerCase() || null,
+        };
+        const emailMessage =
+          serviceTransactionNotificationEmailMessage(email);
 
         firestoreTransaction.set(
           notificationRef,
           {
             serviceTransactionId: transactionId,
             requestedByUserEmail,
-            recipientEmail:
-              SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
+            recipientEmail: emailMessage.to,
             status: "sending",
             attemptToken,
             attemptCount:
@@ -9614,10 +9650,7 @@ export async function notifySupportServiceTransactionOwner(
           status: "claimed",
           transactionId,
           attemptToken,
-          email: {
-            requesterEmail: requestedByUserEmail,
-            transactionName: transaction.name,
-          },
+          email,
         };
       },
     );

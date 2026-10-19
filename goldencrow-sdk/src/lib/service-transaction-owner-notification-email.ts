@@ -1,20 +1,18 @@
 import { ENV } from "../config/env.js";
 import { sendGmailMessage } from "./gmail-mailer.js";
+import {
+  resolveServiceTransactionNotificationRouting,
+} from "./service-transaction-notification-routing.js";
 
 export type ServiceTransactionOwnerNotificationEmailInput = {
   requesterEmail: string;
   transactionName: string;
+  providerContactEmail?: string | null;
 };
 
-export const SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL =
-  "federico@goldencrowvs.com";
-
-const SERVICE_TRANSACTION_DASHBOARD_PATH =
-  "/god-mode/service-transactions";
-
-function notificationDashboardUrl() {
+function notificationDestinationUrl(path: string) {
   const origin = `${ENV.BACKOFFICE_ORIGIN.replace(/\/+$/, "")}/`;
-  return new URL(SERVICE_TRANSACTION_DASHBOARD_PATH, origin).toString();
+  return new URL(path, origin).toString();
 }
 
 function escapeHtml(value: string) {
@@ -42,24 +40,28 @@ function serviceTransactionNoReplyFromHeader() {
 export function buildServiceTransactionOwnerNotificationEmail(
   input: ServiceTransactionOwnerNotificationEmailInput,
 ) {
-  const dashboardUrl = notificationDashboardUrl();
-  const safeDashboardUrl = escapeHtml(dashboardUrl);
+  const routing = resolveServiceTransactionNotificationRouting(
+    input.providerContactEmail,
+  );
+  const destinationUrl = notificationDestinationUrl(routing.destinationPath);
+  const safeDestinationUrl = escapeHtml(destinationUrl);
   const safeRequesterEmail = escapeHtml(input.requesterEmail);
   const safeTransactionName = escapeHtml(input.transactionName);
   const preheader = "A new Pocket Genes service request is ready for review.";
 
   return {
-    to: SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL,
+    recipientMode: routing.recipientMode,
+    to: routing.recipientEmail,
     subject: "New Pocket Genes service request",
     text: [
-      "Hello Federico,",
+      routing.greeting,
       "",
       "A new service request has been submitted through Pocket Genes.",
       "",
       `Service: ${input.transactionName}`,
       `Requested by: ${input.requesterEmail}`,
       "",
-      `Review it in the backoffice: ${dashboardUrl}`,
+      `${routing.destinationTextLabel}: ${destinationUrl}`,
       "",
       "Pocket Genes",
     ].join("\n"),
@@ -84,7 +86,7 @@ export function buildServiceTransactionOwnerNotificationEmail(
               <tr>
                 <td style="padding:40px;background:#ffffff;">
                   <p style="margin:0 0 24px;font-size:20px;line-height:30px;color:#111827;">
-                    Hello Federico,
+                    ${escapeHtml(routing.greeting)}
                   </p>
                   <p style="margin:0 0 28px;font-size:18px;line-height:30px;color:#4b5563;">
                     A new service request has been submitted through Pocket Genes and is ready for review.
@@ -104,8 +106,8 @@ export function buildServiceTransactionOwnerNotificationEmail(
                       </td>
                     </tr>
                   </table>
-                  <a href="${safeDashboardUrl}" style="display:inline-block;background:#6f3cc3;color:#ffffff;text-decoration:none;border-radius:12px;padding:16px 24px;font-size:15px;line-height:20px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">
-                    Review in backoffice
+                  <a href="${safeDestinationUrl}" style="display:inline-block;background:#6f3cc3;color:#ffffff;text-decoration:none;border-radius:12px;padding:16px 24px;font-size:15px;line-height:20px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">
+                    ${escapeHtml(routing.destinationButtonLabel)}
                   </a>
                 </td>
               </tr>

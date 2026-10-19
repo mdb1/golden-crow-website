@@ -625,6 +625,7 @@ describe("deferred service transaction workbenches", () => {
         status: "active",
       },
       email: {
+        recipientMode: "temporary_operations" as const,
         recipientEmail: "federico@goldencrowvs.com",
         subject: "New Pocket Genes service request",
         text: [
@@ -678,6 +679,11 @@ describe("deferred service transaction workbenches", () => {
     });
     expect(
       within(dialog).getByText("federico@goldencrowvs.com"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Temporary routing is active. Only the address above receives this send.",
+      ),
     ).toBeInTheDocument();
     expect(within(dialog).getByText("Genome Lab")).toBeInTheDocument();
     const providerRoutingLabel = within(dialog).getByText(
@@ -746,6 +752,97 @@ describe("deferred service transaction workbenches", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows the provider as the active recipient when provider routing is enabled", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      if (String(path).endsWith("/notification")) {
+        return {
+          preview: {
+            deferredId: "deferred-index",
+            deferredEmail: "requester@example.com",
+            transactionId: "pgr_one",
+            linkedTransactionIds: ["pgr_one"],
+            requesterEmailMismatch: false,
+            previewFingerprint: "a".repeat(64),
+            transaction: {
+              id: "pgr_one",
+              name: "Genome interpretation",
+              requestedByUserEmail: "requester@example.com",
+              status: "received",
+            },
+            provider: {
+              id: "provider-1",
+              accountType: "organization",
+              name: "Genome Lab",
+              email: "provider@genome.example",
+              status: "active",
+            },
+            email: {
+              recipientMode: "provider",
+              recipientEmail: "provider@genome.example",
+              subject: "New Pocket Genes service request",
+              text: "Service: Genome interpretation",
+              input: {
+                transactionName: "Genome interpretation",
+                requesterEmail: "requester@example.com",
+              },
+            },
+          },
+        };
+      }
+      if (isLinkedTransactionsRequest(path)) {
+        return {
+          transactions: [linkedTransaction("pgr_one")],
+        };
+      }
+      return {
+        deferredTransaction: {
+          id: "deferred-index",
+          email: "requester@example.com",
+          deferredTransactionIds: ["pgr_one"],
+          transactionCount: 1,
+        },
+      };
+    });
+
+    renderWithProviders(
+      <DeferredServiceTransactionWorkbench deferredId="deferred-index" />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Send email again: pgr_one",
+      }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Review notification email",
+    });
+    expect(
+      within(dialog).getByText(
+        "Provider routing is active. The provider email above receives this send.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getAllByText("provider@genome.example"),
+    ).toHaveLength(2);
+    expect(within(dialog).getByText("Genome Lab")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/"recipientMode": "provider"/),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText(
+        "Temporary routing is active. Only the address above receives this send.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByText(
+        "Provider recipient if temporary routing is removed",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByText("Not receiving this email"),
+    ).not.toBeInTheDocument();
+  });
+
   it("keeps a late preview response from replacing the currently selected transaction", async () => {
     const detail = {
       id: "deferred-index",
@@ -776,6 +873,7 @@ describe("deferred service transaction workbenches", () => {
         status: "active",
       },
       email: {
+        recipientMode: "temporary_operations" as const,
         recipientEmail: "federico@goldencrowvs.com",
         subject: "New Pocket Genes service request",
         text: `Service: ${name}`,
@@ -868,6 +966,7 @@ describe("deferred service transaction workbenches", () => {
               status: "inactive",
             },
             email: {
+              recipientMode: "temporary_operations",
               recipientEmail: "federico@goldencrowvs.com",
               subject: "New Pocket Genes service request",
               text: "Service: Genome interpretation",
@@ -940,6 +1039,7 @@ describe("deferred service transaction workbenches", () => {
               status: "active",
             },
             email: {
+              recipientMode: "temporary_operations",
               recipientEmail: "federico@goldencrowvs.com",
               subject: "New Pocket Genes service request",
               text: "Service: Genome interpretation",
@@ -1026,6 +1126,7 @@ describe("deferred service transaction workbenches", () => {
         status: "active",
       },
       email: {
+        recipientMode: "temporary_operations" as const,
         recipientEmail: "federico@goldencrowvs.com",
         subject: "New Pocket Genes service request",
         text: `Service: ${name}`,

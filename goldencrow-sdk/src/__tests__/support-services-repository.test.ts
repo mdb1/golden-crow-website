@@ -6,6 +6,9 @@ type MockData = Record<string, unknown>;
 const mockLookup = jest.fn();
 const mockRandomInt = jest.fn();
 const mockSendServiceTransactionOwnerNotificationEmail = jest.fn();
+const mockNotificationRouting = jest.requireActual<
+  typeof import("../lib/service-transaction-notification-routing.js")
+>("../lib/service-transaction-notification-routing.js");
 
 jest.mock("node:dns/promises", () => ({
   lookup: (...args: unknown[]) => mockLookup(...args),
@@ -17,17 +20,23 @@ jest.mock("node:crypto", () => ({
 }));
 
 jest.mock("../lib/service-transaction-owner-notification-email.js", () => ({
-  SERVICE_TRANSACTION_NOTIFICATION_RECIPIENT_EMAIL:
-    "federico@goldencrowvs.com",
   buildServiceTransactionOwnerNotificationEmail: (input: {
     requesterEmail: string;
     transactionName: string;
-  }) => ({
-    to: "federico@goldencrowvs.com",
-    subject: "New Pocket Genes service request",
-    text: `Service: ${input.transactionName}\nRequested by: ${input.requesterEmail}`,
-    html: "<p>New service request</p>",
-  }),
+    providerContactEmail?: string | null;
+  }) => {
+    const routing =
+      mockNotificationRouting.resolveServiceTransactionNotificationRouting(
+        input.providerContactEmail,
+      );
+    return {
+      recipientMode: routing.recipientMode,
+      to: routing.recipientEmail,
+      subject: "New Pocket Genes service request",
+      text: `Service: ${input.transactionName}\nRequested by: ${input.requesterEmail}`,
+      html: "<p>New service request</p>",
+    };
+  },
   sendServiceTransactionOwnerNotificationEmail: (...args: unknown[]) =>
     mockSendServiceTransactionOwnerNotificationEmail(...args),
 }));
@@ -56,6 +65,14 @@ function collectionStore(name: string) {
     collections.set(name, store);
   }
   return store;
+}
+
+function configuredNotificationRouting(
+  providerContactEmail: string | null = "publisher@pocketgenes.example",
+) {
+  return mockNotificationRouting.resolveServiceTransactionNotificationRouting(
+    providerContactEmail,
+  );
 }
 
 function seedDoc(collectionName: string, id: string, data: MockData) {
@@ -5800,7 +5817,8 @@ describe("support service canonical transaction creation", () => {
     });
   });
 
-  it("emails the temporary operations inbox once for a committed transaction", async () => {
+  it("emails the configured recipient once for a committed transaction", async () => {
+    const notificationRouting = configuredNotificationRouting();
     const {
       createSupportServiceTransaction,
       notifySupportServiceTransactionOwner,
@@ -5835,6 +5853,7 @@ describe("support service canonical transaction creation", () => {
     ).toHaveBeenCalledWith({
       requesterEmail: "new-user@example.com",
       transactionName: "Report service",
+      providerContactEmail: "publisher@pocketgenes.example",
     });
     expect(
       collectionStore("service_transaction_notifications").get(
@@ -5845,12 +5864,13 @@ describe("support service canonical transaction creation", () => {
         serviceTransactionId: nativeNotificationTransactionId,
         status: "sent",
         attemptCount: 1,
-        recipientEmail: "federico@goldencrowvs.com",
+        recipientEmail: notificationRouting.recipientEmail,
       }),
     );
   });
 
   it("previews canonical deferred notification details and idempotently resends each explicit request", async () => {
+    const notificationRouting = configuredNotificationRouting();
     const {
       createSupportServiceTransaction,
       getDeferredServiceTransactionNotificationPreview,
@@ -5868,7 +5888,7 @@ describe("support service canonical transaction creation", () => {
       nativeNotificationTransactionId,
       {
         serviceTransactionId: nativeNotificationTransactionId,
-        recipientEmail: "federico@goldencrowvs.com",
+        recipientEmail: notificationRouting.recipientEmail,
         status: "sent",
       },
     );
@@ -5901,7 +5921,8 @@ describe("support service canonical transaction creation", () => {
         status: "active",
       },
       email: {
-        recipientEmail: "federico@goldencrowvs.com",
+        recipientMode: notificationRouting.recipientMode,
+        recipientEmail: notificationRouting.recipientEmail,
         subject: "New Pocket Genes service request",
         text: "Service: Report service\nRequested by: new-user@example.com",
         input: {
@@ -5927,7 +5948,7 @@ describe("support service canonical transaction creation", () => {
     ).resolves.toEqual({
       transactionId: nativeNotificationTransactionId,
       resendRequestId: firstResendRequestId,
-      recipientEmail: "federico@goldencrowvs.com",
+      recipientEmail: notificationRouting.recipientEmail,
       status: "sent",
     });
     collectionStore("deferred_service_transactions").delete(deferredId);
@@ -5942,7 +5963,7 @@ describe("support service canonical transaction creation", () => {
     ).resolves.toEqual({
       transactionId: nativeNotificationTransactionId,
       resendRequestId: firstResendRequestId,
-      recipientEmail: "federico@goldencrowvs.com",
+      recipientEmail: notificationRouting.recipientEmail,
       status: "already_sent",
     });
     seedDoc("deferred_service_transactions", deferredId, {
@@ -5967,6 +5988,7 @@ describe("support service canonical transaction creation", () => {
     ).toHaveBeenCalledWith({
       requesterEmail: "new-user@example.com",
       transactionName: "Report service",
+      providerContactEmail: "publisher@pocketgenes.example",
     });
     expect(
       collectionStore("service_transaction_notification_resends").size,
@@ -5982,7 +6004,7 @@ describe("support service canonical transaction creation", () => {
         expect.objectContaining({
           serviceTransactionId: nativeNotificationTransactionId,
           previewFingerprint: preview.previewFingerprint,
-          recipientEmail: "federico@goldencrowvs.com",
+          recipientEmail: notificationRouting.recipientEmail,
           providerKind: "organization",
           status: "sent",
         }),
@@ -5990,7 +6012,7 @@ describe("support service canonical transaction creation", () => {
     );
   });
 
-  it("shows an individual publisher and keeps missing provider contact information non-blocking", async () => {
+  it("handles an individual publisher without contactEmail according to the configured route", async () => {
     const {
       createSupportServiceTransaction,
       getDeferredServiceTransactionNotificationPreview,
@@ -6026,12 +6048,24 @@ describe("support service canonical transaction creation", () => {
       "base64url",
     );
 
-    const preview =
-      await getDeferredServiceTransactionNotificationPreview(
+    const previewPromise =
+      getDeferredServiceTransactionNotificationPreview(
         context,
         deferredId,
         nativeNotificationTransactionId,
       );
+
+    if (
+      mockNotificationRouting.SEND_SERVICE_TRANSACTION_NOTIFICATIONS_TO_PROVIDER
+    ) {
+      await expect(previewPromise).rejects.toMatchObject({ statusCode: 409 });
+      expect(
+        mockSendServiceTransactionOwnerNotificationEmail,
+      ).not.toHaveBeenCalled();
+      return;
+    }
+
+    const preview = await previewPromise;
 
     expect(preview.provider).toEqual({
       id: "feed-individual-1",
@@ -6162,7 +6196,7 @@ describe("support service canonical transaction creation", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("shows a missing provider in the preview and refuses to resend", async () => {
+  it("fails closed for a missing provider while preserving the temporary-route preview", async () => {
     const {
       createSupportServiceTransaction,
       getDeferredServiceTransactionNotificationPreview,
@@ -6176,12 +6210,24 @@ describe("support service canonical transaction creation", () => {
     const deferredId = Buffer.from("new-user@example.com").toString(
       "base64url",
     );
-    const preview =
-      await getDeferredServiceTransactionNotificationPreview(
+    const previewPromise =
+      getDeferredServiceTransactionNotificationPreview(
         context,
         deferredId,
         nativeNotificationTransactionId,
       );
+
+    if (
+      mockNotificationRouting.SEND_SERVICE_TRANSACTION_NOTIFICATIONS_TO_PROVIDER
+    ) {
+      await expect(previewPromise).rejects.toMatchObject({ statusCode: 409 });
+      expect(
+        mockSendServiceTransactionOwnerNotificationEmail,
+      ).not.toHaveBeenCalled();
+      return;
+    }
+
+    const preview = await previewPromise;
 
     expect(preview.provider).toEqual(
       expect.objectContaining({
@@ -6262,7 +6308,7 @@ describe("support service canonical transaction creation", () => {
     ).toHaveBeenCalledTimes(2);
   });
 
-  it("does not require provider-owner contact records for temporary routing", async () => {
+  it("does not require separate provider-owner records for notification routing", async () => {
     const {
       createSupportServiceTransaction,
       notifySupportServiceTransactionOwner,

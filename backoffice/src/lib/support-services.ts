@@ -533,6 +533,7 @@ export interface DeferredServiceTransactionNotificationPreview {
     status: string;
   };
   email: {
+    recipientMode: "temporary_operations" | "provider";
     recipientEmail: string;
     subject: string;
     text: string;
