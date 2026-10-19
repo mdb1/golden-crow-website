@@ -28,6 +28,7 @@ const PUBLIC_PATHS = new Set([
   "/auth/logout",
   "/auth/email-signup",
   "/auth/email-signup/eligibility",
+  "/service-transactions/notify-requester",
 ]);
 
 export function isPublicPath(path: string) {

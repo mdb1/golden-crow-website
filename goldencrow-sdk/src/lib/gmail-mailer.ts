@@ -1,8 +1,16 @@
-type GmailMessageInput = {
+export type GmailInlineAttachmentInput = {
+  contentId: string;
+  filename: string;
+  mimeType: string;
+  contentBase64: string;
+};
+
+export type GmailMessageInput = {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  inlineAttachments?: readonly GmailInlineAttachmentInput[];
 };
 
 type GmailSendOptions = {
@@ -62,6 +70,46 @@ function base64Url(value: string) {
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/g, "");
+}
+
+function quotedMimeParameter(value: string) {
+  return sanitizeHeader(value).replace(/(["\\])/g, "\\$1");
+}
+
+function normalizedContentId(value: string) {
+  const normalized = sanitizeHeader(value).replace(/^<|>$/g, "");
+  if (!/^[A-Za-z0-9._@-]+$/.test(normalized)) {
+    throw new Error("Gmail inline attachment contentId is invalid");
+  }
+  return normalized;
+}
+
+function normalizedMimeType(value: string) {
+  const normalized = sanitizeHeader(value).toLowerCase();
+  if (
+    !/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/.test(
+      normalized,
+    )
+  ) {
+    throw new Error("Gmail inline attachment mimeType is invalid");
+  }
+  return normalized;
+}
+
+function normalizedAttachmentBase64(value: string) {
+  const normalized = value.replace(/\s+/g, "");
+  if (
+    !normalized ||
+    normalized.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)
+  ) {
+    throw new Error("Gmail inline attachment contentBase64 is invalid");
+  }
+  return normalized;
+}
+
+function wrapBase64(value: string) {
+  return value.match(/.{1,76}/g)?.join("\r\n") ?? value;
 }
 
 function extractEmailAddress(value: string | undefined) {
@@ -233,7 +281,11 @@ export function buildRawGmailMessage(
     "MIME-Version: 1.0",
   ];
 
+  const inlineAttachments = input.inlineAttachments ?? [];
   if (!input.html) {
+    if (inlineAttachments.length > 0) {
+      throw new Error("Gmail inline attachments require an HTML message");
+    }
     return base64Url(
       [
         ...headers,
@@ -246,28 +298,71 @@ export function buildRawGmailMessage(
     );
   }
 
-  const boundaryPrefix = options.boundaryPrefix ?? "gc-mail";
-  const boundary = `${boundaryPrefix}-${Date.now().toString(36)}`;
-  const multipartHeaders = [
-    ...headers,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
-  ];
-  const body = [
-    `--${boundary}`,
+  const boundaryPrefix = sanitizeHeader(options.boundaryPrefix ?? "gc-mail");
+  const boundarySeed = `${boundaryPrefix}-${Date.now().toString(36)}`;
+  const alternativeBoundary =
+    inlineAttachments.length === 0
+      ? boundarySeed
+      : `${boundarySeed}-alternative`;
+  const alternativeBody = [
+    `--${alternativeBoundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: 8bit",
     "",
     input.text,
-    `--${boundary}`,
+    `--${alternativeBoundary}`,
     'Content-Type: text/html; charset="UTF-8"',
     "Content-Transfer-Encoding: 8bit",
     "",
     input.html,
-    `--${boundary}--`,
+    `--${alternativeBoundary}--`,
     "",
   ];
 
-  return base64Url([...multipartHeaders, "", ...body].join("\r\n"));
+  if (inlineAttachments.length === 0) {
+    return base64Url(
+      [
+        ...headers,
+        `Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`,
+        "",
+        ...alternativeBody,
+      ].join("\r\n"),
+    );
+  }
+
+  const relatedBoundary = `${boundarySeed}-related`;
+  const attachmentParts = inlineAttachments.flatMap((attachment) => {
+    const filename = quotedMimeParameter(attachment.filename);
+    const contentId = normalizedContentId(attachment.contentId);
+    const mimeType = normalizedMimeType(attachment.mimeType);
+    const contentBase64 = normalizedAttachmentBase64(
+      attachment.contentBase64,
+    );
+    return [
+      `--${relatedBoundary}`,
+      `Content-Type: ${mimeType}; name="${filename}"`,
+      "Content-Transfer-Encoding: base64",
+      `Content-ID: <${contentId}>`,
+      `Content-Disposition: inline; filename="${filename}"`,
+      "",
+      wrapBase64(contentBase64),
+    ];
+  });
+
+  return base64Url(
+    [
+      ...headers,
+      `Content-Type: multipart/related; type="multipart/alternative"; boundary="${relatedBoundary}"`,
+      "",
+      `--${relatedBoundary}`,
+      `Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`,
+      "",
+      ...alternativeBody,
+      ...attachmentParts,
+      `--${relatedBoundary}--`,
+      "",
+    ].join("\r\n"),
+  );
 }
 
 async function refreshAccessToken(options: GmailSendOptions = {}) {

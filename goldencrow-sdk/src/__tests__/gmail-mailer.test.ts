@@ -37,6 +37,103 @@ describe("Gmail mailer", () => {
     expect(decoded).not.toContain("text/html");
   });
 
+  it("embeds inline CID images in a multipart related HTML message", () => {
+    const contentBase64 = Buffer.from("fixed-png-bytes", "utf8").toString(
+      "base64",
+    );
+    const raw = buildRawGmailMessage(
+      {
+        to: "recipient@example.com",
+        subject: "Pocket Genes request",
+        text: "Open the App Store link.",
+        html:
+          '<p>Scan:</p><img src="cid:app-store-qr@example.com" alt="QR" />',
+        inlineAttachments: [
+          {
+            contentId: "app-store-qr@example.com",
+            filename: "app-store-qr.png",
+            mimeType: "image/png",
+            contentBase64,
+          },
+        ],
+      },
+      {
+        from: "Pocket Genes <no-reply@pocketgenes.com>",
+        boundaryPrefix: "request-confirmation",
+      },
+    );
+
+    const decoded = decodeBase64Url(raw);
+    expect(decoded).toContain(
+      'Content-Type: multipart/related; type="multipart/alternative";',
+    );
+    expect(decoded).toContain("Content-Type: multipart/alternative;");
+    expect(decoded).toContain('Content-Type: image/png; name="app-store-qr.png"');
+    expect(decoded).toContain("Content-ID: <app-store-qr@example.com>");
+    expect(decoded).toContain(
+      'Content-Disposition: inline; filename="app-store-qr.png"',
+    );
+    expect(decoded).toContain('src="cid:app-store-qr@example.com"');
+    expect(decoded).toContain(contentBase64);
+  });
+
+  it("keeps HTML messages without attachments as multipart alternative", () => {
+    const raw = buildRawGmailMessage(
+      {
+        to: "recipient@example.com",
+        subject: "Existing HTML message",
+        text: "Plain fallback",
+        html: "<p>HTML body</p>",
+      },
+      {
+        from: "Pocket Genes <no-reply@pocketgenes.com>",
+        boundaryPrefix: "existing-message",
+      },
+    );
+
+    const decoded = decodeBase64Url(raw);
+    expect(decoded).toContain("Content-Type: multipart/alternative;");
+    expect(decoded).not.toContain("multipart/related");
+    expect(decoded).toContain("Plain fallback");
+    expect(decoded).toContain("<p>HTML body</p>");
+  });
+
+  it("rejects inline attachments without HTML or with unsafe MIME metadata", () => {
+    const attachment = {
+      contentId: "app-store-qr@example.com",
+      filename: "app-store-qr.png",
+      mimeType: "image/png",
+      contentBase64: Buffer.from("png", "utf8").toString("base64"),
+    };
+
+    expect(() =>
+      buildRawGmailMessage(
+        {
+          to: "recipient@example.com",
+          subject: "No HTML",
+          text: "Plain text",
+          inlineAttachments: [attachment],
+        },
+        { from: "Pocket Genes <no-reply@pocketgenes.com>" },
+      ),
+    ).toThrow("Gmail inline attachments require an HTML message");
+
+    expect(() =>
+      buildRawGmailMessage(
+        {
+          to: "recipient@example.com",
+          subject: "Unsafe CID",
+          text: "Plain text",
+          html: "<p>HTML</p>",
+          inlineAttachments: [
+            { ...attachment, contentId: "qr>\r\nBcc: unsafe@example.org" },
+          ],
+        },
+        { from: "Pocket Genes <no-reply@pocketgenes.com>" },
+      ),
+    ).toThrow("Gmail inline attachment contentId is invalid");
+  });
+
   it("appends the Gmail send-as signature to HTML messages before sending", async () => {
     jest
       .mocked(fetch)

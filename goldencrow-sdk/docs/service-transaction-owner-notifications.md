@@ -92,3 +92,7 @@ duplicate retries while that result is ambiguous.
 Set `SERVICE_TRANSACTION_MAIL_FROM` to a Gmail-verified no-reply send-as
 identity when one is available. Otherwise, the authenticated Gmail mailbox is
 used with the `Pocket Genes no-reply` display name.
+
+The separate, single requester email for a completed deferred batch does not
+change this provider/operations circuit. Its native integration contract is in
+[Deferred requester batch email](./deferred-requester-batch-email-native-integration.md).
