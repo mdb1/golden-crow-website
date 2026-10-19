@@ -4,6 +4,13 @@ Native clients trigger the notification email after Firestore confirms a new
 service transaction. The SDK does not watch the `service_transactions`
 collection.
 
+New native releases must use the zero-Firestore client-trusted provider command
+documented in
+[Zero-Firestore provider email](./zero-firestore-provider-notification-native-integration.md).
+The `/:transactionId/notify-owner` command below remains available only for
+already-released clients during migration. A new client must never call both
+commands for the same transaction.
+
 ## Request
 
 `POST /service-transactions/:transactionId/notify-owner`

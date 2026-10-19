@@ -110,6 +110,9 @@ const ANONYMOUS_ROUTES = [
   // performs no canonical Firestore read; strict body bounds and a fixed
   // server template are its only application-level abuse controls.
   "POST /service-transactions/notify-requester",
+  // Same zero-Firestore, client-trusted model for one provider notification.
+  // The recipient and labels are bounded; message copy and links are fixed.
+  "POST /service-transactions/notify-provider",
   // /internal/openapi/* skips the cookie hook; the handlers demand a Bearer
   // reporting token instead (asserted below). oauth/token is the
   // client-credentials exchange that MINTS that token.

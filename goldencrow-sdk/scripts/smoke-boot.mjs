@@ -51,6 +51,7 @@ const PUBLIC = new Set([
   "POST /discover/publisher-requests",
   "POST /service-transactions/:transactionId/notify-owner",
   "POST /service-transactions/notify-requester",
+  "POST /service-transactions/notify-provider",
 ]);
 const isPublic = (method, url) =>
   PUBLIC.has(`${method} ${url}`) || url.startsWith("/internal/openapi/");

@@ -4,17 +4,21 @@ This document is the implementation contract for adding the native-client call
 that sends one aggregate confirmation email to the person who requested a
 completed signed-out deferred batch.
 
-The new requester confirmation is separate from the existing provider
-notification circuit. Do not remove, delay, combine, or otherwise modify the
-existing per-transaction call to:
+The requester confirmation is separate from the per-transaction provider
+notification. Current and new native releases must keep sending one provider
+notification per committed transaction through:
 
 ```text
-POST /service-transactions/:transactionId/notify-owner
+POST /service-transactions/notify-provider
 ```
 
-That existing endpoint continues to send one provider/operations notification
-for every committed service transaction. The new endpoint sends one additional
-email to the requester for the complete current deferred batch.
+Follow the
+[zero-Firestore provider notification guide](./zero-firestore-provider-notification-native-integration.md)
+for that integration. The legacy
+`POST /service-transactions/:transactionId/notify-owner` route remains available
+only for already-released clients during migration. A current client must never
+call both provider routes for the same transaction. The requester endpoint sends
+one additional email for the complete current deferred batch.
 
 ## Non-negotiable behavior
 
@@ -34,8 +38,10 @@ email to the requester for the complete current deferred batch.
 7. Do not automatically retry an ambiguous HTTP failure. The endpoint has no
    durable idempotency receipt, so a timeout or lost response may mean that
    Gmail accepted the first message; an automatic retry can send a duplicate.
-8. Keep the provider notification call and all of its Firestore validation and
-   receipt behavior unchanged.
+8. Keep the current zero-Firestore provider notification once per transaction,
+   independently of this requester batch email. Do not add provider lookups or
+   receipts, restore the legacy `/notify-owner` call, or call both provider
+   routes from a current native build.
 
 ## SDK contract
 
@@ -137,7 +143,7 @@ The native app must not generate or upload the QR.
 The current iOS implementation is in the sibling `mydnamap` repository. Use
 these existing files as the authoritative integration points:
 
-- Existing per-transaction provider transport reference:
+- Legacy per-transaction transport reference for shared URLSession mechanics:
   `mydnamap-ios/mydnamap/Tabs/ServicesHub/ServiceTransactionOwnerNotifier.swift`
 - Deferred batch Firestore write:
   `mydnamap-ios/mydnamap/Tabs/ServicesHub/ServicesHubService.swift`, method
@@ -150,16 +156,18 @@ these existing files as the authoritative integration points:
 
 Implement the iOS counterpart as follows:
 
-1. Add a separate requester-confirmation transport next to
-   `ServiceTransactionOwnerNotifier.swift`. Do not repurpose or rename the
-   provider notifier. A clear name is
+1. Add a separate requester-confirmation transport in the same Services Hub
+   area. Do not merge it with either the current provider transport or the
+   legacy compatibility transport. A clear name is
    `ServiceTransactionRequesterConfirmationNotifier.swift`.
 2. Define a small injectable protocol so runner tests can use a spy. Its single
    operation receives a requester email and an ordered array of items, then
    completes with `Result<Void, Error>` (or a typed decoded success result).
-3. Mirror the proven network mechanics of `ServiceTransactionOwnerNotifier`:
+3. Mirror the proven network mechanics shared by the notification transports:
    use the production SDK base URL, `URLSession`, JSON encoding,
-   `Content-Type: application/json`, and a 15-second request timeout.
+   `Content-Type: application/json`, and a 15-second request timeout. Treat
+   `ServiceTransactionOwnerNotifier` only as a legacy mechanics reference, not
+   as an active dependency to preserve.
 4. Normalize the email with
    `TransactionEmailCollectProvider.normalizedEmail(_:)` before creating the
    request. Reject an invalid email locally.
@@ -168,11 +176,14 @@ Implement the iOS counterpart as follows:
 6. POST to the exact path `/service-transactions/notify-requester`. There is no
    transaction ID in this path.
 7. Accept only HTTP `200`, decode the response, and verify both `status` and
-   `itemCount`. Do not treat the existing provider endpoint's HTTP `202` as a
-   success for this new endpoint.
+   `itemCount`. Do not carry over the legacy `/notify-owner` endpoint's
+   acceptance of HTTP `202` to this new endpoint.
 8. Inject the new notifier into `FastTransactionMakerIOSAmazingRunner`, with
-   the production implementation as its default. Keep the existing
-   `ServicesHubService` injection intact.
+   the production implementation as its default. Keep the `ServicesHubService`
+   dependency used for transaction creation and deferred-batch linkage, but do
+   not duplicate provider-notification wiring in the runner. The active provider
+   flow inside `ServicesHubService` must follow the zero-Firestore provider
+   notification guide and must not retain a reachable legacy notifier call.
 9. In `finalizeCompletedBatch(runID:)`, leave the authenticated branch
    unchanged. The requester email is specifically tied to the signed-out
    deferred batch.
@@ -222,14 +233,15 @@ It must never become:
 each root transaction -> one requester email
 ```
 
-The existing provider notifications remain per root transaction and continue
-independently.
+The current `/notify-provider` notification remains once per root transaction
+and continues independently. `/notify-owner` is compatibility-only for
+already-released clients and must not also run in the current flow.
 
 ### iOS tests
 
-Add notifier tests beside
-`MyDnaMapTests/ServiceTransactionOwnerNotifierTests.swift` and runner coverage
-in `MyDnaMapTests/ServicesHubModelTests.swift` or a focused new test file.
+Add requester-notifier tests beside the existing notification transport tests
+and runner coverage in `MyDnaMapTests/ServicesHubModelTests.swift` or a focused
+new test file.
 Cover at least:
 
 - exact URL, HTTP method, content type, timeout, and JSON field names;
@@ -245,8 +257,9 @@ Cover at least:
 - a notifier failure leaves the finished committed batch intact and offers no
   automatic retry;
 - logs contain none of the sensitive request values;
-- all existing `ServiceTransactionOwnerNotifierTests` remain unchanged and
-  green.
+- the requester-batch tests remain green alongside the provider-migration tests
+  that prove the current creation flow calls `/notify-provider` and has no
+  reachable automatic `/notify-owner` call.
 
 Because the Xcode project uses filesystem-synchronized groups, a Swift source
 or test file added under the existing synchronized folders should not require a
@@ -266,7 +279,8 @@ xcodebuild \
 
 ## Android implementation instructions
 
-Android already has the equivalent provider-notification transport in:
+Android's legacy provider-notification transport remains a useful OkHttp and
+dispatcher reference in:
 
 ```text
 mydnamap-android/app/src/main/java/com/genetics/app/services/data/
@@ -274,9 +288,13 @@ ServiceTransactionOwnerNotifier.kt
 ```
 
 Use its OkHttp, coroutine, timeout, dependency-injection, best-effort logging,
-and test patterns as the reference. Add a separate requester-confirmation
-notifier; do not change `HttpServiceTransactionOwnerNotifier` or
-`BestEffortServiceTransactionOwnerNotificationDispatcher`.
+and test patterns as a mechanical reference. Add a separate
+requester-confirmation notifier. The active provider flow must separately follow
+the
+[zero-Firestore provider notification guide](./zero-firestore-provider-notification-native-integration.md):
+current builds use only `/service-transactions/notify-provider`, and the legacy
+owner notifier/dispatcher may remain in source only for compatibility or
+rollback reference, not in the active transaction-creation graph.
 
 The current Android code does not have the iOS signed-out Fast Transaction
 Maker multi-item finalizer. In particular,
@@ -294,18 +312,20 @@ For an Android flow that creates a genuine deferred batch:
 4. Launch it as a best-effort post-commit coroutine. A failure is logged without
    failing or rolling back the batch, and is not automatically retried.
 5. Wire the notifier through `ServicesModule.kt` in the same style as the
-   provider notifier, while keeping the two transports and dispatchers
-   independent.
+   current provider notifier, while keeping the requester and provider
+   transports and dispatchers independent. Do not reintroduce the legacy owner
+   dispatcher while adding the requester notifier.
 
 Do not add an Android shake gesture, accelerometer trigger, or hidden Fast
 Transaction Maker entry point. The Android repository explicitly forbids that
 iOS-only activation pattern. This email integration may be attached only to a
 supported visible Android batch workflow with a real final deferred write.
 
-Test the Android transport using the existing
-`ServiceTransactionOwnerNotifierTest.kt` OkHttp interception pattern. Add the
-same schema, response, one-call-after-batch, no-call-on-index-failure,
-non-retry, and privacy assertions listed for iOS. Then run:
+Test the Android requester transport using the existing notification tests'
+OkHttp interception pattern. Add the same schema, response,
+one-call-after-batch, no-call-on-index-failure, non-retry, and privacy
+assertions listed for iOS. Keep the provider-migration regression coverage that
+proves the current flow calls only `/notify-provider`. Then run:
 
 ```bash
 cd mydnamap-android
@@ -357,8 +377,8 @@ committed batch but no requester email would be sent.
 
 Use a controlled test inbox for the final end-to-end test:
 
-1. Confirm the existing provider/operations recipient still receives one email
-   per transaction through `/notify-owner`.
+1. With a current native build, confirm each committed transaction sends one
+   provider email through `/notify-provider` and makes no `/notify-owner` call.
 2. Complete a signed-out batch containing at least two services from different
    providers.
 3. Confirm the final deferred document contains the new batch plus any older
@@ -376,3 +396,6 @@ Use a controlled test inbox for the final end-to-end test:
 10. Simulate an email-network failure after a successful index write and
     confirm the batch remains complete, the app does not retry automatically,
     and logs reveal no requester data.
+11. As a separate compatibility check, verify an already-released client can
+    still use `/notify-owner`; never enable both provider routes in the same
+    current-client transaction flow.
