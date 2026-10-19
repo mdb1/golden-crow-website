@@ -8,6 +8,10 @@ import { FieldValue, type Query } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
+import {
+  issueServiceNotificationAccessToken,
+  type ServiceNotificationAccessTokenResult,
+} from "../lib/service-notification-access-token.js";
 import type { AdminContext } from "../types/sdk.types.js";
 
 const adminDb = adminDbFor("mydnamap");
@@ -30,6 +34,8 @@ const MAX_QUOTA_PER_MINUTE = 5;
 const DEFAULT_PAGE_LIMIT = 20;
 const MAX_PAGE_LIMIT = 50;
 const REPORTING_SCOPES = ["reporting:read", "reporting:write"] as const;
+const CLIENT_ID_PATTERN = /^gci_live_[A-Za-z0-9_-]+$/;
+const MAX_CLIENT_ID_LENGTH = 256;
 
 type ReportingScope = (typeof REPORTING_SCOPES)[number];
 type IntegrationClientStatus = "active" | "revoked";
@@ -502,7 +508,10 @@ function normalizeName(value: string) {
 
 function normalizeClientId(value: string) {
   const normalized = value.trim();
-  if (!normalized.startsWith(CLIENT_ID_PREFIX)) {
+  if (
+    normalized.length > MAX_CLIENT_ID_LENGTH ||
+    !CLIENT_ID_PATTERN.test(normalized)
+  ) {
     throw new AdminRepositoryError("Invalid client_id.", 401);
   }
 
@@ -1253,6 +1262,35 @@ export async function exchangeReportingClientCredentials(
       scope: client.scopes.join(" "),
     };
   });
+}
+
+export async function exchangeServiceNotificationClientCredentials(
+  input: ReportingOAuthTokenInput,
+): Promise<ServiceNotificationAccessTokenResult> {
+  if (input.grant_type !== "client_credentials") {
+    throw new AdminRepositoryError("Unsupported grant_type.", 400);
+  }
+
+  const clientId = normalizeClientId(input.client_id);
+  const clientSecret = normalizeClientSecret(input.client_secret);
+  const ref = clientRef(clientId);
+
+  const snapshot = (await ref.get()) as SnapshotLike;
+  const client = readClientRecord(snapshot);
+  assertActiveClient(client);
+
+  if (!client.clientSecretHash) {
+    throw new AdminRepositoryError(
+      "Client secret has not been generated.",
+      401,
+    );
+  }
+
+  if (!safeHashEquals(hashSecret(clientSecret), client.clientSecretHash)) {
+    throw new AdminRepositoryError("Invalid client credentials.", 401);
+  }
+
+  return issueServiceNotificationAccessToken({ clientId: client.clientId });
 }
 
 export async function verifyReportingAccessToken(

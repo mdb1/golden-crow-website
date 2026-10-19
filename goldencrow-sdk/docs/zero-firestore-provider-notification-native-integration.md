@@ -4,6 +4,10 @@ This document is the implementation contract for migrating native Pocket Genes
 clients from the legacy provider-notification command to the new client-trusted,
 best-effort provider email.
 
+This command requires the shared long-lived notification Bearer token. Before
+implementing either native transport, follow the complete
+[service-notification device authentication guide](./service-notification-device-auth-native-integration.md).
+
 The new command deliberately trusts values that the native app already has in
 memory when it creates a service transaction. It sends a fixed Spanish email
 without loading the transaction, offer, provider, deferred index, or delivery
@@ -34,7 +38,8 @@ The new notification must never:
 - run before Firestore confirms the service-transaction commit;
 - turn an email problem into a failed service transaction;
 - retry automatically after a timeout, connection error, HTTP `502`, or other
-  ambiguous result;
+  ambiguous result (the only allowed retry is one refresh-and-retry after an
+  authentication `401`, before Gmail can run);
 - perform a new Firestore lookup for the transaction, offer, provider, or
   requester;
 - persist a notification receipt or idempotency record;
@@ -49,6 +54,7 @@ Production request:
 ```http
 POST https://golden-crow-sdk.vercel.app/service-transactions/notify-provider
 Content-Type: application/json
+Authorization: Bearer <service-notification access token>
 ```
 
 The JSON body is strict and contains exactly three fields:
@@ -97,8 +103,15 @@ Neither failure is retryable by the app. Because there is no receipt, a lost
 HTTP response can occur after Gmail accepted the message, and retrying can send
 a duplicate.
 
-The endpoint is public. It does not require a backoffice cookie, Firebase ID
-token, transaction capability ID, or transaction ID.
+Missing, invalid, or expired notification authentication returns HTTP `401`;
+insufficient scope returns HTTP `403`. A first `401` permits exactly one token
+refresh and one retry because authentication fails before Gmail is called. No
+other failure permits a retry.
+
+The endpoint is outside the backoffice cookie/session surface so the signed-out
+flow can call it, but it is not anonymous. It requires the signed Bearer token
+with `service-transactions:notify`; a Firebase ID token, reporting token,
+transaction capability ID, or transaction ID is not a substitute.
 
 ## What the SDK owns
 
@@ -196,10 +209,13 @@ Implement this in the sibling repository under `mydnamap-ios`.
 3. Mirror the proven mechanics in `ServiceTransactionOwnerNotifier`: use
    `ServiceTransactionOwnerNotifier.productionBaseURL`, `URLSession`, POST,
    `application/json`, and a 15-second timeout. The exact path is
-   `/service-transactions/notify-provider`; there is no path parameter.
+   `/service-transactions/notify-provider`; there is no path parameter. Inject
+   the shared token provider from the device-authentication guide and attach
+   its value as `Authorization: Bearer <token>`.
 
 4. Accept only HTTP `200`, decode `{ "status": "sent" }`, and reject every
-   other status or success-body value. Do not retry inside the transport.
+   other status or success-body value. The first `401` may refresh the token
+   and retry this request exactly once. Do not retry any other result.
 
 5. Add an OSLog category dedicated to this command. Log only a fixed message
    such as `Provider notification failed.` Never log either email, the service
@@ -277,7 +293,8 @@ contract tests. Cover at least:
 - local rejection of invalid or over-320-character emails, blank service name,
   a name longer than 180 characters, and extra encoded fields;
 - acceptance only of HTTP `200` plus body `status == "sent"`;
-- no internal retry after transport, timeout, `400`, or `502` failure;
+- the shared Bearer header, one refresh-and-retry after a first `401`, and no
+  retry after transport, timeout, `400`, `403`, or `502` failure;
 - extraction of the provider email from the already-read content-owner map
   with the existing manual-flow precedence;
 - one new notifier invocation only after a successful Firestore commit;
@@ -342,10 +359,13 @@ Implement this in the sibling repository under `mydnamap-android`.
    `/service-transactions/notify-provider`. Validate and normalize with
    `ServiceProviderEmailAddress.normalized(...)` and
    `TransactionEmailCollectProvider.normalizedEmail(...)`, enforce the
-   320/320/180 limits, and do not encode a transaction ID.
+   320/320/180 limits, and do not encode a transaction ID. Inject the shared
+   application-scoped token provider and add
+   `Authorization: Bearer <token>`.
 
 3. Accept only HTTP `200` and decode `status == "sent"`. An HTTP `202` is no
-   longer success. Do not add an application retry loop or a WorkManager job.
+   longer success. The first `401` may refresh the token and retry exactly
+   once; no other result is retryable. Do not add a WorkManager job.
 
 4. Replace the legacy best-effort dispatcher with a separate provider
    dispatcher that launches once in the existing application coroutine scope,
@@ -467,7 +487,8 @@ Task tests. Cover at least:
 - exact path, method, media type, body fields, normalization, and timeout;
 - rejection of invalid/bounded inputs before issuing a request;
 - acceptance only of `200 {"status":"sent"}`;
-- no automatic retry after any ambiguous failure;
+- the shared Bearer header, one refresh-and-retry after a first `401`, and no
+  automatic retry after any ambiguous failure;
 - extraction of the contact email from the single force-fresh authorization
   result's `canonicalData`, including precedence tests;
 - the final authorizer's underlying publisher lookup runs exactly once while
@@ -493,23 +514,24 @@ cd mydnamap-android
 
 ## Trust boundary
 
-This endpoint intentionally trusts the client-selected destination and content
-values. It is therefore a public email relay constrained to one server-owned
-template and one fixed portal URL. An attacker who discovers it can still send
-that fixed notification to syntactically valid email addresses.
+This endpoint intentionally trusts the authenticated native client's selected
+destination and content values. It is a credential-gated email relay
+constrained to one server-owned template and one fixed portal URL. A caller
+must first obtain a valid, signed `service-transactions:notify` Bearer token.
 
 The strict three-field schema, bounded lengths, HTML escaping, fixed Spanish
 copy, fixed subject, fixed URL, and lack of arbitrary HTML/URLs limit abuse but
-do not authenticate the sender or prove that a transaction exists. Do not claim
-otherwise in code comments or product copy.
+do not prove that a transaction exists. The token authenticates possession of
+the integration credentials; it does not validate the client-supplied
+transaction facts. Do not claim otherwise in code comments or product copy.
 
-Adding App Check or edge rate limiting later would not require Firestore reads.
-Adding transaction verification or durable idempotency would change the
+Adding edge rate limiting later would not require Firestore reads. Adding
+transaction verification or durable idempotency would change the
 explicit zero-Firestore/best-effort contract and must be designed separately.
 
 ## Firebase quota impact
 
-The new email operation adds exactly:
+Each authenticated email operation adds exactly:
 
 ```text
 Firestore document reads:  0
@@ -520,6 +542,10 @@ The service transaction itself and the provider authorization already have
 their normal Firestore costs. The migration must reuse the provider document
 returned by that existing authorization read. It must not add a second provider
 read for the email. Gmail/API traffic is outside Firestore read/write quotas.
+The one-year token exchange adds one integration-client Firestore read and no
+write, normally once per installed app per token lifetime. Its cryptographic
+verification has no five-per-minute reporting quota. See the shared
+device-authentication guide for the full cost and refresh contract.
 
 The legacy `/notify-owner` endpoint still incurs its old Firestore verification
 and receipt costs when an old app release calls it. Those costs disappear for a
@@ -533,8 +559,10 @@ the new endpoint.
 
 For each platform, verify with controlled requester and provider inboxes:
 
-1. Deploy the SDK and confirm the new endpoint returns `200 {"status":"sent"}`
-   for a valid test payload.
+1. Deploy the SDK, obtain a token from `/service-transactions/notification-token`,
+   and confirm the new endpoint returns `200 {"status":"sent"}` for a valid
+   Bearer-authenticated test payload. Confirm the same request without the
+   header returns `401` and sends no email.
 2. Install the new native build and create one service transaction.
 3. Confirm exactly one provider email arrives, in Spanish, at the provider
    email already known by the app.

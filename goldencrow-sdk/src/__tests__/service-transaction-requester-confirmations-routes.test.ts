@@ -6,6 +6,17 @@ import {
 import { SERVICE_TRANSACTION_REQUESTER_CONFIRMATION_MAX_ITEMS } from "../lib/service-transaction-requester-confirmation-contract.js";
 
 const sendRequesterConfirmationMock = jest.fn();
+const verifyRequesterNotificationAccessTokenMock = jest.fn();
+const REQUESTER_AUTHORIZATION_HEADERS = {
+  authorization: "Bearer signed-notification-token",
+};
+
+function requesterNotificationTokenError(statusCode: number): Error {
+  return Object.assign(new Error("token verification failed"), {
+    serviceNotificationTokenError: true,
+    statusCode,
+  });
+}
 
 jest.mock(
   "../lib/service-transaction-requester-confirmation-email.js",
@@ -14,6 +25,15 @@ jest.mock(
       sendRequesterConfirmationMock(...args),
   }),
 );
+
+jest.mock("../lib/service-notification-access-token.js", () => ({
+  verifyServiceNotificationAccessToken: (...args: unknown[]) =>
+    verifyRequesterNotificationAccessTokenMock(...args),
+  isServiceNotificationTokenError: (error: unknown) =>
+    typeof error === "object" &&
+    error !== null &&
+    "serviceNotificationTokenError" in error,
+}));
 
 describe("service transaction requester confirmation routes", () => {
   let app: FastifyInstance;
@@ -36,12 +56,96 @@ describe("service transaction requester confirmation routes", () => {
   beforeEach(() => {
     sendRequesterConfirmationMock.mockReset();
     sendRequesterConfirmationMock.mockResolvedValue(undefined);
+    verifyRequesterNotificationAccessTokenMock.mockReset();
+    verifyRequesterNotificationAccessTokenMock.mockReturnValue({
+      client_id: "client-1",
+      scope: "service-transactions:notify",
+    });
+  });
+
+  it.each([
+    ["a missing Authorization header", undefined],
+    ["Basic credentials", "Basic dXNlcjpwYXNz"],
+    ["an empty Bearer credential", "Bearer    "],
+    ["a Bearer credential containing whitespace", "Bearer two tokens"],
+  ])("returns 401 before validation or email delivery for %s", async (_label, authorization) => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/service-transactions/notify-requester",
+      headers: authorization ? { authorization } : {},
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({
+      error: "Missing service notification access token.",
+    });
+    expect(verifyRequesterNotificationAccessTokenMock).not.toHaveBeenCalled();
+    expect(sendRequesterConfirmationMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 for an invalid or expired signed token", async () => {
+    verifyRequesterNotificationAccessTokenMock.mockImplementationOnce(() => {
+      throw requesterNotificationTokenError(401);
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/service-transactions/notify-requester",
+      headers: REQUESTER_AUTHORIZATION_HEADERS,
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({
+      error: "Invalid service notification access token.",
+    });
+    expect(sendRequesterConfirmationMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when the signed token lacks the notification scope", async () => {
+    verifyRequesterNotificationAccessTokenMock.mockImplementationOnce(() => {
+      throw requesterNotificationTokenError(403);
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/service-transactions/notify-requester",
+      headers: REQUESTER_AUTHORIZATION_HEADERS,
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      error: "Service notification access token scope is insufficient.",
+    });
+    expect(sendRequesterConfirmationMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a generic 500 when token verification is unavailable", async () => {
+    verifyRequesterNotificationAccessTokenMock.mockImplementationOnce(() => {
+      throw requesterNotificationTokenError(500);
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/service-transactions/notify-requester",
+      headers: REQUESTER_AUTHORIZATION_HEADERS,
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({
+      error: "Service notification authentication is unavailable.",
+    });
+    expect(sendRequesterConfirmationMock).not.toHaveBeenCalled();
   });
 
   it("normalizes the email and names before sending one aggregate email", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/service-transactions/notify-requester",
+      headers: REQUESTER_AUTHORIZATION_HEADERS,
       payload: {
         requestedByUserEmail: "  Requester@Example.ORG ",
         items: [
@@ -93,6 +197,7 @@ describe("service transaction requester confirmation routes", () => {
     const response = await app.inject({
       method: "POST",
       url: "/service-transactions/notify-requester",
+      headers: REQUESTER_AUTHORIZATION_HEADERS,
       payload,
     });
 
@@ -104,6 +209,7 @@ describe("service transaction requester confirmation routes", () => {
     const response = await app.inject({
       method: "POST",
       url: "/service-transactions/notify-requester",
+      headers: REQUESTER_AUTHORIZATION_HEADERS,
       payload: {
         requestedByUserEmail: "person@example.org",
         items: Array.from(
@@ -145,6 +251,7 @@ describe("service transaction requester confirmation routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/service-transactions/notify-requester",
+        headers: REQUESTER_AUTHORIZATION_HEADERS,
         payload,
       });
 
@@ -174,6 +281,7 @@ describe("service transaction requester confirmation routes", () => {
     const response = await app.inject({
       method: "POST",
       url: "/service-transactions/notify-requester",
+      headers: REQUESTER_AUTHORIZATION_HEADERS,
       payload,
     });
 
@@ -189,6 +297,7 @@ describe("service transaction requester confirmation routes", () => {
     const response = await app.inject({
       method: "POST",
       url: "/service-transactions/notify-requester",
+      headers: REQUESTER_AUTHORIZATION_HEADERS,
       payload: {
         requestedByUserEmail: "person@example.org",
         items: [{ serviceName: "Service", providerName: "Provider" }],

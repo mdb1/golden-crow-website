@@ -106,12 +106,12 @@ const ANONYMOUS_ROUTES = [
   "POST /discover/publisher-requests",
   "POST /client-bookings",
   "POST /service-transactions/:transactionId/notify-owner",
-  // Public native command with a client-selected recipient. It intentionally
-  // performs no canonical Firestore read; strict body bounds and a fixed
-  // server template are its only application-level abuse controls.
+  // Session-public client-credentials exchange for a signed, notification-only
+  // Bearer token. Its handler authenticates the API client credentials.
+  "POST /service-transactions/notification-token",
+  // These native commands skip session-cookie auth, but both independently
+  // require the signed notification-only Bearer token before body validation.
   "POST /service-transactions/notify-requester",
-  // Same zero-Firestore, client-trusted model for one provider notification.
-  // The recipient and labels are bounded; message copy and links are fixed.
   "POST /service-transactions/notify-provider",
   // /internal/openapi/* skips the cookie hook; the handlers demand a Bearer
   // reporting token instead (asserted below). oauth/token is the
@@ -335,6 +335,79 @@ describe("/gym project-access gate (whole app)", () => {
     });
     expect(res.statusCode).toBe(500);
     expect(res.body).toContain("firebase is not available in this test");
+  });
+});
+
+describe("service email commands — public to the session hook, but Bearer-protected", () => {
+  const EMAIL_ROUTES = [
+    {
+      url: "/service-transactions/notify-provider",
+      payload: {
+        providerContactEmail: "provider@example.org",
+        requestedByUserEmail: "requester@example.org",
+        serviceName: "Service",
+      },
+    },
+    {
+      url: "/service-transactions/notify-requester",
+      payload: {
+        requestedByUserEmail: "requester@example.org",
+        items: [{ serviceName: "Service", providerName: "Provider" }],
+      },
+    },
+  ];
+
+  it.each([
+    ["no Authorization header", undefined],
+    ["Basic credentials", "Basic dXNlcjpwYXNz"],
+    ["an empty Bearer credential", "Bearer "],
+  ])("returns 401 with %s before either mail handler runs", async (_label, authorization) => {
+    for (const route of EMAIL_ROUTES) {
+      const response = await app.inject({
+        method: "POST",
+        url: route.url,
+        headers: authorization ? { authorization } : {},
+        payload: route.payload,
+      });
+
+      expect({ route: route.url, status: response.statusCode }).toEqual({
+        route: route.url,
+        status: 401,
+      });
+      expect(response.json()).toEqual({
+        error: "Missing service notification access token.",
+      });
+    }
+  });
+
+  it("does not accept a backoffice session cookie instead of the notification token", async () => {
+    mockResolveAdminContext.mockResolvedValue(contextFor(["backoffice"]));
+
+    for (const route of EMAIL_ROUTES) {
+      const response = await app.inject({
+        method: "POST",
+        url: route.url,
+        cookies: { session: "valid" },
+        payload: route.payload,
+      });
+
+      expect({ route: route.url, status: response.statusCode }).toEqual({
+        route: route.url,
+        status: 401,
+      });
+    }
+    expect(mockVerifySessionCookie).not.toHaveBeenCalled();
+  });
+
+  it("keeps the notification-token exchange session-public but requires client credentials", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/service-transactions/notification-token",
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockVerifySessionCookie).not.toHaveBeenCalled();
   });
 });
 

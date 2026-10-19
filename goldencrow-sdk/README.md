@@ -72,7 +72,13 @@ AND to the list in the smoke — on purpose, twice. It needs no credentials.
 
 ## Available Endpoints
 
-All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings`, and `/internal/openapi/*` require a valid Firebase session cookie. The `/internal/openapi/*` bridge routes are intended for the backoffice `/open-api` route layer; reporting data and write routes require `Authorization: Bearer <access_token>`.
+Most endpoints require a valid Firebase session cookie. Session-exempt routes
+are explicitly listed in `src/server.ts`; session-exempt does not necessarily
+mean anonymous. The `/internal/openapi/*` reporting routes require their
+reporting Bearer token. `/service-transactions/notification-token` requires
+active API client credentials, while `/service-transactions/notify-provider`
+and `/service-transactions/notify-requester` require the separate signed
+service-notification Bearer token.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -90,12 +96,15 @@ All endpoints except `/health`, `/auth/login`, `/auth/logout`, `/client-bookings
 | POST | /reporting/integration-clients | Create a public reporting integration client for a full admin |
 | GET | /reporting/integration-clients/events | List key-management events from `openapi_reporting_access_events` |
 | POST | /reporting/integration-clients/:clientId/secret/rotate | Create or renew a client secret and reveal it once |
-| POST | /reporting/integration-clients/:clientId/revoke | Revoke a client so token exchange and business API requests fail |
+| POST | /reporting/integration-clients/:clientId/revoke | Revoke a client so future token exchanges and reporting API requests fail; an already-issued stateless notification token remains valid until expiry or signing-key rotation |
 | POST | /internal/openapi/oauth/token | Internal bridge for client-credentials access-token exchange |
 | GET | /internal/openapi/reporting/patients?patientId=:id | Internal bridge for public reporting patient lookup |
 | GET | /internal/openapi/reporting/patients/:id | Internal bridge for public reporting patient lookup by patient ID |
 | POST | /internal/openapi/reporting/reports/upload | Internal bridge for public reporting upload notifications |
 | GET | /internal/openapi/reporting/2pq/cases/:caseCode | Internal bridge for public 2PQ case lookup |
+| POST | /service-transactions/notification-token | Exchange active API client credentials for a one-year notification Bearer token |
+| POST | /service-transactions/notify-provider | Send the fixed provider email with a notification Bearer token and zero Firestore operations |
+| POST | /service-transactions/notify-requester | Send the aggregate requester email with a notification Bearer token and zero Firestore operations |
 | GET | /posts | List community posts |
 | GET | /posts/:id | Get post detail |
 | DELETE | /posts/:id | Delete post |

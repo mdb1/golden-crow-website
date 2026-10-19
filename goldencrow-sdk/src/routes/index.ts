@@ -28,6 +28,7 @@ import {
 import {
   serviceTransactionProviderNotificationRoutes,
 } from "./service-transaction-provider-notifications.routes.js";
+import { serviceNotificationAccessTokenRoutes } from "./service-notification-access-token.routes.js";
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(healthRoutes);
@@ -50,6 +51,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(clientBookingsRoutes);
   await fastify.register(partnershipCrmRoutes);
   await fastify.register(serviceTransactionNotificationRoutes);
+  await fastify.register(serviceNotificationAccessTokenRoutes);
   await fastify.register(serviceTransactionRequesterConfirmationRoutes);
   await fastify.register(serviceTransactionProviderNotificationRoutes);
   await fastify.register(supportServicesRoutes);

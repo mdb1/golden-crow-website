@@ -4,6 +4,10 @@ This document is the implementation contract for adding the native-client call
 that sends one aggregate confirmation email to the person who requested a
 completed signed-out deferred batch.
 
+This command requires the same long-lived notification Bearer token as the
+provider command. Implement the shared layer first by following the
+[service-notification device authentication guide](./service-notification-device-auth-native-integration.md).
+
 The requester confirmation is separate from the per-transaction provider
 notification. Current and new native releases must keep sending one provider
 notification per committed transaction through:
@@ -38,6 +42,8 @@ one additional email for the complete current deferred batch.
 7. Do not automatically retry an ambiguous HTTP failure. The endpoint has no
    durable idempotency receipt, so a timeout or lost response may mean that
    Gmail accepted the first message; an automatic retry can send a duplicate.
+   The only allowed retry is one token refresh and one retry after HTTP `401`,
+   because authentication is rejected before Gmail is called.
 8. Keep the current zero-Firestore provider notification once per transaction,
    independently of this requester batch email. Do not add provider lookups or
    receipts, restore the legacy `/notify-owner` call, or call both provider
@@ -50,6 +56,7 @@ Production URL:
 ```text
 POST https://golden-crow-sdk.vercel.app/service-transactions/notify-requester
 Content-Type: application/json
+Authorization: Bearer <service-notification access token>
 ```
 
 The JSON body is strict. It has exactly these fields:
@@ -103,13 +110,18 @@ Invalid bodies return HTTP `400`. A Gmail delivery failure returns HTTP `502`:
 }
 ```
 
-The native integration must not automatically retry because the endpoint is not
-idempotent. A future explicit retry UX may retry only if the product accepts the
-possibility of a duplicate message, or after the SDK gains a durable
-idempotency contract.
+The native integration must not retry ambiguous delivery outcomes because the
+endpoint is not idempotent. A first authentication `401` is the sole exception:
+refresh the token and retry exactly once. A future explicit delivery-retry UX
+may retry only if the product accepts the possibility of a duplicate message,
+or after the SDK gains a durable idempotency contract.
 
-The endpoint is public so the signed-out flow can call it. It requires no
-session cookie or Firebase user token.
+Missing, invalid, or expired notification authentication returns HTTP `401`;
+insufficient scope returns HTTP `403`. The endpoint is outside the backoffice
+cookie/session surface so the signed-out flow can call it, but it is not
+anonymous. It requires a signed Bearer token with
+`service-transactions:notify`; a Firebase user token or reporting token is not
+a substitute.
 
 ## What the server owns
 
@@ -167,7 +179,8 @@ Implement the iOS counterpart as follows:
    use the production SDK base URL, `URLSession`, JSON encoding,
    `Content-Type: application/json`, and a 15-second request timeout. Treat
    `ServiceTransactionOwnerNotifier` only as a legacy mechanics reference, not
-   as an active dependency to preserve.
+   as an active dependency to preserve. Inject the application-wide token
+   provider and attach `Authorization: Bearer <token>`.
 4. Normalize the email with
    `TransactionEmailCollectProvider.normalizedEmail(_:)` before creating the
    request. Reject an invalid email locally.
@@ -177,7 +190,9 @@ Implement the iOS counterpart as follows:
    transaction ID in this path.
 7. Accept only HTTP `200`, decode the response, and verify both `status` and
    `itemCount`. Do not carry over the legacy `/notify-owner` endpoint's
-   acceptance of HTTP `202` to this new endpoint.
+   acceptance of HTTP `202` to this new endpoint. On the first `401` only,
+   refresh the notification token and retry once; no other result is
+   retryable.
 8. Inject the new notifier into `FastTransactionMakerIOSAmazingRunner`, with
    the production implementation as its default. Keep the `ServicesHubService`
    dependency used for transaction creation and deferred-batch linkage, but do
@@ -250,6 +265,8 @@ Cover at least:
   longer than 180 characters, and unexpected success codes;
 - decoding `200 {"status":"sent","itemCount":N}` and rejecting a mismatched
   count;
+- the shared Bearer header, one refresh-and-retry after a first `401`, and no
+  retry for `403`, timeout, connection failure, `400`, or `502`;
 - one notifier invocation after a successful deferred batch write;
 - zero notifier invocations before or during per-item creation;
 - zero invocations when the deferred batch write fails;
@@ -316,6 +333,12 @@ For an Android flow that creates a genuine deferred batch:
    transports and dispatchers independent. Do not reintroduce the legacy owner
    dispatcher while adding the requester notifier.
 
+Both transports must nevertheless share the one application-scoped token
+provider documented in the device-authentication guide. Add
+`Authorization: Bearer <token>` and allow only the explicit one-time `401`
+refresh/retry; this authentication retry is separate from, and does not create,
+a durable email retry.
+
 Do not add an Android shake gesture, accelerometer trigger, or hidden Fast
 Transaction Maker entry point. The Android repository explicitly forbids that
 iOS-only activation pattern. This email integration may be attached only to a
@@ -334,21 +357,23 @@ cd mydnamap-android
 
 ## Trust boundary and abuse risk
 
-This endpoint deliberately performs no Firestore verification. It trusts the
-native caller's `requestedByUserEmail`, `serviceName`, and `providerName` so the
-email adds zero Firestore reads and zero Firestore writes. Consequently, it is
-a public client-directed email relay with a closed, fixed template. An attacker
-who discovers the endpoint can still submit a syntactically valid email and
-catalog-like names.
+This endpoint deliberately performs no transaction-data Firestore verification.
+It trusts the authenticated native caller's `requestedByUserEmail`,
+`serviceName`, and `providerName`, so each email adds zero Firestore reads and
+zero Firestore writes. It is a credential-gated client-directed email relay
+with a closed, fixed template. A caller must first obtain a valid, signed
+`service-transactions:notify` Bearer token.
 
 The strict body, bounded row count and lengths, fixed message copy, fixed
 links, HTML escaping, and absence of arbitrary recipient/HTML/URL fields limit
 what can be sent, but they do not prove that the caller created a deferred
-batch. Do not claim otherwise in client comments or documentation.
+batch. The token authenticates possession of the integration credentials, not
+the submitted batch facts. Do not claim otherwise in client comments or
+documentation.
 
 If that trust assumption becomes unacceptable, add a separately designed
-control such as verified App Check plus edge rate limiting, or introduce a
-server-side capability/idempotency contract. Do not quietly add Firestore
+control such as edge rate limiting or introduce a server-side
+capability/idempotency contract. Do not quietly add Firestore
 re-reads to this client integration, because zero additional Firestore
 operations is an explicit requirement.
 
@@ -369,6 +394,12 @@ reloads that document nor reads any transaction/offer/provider document, and it
 does not persist a notification receipt. Gmail delivery and the inline QR MIME
 attachment are outside Firestore quotas.
 
+The shared one-year token exchange adds one integration-client Firestore read
+and no write, normally once per installed app per token lifetime. Bearer
+verification and every email call are cryptographic/in-process and do not use
+the reporting API's five-per-minute quota. Five provider emails plus this one
+requester email may therefore be sent in the same minute with the same token.
+
 ## Release and end-to-end checklist
 
 Deploy the SDK before releasing a native client. An older SDK returns `404` for
@@ -377,25 +408,32 @@ committed batch but no requester email would be sent.
 
 Use a controlled test inbox for the final end-to-end test:
 
-1. With a current native build, confirm each committed transaction sends one
-   provider email through `/notify-provider` and makes no `/notify-owner` call.
-2. Complete a signed-out batch containing at least two services from different
+1. On a fresh install, confirm the app obtains one token from
+   `/service-transactions/notification-token`, stores it securely, and then
+   reuses it. Confirm an unauthenticated email request returns `401` without
+   sending mail.
+2. With a current native build, confirm each committed transaction sends one
+   authenticated provider email through `/notify-provider` and makes no
+   `/notify-owner` call.
+3. Complete a signed-out batch containing at least two services from different
    providers.
-3. Confirm the final deferred document contains the new batch plus any older
+4. Confirm the final deferred document contains the new batch plus any older
    unresolved IDs that were already present.
-4. Confirm the requester receives exactly one new email.
-5. Confirm its table contains only the current batch, in the selected/completed
+5. Confirm the requester receives exactly one new email.
+6. Confirm its table contains only the current batch, in the selected/completed
    order, and displays the correct service and provider for every row.
-6. Confirm the download CTA opens
+7. Confirm the download CTA opens
    `https://goldencrowvs.com/pocket-genes/download/`.
-7. Confirm the QR and its fallback button both open
+8. Confirm the QR and its fallback button both open
    `https://apps.apple.com/ar/app/pocket-genes/id6748587627`.
-8. Repeat a new batch with the same email and confirm the new email contains
+9. Repeat a new batch with the same email and confirm the new email contains
    only that new action, not the earlier deferred IDs.
-9. Simulate a deferred-index failure and confirm no requester email is sent.
-10. Simulate an email-network failure after a successful index write and
+10. Simulate a deferred-index failure and confirm no requester email is sent.
+11. Simulate an email-network failure after a successful index write and
     confirm the batch remains complete, the app does not retry automatically,
     and logs reveal no requester data.
-11. As a separate compatibility check, verify an already-released client can
+12. Submit at least six authenticated notification calls within one minute and
+    confirm none is rejected by the reporting API's five-per-minute quota.
+13. As a separate compatibility check, verify an already-released client can
     still use `/notify-owner`; never enable both provider routes in the same
     current-client transaction flow.

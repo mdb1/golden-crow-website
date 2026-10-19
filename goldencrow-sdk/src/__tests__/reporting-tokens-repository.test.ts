@@ -4,6 +4,7 @@ type MockDocData = Record<string, unknown>;
 type MockDocumentRef = {
   id: string;
   collectionName: string;
+  get: jest.Mock;
   set: jest.Mock;
   update: jest.Mock;
 };
@@ -34,6 +35,15 @@ const mockFieldValueIncrement = jest.fn((value: number) => ({
 const mockFieldValueDelete = jest.fn(() => ({
   __op: "delete",
 }));
+const mockDocumentGet = jest.fn(
+  async (collectionName: string, documentId: string) => {
+    const data = mockDocs.get(`${collectionName}/${documentId}`);
+    return {
+      exists: Boolean(data),
+      data: () => data,
+    };
+  },
+);
 
 function docKey(ref: MockDocumentRef) {
   return `${ref.collectionName}/${ref.id}`;
@@ -100,6 +110,7 @@ function makeDocRef(collectionName: string, id?: string): MockDocumentRef {
   const ref: MockDocumentRef = {
     id: documentId,
     collectionName,
+    get: jest.fn(() => mockDocumentGet(collectionName, documentId)),
     set: jest.fn(async (data: MockDocData) => {
       mockDocs.set(`${collectionName}/${documentId}`, { ...data });
     }),
@@ -267,6 +278,7 @@ describe("reporting integration client repository", () => {
     mockAutoId = 0;
     mockFieldValueIncrement.mockClear();
     mockRunTransaction.mockClear();
+    mockDocumentGet.mockClear();
     mockTransactionGet.mockClear();
     mockTransactionSet.mockClear();
     mockTransactionUpdate.mockClear();
@@ -637,6 +649,151 @@ describe("reporting integration client repository", () => {
     ).rejects.toMatchObject({
       statusCode: 401,
     });
+  });
+
+  it("exchanges active client credentials for a stateless notification-only token with one read and no quota writes", async () => {
+    process.env.SERVICE_TRANSACTION_NOTIFICATION_TOKEN_SIGNING_SECRET =
+      "repository-notification-signing-secret-".repeat(2);
+    const {
+      createReportingIntegrationClient,
+      exchangeServiceNotificationClientCredentials,
+      rotateReportingIntegrationClientSecret,
+    } = await import("../repositories/reporting-tokens.repository");
+
+    const created = await createReportingIntegrationClient(fullAdminContext, {
+      name: "Native app",
+    });
+    const generated = await rotateReportingIntegrationClientSecret(
+      fullAdminContext,
+      created.client_id,
+    );
+    const getCallsBeforeExchange = mockDocumentGet.mock.calls.length;
+    const setCallsBeforeExchange = mockTransactionSet.mock.calls.length;
+    const updateCallsBeforeExchange = mockTransactionUpdate.mock.calls.length;
+    const clientBeforeExchange = {
+      ...mockDocs.get(`${CLIENTS_COLLECTION}/${created.client_id}`),
+    };
+
+    const token = await exchangeServiceNotificationClientCredentials({
+      grant_type: "client_credentials",
+      client_id: created.client_id,
+      client_secret: generated.client_secret,
+    });
+    const claims = decodeJwtPayload(token.access_token);
+
+    expect(token).toMatchObject({
+      access_token: expect.stringMatching(/^eyJ/),
+      token_type: "Bearer",
+      expires_in: 31_536_000,
+      scope: "service-transactions:notify",
+    });
+    expect(claims).toMatchObject({
+      iss: "goldencrow-openapi",
+      aud: "goldencrow-service-notifications",
+      sub: created.client_id,
+      client_id: created.client_id,
+      scope: "service-transactions:notify",
+      token_use: "service_notifications",
+      jti: expect.any(String),
+    });
+    expect(claims.exp).toBe((claims.iat ?? 0) + 31_536_000);
+    expect(mockDocumentGet).toHaveBeenCalledTimes(getCallsBeforeExchange + 1);
+    expect(mockTransactionSet).toHaveBeenCalledTimes(setCallsBeforeExchange);
+    expect(mockTransactionUpdate).toHaveBeenCalledTimes(
+      updateCallsBeforeExchange,
+    );
+    expect(docsIn(TOKENS_COLLECTION)).toHaveLength(0);
+    expect(
+      mockDocs.get(`${CLIENTS_COLLECTION}/${created.client_id}`),
+    ).toEqual(clientBeforeExchange);
+
+    await expect(
+      exchangeServiceNotificationClientCredentials({
+        grant_type: "client_credentials",
+        client_id: created.client_id,
+        client_secret: `${generated.client_secret}x`,
+      }),
+    ).rejects.toMatchObject({ statusCode: 401 });
+    expect(mockTransactionSet).toHaveBeenCalledTimes(setCallsBeforeExchange);
+    expect(mockTransactionUpdate).toHaveBeenCalledTimes(
+      updateCallsBeforeExchange,
+    );
+
+    const getCallsBeforeInvalidId = mockDocumentGet.mock.calls.length;
+    await expect(
+      exchangeServiceNotificationClientCredentials({
+        grant_type: "client_credentials",
+        client_id: "gci_live_parent/child",
+        client_secret: generated.client_secret,
+      }),
+    ).rejects.toMatchObject({ statusCode: 401 });
+    expect(mockDocumentGet).toHaveBeenCalledTimes(getCallsBeforeInvalidId);
+  });
+
+  it("rejects missing, secretless, and revoked clients without notification-token writes", async () => {
+    process.env.SERVICE_TRANSACTION_NOTIFICATION_TOKEN_SIGNING_SECRET =
+      "repository-notification-signing-secret-".repeat(2);
+    const {
+      createReportingIntegrationClient,
+      exchangeServiceNotificationClientCredentials,
+      revokeReportingIntegrationClient,
+      rotateReportingIntegrationClientSecret,
+    } = await import("../repositories/reporting-tokens.repository");
+
+    const created = await createReportingIntegrationClient(fullAdminContext, {
+      name: "Native app eligibility",
+    });
+    const readsBeforeSecretless = mockDocumentGet.mock.calls.length;
+    const setsBeforeSecretless = mockTransactionSet.mock.calls.length;
+    const updatesBeforeSecretless = mockTransactionUpdate.mock.calls.length;
+
+    await expect(
+      exchangeServiceNotificationClientCredentials({
+        grant_type: "client_credentials",
+        client_id: created.client_id,
+        client_secret: `gcs_live_${"a".repeat(43)}`,
+      }),
+    ).rejects.toMatchObject({ statusCode: 401 });
+    expect(mockDocumentGet).toHaveBeenCalledTimes(readsBeforeSecretless + 1);
+    expect(mockTransactionSet).toHaveBeenCalledTimes(setsBeforeSecretless);
+    expect(mockTransactionUpdate).toHaveBeenCalledTimes(
+      updatesBeforeSecretless,
+    );
+
+    const generated = await rotateReportingIntegrationClientSecret(
+      fullAdminContext,
+      created.client_id,
+    );
+    await revokeReportingIntegrationClient(
+      fullAdminContext,
+      created.client_id,
+    );
+    const readsBeforeRejectedClients = mockDocumentGet.mock.calls.length;
+    const setsBeforeRejectedClients = mockTransactionSet.mock.calls.length;
+    const updatesBeforeRejectedClients = mockTransactionUpdate.mock.calls.length;
+
+    await expect(
+      exchangeServiceNotificationClientCredentials({
+        grant_type: "client_credentials",
+        client_id: created.client_id,
+        client_secret: generated.client_secret,
+      }),
+    ).rejects.toMatchObject({ statusCode: 401 });
+    await expect(
+      exchangeServiceNotificationClientCredentials({
+        grant_type: "client_credentials",
+        client_id: `gci_live_${"z".repeat(43)}`,
+        client_secret: generated.client_secret,
+      }),
+    ).rejects.toMatchObject({ statusCode: 401 });
+
+    expect(mockDocumentGet).toHaveBeenCalledTimes(
+      readsBeforeRejectedClients + 2,
+    );
+    expect(mockTransactionSet).toHaveBeenCalledTimes(setsBeforeRejectedClients);
+    expect(mockTransactionUpdate).toHaveBeenCalledTimes(
+      updatesBeforeRejectedClients,
+    );
   });
 
   it("enforces per-client quota and audits accepted requests by client id", async () => {

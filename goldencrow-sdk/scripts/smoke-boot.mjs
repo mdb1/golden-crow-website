@@ -50,6 +50,7 @@ const PUBLIC = new Set([
   "POST /discover/publisher-favicon",
   "POST /discover/publisher-requests",
   "POST /service-transactions/:transactionId/notify-owner",
+  "POST /service-transactions/notification-token",
   "POST /service-transactions/notify-requester",
   "POST /service-transactions/notify-provider",
 ]);
@@ -97,6 +98,46 @@ check("GET /auth/context without a session → 401", ctx.statusCode === 401, `go
 
 const health = await app.inject({ method: "GET", url: "/health" });
 check("GET /health answers (200/503)", [200, 503].includes(health.statusCode), `got ${health.statusCode}`);
+
+const notificationToken = await app.inject({
+  method: "POST",
+  url: "/service-transactions/notification-token",
+  payload: {},
+});
+check(
+  "POST /service-transactions/notification-token requires client credentials → 400",
+  notificationToken.statusCode === 400,
+  `got ${notificationToken.statusCode}`,
+);
+
+for (const request of [
+  {
+    url: "/service-transactions/notify-provider",
+    payload: {
+      providerContactEmail: "provider@example.org",
+      requestedByUserEmail: "requester@example.org",
+      serviceName: "Service",
+    },
+  },
+  {
+    url: "/service-transactions/notify-requester",
+    payload: {
+      requestedByUserEmail: "requester@example.org",
+      items: [{ serviceName: "Service", providerName: "Provider" }],
+    },
+  },
+]) {
+  const response = await app.inject({
+    method: "POST",
+    url: request.url,
+    payload: request.payload,
+  });
+  check(
+    `POST ${request.url} without notification Bearer token → 401`,
+    response.statusCode === 401,
+    `got ${response.statusCode}`,
+  );
+}
 
 // Every protected route must stop at the auth hook. Path params get a dummy
 // value; the hook runs before validation, so the body doesn't matter.

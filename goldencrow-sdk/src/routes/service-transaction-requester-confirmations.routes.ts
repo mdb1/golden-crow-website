@@ -7,6 +7,7 @@ import {
   SERVICE_TRANSACTION_REQUESTER_CONFIRMATION_MAX_NAME_LENGTH,
 } from "../lib/service-transaction-requester-confirmation-contract.js";
 import { sendServiceTransactionRequesterConfirmationEmail } from "../lib/service-transaction-requester-confirmation-email.js";
+import { requireServiceNotificationAccessToken } from "../lib/service-notification-route-auth.js";
 
 const RequesterConfirmationItemSchema = z
   .object({
@@ -50,6 +51,7 @@ export async function serviceTransactionRequesterConfirmationRoutes(
   f.post(
     "/service-transactions/notify-requester",
     {
+      onRequest: requireServiceNotificationAccessToken,
       schema: {
         body: RequesterConfirmationBodySchema,
       },

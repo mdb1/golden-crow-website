@@ -6,6 +6,7 @@ import {
   SERVICE_TRANSACTION_PROVIDER_NOTIFICATION_MAX_NAME_LENGTH,
 } from "../lib/service-transaction-provider-notification-contract.js";
 import { sendServiceTransactionProviderBestEffortEmail } from "../lib/service-transaction-provider-best-effort-email.js";
+import { requireServiceNotificationAccessToken } from "../lib/service-notification-route-auth.js";
 
 const ProviderNotificationBodySchema = z
   .object({
@@ -40,6 +41,7 @@ export async function serviceTransactionProviderNotificationRoutes(
   f.post(
     "/service-transactions/notify-provider",
     {
+      onRequest: requireServiceNotificationAccessToken,
       schema: {
         body: ProviderNotificationBodySchema,
       },

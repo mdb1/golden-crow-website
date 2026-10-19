@@ -7,6 +7,9 @@ collection.
 New native releases must use the zero-Firestore client-trusted provider command
 documented in
 [Zero-Firestore provider email](./zero-firestore-provider-notification-native-integration.md).
+Both new zero-Firestore email commands use the shared signed Bearer-token layer
+documented in
+[Service-notification device authentication](./service-notification-device-auth-native-integration.md).
 The `/:transactionId/notify-owner` command below remains available only for
 already-released clients during migration. A new client must never call both
 commands for the same transaction.
