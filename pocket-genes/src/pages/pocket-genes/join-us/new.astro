@@ -7,6 +7,10 @@ import {
   getWizardGeneticReportCategoryOptions,
   getWizardSocialOptions,
 } from '../../../data/discoverPublisherWizard';
+import {
+  DESCRIPTION_MIN_LENGTH,
+  getDescriptionProgress,
+} from '../../../data/discoverPublisherDescriptionProgress';
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const locale = isEnglish ? 'en' : 'es';
@@ -76,9 +80,10 @@ const pageCopy = {
     descriptionPlaceholderIndividual: 'Tell us what you work on, which topics interest you, and what kind of knowledge you would like to share.',
     descriptionPromptsIndividual: ['Your expertise', 'Topics to discuss', 'Projects or experience'],
     descriptionMinHintIndividual: 'Start with the essentials so we understand your background and possible conversation topics.',
-    descriptionReady: 'This is enough to continue. Add the alternate language only if it helps.',
-    descriptionCountLabel: 'characters',
-    descriptionRemainingLabel: 'more characters to continue',
+    descriptionReady: 'You reached the minimum. Add the alternate language only if it helps.',
+    descriptionProgressReady: 'You’re ready to continue!',
+    descriptionProgressRemainingOne: '1 character left to reach the minimum',
+    descriptionProgressRemainingMany: '{count} characters left to reach the minimum',
     descriptionMinError: 'Write at least 30 characters to continue.',
     altDescriptionButton: 'Add Spanish',
     altDescriptionTitle: 'Optional second language',
@@ -246,9 +251,10 @@ const pageCopy = {
     descriptionPlaceholderIndividual: 'Contanos en qué trabajás, qué temas te interesan y qué conocimiento te gustaría compartir.',
     descriptionPromptsIndividual: ['Tu experiencia', 'Temas de conversación', 'Proyectos o trayectoria'],
     descriptionMinHintIndividual: 'Empezá por lo esencial para que entendamos tu recorrido y posibles temas de conversación.',
-    descriptionReady: 'Listo para continuar. Sumá el idioma alternativo solo si ayuda.',
-    descriptionCountLabel: 'caracteres',
-    descriptionRemainingLabel: 'caracteres más para continuar',
+    descriptionReady: 'Alcanzaste el mínimo. Sumá el idioma alternativo solo si ayuda.',
+    descriptionProgressReady: '¡Ya podés avanzar!',
+    descriptionProgressRemainingOne: 'Falta 1 carácter para llegar al mínimo',
+    descriptionProgressRemainingMany: 'Faltan {count} caracteres para llegar al mínimo',
     descriptionMinError: 'Escribí al menos 30 caracteres para continuar.',
     altDescriptionButton: 'Agregar descripción en inglés',
     altDescriptionTitle: 'Segundo idioma opcional',
@@ -417,8 +423,9 @@ const wizardClientCopy = {
   descriptionMinHintIndividual: copy.descriptionMinHintIndividual,
   descriptionMinHint: copy.descriptionMinHint,
   descriptionReady: copy.descriptionReady,
-  descriptionCountLabel: copy.descriptionCountLabel,
-  descriptionRemainingLabel: copy.descriptionRemainingLabel,
+  descriptionProgressReady: copy.descriptionProgressReady,
+  descriptionProgressRemainingOne: copy.descriptionProgressRemainingOne,
+  descriptionProgressRemainingMany: copy.descriptionProgressRemainingMany,
   descriptionMinError: copy.descriptionMinError,
   imageLoading: copy.imageLoading,
   imageLoaded: copy.imageLoaded,
@@ -598,13 +605,26 @@ const wizardClientCopy = {
                 maxlength="5000"
                 rows="7"
                 placeholder={copy.descriptionPlaceholder}
+                aria-describedby="publisher-description-helper publisher-description-progress"
               ></textarea>
               <div class="pg-description-meter" aria-hidden="true">
                 <span data-description-meter></span>
               </div>
               <div class="pg-description-footer">
-                <small data-description-helper>{copy.descriptionMinHint}</small>
-                <strong data-description-count>0 / 30</strong>
+                <small id="publisher-description-helper" data-description-helper>{copy.descriptionMinHint}</small>
+                <strong
+                  id="publisher-description-progress"
+                  data-description-count
+                  data-progress-state="needs-more"
+                >
+                  {copy.descriptionProgressRemainingMany.replace('{count}', String(DESCRIPTION_MIN_LENGTH))}
+                </strong>
+                <span
+                  class="pg-description-announcer"
+                  data-description-announcer
+                  aria-live="polite"
+                  aria-atomic="true"
+                ></span>
               </div>
               <div class="pg-writing-pulses" aria-hidden="true">
                 <span></span>
@@ -1083,6 +1103,11 @@ const wizardClientCopy = {
 </PocketGenesPublicLayout>
 
 <script>
+  import {
+    DESCRIPTION_MIN_LENGTH,
+    getDescriptionProgress,
+  } from '../../../data/discoverPublisherDescriptionProgress';
+
   const wizardRoot = document.querySelector('[data-publisher-wizard]');
 
   if (wizardRoot) {
@@ -1092,7 +1117,6 @@ const wizardClientCopy = {
     const urlParams = new URLSearchParams(window.location.search);
     const campaignId = urlParams.get('campaign') || '';
     const isCampaignMode = campaignId === '100-publishers';
-    const DESCRIPTION_MIN_LENGTH = 30;
     const IMAGE_UPLOAD_MAX_BYTES = 600 * 1024;
     const IMAGE_REDUCER_URL = 'https://squoosh.app/';
     const IMAGE_UPLOAD_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
@@ -1204,6 +1228,7 @@ const wizardClientCopy = {
     const descriptionMeter = wizardRoot.querySelector('[data-description-meter]');
     const descriptionHelper = wizardRoot.querySelector('[data-description-helper]');
     const descriptionCount = wizardRoot.querySelector('[data-description-count]');
+    const descriptionAnnouncer = wizardRoot.querySelector('[data-description-announcer]');
     const descriptionPrompts = wizardRoot.querySelector('[data-description-prompts]');
     const altDescriptionToggle = wizardRoot.querySelector('[data-alt-description-toggle]');
     const altDescriptionOffer = wizardRoot.querySelector('[data-alt-description-offer]');
@@ -2235,28 +2260,41 @@ const wizardClientCopy = {
       if (!descriptionPrimary) return;
 
       const length = descriptionPrimary.value.trim().length;
-      const done = length >= DESCRIPTION_MIN_LENGTH;
-      const remaining = Math.max(0, DESCRIPTION_MIN_LENGTH - length);
-      const progress = Math.min(1, length / DESCRIPTION_MIN_LENGTH);
+      const descriptionProgress = getDescriptionProgress(length);
+      const done = descriptionProgress.state === 'ready';
+      const previousProgressState = descriptionCount?.getAttribute('data-progress-state');
+      const progressMessage = done
+        ? copy.descriptionProgressReady
+        : descriptionProgress.remaining === 1
+          ? copy.descriptionProgressRemainingOne
+          : copy.descriptionProgressRemainingMany.replace(
+              '{count}',
+              String(descriptionProgress.remaining),
+            );
 
       descriptionCard?.classList.toggle('is-started', length > 0);
       descriptionCard?.classList.toggle('is-complete', done);
 
       if (descriptionMeter) {
-        descriptionMeter.style.transform = `scaleX(${progress})`;
+        descriptionMeter.style.transform = `scaleX(${descriptionProgress.progress})`;
       }
 
       if (descriptionCount) {
-        descriptionCount.textContent = `${length} / ${DESCRIPTION_MIN_LENGTH} ${copy.descriptionCountLabel}`;
+        descriptionCount.setAttribute('data-progress-state', descriptionProgress.state);
+        descriptionCount.textContent = progressMessage;
+      }
+
+      if (
+        descriptionAnnouncer &&
+        previousProgressState &&
+        previousProgressState !== descriptionProgress.state
+      ) {
+        descriptionAnnouncer.textContent = progressMessage;
       }
 
       if (descriptionHelper) {
         const descriptionCopy = currentDescriptionCopy();
-        descriptionHelper.textContent = done
-          ? copy.descriptionReady
-          : length === 0
-            ? descriptionCopy.minHint
-            : `${remaining} ${copy.descriptionRemainingLabel}`;
+        descriptionHelper.textContent = done ? copy.descriptionReady : descriptionCopy.minHint;
       }
     }
 
@@ -4365,19 +4403,49 @@ const wizardClientCopy = {
 
   .pg-description-footer strong {
     flex: 0 0 auto;
-    border: 1px solid rgba(111, 60, 195, 0.2);
+    max-width: 100%;
+    border: 1px solid transparent;
     border-radius: 999px;
-    color: var(--wizard-purple);
-    padding: 7px 12px;
+    padding: 8px 13px;
     font-size: 0.84rem;
-    line-height: 1;
+    line-height: 1.15;
+    text-align: center;
     white-space: nowrap;
+    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
   }
 
-  .pg-description-card.is-complete .pg-description-footer strong {
-    border-color: rgba(20, 149, 143, 0.25);
+  .pg-description-footer strong[data-progress-state='needs-more'] {
+    border-color: #fecaca;
+    background: #fff1f2;
+    color: #b42318;
+  }
+
+  .pg-description-footer strong[data-progress-state='close'] {
+    border-color: #fed7aa;
+    background: #fff7ed;
+    color: #b54708;
+  }
+
+  .pg-description-footer strong[data-progress-state='almost-there'] {
+    border-color: #fde68a;
+    background: #fefce8;
+    color: #854d0e;
+  }
+
+  .pg-description-footer strong[data-progress-state='ready'] {
+    border-color: rgba(20, 149, 143, 0.3);
     background: #eef8f7;
     color: #0f6f6a;
+  }
+
+  .pg-description-announcer {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .pg-writing-pulses {
@@ -6731,6 +6799,10 @@ const wizardClientCopy = {
     .pg-color-controls {
       align-items: stretch;
       flex-direction: column;
+    }
+
+    .pg-description-footer strong {
+      white-space: normal;
     }
 
     .pg-alt-description-heading button,
