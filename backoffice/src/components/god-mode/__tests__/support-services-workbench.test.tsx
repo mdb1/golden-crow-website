@@ -329,6 +329,41 @@ const currentLiveOffer: SupportServiceOfferRecord = {
   ],
 };
 
+type StoredPublisherWizardForm = Record<string, unknown> & {
+  serviceId: string;
+  name: string;
+  serviceCategory: string;
+  providerKind: "organization" | "individual";
+  providerId: string;
+  providerName: string;
+  description: string;
+  providerWork: string;
+  promotionalBannerImageUploadDataUrl: string;
+  moreInformation: Record<string, unknown> & {
+    bulletSegments?: Array<{
+      title: string;
+      description: string;
+      imageUrl?: string;
+      imageUploadDataUrl?: string;
+    }>;
+  };
+};
+
+type StoredPublisherWizardDraft = Record<string, unknown> & {
+  form: StoredPublisherWizardForm;
+  savedForm: StoredPublisherWizardForm;
+  persistedOfferId: string | null;
+  wizardStepIndex: number;
+  omittedInlineImagePaths: string[];
+  pendingCreate: {
+    serviceId: string;
+    submittedAt: string;
+    name: string;
+    serviceCategory: string;
+    status: "draft" | "active" | "archived";
+  } | null;
+};
+
 function renderWithQueryClient(
   children: React.ReactNode,
   language: "en" | "es" = "en",
@@ -376,6 +411,69 @@ async function acknowledgeExistingOfferContract(
   fireEvent.click(confirm);
 }
 
+async function completeMinimalPublisherOfferWizard(name: string) {
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: name },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Choose service categories" }),
+  );
+  const categoryDialog = await screen.findByRole("dialog");
+  fireEvent.click(
+    within(categoryDialog).getByRole("checkbox", {
+      name: /^Genomic report generation\b/,
+    }),
+  );
+  fireEvent.click(
+    within(categoryDialog).getByRole("button", {
+      name: "Apply categories",
+    }),
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Offer visibility" }),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Promotional image",
+    }),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Service presentation",
+    }),
+  ).toBeTruthy();
+  const presentationFields = screen.getAllByRole("textbox");
+  fireEvent.change(presentationFields[0], {
+    target: { value: "Description for an interrupted save." },
+  });
+  fireEvent.change(presentationFields[1], {
+    target: { value: "Provider work for an interrupted save." },
+  });
+
+  for (const nextHeading of [
+    "More information",
+    "Request form",
+    "Commercial terms",
+    "Conditions and limitations",
+    "Service pipeline",
+    "Review and publish",
+  ]) {
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: nextHeading,
+      }),
+    ).toBeTruthy();
+  }
+}
+
 describe("support services workbenches", () => {
   beforeEach(() => {
     routerPush.mockClear();
@@ -385,6 +483,7 @@ describe("support services workbenches", () => {
     signInSdkSessionWithGoogleMock.mockReset();
     signInSdkSessionWithPasswordMock.mockReset();
     window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   it("translates both output object source choices with their product labels", () => {
@@ -1287,6 +1386,826 @@ describe("support services workbenches", () => {
     expect(createPayload).not.toHaveProperty("provider_id");
   });
 
+  it("restores a publisher wizard draft after refresh and isolates it by user", async () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.12345);
+    const checkedServiceIds: string[] = [];
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        const serviceId = new URL(
+          value,
+          "https://backoffice.example",
+        ).searchParams.get("serviceId")!;
+        checkedServiceIds.push(serviceId);
+        return { serviceId, available: true };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+    const fixedProvider = {
+      kind: "organization" as const,
+      id: "publisher-org-1",
+      name: "Publisher Org",
+    };
+    const firstIdentity = {
+      uid: "publisher-user-1",
+      email: "publisher@example.com",
+      project: "mydnamap",
+      surface: "publisher-portal" as const,
+    };
+
+    const firstRender = renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        routeBase="/publisher-portal/service-offers"
+        fixedProvider={fixedProvider}
+        sessionIdentity={firstIdentity}
+      />,
+    );
+
+    await waitFor(() => expect(checkedServiceIds).toHaveLength(1));
+    const originalServiceId = checkedServiceIds[0];
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Clinical refresh draft" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose service categories" }),
+    );
+    const categoryDialog = await screen.findByRole("dialog");
+    fireEvent.click(
+      within(categoryDialog).getByRole("checkbox", {
+        name: /^Genomic report generation\b/,
+      }),
+    );
+    fireEvent.click(
+      within(categoryDialog).getByRole("button", {
+        name: "Apply categories",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Offer visibility" }),
+    ).toBeTruthy();
+    await waitFor(() => {
+      const persistedDrafts = Array.from(
+        { length: window.sessionStorage.length },
+        (_, index) =>
+          window.sessionStorage.getItem(
+            window.sessionStorage.key(index) ?? "",
+          ) ?? "",
+      );
+      expect(
+        persistedDrafts.some((draft) =>
+          draft.includes("Clinical refresh draft"),
+        ),
+      ).toBe(true);
+    });
+    firstRender.unmount();
+
+    randomSpy.mockReturnValue(0.98765);
+    const refreshedRender = renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        routeBase="/publisher-portal/service-offers"
+        fixedProvider={fixedProvider}
+        sessionIdentity={firstIdentity}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Offer visibility",
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText("Step 2 of 10")).toBeTruthy();
+    await waitFor(() =>
+      expect(checkedServiceIds.length).toBeGreaterThanOrEqual(2),
+    );
+    expect(checkedServiceIds.at(-1)).toBe(originalServiceId);
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe(
+      "Clinical refresh draft",
+    );
+    expect(screen.getByTestId("service-category-pill").textContent).toBe(
+      "Genomic report generation",
+    );
+    refreshedRender.unmount();
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        routeBase="/publisher-portal/service-offers"
+        fixedProvider={fixedProvider}
+        sessionIdentity={{
+          ...firstIdentity,
+          uid: "publisher-user-2",
+          email: "second-publisher@example.com",
+        }}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Offer identity" }),
+    ).toBeTruthy();
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("");
+    expect(screen.queryByTestId("service-category-pill")).toBeNull();
+    await waitFor(() =>
+      expect(checkedServiceIds.length).toBeGreaterThanOrEqual(3),
+    );
+    expect(checkedServiceIds.at(-1)).not.toBe(originalServiceId);
+  });
+
+  it("recovers an offer committed while the creation page was refreshing", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.31415);
+    const fixedProvider = {
+      kind: "organization" as const,
+      id: "publisher-org-1",
+      name: "Publisher Org",
+    };
+    const sessionIdentity = {
+      uid: "publisher-user-1",
+      email: "publisher@example.com",
+      project: "mydnamap",
+      surface: "publisher-portal" as const,
+    };
+    let phase: "creating" | "recovering" = "creating";
+    let createPayload: Record<string, unknown> | undefined;
+    let recoveryPostAttempts = 0;
+    let resolveInterruptedCreate:
+      | ((value: { offer: SupportServiceOfferRecord }) => void)
+      | undefined;
+    const interruptedCreate = new Promise<{
+      offer: SupportServiceOfferRecord;
+    }>((resolve) => {
+      resolveInterruptedCreate = resolve;
+    });
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        const serviceId = new URL(
+          value,
+          "https://backoffice.example",
+        ).searchParams.get("serviceId")!;
+        return { serviceId, available: true };
+      }
+      if (
+        value === "/admin/support-services/offers" &&
+        init?.method === "POST"
+      ) {
+        createPayload = JSON.parse(String(init.body)) as Record<
+          string,
+          unknown
+        >;
+        if (phase === "creating") {
+          return interruptedCreate;
+        }
+        recoveryPostAttempts += 1;
+        if (recoveryPostAttempts === 1) {
+          throw new SdkRequestError({
+            status: 503,
+            method: "POST",
+            path: value,
+            message: "Service unavailable",
+            details: "Status: 503 Service Unavailable during recovery",
+          });
+        }
+        return {
+          offer: {
+            ...hiddenOffer,
+            ...createPayload,
+            id: "offer-recovered-after-refresh",
+            status: "draft",
+            createdByEmail: sessionIdentity.email,
+            normalizedName: "interrupted offer",
+          } as SupportServiceOfferRecord,
+        };
+      }
+      if (
+        value ===
+          "/admin/support-services/offers/offer-recovered-after-refresh" &&
+        phase === "recovering"
+      ) {
+        return {
+          offer: {
+            ...hiddenOffer,
+            ...createPayload,
+            id: "offer-recovered-after-refresh",
+            status: "draft",
+            createdByEmail: sessionIdentity.email,
+            normalizedName: "interrupted offer",
+          } as SupportServiceOfferRecord,
+        };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    const firstRender = renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        routeBase="/publisher-portal/service-offers"
+        fixedProvider={fixedProvider}
+        sessionIdentity={sessionIdentity}
+      />,
+    );
+    await completeMinimalPublisherOfferWizard("Interrupted offer");
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(createPayload).toBeDefined());
+    await waitFor(() => {
+      const drafts = Array.from(
+        { length: window.sessionStorage.length },
+        (_, index) =>
+          JSON.parse(
+            window.sessionStorage.getItem(
+              window.sessionStorage.key(index) ?? "",
+            ) ?? "{}",
+          ) as {
+            pendingCreate?: { serviceId?: string } | null;
+          },
+      );
+      expect(
+        drafts.some(
+          (draft) =>
+            draft.pendingCreate?.serviceId === createPayload?.serviceId,
+        ),
+      ).toBe(true);
+    });
+    firstRender.unmount();
+
+    phase = "recovering";
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        routeBase="/publisher-portal/service-offers"
+        fixedProvider={fixedProvider}
+        sessionIdentity={sessionIdentity}
+      />,
+    );
+
+    await waitFor(() => expect(recoveryPostAttempts).toBe(1));
+    expect(
+      await screen.findByText(
+        "The service ID could not be verified. Your offer data is still here.",
+      ),
+    ).toBeTruthy();
+    const recoveryStatus = screen.getByTestId(
+      "service-offer-wizard-preparation-status",
+    );
+    expect(
+      within(recoveryStatus)
+        .getAllByRole("button")
+        .map((button) => button.textContent?.trim()),
+    ).toEqual(["Retry", "View error log", "Autocorrect"]);
+    expect(
+      (screen.getByRole("button", { name: "Save draft" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Publish service offer",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Back" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    fireEvent.click(
+      within(recoveryStatus).getByRole("button", { name: "View error log" }),
+    );
+    const recoveryLog = await screen.findByRole("dialog", {
+      name: "Service ID verification log",
+    });
+    expect(
+      within(recoveryLog).getByText(
+        /Status: 503 Service Unavailable during recovery/,
+      ),
+    ).toBeTruthy();
+    fireEvent.click(
+      within(recoveryLog).getAllByRole("button", { name: "Close" })[0],
+    );
+    fireEvent.click(
+      within(recoveryStatus).getByRole("button", { name: "Retry" }),
+    );
+    expect(
+      await screen.findByText(
+        "The saved service offer was recovered after refresh.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Review and publish" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Step 10 of 10")).toBeTruthy();
+    expect(screen.getByText("Interrupted offer")).toBeTruthy();
+    expect(
+      screen.getByText("The service offer is ready to save."),
+    ).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Save draft" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(routerRefresh).not.toHaveBeenCalled();
+    expect(recoveryPostAttempts).toBe(2);
+
+    void resolveInterruptedCreate;
+  });
+
+  it("does not replay an interrupted create when the same image count is restored in the wrong slots", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.27182);
+    const fixedProvider = {
+      kind: "organization" as const,
+      id: "publisher-org-1",
+      name: "Publisher Org",
+    };
+    const sessionIdentity = {
+      uid: "publisher-user-1",
+      email: "publisher@example.com",
+      project: "mydnamap",
+      surface: "publisher-portal" as const,
+    };
+    let postAttempts = 0;
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        const serviceId = new URL(
+          value,
+          "https://backoffice.example",
+        ).searchParams.get("serviceId")!;
+        return { serviceId, available: true };
+      }
+      if (
+        value === "/admin/support-services/offers" &&
+        init?.method === "POST"
+      ) {
+        postAttempts += 1;
+        const payload = JSON.parse(String(init.body));
+        return {
+          offer: {
+            ...hiddenOffer,
+            ...payload,
+            id: "wrong-slot-create",
+            createdByEmail: sessionIdentity.email,
+          },
+        };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+    const workbench = (
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        routeBase="/publisher-portal/service-offers"
+        fixedProvider={fixedProvider}
+        sessionIdentity={sessionIdentity}
+      />
+    );
+
+    const firstRender = renderWithQueryClient(workbench);
+    await completeMinimalPublisherOfferWizard("Wrong-slot recovery");
+    await waitFor(() => expect(window.sessionStorage.length).toBe(1));
+    const draftKey = window.sessionStorage.key(0)!;
+    await waitFor(() =>
+      expect(window.sessionStorage.getItem(draftKey)).toContain(
+        "Wrong-slot recovery",
+      ),
+    );
+    firstRender.unmount();
+
+    const draft = JSON.parse(
+      window.sessionStorage.getItem(draftKey)!,
+    ) as StoredPublisherWizardDraft;
+    draft.form.moreInformation = {
+      ...draft.form.moreInformation,
+      bulletSegments: [
+        {
+          title: "Original uploaded segment",
+          description: "This exact segment originally held the upload.",
+          imageUploadDataUrl: "",
+        },
+        {
+          title: "Different segment",
+          description: "Uploading here must not satisfy the first slot.",
+          imageUploadDataUrl: "",
+        },
+      ],
+    };
+    draft.savedForm = JSON.parse(
+      JSON.stringify(draft.form),
+    ) as StoredPublisherWizardForm;
+    draft.persistedOfferId = null;
+    draft.wizardStepIndex = 9;
+    draft.omittedInlineImagePaths = [
+      "moreInformation.bulletSegments.0.imageUploadDataUrl",
+    ];
+    draft.pendingCreate = {
+      serviceId: draft.form.serviceId,
+      submittedAt: "2026-10-20T16:00:00.000Z",
+      name: draft.form.name,
+      serviceCategory: draft.form.serviceCategory,
+      status: "draft",
+    };
+    window.sessionStorage.setItem(draftKey, JSON.stringify(draft));
+
+    renderWithQueryClient(workbench);
+    expect(
+      await screen.findByText(
+        "The service ID could not be verified. Your offer data is still here.",
+      ),
+    ).toBeTruthy();
+
+    for (const heading of [
+      "Service pipeline",
+      "Conditions and limitations",
+      "Commercial terms",
+      "Request form",
+      "More information",
+    ]) {
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+      expect(
+        await screen.findByRole("heading", { level: 1, name: heading }),
+      ).toBeTruthy();
+    }
+
+    const editor = screen.getByTestId("service-offer-more-information-editor");
+    expect(
+      (
+        within(editor).getByRole("button", {
+          name: "Add illustrated segment",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      within(editor)
+        .getAllByRole("button", { name: "Delete illustrated segment" })
+        .every((button) => (button as HTMLButtonElement).disabled),
+    ).toBe(true);
+    fireEvent.click(
+      within(editor).getAllByRole("button", {
+        name: "Edit illustrated segment",
+      })[1],
+    );
+    let segmentDialog = await screen.findByRole("dialog", {
+      name: "Edit illustrated segment",
+    });
+    fireEvent.change(within(segmentDialog).getByLabelText("Upload image file"), {
+      target: {
+        files: [
+          new File(["wrong-slot"], "wrong-slot.png", { type: "image/png" }),
+        ],
+      },
+    });
+    expect(await screen.findByText("Uploaded image ready.")).toBeTruthy();
+    fireEvent.click(
+      within(segmentDialog).getByRole("button", { name: "Save changes" }),
+    );
+
+    fireEvent.click(
+      within(editor).getAllByRole("button", {
+        name: "Edit illustrated segment",
+      })[0],
+    );
+    segmentDialog = await screen.findByRole("dialog", {
+      name: "Edit illustrated segment",
+    });
+    fireEvent.change(within(segmentDialog).getByLabelText("Image URL"), {
+      target: { value: "https://example.org/replacement.png" },
+    });
+    fireEvent.click(
+      within(segmentDialog).getByRole("button", { name: "Save changes" }),
+    );
+
+    for (const heading of [
+      "Request form",
+      "Commercial terms",
+      "Conditions and limitations",
+      "Service pipeline",
+      "Review and publish",
+    ]) {
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+      expect(
+        await screen.findByRole("heading", { level: 1, name: heading }),
+      ).toBeTruthy();
+    }
+
+    const recoveryStatus = screen.getByTestId(
+      "service-offer-wizard-preparation-status",
+    );
+    await act(async () => {
+      fireEvent.click(
+        within(recoveryStatus).getByRole("button", { name: "Retry" }),
+      );
+      await Promise.resolve();
+    });
+    expect(postAttempts).toBe(0);
+    expect(
+      (screen.getByRole("button", { name: "Save draft" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen.getByRole("button", { name: "Publish service offer" }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+
+  it("reloads authoritative inline images before a persisted recovered draft can be saved again", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.1618);
+    renewSdkSessionMock.mockRejectedValue(new Error("Firebase signed out"));
+    signInSdkSessionWithPasswordMock.mockResolvedValue();
+    const fixedProvider = {
+      kind: "organization" as const,
+      id: "publisher-org-1",
+      name: "Publisher Org",
+    };
+    const sessionIdentity = {
+      uid: "publisher-user-1",
+      email: "publisher@example.com",
+      project: "mydnamap",
+      surface: "publisher-portal" as const,
+    };
+    const persistedOfferId = "offer-recovered-with-images";
+    const authoritativeBanner = "data:image/png;base64,YXV0aG9yaXRhdGl2ZQ==";
+    const deletedSegmentImage = "data:image/png;base64,ZGVsZXRlZA==";
+    const retainedSegmentImage = "data:image/png;base64,cmV0YWluZWQ==";
+    let authoritativeOffer: SupportServiceOfferRecord | null = null;
+    let resolveAuthoritativeOffer:
+      | ((value: { offer: SupportServiceOfferRecord }) => void)
+      | undefined;
+    const authoritativeOfferRequest = new Promise<{
+      offer: SupportServiceOfferRecord;
+    }>((resolve) => {
+      resolveAuthoritativeOffer = resolve;
+    });
+    let persistedGetAttempts = 0;
+    let updatePayload: Record<string, unknown> | undefined;
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        const serviceId = new URL(
+          value,
+          "https://backoffice.example",
+        ).searchParams.get("serviceId")!;
+        return { serviceId, available: true };
+      }
+      if (
+        value === `/admin/support-services/offers/${persistedOfferId}` &&
+        !init?.method
+      ) {
+        persistedGetAttempts += 1;
+        if (persistedGetAttempts === 1) {
+          throw new SdkRequestError({
+            status: 401,
+            method: "GET",
+            path: value,
+            message: "Unauthorized",
+            details: "Status: 401 Unauthorized",
+          });
+        }
+        return authoritativeOfferRequest;
+      }
+      if (
+        value === `/admin/support-services/offers/${persistedOfferId}` &&
+        init?.method === "PUT"
+      ) {
+        updatePayload = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return { offer: { ...authoritativeOffer!, ...updatePayload } };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+    const workbench = (
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        routeBase="/publisher-portal/service-offers"
+        fixedProvider={fixedProvider}
+        sessionIdentity={sessionIdentity}
+      />
+    );
+
+    const firstRender = renderWithQueryClient(workbench);
+    await completeMinimalPublisherOfferWizard("Recovered image offer");
+    await waitFor(() => expect(window.sessionStorage.length).toBe(1));
+    const draftKey = window.sessionStorage.key(0)!;
+    await waitFor(() =>
+      expect(window.sessionStorage.getItem(draftKey)).toContain(
+        "Recovered image offer",
+      ),
+    );
+    firstRender.unmount();
+
+    const draft = JSON.parse(
+      window.sessionStorage.getItem(draftKey)!,
+    ) as StoredPublisherWizardDraft;
+    draft.persistedOfferId = persistedOfferId;
+    draft.pendingCreate = null;
+    draft.wizardStepIndex = 9;
+    draft.omittedInlineImagePaths = [
+      "promotionalBannerImageUploadDataUrl",
+      "moreInformation.bulletSegments.0.imageUploadDataUrl",
+    ];
+    draft.form.promotionalBannerImageUploadDataUrl = "";
+    draft.savedForm.promotionalBannerImageUploadDataUrl = "";
+    draft.form.description = "Unsaved local description survives hydration.";
+    draft.savedForm.description = "Server description before local editing.";
+    draft.form.moreInformation = {
+      ...draft.form.moreInformation,
+      bulletSegments: [
+        {
+          title: "Retained server segment",
+          description: "This segment moved from index one to index zero.",
+          imageUploadDataUrl: "",
+        },
+      ],
+    };
+    draft.savedForm.moreInformation = {
+      ...draft.savedForm.moreInformation,
+      bulletSegments: [
+        {
+          title: "Deleted server segment",
+          description: "This segment was removed locally before storage filled.",
+          imageUploadDataUrl: "",
+        },
+        {
+          title: "Retained server segment",
+          description: "This segment moved from index one to index zero.",
+          imageUploadDataUrl: "",
+        },
+      ],
+    };
+    authoritativeOffer = {
+      ...hiddenOffer,
+      id: persistedOfferId,
+      serviceId: draft.form.serviceId,
+      name: draft.form.name,
+      serviceCategory: draft.form.serviceCategory,
+      providerKind: fixedProvider.kind,
+      providerId: fixedProvider.id,
+      providerName: fixedProvider.name,
+      status: "draft",
+      description: "Server description before local editing.",
+      providerWork: draft.form.providerWork,
+      promotionalBannerImageUrl: null,
+      promotionalBannerImageUploadDataUrl: authoritativeBanner,
+      moreInformation: {
+        ...draft.savedForm.moreInformation,
+        bulletSegments: [
+          {
+            title: "Deleted server segment",
+            description:
+              "This segment was removed locally before storage filled.",
+            imageUploadDataUrl: deletedSegmentImage,
+          },
+          {
+            title: "Retained server segment",
+            description: "This segment moved from index one to index zero.",
+            imageUploadDataUrl: retainedSegmentImage,
+          },
+        ],
+      } as SupportServiceOfferRecord["moreInformation"],
+      normalizedName: draft.form.name.toLowerCase(),
+    };
+    window.sessionStorage.setItem(draftKey, JSON.stringify(draft));
+
+    renderWithQueryClient(workbench);
+    await waitFor(() => expect(persistedGetAttempts).toBe(1));
+    const sessionDialog = await screen.findByRole("dialog", {
+      name: "Your session expired",
+    });
+    expect(
+      (screen.getByRole("button", {
+        name: "Save draft",
+        hidden: true,
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      sdkFetchMock.mock.calls.some(([, init]) => init?.method === "POST"),
+    ).toBe(false);
+
+    fireEvent.change(within(sessionDialog).getByLabelText("Password"), {
+      target: { value: "secret-password" },
+    });
+    fireEvent.click(
+      within(sessionDialog).getByRole("button", {
+        name: "Sign in with password",
+      }),
+    );
+    await waitFor(() => expect(persistedGetAttempts).toBe(2));
+
+    await act(async () => {
+      resolveAuthoritativeOffer?.({ offer: authoritativeOffer! });
+      await authoritativeOfferRequest;
+    });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Your session expired" }),
+      ).toBeNull(),
+    );
+
+    const recoveredBanner = await screen.findByRole("img", {
+      name: "Recovered image offer",
+    });
+    expect(recoveredBanner.getAttribute("src")).toBe(authoritativeBanner);
+    const recoveredSegment = screen.getByRole("img", {
+      name: "Retained server segment",
+    });
+    expect(recoveredSegment.getAttribute("src")).toBe(retainedSegmentImage);
+    expect(screen.queryByText("Deleted server segment")).toBeNull();
+    expect(
+      screen.getByText("Unsaved local description survives hydration."),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "Save draft" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await acknowledgeExistingOfferContract();
+    await waitFor(() => expect(updatePayload).toBeDefined());
+    expect(updatePayload).toEqual(
+      expect.objectContaining({
+        description: "Unsaved local description survives hydration.",
+        promotionalBannerImageUploadDataUrl: authoritativeBanner,
+      }),
+    );
+    expect(
+      (
+        updatePayload?.moreInformation as {
+          bulletSegments?: Array<{ imageUploadDataUrl?: string }>;
+        }
+      ).bulletSegments?.[0]?.imageUploadDataUrl,
+    ).toBe(retainedSegmentImage);
+  });
+
+  it("rejects a structurally corrupted publisher wizard draft", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        const serviceId = new URL(
+          value,
+          "https://backoffice.example",
+        ).searchParams.get("serviceId")!;
+        return { serviceId, available: true };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+    const workbench = (
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
+        sessionIdentity={{
+          uid: "publisher-user-1",
+          email: "publisher@example.com",
+          project: "mydnamap",
+          surface: "publisher-portal",
+        }}
+      />
+    );
+    const firstRender = renderWithQueryClient(workbench);
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "This malformed draft must not return" },
+    });
+    await waitFor(() => expect(window.sessionStorage.length).toBe(1));
+    firstRender.unmount();
+
+    const draftKey = window.sessionStorage.key(0)!;
+    const corruptedDraft = JSON.parse(
+      window.sessionStorage.getItem(draftKey)!,
+    ) as {
+      form: {
+        moreInformation: Record<string, unknown>;
+      };
+    };
+    corruptedDraft.form.moreInformation.technicalInformationFacts = [
+      {
+        title: "Broken",
+        description: "Broken",
+        subitems: [null],
+      },
+    ];
+    window.sessionStorage.setItem(draftKey, JSON.stringify(corruptedDraft));
+
+    renderWithQueryClient(workbench);
+    await waitFor(() =>
+      expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe(""),
+    );
+    expect(screen.getByText("Step 1 of 10")).toBeTruthy();
+  });
+
   it("guides publisher offer creation through focused wizard steps", async () => {
     let createPayload: Record<string, unknown> | undefined;
     sdkFetchMock.mockImplementation(async (path, init) => {
@@ -1325,6 +2244,12 @@ describe("support services workbenches", () => {
           kind: "organization",
           id: "publisher-org-1",
           name: "Publisher Org",
+        }}
+        sessionIdentity={{
+          uid: "publisher-user-1",
+          email: "publisher@example.com",
+          project: "mydnamap",
+          surface: "publisher-portal",
         }}
         canDelete={false}
       />,
@@ -1865,11 +2790,13 @@ describe("support services workbenches", () => {
     expect(appText("es", "Service offer contract summary")).toBe(
       "Resumen contractual de la oferta de servicio",
     );
+    await waitFor(() => expect(window.sessionStorage.length).toBe(1));
 
     fireEvent.click(
       within(actionFooter).getByRole("button", { name: "Save draft" }),
     );
     await waitFor(() => expect(createPayload).toBeDefined());
+    expect(window.sessionStorage.length).toBe(0);
     expect(createPayload?.inputSlots).toEqual([
       {
         role: "form",
@@ -3742,7 +4669,7 @@ describe("support services workbenches", () => {
     ).toBe(true);
   });
 
-  it("retries a failed service ID verification without changing the generated ID", async () => {
+  it("shows the three Spanish recovery actions, exposes the 503 log, and retries the same service ID", async () => {
     jest.spyOn(Math, "random").mockReturnValue(0.2468);
     const checkedServiceIds: string[] = [];
     let attempts = 0;
@@ -3760,7 +4687,11 @@ describe("support services workbenches", () => {
             method: "GET",
             path: value,
             message: "Service unavailable",
-            details: "Status: 503 Service Unavailable",
+            details: [
+              `Request: GET ${value}`,
+              "Status: 503 Service Unavailable",
+              'Response JSON: {"error":"temporarily unavailable"}',
+            ].join("\n\n"),
           });
         }
         return { serviceId, available: true };
@@ -3777,21 +4708,389 @@ describe("support services workbenches", () => {
           name: "Publisher Org",
         }}
       />,
+      "es",
+    );
+
+    expect(
+      await screen.findByText("No se pudo validar el ID de servicio."),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Regenerar ID de servicio" }),
+    ).toBeNull();
+
+    const generatedValue = screen.getByTestId("service-id-generated-value");
+    expect(
+      within(generatedValue)
+        .getAllByRole("button")
+        .map((button) => button.textContent?.trim()),
+    ).toEqual(["Reintentar", "Ver log de error", "Autocorregir"]);
+
+    fireEvent.click(
+      within(generatedValue).getByRole("button", {
+        name: "Ver log de error",
+      }),
+    );
+
+    const logDialog = await screen.findByRole("dialog", {
+      name: "Log de verificación del ID de servicio",
+    });
+    expect(
+      within(logDialog).getByText(/Status: 503 Service Unavailable/),
+    ).toBeTruthy();
+    expect(
+      within(logDialog).getByText(
+        /Response JSON: \{"error":"temporarily unavailable"\}/,
+      ),
+    ).toBeTruthy();
+    fireEvent.click(within(logDialog).getByRole("button", { name: "Cerrar" }));
+
+    fireEvent.click(
+      within(generatedValue).getByRole("button", { name: "Reintentar" }),
+    );
+
+    expect(
+      await screen.findByText("El ID de servicio está disponible."),
+    ).toBeTruthy();
+    expect(checkedServiceIds).toHaveLength(2);
+    expect(new Set(checkedServiceIds).size).toBe(1);
+  });
+
+  it("shows the same three recovery actions in the wizard review error", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.2468);
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        throw new SdkRequestError({
+          status: 503,
+          method: "GET",
+          path: value,
+          message: "Service unavailable",
+          details: "Status: 503 Service Unavailable",
+        });
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Wizard recovery offer" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose service categories" }),
+    );
+    const categoryDialog = await screen.findByRole("dialog");
+    fireEvent.click(
+      within(categoryDialog).getByRole("checkbox", {
+        name: /^Genomic report generation\b/,
+      }),
+    );
+    fireEvent.click(
+      within(categoryDialog).getByRole("button", {
+        name: "Apply categories",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Offer visibility",
+      }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Promotional image",
+      }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Service presentation",
+      }),
+    ).toBeTruthy();
+    const presentationFields = screen.getAllByRole("textbox");
+    fireEvent.change(presentationFields[0], {
+      target: { value: "Description for the requester." },
+    });
+    fireEvent.change(presentationFields[1], {
+      target: { value: "Provider processing work." },
+    });
+
+    for (const nextHeading of [
+      "More information",
+      "Request form",
+      "Commercial terms",
+      "Conditions and limitations",
+      "Service pipeline",
+      "Review and publish",
+    ]) {
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+      expect(
+        await screen.findByRole("heading", {
+          level: 1,
+          name: nextHeading,
+        }),
+      ).toBeTruthy();
+    }
+
+    const preparationStatus = screen.getByTestId(
+      "service-offer-wizard-preparation-status",
+    );
+    expect(
+      within(preparationStatus)
+        .getAllByRole("button")
+        .map((button) => button.textContent?.trim()),
+    ).toEqual(["Retry", "View error log", "Autocorrect"]);
+    fireEvent.click(
+      within(preparationStatus).getByRole("button", {
+        name: "View error log",
+      }),
+    );
+    expect(
+      await screen.findByRole("dialog", {
+        name: "Service ID verification log",
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText(/Status: 503 Service Unavailable/)).toBeTruthy();
+  });
+
+  it("autocorrects a transient 503 by retrying the same generated service ID", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.1357);
+    const checkedServiceIds: string[] = [];
+    let attempts = 0;
+    let resolveAutocorrect:
+      | ((value: { serviceId: string; available: boolean }) => void)
+      | undefined;
+    const pendingAutocorrect = new Promise<{
+      serviceId: string;
+      available: boolean;
+    }>((resolve) => {
+      resolveAutocorrect = resolve;
+    });
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        const serviceId = new URL(value, "https://backoffice.example").searchParams.get(
+          "serviceId",
+        )!;
+        checkedServiceIds.push(serviceId);
+        attempts += 1;
+        if (attempts === 1) {
+          throw new SdkRequestError({
+            status: 503,
+            method: "GET",
+            path: value,
+            message: "Service unavailable",
+            details: "Status: 503 Service Unavailable",
+          });
+        }
+        return pendingAutocorrect;
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
+      />,
+      "es",
+    );
+
+    expect(
+      await screen.findByText("No se pudo validar el ID de servicio."),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Autocorregir" }));
+
+    const autocorrectingButton = await screen.findByRole("button", {
+      name: "Analizando y autocorrigiendo...",
+    });
+    expect((autocorrectingButton as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      screen.getByRole("button", { name: "Ver log de error" }),
+    ).toBeTruthy();
+    await act(async () => {
+      resolveAutocorrect?.({
+        serviceId: checkedServiceIds[0],
+        available: true,
+      });
+      await pendingAutocorrect;
+    });
+
+    expect(
+      await screen.findByText("El ID de servicio está disponible."),
+    ).toBeTruthy();
+    expect(checkedServiceIds).toHaveLength(2);
+    expect(new Set(checkedServiceIds).size).toBe(1);
+  });
+
+  it("autocorrects a confirmed conflict with a new verified ID without losing edits", async () => {
+    jest
+      .spyOn(Math, "random")
+      .mockReturnValueOnce(0.1357)
+      .mockReturnValueOnce(0.8642)
+      .mockReturnValue(0.7531);
+    const checkedServiceIds: string[] = [];
+    let initialServiceId = "";
+    let initialAttempts = 0;
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (!value.includes("service-id-availability")) {
+        throw new Error(`Unexpected SDK path: ${value}`);
+      }
+      const serviceId = new URL(
+        value,
+        "https://backoffice.example",
+      ).searchParams.get("serviceId")!;
+      checkedServiceIds.push(serviceId);
+      if (!initialServiceId) {
+        initialServiceId = serviceId;
+      }
+      if (serviceId === initialServiceId) {
+        initialAttempts += 1;
+        if (initialAttempts === 1) {
+          throw new SdkRequestError({
+            status: 503,
+            method: "GET",
+            path: value,
+            message: "Service unavailable",
+            details: "Status: 503 Service Unavailable",
+          });
+        }
+        return {
+          serviceId,
+          available: false,
+          conflictingOfferId: "offer-existing",
+        };
+      }
+      return { serviceId, available: true };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
+      />,
+      "es",
+    );
+
+    expect(
+      await screen.findByText("No se pudo validar el ID de servicio."),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Nombre de la oferta"), {
+      target: { value: "Oferta preservada" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Autocorregir" }));
+
+    expect(
+      await screen.findByText("El ID de servicio está disponible."),
+    ).toBeTruthy();
+    expect(
+      (screen.getByLabelText("Nombre de la oferta") as HTMLInputElement).value,
+    ).toBe("Oferta preservada");
+    expect(checkedServiceIds).toHaveLength(3);
+    expect(checkedServiceIds[0]).toBe(initialServiceId);
+    expect(checkedServiceIds[1]).toBe(initialServiceId);
+    expect(new Set(checkedServiceIds).size).toBe(2);
+    expect(checkedServiceIds.at(-1)).not.toBe(initialServiceId);
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(routerRefresh).not.toHaveBeenCalled();
+  });
+
+  it("closes recovered sign-in when autocorrect later fails for a non-auth reason", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.6421);
+    renewSdkSessionMock.mockRejectedValue(new Error("Firebase signed out"));
+    signInSdkSessionWithPasswordMock.mockResolvedValue();
+    let attempts = 0;
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (!value.includes("service-id-availability")) {
+        throw new Error(`Unexpected SDK path: ${value}`);
+      }
+      attempts += 1;
+      throw new SdkRequestError({
+        status: attempts === 2 ? 401 : 503,
+        method: "GET",
+        path: value,
+        message: attempts === 2 ? "Unauthorized" : "Service unavailable",
+        details:
+          attempts === 2
+            ? "Status: 401 Unauthorized"
+            : "Status: 503 Service Unavailable",
+      });
+    });
+    const sessionIdentity = {
+      uid: "publisher-user-1",
+      email: "publisher@example.com",
+      project: "mydnamap",
+      surface: "publisher-portal" as const,
+    };
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
+        sessionIdentity={sessionIdentity}
+      />,
     );
 
     expect(
       await screen.findByText("Service ID could not be validated."),
     ).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Regenerate service ID" }),
-    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Autocorrect" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Your session expired",
+    });
+    fireEvent.change(within(dialog).getByLabelText("Password"), {
+      target: { value: "secret-password" },
+    });
     fireEvent.click(
-      screen.getByRole("button", { name: "Retry verification" }),
+      within(dialog).getByRole("button", { name: "Sign in with password" }),
     );
 
-    expect(await screen.findByText("Service ID is available.")).toBeTruthy();
-    expect(checkedServiceIds).toHaveLength(2);
-    expect(new Set(checkedServiceIds).size).toBe(1);
+    await waitFor(
+      () => {
+        expect(
+          screen.queryByRole("dialog", { name: "Your session expired" }),
+        ).toBeNull();
+      },
+      { timeout: 3_000 },
+    );
+    expect(
+      screen.queryByText(
+        "The session is still unavailable. Try signing in again.",
+      ),
+    ).toBeNull();
+    expect(
+      screen.getByText("Service ID could not be validated."),
+    ).toBeTruthy();
+    expect(attempts).toBe(5);
   });
 
   it("renews an expired SDK session silently and checks the same service ID again", async () => {

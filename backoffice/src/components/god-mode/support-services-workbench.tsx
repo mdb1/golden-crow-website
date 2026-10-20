@@ -349,6 +349,38 @@ type PendingSessionSave = {
   options: PersistOfferOptions;
 };
 
+type PublisherServiceOfferInlineImagePath =
+  | "promotionalBannerImageUploadDataUrl"
+  | `moreInformation.bulletSegments.${number}.imageUploadDataUrl`;
+
+type PublisherServiceOfferWizardDraft = {
+  schemaVersion: 1;
+  savedAt: string;
+  uid: string;
+  providerKind: SupportServiceProviderKind;
+  providerId: string;
+  form: OfferFormState;
+  savedForm: OfferFormState;
+  persistedOfferId: string | null;
+  wizardStepIndex: number;
+  omittedInlineImagePaths: PublisherServiceOfferInlineImagePath[];
+  pendingCreate: {
+    serviceId: string;
+    submittedAt: string;
+    name: string;
+    serviceCategory: string;
+    status: SupportServiceOfferStatus;
+  } | null;
+};
+
+type ServiceIdAutocorrectErrorKind =
+  | "authentication"
+  | "conflict"
+  | "invalid"
+  | "permission"
+  | "terminal"
+  | "transient";
+
 type ServiceIdValidationStatus =
   | "idle"
   | "checking"
@@ -414,6 +446,13 @@ const PROMOTIONAL_BANNER_IMAGE_WIDTH = 1024;
 const PROMOTIONAL_BANNER_IMAGE_HEIGHT = 500;
 const GENERATED_SERVICE_ID_PATTERN =
   /^pgs_[a-z0-9]+(?:_[a-z0-9]+)*_[0-9]{5}$/;
+const PUBLISHER_SERVICE_OFFER_WIZARD_DRAFT_PREFIX =
+  "publisher-service-offer-wizard-draft:v1";
+const PUBLISHER_SERVICE_OFFER_WIZARD_DRAFT_DEBOUNCE_MS = 300;
+const SERVICE_ID_AVAILABILITY_STALE_MS = 30_000;
+const SERVICE_ID_AUTOCORRECT_TRANSIENT_ATTEMPTS = 3;
+const SERVICE_ID_AUTOCORRECT_CANDIDATE_ATTEMPTS = 8;
+const SERVICE_ID_AUTOCORRECT_RETRY_DELAY_MS = 300;
 const CURRENT_SERVICE_VERSION_CHART_COLOR = "#059669";
 const SERVICE_VERSION_CHART_COLORS = [
   "#7c3aed",
@@ -1262,6 +1301,506 @@ function initialOfferForm(
     stages: predictedStagesForContract(initialForm.inputSlots, outputSlots),
     outputSlots,
   };
+}
+
+function publisherServiceOfferWizardDraftKey({
+  uid,
+  providerKind,
+  providerId,
+}: {
+  uid: string;
+  providerKind: SupportServiceProviderKind;
+  providerId: string;
+}) {
+  return [
+    PUBLISHER_SERVICE_OFFER_WIZARD_DRAFT_PREFIX,
+    encodeURIComponent(uid),
+    providerKind,
+    encodeURIComponent(providerId),
+  ].join(":");
+}
+
+function publisherServiceOfferWizardSessionStorage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+function isDraftRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isDraftStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) &&
+    value.every((item) => typeof item === "string");
+}
+
+function isOptionalDraftString(value: unknown) {
+  return value === undefined || value === null || typeof value === "string";
+}
+
+function isDraftFormField(value: unknown) {
+  return (
+    isDraftRecord(value) &&
+    typeof value.key === "string" &&
+    typeof value.label === "string" &&
+    SUPPORT_SERVICE_FORM_FIELD_TYPES.some(
+      (fieldType) => fieldType.value === value.type,
+    ) &&
+    typeof value.required === "boolean" &&
+    typeof value.optionsText === "string" &&
+    isOptionalDraftString(value.helpInfoText) &&
+    (value.options === undefined ||
+      (Array.isArray(value.options) &&
+        value.options.every(
+          (option) =>
+            isDraftRecord(option) &&
+            typeof option.value === "string" &&
+            typeof option.label === "string",
+        )))
+  );
+}
+
+function isDraftInputSlot(value: unknown) {
+  return (
+    isDraftRecord(value) &&
+    typeof value.role === "string" &&
+    isOptionalDraftString(value.objectType) &&
+    isDraftStringArray(value.acceptedTypes) &&
+    typeof value.required === "boolean" &&
+    isDraftRecord(value.cardinality) &&
+    typeof value.cardinality.min === "number" &&
+    Number.isFinite(value.cardinality.min) &&
+    typeof value.cardinality.max === "number" &&
+    Number.isFinite(value.cardinality.max)
+  );
+}
+
+function isDraftOutputSlot(value: unknown) {
+  return (
+    isDraftRecord(value) &&
+    typeof value.role === "string" &&
+    typeof value.objectType === "string" &&
+    SUPPORT_SERVICE_MUTATION_MODES.some(
+      (mode) => mode.value === value.mutationMode,
+    ) &&
+    isOptionalDraftString(value.sameIdentityAsInput)
+  );
+}
+
+function isDraftItems(
+  value: unknown,
+  predicate: (item: unknown) => boolean,
+) {
+  return (
+    value === undefined ||
+    value === null ||
+    (Array.isArray(value) && value.every(predicate))
+  );
+}
+
+function hasDraftStrings(value: unknown, fields: readonly string[]) {
+  return (
+    isDraftRecord(value) &&
+    fields.every((field) => typeof value[field] === "string")
+  );
+}
+
+function isDraftMoreInformation(value: unknown) {
+  if (!isDraftRecord(value)) {
+    return false;
+  }
+
+  return (
+    isDraftItems(value.frequentQuestions, (item) =>
+      hasDraftStrings(item, ["question", "answer"]),
+    ) &&
+    isDraftItems(value.keyInsights, (item) =>
+      hasDraftStrings(item, ["title", "description"]),
+    ) &&
+    isDraftItems(value.scientificFacts, (item) =>
+      hasDraftStrings(item, ["title", "description"]),
+    ) &&
+    isDraftItems(value.usefulLinks, (item) =>
+      hasDraftStrings(item, ["title", "url"]),
+    ) &&
+    (value.sampleLink === undefined ||
+      value.sampleLink === null ||
+      hasDraftStrings(value.sampleLink, [
+        "title",
+        "description",
+        "buttonTitle",
+        "url",
+      ])) &&
+    isDraftItems(
+      value.bulletSegments,
+      (item) =>
+        hasDraftStrings(item, ["title", "description"]) &&
+        isDraftRecord(item) &&
+        isOptionalDraftString(item.imageUrl) &&
+        isOptionalDraftString(item.imageUploadDataUrl),
+    ) &&
+    isDraftItems(
+      value.technicalInformationFacts,
+      (item) =>
+        hasDraftStrings(item, ["title", "description"]) &&
+        isDraftRecord(item) &&
+        isDraftStringArray(item.subitems),
+    ) &&
+    isDraftItems(value.biologicalSampleRequirements, (item) =>
+      hasDraftStrings(item, ["title", "description", "instructions"]),
+    ) &&
+    isOptionalDraftString(value.websiteUrl)
+  );
+}
+
+function isDraftCommercialTerms(value: unknown) {
+  if (!isDraftRecord(value)) {
+    return false;
+  }
+  const pricingModel = value.pricingModel;
+  const price = value.price;
+  return (
+    (pricingModel === undefined ||
+      ["not_specified", "free", "fixed", "calculated_after_submission"].includes(
+        String(pricingModel),
+      )) &&
+    (price === undefined ||
+      (isDraftRecord(price) &&
+        isOptionalDraftString(price.summary) &&
+        isOptionalDraftString(price.currency) &&
+        (price.amount === undefined ||
+          (typeof price.amount === "number" &&
+            Number.isFinite(price.amount))))) &&
+    isOptionalDraftString(value.turnaround)
+  );
+}
+
+function isDraftPendingCreate(
+  value: unknown,
+): value is PublisherServiceOfferWizardDraft["pendingCreate"] {
+  return (
+    value === null ||
+    (isDraftRecord(value) &&
+      typeof value.serviceId === "string" &&
+      typeof value.submittedAt === "string" &&
+      typeof value.name === "string" &&
+      typeof value.serviceCategory === "string" &&
+      SUPPORT_SERVICE_OFFER_STATUSES.some(
+        (status) => status.value === value.status,
+      ))
+  );
+}
+
+function isPublisherServiceOfferInlineImagePath(
+  value: unknown,
+): value is PublisherServiceOfferInlineImagePath {
+  return (
+    value === "promotionalBannerImageUploadDataUrl" ||
+    (typeof value === "string" &&
+      /^moreInformation\.bulletSegments\.(?:0|[1-9]\d*)\.imageUploadDataUrl$/.test(
+        value,
+      ))
+  );
+}
+
+function inlineImageUploadPaths(
+  form: OfferFormState,
+): PublisherServiceOfferInlineImagePath[] {
+  const paths: PublisherServiceOfferInlineImagePath[] = [];
+  if (form.promotionalBannerImageUploadDataUrl.trim()) {
+    paths.push("promotionalBannerImageUploadDataUrl");
+  }
+  form.moreInformation.bulletSegments?.forEach((item, index) => {
+    if (item.imageUploadDataUrl?.trim()) {
+      paths.push(
+        `moreInformation.bulletSegments.${index}.imageUploadDataUrl`,
+      );
+    }
+  });
+  return paths;
+}
+
+function inlineImageUploadValueAtPath(
+  form: OfferFormState,
+  path: PublisherServiceOfferInlineImagePath,
+) {
+  if (path === "promotionalBannerImageUploadDataUrl") {
+    return form.promotionalBannerImageUploadDataUrl;
+  }
+  const match =
+    /^moreInformation\.bulletSegments\.(\d+)\.imageUploadDataUrl$/.exec(path);
+  const index = match ? Number(match[1]) : -1;
+  return form.moreInformation.bulletSegments?.[index]?.imageUploadDataUrl ?? "";
+}
+
+function sameInlineImageUploadPaths(
+  left: readonly PublisherServiceOfferInlineImagePath[],
+  right: readonly PublisherServiceOfferInlineImagePath[],
+) {
+  return (
+    left.length === right.length &&
+    left.every((path) => right.includes(path))
+  );
+}
+
+function hasRestoredInlineImageUploadPaths(
+  form: OfferFormState,
+  expectedPaths: readonly PublisherServiceOfferInlineImagePath[],
+) {
+  return expectedPaths.every((path) =>
+    Boolean(inlineImageUploadValueAtPath(form, path).trim()),
+  );
+}
+
+function mergeInlineImageUploadPaths(
+  ...pathGroups: ReadonlyArray<readonly PublisherServiceOfferInlineImagePath[]>
+) {
+  return Array.from(
+    new Set(pathGroups.flat()),
+  ).sort() as PublisherServiceOfferInlineImagePath[];
+}
+
+function restoreInlineImageUploadsFromAuthoritativeForm(
+  form: OfferFormState,
+  authoritativeForm: OfferFormState,
+  paths: readonly PublisherServiceOfferInlineImagePath[],
+) {
+  let restoredForm = form;
+  for (const path of paths) {
+    if (inlineImageUploadValueAtPath(restoredForm, path).trim()) {
+      continue;
+    }
+    if (path === "promotionalBannerImageUploadDataUrl") {
+      const authoritativeValue =
+        authoritativeForm.promotionalBannerImageUploadDataUrl;
+      if (!authoritativeValue.trim()) {
+        continue;
+      }
+      restoredForm = {
+        ...restoredForm,
+        promotionalBannerImageUrl: "",
+        promotionalBannerImageUploadDataUrl: authoritativeValue,
+      };
+      continue;
+    }
+    const match =
+      /^moreInformation\.bulletSegments\.(\d+)\.imageUploadDataUrl$/.exec(path);
+    const index = match ? Number(match[1]) : -1;
+    const bulletSegments = restoredForm.moreInformation.bulletSegments;
+    const currentSegment = bulletSegments?.[index];
+    if (!currentSegment) {
+      continue;
+    }
+    const authoritativeMatches =
+      authoritativeForm.moreInformation.bulletSegments?.filter(
+        (item) =>
+          item.title === currentSegment.title &&
+          item.description === currentSegment.description,
+      ) ?? [];
+    if (authoritativeMatches.length !== 1) {
+      continue;
+    }
+    const authoritativeValue =
+      authoritativeMatches[0].imageUploadDataUrl ?? "";
+    if (!authoritativeValue.trim()) {
+      continue;
+    }
+    restoredForm = {
+      ...restoredForm,
+      moreInformation: {
+        ...restoredForm.moreInformation,
+        bulletSegments: bulletSegments.map((item, itemIndex) =>
+          itemIndex === index
+            ? {
+                ...item,
+                imageUrl: undefined,
+                imageUploadDataUrl: authoritativeValue,
+              }
+            : item,
+        ),
+      },
+    };
+  }
+  return restoredForm;
+}
+
+function isRestorableOfferForm(value: unknown): value is OfferFormState {
+  if (!isDraftRecord(value)) {
+    return false;
+  }
+
+  const stringFields = [
+    "serviceId",
+    "name",
+    "serviceCategory",
+    "providerKind",
+    "providerId",
+    "providerName",
+    "status",
+    "promotionalBannerImageUrl",
+    "promotionalBannerImageUploadDataUrl",
+    "promotionalBannerImageUploadName",
+    "promotionalBannerImageUploadMimeType",
+    "description",
+    "providerWork",
+    "acceptedConditionsText",
+    "scopeRulesText",
+  ] as const;
+  const booleanFields = [
+    "isHiddenFromSearch",
+    "isHighlightedOffer",
+    "isProfessionalOffer",
+    "supportsFormShape",
+    "showsEstimatedTurnaround",
+  ] as const;
+
+  return (
+    stringFields.every((field) => typeof value[field] === "string") &&
+    booleanFields.every((field) => typeof value[field] === "boolean") &&
+    (value.providerKind === "organization" ||
+      value.providerKind === "individual") &&
+    SUPPORT_SERVICE_OFFER_STATUSES.some(
+      (status) => status.value === value.status,
+    ) &&
+    typeof value.serviceVersion === "number" &&
+    Number.isFinite(value.serviceVersion) &&
+    Array.isArray(value.stages) &&
+    value.stages.every((stage) =>
+      SUPPORT_SERVICE_STAGES.some((option) => option.value === stage),
+    ) &&
+    Array.isArray(value.inputSlots) &&
+    value.inputSlots.every(isDraftInputSlot) &&
+    Array.isArray(value.outputSlots) &&
+    value.outputSlots.every(isDraftOutputSlot) &&
+    isDraftRecord(value.formShape) &&
+    typeof value.formShape.id === "string" &&
+    typeof value.formShape.version === "number" &&
+    typeof value.formShape.allowUnknownFields === "boolean" &&
+    Array.isArray(value.formShape.fields) &&
+    value.formShape.fields.every(isDraftFormField) &&
+    isDraftCommercialTerms(value.commercialTerms) &&
+    isDraftMoreInformation(value.moreInformation)
+  );
+}
+
+function readPublisherServiceOfferWizardDraft(
+  key: string,
+  identity: {
+    uid: string;
+    providerKind: SupportServiceProviderKind;
+    providerId: string;
+  },
+): PublisherServiceOfferWizardDraft | null {
+  const storage = publisherServiceOfferWizardSessionStorage();
+  if (!storage) {
+    return null;
+  }
+
+  try {
+    const raw = storage.getItem(key);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      !isDraftRecord(parsed) ||
+      parsed.schemaVersion !== 1 ||
+      parsed.uid !== identity.uid ||
+      parsed.providerKind !== identity.providerKind ||
+      parsed.providerId !== identity.providerId ||
+      typeof parsed.savedAt !== "string" ||
+      !isRestorableOfferForm(parsed.form) ||
+      !isRestorableOfferForm(parsed.savedForm) ||
+      (parsed.persistedOfferId !== null &&
+        typeof parsed.persistedOfferId !== "string") ||
+      typeof parsed.wizardStepIndex !== "number" ||
+      !Number.isInteger(parsed.wizardStepIndex) ||
+      !Array.isArray(parsed.omittedInlineImagePaths) ||
+      !parsed.omittedInlineImagePaths.every(
+        isPublisherServiceOfferInlineImagePath,
+      ) ||
+      new Set(parsed.omittedInlineImagePaths).size !==
+        parsed.omittedInlineImagePaths.length ||
+      !isDraftPendingCreate(parsed.pendingCreate)
+    ) {
+      storage.removeItem(key);
+      return null;
+    }
+    return parsed as PublisherServiceOfferWizardDraft;
+  } catch {
+    try {
+      storage.removeItem(key);
+    } catch {
+      // Storage can be blocked independently from the page itself.
+    }
+    return null;
+  }
+}
+
+function writePublisherServiceOfferWizardDraft(
+  key: string,
+  draft: PublisherServiceOfferWizardDraft,
+): {
+  saved: boolean;
+  omittedInlineImagePaths: PublisherServiceOfferInlineImagePath[];
+} {
+  const storage = publisherServiceOfferWizardSessionStorage();
+  if (!storage) {
+    return {
+      saved: false,
+      omittedInlineImagePaths: draft.omittedInlineImagePaths,
+    };
+  }
+
+  try {
+    const storedDraft = hasRestoredInlineImageUploadPaths(
+      draft.form,
+      draft.omittedInlineImagePaths,
+    )
+      ? { ...draft, omittedInlineImagePaths: [] }
+      : draft;
+    storage.setItem(key, JSON.stringify(storedDraft));
+    return {
+      saved: true,
+      omittedInlineImagePaths: storedDraft.omittedInlineImagePaths,
+    };
+  } catch {
+    try {
+      const currentInlineImagePaths = inlineImageUploadPaths(draft.form);
+      const omittedInlineImagePaths = mergeInlineImageUploadPaths(
+        draft.omittedInlineImagePaths,
+        currentInlineImagePaths,
+      );
+      const withoutInlineImages = JSON.parse(
+        JSON.stringify(draft, (field, value) =>
+          field.toLowerCase().endsWith("imageuploaddataurl") ? "" : value,
+        ),
+      ) as PublisherServiceOfferWizardDraft;
+      withoutInlineImages.omittedInlineImagePaths = omittedInlineImagePaths;
+      storage.setItem(key, JSON.stringify(withoutInlineImages));
+      return {
+        saved: true,
+        omittedInlineImagePaths,
+      };
+    } catch {
+      // Quota or privacy restrictions must never interrupt the wizard.
+      return {
+        saved: false,
+        omittedInlineImagePaths: draft.omittedInlineImagePaths,
+      };
+    }
+  }
+}
+
+function clearPublisherServiceOfferWizardDraft(key: string) {
+  try {
+    publisherServiceOfferWizardSessionStorage()?.removeItem(key);
+  } catch {
+    // Ignore blocked storage; the server save remains authoritative.
+  }
 }
 
 function singleInputSlot(
@@ -2478,6 +3017,43 @@ function requestErrorLog(error: unknown) {
   } catch {
     return `Error: ${String(error)}`;
   }
+}
+
+function serviceIdAutocorrectErrorKind(
+  error: unknown,
+): ServiceIdAutocorrectErrorKind {
+  if (!(error instanceof SdkRequestError)) {
+    return "transient";
+  }
+  if (error.status === 401) {
+    return "authentication";
+  }
+  if (error.status === 403) {
+    return "permission";
+  }
+  if (error.status === 409) {
+    return "conflict";
+  }
+  if (error.status === 400 || error.status === 422) {
+    return "invalid";
+  }
+  if (
+    error.status === 408 ||
+    error.status === 425 ||
+    error.status === 429 ||
+    error.status >= 500
+  ) {
+    return "transient";
+  }
+  return "terminal";
+}
+
+function waitForServiceIdAutocorrectRetry(attempt: number) {
+  const delay =
+    SERVICE_ID_AUTOCORRECT_RETRY_DELAY_MS * 2 ** Math.max(attempt - 1, 0);
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, delay);
+  });
 }
 
 function rawJsonContent(value: unknown) {
@@ -4384,8 +4960,42 @@ export function SupportServiceOfferWorkbench({
   const [wizardValidationMessage, setWizardValidationMessage] = useState("");
   const [sessionRecoveryOpen, setSessionRecoveryOpen] = useState(false);
   const [serviceIdErrorLogOpen, setServiceIdErrorLogOpen] = useState(false);
+  const [serviceIdAutocorrectPending, setServiceIdAutocorrectPending] =
+    useState(false);
+  const [serviceIdAutocorrectLog, setServiceIdAutocorrectLog] = useState("");
+  const [wizardDraftHydratedKey, setWizardDraftHydratedKey] = useState<
+    string | null
+  >(null);
+  const [wizardDraftStorageWarning, setWizardDraftStorageWarning] = useState<
+    "images_omitted" | "unavailable" | null
+  >(null);
+  const [
+    wizardDraftOmittedImagePaths,
+    setWizardDraftOmittedImagePaths,
+  ] = useState<PublisherServiceOfferInlineImagePath[]>([]);
+  const [pendingCreateRecovery, setPendingCreateRecovery] = useState<
+    PublisherServiceOfferWizardDraft["pendingCreate"]
+  >(null);
+  const [pendingCreateRecoveryChecking, setPendingCreateRecoveryChecking] =
+    useState(false);
+  const [pendingCreateRecoveryError, setPendingCreateRecoveryError] =
+    useState(false);
+  const [pendingCreateRecoveryRetryToken, setPendingCreateRecoveryRetryToken] =
+    useState(0);
   const sessionRenewalRef = useRef<Promise<boolean> | null>(null);
   const pendingSessionSaveRef = useRef<PendingSessionSave | null>(null);
+  const pendingServiceIdAutocorrectRef = useRef(false);
+  const serviceIdAutocorrectRunningRef = useRef(false);
+  const wizardDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const wizardDraftPendingRef = useRef<{
+    key: string;
+    draft: PublisherServiceOfferWizardDraft;
+  } | null>(null);
+  const wizardDraftCompletedRef = useRef(false);
+  const pendingCreateWasRestoredRef = useRef(false);
+  const pendingCreateRecoveryRunningRef = useRef(false);
   const latestFormRef = useRef(form);
   const latestSavedFormRef = useRef(savedForm);
   const offerHydratedRef = useRef(false);
@@ -4396,6 +5006,21 @@ export function SupportServiceOfferWorkbench({
   const isPublisherOfferEditor = isEditing && publisherEditorPresentation;
   const effectiveOfferId = offerId ?? persistedOfferId ?? undefined;
   const hasPersistedOffer = Boolean(effectiveOfferId);
+  const wizardDraftKey =
+    isWizard &&
+    sessionIdentity?.surface === "publisher-portal" &&
+    fixedProvider?.id
+      ? publisherServiceOfferWizardDraftKey({
+          uid: sessionIdentity.uid,
+          providerKind: fixedProvider.kind,
+          providerId: fixedProvider.id,
+        })
+      : null;
+  const persistedWizardOfferRecoveryId =
+    isWizard && persistedOfferId && wizardDraftOmittedImagePaths.length > 0
+      ? persistedOfferId
+      : null;
+  const offerQueryId = isEditing ? offerId : persistedWizardOfferRecoveryId;
 
   function nextToastId() {
     setToastCounter((current) => current + 1);
@@ -4474,17 +5099,51 @@ export function SupportServiceOfferWorkbench({
   }
 
   const offerQuery = useQuery({
-    queryKey: [OFFERS_QUERY_KEY, offerId],
-    queryFn: () =>
-      sdkFetchWithSessionRecovery<{ offer: SupportServiceOfferRecord }>(
-        `/admin/support-services/offers/${encodeURIComponent(offerId ?? "")}`,
-      ),
-    enabled: isEditing && Boolean(offerId),
+    queryKey: [OFFERS_QUERY_KEY, offerQueryId],
+    queryFn: async () => {
+      const result = await sdkFetchWithSessionRecovery<{
+        offer: SupportServiceOfferRecord;
+      }>(
+        `/admin/support-services/offers/${encodeURIComponent(offerQueryId ?? "")}`,
+      );
+      if (
+        persistedWizardOfferRecoveryId &&
+        (result.offer.id !== persistedWizardOfferRecoveryId ||
+          (fixedProvider &&
+            (result.offer.providerKind !== fixedProvider.kind ||
+              result.offer.providerId !== fixedProvider.id)))
+      ) {
+        throw new Error(
+          "The saved service offer did not match the restored publisher draft.",
+        );
+      }
+      return result;
+    },
+    enabled: Boolean(offerQueryId),
   });
 
   useEffect(() => {
     if (offerQuery.data?.offer) {
       const nextForm = offerFormFromRecord(offerQuery.data.offer);
+      if (
+        persistedWizardOfferRecoveryId === offerQuery.data.offer.id &&
+        wizardDraftOmittedImagePaths.length > 0
+      ) {
+        offerHydratedRef.current = true;
+        setForm((current) =>
+          restoreInlineImageUploadsFromAuthoritativeForm(
+            current,
+            nextForm,
+            wizardDraftOmittedImagePaths,
+          ),
+        );
+        setSavedForm(nextForm);
+        setPersistedOfferId(offerQuery.data.offer.id);
+        setStatusDraft(offerQuery.data.offer.status);
+        setVersionBumpToken(0);
+        setFormShapeVersionBumpToken(0);
+        return;
+      }
       const hasLocalChanges =
         offerHydratedRef.current &&
         JSON.stringify(latestFormRef.current) !==
@@ -4500,7 +5159,183 @@ export function SupportServiceOfferWorkbench({
       setVersionBumpToken(0);
       setFormShapeVersionBumpToken(0);
     }
-  }, [offerQuery.data?.offer]);
+  }, [
+    offerQuery.data?.offer,
+    persistedWizardOfferRecoveryId,
+    wizardDraftOmittedImagePaths,
+  ]);
+
+  useEffect(() => {
+    wizardDraftCompletedRef.current = false;
+    wizardDraftPendingRef.current = null;
+    if (wizardDraftTimerRef.current !== null) {
+      clearTimeout(wizardDraftTimerRef.current);
+      wizardDraftTimerRef.current = null;
+    }
+    setWizardDraftHydratedKey(null);
+    setWizardDraftStorageWarning(null);
+    setWizardDraftOmittedImagePaths([]);
+    setPendingCreateRecovery(null);
+    pendingCreateWasRestoredRef.current = false;
+    pendingCreateRecoveryRunningRef.current = false;
+    setPendingCreateRecoveryChecking(false);
+    setPendingCreateRecoveryError(false);
+
+    if (!wizardDraftKey || !fixedProvider || !sessionIdentity) {
+      return;
+    }
+
+    const draft = readPublisherServiceOfferWizardDraft(wizardDraftKey, {
+      uid: sessionIdentity.uid,
+      providerKind: fixedProvider.kind,
+      providerId: fixedProvider.id,
+    });
+    if (draft) {
+      const withCurrentProvider = (candidate: OfferFormState) => ({
+        ...candidate,
+        providerKind: fixedProvider.kind,
+        providerId: fixedProvider.id,
+        providerName: fixedProvider.name,
+      });
+      let restoredForm = withCurrentProvider(draft.form);
+      if (
+        !draft.persistedOfferId &&
+        !GENERATED_SERVICE_ID_PATTERN.test(restoredForm.serviceId)
+      ) {
+        restoredForm = applyGeneratedOfferIds(restoredForm);
+      }
+      setForm(restoredForm);
+      setSavedForm(withCurrentProvider(draft.savedForm));
+      setPersistedOfferId(draft.persistedOfferId);
+      setPendingCreateRecovery(draft.pendingCreate);
+      pendingCreateWasRestoredRef.current = Boolean(draft.pendingCreate);
+      setWizardStepIndex(
+        Math.min(
+          Math.max(draft.wizardStepIndex, 0),
+          SERVICE_OFFER_WIZARD_LAST_STEP,
+        ),
+      );
+      setWizardValidationMessage("");
+      if (draft.omittedInlineImagePaths.length > 0) {
+        setWizardDraftStorageWarning("images_omitted");
+        setWizardDraftOmittedImagePaths(draft.omittedInlineImagePaths);
+      }
+    }
+    setWizardDraftHydratedKey(wizardDraftKey);
+  }, [
+    fixedProvider?.id,
+    fixedProvider?.kind,
+    fixedProvider?.name,
+    sessionIdentity,
+    wizardDraftKey,
+  ]);
+
+  useEffect(() => {
+    if (
+      !wizardDraftKey ||
+      wizardDraftHydratedKey !== wizardDraftKey ||
+      !fixedProvider ||
+      !sessionIdentity ||
+      wizardDraftCompletedRef.current
+    ) {
+      return;
+    }
+
+    if (wizardDraftTimerRef.current !== null) {
+      clearTimeout(wizardDraftTimerRef.current);
+    }
+    wizardDraftPendingRef.current = {
+      key: wizardDraftKey,
+      draft: {
+        schemaVersion: 1,
+        savedAt: new Date().toISOString(),
+        uid: sessionIdentity.uid,
+        providerKind: fixedProvider.kind,
+        providerId: fixedProvider.id,
+        form,
+        savedForm,
+        persistedOfferId,
+        wizardStepIndex,
+        omittedInlineImagePaths: wizardDraftOmittedImagePaths,
+        pendingCreate:
+          pendingCreateRecovery?.serviceId === form.serviceId
+            ? pendingCreateRecovery
+            : null,
+      },
+    };
+    wizardDraftTimerRef.current = setTimeout(() => {
+      wizardDraftTimerRef.current = null;
+      const pending = wizardDraftPendingRef.current;
+      if (!pending || wizardDraftCompletedRef.current) {
+        return;
+      }
+      const writeResult = writePublisherServiceOfferWizardDraft(
+        pending.key,
+        pending.draft,
+      );
+      setWizardDraftStorageWarning(
+        !writeResult.saved
+          ? writeResult.omittedInlineImagePaths.length > 0
+            ? "images_omitted"
+            : "unavailable"
+          : writeResult.omittedInlineImagePaths.length > 0
+            ? "images_omitted"
+            : null,
+      );
+      setWizardDraftOmittedImagePaths((current) =>
+        sameInlineImageUploadPaths(
+          current,
+          writeResult.omittedInlineImagePaths,
+        )
+          ? current
+          : writeResult.omittedInlineImagePaths,
+      );
+      wizardDraftPendingRef.current = null;
+    }, PUBLISHER_SERVICE_OFFER_WIZARD_DRAFT_DEBOUNCE_MS);
+
+    return () => {
+      if (wizardDraftTimerRef.current !== null) {
+        clearTimeout(wizardDraftTimerRef.current);
+        wizardDraftTimerRef.current = null;
+      }
+    };
+  }, [
+    fixedProvider,
+    form,
+    persistedOfferId,
+    pendingCreateRecovery,
+    savedForm,
+    sessionIdentity,
+    wizardDraftHydratedKey,
+    wizardDraftKey,
+    wizardDraftStorageWarning,
+    wizardDraftOmittedImagePaths,
+    wizardStepIndex,
+  ]);
+
+  useEffect(() => {
+    if (!wizardDraftKey || wizardDraftHydratedKey !== wizardDraftKey) {
+      return;
+    }
+
+    const flushPendingWizardDraft = () => {
+      if (wizardDraftTimerRef.current !== null) {
+        clearTimeout(wizardDraftTimerRef.current);
+        wizardDraftTimerRef.current = null;
+      }
+      const pending = wizardDraftPendingRef.current;
+      if (!pending || wizardDraftCompletedRef.current) {
+        return;
+      }
+      writePublisherServiceOfferWizardDraft(pending.key, pending.draft);
+      wizardDraftPendingRef.current = null;
+    };
+    window.addEventListener("pagehide", flushPendingWizardDraft);
+    return () => {
+      window.removeEventListener("pagehide", flushPendingWizardDraft);
+      flushPendingWizardDraft();
+    };
+  }, [wizardDraftHydratedKey, wizardDraftKey]);
 
   useEffect(() => {
     if (!fixedProvider?.id) {
@@ -4534,18 +5369,233 @@ export function SupportServiceOfferWorkbench({
     !hasPersistedOffer &&
     Boolean(form.providerId.trim()) &&
     GENERATED_SERVICE_ID_PATTERN.test(form.serviceId);
+
+  function fetchServiceIdAvailability(serviceId: string) {
+    const params = new URLSearchParams({ serviceId });
+    return sdkFetchWithSessionRecovery<SupportServiceIdAvailability>(
+      `/admin/support-services/offers/service-id-availability?${params.toString()}`,
+    );
+  }
+
   const serviceIdAvailabilityQuery = useQuery({
     queryKey: [OFFERS_QUERY_KEY, "service-id-availability", form.serviceId],
-    queryFn: () => {
-      const params = new URLSearchParams({ serviceId: form.serviceId });
-      return sdkFetchWithSessionRecovery<SupportServiceIdAvailability>(
-        `/admin/support-services/offers/service-id-availability?${params.toString()}`,
-      );
-    },
+    queryFn: () => fetchServiceIdAvailability(form.serviceId),
     enabled: shouldValidateServiceId,
     retry: false,
     refetchOnWindowFocus: false,
+    staleTime: SERVICE_ID_AVAILABILITY_STALE_MS,
   });
+
+  useEffect(() => {
+    const pendingCreate = pendingCreateRecovery;
+    const availability = serviceIdAvailabilityQuery.data;
+    if (
+      !pendingCreateWasRestoredRef.current ||
+      pendingCreateRecoveryRunningRef.current ||
+      !pendingCreate ||
+      !fixedProvider ||
+      !sessionIdentity ||
+      hasPersistedOffer ||
+      serviceIdAvailabilityQuery.isPending ||
+      serviceIdAvailabilityQuery.isFetching ||
+      serviceIdAvailabilityQuery.isError ||
+      !availability ||
+      availability.serviceId !== pendingCreate.serviceId ||
+      form.serviceId !== pendingCreate.serviceId
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    pendingCreateRecoveryRunningRef.current = true;
+    setPendingCreateRecoveryChecking(true);
+    setPendingCreateRecoveryError(false);
+    void (async () => {
+      try {
+        let reconciledAvailability = availability;
+        let recoveredOffer: SupportServiceOfferRecord | null = null;
+        let recoveredByReplay = false;
+
+        if (reconciledAvailability.available) {
+          const missingRestoredInlineImages =
+            wizardDraftOmittedImagePaths.length > 0 &&
+            !hasRestoredInlineImageUploadPaths(
+              form,
+              wizardDraftOmittedImagePaths,
+            );
+          if (missingRestoredInlineImages) {
+            throw new Error(
+              "Uploaded images were omitted from browser recovery storage. Select them again before retrying the interrupted save.",
+            );
+          }
+          const recoveryForm = {
+            ...simplifiedWizardContract(form),
+            status: pendingCreate.status,
+          };
+          const recoveryPayload = offerPayloadFromForm(recoveryForm);
+          try {
+            const result = await sdkFetchWithSessionRecovery<{
+              offer: SupportServiceOfferRecord;
+            }>("/admin/support-services/offers", {
+              method: "POST",
+              body: JSON.stringify(recoveryPayload),
+            });
+            recoveredOffer = result.offer;
+            recoveredByReplay = true;
+          } catch (error) {
+            if (!(error instanceof SdkRequestError) || error.status !== 409) {
+              throw error;
+            }
+            await waitForServiceIdAutocorrectRetry(1);
+            reconciledAvailability = await fetchServiceIdAvailability(
+              pendingCreate.serviceId,
+            );
+          }
+        }
+
+        if (cancelled) {
+          return;
+        }
+        let conflictingOfferId = recoveredOffer?.id ?? "";
+        if (!recoveredOffer) {
+          if (
+            reconciledAvailability.serviceId !== pendingCreate.serviceId ||
+            typeof reconciledAvailability.available !== "boolean"
+          ) {
+            throw new Error(
+              "The availability response did not match the interrupted create request.",
+            );
+          }
+          conflictingOfferId =
+            reconciledAvailability.conflictingOfferId ?? "";
+          if (reconciledAvailability.available || !conflictingOfferId) {
+            throw new Error(
+              "The interrupted create request is still unresolved; retry recovery before changing the service ID.",
+            );
+          }
+          const result = await sdkFetchWithSessionRecovery<{
+            offer: SupportServiceOfferRecord;
+          }>(
+            `/admin/support-services/offers/${encodeURIComponent(conflictingOfferId)}`,
+          );
+          recoveredOffer = result.offer;
+        }
+        if (cancelled) {
+          return;
+        }
+        if (!recoveredOffer) {
+          throw new Error(
+            "The interrupted create request did not return a service offer.",
+          );
+        }
+        const offer = recoveredOffer;
+        const belongsToPendingCreate =
+          offer.id === conflictingOfferId &&
+          offer.serviceId === pendingCreate.serviceId &&
+          offer.providerKind === fixedProvider.kind &&
+          offer.providerId === fixedProvider.id &&
+          offer.createdByEmail?.trim().toLowerCase() ===
+            sessionIdentity.email.trim().toLowerCase() &&
+          (recoveredByReplay ||
+            (offer.name === pendingCreate.name &&
+              offer.serviceCategory === pendingCreate.serviceCategory));
+        pendingCreateWasRestoredRef.current = false;
+        setPendingCreateRecovery(null);
+        if (!belongsToPendingCreate) {
+          queryClient.setQueryData<SupportServiceIdAvailability>(
+            [
+              OFFERS_QUERY_KEY,
+              "service-id-availability",
+              pendingCreate.serviceId,
+            ],
+            {
+              serviceId: pendingCreate.serviceId,
+              available: false,
+              conflictingOfferId,
+            },
+          );
+          setServiceIdAutocorrectLog(
+            [
+              `Recovered create attempt: ${pendingCreate.submittedAt}`,
+              `Service ID: ${pendingCreate.serviceId}`,
+              `Conflict: offer ${conflictingOfferId}.`,
+              "The conflicting offer does not match this user's interrupted create request. Autocorrect may safely choose a new ID.",
+            ].join("\n"),
+          );
+          return;
+        }
+
+        const recoveredForm = offerFormFromRecord(offer);
+        setForm((current) =>
+          wizardDraftOmittedImagePaths.length > 0
+            ? recoveredForm
+            : {
+                ...current,
+                serviceId: recoveredForm.serviceId,
+                serviceVersion: recoveredForm.serviceVersion,
+                status: recoveredForm.status,
+                formShape: {
+                  ...current.formShape,
+                  id: recoveredForm.formShape.id,
+                  version: recoveredForm.formShape.version,
+                },
+              },
+        );
+        setSavedForm(recoveredForm);
+        setPersistedOfferId(offer.id);
+        setStatusDraft(offer.status);
+        setWizardValidationMessage("");
+        setWizardDraftStorageWarning(null);
+        setWizardDraftOmittedImagePaths([]);
+        setServiceIdAutocorrectLog(
+          [
+            `Recovered create attempt: ${pendingCreate.submittedAt}`,
+            `Service ID: ${pendingCreate.serviceId}`,
+            `Resolution: resumed with saved offer ${offer.id}.`,
+          ].join("\n"),
+        );
+        setToast({
+          id: nextToastId(),
+          tone: "success",
+          message: t("The saved service offer was recovered after refresh."),
+        });
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setServiceIdAutocorrectLog(
+          [
+            `Recovered create attempt: ${pendingCreate.submittedAt}`,
+            `Service ID: ${pendingCreate.serviceId}`,
+            "The interrupted create request could not yet be reconciled.",
+            requestErrorLog(error),
+          ].join("\n"),
+        );
+        setPendingCreateRecoveryError(true);
+      } finally {
+        pendingCreateRecoveryRunningRef.current = false;
+        if (!cancelled) {
+          setPendingCreateRecoveryChecking(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    fixedProvider,
+    form.serviceId,
+    hasPersistedOffer,
+    pendingCreateRecovery,
+    pendingCreateRecoveryRetryToken,
+    serviceIdAvailabilityQuery.data,
+    serviceIdAvailabilityQuery.isError,
+    serviceIdAvailabilityQuery.isFetching,
+    serviceIdAvailabilityQuery.isPending,
+    sessionIdentity,
+    wizardDraftOmittedImagePaths,
+  ]);
 
   const saveMutation = useMutation({
     mutationFn: async (
@@ -4581,39 +5631,65 @@ export function SupportServiceOfferWorkbench({
   });
 
   const persistedOfferRecord = offerQuery.data?.offer ?? null;
+  const hasUnresolvedRestoredCreate = Boolean(
+    !hasPersistedOffer &&
+      pendingCreateWasRestoredRef.current &&
+      pendingCreateRecovery?.serviceId === form.serviceId,
+  );
+  const hasUnresolvedOmittedInlineImages =
+    wizardDraftOmittedImagePaths.length > 0 &&
+    !hasRestoredInlineImageUploadPaths(form, wizardDraftOmittedImagePaths);
+  const isRestoringPersistedWizardOffer = Boolean(
+    persistedWizardOfferRecoveryId &&
+      (offerQuery.isPending || offerQuery.isFetching),
+  );
   const changed = JSON.stringify(form) !== JSON.stringify(savedForm);
   const isWorking =
     saveMutation.isPending ||
     deleteMutation.isPending ||
-    promotionalBannerUploadPending;
+    promotionalBannerUploadPending ||
+    serviceIdAutocorrectPending ||
+    pendingCreateRecoveryChecking ||
+    isRestoringPersistedWizardOffer;
   const serviceIdValidated =
     hasPersistedOffer ||
-    (serviceIdAvailabilityQuery.data?.serviceId === form.serviceId &&
+    (!hasUnresolvedRestoredCreate &&
+      serviceIdAvailabilityQuery.data?.serviceId === form.serviceId &&
       serviceIdAvailabilityQuery.data.available);
   const serviceIdRequestStatus =
     serviceIdAvailabilityQuery.error instanceof SdkRequestError
       ? serviceIdAvailabilityQuery.error.status
       : null;
-  const serviceIdValidationStatus: ServiceIdValidationStatus = hasPersistedOffer
-    ? "locked"
-    : !form.providerId.trim() ||
-        !GENERATED_SERVICE_ID_PATTERN.test(form.serviceId)
-      ? "idle"
-      : serviceIdAvailabilityQuery.isPending ||
-          serviceIdAvailabilityQuery.isFetching
+  const serviceIdValidationStatus: ServiceIdValidationStatus =
+    hasPersistedOffer
+      ? "locked"
+      : pendingCreateRecoveryChecking
         ? "checking"
-        : serviceIdAvailabilityQuery.isError
-          ? serviceIdRequestStatus === 401
-            ? "unauthorized"
-            : serviceIdRequestStatus === 403
-              ? "forbidden"
-              : "error"
-          : serviceIdAvailabilityQuery.data?.available
-            ? "available"
-            : "conflict";
-  const serviceIdErrorLog = serviceIdAvailabilityQuery.error
-    ? requestErrorLog(serviceIdAvailabilityQuery.error)
-    : "";
+        : pendingCreateRecoveryError
+          ? "error"
+          : !form.providerId.trim() ||
+              !GENERATED_SERVICE_ID_PATTERN.test(form.serviceId)
+            ? "idle"
+            : serviceIdAvailabilityQuery.isPending ||
+                serviceIdAvailabilityQuery.isFetching
+              ? "checking"
+              : serviceIdAvailabilityQuery.isError
+                ? serviceIdRequestStatus === 401
+                  ? "unauthorized"
+                  : serviceIdRequestStatus === 403
+                    ? "forbidden"
+                    : "error"
+                : serviceIdAvailabilityQuery.data?.available
+                  ? "available"
+                  : "conflict";
+  const serviceIdErrorLog = [
+    serviceIdAvailabilityQuery.error
+      ? requestErrorLog(serviceIdAvailabilityQuery.error)
+      : "",
+    serviceIdAutocorrectLog,
+  ]
+    .filter(Boolean)
+    .join("\n\n--- Autocorrect analysis ---\n\n");
   const canPublishCurrentOffer = hasPersistedOffer && form.status !== "active";
   const statusOptions = SUPPORT_SERVICE_OFFER_STATUSES.filter(
     (option) => form.status === "active" || option.value !== "active",
@@ -4670,7 +5746,297 @@ export function SupportServiceOfferWorkbench({
     if (hasPersistedOffer || !form.providerName.trim()) {
       return;
     }
+    setServiceIdAutocorrectLog("");
+    setPendingCreateRecovery(null);
+    setPendingCreateRecoveryError(false);
+    pendingCreateWasRestoredRef.current = false;
     setForm((current) => applyGeneratedOfferIds(current));
+  }
+
+  function retryServiceIdVerification() {
+    pendingServiceIdAutocorrectRef.current = false;
+    setServiceIdAutocorrectLog("");
+    if (
+      pendingCreateWasRestoredRef.current &&
+      pendingCreateRecovery?.serviceId === latestFormRef.current.serviceId
+    ) {
+      setPendingCreateRecoveryError(false);
+      if (serviceIdAvailabilityQuery.isError) {
+        void serviceIdAvailabilityQuery.refetch();
+      } else {
+        setPendingCreateRecoveryRetryToken((current) => current + 1);
+      }
+      return;
+    }
+    void serviceIdAvailabilityQuery.refetch();
+  }
+
+  async function autocorrectServiceId(): Promise<boolean> {
+    if (
+      pendingCreateWasRestoredRef.current &&
+      pendingCreateRecovery?.serviceId === latestFormRef.current.serviceId
+    ) {
+      setServiceIdAutocorrectLog("");
+      setPendingCreateRecoveryError(false);
+      if (serviceIdAvailabilityQuery.isError) {
+        void serviceIdAvailabilityQuery.refetch();
+      } else {
+        setPendingCreateRecoveryRetryToken((current) => current + 1);
+      }
+      return false;
+    }
+    if (
+      serviceIdAutocorrectRunningRef.current ||
+      hasPersistedOffer ||
+      !latestFormRef.current.providerName.trim() ||
+      !GENERATED_SERVICE_ID_PATTERN.test(latestFormRef.current.serviceId)
+    ) {
+      return false;
+    }
+
+    serviceIdAutocorrectRunningRef.current = true;
+    pendingServiceIdAutocorrectRef.current = false;
+    setServiceIdAutocorrectPending(true);
+    const sourceForm = latestFormRef.current;
+    const diagnosticLines = [
+      `Started: ${new Date().toISOString()}`,
+      `Original service ID: ${sourceForm.serviceId}`,
+      "Strategy: verify the current ID, retry transient failures, and only rotate the paired IDs after a confirmed conflict or invalid-ID response.",
+    ];
+    let lastError: unknown;
+
+    const publishDiagnostics = () =>
+      setServiceIdAutocorrectLog(diagnosticLines.join("\n"));
+    const verifyCandidate = async (
+      serviceId: string,
+      phase: "current" | "replacement",
+    ): Promise<
+      | { kind: "result"; result: SupportServiceIdAvailability }
+      | { kind: ServiceIdAutocorrectErrorKind; error: unknown }
+    > => {
+      for (
+        let attempt = 1;
+        attempt <= SERVICE_ID_AUTOCORRECT_TRANSIENT_ATTEMPTS;
+        attempt += 1
+      ) {
+        diagnosticLines.push(
+          `${phase === "current" ? "Current ID" : "Replacement ID"} attempt ${attempt}: ${serviceId}`,
+        );
+        publishDiagnostics();
+        try {
+          const result = await fetchServiceIdAvailability(serviceId);
+          if (
+            result.serviceId !== serviceId ||
+            typeof result.available !== "boolean"
+          ) {
+            throw new Error(
+              "The availability response did not match the requested service ID.",
+            );
+          }
+          diagnosticLines.push(
+            result.available
+              ? "Result: available."
+              : `Result: conflict${result.conflictingOfferId ? ` with offer ${result.conflictingOfferId}` : ""}.`,
+          );
+          publishDiagnostics();
+          return { kind: "result", result };
+        } catch (error) {
+          lastError = error;
+          const kind = serviceIdAutocorrectErrorKind(error);
+          diagnosticLines.push(
+            `Classification: ${kind}.`,
+            requestErrorLog(error),
+          );
+          publishDiagnostics();
+          if (
+            kind === "transient" &&
+            attempt < SERVICE_ID_AUTOCORRECT_TRANSIENT_ATTEMPTS
+          ) {
+            const retryDelay =
+              SERVICE_ID_AUTOCORRECT_RETRY_DELAY_MS * 2 ** (attempt - 1);
+            diagnosticLines.push(`Retrying in ${retryDelay} ms.`);
+            publishDiagnostics();
+            await waitForServiceIdAutocorrectRetry(attempt);
+            continue;
+          }
+          return { kind, error };
+        }
+      }
+      return { kind: "transient", error: lastError };
+    };
+
+    try {
+      const currentCheck = await verifyCandidate(
+        sourceForm.serviceId,
+        "current",
+      );
+      if (currentCheck.kind === "result" && currentCheck.result.available) {
+        queryClient.setQueryData<SupportServiceIdAvailability>(
+          [
+            OFFERS_QUERY_KEY,
+            "service-id-availability",
+            sourceForm.serviceId,
+          ],
+          currentCheck.result,
+        );
+        diagnosticLines.push("Resolution: the current service ID was verified.");
+        publishDiagnostics();
+        setToast({
+          id: nextToastId(),
+          tone: "success",
+          message: t("The service ID was verified automatically."),
+        });
+        return true;
+      }
+
+      const shouldGenerateReplacement =
+        (currentCheck.kind === "result" &&
+          !currentCheck.result.available) ||
+        currentCheck.kind === "conflict" ||
+        currentCheck.kind === "invalid";
+      if (!shouldGenerateReplacement) {
+        if (currentCheck.kind === "authentication") {
+          pendingServiceIdAutocorrectRef.current = true;
+        }
+        diagnosticLines.push(
+          currentCheck.kind === "permission"
+            ? "Resolution stopped: this account does not have permission to verify service IDs."
+            : currentCheck.kind === "authentication"
+              ? "Resolution paused: sign in with the same account, then autocorrection will resume."
+              : "Resolution stopped: the verification service is still unavailable.",
+        );
+        publishDiagnostics();
+        if (currentCheck.kind !== "authentication") {
+          setToast({
+            id: nextToastId(),
+            tone: "error",
+            message: t(
+              "Autocorrect could not complete the service ID verification. View the error log for details.",
+            ),
+            details: lastError ? requestErrorLog(lastError) : undefined,
+          });
+        }
+        return false;
+      }
+
+      queryClient.setQueryData<SupportServiceIdAvailability>(
+        [OFFERS_QUERY_KEY, "service-id-availability", sourceForm.serviceId],
+        currentCheck.kind === "result"
+          ? currentCheck.result
+          : { serviceId: sourceForm.serviceId, available: false },
+      );
+
+      let candidateForm = sourceForm;
+      for (
+        let candidateAttempt = 1;
+        candidateAttempt <= SERVICE_ID_AUTOCORRECT_CANDIDATE_ATTEMPTS;
+        candidateAttempt += 1
+      ) {
+        candidateForm = applyGeneratedOfferIds(candidateForm);
+        diagnosticLines.push(
+          `Generated replacement ${candidateAttempt}: ${candidateForm.serviceId}`,
+        );
+        publishDiagnostics();
+        const replacementCheck = await verifyCandidate(
+          candidateForm.serviceId,
+          "replacement",
+        );
+        if (
+          replacementCheck.kind === "result" &&
+          replacementCheck.result.available
+        ) {
+          const currentForm = latestFormRef.current;
+          if (
+            currentForm.providerKind !== sourceForm.providerKind ||
+            currentForm.providerId !== sourceForm.providerId ||
+            currentForm.providerName !== sourceForm.providerName
+          ) {
+            diagnosticLines.push(
+              "Resolution stopped: the selected provider changed during analysis.",
+            );
+            publishDiagnostics();
+            return false;
+          }
+          queryClient.setQueryData<SupportServiceIdAvailability>(
+            [
+              OFFERS_QUERY_KEY,
+              "service-id-availability",
+              candidateForm.serviceId,
+            ],
+            replacementCheck.result,
+          );
+          const replacementServiceId = candidateForm.serviceId;
+          const replacementFormShapeId = candidateForm.formShape.id;
+          setPendingCreateRecovery(null);
+          setPendingCreateRecoveryError(false);
+          pendingCreateWasRestoredRef.current = false;
+          setForm((current) => ({
+            ...current,
+            serviceId: replacementServiceId,
+            formShape: {
+              ...current.formShape,
+              id: replacementFormShapeId,
+            },
+          }));
+          setWizardValidationMessage("");
+          diagnosticLines.push(
+            `Resolution: applied verified service ID ${replacementServiceId} and form shape ID ${replacementFormShapeId}.`,
+          );
+          publishDiagnostics();
+          setToast({
+            id: nextToastId(),
+            tone: "success",
+            message: t(
+              "A new service ID was generated and verified automatically.",
+            ),
+          });
+          return true;
+        }
+        if (
+          replacementCheck.kind === "authentication" ||
+          replacementCheck.kind === "permission" ||
+          replacementCheck.kind === "terminal" ||
+          replacementCheck.kind === "transient"
+        ) {
+          if (replacementCheck.kind === "authentication") {
+            pendingServiceIdAutocorrectRef.current = true;
+          }
+          diagnosticLines.push(
+            replacementCheck.kind === "authentication"
+              ? "Resolution paused: sign in with the same account, then autocorrection will resume."
+              : "Resolution stopped before changing the current service ID.",
+          );
+          publishDiagnostics();
+          if (replacementCheck.kind !== "authentication") {
+            setToast({
+              id: nextToastId(),
+              tone: "error",
+              message: t(
+                "Autocorrect could not complete the service ID verification. View the error log for details.",
+              ),
+              details: requestErrorLog(replacementCheck.error),
+            });
+          }
+          return false;
+        }
+      }
+
+      diagnosticLines.push(
+        "Resolution stopped: no available service ID was found after the bounded candidate search.",
+      );
+      publishDiagnostics();
+      setToast({
+        id: nextToastId(),
+        tone: "error",
+        message: t(
+          "Autocorrect could not find an available service ID. Try again.",
+        ),
+      });
+      return false;
+    } finally {
+      serviceIdAutocorrectRunningRef.current = false;
+      setServiceIdAutocorrectPending(false);
+    }
   }
 
   async function persistOffer(
@@ -4683,6 +6049,16 @@ export function SupportServiceOfferWorkbench({
     }: PersistOfferOptions = {},
   ) {
     try {
+      if (hasUnresolvedOmittedInlineImages) {
+        throw new Error(
+          "Select every omitted uploaded image in its original position before saving.",
+        );
+      }
+      if (hasUnresolvedRestoredCreate) {
+        throw new Error(
+          "Wait until the interrupted service offer save is recovered.",
+        );
+      }
       if (
         !hasPersistedOffer &&
         form.providerId.trim() &&
@@ -4715,12 +6091,85 @@ export function SupportServiceOfferWorkbench({
             acknowledgesExistingTransactionContracts: true,
           } satisfies SupportServiceOfferUpdateInput)
         : basePayload;
+      if (
+        !hasPersistedOffer &&
+        wizardDraftKey &&
+        fixedProvider &&
+        sessionIdentity
+      ) {
+        const pendingCreate = {
+          serviceId: form.serviceId,
+          submittedAt: new Date().toISOString(),
+          name: basePayload.name,
+          serviceCategory: basePayload.serviceCategory,
+          status,
+        };
+        const pendingDraft: PublisherServiceOfferWizardDraft = {
+          schemaVersion: 1,
+          savedAt: pendingCreate.submittedAt,
+          uid: sessionIdentity.uid,
+          providerKind: fixedProvider.kind,
+          providerId: fixedProvider.id,
+          form,
+          savedForm,
+          persistedOfferId,
+          wizardStepIndex,
+          omittedInlineImagePaths: inlineImageUploadPaths(form),
+          pendingCreate,
+        };
+        setPendingCreateRecovery(pendingCreate);
+        pendingCreateWasRestoredRef.current = false;
+        if (wizardDraftTimerRef.current !== null) {
+          clearTimeout(wizardDraftTimerRef.current);
+          wizardDraftTimerRef.current = null;
+        }
+        wizardDraftPendingRef.current = {
+          key: wizardDraftKey,
+          draft: pendingDraft,
+        };
+        const writeResult = writePublisherServiceOfferWizardDraft(
+          wizardDraftKey,
+          pendingDraft,
+        );
+        wizardDraftPendingRef.current = null;
+        setWizardDraftStorageWarning(
+          !writeResult.saved
+            ? writeResult.omittedInlineImagePaths.length > 0
+              ? "images_omitted"
+              : "unavailable"
+            : writeResult.omittedInlineImagePaths.length > 0
+              ? "images_omitted"
+              : null,
+        );
+        setWizardDraftOmittedImagePaths((current) =>
+          sameInlineImageUploadPaths(
+            current,
+            writeResult.omittedInlineImagePaths,
+          )
+            ? current
+            : writeResult.omittedInlineImagePaths,
+        );
+      }
       const result = await saveMutation.mutateAsync(payload);
       await queryClient.invalidateQueries({ queryKey: [OFFERS_QUERY_KEY] });
 
       const nextForm = offerFormFromRecord(result.offer);
       const hasNewerEdits =
         JSON.stringify(latestFormRef.current) !== submittedFormSnapshot;
+      if (!hasNewerEdits && wizardDraftKey) {
+        wizardDraftCompletedRef.current = true;
+        wizardDraftPendingRef.current = null;
+        if (wizardDraftTimerRef.current !== null) {
+          clearTimeout(wizardDraftTimerRef.current);
+          wizardDraftTimerRef.current = null;
+        }
+        clearPublisherServiceOfferWizardDraft(wizardDraftKey);
+        setWizardDraftStorageWarning(null);
+        setWizardDraftOmittedImagePaths([]);
+      }
+      setPendingCreateRecovery(null);
+      setPendingCreateRecoveryError(false);
+      pendingCreateWasRestoredRef.current = false;
       setForm((current) =>
         hasNewerEdits
           ? {
@@ -4803,6 +6252,12 @@ export function SupportServiceOfferWorkbench({
   }
 
   async function handleSessionRecovered(): Promise<boolean> {
+    if (pendingServiceIdAutocorrectRef.current) {
+      pendingServiceIdAutocorrectRef.current = false;
+      await autocorrectServiceId();
+      return !pendingServiceIdAutocorrectRef.current;
+    }
+
     const pendingSave = pendingSessionSaveRef.current;
     pendingSessionSaveRef.current = null;
 
@@ -4819,7 +6274,10 @@ export function SupportServiceOfferWorkbench({
       return pendingSessionSaveRef.current === null;
     }
 
-    if (isEditing && offerQuery.isError) {
+    if (
+      (isEditing || Boolean(persistedWizardOfferRecoveryId)) &&
+      offerQuery.isError
+    ) {
       const result = await offerQuery.refetch();
       return !(
         result.error instanceof SdkRequestError && result.error.status === 401
@@ -4847,6 +6305,7 @@ export function SupportServiceOfferWorkbench({
         setPublishDialog(null);
       }
       pendingSessionSaveRef.current = null;
+      pendingServiceIdAutocorrectRef.current = false;
     }
   }
 
@@ -5119,6 +6578,7 @@ export function SupportServiceOfferWorkbench({
     const activeWizardStep = SERVICE_OFFER_WIZARD_STEPS[wizardStepIndex];
     const wizardSaveDisabled =
       isWorking ||
+      hasUnresolvedOmittedInlineImages ||
       (Boolean(form.providerId.trim()) && !serviceIdValidated);
 
     return (
@@ -5392,6 +6852,11 @@ export function SupportServiceOfferWorkbench({
                   <ServiceOfferMoreInformationEditor
                     value={form.moreInformation}
                     presentation="wizard"
+                    lockIllustratedSegmentStructure={
+                      wizardDraftOmittedImagePaths.some((path) =>
+                        path.startsWith("moreInformation.bulletSegments."),
+                      )
+                    }
                     onChange={(moreInformation) =>
                       setForm((current) => ({
                         ...current,
@@ -5491,9 +6956,11 @@ export function SupportServiceOfferWorkbench({
                     form={form}
                     preparationStatus={serviceIdValidationStatus}
                     onRegeneratePreparation={regenerateServiceId}
-                    onRetryPreparation={() =>
-                      void serviceIdAvailabilityQuery.refetch()
+                    onRetryPreparation={retryServiceIdVerification}
+                    onAutocorrectPreparation={() =>
+                      void autocorrectServiceId()
                     }
+                    autocorrecting={serviceIdAutocorrectPending}
                     onSignIn={() => setSessionRecoveryOpen(true)}
                     canSignIn={Boolean(sessionIdentity)}
                     onShowLog={() => setServiceIdErrorLogOpen(true)}
@@ -5508,6 +6975,22 @@ export function SupportServiceOfferWorkbench({
                 >
                   <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{wizardValidationMessage}</span>
+                </div>
+              ) : null}
+
+              {wizardDraftStorageWarning ? (
+                <div
+                  role="alert"
+                  className="mt-5 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100"
+                >
+                  <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    {t(
+                      wizardDraftStorageWarning === "images_omitted"
+                        ? "Your progress is protected for refresh, but uploaded images exceed browser storage and must be selected again after reloading."
+                        : "This browser could not protect the current draft for refresh. Keep this tab open or save the draft before reloading.",
+                    )}
+                  </span>
                 </div>
               ) : null}
 
@@ -5539,6 +7022,11 @@ export function SupportServiceOfferWorkbench({
                       type="button"
                       variant="outline"
                       onClick={returnToPreviousWizardStep}
+                      disabled={
+                        isWorking ||
+                        (hasUnresolvedRestoredCreate &&
+                          !hasUnresolvedOmittedInlineImages)
+                      }
                     >
                       <ArrowLeft className="h-4 w-4" />
                       {t("Back")}
@@ -5597,6 +7085,17 @@ export function SupportServiceOfferWorkbench({
             router.push(routeBase);
           }}
           onClose={() => setPublishDialog(null)}
+        />
+        <ServiceOfferContractContinuityDialog
+          open={pendingSaveIntent !== null}
+          checked={contractContinuityAccepted}
+          pending={saveMutation.isPending}
+          onCheckedChange={setContractContinuityAccepted}
+          onCancel={() => {
+            setPendingSaveIntent(null);
+            setContractContinuityAccepted(false);
+          }}
+          onConfirm={() => void confirmOfferSave()}
         />
       </>
     );
@@ -5803,7 +7302,9 @@ export function SupportServiceOfferWorkbench({
                   status={serviceIdValidationStatus}
                   canRegenerate={!hasPersistedOffer}
                   onRegenerate={regenerateServiceId}
-                  onRetry={() => void serviceIdAvailabilityQuery.refetch()}
+                  onRetry={retryServiceIdVerification}
+                  onAutocorrect={() => void autocorrectServiceId()}
+                  autocorrecting={serviceIdAutocorrectPending}
                   onSignIn={() => setSessionRecoveryOpen(true)}
                   canSignIn={Boolean(sessionIdentity)}
                   onShowLog={() => setServiceIdErrorLogOpen(true)}
@@ -6380,6 +7881,8 @@ function WizardOfferReview({
   preparationStatus,
   onRegeneratePreparation,
   onRetryPreparation,
+  onAutocorrectPreparation,
+  autocorrecting,
   onSignIn,
   canSignIn,
   onShowLog,
@@ -6388,6 +7891,8 @@ function WizardOfferReview({
   preparationStatus: ServiceIdValidationStatus;
   onRegeneratePreparation: () => void;
   onRetryPreparation: () => void;
+  onAutocorrectPreparation: () => void;
+  autocorrecting: boolean;
   onSignIn: () => void;
   canSignIn: boolean;
   onShowLog: () => void;
@@ -6470,6 +7975,8 @@ function WizardOfferReview({
             status={preparationStatus}
             onRetry={onRetryPreparation}
             onRegenerate={onRegeneratePreparation}
+            onAutocorrect={onAutocorrectPreparation}
+            autocorrecting={autocorrecting}
             onSignIn={onSignIn}
             canSignIn={canSignIn}
             onShowLog={onShowLog}
@@ -6727,6 +8234,8 @@ function WizardOfferPreparationStatus({
   status,
   onRetry,
   onRegenerate,
+  onAutocorrect,
+  autocorrecting,
   onSignIn,
   canSignIn,
   onShowLog,
@@ -6734,6 +8243,8 @@ function WizardOfferPreparationStatus({
   status: ServiceIdValidationStatus;
   onRetry: () => void;
   onRegenerate: () => void;
+  onAutocorrect: () => void;
+  autocorrecting: boolean;
   onSignIn: () => void;
   canSignIn: boolean;
   onShowLog: () => void;
@@ -6849,13 +8360,33 @@ function WizardOfferPreparationStatus({
           </span>
         </span>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onRetry}
+            disabled={autocorrecting}
+          >
             <RefreshCw className="h-4 w-4" />
-            {t("Retry verification")}
+            {t("Retry")}
           </Button>
           <Button type="button" variant="ghost" size="sm" onClick={onShowLog}>
             <FileText className="h-4 w-4" />
-            {t("Show log")}
+            {t("View error log")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onAutocorrect}
+            disabled={autocorrecting}
+          >
+            {autocorrecting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Wand2 className="h-4 w-4" />
+            )}
+            {t(autocorrecting ? "Autocorrecting..." : "Autocorrect")}
           </Button>
         </div>
       </div>
@@ -14246,6 +15777,8 @@ function ServiceIdGeneratedValue({
   canRegenerate,
   onRegenerate,
   onRetry,
+  onAutocorrect,
+  autocorrecting,
   onSignIn,
   canSignIn,
   onShowLog,
@@ -14255,6 +15788,8 @@ function ServiceIdGeneratedValue({
   canRegenerate: boolean;
   onRegenerate: () => void;
   onRetry: () => void;
+  onAutocorrect: () => void;
+  autocorrecting: boolean;
   onSignIn: () => void;
   canSignIn: boolean;
   onShowLog: () => void;
@@ -14374,10 +15909,11 @@ function ServiceIdGeneratedValue({
               variant="outline"
               size="sm"
               onClick={onRetry}
+              disabled={autocorrecting}
               className="gap-2 border-current/20 bg-white/80 dark:bg-slate-950/50"
             >
               <RefreshCw className="h-4 w-4" />
-              {t("Retry verification")}
+              {t("Retry")}
             </Button>
           ) : null}
           {showSignIn ? (
@@ -14395,7 +15931,24 @@ function ServiceIdGeneratedValue({
           {showLog ? (
             <Button type="button" variant="ghost" size="sm" onClick={onShowLog}>
               <FileText className="h-4 w-4" />
-              {t("Show log")}
+              {status === "error" ? t("View error log") : t("Show log")}
+            </Button>
+          ) : null}
+          {status === "error" ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAutocorrect}
+              disabled={autocorrecting}
+              className="gap-2 border-current/20 bg-white/80 dark:bg-slate-950/50"
+            >
+              {autocorrecting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4" />
+              )}
+              {t(autocorrecting ? "Autocorrecting..." : "Autocorrect")}
             </Button>
           ) : null}
         </div>

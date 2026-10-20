@@ -321,10 +321,12 @@ function ItemActions({
   label,
   onEdit,
   onDelete,
+  deleteDisabled = false,
 }: {
   label: string;
   onEdit: () => void;
   onDelete: () => void;
+  deleteDisabled?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -347,6 +349,7 @@ function ItemActions({
         aria-label={`${t("Delete")} ${t(label)}`}
         className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-300 dark:hover:bg-rose-500/12"
         onClick={onDelete}
+        disabled={deleteDisabled}
       >
         <Trash2 className="h-4 w-4" />
       </Button>
@@ -360,6 +363,7 @@ function InformationItemCard({
   index,
   onEdit,
   onDelete,
+  deleteDisabled = false,
 }: {
   kind: MoreInformationItemKind;
   item:
@@ -373,6 +377,7 @@ function InformationItemCard({
   index: number;
   onEdit: () => void;
   onDelete: () => void;
+  deleteDisabled?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -447,7 +452,12 @@ function InformationItemCard({
             </div>
           ) : null}
         </div>
-        <ItemActions label={label} onEdit={onEdit} onDelete={onDelete} />
+        <ItemActions
+          label={label}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          deleteDisabled={deleteDisabled}
+        />
       </div>
     </article>
   );
@@ -508,10 +518,12 @@ export function ServiceOfferMoreInformationEditor({
   value,
   onChange,
   presentation = "form",
+  lockIllustratedSegmentStructure = false,
 }: {
   value: SupportServiceMoreInformation;
   onChange: (value: SupportServiceMoreInformation) => void;
   presentation?: "form" | "wizard";
+  lockIllustratedSegmentStructure?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -808,6 +820,10 @@ export function ServiceOfferMoreInformationEditor({
                     data-testid={`more-information-${sectionKind}-add`}
                     className="justify-self-start rounded-xl border-violet-200 text-violet-800 hover:bg-violet-50 dark:border-violet-400/24 dark:text-violet-100 dark:hover:bg-violet-500/12"
                     onClick={() => openDialog({ kind: sectionKind })}
+                    disabled={
+                      lockIllustratedSegmentStructure &&
+                      sectionKind === "bulletSegments"
+                    }
                   >
                     <Plus className="h-4 w-4" />
                     {t(section.addLabel ?? "Add")}
@@ -823,6 +839,10 @@ export function ServiceOfferMoreInformationEditor({
                         index={index}
                         onEdit={() => openDialog({ kind: sectionKind, index })}
                         onDelete={() => removeItem(sectionKind, index)}
+                        deleteDisabled={
+                          lockIllustratedSegmentStructure &&
+                          sectionKind === "bulletSegments"
+                        }
                       />
                     ))}
                   </div>

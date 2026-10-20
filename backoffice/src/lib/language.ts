@@ -5270,6 +5270,27 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service ID verification log": "Log de verificación del ID de servicio",
   "Request and response details for the failed service ID verification.":
     "Detalle de la request y la respuesta de la verificación fallida del ID de servicio.",
+  "View error log": "Ver log de error",
+  Autocorrect: "Autocorregir",
+  "Autocorrecting...": "Analizando y autocorrigiendo...",
+  "The service ID was verified automatically.":
+    "El ID de servicio se verificó automáticamente.",
+  "A new service ID was generated and verified automatically.":
+    "Se generó y verificó automáticamente un nuevo ID de servicio.",
+  "The saved service offer was recovered after refresh.":
+    "La oferta de servicio guardada se recuperó después de recargar.",
+  "Wait until the interrupted service offer save is recovered.":
+    "Esperá a que se recupere el guardado interrumpido de la oferta de servicio.",
+  "Select every omitted uploaded image in its original position before saving.":
+    "Volvé a seleccionar cada imagen cargada omitida en su posición original antes de guardar.",
+  "Autocorrect could not complete the service ID verification. View the error log for details.":
+    "La autocorrección no pudo completar la verificación del ID de servicio. Consultá el log de error para ver los detalles.",
+  "Autocorrect could not find an available service ID. Try again.":
+    "La autocorrección no encontró un ID de servicio disponible. Intentá nuevamente.",
+  "Your progress is protected for refresh, but uploaded images exceed browser storage and must be selected again after reloading.":
+    "Tu progreso está protegido ante una actualización, pero las imágenes cargadas exceden el almacenamiento del navegador y deberán seleccionarse nuevamente después de recargar.",
+  "This browser could not protect the current draft for refresh. Keep this tab open or save the draft before reloading.":
+    "Este navegador no pudo proteger el borrador actual ante una actualización. Mantené esta pestaña abierta o guardá el borrador antes de recargar.",
   "Your session expired": "Tu sesión venció",
   "Sign in here to continue. Your service offer and current step will stay unchanged.":
     "Iniciá sesión acá para continuar. Tu oferta de servicio y el paso actual no van a cambiar.",
