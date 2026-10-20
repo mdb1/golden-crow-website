@@ -1,7 +1,7 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AppearanceToggle } from "@/components/appearance-toggle";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -68,18 +68,38 @@ function titleForPath(pathname: string, language: "en" | "es") {
 
 export function PublisherPortalHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const { language } = useAppLanguage();
   const [pendingSignOut, setPendingSignOut] = useState(false);
 
   async function handleSignOut() {
     setPendingSignOut(true);
+
+    try {
+      const [{ signOut: signOutFirebase }, { getFirebaseAuth }] =
+        await Promise.all([import("firebase/auth"), import("@/lib/firebase")]);
+      await signOutFirebase(getFirebaseAuth());
+    } catch {
+      // Continue clearing the server sessions if Firebase is unavailable.
+    }
+
+    try {
+      await signOut({
+        callbackUrl: PUBLISHER_PORTAL_LOGIN_ROUTE,
+        redirect: false,
+      });
+    } catch {
+      // Still clear the independent SDK cookie before leaving the portal.
+    }
+
     try {
       await fetch("/api/sdk/auth/logout", { method: "POST" });
     } catch {
-      // The NextAuth session is still cleared if the SDK logout is unavailable.
-    } finally {
-      await signOut({ callbackUrl: PUBLISHER_PORTAL_LOGIN_ROUTE });
+      // Continue to the login page if the SDK logout endpoint is unavailable.
     }
+
+    router.replace(PUBLISHER_PORTAL_LOGIN_ROUTE);
+    router.refresh();
   }
 
   return (

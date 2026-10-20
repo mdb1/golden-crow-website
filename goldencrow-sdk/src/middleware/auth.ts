@@ -98,6 +98,21 @@ export async function authMiddleware(
       true,
     );
 
+    const expectedUidHeader = request.headers["x-expected-session-uid"];
+    const expectedUid = Array.isArray(expectedUidHeader)
+      ? expectedUidHeader.join(",")
+      : expectedUidHeader;
+    if (
+      typeof expectedUid === "string" &&
+      expectedUid.trim() &&
+      expectedUid.trim() !== decodedClaims.uid
+    ) {
+      return reply.status(401).send({
+        error: "Session identity changed. Sign in again.",
+        code: "SESSION_IDENTITY_MISMATCH",
+      });
+    }
+
     const adminContext = await resolveAdminContext({
       email: decodedClaims.email,
       uid: decodedClaims.uid,

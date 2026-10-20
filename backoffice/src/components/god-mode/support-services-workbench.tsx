@@ -66,6 +66,7 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { FileJsonWizard } from "@/components/file-storage/file-json-wizard";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { PublisherPortalEmptyState } from "@/components/publisher-portal-empty-state";
+import { SdkSessionRecoveryDialog } from "@/components/sdk-session-recovery-dialog";
 import { ServiceOfferMoreInformationEditor } from "@/components/god-mode/service-offer-more-information-editor";
 import {
   AlertDialog,
@@ -132,6 +133,14 @@ import {
   type SupportServiceCategoryKey,
 } from "@/lib/support-service-categories";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
+import {
+  EXPECTED_SESSION_EMAIL_HEADER,
+  EXPECTED_SESSION_PROJECT_HEADER,
+  EXPECTED_SESSION_SURFACE_HEADER,
+  EXPECTED_SESSION_UID_HEADER,
+  renewSdkSession,
+  type SdkSessionIdentity,
+} from "@/lib/sdk-session-recovery";
 import type {
   DiscoverIndividualRecord,
   DiscoverIndividualsPage,
@@ -328,11 +337,25 @@ type ServiceOfferPublishDialogState = {
 
 type ServiceOfferSaveIntent = "save" | "status" | "publish";
 
+type PersistOfferOptions = {
+  redirectToOffer?: boolean;
+  showToast?: boolean;
+  successMessage?: string;
+  sessionRecoveryIntent?: ServiceOfferSaveIntent;
+};
+
+type PendingSessionSave = {
+  status: SupportServiceOfferStatus;
+  options: PersistOfferOptions;
+};
+
 type ServiceIdValidationStatus =
   | "idle"
   | "checking"
   | "available"
   | "conflict"
+  | "unauthorized"
+  | "forbidden"
   | "error"
   | "locked";
 
@@ -4312,6 +4335,7 @@ export function SupportServiceOfferWorkbench({
   canDelete = true,
   presentation = "form",
   publisherEditorPresentation = false,
+  sessionIdentity,
 }: {
   mode: "create" | "edit";
   offerId?: string;
@@ -4324,6 +4348,7 @@ export function SupportServiceOfferWorkbench({
   canDelete?: boolean;
   presentation?: "form" | "wizard";
   publisherEditorPresentation?: boolean;
+  sessionIdentity?: SdkSessionIdentity;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -4357,6 +4382,15 @@ export function SupportServiceOfferWorkbench({
     useState(0);
   const [wizardStepIndex, setWizardStepIndex] = useState(0);
   const [wizardValidationMessage, setWizardValidationMessage] = useState("");
+  const [sessionRecoveryOpen, setSessionRecoveryOpen] = useState(false);
+  const [serviceIdErrorLogOpen, setServiceIdErrorLogOpen] = useState(false);
+  const sessionRenewalRef = useRef<Promise<boolean> | null>(null);
+  const pendingSessionSaveRef = useRef<PendingSessionSave | null>(null);
+  const latestFormRef = useRef(form);
+  const latestSavedFormRef = useRef(savedForm);
+  const offerHydratedRef = useRef(false);
+  latestFormRef.current = form;
+  latestSavedFormRef.current = savedForm;
   const isEditing = mode === "edit";
   const isWizard = presentation === "wizard" && mode === "create";
   const isPublisherOfferEditor = isEditing && publisherEditorPresentation;
@@ -4368,10 +4402,81 @@ export function SupportServiceOfferWorkbench({
     return toastCounter;
   }
 
+  async function recoverSessionSilently() {
+    if (!sessionIdentity) {
+      return false;
+    }
+
+    if (!sessionRenewalRef.current) {
+      sessionRenewalRef.current = renewSdkSession(sessionIdentity)
+        .then(() => true)
+        .catch(() => false)
+        .finally(() => {
+          sessionRenewalRef.current = null;
+        });
+    }
+
+    return sessionRenewalRef.current;
+  }
+
+  async function sdkFetchWithSessionRecovery<T = unknown>(
+    path: string,
+    init?: RequestInit,
+  ): Promise<T> {
+    const requestInit = sessionIdentity
+      ? {
+          ...init,
+          headers: new Headers(init?.headers),
+        }
+      : init;
+    if (sessionIdentity && requestInit?.headers instanceof Headers) {
+      requestInit.headers.set(EXPECTED_SESSION_UID_HEADER, sessionIdentity.uid);
+      requestInit.headers.set(
+        EXPECTED_SESSION_EMAIL_HEADER,
+        sessionIdentity.email,
+      );
+      requestInit.headers.set(
+        EXPECTED_SESSION_PROJECT_HEADER,
+        sessionIdentity.project,
+      );
+      requestInit.headers.set(
+        EXPECTED_SESSION_SURFACE_HEADER,
+        sessionIdentity.surface,
+      );
+    }
+
+    try {
+      return await sdkFetch<T>(path, requestInit);
+    } catch (error) {
+      if (!(error instanceof SdkRequestError) || error.status !== 401) {
+        throw error;
+      }
+
+      const recovered = await recoverSessionSilently();
+      if (!recovered) {
+        if (sessionIdentity) setSessionRecoveryOpen(true);
+        throw error;
+      }
+
+      try {
+        return await sdkFetch<T>(path, requestInit);
+      } catch (retryError) {
+        if (
+          retryError instanceof SdkRequestError &&
+          retryError.status === 401 &&
+          sessionIdentity
+        ) {
+          setSessionRecoveryOpen(true);
+        }
+        throw retryError;
+      }
+    }
+  }
+
   const offerQuery = useQuery({
     queryKey: [OFFERS_QUERY_KEY, offerId],
     queryFn: () =>
-      sdkFetch<{ offer: SupportServiceOfferRecord }>(
+      sdkFetchWithSessionRecovery<{ offer: SupportServiceOfferRecord }>(
         `/admin/support-services/offers/${encodeURIComponent(offerId ?? "")}`,
       ),
     enabled: isEditing && Boolean(offerId),
@@ -4380,6 +4485,14 @@ export function SupportServiceOfferWorkbench({
   useEffect(() => {
     if (offerQuery.data?.offer) {
       const nextForm = offerFormFromRecord(offerQuery.data.offer);
+      const hasLocalChanges =
+        offerHydratedRef.current &&
+        JSON.stringify(latestFormRef.current) !==
+          JSON.stringify(latestSavedFormRef.current);
+      offerHydratedRef.current = true;
+      if (hasLocalChanges) {
+        return;
+      }
       setForm(nextForm);
       setSavedForm(nextForm);
       setPersistedOfferId(offerQuery.data.offer.id);
@@ -4425,7 +4538,7 @@ export function SupportServiceOfferWorkbench({
     queryKey: [OFFERS_QUERY_KEY, "service-id-availability", form.serviceId],
     queryFn: () => {
       const params = new URLSearchParams({ serviceId: form.serviceId });
-      return sdkFetch<SupportServiceIdAvailability>(
+      return sdkFetchWithSessionRecovery<SupportServiceIdAvailability>(
         `/admin/support-services/offers/service-id-availability?${params.toString()}`,
       );
     },
@@ -4441,10 +4554,13 @@ export function SupportServiceOfferWorkbench({
       const path = effectiveOfferId
         ? `/admin/support-services/offers/${encodeURIComponent(effectiveOfferId)}`
         : "/admin/support-services/offers";
-      return sdkFetch<{ offer: SupportServiceOfferRecord }>(path, {
-        method: effectiveOfferId ? "PUT" : "POST",
-        body: JSON.stringify(payload),
-      });
+      return sdkFetchWithSessionRecovery<{ offer: SupportServiceOfferRecord }>(
+        path,
+        {
+          method: effectiveOfferId ? "PUT" : "POST",
+          body: JSON.stringify(payload),
+        },
+      );
     },
   });
 
@@ -4474,6 +4590,10 @@ export function SupportServiceOfferWorkbench({
     hasPersistedOffer ||
     (serviceIdAvailabilityQuery.data?.serviceId === form.serviceId &&
       serviceIdAvailabilityQuery.data.available);
+  const serviceIdRequestStatus =
+    serviceIdAvailabilityQuery.error instanceof SdkRequestError
+      ? serviceIdAvailabilityQuery.error.status
+      : null;
   const serviceIdValidationStatus: ServiceIdValidationStatus = hasPersistedOffer
     ? "locked"
     : !form.providerId.trim() ||
@@ -4483,10 +4603,17 @@ export function SupportServiceOfferWorkbench({
           serviceIdAvailabilityQuery.isFetching
         ? "checking"
         : serviceIdAvailabilityQuery.isError
-          ? "error"
+          ? serviceIdRequestStatus === 401
+            ? "unauthorized"
+            : serviceIdRequestStatus === 403
+              ? "forbidden"
+              : "error"
           : serviceIdAvailabilityQuery.data?.available
             ? "available"
             : "conflict";
+  const serviceIdErrorLog = serviceIdAvailabilityQuery.error
+    ? requestErrorLog(serviceIdAvailabilityQuery.error)
+    : "";
   const canPublishCurrentOffer = hasPersistedOffer && form.status !== "active";
   const statusOptions = SUPPORT_SERVICE_OFFER_STATUSES.filter(
     (option) => form.status === "active" || option.value !== "active",
@@ -4552,11 +4679,8 @@ export function SupportServiceOfferWorkbench({
       redirectToOffer = mode === "create",
       showToast = true,
       successMessage = "Service offer saved.",
-    }: {
-      redirectToOffer?: boolean;
-      showToast?: boolean;
-      successMessage?: string;
-    } = {},
+      sessionRecoveryIntent,
+    }: PersistOfferOptions = {},
   ) {
     try {
       if (
@@ -4582,6 +4706,7 @@ export function SupportServiceOfferWorkbench({
       const previousFormShapeVersion = form.supportsFormShape
         ? form.formShape.version
         : null;
+      const submittedFormSnapshot = JSON.stringify(form);
       const payloadForm = isWizard ? simplifiedWizardContract(form) : form;
       const basePayload = offerPayloadFromForm({ ...payloadForm, status });
       const payload = hasPersistedOffer
@@ -4594,7 +4719,23 @@ export function SupportServiceOfferWorkbench({
       await queryClient.invalidateQueries({ queryKey: [OFFERS_QUERY_KEY] });
 
       const nextForm = offerFormFromRecord(result.offer);
-      setForm(nextForm);
+      const hasNewerEdits =
+        JSON.stringify(latestFormRef.current) !== submittedFormSnapshot;
+      setForm((current) =>
+        hasNewerEdits
+          ? {
+              ...current,
+              serviceId: nextForm.serviceId,
+              serviceVersion: nextForm.serviceVersion,
+              status: nextForm.status,
+              formShape: {
+                ...current.formShape,
+                id: nextForm.formShape.id,
+                version: nextForm.formShape.version,
+              },
+            }
+          : nextForm,
+      );
       setSavedForm(nextForm);
       setPersistedOfferId(result.offer.id);
       setStatusDraft(result.offer.status);
@@ -4620,12 +4761,31 @@ export function SupportServiceOfferWorkbench({
         });
       }
 
-      if (redirectToOffer) {
+      if (redirectToOffer && !hasNewerEdits) {
         router.push(`${routeBase}/${encodeURIComponent(result.offer.id)}`);
       }
-      router.refresh();
+      if (!hasNewerEdits) {
+        router.refresh();
+      }
       return result.offer;
     } catch (error) {
+      if (
+        error instanceof SdkRequestError &&
+        error.status === 401 &&
+        sessionIdentity
+      ) {
+        pendingSessionSaveRef.current = {
+          status,
+          options: {
+            redirectToOffer,
+            showToast,
+            successMessage,
+            sessionRecoveryIntent,
+          },
+        };
+        setSessionRecoveryOpen(true);
+        return null;
+      }
       if (
         !hasPersistedOffer &&
         error instanceof SdkRequestError &&
@@ -4642,12 +4802,61 @@ export function SupportServiceOfferWorkbench({
     }
   }
 
+  async function handleSessionRecovered(): Promise<boolean> {
+    const pendingSave = pendingSessionSaveRef.current;
+    pendingSessionSaveRef.current = null;
+
+    if (pendingSave) {
+      if (pendingSave.options.sessionRecoveryIntent === "publish") {
+        await executePublishOffer();
+      } else if (pendingSave.options.sessionRecoveryIntent === "status") {
+        await executeSaveStatusDraft();
+      } else if (pendingSave.options.sessionRecoveryIntent === "save") {
+        await executeSaveCurrentOffer();
+      } else {
+        await persistOffer(pendingSave.status, pendingSave.options);
+      }
+      return pendingSessionSaveRef.current === null;
+    }
+
+    if (isEditing && offerQuery.isError) {
+      const result = await offerQuery.refetch();
+      return !(
+        result.error instanceof SdkRequestError && result.error.status === 401
+      );
+    }
+
+    if (shouldValidateServiceId) {
+      const result = await serviceIdAvailabilityQuery.refetch();
+      return !(
+        result.error instanceof SdkRequestError && result.error.status === 401
+      );
+    }
+
+    return true;
+  }
+
+  function handleSessionRecoveryOpenChange(open: boolean) {
+    setSessionRecoveryOpen(open);
+    if (!open) {
+      if (
+        pendingSessionSaveRef.current?.options.sessionRecoveryIntent ===
+          "publish" &&
+        publishDialog?.status === "publishing"
+      ) {
+        setPublishDialog(null);
+      }
+      pendingSessionSaveRef.current = null;
+    }
+  }
+
   async function executeSaveCurrentOffer() {
     const status = hasPersistedOffer ? form.status : "draft";
     await persistOffer(status, {
       successMessage: hasPersistedOffer
         ? "Service offer saved."
         : "Service offer draft saved.",
+      sessionRecoveryIntent: "save",
     });
   }
 
@@ -4655,6 +4864,7 @@ export function SupportServiceOfferWorkbench({
     const saved = await persistOffer(statusDraft, {
       redirectToOffer: false,
       successMessage: "Service offer status updated.",
+      sessionRecoveryIntent: "status",
     });
     if (saved) {
       setStatusDialogOpen(false);
@@ -4666,8 +4876,15 @@ export function SupportServiceOfferWorkbench({
     const published = await persistOffer("active", {
       redirectToOffer: false,
       showToast: false,
+      sessionRecoveryIntent: "publish",
     });
     if (!published) {
+      if (
+        pendingSessionSaveRef.current?.options.sessionRecoveryIntent ===
+        "publish"
+      ) {
+        return;
+      }
       setPublishDialog({
         status: "error",
         message: t(
@@ -4854,6 +5071,46 @@ export function SupportServiceOfferWorkbench({
     void saveCurrentOffer();
   }
 
+  const sessionAndValidationDialogs = (
+    <>
+      {sessionIdentity ? (
+        <SdkSessionRecoveryDialog
+          open={sessionRecoveryOpen}
+          identity={sessionIdentity}
+          onOpenChange={handleSessionRecoveryOpenChange}
+          onRecovered={handleSessionRecovered}
+        />
+      ) : null}
+      <Dialog
+        open={serviceIdErrorLogOpen}
+        onOpenChange={setServiceIdErrorLogOpen}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{t("Service ID verification log")}</DialogTitle>
+            <DialogDescription>
+              {t(
+                "Request and response details for the failed service ID verification.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/80 bg-muted/30 p-3 font-mono text-xs leading-5 text-foreground">
+            {serviceIdErrorLog || t("No log details are available.")}
+          </pre>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setServiceIdErrorLogOpen(false)}
+            >
+              {t("Close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+
   if (isEditing && offerQuery.isLoading) {
     return <Skeleton className="h-[36rem] w-full" />;
   }
@@ -4871,9 +5128,12 @@ export function SupportServiceOfferWorkbench({
           onDismiss={() => setToast(null)}
           language={language}
         />
+        {sessionAndValidationDialogs}
         <form
           data-testid="service-offer-wizard"
           noValidate
+          inert={isWorking ? true : undefined}
+          aria-busy={isWorking}
           className={cn(
             SUPPORT_SERVICE_FORM_CLASS,
             "overflow-visible rounded-none border-0 bg-transparent shadow-none dark:bg-transparent",
@@ -5230,7 +5490,13 @@ export function SupportServiceOfferWorkbench({
                   <WizardOfferReview
                     form={form}
                     preparationStatus={serviceIdValidationStatus}
-                    onRetryPreparation={regenerateServiceId}
+                    onRegeneratePreparation={regenerateServiceId}
+                    onRetryPreparation={() =>
+                      void serviceIdAvailabilityQuery.refetch()
+                    }
+                    onSignIn={() => setSessionRecoveryOpen(true)}
+                    canSignIn={Boolean(sessionIdentity)}
+                    onShowLog={() => setServiceIdErrorLogOpen(true)}
                   />
                 ) : null}
               </div>
@@ -5343,7 +5609,13 @@ export function SupportServiceOfferWorkbench({
         onDismiss={() => setToast(null)}
         language={language}
       />
-      <form className={SUPPORT_SERVICE_FORM_CLASS} onSubmit={handleSubmit}>
+      {sessionAndValidationDialogs}
+      <form
+        className={SUPPORT_SERVICE_FORM_CLASS}
+        onSubmit={handleSubmit}
+        inert={isWorking ? true : undefined}
+        aria-busy={isWorking}
+      >
         <WorkbenchTopbar
           title={
             isPublisherOfferEditor
@@ -5531,6 +5803,10 @@ export function SupportServiceOfferWorkbench({
                   status={serviceIdValidationStatus}
                   canRegenerate={!hasPersistedOffer}
                   onRegenerate={regenerateServiceId}
+                  onRetry={() => void serviceIdAvailabilityQuery.refetch()}
+                  onSignIn={() => setSessionRecoveryOpen(true)}
+                  canSignIn={Boolean(sessionIdentity)}
+                  onShowLog={() => setServiceIdErrorLogOpen(true)}
                 />
               </DisplayField>
               <DisplayField label="Service version">
@@ -6102,11 +6378,19 @@ export function WizardMoreInformationReview({
 function WizardOfferReview({
   form,
   preparationStatus,
+  onRegeneratePreparation,
   onRetryPreparation,
+  onSignIn,
+  canSignIn,
+  onShowLog,
 }: {
   form: OfferFormState;
   preparationStatus: ServiceIdValidationStatus;
+  onRegeneratePreparation: () => void;
   onRetryPreparation: () => void;
+  onSignIn: () => void;
+  canSignIn: boolean;
+  onShowLog: () => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -6185,6 +6469,10 @@ function WizardOfferReview({
           <WizardOfferPreparationStatus
             status={preparationStatus}
             onRetry={onRetryPreparation}
+            onRegenerate={onRegeneratePreparation}
+            onSignIn={onSignIn}
+            canSignIn={canSignIn}
+            onShowLog={onShowLog}
           />
         </header>
 
@@ -6438,9 +6726,17 @@ function WizardOfferReview({
 function WizardOfferPreparationStatus({
   status,
   onRetry,
+  onRegenerate,
+  onSignIn,
+  canSignIn,
+  onShowLog,
 }: {
   status: ServiceIdValidationStatus;
   onRetry: () => void;
+  onRegenerate: () => void;
+  onSignIn: () => void;
+  canSignIn: boolean;
+  onShowLog: () => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -6458,7 +6754,7 @@ function WizardOfferPreparationStatus({
     );
   }
 
-  if (status === "conflict" || status === "error") {
+  if (status === "conflict") {
     return (
       <div
         data-testid="service-offer-wizard-preparation-status"
@@ -6467,12 +6763,101 @@ function WizardOfferPreparationStatus({
       >
         <span className="flex min-w-0 items-start gap-3">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{t("A unique service identifier could not be prepared.")}</span>
+          <span>
+            {t("This service ID is already in use. Generate another one to continue.")}
+          </span>
         </span>
-        <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onRegenerate}
+        >
           <RefreshCw className="h-4 w-4" />
-          {t("Try again")}
+          {t("Generate another ID")}
         </Button>
+      </div>
+    );
+  }
+
+  if (status === "unauthorized") {
+    return (
+      <div
+        data-testid="service-offer-wizard-preparation-status"
+        role="alert"
+        className="flex flex-wrap items-center justify-center gap-3 border-b border-amber-700/30 py-3 text-sm text-amber-900"
+      >
+        <span className="flex min-w-0 items-start gap-3">
+          <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            {t("Your session expired. Sign in here to continue without losing your progress.")}
+          </span>
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {canSignIn ? (
+            <Button type="button" variant="outline" size="sm" onClick={onSignIn}>
+              <LockKeyhole className="h-4 w-4" />
+              {t("Sign in here")}
+            </Button>
+          ) : (
+            <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+              <RefreshCw className="h-4 w-4" />
+              {t("Try again")}
+            </Button>
+          )}
+          <Button type="button" variant="ghost" size="sm" onClick={onShowLog}>
+            <FileText className="h-4 w-4" />
+            {t("Show log")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "forbidden") {
+    return (
+      <div
+        data-testid="service-offer-wizard-preparation-status"
+        role="alert"
+        className="flex flex-wrap items-center justify-center gap-3 border-b border-rose-700/30 py-3 text-sm text-rose-900"
+      >
+        <span className="flex min-w-0 items-start gap-3">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            {t("Your account no longer has permission to create this service offer.")}
+          </span>
+        </span>
+        <Button type="button" variant="ghost" size="sm" onClick={onShowLog}>
+          <FileText className="h-4 w-4" />
+          {t("Show log")}
+        </Button>
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div
+        data-testid="service-offer-wizard-preparation-status"
+        role="alert"
+        className="flex flex-wrap items-center justify-center gap-3 border-b border-amber-700/30 py-3 text-sm text-amber-900"
+      >
+        <span className="flex min-w-0 items-start gap-3">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            {t("The service ID could not be verified. Your offer data is still here.")}
+          </span>
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            <RefreshCw className="h-4 w-4" />
+            {t("Retry verification")}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={onShowLog}>
+            <FileText className="h-4 w-4" />
+            {t("Show log")}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -13860,11 +14245,19 @@ function ServiceIdGeneratedValue({
   status,
   canRegenerate,
   onRegenerate,
+  onRetry,
+  onSignIn,
+  canSignIn,
+  onShowLog,
 }: {
   serviceId: string;
   status: ServiceIdValidationStatus;
   canRegenerate: boolean;
   onRegenerate: () => void;
+  onRetry: () => void;
+  onSignIn: () => void;
+  canSignIn: boolean;
+  onShowLog: () => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -13893,6 +14286,18 @@ function ServiceIdGeneratedValue({
       className:
         "border-rose-200 bg-rose-50/75 text-rose-700 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-200",
     },
+    unauthorized: {
+      icon: LockKeyhole,
+      label: t("Your session expired. Sign in here to continue without losing your progress."),
+      className:
+        "border-amber-200 bg-amber-50/75 text-amber-800 dark:border-amber-400/25 dark:bg-amber-500/10 dark:text-amber-100",
+    },
+    forbidden: {
+      icon: XCircle,
+      label: t("Your account no longer has permission to create this service offer."),
+      className:
+        "border-rose-200 bg-rose-50/75 text-rose-700 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-200",
+    },
     error: {
       icon: XCircle,
       label: t("Service ID could not be validated."),
@@ -13915,8 +14320,11 @@ function ServiceIdGeneratedValue({
   >;
   const currentStatus = statusContent[status];
   const StatusIcon = currentStatus.icon;
-  const showRegenerate =
-    canRegenerate && (status === "conflict" || status === "error");
+  const showRegenerate = canRegenerate && status === "conflict";
+  const showRetry = status === "error" || (status === "unauthorized" && !canSignIn);
+  const showSignIn = status === "unauthorized" && canSignIn;
+  const showLog =
+    status === "error" || status === "unauthorized" || status === "forbidden";
 
   return (
     <div
@@ -13946,17 +14354,51 @@ function ServiceIdGeneratedValue({
           </div>
         </div>
       </div>
-      {showRegenerate ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onRegenerate}
-          className="shrink-0 gap-2 border-current/20 bg-white/80 dark:bg-slate-950/50"
-        >
-          <RefreshCw className="h-4 w-4" />
-          {t("Regenerate service ID")}
-        </Button>
+      {showRegenerate || showRetry || showSignIn || showLog ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {showRegenerate ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onRegenerate}
+              className="gap-2 border-current/20 bg-white/80 dark:bg-slate-950/50"
+            >
+              <RefreshCw className="h-4 w-4" />
+              {t("Regenerate service ID")}
+            </Button>
+          ) : null}
+          {showRetry ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onRetry}
+              className="gap-2 border-current/20 bg-white/80 dark:bg-slate-950/50"
+            >
+              <RefreshCw className="h-4 w-4" />
+              {t("Retry verification")}
+            </Button>
+          ) : null}
+          {showSignIn ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onSignIn}
+              className="gap-2 border-current/20 bg-white/80 dark:bg-slate-950/50"
+            >
+              <LockKeyhole className="h-4 w-4" />
+              {t("Sign in here")}
+            </Button>
+          ) : null}
+          {showLog ? (
+            <Button type="button" variant="ghost" size="sm" onClick={onShowLog}>
+              <FileText className="h-4 w-4" />
+              {t("Show log")}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
@@ -14032,6 +14474,18 @@ function FormShapeIdGeneratedValue({
     conflict: {
       icon: XCircle,
       label: t("Resolve the service ID conflict to generate this ID."),
+      className:
+        "border-rose-200 bg-rose-50/75 text-rose-700 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-200",
+    },
+    unauthorized: {
+      icon: LockKeyhole,
+      label: t("Sign in again to validate the request form ID."),
+      className:
+        "border-amber-200 bg-amber-50/75 text-amber-800 dark:border-amber-400/25 dark:bg-amber-500/10 dark:text-amber-100",
+    },
+    forbidden: {
+      icon: XCircle,
+      label: t("Your account cannot validate the request form ID."),
       className:
         "border-rose-200 bg-rose-50/75 text-rose-700 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-200",
     },

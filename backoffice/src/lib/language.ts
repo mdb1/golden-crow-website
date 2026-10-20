@@ -5257,6 +5257,41 @@ const SPANISH_TEXT: Record<string, string> = {
     "La oferta de servicio está lista para guardar.",
   "A unique service identifier could not be prepared.":
     "No se pudo preparar un identificador único para el servicio.",
+  "This service ID is already in use. Generate another one to continue.":
+    "Este ID de servicio ya está en uso. Generá otro para continuar.",
+  "Generate another ID": "Generar otro ID",
+  "Your session expired. Sign in here to continue without losing your progress.":
+    "Tu sesión venció. Iniciá sesión acá para continuar sin perder tu progreso.",
+  "Sign in here": "Iniciar sesión acá",
+  "Your account no longer has permission to create this service offer.":
+    "Tu cuenta ya no tiene permiso para crear esta oferta de servicio.",
+  "The service ID could not be verified. Your offer data is still here.":
+    "No se pudo verificar el ID de servicio. Los datos de tu oferta siguen acá.",
+  "Service ID verification log": "Log de verificación del ID de servicio",
+  "Request and response details for the failed service ID verification.":
+    "Detalle de la request y la respuesta de la verificación fallida del ID de servicio.",
+  "Your session expired": "Tu sesión venció",
+  "Sign in here to continue. Your service offer and current step will stay unchanged.":
+    "Iniciá sesión acá para continuar. Tu oferta de servicio y el paso actual no van a cambiar.",
+  Password: "Contraseña",
+  "Sign in with password": "Iniciar sesión con contraseña",
+  or: "o",
+  "Continue with Google": "Continuar con Google",
+  "Not now": "Ahora no",
+  "The session could not be renewed.": "No se pudo renovar la sesión.",
+  "The session is still unavailable. Try signing in again.":
+    "La sesión todavía no está disponible. Intentá iniciar sesión de nuevo.",
+  "The page session changed. Sign in with the original account to continue.":
+    "La sesión de la página cambió. Iniciá sesión con la cuenta original para continuar.",
+  "The renewed page session belongs to a different account.":
+    "La sesión renovada de la página pertenece a otra cuenta.",
+  "Sign in with the same account that opened this service offer.":
+    "Iniciá sesión con la misma cuenta que abrió esta oferta de servicio.",
+  "The renewed session belongs to a different account.":
+    "La sesión renovada pertenece a otra cuenta.",
+  "The page session could not be renewed.":
+    "No se pudo renovar la sesión de la página.",
+  "Sign in again to continue.": "Volvé a iniciar sesión para continuar.",
   "Preparing the service offer...": "Preparando la oferta de servicio...",
   "Review the current step.": "Revisá el paso actual.",
   "Edit your Pocket Genes service offer.":
@@ -5809,6 +5844,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service ID is available.": "El ID de servicio está disponible.",
   "Service ID already exists.": "El ID de servicio ya existe.",
   "Service ID could not be validated.": "No se pudo validar el ID de servicio.",
+  "Sign in again to validate the request form ID.":
+    "Volvé a iniciar sesión para validar el ID del formulario de solicitud.",
+  "Your account cannot validate the request form ID.":
+    "Tu cuenta no puede validar el ID del formulario de solicitud.",
   "Service ID is fixed for this existing offer.":
     "El ID de servicio es fijo para esta oferta existente.",
   "Regenerate service ID": "Regenerar ID de servicio",

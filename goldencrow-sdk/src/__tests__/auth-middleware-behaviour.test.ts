@@ -61,10 +61,15 @@ function asSession(context: AdminContext | null) {
   mockResolveAdminContext.mockResolvedValue(context);
 }
 
-async function get(url: string, session: string | null = "valid-session") {
+async function get(
+  url: string,
+  session: string | null = "valid-session",
+  headers: Record<string, string> = {},
+) {
   return app.inject({
     method: "GET",
     url,
+    headers,
     ...(session === null ? {} : { cookies: { session } }),
   });
 }
@@ -120,6 +125,32 @@ describe("authMiddleware — session verification", () => {
       email: "user@example.com",
       uid: "user-uid",
     });
+  });
+
+  it("accepts a request bound to the authenticated session uid", async () => {
+    asSession(contextFor(["backoffice"]));
+    const res = await get("/roles", "valid-session", {
+      "x-expected-session-uid": "user-uid",
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockResolveAdminContext).toHaveBeenCalledWith({
+      email: "user@example.com",
+      uid: "user-uid",
+    });
+  });
+
+  it("401 before role resolution when the session uid changed", async () => {
+    const res = await get("/roles", "valid-session", {
+      "x-expected-session-uid": "another-user-uid",
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({
+      error: "Session identity changed. Sign in again.",
+      code: "SESSION_IDENTITY_MISMATCH",
+    });
+    expect(mockResolveAdminContext).not.toHaveBeenCalled();
   });
 
   it("401 (fail closed) when resolving the context throws", async () => {

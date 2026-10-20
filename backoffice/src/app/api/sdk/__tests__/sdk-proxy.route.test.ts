@@ -57,6 +57,7 @@ it("GET: forwards path + query, caller cookies/auth, no body, strips hop headers
         host: "backoffice.test",
         connection: "keep-alive",
         "content-type": "application/json",
+        "x-expected-session-uid": "publisher-1",
       },
     }),
     ctx("admin", "users"),
@@ -72,6 +73,7 @@ it("GET: forwards path + query, caller cookies/auth, no body, strips hop headers
   expect(init.headers.get("host")).toBeNull();
   expect(init.headers.get("connection")).toBeNull();
   expect(init.headers.get("content-type")).toBeNull();
+  expect(init.headers.get("x-expected-session-uid")).toBe("publisher-1");
   expect(init.headers.get("x-project")).toBe("pocketgyms");
   expect(mockGetServerSession).toHaveBeenCalledWith({ marker: "authOptions" });
 
@@ -114,6 +116,202 @@ it("auth/* paths never read the session nor inject x-project", async () => {
   await route.GET(new Request("https://backoffice.test/api/sdk/auth/context"), ctx("auth", "context"));
   expect(mockGetServerSession).not.toHaveBeenCalled();
   expect(lastFetch().init.headers.get("x-project")).toBeNull();
+});
+
+it("session recovery requires the same live page session and verified SDK identity", async () => {
+  mockGetServerSession.mockResolvedValue({
+    user: {
+      email: "publisher@example.com",
+      project: "mydnamap",
+      accessSurface: "publisher-portal",
+    },
+  });
+  fetchMock.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        status: "ok",
+        uid: "publisher-1",
+        email: "publisher@example.com",
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "set-cookie": "session=fresh; Path=/; HttpOnly",
+        },
+      },
+    ),
+  );
+
+  const res = await route.POST(
+    new Request("https://backoffice.test/api/sdk/auth/login", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-sdk-session-recovery": "1",
+        "x-expected-session-uid": "publisher-1",
+        "x-expected-session-email": "publisher@example.com",
+        "x-expected-session-project": "mydnamap",
+        "x-expected-session-surface": "publisher-portal",
+      },
+      body: JSON.stringify({
+        idToken: "firebase-token",
+        surface: "publisher-portal",
+      }),
+    }),
+    ctx("auth", "login"),
+  );
+
+  expect(res.status).toBe(200);
+  expect(res.headers.get("set-cookie")).toContain("session=fresh");
+  const { init } = lastFetch();
+  expect(init.headers.get("x-sdk-session-recovery")).toBeNull();
+  expect(init.headers.get("x-expected-session-uid")).toBeNull();
+  expect(init.headers.get("x-expected-session-email")).toBeNull();
+  expect(init.headers.get("x-expected-session-project")).toBeNull();
+  expect(init.headers.get("x-expected-session-surface")).toBeNull();
+});
+
+it("binds protected workbench requests to the same live page session", async () => {
+  mockGetServerSession.mockResolvedValue({
+    user: {
+      email: "publisher@example.com",
+      project: "mydnamap",
+      accessSurface: "publisher-portal",
+    },
+  });
+
+  const res = await route.GET(
+    new Request("https://backoffice.test/api/sdk/admin/support-services/offers", {
+      headers: {
+        "x-expected-session-uid": "publisher-1",
+        "x-expected-session-email": "publisher@example.com",
+        "x-expected-session-project": "mydnamap",
+        "x-expected-session-surface": "publisher-portal",
+      },
+    }),
+    ctx("admin", "support-services", "offers"),
+  );
+
+  expect(res.status).toBe(200);
+  const { init } = lastFetch();
+  expect(init.headers.get("x-project")).toBe("mydnamap");
+  expect(init.headers.get("x-expected-session-uid")).toBe("publisher-1");
+  expect(init.headers.get("x-expected-session-email")).toBeNull();
+  expect(init.headers.get("x-expected-session-project")).toBeNull();
+  expect(init.headers.get("x-expected-session-surface")).toBeNull();
+});
+
+it("rejects a stale workbench request after the page account changes", async () => {
+  mockGetServerSession.mockResolvedValue({
+    user: {
+      email: "different@example.com",
+      project: "mydnamap",
+      accessSurface: "publisher-portal",
+    },
+  });
+
+  const res = await route.POST(
+    new Request("https://backoffice.test/api/sdk/admin/support-services/offers", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-expected-session-uid": "publisher-1",
+        "x-expected-session-email": "publisher@example.com",
+        "x-expected-session-project": "mydnamap",
+        "x-expected-session-surface": "publisher-portal",
+      },
+      body: JSON.stringify({ name: "Unsaved offer" }),
+    }),
+    ctx("admin", "support-services", "offers"),
+  );
+
+  expect(res.status).toBe(401);
+  expect(await res.json()).toEqual({
+    error: "The page session changed. Sign in again to continue.",
+    code: "SESSION_IDENTITY_MISMATCH",
+  });
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it("rejects session recovery before the SDK call when the page session ended", async () => {
+  mockGetServerSession.mockResolvedValue(null);
+
+  const res = await route.POST(
+    new Request("https://backoffice.test/api/sdk/auth/login", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-sdk-session-recovery": "1",
+        "x-expected-session-uid": "publisher-1",
+        "x-expected-session-email": "publisher@example.com",
+        "x-expected-session-project": "mydnamap",
+        "x-expected-session-surface": "publisher-portal",
+      },
+      body: JSON.stringify({
+        idToken: "firebase-token",
+        surface: "publisher-portal",
+      }),
+    }),
+    ctx("auth", "login"),
+  );
+
+  expect(res.status).toBe(401);
+  expect(await res.json()).toEqual({
+    error:
+      "The page session changed. Sign in with the original account to continue.",
+    code: "SESSION_RECOVERY_IDENTITY_MISMATCH",
+  });
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it("does not forward an SDK recovery cookie for a different verified uid", async () => {
+  mockGetServerSession.mockResolvedValue({
+    user: {
+      email: "publisher@example.com",
+      project: "mydnamap",
+      accessSurface: "publisher-portal",
+    },
+  });
+  fetchMock.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        status: "ok",
+        uid: "different-publisher",
+        email: "publisher@example.com",
+      }),
+      {
+        status: 200,
+        headers: { "set-cookie": "session=wrong; Path=/; HttpOnly" },
+      },
+    ),
+  );
+
+  const res = await route.POST(
+    new Request("https://backoffice.test/api/sdk/auth/login", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-sdk-session-recovery": "1",
+        "x-expected-session-uid": "publisher-1",
+        "x-expected-session-email": "publisher@example.com",
+        "x-expected-session-project": "mydnamap",
+        "x-expected-session-surface": "publisher-portal",
+      },
+      body: JSON.stringify({
+        idToken: "firebase-token",
+        surface: "publisher-portal",
+      }),
+    }),
+    ctx("auth", "login"),
+  );
+
+  expect(res.status).toBe(401);
+  expect(res.headers.get("set-cookie")).toBeNull();
+  expect(await res.json()).toEqual({
+    error: "The renewed session belongs to a different account.",
+    code: "SESSION_RECOVERY_IDENTITY_MISMATCH",
+  });
 });
 
 it("session read failure is non-fatal (request still forwarded, no x-project)", async () => {

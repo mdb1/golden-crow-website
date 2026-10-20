@@ -6,7 +6,8 @@ import { PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE } from "@/lib/publisher-portal-ro
 import { getPublisherSupportServicesProvider } from "@/lib/publisher-support-services-server";
 
 export default async function PublisherServiceOfferWizardPage() {
-  const { provider } = await getPublisherSupportServicesProvider();
+  const { adminContext, provider } =
+    await getPublisherSupportServicesProvider();
   const t = (text: string) => appText("es", text);
 
   return (
@@ -26,6 +27,12 @@ export default async function PublisherServiceOfferWizardPage() {
           routeBase={PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE}
           fixedProvider={provider}
           canDelete={false}
+          sessionIdentity={{
+            uid: adminContext.uid,
+            email: adminContext.email,
+            project: adminContext.project,
+            surface: "publisher-portal",
+          }}
         />
       </HeaderUnclutterScope>
     </div>

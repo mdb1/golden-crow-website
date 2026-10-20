@@ -27,6 +27,11 @@ import {
 } from "@/lib/support-service-categories";
 import { appText } from "@/lib/language";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
+import {
+  renewSdkSession,
+  signInSdkSessionWithGoogle,
+  signInSdkSessionWithPassword,
+} from "@/lib/sdk-session-recovery";
 import type {
   SupportServiceLinkedReportRecord,
   SupportServiceOfferRecord,
@@ -47,15 +52,52 @@ jest.mock("@/lib/sdk-client", () => ({
   sdkFetch: jest.fn(),
   SdkRequestError: class SdkRequestError extends Error {
     details: string;
+    status: number;
+    method: string;
+    path: string;
 
-    constructor(input?: string | { message?: string; details?: string }) {
+    constructor(
+      input?:
+        | string
+        | {
+            message?: string;
+            details?: string;
+            status?: number;
+            method?: string;
+            path?: string;
+          },
+    ) {
       super(typeof input === "object" ? input.message : input);
       this.details = typeof input === "object" ? (input.details ?? "") : "";
+      this.status = typeof input === "object" ? (input.status ?? 500) : 500;
+      this.method = typeof input === "object" ? (input.method ?? "GET") : "GET";
+      this.path = typeof input === "object" ? (input.path ?? "") : "";
     }
   },
 }));
 
+jest.mock("@/lib/sdk-session-recovery", () => ({
+  EXPECTED_SESSION_EMAIL_HEADER: "x-expected-session-email",
+  EXPECTED_SESSION_PROJECT_HEADER: "x-expected-session-project",
+  EXPECTED_SESSION_SURFACE_HEADER: "x-expected-session-surface",
+  EXPECTED_SESSION_UID_HEADER: "x-expected-session-uid",
+  renewSdkSession: jest.fn(),
+  signInSdkSessionWithGoogle: jest.fn(),
+  signInSdkSessionWithPassword: jest.fn(),
+}));
+
 const sdkFetchMock = sdkFetch as jest.MockedFunction<typeof sdkFetch>;
+const renewSdkSessionMock = renewSdkSession as jest.MockedFunction<
+  typeof renewSdkSession
+>;
+const signInSdkSessionWithGoogleMock =
+  signInSdkSessionWithGoogle as jest.MockedFunction<
+    typeof signInSdkSessionWithGoogle
+  >;
+const signInSdkSessionWithPasswordMock =
+  signInSdkSessionWithPassword as jest.MockedFunction<
+    typeof signInSdkSessionWithPassword
+  >;
 
 const hiddenOffer: SupportServiceOfferRecord = {
   id: "offer-hidden",
@@ -339,6 +381,9 @@ describe("support services workbenches", () => {
     routerPush.mockClear();
     routerRefresh.mockClear();
     sdkFetchMock.mockReset();
+    renewSdkSessionMock.mockReset();
+    signInSdkSessionWithGoogleMock.mockReset();
+    signInSdkSessionWithPasswordMock.mockReset();
     window.localStorage.clear();
   });
 
@@ -3697,6 +3742,277 @@ describe("support services workbenches", () => {
     ).toBe(true);
   });
 
+  it("retries a failed service ID verification without changing the generated ID", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.2468);
+    const checkedServiceIds: string[] = [];
+    let attempts = 0;
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        const serviceId = new URL(value, "https://backoffice.example").searchParams.get(
+          "serviceId",
+        )!;
+        checkedServiceIds.push(serviceId);
+        attempts += 1;
+        if (attempts === 1) {
+          throw new SdkRequestError({
+            status: 503,
+            method: "GET",
+            path: value,
+            message: "Service unavailable",
+            details: "Status: 503 Service Unavailable",
+          });
+        }
+        return { serviceId, available: true };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
+      />,
+    );
+
+    expect(
+      await screen.findByText("Service ID could not be validated."),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Regenerate service ID" }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Retry verification" }),
+    );
+
+    expect(await screen.findByText("Service ID is available.")).toBeTruthy();
+    expect(checkedServiceIds).toHaveLength(2);
+    expect(new Set(checkedServiceIds).size).toBe(1);
+  });
+
+  it("renews an expired SDK session silently and checks the same service ID again", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.3579);
+    renewSdkSessionMock.mockResolvedValue();
+    const checkedServiceIds: string[] = [];
+    let attempts = 0;
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        const serviceId = new URL(value, "https://backoffice.example").searchParams.get(
+          "serviceId",
+        )!;
+        checkedServiceIds.push(serviceId);
+        attempts += 1;
+        if (attempts === 1) {
+          throw new SdkRequestError({
+            status: 401,
+            method: "GET",
+            path: value,
+            message: "Unauthorized",
+            details: "Status: 401 Unauthorized",
+          });
+        }
+        return { serviceId, available: true };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+    const sessionIdentity = {
+      uid: "publisher-user-1",
+      email: "publisher@example.com",
+      project: "mydnamap",
+      surface: "publisher-portal" as const,
+    };
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
+        sessionIdentity={sessionIdentity}
+      />,
+    );
+
+    expect(await screen.findByText("Service ID is available.")).toBeTruthy();
+    expect(renewSdkSessionMock).toHaveBeenCalledWith(sessionIdentity);
+    expect(checkedServiceIds).toHaveLength(2);
+    expect(new Set(checkedServiceIds).size).toBe(1);
+    for (const [, init] of sdkFetchMock.mock.calls) {
+      const headers = new Headers(init?.headers);
+      expect(headers.get("x-expected-session-uid")).toBe(sessionIdentity.uid);
+      expect(headers.get("x-expected-session-email")).toBe(
+        sessionIdentity.email,
+      );
+      expect(headers.get("x-expected-session-project")).toBe(
+        sessionIdentity.project,
+      );
+      expect(headers.get("x-expected-session-surface")).toBe(
+        sessionIdentity.surface,
+      );
+    }
+    expect(
+      screen.queryByRole("dialog", { name: "Your session expired" }),
+    ).toBeNull();
+  });
+
+  it("signs in inside the wizard and preserves the current form and service ID", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.468);
+    renewSdkSessionMock.mockRejectedValue(new Error("Firebase signed out"));
+    signInSdkSessionWithPasswordMock.mockResolvedValue();
+    const checkedServiceIds: string[] = [];
+    let rejectFirstAvailability: ((error: unknown) => void) | undefined;
+    const firstAvailability = new Promise<never>((_resolve, reject) => {
+      rejectFirstAvailability = reject;
+    });
+    let attempts = 0;
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        const serviceId = new URL(value, "https://backoffice.example").searchParams.get(
+          "serviceId",
+        )!;
+        checkedServiceIds.push(serviceId);
+        attempts += 1;
+        if (attempts === 1) return firstAvailability;
+        return { serviceId, available: true };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+    const sessionIdentity = {
+      uid: "publisher-user-1",
+      email: "publisher@example.com",
+      project: "mydnamap",
+      surface: "publisher-portal" as const,
+    };
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
+        sessionIdentity={sessionIdentity}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Offer in progress" },
+    });
+    await act(async () => {
+      rejectFirstAvailability?.(
+        new SdkRequestError({
+          status: 401,
+          method: "GET",
+          path: "/admin/support-services/offers/service-id-availability",
+          message: "Unauthorized",
+          details: "Status: 401 Unauthorized",
+        }),
+      );
+      await firstAvailability.catch(() => undefined);
+    });
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Your session expired",
+    });
+    expect(within(dialog).getByDisplayValue("publisher@example.com")).toBeTruthy();
+    fireEvent.change(within(dialog).getByLabelText("Password"), {
+      target: { value: "secret-password" },
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Sign in with password" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Your session expired" }),
+      ).toBeNull();
+    });
+    expect(await screen.findByText("Step 1 of 10")).toBeTruthy();
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe(
+      "Offer in progress",
+    );
+    expect(signInSdkSessionWithPasswordMock).toHaveBeenCalledWith(
+      sessionIdentity,
+      "secret-password",
+    );
+    expect(checkedServiceIds).toHaveLength(2);
+    expect(new Set(checkedServiceIds).size).toBe(1);
+  });
+
+  it("keeps inline sign-in open when the recovered request is still unauthorized", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.5791);
+    renewSdkSessionMock.mockRejectedValue(new Error("Firebase signed out"));
+    signInSdkSessionWithPasswordMock.mockResolvedValue();
+    const checkedServiceIds: string[] = [];
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.includes("service-id-availability")) {
+        checkedServiceIds.push(
+          new URL(value, "https://backoffice.example").searchParams.get(
+            "serviceId",
+          )!,
+        );
+        throw new SdkRequestError({
+          status: 401,
+          method: "GET",
+          path: value,
+          message: "Unauthorized",
+          details: "Status: 401 Unauthorized",
+        });
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+    const sessionIdentity = {
+      uid: "publisher-user-1",
+      email: "publisher@example.com",
+      project: "mydnamap",
+      surface: "publisher-portal" as const,
+    };
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench
+        mode="create"
+        presentation="wizard"
+        fixedProvider={{
+          kind: "organization",
+          id: "publisher-org-1",
+          name: "Publisher Org",
+        }}
+        sessionIdentity={sessionIdentity}
+      />,
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Your session expired",
+    });
+    fireEvent.change(within(dialog).getByLabelText("Password"), {
+      target: { value: "secret-password" },
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Sign in with password" }),
+    );
+
+    expect(
+      await within(dialog).findByText(
+        "The session is still unavailable. Try signing in again.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("dialog", { name: "Your session expired" }),
+    ).toBeTruthy();
+    expect(checkedServiceIds.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(checkedServiceIds).size).toBe(1);
+  });
+
   it("locks an existing service ID and animates each persisted version bump", async () => {
     let persistedVersion = hiddenOffer.serviceVersion;
     sdkFetchMock.mockImplementation(async (path, init) => {
@@ -3743,6 +4059,61 @@ describe("support services workbenches", () => {
     expect(
       screen.getByTestId("service-version-generated-value").textContent,
     ).toContain("+1");
+  });
+
+  it("preserves edits made while an existing offer save is in flight", async () => {
+    let resolveSave:
+      | ((value: { offer: SupportServiceOfferRecord }) => void)
+      | undefined;
+    const pendingSave = new Promise<{ offer: SupportServiceOfferRecord }>(
+      (resolve) => {
+        resolveSave = resolve;
+      },
+    );
+    let submittedPayload: Record<string, unknown> | undefined;
+    sdkFetchMock.mockImplementation(async (_path, init) => {
+      if (init?.method === "PUT") {
+        submittedPayload = JSON.parse(String(init.body)) as Record<
+          string,
+          unknown
+        >;
+        return pendingSave;
+      }
+      return { offer: hiddenOffer };
+    });
+
+    renderWithQueryClient(
+      <SupportServiceOfferWorkbench mode="edit" offerId={hiddenOffer.id} />,
+    );
+
+    const nameInput = await screen.findByLabelText("Offer name");
+    fireEvent.change(nameInput, { target: { value: "Submitted name" } });
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Save changes" })[0],
+    );
+    await acknowledgeExistingOfferContract();
+    await waitFor(() => expect(submittedPayload).toBeDefined());
+
+    fireEvent.change(nameInput, { target: { value: "Newer local edit" } });
+    await act(async () => {
+      resolveSave?.({
+        offer: {
+          ...hiddenOffer,
+          ...submittedPayload,
+          name: "Submitted name",
+          serviceVersion: hiddenOffer.serviceVersion + 1,
+        } as SupportServiceOfferRecord,
+      });
+      await pendingSave;
+    });
+
+    await waitFor(() => {
+      expect((screen.getByLabelText("Offer name") as HTMLInputElement).value).toBe(
+        "Newer local edit",
+      );
+    });
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(routerRefresh).not.toHaveBeenCalled();
   });
 
   it("shows generated request-form identity labels and animates a persisted form version bump", async () => {

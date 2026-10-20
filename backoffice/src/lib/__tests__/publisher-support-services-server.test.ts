@@ -8,7 +8,16 @@ import {
 } from "@/lib/publisher-support-services-server";
 import { PUBLISHER_PORTAL_HOME_ROUTE } from "@/lib/publisher-portal-routes";
 import { sdkFetchServer } from "@/lib/sdk-server";
+import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
+
+jest.mock("next-auth", () => ({
+  getServerSession: jest.fn(),
+}));
+
+jest.mock("@/lib/auth", () => ({
+  authOptions: { marker: "auth-options" },
+}));
 
 jest.mock("@/lib/admin-context-server", () => ({
   getAdminContextServer: jest.fn(),
@@ -50,6 +59,14 @@ const individualContext: AdminContextRecord = {
 describe("publisher support-services server scope", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getServerSession).mockResolvedValue({
+      expires: "2099-01-01T00:00:00.000Z",
+      user: {
+        email: organizationContext.email,
+        project: "mydnamap",
+        accessSurface: "publisher-portal",
+      },
+    });
   });
 
   it("resolves an organization publisher to its organization provider", async () => {
@@ -71,6 +88,30 @@ describe("publisher support-services server scope", () => {
     expect(sdkFetchServer).toHaveBeenCalledWith(
       "/discover/organizations/org-1",
     );
+    expect(getAdminContextServer).toHaveBeenCalledWith("mydnamap");
+  });
+
+  it("resolves publisher context with the live NextAuth project", async () => {
+    jest.mocked(getServerSession).mockResolvedValue({
+      expires: "2099-01-01T00:00:00.000Z",
+      user: {
+        email: organizationContext.email,
+        project: "mydnamap",
+        accessSurface: "publisher-portal",
+      },
+    });
+    jest.mocked(getAdminContextServer).mockResolvedValue({
+      ...organizationContext,
+      project: "mydnamap",
+      projectAccess: ["pocket-gyms", "mydnamap"],
+    });
+    jest.mocked(sdkFetchServer).mockResolvedValue({
+      organization: { id: "org-1", name: "Organization One" },
+    });
+
+    await getPublisherSupportServicesProvider();
+
+    expect(getAdminContextServer).toHaveBeenCalledWith("mydnamap");
   });
 
   it("resolves an individual publisher to its individual provider", async () => {

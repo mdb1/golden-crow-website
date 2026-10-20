@@ -10,7 +10,7 @@ export default async function PublisherServiceOfferDetailPage({
 }: {
   params: Promise<{ offerId: string }>;
 }) {
-  const [{ offerId }, { provider }] = await Promise.all([
+  const [{ offerId }, { adminContext, provider }] = await Promise.all([
     params,
     getPublisherSupportServicesProvider(),
   ]);
@@ -34,6 +34,12 @@ export default async function PublisherServiceOfferDetailPage({
           fixedProvider={provider}
           canDelete={false}
           publisherEditorPresentation
+          sessionIdentity={{
+            uid: adminContext.uid,
+            email: adminContext.email,
+            project: adminContext.project,
+            surface: "publisher-portal",
+          }}
         />
       </HeaderUnclutterScope>
     </div>

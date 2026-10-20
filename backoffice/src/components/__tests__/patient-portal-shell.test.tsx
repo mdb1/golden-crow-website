@@ -20,6 +20,7 @@ let pathname = "/patient-portal/home";
 
 jest.mock("next/navigation", () => ({
   usePathname: () => pathname,
+  useRouter: () => ({ replace: jest.fn(), refresh: jest.fn() }),
 }));
 
 jest.mock("next-auth/react", () => ({
