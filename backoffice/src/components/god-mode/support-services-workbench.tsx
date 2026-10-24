@@ -198,14 +198,10 @@ import {
 import { cn } from "@/lib/utils";
 import {
   MAX_INLINE_STORED_FILE_BYTES,
-  storedFileNameFromJsonTitle,
   storedFileContentByteLength,
   validateStoredFileJson,
 } from "@/lib/file-storage";
-import type {
-  AdminUserRecord,
-  ModerationDocumentRecord,
-} from "@/lib/moderation-types";
+import type { AdminUserRecord } from "@/lib/moderation-types";
 
 type WorkbenchKind = "offers" | "transactions";
 
@@ -12339,44 +12335,18 @@ export function SupportServiceTransactionWorkbench({
         throw new Error("Choose an output object source.");
       }
 
-      let source: { downloadUrl: string } | { fileStorageId: string };
+      let source:
+        | { downloadUrl: string }
+        | { fileStorageId: string }
+        | { fileContent: string };
       if (draft.source === "downloadUrl") {
         source = { downloadUrl: draft.downloadUrl.trim() };
       } else if (draft.source === "fileStorageId") {
         source = { fileStorageId: draft.fileStorageId.trim() };
       } else {
-        let createdFileStorageId = draft.createdFileStorageId.trim();
-        if (!createdFileStorageId) {
-          const createdFile = await sdkFetch<{
-            document: ModerationDocumentRecord;
-          }>("/file-storage", {
-            method: "POST",
-            body: JSON.stringify({
-              data: {
-                file_name: storedFileNameFromJsonTitle(
-                  draft.objectType,
-                  draft.role,
-                  draft.newFileContent,
-                ),
-                file_type: draft.objectType,
-                file_content: draft.newFileContent,
-              },
-            }),
-          });
-          createdFileStorageId = createdFile.document.id;
-          setCreatedOutputFileIds((current) => ({
-            ...current,
-            [draft.role]: createdFileStorageId,
-          }));
-          setOutputUploadDraft((current) =>
-            current &&
-            current.role === draft.role &&
-            current.source === "newFile"
-              ? { ...current, createdFileStorageId }
-              : current,
-          );
-        }
-        source = { fileStorageId: createdFileStorageId };
+        source = draft.createdFileStorageId.trim()
+          ? { fileStorageId: draft.createdFileStorageId.trim() }
+          : { fileContent: draft.newFileContent };
       }
 
       try {
@@ -14244,6 +14214,7 @@ function OutputObjectUploadDialog({
                     "Complete the guided fields. Validation immediately creates the File Storage record and links the ready output object.",
                   )}
                   closeAfterSave={false}
+                  validateBeforeSave={false}
                   onBusyChange={setWizardBusy}
                   title={t("File JSON wizard")}
                   backLabel={t("Back")}

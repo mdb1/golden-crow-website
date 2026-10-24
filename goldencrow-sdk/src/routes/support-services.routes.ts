@@ -104,6 +104,7 @@ const TurnaroundSchema = z
     "Use a compact duration such as 2w, 1d, 3h, or 15m.",
   );
 const OFFER_REQUEST_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
+const OUTPUT_OBJECT_REQUEST_BODY_LIMIT_BYTES = 6 * 1024 * 1024;
 const OptionalPromotionalBannerImageUrlSchema = z.preprocess(
   (value) => (typeof value === "string" && !value.trim() ? null : value),
   z
@@ -678,6 +679,12 @@ const OutputObjectBodySchema = z.union([
         .regex(/^[^/]+$/, "fileStorageId must be a Firestore document ID."),
     })
     .strict(),
+  z
+    .object({
+      role: RoleSchema,
+      fileContent: z.string().min(1),
+    })
+    .strict(),
 ]);
 const EmptyCommandBodySchema = z.object({}).strict();
 
@@ -895,6 +902,7 @@ export async function supportServicesRoutes(
   f.post(
     "/admin/support-services/transactions/:transactionId/output-objects",
     {
+      bodyLimit: OUTPUT_OBJECT_REQUEST_BODY_LIMIT_BYTES,
       schema: {
         params: TransactionParamsSchema,
         body: OutputObjectBodySchema,

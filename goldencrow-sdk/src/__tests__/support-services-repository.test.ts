@@ -2930,6 +2930,9 @@ describe("organization publisher support service scope", () => {
     jest.resetModules();
     collections.clear();
     orderByCalls.length = 0;
+    mockRandomInt.mockReset();
+    let nextObjectCode = 250_000_000;
+    mockRandomInt.mockImplementation(() => nextObjectCode++);
     seedDoc("feed_organizations", "publisher-org-1", {
       name: "Publisher Org",
       status: "active",
@@ -3069,6 +3072,52 @@ describe("organization publisher support service scope", () => {
         "pgr_own_transaction",
       ),
     ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("lets an organization publisher atomically create and link inline output content only on its own transaction", async () => {
+    seedDoc("object_owners", "publisher-org-1", {
+      owner_name: "Publisher Org",
+      owner_contact_email: "publisher@example.org",
+    });
+    seedDoc("community_users", "publisher-org-1", {
+      email: "publisher@example.org",
+      owned_objects: [],
+    });
+    const fileContent = JSON.stringify({
+      title: "Publisher final report",
+      download_url: "https://objects.example/publisher-report.pdf",
+    });
+    const { attachSupportServiceTransactionOutputObject } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const attached = await attachSupportServiceTransactionOutputObject(
+      organizationPublisherContext,
+      "pgr_own_transaction",
+      { role: "report", fileContent },
+    );
+
+    expect(attached.object).toMatchObject({
+      role: "report",
+      objectType: "pgo_pdf_report",
+      fileStorageId: "file_storage-generated",
+      status: "ready",
+    });
+    expect(collectionStore("file_storage").get("file_storage-generated")).toMatchObject({
+      file_type: "pgo_pdf_report",
+      file_content: fileContent,
+      linked_object_code: attached.object.objectCode,
+      owner_community_user_id: "publisher-org-1",
+      provider_id: "publisher-org-1",
+      service_transaction_id: "pgr_own_transaction",
+    });
+    await expect(
+      attachSupportServiceTransactionOutputObject(
+        organizationPublisherContext,
+        "pgr_other_transaction",
+        { role: "report", fileContent },
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 
@@ -3949,6 +3998,91 @@ describe("support service delivered transactions", () => {
       deliverSupportServiceTransaction(context, "transaction-1"),
     ).resolves.toEqual(expect.objectContaining({ status: "delivered" }));
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("atomically creates File Storage and links a ready output object from inline content", async () => {
+    seedDoc("service_transactions", "transaction-1", transaction);
+    seedDoc("community_users", "feed-org-1", {
+      owned_objects: ["uploaded-form-1"],
+    });
+    const fileContent = JSON.stringify(
+      serializedPgoContent(directOutputEnvelope),
+    );
+    const { attachSupportServiceTransactionOutputObject } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const attached = await attachSupportServiceTransactionOutputObject(
+      context,
+      "transaction-1",
+      { role: "report", fileContent },
+    );
+
+    expect(attached.object).toEqual(
+      expect.objectContaining({
+        role: "report",
+        objectType: "pgo_pdf_report",
+        fileName: "Final report",
+        fileStorageId: "file_storage-generated",
+        status: "ready",
+      }),
+    );
+    expect(
+      collectionStore("file_storage").get("file_storage-generated"),
+    ).toEqual(
+      expect.objectContaining({
+        file_name: "Final report",
+        creator_email: "god@example.com",
+        file_type: "pgo_pdf_report",
+        file_content: fileContent,
+        linked_object_code: attached.object.objectCode,
+        linked_report_code: null,
+        owner_community_user_id: "feed-org-1",
+        provider_id: "feed-org-1",
+        service_transaction_id: transaction.requestId,
+        offer_id: transaction.offerId,
+        output_role: "report",
+        tracking_progress_status: "document_ready",
+        upload_version_count: 1,
+      }),
+    );
+    expect(
+      collectionStore("uploaded_objects").get(attached.object.id),
+    ).toEqual(
+      expect.objectContaining({
+        linked_file_id: "file_storage-generated",
+        object_code: attached.object.objectCode,
+      }),
+    );
+    expect(
+      collectionStore("service_transactions").get("transaction-1"),
+    ).toEqual(
+      expect.objectContaining({
+        outputObjects: [
+          expect.objectContaining({ objectCode: attached.object.objectCode }),
+        ],
+      }),
+    );
+  });
+
+  it("rejects invalid inline output content without leaving a File Storage orphan", async () => {
+    seedDoc("service_transactions", "transaction-1", transaction);
+    const { attachSupportServiceTransactionOutputObject } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      attachSupportServiceTransactionOutputObject(context, "transaction-1", {
+        role: "report",
+        fileContent: "{}",
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(collectionStore("file_storage").has("file_storage-generated")).toBe(
+      false,
+    );
+    expect(
+      collectionStore("service_transactions").get("transaction-1"),
+    ).toEqual(expect.objectContaining({ outputObjects: [] }));
   });
 
   it("rejects delivery when linked File Storage content changes without changing its size", async () => {

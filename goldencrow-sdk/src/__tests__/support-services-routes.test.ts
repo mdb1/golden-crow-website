@@ -1904,6 +1904,33 @@ describe("support service admin routes", () => {
     );
   });
 
+  it("atomically creates File Storage content and attaches an output object", async () => {
+    const fastify = await buildTestServer();
+    const fileContent = JSON.stringify({
+      title: "Final report",
+      download_url: "https://objects.example/report.pdf",
+    });
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
+      payload: {
+        role: "report",
+        fileContent,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockAttachSupportServiceTransactionOutputObject).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      {
+        role: "report",
+        fileContent,
+      },
+    );
+  });
+
   it("rejects client-supplied output metadata, ambiguous sources, and insecure URLs", async () => {
     const fastify = await buildTestServer();
 
@@ -1933,6 +1960,15 @@ describe("support service admin routes", () => {
         fileStorageId: "stored-output-1",
       },
     });
+    const ambiguousInline = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
+      payload: {
+        role: "report",
+        fileStorageId: "stored-output-1",
+        fileContent: "{}",
+      },
+    });
     const obsoleteFileName = await fastify.inject({
       method: "POST",
       url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects",
@@ -1954,6 +1990,7 @@ describe("support service admin routes", () => {
     expect(withType.statusCode).toBe(400);
     expect(insecure.statusCode).toBe(400);
     expect(ambiguous.statusCode).toBe(400);
+    expect(ambiguousInline.statusCode).toBe(400);
     expect(obsoleteFileName.statusCode).toBe(400);
     expect(pathLikeFileId.statusCode).toBe(400);
     expect(mockAttachSupportServiceTransactionOutputObject).not.toHaveBeenCalled();

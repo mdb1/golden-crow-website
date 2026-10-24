@@ -524,6 +524,7 @@ export function FileJsonWizard({
   presentation = "dialog",
   description,
   closeAfterSave = true,
+  validateBeforeSave = true,
   onBusyChange,
   submittingLabel = "Validating...",
   title = "File JSON wizard",
@@ -539,6 +540,7 @@ export function FileJsonWizard({
   presentation?: "dialog" | "embedded";
   description?: string;
   closeAfterSave?: boolean;
+  validateBeforeSave?: boolean;
   onBusyChange?: (busy: boolean) => void;
   submittingLabel?: string;
   title?: string;
@@ -625,16 +627,19 @@ export function FileJsonWizard({
     onBusyChange?.(true);
     setSaveError("");
     try {
-      const fileContent = JSON.stringify(draft);
-      const result = await sdkFetch<{
-        valid: true;
-        fileType: string;
-        fileContent: string;
-      }>("/file-storage/validate", {
-        method: "POST",
-        body: JSON.stringify({ fileType, fileContent }),
-      });
-      const pretty = JSON.stringify(JSON.parse(result.fileContent), null, 2);
+      let pretty = JSON.stringify(draft, null, 2);
+      if (validateBeforeSave) {
+        const fileContent = JSON.stringify(draft);
+        const result = await sdkFetch<{
+          valid: true;
+          fileType: string;
+          fileContent: string;
+        }>("/file-storage/validate", {
+          method: "POST",
+          body: JSON.stringify({ fileType, fileContent }),
+        });
+        pretty = JSON.stringify(JSON.parse(result.fileContent), null, 2);
+      }
       await onSave(pretty);
       if (closeAfterSave) {
         onOpenChange(false);

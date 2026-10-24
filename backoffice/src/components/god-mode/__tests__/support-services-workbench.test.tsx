@@ -7218,38 +7218,17 @@ describe("support services workbenches", () => {
       if (value.endsWith(`/offers/${runningTransaction.offerId}`)) {
         return { offer: currentLiveOffer };
       }
-      if (value === "/file-storage/validate" && init?.method === "POST") {
-        operationOrder.push("validate-file");
+      if (value.endsWith("/output-objects") && init?.method === "POST") {
+        operationOrder.push("create-file-and-link-object");
         const payload = JSON.parse(String(init.body));
-        expect(payload.fileType).toBe("pgo_pdf_report");
-        return {
-          valid: true,
-          fileType: payload.fileType,
-          fileContent: payload.fileContent,
-        };
-      }
-      if (value === "/file-storage" && init?.method === "POST") {
-        operationOrder.push("create-file");
-        const payload = JSON.parse(String(init.body));
-        expect(payload.data.file_type).toBe("pgo_pdf_report");
-        expect(JSON.parse(payload.data.file_content)).toEqual({
+        expect(payload.role).toBe("result");
+        expect(JSON.parse(payload.fileContent)).toEqual({
           title: "Wizard result",
           download_url: "https://example.org/wizard-result.pdf",
         });
-        return {
-          document: {
-            id: "stored-file-wizard-1",
-            path: "file_storage/stored-file-wizard-1",
-            collection: "file_storage",
-            data: payload.data,
-          },
-        };
-      }
-      if (value.endsWith("/output-objects") && init?.method === "POST") {
-        operationOrder.push("link-object");
-        expect(JSON.parse(String(init.body))).toEqual({
+        expect(payload).toEqual({
           role: "result",
-          fileStorageId: "stored-file-wizard-1",
+          fileContent: expect.any(String),
         });
         storedTransaction = uploadedTransaction;
         return {
@@ -7311,14 +7290,15 @@ describe("support services workbenches", () => {
     );
 
     expect(await screen.findByText("314159265")).toBeTruthy();
-    expect(operationOrder).toEqual([
-      "validate-file",
-      "create-file",
-      "link-object",
-    ]);
+    expect(operationOrder).toEqual(["create-file-and-link-object"]);
+    expect(
+      sdkFetchMock.mock.calls.some(([path]) =>
+        String(path).startsWith("/file-storage"),
+      ),
+    ).toBe(false);
   });
 
-  it("creates a new validated stored file before linking it and reuses it after a partial failure", async () => {
+  it("retries the atomic inline output command without creating an orphan file", async () => {
     const uploadedTransaction: SupportServiceTransactionRecord = {
       ...runningTransaction,
       requestRevision: 3,
@@ -7345,35 +7325,15 @@ describe("support services workbenches", () => {
       if (value.endsWith(`/offers/${runningTransaction.offerId}`)) {
         return { offer: currentLiveOffer };
       }
-      if (value === "/file-storage" && init?.method === "POST") {
-        operationOrder.push("create-file");
-        const payload = JSON.parse(String(init.body));
-        expect(payload).toEqual({
-          data: {
-            file_name: "Final result",
-            file_type: "pgo_pdf_report",
-            file_content:
-              '{"title":"Final result","download_url":"https://example.org/final.pdf"}',
-          },
-        });
-        return {
-          document: {
-            id: "stored-file-new-1",
-            path: "file_storage/stored-file-new-1",
-            collection: "file_storage",
-            data: payload.data,
-          },
-        };
-      }
       if (value.endsWith("/output-objects") && init?.method === "POST") {
-        operationOrder.push("link-object");
+        operationOrder.push("create-file-and-link-object");
         const payload = JSON.parse(String(init.body));
-        expect(payload).toEqual({
-          role: "result",
-          fileStorageId: "stored-file-new-1",
+        expect(JSON.parse(payload.fileContent)).toEqual({
+          title: "Final result",
+          download_url: "https://example.org/final.pdf",
         });
         outputAttempts += 1;
-        if (outputAttempts === 1) throw new Error("simulated link failure");
+        if (outputAttempts === 1) throw new Error("simulated atomic failure");
         storedTransaction = uploadedTransaction;
         return {
           transaction: uploadedTransaction,
@@ -7424,27 +7384,25 @@ describe("support services workbenches", () => {
     );
 
     expect(
-      await screen.findAllByText(/File stored-file-new-1 was created/),
+      await screen.findAllByText("simulated atomic failure"),
     ).not.toHaveLength(0);
-    expect(screen.getByText("stored-file-new-1")).toBeTruthy();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Create and link object" }),
     );
     expect(await screen.findByText("112233445")).toBeTruthy();
     expect(operationOrder).toEqual([
-      "create-file",
-      "link-object",
-      "link-object",
+      "create-file-and-link-object",
+      "create-file-and-link-object",
     ]);
     expect(
-      sdkFetchMock.mock.calls.filter(
-        ([path, init]) => String(path) === "/file-storage" && init?.method === "POST",
+      sdkFetchMock.mock.calls.some(([path]) =>
+        String(path).startsWith("/file-storage"),
       ),
-    ).toHaveLength(1);
+    ).toBe(false);
   });
 
-  it("does not attempt to create an output object when new file creation fails", async () => {
+  it("shows an atomic inline output failure without calling global File Storage APIs", async () => {
     sdkFetchMock.mockImplementation(async (path, init) => {
       const value = String(path);
       if (
@@ -7456,11 +7414,8 @@ describe("support services workbenches", () => {
       if (value.endsWith(`/offers/${runningTransaction.offerId}`)) {
         return { offer: currentLiveOffer };
       }
-      if (value === "/file-storage" && init?.method === "POST") {
-        throw new Error("simulated file creation failure");
-      }
-      if (value.endsWith("/output-objects")) {
-        throw new Error("output object endpoint must not be called");
+      if (value.endsWith("/output-objects") && init?.method === "POST") {
+        throw new Error("simulated inline output failure");
       }
       throw new Error(`Unexpected SDK path: ${value}`);
     });
@@ -7491,11 +7446,11 @@ describe("support services workbenches", () => {
     );
 
     expect(
-      await screen.findAllByText("simulated file creation failure"),
+      await screen.findAllByText("simulated inline output failure"),
     ).not.toHaveLength(0);
     expect(
       sdkFetchMock.mock.calls.some(([path]) =>
-        String(path).endsWith("/output-objects"),
+        String(path).startsWith("/file-storage"),
       ),
     ).toBe(false);
   });
