@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowLeft,
@@ -521,12 +521,30 @@ export function FileJsonWizard({
   initialJson,
   onOpenChange,
   onSave,
+  presentation = "dialog",
+  description,
+  closeAfterSave = true,
+  onBusyChange,
+  submittingLabel = "Validating...",
+  title = "File JSON wizard",
+  backLabel = "Back",
+  cancelLabel = "Cancel",
+  submitLabel = "Validate and use JSON",
 }: {
   open: boolean;
   fileType: string;
   initialJson: string;
   onOpenChange: (open: boolean) => void;
-  onSave: (json: string) => void;
+  onSave: (json: string) => void | Promise<void>;
+  presentation?: "dialog" | "embedded";
+  description?: string;
+  closeAfterSave?: boolean;
+  onBusyChange?: (busy: boolean) => void;
+  submittingLabel?: string;
+  title?: string;
+  backLabel?: string;
+  cancelLabel?: string;
+  submitLabel?: string;
 }) {
   const schema = useMemo(() => fileWizardSchema(fileType), [fileType]);
   const [draft, setDraft] = useState<JsonValue>({});
@@ -534,6 +552,7 @@ export function FileJsonWizard({
   const [choiceSelections, setChoiceSelections] = useState<Record<string, number>>({});
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     if (!open || !schema) return;
@@ -600,8 +619,10 @@ export function FileJsonWizard({
     frameObject?.type === "multi_enum";
 
   async function saveWizard() {
-    if (!schema) return;
+    if (!schema || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
+    onBusyChange?.(true);
     setSaveError("");
     try {
       const fileContent = JSON.stringify(draft);
@@ -614,8 +635,10 @@ export function FileJsonWizard({
         body: JSON.stringify({ fileType, fileContent }),
       });
       const pretty = JSON.stringify(JSON.parse(result.fileContent), null, 2);
-      onSave(pretty);
-      onOpenChange(false);
+      await onSave(pretty);
+      if (closeAfterSave) {
+        onOpenChange(false);
+      }
     } catch (error) {
       setSaveError(
         error instanceof SdkRequestError
@@ -625,7 +648,9 @@ export function FileJsonWizard({
             : "The JSON could not be validated.",
       );
     } finally {
+      savingRef.current = false;
       setSaving(false);
+      onBusyChange?.(false);
     }
   }
 
@@ -643,21 +668,41 @@ export function FileJsonWizard({
     ]);
   }
 
-  return (
-    <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange(nextOpen)}>
-      <DialogContent className="flex max-h-[92vh] max-w-4xl flex-col overflow-hidden rounded-[2rem] p-0">
-        <DialogHeader className="border-b border-border px-6 py-5 text-left">
-          <DialogTitle className="flex items-center gap-2 font-heading text-2xl">
-            <WandSparkles className="h-5 w-5 text-violet-600" />
-            File JSON wizard
-          </DialogTitle>
-          <DialogDescription>
-            Build valid {fileType} content. The wizard only fills the JSON text field;
-            it never creates or saves a file by itself.
-          </DialogDescription>
-        </DialogHeader>
+  const wizardDescription =
+    description ??
+    `Build valid ${fileType} content. The wizard only fills the JSON text field; it never creates or saves a file by itself.`;
+  const embedded = presentation === "embedded";
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5">
+  const content = (
+    <>
+        {embedded ? (
+          <div className="border-b border-violet-100 bg-[linear-gradient(135deg,rgba(245,243,255,0.88),rgba(236,254,255,0.68))] px-6 py-5 text-left dark:border-violet-400/16 dark:bg-[linear-gradient(135deg,rgba(46,16,101,0.24),rgba(8,47,73,0.22))] lg:px-8">
+            <h3 className="flex items-center gap-2 font-heading text-2xl font-semibold text-foreground">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-cyan-500 text-white shadow-lg shadow-violet-500/20">
+                <WandSparkles className="h-5 w-5" />
+              </span>
+              {title}
+            </h3>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+              {wizardDescription}
+            </p>
+          </div>
+        ) : (
+          <DialogHeader className="border-b border-border px-6 py-5 text-left">
+            <DialogTitle className="flex items-center gap-2 font-heading text-2xl">
+              <WandSparkles className="h-5 w-5 text-violet-600" />
+              {title}
+            </DialogTitle>
+            <DialogDescription>{wizardDescription}</DialogDescription>
+          </DialogHeader>
+        )}
+
+        <fieldset
+          disabled={saving}
+          aria-busy={saving}
+          className="contents"
+        >
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5 lg:px-8">
           {!schema || !frame || !resolvedFrameSchema ? (
             <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
               This stored file type is not supported by the JSON wizard.
@@ -919,8 +964,14 @@ export function FileJsonWizard({
             </div>
           )}
         </div>
+        </fieldset>
 
-        <DialogFooter className="border-t border-border bg-muted/35 px-6 py-4">
+        <DialogFooter
+          className={cn(
+            "border-t border-border bg-muted/35 px-6 py-4 lg:px-8",
+            embedded && "mx-0 mb-0 rounded-none",
+          )}
+        >
           {frames.length > 1 ? (
             <Button
               type="button"
@@ -929,17 +980,35 @@ export function FileJsonWizard({
               disabled={saving}
             >
               <ArrowLeft className="h-4 w-4" />
-              Back
+              {backLabel}
             </Button>
           ) : null}
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
+            {cancelLabel}
           </Button>
           <Button type="button" onClick={() => void saveWizard()} disabled={saving || !schema}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            {saving ? "Validating..." : "Validate and use JSON"}
+            {saving ? submittingLabel : submitLabel}
           </Button>
         </DialogFooter>
+    </>
+  );
+
+  if (embedded) {
+    return open ? (
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {content}
+      </section>
+    ) : null;
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => !saving && onOpenChange(nextOpen)}
+    >
+      <DialogContent className="flex max-h-[92vh] max-w-4xl flex-col overflow-hidden rounded-[2rem] p-0">
+        {content}
       </DialogContent>
     </Dialog>
   );

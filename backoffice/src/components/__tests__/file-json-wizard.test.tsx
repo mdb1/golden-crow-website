@@ -1,6 +1,12 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   FileJsonWizard,
   FILE_WIZARD_SUPPORTED_FORMAT_COUNT,
@@ -225,5 +231,51 @@ describe("FileJsonWizard", () => {
         ([path]) => String(path) === "/file-storage",
       ),
     ).toBe(false);
+  });
+
+  it("locks the wizard while an async validated JSON action is running", async () => {
+    let resolveSave: (() => void) | undefined;
+    const onOpenChange = jest.fn();
+    const onSave = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+    sdkFetchMock.mockImplementation(async (_path, init) => {
+      const payload = JSON.parse(String(init?.body));
+      return {
+        valid: true,
+        fileType: payload.fileType,
+        fileContent: payload.fileContent,
+      };
+    });
+
+    render(
+      <FileJsonWizard
+        open
+        fileType="pgo_pdf_report"
+        initialJson=""
+        onOpenChange={onOpenChange}
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Validate and use JSON" }),
+    );
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    const titleInput = screen.getByLabelText(/Title \*/);
+    expect((titleInput.closest("fieldset") as HTMLFieldSetElement).disabled).toBe(
+      true,
+    );
+    const busyButton = screen.getByRole("button", { name: "Validating..." });
+    expect((busyButton as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(busyButton);
+    expect(sdkFetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => resolveSave?.());
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 });

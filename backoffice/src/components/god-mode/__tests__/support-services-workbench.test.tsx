@@ -496,6 +496,12 @@ describe("support services workbenches", () => {
     expect(appText("es", "Continue with new file")).toBe(
       "Continuar con nuevo file",
     );
+    expect(appText("es", "File JSON wizard")).toBe(
+      "Asistente JSON de archivos",
+    );
+    expect(appText("es", "Validate and use JSON")).toBe(
+      "Validar y usar JSON",
+    );
   });
 
   it("shows every more-information field in the wizard contract preview", () => {
@@ -2838,6 +2844,7 @@ describe("support services workbenches", () => {
 
     expect(await screen.findByText("Accepted frozen service")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Issues" })).toBeNull();
     expect(screen.getAllByText("Read only").length).toBeGreaterThan(5);
     expect(
       screen
@@ -6923,24 +6930,24 @@ describe("support services workbenches", () => {
       name: "Upload output object · result",
     });
     expect(screen.queryByText("live_result")).toBeNull();
-    const issuesInput = screen.getByPlaceholderText("Issues JSON array");
-    fireEvent.change(issuesInput, {
-      target: { value: '[{"code":"unsaved"}]' },
+    expect(screen.queryByRole("heading", { name: "Issues" })).toBeNull();
+    const statusPicker = screen.getByRole("combobox", {
+      name: "Transaction status options",
     });
+    fireEvent.click(statusPicker);
+    fireEvent.click(await screen.findByRole("option", { name: "Awaiting input" }));
     expect((uploadSlot as HTMLButtonElement).disabled).toBe(true);
     expect(
       screen.getByText(
         "Save other transaction changes before uploading output objects.",
       ),
     ).toBeTruthy();
-    fireEvent.change(issuesInput, { target: { value: "[]" } });
+    fireEvent.click(statusPicker);
+    fireEvent.click(await screen.findByRole("option", { name: "Running" }));
     await waitFor(() => {
       expect((uploadSlot as HTMLButtonElement).disabled).toBe(false);
     });
 
-    const statusPicker = screen.getByRole("combobox", {
-      name: "Transaction status options",
-    });
     fireEvent.click(statusPicker);
     expect(screen.queryByRole("option", { name: "Delivered" })).toBeNull();
     fireEvent.keyDown(statusPicker, { key: "Escape" });
@@ -6958,6 +6965,12 @@ describe("support services workbenches", () => {
     expect(deliverButton.disabled).toBe(true);
 
     fireEvent.click(uploadSlot);
+    expect(
+      screen.getByRole("heading", { name: "File JSON wizard" }),
+    ).toBeTruthy();
+    const uploadDialog = screen.getByTestId("output-object-upload-dialog");
+    expect(uploadDialog.className).toContain("h-[calc(100dvh-1rem)]");
+    expect(uploadDialog.className).toContain("max-w-none");
     expect(
       screen.getByRole("button", { name: "Continue with download URL" }),
     ).toBeTruthy();
@@ -6977,7 +6990,9 @@ describe("support services workbenches", () => {
     fireEvent.change(screen.getByLabelText("Download URL"), {
       target: { value: "https://example.org/discarded.pgobject.json" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Back to file wizard" }),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Continue with download URL" }),
     );
@@ -7034,14 +7049,7 @@ describe("support services workbenches", () => {
       await screen.findByText("Service transaction marked as delivered."),
     ).toBeTruthy();
 
-    const issuesHeading = screen.getByRole("heading", { name: "Issues" });
-    const statusHeading = screen.getByRole("heading", {
-      name: "Transaction status",
-    });
-    expect(
-      issuesHeading.compareDocumentPosition(statusHeading) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Issues" })).toBeNull();
   });
 
   it("creates and links an output object from only a File Storage file ID", async () => {
@@ -7121,6 +7129,132 @@ describe("support services workbenches", () => {
     );
 
     expect(await screen.findByText("135792468")).toBeTruthy();
+  });
+
+  it("opens the File JSON wizard by default and creates the output directly after validation", async () => {
+    const uploadedTransaction: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      requestRevision: 3,
+      outputObjects: [
+        {
+          role: "result",
+          objectType: "pgo_pdf_report",
+          objectCode: "314159265",
+        },
+      ],
+    };
+    const operationOrder: string[] = [];
+    let storedTransaction = runningTransaction;
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(`/transactions/${runningTransaction.requestId}`) &&
+        !init?.method
+      ) {
+        return { transaction: storedTransaction };
+      }
+      if (value.endsWith(`/offers/${runningTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      if (value === "/file-storage/validate" && init?.method === "POST") {
+        operationOrder.push("validate-file");
+        const payload = JSON.parse(String(init.body));
+        expect(payload.fileType).toBe("pgo_pdf_report");
+        return {
+          valid: true,
+          fileType: payload.fileType,
+          fileContent: payload.fileContent,
+        };
+      }
+      if (value === "/file-storage" && init?.method === "POST") {
+        operationOrder.push("create-file");
+        const payload = JSON.parse(String(init.body));
+        expect(payload.data.file_type).toBe("pgo_pdf_report");
+        expect(JSON.parse(payload.data.file_content)).toEqual({
+          title: "Wizard result",
+          download_url: "https://example.org/wizard-result.pdf",
+        });
+        return {
+          document: {
+            id: "stored-file-wizard-1",
+            path: "file_storage/stored-file-wizard-1",
+            collection: "file_storage",
+            data: payload.data,
+          },
+        };
+      }
+      if (value.endsWith("/output-objects") && init?.method === "POST") {
+        operationOrder.push("link-object");
+        expect(JSON.parse(String(init.body))).toEqual({
+          role: "result",
+          fileStorageId: "stored-file-wizard-1",
+        });
+        storedTransaction = uploadedTransaction;
+        return {
+          transaction: uploadedTransaction,
+          object: {
+            id: "uploaded-result-wizard-1",
+            role: "result",
+            objectCode: "314159265",
+            objectType: "pgo_pdf_report",
+            fileName: "Wizard result",
+            fileStorageId: "stored-file-wizard-1",
+            status: "ready",
+          },
+        };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={runningTransaction.requestId}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Upload output object · result",
+      }),
+    );
+
+    const uploadDialog = screen.getByTestId("output-object-upload-dialog");
+    expect(
+      within(uploadDialog).getByRole("heading", {
+        name: "File JSON wizard",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(uploadDialog).getByRole("button", {
+        name: "Validate and use JSON",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(uploadDialog).queryByRole("button", {
+        name: "Create and link object",
+      }),
+    ).toBeNull();
+
+    fireEvent.change(within(uploadDialog).getByLabelText(/Title \*/), {
+      target: { value: "Wizard result" },
+    });
+    fireEvent.change(within(uploadDialog).getByLabelText(/Download Url \*/), {
+      target: { value: "https://example.org/wizard-result.pdf" },
+    });
+    fireEvent.click(
+      within(uploadDialog).getByRole("button", {
+        name: "Validate and use JSON",
+      }),
+    );
+
+    expect(await screen.findByText("314159265")).toBeTruthy();
+    expect(operationOrder).toEqual([
+      "validate-file",
+      "create-file",
+      "link-object",
+    ]);
   });
 
   it("creates a new validated stored file before linking it and reuses it after a partial failure", async () => {

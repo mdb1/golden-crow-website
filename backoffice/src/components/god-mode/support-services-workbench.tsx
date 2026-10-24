@@ -12630,7 +12630,7 @@ export function SupportServiceTransactionWorkbench({
       index,
       role: output.role,
       objectType: output.objectType,
-      source: createdOutputFileIds[output.role] ? "newFile" : null,
+      source: "newFile",
       downloadUrl: "",
       fileStorageId: "",
       newFileContent: "",
@@ -12666,76 +12666,110 @@ export function SupportServiceTransactionWorkbench({
       current
         ? {
             ...current,
-            source: null,
+            source: "newFile",
             downloadUrl: "",
             fileStorageId: "",
             newFileContent: "",
-            createdFileStorageId: "",
+            createdFileStorageId:
+              createdOutputFileIds[current.role] ?? current.createdFileStorageId,
           }
         : null,
     );
   }
 
-  function handleOutputUpload(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!outputUploadDraft || !transactionId) {
-      return;
+  async function submitOutputUploadDraft(draft: OutputObjectUploadDraft) {
+    if (!transactionId) {
+      throw new Error(t("Save the transaction before uploading output objects."));
     }
 
-    if (!outputUploadDraft.source) {
-      setOutputUploadError(t("Choose an output object source."));
-      return;
+    const rejectDraft = (message: string): never => {
+      const translatedMessage = t(message);
+      setOutputUploadError(translatedMessage);
+      throw new Error(translatedMessage);
+    };
+
+    if (!draft.source) {
+      rejectDraft("Choose an output object source.");
     }
 
-    if (outputUploadDraft.source === "downloadUrl") {
-      const downloadUrl = outputUploadDraft.downloadUrl.trim();
+    if (draft.source === "downloadUrl") {
+      const downloadUrl = draft.downloadUrl.trim();
       try {
         const parsedUrl = new URL(downloadUrl);
         if (parsedUrl.protocol !== "https:") {
           throw new Error("invalid protocol");
         }
       } catch {
-        setOutputUploadError(t("Use a valid HTTPS download URL."));
-        return;
+        rejectDraft("Use a valid HTTPS download URL.");
       }
     } else if (
-      outputUploadDraft.source === "fileStorageId" &&
-      !outputUploadDraft.fileStorageId.trim()
+      draft.source === "fileStorageId" &&
+      !draft.fileStorageId.trim()
     ) {
-      setOutputUploadError(t("File ID is required."));
-      return;
-    } else if (outputUploadDraft.source === "newFile") {
+      rejectDraft("File ID is required.");
+    } else if (draft.source === "newFile") {
       if (
-        !outputUploadDraft.createdFileStorageId.trim() &&
-        !outputUploadDraft.newFileContent.trim()
+        !draft.createdFileStorageId.trim() &&
+        !draft.newFileContent.trim()
       ) {
-        setOutputUploadError(t("File JSON is required."));
-        return;
+        rejectDraft("File JSON is required.");
       }
       if (
-        !outputUploadDraft.createdFileStorageId.trim() &&
-        !validateStoredFileJson(outputUploadDraft.newFileContent)
+        !draft.createdFileStorageId.trim() &&
+        !validateStoredFileJson(draft.newFileContent)
       ) {
-        setOutputUploadError(t("File JSON must be valid JSON."));
-        return;
+        rejectDraft("File JSON must be valid JSON.");
       }
       if (
-        !outputUploadDraft.createdFileStorageId.trim() &&
-        storedFileContentByteLength(outputUploadDraft.newFileContent) >
+        !draft.createdFileStorageId.trim() &&
+        storedFileContentByteLength(draft.newFileContent) >
           MAX_INLINE_STORED_FILE_BYTES
       ) {
-        setOutputUploadError(t("File JSON cannot exceed 900 KiB."));
-        return;
+        rejectDraft("File JSON cannot exceed 900 KiB.");
       }
     }
 
     setOutputUploadError("");
-    uploadOutputMutation.mutate({
-      ...outputUploadDraft,
-      downloadUrl: outputUploadDraft.downloadUrl.trim(),
-      fileStorageId: outputUploadDraft.fileStorageId.trim(),
-      newFileContent: outputUploadDraft.newFileContent,
+    const result = await uploadOutputMutation.mutateAsync({
+      ...draft,
+      downloadUrl: draft.downloadUrl.trim(),
+      fileStorageId: draft.fileStorageId.trim(),
+      newFileContent: draft.newFileContent,
     });
+    if (
+      result.object.role !== draft.role ||
+      result.object.objectType !== draft.objectType ||
+      !/^\d{9}$/.test(result.object.objectCode)
+    ) {
+      const message = t(
+        "The created object does not match the selected output slot.",
+      );
+      setOutputUploadError(message);
+      throw new Error(message);
+    }
+  }
+
+  function handleOutputUpload(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!outputUploadDraft) {
+      return;
+    }
+    void submitOutputUploadDraft(outputUploadDraft).catch(() => undefined);
+  }
+
+  async function handleWizardOutputUpload(newFileContent: string) {
+    if (!outputUploadDraft) {
+      throw new Error(t("Choose an output object source."));
+    }
+    const nextDraft: OutputObjectUploadDraft = {
+      ...outputUploadDraft,
+      source: "newFile",
+      downloadUrl: "",
+      fileStorageId: "",
+      newFileContent,
+    };
+    setOutputUploadDraft(nextDraft);
+    await submitOutputUploadDraft(nextDraft);
   }
 
   function handleMarkDelivered() {
@@ -13204,20 +13238,6 @@ export function SupportServiceTransactionWorkbench({
           className="contents"
           disabled={terminalStatusLocked || transactionCommandPending}
         >
-        <Section title="Issues">
-          <Textarea
-            value={form.issuesText}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                issuesText: event.target.value,
-              }))
-            }
-            rows={6}
-            className="font-mono text-xs"
-            placeholder={t("Issues JSON array")}
-          />
-        </Section>
         <Section title="Transaction status">
           <div className="overflow-hidden rounded-2xl border border-violet-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(245,243,255,0.90)_58%,rgba(240,249,255,0.72))] p-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/18 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.82))]">
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-start">
@@ -13340,6 +13360,7 @@ export function SupportServiceTransactionWorkbench({
         onDraftChange={setOutputUploadDraft}
         onSourceSelect={selectOutputUploadSource}
         onBack={resetOutputUploadSource}
+        onWizardSubmit={handleWizardOutputUpload}
         onClose={() => {
           if (!uploadOutputMutation.isPending) {
             setOutputUploadDraft(null);
@@ -14017,6 +14038,7 @@ function OutputObjectUploadDialog({
   onDraftChange,
   onSourceSelect,
   onBack,
+  onWizardSubmit,
   onClose,
   onSubmit,
 }: {
@@ -14028,248 +14050,376 @@ function OutputObjectUploadDialog({
     source: "downloadUrl" | "fileStorageId" | "newFile",
   ) => void;
   onBack: () => void;
+  onWizardSubmit: (newFileContent: string) => Promise<void>;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
-  const source = draft?.source ?? null;
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const source = draft?.source ?? "newFile";
+  const [newFileMode, setNewFileMode] = useState<"wizard" | "manual">(
+    "wizard",
+  );
+  const [wizardBusy, setWizardBusy] = useState(false);
+  const busy = pending || wizardBusy;
+  const createdFileStorageId = draft?.createdFileStorageId.trim() ?? "";
+  const showWizard =
+    source === "newFile" &&
+    newFileMode === "wizard" &&
+    !createdFileStorageId;
+
+  useEffect(() => {
+    if (!draft) {
+      setNewFileMode("wizard");
+      setWizardBusy(false);
+    }
+  }, [draft]);
+
+  function chooseWizard() {
+    if (busy) return;
+    setNewFileMode("wizard");
+    onSourceSelect("newFile");
+  }
+
+  function chooseManualJson() {
+    if (busy) return;
+    setNewFileMode("manual");
+    onSourceSelect("newFile");
+  }
+
+  function returnToWizard() {
+    if (busy || createdFileStorageId) return;
+    setNewFileMode("wizard");
+    onBack();
+  }
 
   return (
     <Dialog
       open={Boolean(draft)}
       onOpenChange={(open) => {
-        if (!open) {
+        if (!open && !busy) {
           onClose();
         }
       }}
     >
       <DialogContent
-        showCloseButton={!pending}
-        className="max-w-xl overflow-hidden rounded-[2rem] border border-violet-100 p-0 shadow-[0_34px_120px_rgba(109,40,217,0.22)] dark:border-violet-300/22"
+        data-testid="output-object-upload-dialog"
+        showCloseButton={!busy}
+        className="h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-h-none max-w-none gap-0 overflow-hidden rounded-[2rem] border border-violet-100 p-0 shadow-[0_34px_120px_rgba(76,29,149,0.28)] sm:max-w-none dark:border-violet-300/22"
       >
-        <form onSubmit={onSubmit}>
-          <DialogHeader className="border-b border-violet-100 px-6 py-5 text-left dark:border-violet-300/16">
-            <DialogTitle className="font-heading text-2xl font-semibold">
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+          <DialogHeader className="shrink-0 border-b border-violet-100 bg-background/96 px-6 py-5 pr-16 text-left dark:border-violet-300/16 lg:px-8">
+            <DialogTitle className="font-heading text-2xl font-semibold lg:text-3xl">
               {t("Upload output object")}
             </DialogTitle>
-            <DialogDescription>
-              {source === "downloadUrl"
-                ? t(
-                    "Provide a public download URL. The SDK validates the downloaded content against the exact PGO type before creating a ready object.",
-                  )
-                : source === "fileStorageId"
-                  ? t(
-                      "Provide a File Storage file ID. The SDK loads and validates its content against the exact PGO type before creating a ready object.",
-                    )
-                  : source === "newFile"
-                    ? t(
-                        "Write the finalized PGO JSON manually or build it with the file wizard. The file is created first and then linked to a new ready object.",
-                      )
-                  : t(
-                      "Choose where the finalized PGO content should be loaded from.",
-                    )}
+            <DialogDescription className="max-w-3xl leading-6">
+              {t(
+                "Build the finalized PGO file with the guided wizard, or choose a secondary upload method.",
+              )}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-5 px-6 py-6">
-            <div className="grid gap-2 rounded-2xl border border-violet-100 bg-violet-50/55 p-4 dark:border-violet-400/18 dark:bg-violet-500/10">
-              <span className="font-mono text-xs font-semibold text-muted-foreground">
-                {draft?.role ?? "-"}
-              </span>
-              <span className="font-semibold text-foreground">
-                {draft ? bindingTypeLabel(draft.objectType) : "-"}
-              </span>
-              <span className="font-mono text-xs text-muted-foreground">
-                {draft?.objectType ?? "-"}
-              </span>
-            </div>
+          <div className="grid min-h-0 flex-1 grid-rows-[9rem_minmax(0,1fr)] overflow-hidden lg:grid-cols-[19rem_minmax(0,1fr)] lg:grid-rows-1">
+            <aside className="flex min-h-0 gap-3 overflow-x-auto border-b border-violet-100 bg-[linear-gradient(180deg,rgba(245,243,255,0.78),rgba(248,250,252,0.84))] p-3 dark:border-violet-400/16 dark:bg-[linear-gradient(180deg,rgba(46,16,101,0.18),rgba(15,23,42,0.72))] lg:flex-col lg:gap-5 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-6">
+              <div className="hidden gap-2 rounded-2xl border border-white/80 bg-white/82 p-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/46 lg:grid">
+                <span className="font-mono text-xs font-semibold text-violet-700 dark:text-violet-200">
+                  {draft?.role ?? "-"}
+                </span>
+                <span className="font-heading text-base font-semibold text-foreground">
+                  {draft ? bindingTypeLabel(draft.objectType) : "-"}
+                </span>
+                <span className="break-all font-mono text-[11px] text-muted-foreground">
+                  {draft?.objectType ?? "-"}
+                </span>
+              </div>
 
-            {!source ? (
-              <div className="grid gap-3 sm:grid-cols-3">
+              <button
+                type="button"
+                aria-label={t("Open file wizard")}
+                aria-pressed={source === "newFile" && newFileMode === "wizard"}
+                disabled={busy || Boolean(createdFileStorageId)}
+                onClick={chooseWizard}
+                className={cn(
+                  "group grid min-w-52 gap-3 rounded-2xl border p-4 text-left transition lg:min-w-0",
+                  source === "newFile" && newFileMode === "wizard"
+                    ? "border-violet-400 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/20"
+                    : "border-violet-200 bg-white/84 text-foreground hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-lg dark:border-violet-400/22 dark:bg-slate-950/46",
+                  (busy || createdFileStorageId) && "cursor-default",
+                )}
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/18 ring-1 ring-white/24">
+                    <Wand2 className="h-5 w-5" />
+                  </span>
+                  <Badge
+                    variant="secondary"
+                    className="bg-white/88 text-[10px] font-bold uppercase tracking-[0.12em] text-violet-800"
+                  >
+                    {t("Recommended")}
+                  </Badge>
+                </span>
+                <span>
+                  <span className="block font-heading text-base font-semibold">
+                    {t("File JSON wizard")}
+                  </span>
+                  <span
+                    className={cn(
+                      "mt-1 hidden text-xs leading-5 lg:block",
+                      source === "newFile" && newFileMode === "wizard"
+                        ? "text-violet-100"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {t("Guided fields, validation, and creation in one step.")}
+                  </span>
+                </span>
+              </button>
+
+              <div className="flex min-w-max items-center gap-2 border-l border-violet-200/70 pl-3 dark:border-violet-400/16 lg:grid lg:min-w-0 lg:border-l-0 lg:border-t lg:pl-0 lg:pt-5">
+                <p className="hidden px-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground lg:block">
+                  {t("Other upload methods")}
+                </p>
                 <Button
                   type="button"
-                  variant="outline"
-                  className="h-auto min-h-24 justify-start gap-3 rounded-2xl border-violet-200 px-5 py-4 text-left text-violet-800 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/26 dark:text-violet-100 dark:hover:bg-violet-500/10"
+                  aria-pressed={source === "downloadUrl"}
+                  variant={source === "downloadUrl" ? "secondary" : "ghost"}
+                  className="h-auto min-h-11 min-w-40 justify-start gap-3 whitespace-normal rounded-xl px-3 py-2.5 text-left lg:min-w-0"
                   onClick={() => onSourceSelect("downloadUrl")}
-                  autoFocus
+                  disabled={busy || Boolean(createdFileStorageId)}
                 >
-                  <UploadCloud className="h-5 w-5 shrink-0" />
-                  <span className="whitespace-normal leading-5">
+                  <UploadCloud className="h-4 w-4 shrink-0" />
+                  <span className="leading-5">
                     {t("Continue with download URL")}
                   </span>
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
-                  className="h-auto min-h-24 justify-start gap-3 rounded-2xl border-violet-200 px-5 py-4 text-left text-violet-800 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/26 dark:text-violet-100 dark:hover:bg-violet-500/10"
+                  aria-pressed={source === "fileStorageId"}
+                  variant={source === "fileStorageId" ? "secondary" : "ghost"}
+                  className="h-auto min-h-11 min-w-40 justify-start gap-3 whitespace-normal rounded-xl px-3 py-2.5 text-left lg:min-w-0"
                   onClick={() => onSourceSelect("fileStorageId")}
+                  disabled={busy || Boolean(createdFileStorageId)}
                 >
-                  <FileText className="h-5 w-5 shrink-0" />
-                  <span className="whitespace-normal leading-5">
+                  <FileText className="h-4 w-4 shrink-0" />
+                  <span className="leading-5">
                     {t("Continue with file ID")}
                   </span>
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
-                  className="h-auto min-h-24 justify-start gap-3 rounded-2xl border-violet-200 px-5 py-4 text-left text-violet-800 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/26 dark:text-violet-100 dark:hover:bg-violet-500/10"
-                  onClick={() => onSourceSelect("newFile")}
+                  aria-pressed={
+                    source === "newFile" && newFileMode === "manual"
+                  }
+                  variant={
+                    source === "newFile" && newFileMode === "manual"
+                      ? "secondary"
+                      : "ghost"
+                  }
+                  className="h-auto min-h-11 min-w-40 justify-start gap-3 whitespace-normal rounded-xl px-3 py-2.5 text-left lg:min-w-0"
+                  onClick={chooseManualJson}
+                  disabled={busy || Boolean(createdFileStorageId)}
                 >
-                  <Wand2 className="h-5 w-5 shrink-0" />
-                  <span className="whitespace-normal leading-5">
+                  <Binary className="h-4 w-4 shrink-0" />
+                  <span className="leading-5">
                     {t("Continue with new file")}
                   </span>
                 </Button>
               </div>
-            ) : source === "downloadUrl" ? (
-              <>
-                <Field label="Download URL">
-                  <Input
-                    value={draft?.downloadUrl ?? ""}
-                    onChange={(event) =>
-                      draft &&
-                      onDraftChange({
-                        ...draft,
-                        downloadUrl: event.target.value,
-                      })
-                    }
-                    placeholder="https://example.org/result.pgobject.json"
-                    inputMode="url"
-                    type="url"
-                    disabled={pending}
-                    autoFocus
-                    required
-                  />
-                </Field>
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
-                  {t(
-                    "Only finalized PGO content JSON supplied by an HTTPS download URL is supported. In-progress objects are not accepted.",
-                  )}
-                </div>
-              </>
-            ) : source === "fileStorageId" ? (
-              <>
-                <Field label="File ID">
-                  <Input
-                    value={draft?.fileStorageId ?? ""}
-                    onChange={(event) =>
-                      draft &&
-                      onDraftChange({
-                        ...draft,
-                        fileStorageId: event.target.value,
-                      })
-                    }
-                    placeholder="file_storage_document_id"
-                    disabled={pending}
-                    autoFocus
-                    required
-                  />
-                </Field>
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
-                  {t(
-                    "Only finalized PGO content JSON from File Storage is supported. In-progress objects are not accepted.",
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <Field label="File JSON">
-                  <div className="grid gap-2">
-                    <Textarea
-                      value={draft?.newFileContent ?? ""}
-                      onChange={(event) =>
-                        draft &&
-                        onDraftChange({
-                          ...draft,
-                          newFileContent: event.target.value,
-                        })
-                      }
-                      placeholder="Write JSON manually or use the file wizard."
-                      className="min-h-64 font-mono text-xs leading-6"
-                      disabled={pending || Boolean(draft?.createdFileStorageId)}
-                      autoFocus
-                      required
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="justify-self-start"
-                      onClick={() => setWizardOpen(true)}
-                      disabled={pending || Boolean(draft?.createdFileStorageId)}
-                    >
-                      <Wand2 className="h-4 w-4" />
-                      {t("Open file wizard")}
-                    </Button>
-                  </div>
-                </Field>
-                {draft?.createdFileStorageId ? (
-                  <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950 dark:border-amber-400/28 dark:bg-amber-500/12 dark:text-amber-50">
-                    {t(
-                      "The stored file was already created. Retrying will reuse it and will not create a duplicate.",
-                    )}{" "}
-                    <Link
-                      href={`/collections/file_storage/${encodeURIComponent(
-                        draft.createdFileStorageId,
-                      )}`}
-                      target="_blank"
-                      className="font-mono font-semibold underline"
-                    >
-                      {draft.createdFileStorageId}
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
-                    {t(
-                      "The purple action first creates a validated File Storage record, then creates and links the ready output object.",
-                    )}
-                  </div>
-                )}
+            </aside>
+
+            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
+              {showWizard ? (
                 <FileJsonWizard
-                  open={wizardOpen}
+                  open
+                  presentation="embedded"
                   fileType={draft?.objectType ?? ""}
                   initialJson={draft?.newFileContent ?? ""}
-                  onOpenChange={setWizardOpen}
-                  onSave={(newFileContent) =>
-                    draft && onDraftChange({ ...draft, newFileContent })
-                  }
+                  description={t(
+                    "Complete the guided fields. Validation immediately creates the File Storage record and links the ready output object.",
+                  )}
+                  closeAfterSave={false}
+                  onBusyChange={setWizardBusy}
+                  title={t("File JSON wizard")}
+                  backLabel={t("Back")}
+                  cancelLabel={t("Cancel")}
+                  submitLabel={t("Validate and use JSON")}
+                  submittingLabel={t("Validating, creating, and linking...")}
+                  onOpenChange={(open) => {
+                    if (!open && !busy) onClose();
+                  }}
+                  onSave={onWizardSubmit}
                 />
-              </>
-            )}
-            {error ? (
-              <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            ) : null}
+              ) : (
+                <div className="min-h-0 flex-1 overflow-y-auto p-6 lg:p-10">
+                  <div className="mx-auto grid max-w-3xl gap-6">
+                    {createdFileStorageId ? (
+                      <div className="grid gap-5 rounded-3xl border border-amber-200 bg-[linear-gradient(145deg,rgba(255,251,235,0.92),rgba(255,255,255,0.96))] p-6 shadow-sm dark:border-amber-400/25 dark:bg-[linear-gradient(145deg,rgba(120,53,15,0.18),rgba(15,23,42,0.84))]">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-500/16 dark:text-amber-100">
+                          <RefreshCw className="h-5 w-5" />
+                        </span>
+                        <div>
+                          <h3 className="font-heading text-xl font-semibold text-foreground">
+                            {t("The stored file is ready to be linked")}
+                          </h3>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            {t(
+                              "The stored file was already created. Retrying will reuse it and will not create a duplicate.",
+                            )}
+                          </p>
+                        </div>
+                        <Link
+                          href={`/collections/file_storage/${encodeURIComponent(
+                            createdFileStorageId,
+                          )}`}
+                          target="_blank"
+                          className="w-fit rounded-xl border border-amber-200 bg-white px-3 py-2 font-mono text-xs font-semibold text-amber-900 underline-offset-4 hover:underline dark:border-amber-400/24 dark:bg-slate-950/46 dark:text-amber-100"
+                        >
+                          {createdFileStorageId}
+                        </Link>
+                      </div>
+                    ) : source === "downloadUrl" ? (
+                      <div className="grid gap-5 rounded-3xl border border-violet-100 bg-card/72 p-6 shadow-sm dark:border-violet-400/16 lg:p-8">
+                        <div>
+                          <h3 className="font-heading text-xl font-semibold text-foreground">
+                            {t("Continue with download URL")}
+                          </h3>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            {t(
+                              "Provide a public download URL. The SDK validates the downloaded content against the exact PGO type before creating a ready object.",
+                            )}
+                          </p>
+                        </div>
+                        <Field label="Download URL">
+                          <Input
+                            value={draft?.downloadUrl ?? ""}
+                            onChange={(event) =>
+                              draft &&
+                              onDraftChange({
+                                ...draft,
+                                downloadUrl: event.target.value,
+                              })
+                            }
+                            placeholder="https://example.org/result.pgobject.json"
+                            inputMode="url"
+                            type="url"
+                            disabled={busy}
+                            autoFocus
+                            required
+                          />
+                        </Field>
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
+                          {t(
+                            "Only finalized PGO content JSON supplied by an HTTPS download URL is supported. In-progress objects are not accepted.",
+                          )}
+                        </div>
+                      </div>
+                    ) : source === "fileStorageId" ? (
+                      <div className="grid gap-5 rounded-3xl border border-violet-100 bg-card/72 p-6 shadow-sm dark:border-violet-400/16 lg:p-8">
+                        <div>
+                          <h3 className="font-heading text-xl font-semibold text-foreground">
+                            {t("Continue with file ID")}
+                          </h3>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            {t(
+                              "Provide a File Storage file ID. The SDK loads and validates its content against the exact PGO type before creating a ready object.",
+                            )}
+                          </p>
+                        </div>
+                        <Field label="File ID">
+                          <Input
+                            value={draft?.fileStorageId ?? ""}
+                            onChange={(event) =>
+                              draft &&
+                              onDraftChange({
+                                ...draft,
+                                fileStorageId: event.target.value,
+                              })
+                            }
+                            placeholder="file_storage_document_id"
+                            disabled={busy}
+                            autoFocus
+                            required
+                          />
+                        </Field>
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
+                          {t(
+                            "Only finalized PGO content JSON from File Storage is supported. In-progress objects are not accepted.",
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-5 rounded-3xl border border-violet-100 bg-card/72 p-6 shadow-sm dark:border-violet-400/16 lg:p-8">
+                        <div>
+                          <h3 className="font-heading text-xl font-semibold text-foreground">
+                            {t("Continue with new file")}
+                          </h3>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            {t(
+                              "Write the finalized PGO JSON manually. The file is created first and then linked to a new ready object.",
+                            )}
+                          </p>
+                        </div>
+                        <Field label="File JSON">
+                          <Textarea
+                            value={draft?.newFileContent ?? ""}
+                            onChange={(event) =>
+                              draft &&
+                              onDraftChange({
+                                ...draft,
+                                newFileContent: event.target.value,
+                              })
+                            }
+                            placeholder="Write finalized JSON manually."
+                            className="min-h-80 font-mono text-xs leading-6"
+                            disabled={busy}
+                            autoFocus
+                            required
+                          />
+                        </Field>
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
+                          {t(
+                            "The purple action first creates a validated File Storage record, then creates and links the ready output object.",
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {error ? (
+                      <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                        <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>{error}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          <DialogFooter className="gap-3 border-violet-100 bg-violet-50/55 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16">
-            {source ? (
+          {!showWizard ? (
+            <DialogFooter className="mx-0 mb-0 shrink-0 gap-3 rounded-none border-violet-100 bg-violet-50/70 px-6 py-5 dark:border-violet-300/14 dark:bg-violet-950/16 lg:px-8">
+              {!createdFileStorageId ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={returnToWizard}
+                  disabled={busy}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  {t("Back to file wizard")}
+                </Button>
+              ) : null}
               <Button
                 type="button"
-                variant="ghost"
-                onClick={onBack}
-                disabled={pending || Boolean(draft?.createdFileStorageId)}
+                variant="outline"
+                onClick={onClose}
+                disabled={busy}
               >
-                <ArrowLeft className="h-4 w-4" />
-                {t("Back")}
+                {t("Cancel")}
               </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={pending}
-            >
-              {t("Cancel")}
-            </Button>
-            {source ? (
               <Button
                 type="submit"
-                disabled={pending || !draft}
+                disabled={busy || !draft}
                 className={SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS}
               >
                 {pending ? (
@@ -14281,8 +14431,8 @@ function OutputObjectUploadDialog({
                   ? t("Creating object...")
                   : t("Create and link object")}
               </Button>
-            ) : null}
-          </DialogFooter>
+            </DialogFooter>
+          ) : null}
         </form>
       </DialogContent>
     </Dialog>

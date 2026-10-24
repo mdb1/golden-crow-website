@@ -5605,6 +5605,23 @@ const SPANISH_TEXT: Record<string, string> = {
   "Continue with file ID": "Continuar con file id",
   "Continue with new file": "Continuar con nuevo file",
   "Open file wizard": "Abrir asistente de archivos",
+  "File JSON wizard": "Asistente JSON de archivos",
+  "Validate and use JSON": "Validar y usar JSON",
+  "Back to file wizard": "Volver al asistente de archivos",
+  Recommended: "Recomendado",
+  "Other upload methods": "Otros métodos de carga",
+  "Guided fields, validation, and creation in one step.":
+    "Campos guiados, validación y creación en un solo paso.",
+  "Build the finalized PGO file with the guided wizard, or choose a secondary upload method.":
+    "Creá el archivo PGO finalizado con el asistente guiado o elegí un método de carga secundario.",
+  "Complete the guided fields. Validation immediately creates the File Storage record and links the ready output object.":
+    "Completá los campos guiados. Al validar, se crea inmediatamente el registro de File Storage y se vincula el objeto de salida listo.",
+  "Write the finalized PGO JSON manually. The file is created first and then linked to a new ready object.":
+    "Escribí manualmente el JSON PGO finalizado. Primero se crea el archivo y luego se vincula a un objeto listo nuevo.",
+  "The stored file is ready to be linked":
+    "El archivo guardado está listo para vincularse",
+  "Validating, creating, and linking...":
+    "Validando, creando y vinculando...",
   "File JSON": "JSON del archivo",
   "File JSON is required.": "El JSON del archivo es obligatorio.",
   "File JSON must be valid JSON.": "El contenido debe ser un JSON válido.",
