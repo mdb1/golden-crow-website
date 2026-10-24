@@ -3,6 +3,7 @@ import { SupportServiceTransactionWorkbench } from "@/components/god-mode/suppor
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { getAdminContextServer } from "@/lib/admin-context-server";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 import { appText } from "@/lib/language";
 import { getServerAppLanguage } from "@/lib/server-language";
 
@@ -27,7 +28,12 @@ export default async function GodModeNewServiceTransactionPage() {
           />
         }
       >
-        <SupportServiceTransactionWorkbench mode="create" />
+        <SupportServiceTransactionWorkbench
+          mode="create"
+          canViewLinkedOutputReports={
+            adminContext.isBootstrap || isGlobalAdminRole(adminContext.role)
+          }
+        />
       </HeaderUnclutterScope>
     </div>
   );

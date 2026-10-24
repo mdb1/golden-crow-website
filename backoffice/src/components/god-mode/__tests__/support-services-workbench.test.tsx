@@ -2839,18 +2839,69 @@ describe("support services workbenches", () => {
         routeBase="/publisher-portal/service-transactions"
         canDelete={false}
         showLockedFields
+        canViewLinkedOutputReports={false}
       />,
     );
 
     expect(await screen.findByText("Accepted frozen service")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Issues" })).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "Linked output reports" }),
+    ).toBeNull();
+    expect(
+      sdkFetchMock.mock.calls.some(([path]) =>
+        String(path).includes("/output-reports"),
+      ),
+    ).toBe(false);
     expect(screen.getAllByText("Read only").length).toBeGreaterThan(5);
     expect(
       screen
         .getByRole("link", { name: /Back to Service Transactions/i })
         .getAttribute("href"),
     ).toBe("/publisher-portal/service-transactions");
+  });
+
+  it("shows linked output reports for a 2PQ request even without admin access", async () => {
+    const twoPqTransaction = {
+      ...runningTransaction,
+      requestId: "pgr_2pq_case_123",
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.endsWith(`/transactions/${twoPqTransaction.requestId}`)) {
+        return { transaction: twoPqTransaction };
+      }
+      if (value.endsWith(`/offers/${twoPqTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      if (value.endsWith("/output-reports")) {
+        return { reports: [] };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={twoPqTransaction.requestId}
+        routeBase="/publisher-portal/service-transactions"
+        canDelete={false}
+        showLockedFields
+        canViewLinkedOutputReports={false}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Linked output reports" }),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        sdkFetchMock.mock.calls.some(([path]) =>
+          String(path).endsWith("/output-reports"),
+        ),
+      ).toBe(true);
+    });
   });
 
   it("shows offer remediation warnings without blocking the edit form", async () => {
@@ -6568,6 +6619,7 @@ describe("support services workbenches", () => {
       <SupportServiceTransactionWorkbench
         mode="edit"
         transactionId={deliveredTransaction.requestId}
+        canViewLinkedOutputReports
       />,
     );
 

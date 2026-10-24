@@ -2,6 +2,7 @@ import { SupportServiceTransactionWorkbench } from "@/components/god-mode/suppor
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { notFound } from "next/navigation";
+import { isGlobalAdminRole } from "@/lib/admin-areas";
 import { appText } from "@/lib/language";
 import { PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE } from "@/lib/publisher-portal-routes";
 import { requirePublisherSupportServicesAccess } from "@/lib/publisher-support-services-server";
@@ -11,7 +12,7 @@ export default async function PublisherServiceTransactionDetailPage({
 }: {
   params: Promise<{ transactionId: string }>;
 }) {
-  const [{ transactionId }] = await Promise.all([
+  const [{ transactionId }, { adminContext }] = await Promise.all([
     params,
     requirePublisherSupportServicesAccess(),
   ]);
@@ -38,6 +39,9 @@ export default async function PublisherServiceTransactionDetailPage({
           routeBase={PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}
           canDelete={false}
           showLockedFields
+          canViewLinkedOutputReports={
+            adminContext.isBootstrap || isGlobalAdminRole(adminContext.role)
+          }
         />
       </HeaderUnclutterScope>
     </div>

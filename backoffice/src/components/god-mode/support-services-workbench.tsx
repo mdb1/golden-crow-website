@@ -11986,12 +11986,14 @@ export function SupportServiceTransactionWorkbench({
   routeBase = "/god-mode/service-transactions",
   canDelete = true,
   showLockedFields = false,
+  canViewLinkedOutputReports = false,
 }: {
   mode: "create" | "edit";
   transactionId?: string;
   routeBase?: string;
   canDelete?: boolean;
   showLockedFields?: boolean;
+  canViewLinkedOutputReports?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -12034,6 +12036,10 @@ export function SupportServiceTransactionWorkbench({
     enabled: isEditing && Boolean(transactionId),
   });
   const transactionRecord = transactionQuery.data?.transaction ?? null;
+  const shouldShowLinkedOutputReports =
+    canViewLinkedOutputReports ||
+    transactionId?.startsWith("pgr_2pq") === true ||
+    transactionRecord?.requestId.startsWith("pgr_2pq") === true;
   const linkedReportsQuery = useQuery({
     queryKey: [TRANSACTION_REPORTS_QUERY_KEY, transactionId],
     queryFn: () =>
@@ -12042,7 +12048,8 @@ export function SupportServiceTransactionWorkbench({
           transactionId ?? "",
         )}/output-reports`,
       ),
-    enabled: isEditing && Boolean(transactionId),
+    enabled:
+      shouldShowLinkedOutputReports && isEditing && Boolean(transactionId),
     retry: false,
   });
   const reportCandidatesQuery = useInfiniteQuery({
@@ -12069,7 +12076,11 @@ export function SupportServiceTransactionWorkbench({
     },
     initialPageParam: "",
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    enabled: reportPickerOpen && isEditing && Boolean(transactionId),
+    enabled:
+      shouldShowLinkedOutputReports &&
+      reportPickerOpen &&
+      isEditing &&
+      Boolean(transactionId),
     retry: false,
   });
   const persistedTransactionForm = useMemo(
@@ -13208,32 +13219,37 @@ export function SupportServiceTransactionWorkbench({
           ) : null}
         </Section>
         </fieldset>
-        <LinkedOutputReportsSection
-          reports={linkedReports}
-          loading={linkedReportsQuery.isLoading}
-          loadError={linkedReportsQuery.error}
-          isEditing={isEditing}
-          canManage={
-            isEditing &&
-            !hasUnsavedTransactionChanges &&
-            !attachReportMutation.isPending &&
-            !removeReportMutation.isPending
-          }
-          recentlyAddedReportCode={recentlyAddedReportCode}
-          removingReportCode={removeReportMutation.variables ?? ""}
-          onRetry={() => linkedReportsQuery.refetch()}
-          onAdd={() => {
-            setSelectedReportCode("");
-            setReportSearch("");
-            setReportPickerOpen(true);
-          }}
-          onRemove={(reportCode) => {
-            if (window.confirm(t("Remove this report from the transaction?"))) {
-              removeReportMutation.mutate(reportCode);
+        {/* Hide linked reports for regular users while preserving the admin and 2PQ workflow. */}
+        {shouldShowLinkedOutputReports ? (
+          <LinkedOutputReportsSection
+            reports={linkedReports}
+            loading={linkedReportsQuery.isLoading}
+            loadError={linkedReportsQuery.error}
+            isEditing={isEditing}
+            canManage={
+              isEditing &&
+              !hasUnsavedTransactionChanges &&
+              !attachReportMutation.isPending &&
+              !removeReportMutation.isPending
             }
-          }}
-          hasUnsavedTransactionChanges={hasUnsavedTransactionChanges}
-        />
+            recentlyAddedReportCode={recentlyAddedReportCode}
+            removingReportCode={removeReportMutation.variables ?? ""}
+            onRetry={() => linkedReportsQuery.refetch()}
+            onAdd={() => {
+              setSelectedReportCode("");
+              setReportSearch("");
+              setReportPickerOpen(true);
+            }}
+            onRemove={(reportCode) => {
+              if (
+                window.confirm(t("Remove this report from the transaction?"))
+              ) {
+                removeReportMutation.mutate(reportCode);
+              }
+            }}
+            hasUnsavedTransactionChanges={hasUnsavedTransactionChanges}
+          />
+        ) : null}
         <fieldset
           className="contents"
           disabled={terminalStatusLocked || transactionCommandPending}
