@@ -10114,24 +10114,12 @@ function TransactionRequesterIdentity({
   }
 
   return (
-    <article className="grid gap-4 rounded-2xl border border-violet-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.88))] p-5 shadow-[0_18px_52px_-42px_rgba(109,40,217,0.58)] dark:border-violet-400/20 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.84))] lg:col-span-2">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/16 dark:text-violet-100">
-            <UserRound className="h-4 w-4" />
-          </span>
-          <div>
-            <h4 className="font-heading text-base font-semibold text-foreground">
-              {t("Requester identity")}
-            </h4>
-            <p className="text-xs leading-5 text-muted-foreground">
-              {requestedByUserId
-                ? t("Linked community user")
-                : t("Email-only deferred requester")}
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="grid gap-4">
+      <p className="text-sm font-medium text-muted-foreground">
+        {requestedByUserId
+          ? t("Linked community user")
+          : t("Email-only deferred requester")}
+      </p>
 
       {isEditing ? (
         <div className="grid gap-4">
@@ -10422,7 +10410,7 @@ function TransactionRequesterIdentity({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </article>
+    </div>
   );
 }
 
@@ -13119,19 +13107,6 @@ export function SupportServiceTransactionWorkbench({
                 showLock={showLockedFields}
               />
             </Field>
-            <TransactionRequesterIdentity
-              isEditing={isEditing}
-              showLockedFields={showLockedFields}
-              requestedByUserId={form.requestedByUserId}
-              requestedByUserEmail={form.requestedByUserEmail}
-              onChange={({ userId, email }) =>
-                setForm((current) => ({
-                  ...current,
-                  requestedByUserId: userId,
-                  requestedByUserEmail: email,
-                }))
-              }
-            />
             <Field label="Idempotency key">
               <GeneratedValue
                 value={form.idempotencyKey || "-"}
@@ -13183,6 +13158,21 @@ export function SupportServiceTransactionWorkbench({
               <div>{selectedOffer.shortContract}</div>
             </div>
           ) : null}
+        </Section>
+        <Section title="Requester identity" icon={UserRound}>
+          <TransactionRequesterIdentity
+            isEditing={isEditing}
+            showLockedFields={showLockedFields}
+            requestedByUserId={form.requestedByUserId}
+            requestedByUserEmail={form.requestedByUserEmail}
+            onChange={({ userId, email }) =>
+              setForm((current) => ({
+                ...current,
+                requestedByUserId: userId,
+                requestedByUserEmail: email,
+              }))
+            }
+          />
         </Section>
         <Section title="Input object bindings">
           <ObjectRefTable slots={form.inputs} presentFormAnswers={isEditing} />

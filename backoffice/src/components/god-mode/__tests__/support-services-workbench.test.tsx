@@ -6068,6 +6068,15 @@ describe("support services workbenches", () => {
     expect(email.value).toBe("requester@example.org");
     expect(email.readOnly).toBe(true);
     expect(screen.getByText("user-requester")).toBeTruthy();
+    const requestIdentitySection = screen
+      .getByRole("heading", { name: "Request identity" })
+      .closest("section");
+    const requesterIdentitySection = screen
+      .getByRole("heading", { name: "Requester identity" })
+      .closest("section");
+    expect(requestIdentitySection).toBeTruthy();
+    expect(requesterIdentitySection).toBeTruthy();
+    expect(requesterIdentitySection).not.toBe(requestIdentitySection);
 
     fireEvent.click(screen.getByRole("button", { name: "Copy email" }));
     await waitFor(() => {
