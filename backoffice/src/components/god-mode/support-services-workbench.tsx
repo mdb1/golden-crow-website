@@ -12937,7 +12937,11 @@ export function SupportServiceTransactionWorkbench({
               !terminalStatusLocked &&
               !hasUnsavedTransactionChanges
             }
-            removingRole={removeOutputMutation.variables ?? ""}
+            removingRole={
+              removeOutputMutation.isPending
+                ? (removeOutputMutation.variables ?? "")
+                : ""
+            }
             onSelect={openOutputUpload}
             onRemove={(output) => {
               if (

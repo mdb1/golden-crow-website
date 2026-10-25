@@ -7144,7 +7144,7 @@ describe("support services workbenches", () => {
     expect(screen.queryByRole("heading", { name: "Issues" })).toBeNull();
   });
 
-  it("removes a linked output object from its top-right close control", async () => {
+  it("restores the close control after removing and re-uploading the same output", async () => {
     const linkedTransaction: SupportServiceTransactionRecord = {
       ...runningTransaction,
       requestRevision: 3,
@@ -7160,6 +7160,17 @@ describe("support services workbenches", () => {
       ...runningTransaction,
       requestRevision: 4,
       outputObjects: [],
+    };
+    const reuploadedTransaction: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      requestRevision: 5,
+      outputObjects: [
+        {
+          role: "result",
+          objectType: "pgo_pdf_report",
+          objectCode: "975318642",
+        },
+      ],
     };
     let storedTransaction = linkedTransaction;
     const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
@@ -7184,6 +7195,21 @@ describe("support services workbenches", () => {
           transaction: removedTransaction,
           role: "result",
           objectCode: "246813579",
+        };
+      }
+      if (value.endsWith("/output-objects") && init?.method === "POST") {
+        storedTransaction = reuploadedTransaction;
+        return {
+          transaction: reuploadedTransaction,
+          object: {
+            id: "uploaded-result-after-removal-1",
+            role: "result",
+            objectCode: "975318642",
+            objectType: "pgo_pdf_report",
+            fileName: "Replacement result",
+            fileStorageId: "stored-file-after-removal-1",
+            status: "ready",
+          },
         };
       }
       throw new Error(`Unexpected SDK path: ${value}`);
@@ -7239,6 +7265,30 @@ describe("support services workbenches", () => {
         name: "Remove output object · result",
       }),
     ).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Upload output object · result" }),
+    );
+    const uploadDialog = screen.getByTestId("output-object-upload-dialog");
+    fireEvent.change(await within(uploadDialog).findByLabelText(/Title \*/), {
+      target: { value: "Replacement result" },
+    });
+    fireEvent.change(
+      await within(uploadDialog).findByLabelText(/Download Url \*/),
+      {
+        target: { value: "https://example.org/replacement-result.pdf" },
+      },
+    );
+    fireEvent.click(
+      within(uploadDialog).getByRole("button", { name: "Upload file" }),
+    );
+
+    expect(await screen.findByText("975318642")).toBeTruthy();
+    const restoredRemoveButton = screen.getByRole("button", {
+      name: "Remove output object · result",
+    });
+    expect((restoredRemoveButton as HTMLButtonElement).disabled).toBe(false);
+    expect(restoredRemoveButton.querySelector(".animate-spin")).toBeNull();
 
     confirmSpy.mockRestore();
   });
